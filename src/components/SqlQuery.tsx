@@ -30,11 +30,11 @@ function formatResult(result: QueryResult): string {
   return lines.join('\n');
 }
 
-// The SQL box starts with this query, which lists every table that can be queried
+// The SQL box starts with this query, which lists the app's tables in the racingcoach schema
 const STARTER_QUERY =
   'SELECT table_schema, table_name\n' +
   'FROM information_schema.tables\n' +
-  "WHERE table_schema NOT IN ('pg_catalog', 'information_schema')\n" +
+  "WHERE table_schema = 'racingcoach'\n" +
   'ORDER BY 1, 2;';
 
 export default function SqlQuery() {

@@ -8,12 +8,12 @@ export type Friend = {
   country: string;
 };
 
-// Each user has their own friends in clarivex."Friends" (created alongside
-// clarivex."Users" by ensureUserSchema).
+// Each user has their own friends in racingcoach."Friends" (created alongside
+// racingcoach."Users" by ensureUserSchema).
 
 export async function readFriends(userId: number): Promise<Friend[]> {
   await ensureUserSchema();
-  const rows = await query('SELECT id, name, country FROM clarivex."Friends" WHERE user_id = $1 ORDER BY seq', [
+  const rows = await query('SELECT id, name, country FROM racingcoach."Friends" WHERE user_id = $1 ORDER BY seq', [
     userId,
   ]);
   return rows.map((row) => ({
@@ -26,7 +26,7 @@ export async function readFriends(userId: number): Promise<Friend[]> {
 export async function addFriend(userId: number, name: string, country: string): Promise<Friend> {
   await ensureUserSchema();
   const friend: Friend = { id: randomUUID(), name, country };
-  await query('INSERT INTO clarivex."Friends" (id, user_id, name, country) VALUES ($1, $2, $3, $4)', [
+  await query('INSERT INTO racingcoach."Friends" (id, user_id, name, country) VALUES ($1, $2, $3, $4)', [
     friend.id,
     userId,
     friend.name,
@@ -38,5 +38,5 @@ export async function addFriend(userId: number, name: string, country: string): 
 // Only removes the friend if it belongs to this user.
 export async function deleteFriend(userId: number, id: string): Promise<void> {
   await ensureUserSchema();
-  await query('DELETE FROM clarivex."Friends" WHERE id = $1 AND user_id = $2', [id, userId]);
+  await query('DELETE FROM racingcoach."Friends" WHERE id = $1 AND user_id = $2', [id, userId]);
 }

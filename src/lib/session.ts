@@ -16,7 +16,7 @@ export async function createSession(userId: number): Promise<void> {
   await ensureUserSchema();
   const token = randomBytes(32).toString('hex');
   const expiresAt = Date.now() + SESSION_TTL_MS;
-  await query('INSERT INTO clarivex."Sessions" (token_hash, user_id, expires_at) VALUES ($1, $2, $3)', [
+  await query('INSERT INTO racingcoach."Sessions" (token_hash, user_id, expires_at) VALUES ($1, $2, $3)', [
     hashToken(token),
     userId,
     expiresAt,
@@ -38,7 +38,7 @@ export async function getCurrentUser(): Promise<User | null> {
 
   try {
     await ensureUserSchema();
-    const [row] = await query('SELECT user_id, expires_at FROM clarivex."Sessions" WHERE token_hash = $1', [hashToken(token)]);
+    const [row] = await query('SELECT user_id, expires_at FROM racingcoach."Sessions" WHERE token_hash = $1', [hashToken(token)]);
     // BIGINT columns come back from pg as strings
     if (!row || Number(row.expires_at) < Date.now()) return null;
     return await getUserById(Number(row.user_id));
@@ -53,7 +53,7 @@ export async function deleteSession(): Promise<void> {
   const token = cookieStore.get(SESSION_COOKIE)?.value;
   if (token) {
     await ensureUserSchema();
-    await query('DELETE FROM clarivex."Sessions" WHERE token_hash = $1', [hashToken(token)]);
+    await query('DELETE FROM racingcoach."Sessions" WHERE token_hash = $1', [hashToken(token)]);
   }
   cookieStore.delete(SESSION_COOKIE);
 }

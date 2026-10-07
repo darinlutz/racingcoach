@@ -1,4 +1,4 @@
-// Values of clarivex."Users".role. Dependency-free so client components can use it.
+// Values of racingcoach."Users".role. Dependency-free so client components can use it.
 // Subscriptions are tracked by account_status, not by role.
 export const ROLES = {
   admin: 'Admin',

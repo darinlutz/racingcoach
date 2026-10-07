@@ -38,11 +38,11 @@ npm run lint         # Run ESLint
 - `OPENAI_API_KEY` - OpenAI API key (LangChain/LangGraph agents: trip planner, financial analysis; web search for the Trends page)
 - `TAVILY_API_KEY` - Tavily web search API key (Financial Analysis web search agent)
 - `ALPHA_VANTAGE_API_KEY` - Alpha Vantage API key (Financial Analysis stock data agent)
-- `DATABASE_URL` - PostgreSQL connection string, e.g. `postgres://user:pass@host:5432/clarivex`. Passed to `pg` as-is. Required; tables are created on first use (`ensureUserSchema()` in `src/lib/users.ts`). Everything lives in the `clarivex` schema: `"Users"` (role `Admin` for the site owner, `User` for everyone else), `"Friends"` (each user's own Racing friends list, linked by `user_id`), `"Sessions"` and `"PasswordResets"`
+- `DATABASE_URL` - PostgreSQL connection string, e.g. `postgres://user:pass@host:5432/clarivex`. Passed to `pg` as-is, plus `search_path=racingcoach`. Required; tables are created on first use (`ensureUserSchema()` in `src/lib/users.ts`). Everything lives in the `racingcoach` schema: `"Users"` (role `Admin` for the site owner, `User` for everyone else), `"Friends"` (each user's own Racing friends list, linked by `user_id`), `"Sessions"` and `"PasswordResets"`
 - `STRIPE_SECRET_KEY` - Stripe secret key (Checkout Session creation, success page lookup)
 - `STRIPE_MONTHLY_PRODUCT_ID` - Stripe Product ID for the Account page's Monthly Subscription button; its default Price must be recurring
 - `STRIPE_LIFETIME_PRODUCT_ID` - Stripe Product ID for the Lifetime Subscription button; its default Price must be one-time. A paid purchase sets the account status to `Lifetime Subscription` with no end date, and cancels any monthly subscription the user had
-- `STRIPE_WEBHOOK_SECRET` - Signing secret for `/api/stripe-webhook` (syncs `clarivex."Users".account_status` with the subscription: `Unsubscribed`, `Monthly Subscription`, `Lifetime Subscription`, `Canceled`, `Expired`; see `src/lib/accountStatus.ts`). Must receive `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `invoice.paid` and `customer.subscription.deleted`
+- `STRIPE_WEBHOOK_SECRET` - Signing secret for `/api/stripe-webhook` (syncs `racingcoach."Users".account_status` with the subscription: `Unsubscribed`, `Monthly Subscription`, `Lifetime Subscription`, `Canceled`, `Expired`; see `src/lib/accountStatus.ts`). Must receive `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `invoice.paid` and `customer.subscription.deleted`
 - `ATLASSIAN_API_KEY` - Atlassian API token for Jira Cloud (gordon-darby.atlassian.net, used by the Jira page)
 
 ## Project Structure

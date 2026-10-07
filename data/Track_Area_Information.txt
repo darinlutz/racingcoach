@@ -395,71 +395,71 @@ const TrackConfig = {
                 start: 0.02,
                 end: 0.09,
                 Notes: "",
-                BrakepointTarget: 472,
-                MaxBrakeTarget: 75,
-                ThrottlePickupTarget: 1102
+                BrakepointTarget: 511,
+                MaxBrakeTarget: 79,
+                ThrottlePickupTarget: 1008
             },
 {
                 name: "T 3&4",
                 start: 0.16,
                 end: 0.25,
                 Notes: "",
-                BrakepointTarget: 2702,
-                MaxBrakeTarget: 80
+                BrakepointTarget: 3163,
+                MaxBrakeTarget: 86
             },
             {
                 name: "T 5",
                 start: 0.31,
                 end: 0.36,
                 Notes: "",
-                BrakepointTarget: 4961,
-                MaxBrakeTarget: 78,
-                ThrottlePickupTarget: 5446
+                BrakepointTarget: 5019,
+                MaxBrakeTarget: 84,
+                ThrottlePickupTarget: 5463
             },
  	    {
                 name: "T 7",
                 start: 0.44,
                 end: 0.52,
                 Notes: "",
-                BrakepointTarget: 7110,
-                MaxBrakeTarget: 55,
-                ThrottlePickupTarget: 7927
+                BrakepointTarget: 7190,
+                MaxBrakeTarget: 68,
+                ThrottlePickupTarget: 7621
             },
             {
                 name: "T 9",
                 start: 0.54,
                 end: 0.58,
                 Notes: "",
-                BrakepointTarget: 8599,
-                MaxBrakeTarget: 65,
-                ThrottlePickupTarget: 8967
+                BrakepointTarget: 8711,
+                MaxBrakeTarget: 76,
+                ThrottlePickupTarget: 9034
             },
             {
                 name: "T 10",
                 start: 0.63,
                 end: 0.69,
                 Notes: "",
-                BrakepointTarget: 10003,
-                MaxBrakeTarget: 75,
-                ThrottlePickupTarget: 10417
+                BrakepointTarget: 10129,
+                MaxBrakeTarget: 86,
+                ThrottlePickupTarget: 10488
             },
             {
                 name: "T 11",
                 start: 0.80,
                 end: 0.86,
                 Notes: "",
-                BrakepointTarget: 12625,
-                MaxBrakeTarget: 76,
-                ThrottlePickupTarget: 13123
+                BrakepointTarget: 12804,
+                MaxBrakeTarget: 90,
+                ThrottlePickupTarget: 13279
             },
             {
                 name: "12-14",
                 start: 0.89,
                 end: 0.94,
                 Notes: "",
-                BrakepointTarget: 13967,
-                MaxBrakeTarget: 63,
-                ThrottlePickupTarget: 14357
+                BrakepointTarget: 14117,
+                MaxBrakeTarget: 57,
+                ThrottlePickupTarget: 14531
             }
         ]
     },

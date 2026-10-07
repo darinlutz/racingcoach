@@ -1,13 +1,9 @@
 requests==2.34.2
 pandas==3.0.3
-matplotlib==3.11.0
 langchain-openai==1.6.2
 python-dotenv==1.2.3
-ollama==0.6.2
 openai==3.14.0
 chromadb==1.5.9
 openpyxl==3.1.5
-PyPDF2==3.0.1
-beautifulsoup4==4.15.0
 langchain-community==0.4.2
 langchain-text-splitters==1.1.2

@@ -16,7 +16,7 @@ FROM node:20-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
-# Python 3 for plot_stock.py, isolated in a venv to avoid Debian's
+# Python 3 for the Racing scripts, isolated in a venv to avoid Debian's
 # "externally managed environment" restriction on the system interpreter.
 RUN apt-get update && apt-get install -y --no-install-recommends \
       python3 \
@@ -35,19 +35,16 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 
 # Scripts invoked via execFile('python', ...) at runtime
-COPY plot_stock.py app.py GetBankFromRoutingNumber.py GT3_Car_Data.xlsx Track_Information.xlsx ./
+COPY app.py GetBankFromRoutingNumber.py GT3_Car_Data.xlsx Track_Information.xlsx ./
 
 # Static track config read by /api/track-names
 COPY data/Track_Area_Information.txt ./data/Track_Area_Information.txt
 COPY src/intro_transformer.py ./src/intro_transformer.py
 COPY src/SampleDealGPT.py ./src/SampleDealGPT.py
 COPY src/prompts.py ./src/prompts.py
-COPY src/OllamaSearch.py ./src/OllamaSearch.py
 COPY src/chatbot_logging.py ./src/chatbot_logging.py
 COPY src/simple_rag.py ./src/simple_rag.py
 COPY src/racecar_analysis_rag.py ./src/racecar_analysis_rag.py
-COPY src/rag_pdf_simple.py ./src/rag_pdf_simple.py
-COPY src/chatbot_qa.py ./src/chatbot_qa.py
 
 EXPOSE 10000
 ENV HOSTNAME="0.0.0.0"

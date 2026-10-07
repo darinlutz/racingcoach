@@ -66,34 +66,6 @@ export default function Navigation({ user }: NavigationProps) {
             >
               Solutions
             </Link>
-                <p>&nbsp;&nbsp;|&nbsp;&nbsp;</p>
-            <Link
-              href="/contact"
-              className="px-3 py-2 text-dark-blue hover:text-powder-600 transition-colors font-medium"
-            >
-              Contact
-            </Link>
-            <p>&nbsp;&nbsp;|&nbsp;&nbsp;</p>
-            <Link
-              href="/jira"
-              className="px-3 py-2 text-dark-blue hover:text-powder-600 transition-colors font-medium"
-            >
-              Jira
-            </Link>
-            <p>&nbsp;&nbsp;|&nbsp;&nbsp;</p>
-            <Link
-              href="/trip-planner"
-              className="px-3 py-2 text-dark-blue hover:text-powder-600 transition-colors font-medium"
-            >
-              Trip Planner
-            </Link>
-            <p>&nbsp;&nbsp;|&nbsp;&nbsp;</p>
-            <Link
-              href="/trends"
-              className="px-3 py-2 text-dark-blue hover:text-powder-600 transition-colors font-medium"
-            >
-              Trends
-            </Link>
             <p>&nbsp;&nbsp;|&nbsp;&nbsp;</p>
             <Link
               href="/racing"
@@ -180,34 +152,6 @@ export default function Navigation({ user }: NavigationProps) {
               onClick={closeMenu}
             >
               Solutions
-            </Link>
-            <Link
-              href="/contact"
-              className="block px-3 py-2 rounded-md text-base font-medium bg-gradient-to-r from-powder-500 to-powder-600 text-white hover:shadow-lg transition-all"
-              onClick={closeMenu}
-            >
-              Contact
-            </Link>
-            <Link
-              href="/jira"
-              className="block px-3 py-2 rounded-md text-base font-medium text-dark-blue hover:text-powder-600 hover:bg-slate-100 transition-colors"
-              onClick={closeMenu}
-            >
-              Jira
-            </Link>
-            <Link
-              href="/trip-planner"
-              className="block px-3 py-2 rounded-md text-base font-medium text-dark-blue hover:text-powder-600 hover:bg-slate-100 transition-colors"
-              onClick={closeMenu}
-            >
-              Trip Planner
-            </Link>
-            <Link
-              href="/trends"
-              className="block px-3 py-2 rounded-md text-base font-medium text-dark-blue hover:text-powder-600 hover:bg-slate-100 transition-colors"
-              onClick={closeMenu}
-            >
-              Trends
             </Link>
             <Link
               href="/racing"

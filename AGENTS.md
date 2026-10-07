@@ -35,15 +35,12 @@ npm run lint         # Run ESLint
 - `RESEND_API_KEY` - Resend email service API key
 - `RESEND_FROM_EMAIL` - Sender for password reset emails, on a domain verified in Resend (e.g. `Clarivex <no-reply@clarivex.app>`). Defaults to `onboarding@resend.dev`, which only delivers to the Resend account owner
 - `SITE_URL` - Public site URL used in password reset links (e.g. `https://clarivex.app`). Set in production; locally it falls back to the request's host
-- `OPENAI_API_KEY` - OpenAI API key (LangChain/LangGraph agents: trip planner, financial analysis; web search for the Trends page)
-- `TAVILY_API_KEY` - Tavily web search API key (Financial Analysis web search agent)
-- `ALPHA_VANTAGE_API_KEY` - Alpha Vantage API key (Financial Analysis stock data agent)
+- `OPENAI_API_KEY` - OpenAI API key (Racing page: Debrief Coach, lap summaries, reference points, Racecar Analysis RAG)
 - `DATABASE_URL` - PostgreSQL connection string, e.g. `postgres://user:pass@host:5432/clarivex`. Passed to `pg` as-is, plus `search_path=racingcoach`. Required; tables are created on first use (`ensureUserSchema()` in `src/lib/users.ts`). Everything lives in the `racingcoach` schema: `"Users"` (role `Admin` for the site owner, `User` for everyone else), `"Friends"` (each user's own Racing friends list, linked by `user_id`), `"Sessions"` and `"PasswordResets"`
 - `STRIPE_SECRET_KEY` - Stripe secret key (Checkout Session creation, success page lookup)
 - `STRIPE_MONTHLY_PRODUCT_ID` - Stripe Product ID for the Account page's Monthly Subscription button; its default Price must be recurring
 - `STRIPE_LIFETIME_PRODUCT_ID` - Stripe Product ID for the Lifetime Subscription button; its default Price must be one-time. A paid purchase sets the account status to `Lifetime Subscription` with no end date, and cancels any monthly subscription the user had
 - `STRIPE_WEBHOOK_SECRET` - Signing secret for `/api/stripe-webhook` (syncs `racingcoach."Users".account_status` with the subscription: `Unsubscribed`, `Monthly Subscription`, `Lifetime Subscription`, `Canceled`, `Expired`; see `src/lib/accountStatus.ts`). Must receive `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `invoice.paid` and `customer.subscription.deleted`
-- `ATLASSIAN_API_KEY` - Atlassian API token for Jira Cloud (gordon-darby.atlassian.net, used by the Jira page)
 
 ## Project Structure
 
@@ -55,21 +52,19 @@ src/
 │   ├── globals.css   # Global Tailwind styles
 │   ├── api/
 │   │   ├── bitcoin/      # Bitcoin price ticker data
-│   │   ├── contact/      # Contact form submissions (Resend)
-│   │   └── inquiry/      # Business inquiry handling
-│   ├── contact/      # Contact page
+│   │   └── ...           # Racing, auth and Stripe routes
+│   ├── racing/       # Racing page (friends, lap/stint analysis, debrief coach)
 │   ├── solutions/    # Solutions showcase page
 └── components/       # Reusable React components
     ├── Navigation.tsx
     ├── Footer.tsx
     ├── BitcoinTicker.tsx
-    ├── ContactForm.tsx
 ```
 
 **Python Components** (backend automation):
 - `clockify_entry.py` - Automated Clockify time entry management
-- `plot_stock.py` - Generates a stock closing-price chart (PNG, base64 over stdout) from live Alpha Vantage data; invoked as a subprocess from `src/lib/financialAnalysis.ts`'s CodeAgent node
-- `requirements.txt` - Python dependencies (requires `pandas`/`matplotlib` for `plot_stock.py`)
+- `src/racecar_analysis_rag.py`, `src/simple_rag.py`, `src/chatbot_logging.py`, `src/prompts.py` - invoked as subprocesses by the Racing page's API routes
+- `requirements.txt` - Python dependencies installed in the Docker image
 
 ## Development Conventions
 
@@ -117,7 +112,7 @@ export async function POST(request: Request) {
 
 ### Resend Email Service
 - **Docs**: https://resend.com/docs
-- **Usage**: Contact form submissions sent via Resend
+- **Usage**: Password reset emails sent via Resend
 - **Config**: API key in `.env.local`
 
 ### Bitcoin Ticker

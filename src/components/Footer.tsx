@@ -35,14 +35,6 @@ export default function Footer() {
                   Solutions
                 </Link>
               </li>
-              <li>
-                <Link
-                  href="/contact"
-                  className="text-slate-600 hover:text-powder-600 transition-colors"
-                >
-                  Contact
-                </Link>
-              </li>
             </ul>
           </div>
 

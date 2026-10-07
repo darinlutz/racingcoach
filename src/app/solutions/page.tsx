@@ -1,5 +1,3 @@
-import Link from 'next/link';
-
 interface Solution {
   id: string;
   title: string;
@@ -131,14 +129,6 @@ export default function Solutions() {
                     ))}
                   </ul>
                 </div>
-
-                {/* CTA Button */}
-                <Link
-                  href="/contact"
-                  className="inline-block px-4 py-2 bg-gradient-to-r from-powder-500 to-powder-600 text-white font-bold rounded-lg hover:shadow-lg hover:shadow-powder-500/50 transition-all transform hover:scale-105"
-                >
-                  Learn More
-                </Link>
               </div>
             ))}
           </div>
@@ -186,12 +176,6 @@ export default function Solutions() {
           <p className="text-lg text-slate-600 mb-4">
             Let&apos;s explore how these solutions can address your specific business needs.
           </p>
-          <Link
-            href="/contact"
-            className="inline-block px-4 py-2 bg-gradient-to-r from-powder-500 to-powder-600 text-white font-bold rounded-lg hover:shadow-lg hover:shadow-powder-500/50 transition-all transform hover:scale-105"
-          >
-            Schedule a Consultation
-          </Link>
         </div>
       </section>
     </div>

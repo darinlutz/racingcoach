@@ -54,7 +54,7 @@ export default function Home() {
               Explore Solutions
             </Link>
             <Link
-              href="/contact"
+              href="/signup"
               className="px-4 py-2 bg-gradient-to-r from-powder-500 to-powder-600 text-white font-bold rounded-lg hover:shadow-lg
               hover:shadow-powder-500/50 transition-all transform hover:scale-105"
             >
@@ -113,24 +113,6 @@ export default function Home() {
               </p>
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="py-16 px-4 sm:px-6 lg:px-8 bg-slate-100 border-t border-slate-200 flex flex-col items-center">
-        <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-3xl md:text-4xl font-bold mb-6 text-dark-blue">
-            Ready to Transform Your Business?
-          </h2>
-          <p className="text-lg text-slate-600 mb-8">
-            Let&apos;s discuss how Clarivex can help you automate, streamline, and scale your operations.
-          </p>
-          <Link
-            href="/contact"
-            className="inline-block px-4 py-2 bg-gradient-to-r from-powder-500 to-powder-600 text-white font-bold rounded-lg hover:shadow-lg hover:shadow-powder-500/50 transition-all transform hover:scale-105"
-          >
-            Contact Us Today
-          </Link>
         </div>
       </section>
     </div>

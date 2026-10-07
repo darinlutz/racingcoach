@@ -134,7 +134,7 @@ export default function IncidentsChart({ points }: { points: IncidentPoint[] }) 
 
             {/* One dot per race */}
             {points.map((p, i) => (
-              <circle key={p.subsessionId} cx={x(times[i])} cy={y(p.incidents)} r={2.5} fill={DOT} fillOpacity={0.6} />
+              <circle key={p.eventId} cx={x(times[i])} cy={y(p.incidents)} r={2.5} fill={DOT} fillOpacity={0.6} />
             ))}
 
             {/* Rolling average */}
@@ -215,7 +215,7 @@ export default function IncidentsChart({ points }: { points: IncidentPoint[] }) 
                 .map((p, i) => ({ p, average: averages[i] }))
                 .reverse()
                 .map(({ p, average }) => (
-                  <tr key={p.subsessionId} className="border-t border-slate-100">
+                  <tr key={p.eventId} className="border-t border-slate-100">
                     <td className="px-3 py-1.5">{formatDate(p.startTime)}</td>
                     <td className="px-3 py-1.5">{p.series}</td>
                     <td className="px-3 py-1.5">{p.track}</td>

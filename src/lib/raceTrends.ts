@@ -3,41 +3,33 @@ import { ChatOpenAI } from '@langchain/openai';
 import { createAgent, tool } from 'langchain';
 import { z } from 'zod';
 
-import { categoryLabel } from '@/lib/raceResults';
+// Race & Qualy Trends tab. The driver's races are synced from iRacePlan into racingcoach."RaceResults"
+// (see raceHistory.ts). The iRating and incident trends are computed here so the charts' numbers are
+// exact; the agent digs through the same races with the tools below and writes the commentary.
 
-// Race & Qualy Trends tab. The browser reads the iRacing event result JSON files and posts one record
-// per event for the driver (see raceResults.ts). The iRating trend is computed here so the chart's
-// numbers are exact; the agent digs through the same events with the tools below and writes the commentary.
+// One race for the driver. Positions are 1-based; iRating and safety rating are null when not reported.
+export type RaceEvent = {
+  eventId: number;
+  startTime: string;
+  series: string;
+  track: string;
+  // License category from the series (e.g. "Sports car"); iRacing keeps a separate iRating for each
+  category: string;
+  car: string;
+  oldIRating: number | null;
+  newIRating: number | null;
+  oldSafetyRating: number | null;
+  newSafetyRating: number | null;
+  startPosition: number | null;
+  finishPosition: number | null;
+  incidents: number;
+  lapsComplete: number;
+};
 
-const position = z.number().int().min(1).max(500).nullable();
-
-export const raceEventSchema = z.object({
-  subsessionId: z.number().int(),
-  startTime: z.string().max(40),
-  series: z.string().max(200),
-  track: z.string().max(200),
-  category: z.string().max(50),
-  car: z.string().max(200),
-  oldIRating: z.number().int(),
-  newIRating: z.number().int(),
-  strengthOfField: z.number().int(),
-  qualifyPosition: position,
-  startPosition: position,
-  finishPosition: position,
-  incidents: z.number().int(),
-  lapsComplete: z.number().int(),
-});
-
-export const raceTrendsRequestSchema = z.object({
-  driver: z.string().max(200),
-  events: z.array(raceEventSchema).min(1).max(2000),
-});
-
-export type RaceEvent = z.infer<typeof raceEventSchema>;
-export type RaceTrendsRequest = z.infer<typeof raceTrendsRequestSchema>;
+type Rated = RaceEvent & { oldIRating: number; newIRating: number };
 
 export type IRatingPoint = {
-  subsessionId: number;
+  eventId: number;
   startTime: string;
   oldIRating: number;
   iRating: number;
@@ -51,7 +43,7 @@ export type IRatingSeries = { category: string; points: IRatingPoint[] };
 
 // Incidents in every race, rated or not
 export type IncidentPoint = {
-  subsessionId: number;
+  eventId: number;
   startTime: string;
   incidents: number;
   lapsComplete: number;
@@ -63,19 +55,19 @@ const commentarySchema = z.object({
   commentary: z.string().describe('Short plain-text notes for the driver about their iRating trend'),
 });
 
-// Every event once (the same event can be uploaded twice), oldest first
+// Every event once, oldest first
 function uniqueEvents(events: RaceEvent[]) {
-  return [...new Map(events.map((e) => [e.subsessionId, e])).values()].sort((a, b) =>
-    a.startTime.localeCompare(b.startTime)
-  );
+  return [...new Map(events.map((e) => [e.eventId, e])).values()].sort((a, b) => a.startTime.localeCompare(b.startTime));
 }
 
-// Events that counted for iRating, oldest first
-const ratedEvents = (events: RaceEvent[]) => uniqueEvents(events).filter((e) => e.oldIRating > 0 && e.newIRating > 0);
+const isRated = (e: RaceEvent): e is Rated => e.oldIRating !== null && e.newIRating !== null;
+
+// Events with an iRating for the driver, oldest first
+const ratedEvents = (events: RaceEvent[]) => uniqueEvents(events).filter(isRated);
 
 export function incidentTrend(events: RaceEvent[]): IncidentPoint[] {
   return uniqueEvents(events).map((e) => ({
-    subsessionId: e.subsessionId,
+    eventId: e.eventId,
     startTime: e.startTime,
     incidents: e.incidents,
     lapsComplete: e.lapsComplete,
@@ -89,7 +81,7 @@ export function iRatingTrend(events: RaceEvent[]): IRatingSeries[] {
   for (const e of ratedEvents(events)) {
     const points = byCategory.get(e.category) ?? [];
     points.push({
-      subsessionId: e.subsessionId,
+      eventId: e.eventId,
       startTime: e.startTime,
       oldIRating: e.oldIRating,
       iRating: e.newIRating,
@@ -112,11 +104,12 @@ const avg = (values: number[]) =>
 const nums = (values: (number | null)[]) => values.flatMap((v) => (v === null ? [] : [v]));
 
 function describeEvent(e: RaceEvent) {
-  const rating = e.newIRating > 0 ? `iR ${e.oldIRating}->${e.newIRating} (${signed(e.newIRating - e.oldIRating)})` : 'unrated';
+  const rating = isRated(e) ? `iR ${e.oldIRating}->${e.newIRating} (${signed(e.newIRating - e.oldIRating)})` : 'no iRating';
+  const safety =
+    e.oldSafetyRating !== null && e.newSafetyRating !== null ? `, SR ${e.oldSafetyRating}->${e.newSafetyRating}` : '';
   return (
-    `${day(e.startTime)} ${e.series} @ ${e.track}: ${rating}, SoF ${e.strengthOfField}, ` +
-    `qualified ${e.qualifyPosition ?? 'n/a'}, started ${e.startPosition ?? 'n/a'}, finished ${e.finishPosition ?? 'n/a'}, ` +
-    `${e.incidents}x incidents`
+    `${day(e.startTime)} ${e.series} @ ${e.track} (${e.car}): ${rating}${safety}, ` +
+    `started ${e.startPosition ?? 'n/a'}, finished ${e.finishPosition ?? 'n/a'}, ${e.incidents}x incidents`
   );
 }
 
@@ -144,10 +137,10 @@ const GROUPINGS = {
   track: (e: RaceEvent) => e.track,
   car: (e: RaceEvent) => e.car,
   month: (e: RaceEvent) => e.startTime.slice(0, 7),
-  category: (e: RaceEvent) => categoryLabel(e.category),
+  category: (e: RaceEvent) => e.category,
 } as const;
 
-function createTools({ driver, events }: RaceTrendsRequest) {
+function createTools(driver: string, events: RaceEvent[]) {
   const unique = uniqueEvents(events);
   const rated = ratedEvents(events);
   const trend = iRatingTrend(events);
@@ -155,8 +148,8 @@ function createTools({ driver, events }: RaceTrendsRequest) {
   const overview = tool(
     async () =>
       [
-        `${driver}: ${unique.length} events uploaded, ${rated.length} counted for iRating ` +
-          `(${unique.length - rated.length} unrated, e.g. unofficial or 13th week races).`,
+        `${driver}: ${unique.length} races, ${rated.length} with an iRating ` +
+          `(unofficial races such as 13th week events show no iRating change).`,
         ...trend.map(({ category, points }) => {
           const first = points[0];
           const last = points[points.length - 1];
@@ -166,14 +159,18 @@ function createTools({ driver, events }: RaceTrendsRequest) {
           const gain = changes.reduce((a, b) => (b.change > a.change ? b : a));
           const loss = changes.reduce((a, b) => (b.change < a.change ? b : a));
           const recent = points.slice(-10);
+          const inCategory = rated.filter((e) => e.category === category);
+          const firstSafety = inCategory.find((e) => e.oldSafetyRating !== null)?.oldSafetyRating ?? null;
+          const lastSafety = [...inCategory].reverse().find((e) => e.newSafetyRating !== null)?.newSafetyRating ?? null;
           return [
-            `${categoryLabel(category)}: ${points.length} rated events from ${day(first.startTime)} to ${day(last.startTime)}.`,
+            `${category}: ${points.length} rated events from ${day(first.startTime)} to ${day(last.startTime)}.`,
             `  Started at ${first.oldIRating}, now ${last.iRating} (${signed(last.iRating - first.oldIRating)}).`,
             `  Peak ${peak.iRating} on ${day(peak.startTime)}, low ${low.iRating} on ${day(low.startTime)}.`,
             `  Biggest gain ${signed(gain.change)} (${day(gain.p.startTime)} ${gain.p.series} @ ${gain.p.track}), ` +
               `biggest loss ${signed(loss.change)} (${day(loss.p.startTime)} ${loss.p.series} @ ${loss.p.track}).`,
             `  Last ${recent.length} events: ${signed(recent[recent.length - 1].iRating - recent[0].oldIRating)} ` +
               `(${recent.map((p) => p.iRating).join(', ')}).`,
+            `  Safety rating ${firstSafety ?? 'n/a'} at the start, ${lastSafety ?? 'n/a'} now.`,
           ].join('\n');
         }),
         incidentSummary(unique),
@@ -181,8 +178,8 @@ function createTools({ driver, events }: RaceTrendsRequest) {
     {
       name: 'get_irating_overview',
       description:
-        'iRating start, current, peak, low, biggest gain/loss and recent form for each license category, and the ' +
-        'incident trend across all races. Call this first.',
+        'iRating start, current, peak, low, biggest gain/loss, recent form and safety rating for each license ' +
+        'category, and the incident trend across all races. Call this first.',
       schema: z.object({}),
     }
   );
@@ -195,16 +192,15 @@ function createTools({ driver, events }: RaceTrendsRequest) {
         groups.set(key, [...(groups.get(key) ?? []), e]);
       }
       const rows = [...groups.entries()].map(([key, group]) => {
-        const ratedGroup = group.filter((e) => e.newIRating > 0 && e.oldIRating > 0);
+        const ratedGroup = group.filter(isRated);
         const net = ratedGroup.reduce((s, e) => s + e.newIRating - e.oldIRating, 0);
         const gained = nums(group.map((e) => (e.startPosition && e.finishPosition ? e.startPosition - e.finishPosition : null)));
         return {
           net,
           line:
             `- ${key}: ${group.length} events, iRating ${signed(net)} over ${ratedGroup.length} rated, ` +
-            `avg qualify ${avg(nums(group.map((e) => e.qualifyPosition)))}, avg finish ${avg(nums(group.map((e) => e.finishPosition)))}, ` +
-            `avg places gained ${avg(gained)}, avg incidents ${avg(group.map((e) => e.incidents))}, ` +
-            `avg SoF ${avg(group.map((e) => e.strengthOfField))}`,
+            `avg start ${avg(nums(group.map((e) => e.startPosition)))}, avg finish ${avg(nums(group.map((e) => e.finishPosition)))}, ` +
+            `avg places gained ${avg(gained)}, avg incidents ${avg(group.map((e) => e.incidents))}`,
         };
       });
       const sorted = by === 'month' ? rows : rows.sort((a, b) => b.net - a.net);
@@ -213,7 +209,7 @@ function createTools({ driver, events }: RaceTrendsRequest) {
     {
       name: 'get_breakdown',
       description:
-        'Net iRating change, average qualifying and finishing position, places gained, incidents and strength of field, ' +
+        'Net iRating change, average starting and finishing position, places gained and incidents, ' +
         'grouped by series, track, car, month or license category.',
       schema: z.object({ by: z.enum(['series', 'track', 'car', 'month', 'category']) }),
     }
@@ -248,17 +244,18 @@ const SYSTEM_PROMPT =
   "You are a sim racing coach reviewing a driver's iRacing race results. The driver can already see charts of " +
   'their iRating and incidents over time, so do not just restate them. Start with get_irating_overview, then use get_breakdown and ' +
   'get_events to explain the trend: when and where the rating rose or fell, which series, tracks or cars went well ' +
-  'or badly, and whether qualifying, places gained or incidents explain it. Use only numbers from the tools, never ' +
+  'or badly, and whether starting position, places gained, incidents or safety rating explain it. Use only numbers from the tools, never ' +
   'invent data, write to the driver as "you", keep it under 150 words, and use plain text with no markdown.';
 
 export async function runRaceTrends(
-  request: RaceTrendsRequest
+  driver: string,
+  events: RaceEvent[]
 ): Promise<{ trend: IRatingSeries[]; incidents: IncidentPoint[]; commentary: string; steps: string[] }> {
   if (!process.env.OPENAI_API_KEY) {
     throw new Error('OPENAI_API_KEY is not configured');
   }
 
-  const tools = createTools(request);
+  const tools = createTools(driver, events);
   const agent = createAgent({
     model: new ChatOpenAI({ model: 'gpt-4o', temperature: 0.2 }),
     tools,
@@ -267,7 +264,7 @@ export async function runRaceTrends(
   });
 
   const result = await agent.invoke(
-    { messages: [{ role: 'user', content: `Analyze the iRating trend for ${request.driver}.` }] },
+    { messages: [{ role: 'user', content: `Analyze the iRating trend for ${driver}.` }] },
     { recursionLimit: 30 }
   );
 
@@ -281,8 +278,8 @@ export async function runRaceTrends(
   );
 
   return {
-    trend: iRatingTrend(request.events),
-    incidents: incidentTrend(request.events),
+    trend: iRatingTrend(events),
+    incidents: incidentTrend(events),
     commentary: result.structuredResponse.commentary,
     steps,
   };

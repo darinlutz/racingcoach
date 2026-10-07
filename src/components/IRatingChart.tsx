@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { SECTOR_COLORS, niceTicks } from '@/components/SectorChart';
-import { categoryLabel } from '@/lib/raceResults';
 import type { IRatingPoint, IRatingSeries } from '@/lib/raceTrends';
 
 const HEIGHT = 320;
@@ -103,7 +102,7 @@ export default function IRatingChart({ trend }: { trend: IRatingSeries[] }) {
           return (
             <li key={series.category} className="flex items-center gap-1.5">
               <span className="inline-block w-3 rounded" style={{ backgroundColor: color, height: 2 }} />
-              {categoryLabel(series.category)}{' '}
+              {series.category}{' '}
               <span className="text-slate-500" style={{ fontVariantNumeric: 'tabular-nums' }}>
                 ({series.points[0].oldIRating} → {last.iRating}, {signed(last.iRating - series.points[0].oldIRating)})
               </span>
@@ -118,7 +117,7 @@ export default function IRatingChart({ trend }: { trend: IRatingSeries[] }) {
             width={width}
             height={HEIGHT}
             role="img"
-            aria-label={`Line chart of iRating over time for ${lines.map((l) => categoryLabel(l.series.category)).join(' and ')}`}
+            aria-label={`Line chart of iRating over time for ${lines.map((l) => l.series.category).join(' and ')}`}
             className="block"
             style={{ fontVariantNumeric: 'tabular-nums' }}
           >
@@ -245,9 +244,9 @@ export default function IRatingChart({ trend }: { trend: IRatingSeries[] }) {
             </thead>
             <tbody>
               {tableRows.map(({ series, point }) => (
-                <tr key={point.subsessionId} className="border-t border-slate-100">
+                <tr key={point.eventId} className="border-t border-slate-100">
                   <td className="px-3 py-1.5">{formatDate(point.startTime)}</td>
-                  {lines.length > 1 && <td className="px-3 py-1.5">{categoryLabel(series.category)}</td>}
+                  {lines.length > 1 && <td className="px-3 py-1.5">{series.category}</td>}
                   <td className="px-3 py-1.5">{point.series}</td>
                   <td className="px-3 py-1.5">{point.track}</td>
                   <td className="px-3 py-1.5 text-right">{point.finishPosition === null ? '—' : `P${point.finishPosition}`}</td>

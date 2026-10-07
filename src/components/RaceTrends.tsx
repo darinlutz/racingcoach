@@ -1,12 +1,12 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 
 import IncidentsChart from '@/components/IncidentsChart';
 import IRatingChart from '@/components/IRatingChart';
-import { formatSize } from '@/lib/lapData';
-import { driversByAppearances, parseResultFile, raceEventsFor, type ResultFile } from '@/lib/raceResults';
-import type { IncidentPoint, IRatingSeries } from '@/lib/raceTrends';
+import type { Connection } from '@/lib/raceHistory';
+import type { IncidentPoint, IRatingSeries, RaceEvent } from '@/lib/raceTrends';
 
 type ChartTab = 'iRating' | 'incidents';
 
@@ -15,11 +15,23 @@ const CHART_TABS: { value: ChartTab; label: string }[] = [
   { value: 'incidents', label: 'Incidents' },
 ];
 
+type SyncState = { running: boolean; loaded: number; total: number; error: string };
+
+const formatDateTime = (iso: string) =>
+  new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+
+// Races come from the user's iRacePlan account: they are loaded into the database the first time and
+// only new ones are fetched after that, every time the tab opens
 export default function RaceTrends() {
-  const [resultFiles, setResultFiles] = useState<ResultFile[]>([]);
-  const [fileErrors, setFileErrors] = useState<string[]>([]);
-  const [dragging, setDragging] = useState(false);
-  const [custId, setCustId] = useState<number | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const [signedOut, setSignedOut] = useState(false);
+  const [loadError, setLoadError] = useState('');
+  const [connection, setConnection] = useState<Connection | null>(null);
+  const [events, setEvents] = useState<RaceEvent[]>([]);
+  const [sync, setSync] = useState<SyncState>({ running: false, loaded: 0, total: 0, error: '' });
+  const [apiKey, setApiKey] = useState('');
+  const [connecting, setConnecting] = useState(false);
+  const [connectError, setConnectError] = useState('');
   const [running, setRunning] = useState(false);
   const [trend, setTrend] = useState<IRatingSeries[] | null>(null);
   const [incidents, setIncidents] = useState<IncidentPoint[]>([]);
@@ -27,41 +39,94 @@ export default function RaceTrends() {
   const [commentary, setCommentary] = useState('');
   const [steps, setSteps] = useState<string[]>([]);
   const [runError, setRunError] = useState('');
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const syncing = useRef(false);
 
-  // You are normally the one driver in every uploaded file; anyone else in all of them can be picked instead
-  const drivers = driversByAppearances(resultFiles);
-  const candidates = drivers.filter((d) => d.files === drivers[0]?.files);
-  const driver = candidates.find((d) => d.custId === custId) ?? candidates[0];
+  const loadRaces = useCallback(async () => {
+    const res = await fetch('/api/race-trends');
+    if (res.status === 401) {
+      setSignedOut(true);
+      return null;
+    }
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to load your races');
+    setConnection(data.connection);
+    setEvents(data.events);
+    return data.connection as Connection | null;
+  }, []);
 
-  const handleFiles = async (fileList: FileList | null | undefined) => {
-    if (!fileList || fileList.length === 0) return;
+  // Calls the sync endpoint until every completed race is loaded, showing progress as it goes
+  const runSync = useCallback(async () => {
+    if (syncing.current) return;
+    syncing.current = true;
+    setSync({ running: true, loaded: 0, total: 0, error: '' });
+    try {
+      let previousRemaining = Infinity;
+      for (;;) {
+        const res = await fetch('/api/race-trends/sync', { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to load your races from iRacePlan');
+        setSync({ running: true, loaded: data.loaded, total: data.total, error: '' });
+        // Stop when done, or when a batch made no progress (iRacePlan errors are retried next time)
+        if (data.remaining === 0 || data.remaining >= previousRemaining) break;
+        previousRemaining = data.remaining;
+      }
+      await loadRaces();
+      setSync((s) => ({ ...s, running: false }));
+    } catch (err) {
+      setSync((s) => ({ ...s, running: false, error: err instanceof Error ? err.message : 'Sync failed' }));
+    } finally {
+      syncing.current = false;
+    }
+  }, [loadRaces]);
 
-    const files = Array.from(fileList);
-    const results = await Promise.allSettled(files.map(parseResultFile));
-    const added: ResultFile[] = [];
-    const errors: string[] = [];
+  useEffect(() => {
+    loadRaces()
+      .then((conn) => {
+        if (conn) void runSync();
+      })
+      .catch((err: Error) => setLoadError(err.message))
+      .finally(() => setLoaded(true));
+  }, [loadRaces, runSync]);
 
-    results.forEach((result, index) => {
-      if (result.status === 'fulfilled') added.push(result.value);
-      else errors.push(`${files[index].name}: ${(result.reason as Error).message}`);
-    });
-
-    setFileErrors(errors);
-    // Skip events that were already added (same subsession ID), oldest first
-    setResultFiles((prev) =>
-      [...prev, ...added.filter((f, i) => !prev.some((p) => p.fileId === f.fileId) && added.findIndex((a) => a.fileId === f.fileId) === i)].sort(
-        (a, b) => a.startTime.localeCompare(b.startTime)
-      )
+  if (signedOut) {
+    return (
+      <div className="bg-slate-50 rounded-xl border border-slate-200 p-8 text-slate-600">
+        <Link href="/login" className="font-semibold text-powder-600 hover:underline">
+          Log in
+        </Link>{' '}
+        to see your race trends.
+      </div>
     );
+  }
+
+  const connectIRacePlan = async () => {
+    setConnecting(true);
+    setConnectError('');
+    try {
+      const res = await fetch('/api/race-trends/connection', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to connect iRacePlan');
+      setConnection(data.connection);
+      setApiKey('');
+      void runSync();
+    } catch (err) {
+      setConnectError(err instanceof Error ? err.message : 'Failed to connect iRacePlan');
+    } finally {
+      setConnecting(false);
+    }
   };
 
-  const removeFile = (fileId: string) => {
-    setResultFiles((prev) => prev.filter((f) => f.fileId !== fileId));
+  const disconnectIRacePlan = async () => {
+    if (!window.confirm('Disconnect iRacePlan? Races already loaded stay; new races stop loading until you reconnect.')) return;
+    const res = await fetch('/api/race-trends/connection', { method: 'DELETE' });
+    if (res.ok) setConnection(null);
   };
 
   const getTrends = async () => {
-    if (!driver) return;
     setRunning(true);
     setRunError('');
     setTrend(null);
@@ -69,11 +134,7 @@ export default function RaceTrends() {
     setCommentary('');
     setSteps([]);
     try {
-      const res = await fetch('/api/race-trends', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ driver: driver.name, events: raceEventsFor(resultFiles, driver.custId) }),
-      });
+      const res = await fetch('/api/race-trends', { method: 'POST' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to get the race trends');
       setTrend(data.trend);
@@ -88,113 +149,94 @@ export default function RaceTrends() {
   };
 
   const inputClass =
-    'w-full px-4 py-3 bg-white border border-slate-300 rounded-lg text-dark-blue focus:outline-none focus:border-powder-600 focus:ring-1 focus:ring-powder-500 transition-colors';
+    'w-full px-4 py-3 bg-white border border-slate-300 rounded-lg text-dark-blue placeholder-slate-400 focus:outline-none focus:border-powder-600 focus:ring-1 focus:ring-powder-500 transition-colors';
+  const firstLoad = sync.running && events.length === 0;
 
   return (
     <div className="bg-slate-50 rounded-xl border border-slate-200 p-8 space-y-6">
-      {/* File upload */}
-      <div>
-        <label className="block text-sm text-slate-600 mb-2">Upload your iRacing event result JSON files</label>
-        <div
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDragging(true);
-          }}
-          onDragLeave={() => setDragging(false)}
-          onDrop={(e) => {
-            e.preventDefault();
-            setDragging(false);
-            void handleFiles(e.dataTransfer.files);
-          }}
-          className={`flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-4 rounded-lg border-2 border-dashed transition-colors ${
-            dragging ? 'border-powder-500 bg-powder-50' : 'border-slate-300 bg-white'
-          }`}
-        >
-          <div className="text-sm text-slate-600 text-center sm:text-left">
-            <p className="font-medium text-dark-blue">Drag and drop files here</p>
-            <p>Limit 25MB per file • JSON • Multiple files</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="px-4 py-2 text-sm font-semibold bg-white border border-slate-300 rounded-lg text-dark-blue hover:border-powder-600 hover:text-powder-600 transition-colors"
-          >
-            Browse files
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="application/json,.json"
-            multiple
-            className="hidden"
-            onChange={(e) => {
-              void handleFiles(e.target.files);
-              e.target.value = '';
-            }}
-          />
-        </div>
-
-        {fileErrors.length > 0 && (
-          <div className="mt-2 px-4 py-3 rounded-lg border text-sm whitespace-pre-wrap bg-red-50 border-red-200 text-red-900">
-            {fileErrors.join('\n')}
-          </div>
-        )}
-
-        {resultFiles.length > 0 && (
-          <>
-            <div className="mt-2 flex items-center justify-between text-sm text-slate-600">
-              <span>
-                {resultFiles.length} {resultFiles.length === 1 ? 'event' : 'events'} uploaded
+      {!loaded ? (
+        <p className="text-sm text-slate-500">Loading your races…</p>
+      ) : loadError ? (
+        <div className="px-4 py-3 rounded-lg border text-sm bg-red-50 border-red-200 text-red-900">{loadError}</div>
+      ) : connection ? (
+        /* iRacePlan connection and sync status */
+        <div className="px-4 py-3 bg-white border border-slate-200 rounded-lg text-sm space-y-2">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-dark-blue">
+              Connected to iRacePlan as <span className="font-semibold">{connection.iracingName}</span>
+              <span className="text-slate-500">
+                {' '}
+                • {events.length.toLocaleString('en-US')} {events.length === 1 ? 'race' : 'races'}
+                {connection.syncedAt && ` • Last synced ${formatDateTime(connection.syncedAt)}`}
               </span>
-              <button type="button" onClick={() => setResultFiles([])} className="text-slate-500 hover:text-red-600">
-                Clear all
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => void runSync()}
+                disabled={sync.running}
+                className="px-3 py-1.5 text-xs font-semibold bg-white border border-slate-300 rounded-lg text-dark-blue hover:border-powder-600 hover:text-powder-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {sync.running ? 'Syncing…' : 'Sync now'}
+              </button>
+              <button
+                type="button"
+                onClick={() => void disconnectIRacePlan()}
+                disabled={sync.running}
+                className="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-red-600 disabled:opacity-50"
+              >
+                Disconnect
               </button>
             </div>
-            <ul className="mt-2 space-y-2 max-h-72 overflow-y-auto">
-              {resultFiles.map((f) => (
-                <li
-                  key={f.fileId}
-                  className="flex items-center justify-between px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm text-dark-blue"
-                >
-                  <span className="min-w-0 truncate">
-                    📄 <span className="text-slate-500">{new Date(f.startTime).toLocaleDateString('en-US')}</span> {f.seriesName}{' '}
-                    • {f.trackName} <span className="text-slate-500">{formatSize(f.file.size)}</span>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => removeFile(f.fileId)}
-                    aria-label={`Remove ${f.file.name}`}
-                    className="ml-3 text-slate-500 hover:text-red-600"
-                  >
-                    ✕
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </>
-        )}
-      </div>
-
-      {candidates.length > 1 && (
-        <div>
-          <label htmlFor="race-trends-driver" className="block text-sm font-medium text-dark-blue mb-2">
-            Driver
-          </label>
-          <select
-            id="race-trends-driver"
-            value={driver?.custId ?? ''}
-            onChange={(e) => setCustId(Number(e.target.value))}
-            className={inputClass}
-          >
-            {candidates.map((d) => (
-              <option key={d.custId} value={d.custId}>
-                {d.name}
-              </option>
-            ))}
-          </select>
-          <p className="mt-2 text-sm text-slate-500">
-            More than one driver is in every uploaded file, so pick yourself. Upload more events to narrow it down.
-          </p>
+          </div>
+          {sync.running && (
+            <p className="text-slate-600">
+              Loading your races from iRacePlan
+              {sync.total > 0 && `… ${sync.loaded.toLocaleString('en-US')} of ${sync.total.toLocaleString('en-US')}`}
+              {firstLoad && ' (the first load takes a few minutes; later syncs only fetch new races)'}
+            </p>
+          )}
+          {sync.error && <p className="text-red-700">{sync.error}</p>}
+        </div>
+      ) : (
+        /* Not connected yet */
+        <div className="px-5 py-4 bg-white border border-slate-200 rounded-lg space-y-3">
+          <div>
+            <h3 className="font-bold text-dark-blue">Connect iRacePlan</h3>
+            <p className="text-sm text-slate-600">
+              Your races load automatically from{' '}
+              <a href="https://iraceplan.com" target="_blank" rel="noreferrer" className="text-powder-600 hover:underline">
+                iRacePlan
+              </a>
+              . Create an API key under Settings &gt; API Keys there and paste it here.
+            </p>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <input
+              type="password"
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && apiKey.trim() && void connectIRacePlan()}
+              placeholder="iRacePlan API key"
+              autoComplete="off"
+              aria-label="iRacePlan API key"
+              className={inputClass}
+            />
+            <button
+              type="button"
+              onClick={() => void connectIRacePlan()}
+              disabled={!apiKey.trim() || connecting}
+              className="px-6 py-3 font-semibold text-white bg-gradient-to-r from-powder-500 to-powder-600 rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+            >
+              {connecting ? 'Connecting…' : 'Connect'}
+            </button>
+          </div>
+          {connectError && <p className="text-sm text-red-700">{connectError}</p>}
+          {events.length > 0 && (
+            <p className="text-sm text-slate-500">
+              {events.length.toLocaleString('en-US')} races from before are still here; reconnect to load new ones.
+            </p>
+          )}
         </div>
       )}
 
@@ -202,7 +244,7 @@ export default function RaceTrends() {
         <button
           type="button"
           onClick={() => void getTrends()}
-          disabled={!driver || running}
+          disabled={events.length === 0 || firstLoad || running}
           className="px-6 py-3 font-semibold text-white bg-gradient-to-r from-powder-500 to-powder-600 rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {running ? 'Analyzing your races…' : 'Get Trends'}
@@ -214,11 +256,13 @@ export default function RaceTrends() {
           </div>
         )}
 
-        {!trend && !runError && !running && (
+        {!trend && !runError && !running && loaded && (
           <p className="text-sm text-slate-500">
-            {driver
-              ? `Press Get Trends to see ${driver.name}'s iRating and incidents over time.`
-              : 'Upload your event result JSON files, then press Get Trends.'}
+            {events.length > 0
+              ? 'Press Get Trends to see your iRating and incidents over time.'
+              : connection
+                ? 'Your races will appear here once they have loaded.'
+                : 'Connect iRacePlan to load your races.'}
           </p>
         )}
 
@@ -251,12 +295,12 @@ export default function RaceTrends() {
                     {trend.length > 0 ? (
                       <IRatingChart trend={trend} />
                     ) : (
-                      <p className="text-sm text-slate-600">None of these events counted for iRating.</p>
+                      <p className="text-sm text-slate-600">None of these races have an iRating.</p>
                     )}
                     <p className="text-xs text-slate-500">
                       Each point is your iRating after a race. iRacing keeps a separate iRating for each license
-                      category, so each category gets its own line. Unofficial races (such as 13th week series)
-                      don&apos;t change iRating and are left out of the chart.
+                      category, so each category gets its own line. Unofficial races (such as 13th week events)
+                      don&apos;t change iRating, so they show as flat steps.
                     </p>
                   </>
                 )}

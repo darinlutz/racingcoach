@@ -279,7 +279,7 @@ export default function RacingPage() {
               <div>
                 <h2 className="text-2xl font-bold text-dark-blue mb-2">Race &amp; Qualy Trends</h2>
                 <p className="text-slate-600 mb-6">
-                  Upload your iRacing event result JSON files and see how your iRating has moved over time.
+                  Your races load automatically from iRacePlan. See how your iRating and incidents have moved over time.
                 </p>
                 <RaceTrends />
               </div>

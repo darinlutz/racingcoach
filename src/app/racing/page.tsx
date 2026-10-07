@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import PythonRunner from '@/components/PythonRunner';
 import FriendsRoster from '@/components/FriendsRoster';
+import TrackFileExport from '@/components/TrackFileExport';
 import TrackManagement from '@/components/TrackManagement';
 import ChatbotLogger from '@/components/ChatbotLogger';
 import SpaceFactQuery from '@/components/SpaceFactQuery';
@@ -162,6 +163,7 @@ export default function RacingPage() {
                   Your tracks and their focus areas (up to 8 per track). Expand a track to see its focus areas, or
                   press Edit to change them.
                 </p>
+                <TrackFileExport />
                 <TrackManagement />
               </div>
             )}

@@ -2,10 +2,18 @@
 
 import { useRef, useState } from 'react';
 
+import IncidentsChart from '@/components/IncidentsChart';
 import IRatingChart from '@/components/IRatingChart';
 import { formatSize } from '@/lib/lapData';
 import { driversByAppearances, parseResultFile, raceEventsFor, type ResultFile } from '@/lib/raceResults';
-import type { IRatingSeries } from '@/lib/raceTrends';
+import type { IncidentPoint, IRatingSeries } from '@/lib/raceTrends';
+
+type ChartTab = 'iRating' | 'incidents';
+
+const CHART_TABS: { value: ChartTab; label: string }[] = [
+  { value: 'iRating', label: 'iRating Trend' },
+  { value: 'incidents', label: 'Incidents' },
+];
 
 export default function RaceTrends() {
   const [resultFiles, setResultFiles] = useState<ResultFile[]>([]);
@@ -14,6 +22,8 @@ export default function RaceTrends() {
   const [custId, setCustId] = useState<number | null>(null);
   const [running, setRunning] = useState(false);
   const [trend, setTrend] = useState<IRatingSeries[] | null>(null);
+  const [incidents, setIncidents] = useState<IncidentPoint[]>([]);
+  const [chartTab, setChartTab] = useState<ChartTab>('iRating');
   const [commentary, setCommentary] = useState('');
   const [steps, setSteps] = useState<string[]>([]);
   const [runError, setRunError] = useState('');
@@ -55,6 +65,7 @@ export default function RaceTrends() {
     setRunning(true);
     setRunError('');
     setTrend(null);
+    setIncidents([]);
     setCommentary('');
     setSteps([]);
     try {
@@ -66,6 +77,7 @@ export default function RaceTrends() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to get the race trends');
       setTrend(data.trend);
+      setIncidents(data.incidents);
       setCommentary(data.commentary);
       setSteps(data.steps);
     } catch (err) {
@@ -205,25 +217,63 @@ export default function RaceTrends() {
         {!trend && !runError && !running && (
           <p className="text-sm text-slate-500">
             {driver
-              ? `Press Get Trends to see ${driver.name}'s iRating over time.`
+              ? `Press Get Trends to see ${driver.name}'s iRating and incidents over time.`
               : 'Upload your event result JSON files, then press Get Trends.'}
           </p>
         )}
 
         {trend && (
           <div className="space-y-4">
-            {trend.length > 0 ? (
-              <IRatingChart trend={trend} />
-            ) : (
-              <p className="text-sm text-slate-600">None of these events counted for iRating.</p>
-            )}
-            <p className="text-xs text-slate-500">
-              Each point is your iRating after a race. iRacing keeps a separate iRating for each license category, so
-              each category gets its own line. Unofficial races (such as 13th week series) don&apos;t change iRating and
-              are left out of the chart.
-            </p>
+            {/* Chart tabs; the commentary below covers both */}
+            <div>
+              <div className="flex flex-wrap gap-2 border-b border-slate-200" role="tablist">
+                {CHART_TABS.map((tab) => (
+                  <button
+                    key={tab.value}
+                    type="button"
+                    role="tab"
+                    aria-selected={chartTab === tab.value}
+                    onClick={() => setChartTab(tab.value)}
+                    className={`px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition-colors ${
+                      chartTab === tab.value
+                        ? 'text-powder-600 border-powder-600'
+                        : 'text-slate-600 border-transparent hover:text-dark-blue'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
 
-            {commentary && trend.length > 0 && (
+              <div className="pt-4 space-y-2" role="tabpanel">
+                {chartTab === 'iRating' && (
+                  <>
+                    {trend.length > 0 ? (
+                      <IRatingChart trend={trend} />
+                    ) : (
+                      <p className="text-sm text-slate-600">None of these events counted for iRating.</p>
+                    )}
+                    <p className="text-xs text-slate-500">
+                      Each point is your iRating after a race. iRacing keeps a separate iRating for each license
+                      category, so each category gets its own line. Unofficial races (such as 13th week series)
+                      don&apos;t change iRating and are left out of the chart.
+                    </p>
+                  </>
+                )}
+
+                {chartTab === 'incidents' && (
+                  <>
+                    <IncidentsChart points={incidents} />
+                    <p className="text-xs text-slate-500">
+                      Each dot is the incident points you picked up in one race, rated or not. The line is the average
+                      of your last 10 races at that point, which shows the trend better than single races.
+                    </p>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {commentary && (
               <div className="px-5 py-4 bg-white border border-slate-200 rounded-lg">
                 <h3 className="font-bold text-dark-blue mb-2">Commentary</h3>
                 <p className="text-sm text-slate-700 whitespace-pre-wrap">{commentary}</p>

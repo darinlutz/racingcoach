@@ -18,9 +18,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'OpenAI API key not configured' }, { status: 500 });
     }
 
-    const { trend, commentary, steps } = await runRaceTrends(parsed.data);
+    const { trend, incidents, commentary, steps } = await runRaceTrends(parsed.data);
 
-    return NextResponse.json({ success: true, trend, commentary, steps }, { status: 200 });
+    return NextResponse.json({ success: true, trend, incidents, commentary, steps }, { status: 200 });
   } catch (error) {
     console.error('Race trends error:', error);
     return NextResponse.json({ error: 'Failed to get the race trends' }, { status: 500 });

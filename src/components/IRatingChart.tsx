@@ -12,12 +12,12 @@ const INK_MUTED = '#64748b'; // slate-500
 const GRID = '#e2e8f0'; // slate-200
 const AXIS = '#cbd5e1'; // slate-300
 
-const time = (iso: string) => new Date(iso).getTime();
-const formatDate = (iso: string) => new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+export const time = (iso: string) => new Date(iso).getTime();
+export const formatDate = (iso: string) => new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 const signed = (n: number) => (n > 0 ? `+${n}` : `${n}`);
 
 // First-of-month ticks between two times, every Nth month so the labels fit
-function monthTicks(start: number, end: number, maxTicks: number) {
+export function monthTicks(start: number, end: number, maxTicks: number) {
   const months: Date[] = [];
   const d = new Date(start);
   d.setDate(1);

@@ -49,16 +49,39 @@ export type IRatingPoint = {
 // One line per license category: iRacing keeps a separate iRating for each
 export type IRatingSeries = { category: string; points: IRatingPoint[] };
 
+// Incidents in every race, rated or not
+export type IncidentPoint = {
+  subsessionId: number;
+  startTime: string;
+  incidents: number;
+  lapsComplete: number;
+  series: string;
+  track: string;
+};
+
 const commentarySchema = z.object({
   commentary: z.string().describe('Short plain-text notes for the driver about their iRating trend'),
 });
 
-// Events that counted for iRating, oldest first, without duplicate uploads of the same event
-function ratedEvents(events: RaceEvent[]) {
-  const unique = new Map(events.map((e) => [e.subsessionId, e]));
-  return [...unique.values()]
-    .filter((e) => e.oldIRating > 0 && e.newIRating > 0)
-    .sort((a, b) => a.startTime.localeCompare(b.startTime));
+// Every event once (the same event can be uploaded twice), oldest first
+function uniqueEvents(events: RaceEvent[]) {
+  return [...new Map(events.map((e) => [e.subsessionId, e])).values()].sort((a, b) =>
+    a.startTime.localeCompare(b.startTime)
+  );
+}
+
+// Events that counted for iRating, oldest first
+const ratedEvents = (events: RaceEvent[]) => uniqueEvents(events).filter((e) => e.oldIRating > 0 && e.newIRating > 0);
+
+export function incidentTrend(events: RaceEvent[]): IncidentPoint[] {
+  return uniqueEvents(events).map((e) => ({
+    subsessionId: e.subsessionId,
+    startTime: e.startTime,
+    incidents: e.incidents,
+    lapsComplete: e.lapsComplete,
+    series: e.series,
+    track: e.track,
+  }));
 }
 
 export function iRatingTrend(events: RaceEvent[]): IRatingSeries[] {
@@ -97,6 +120,25 @@ function describeEvent(e: RaceEvent) {
   );
 }
 
+const perLap = (group: RaceEvent[]) => {
+  const laps = group.reduce((s, e) => s + e.lapsComplete, 0);
+  return laps === 0 ? 'n/a' : (group.reduce((s, e) => s + e.incidents, 0) / laps).toFixed(2);
+};
+
+function incidentSummary(unique: RaceEvent[]) {
+  const half = Math.ceil(unique.length / 2);
+  const worst = unique.reduce((a, b) => (b.incidents > a.incidents ? b : a));
+  const clean = unique.filter((e) => e.incidents === 0).length;
+  const recent = unique.slice(-10);
+  return [
+    `Incidents across all ${unique.length} races: avg ${avg(unique.map((e) => e.incidents))} per race, ${perLap(unique)} per lap, ` +
+      `${clean} clean (0x) races.`,
+    `  First half of races avg ${avg(unique.slice(0, half).map((e) => e.incidents))}, second half avg ` +
+      `${avg(unique.slice(half).map((e) => e.incidents))}; last ${recent.length} races avg ${avg(recent.map((e) => e.incidents))}.`,
+    `  Worst: ${worst.incidents}x on ${day(worst.startTime)} (${worst.series} @ ${worst.track}).`,
+  ].join('\n');
+}
+
 const GROUPINGS = {
   series: (e: RaceEvent) => e.series,
   track: (e: RaceEvent) => e.track,
@@ -106,9 +148,7 @@ const GROUPINGS = {
 } as const;
 
 function createTools({ driver, events }: RaceTrendsRequest) {
-  const unique = [...new Map(events.map((e) => [e.subsessionId, e])).values()].sort((a, b) =>
-    a.startTime.localeCompare(b.startTime)
-  );
+  const unique = uniqueEvents(events);
   const rated = ratedEvents(events);
   const trend = iRatingTrend(events);
 
@@ -136,11 +176,13 @@ function createTools({ driver, events }: RaceTrendsRequest) {
               `(${recent.map((p) => p.iRating).join(', ')}).`,
           ].join('\n');
         }),
+        incidentSummary(unique),
       ].join('\n'),
     {
       name: 'get_irating_overview',
       description:
-        'iRating start, current, peak, low, biggest gain/loss and recent form for each license category. Call this first.',
+        'iRating start, current, peak, low, biggest gain/loss and recent form for each license category, and the ' +
+        'incident trend across all races. Call this first.',
       schema: z.object({}),
     }
   );
@@ -203,22 +245,17 @@ function createTools({ driver, events }: RaceTrendsRequest) {
 }
 
 const SYSTEM_PROMPT =
-  "You are a sim racing coach reviewing a driver's iRacing race results. The driver can already see a chart of " +
-  'their iRating over time, so do not just restate it. Start with get_irating_overview, then use get_breakdown and ' +
+  "You are a sim racing coach reviewing a driver's iRacing race results. The driver can already see charts of " +
+  'their iRating and incidents over time, so do not just restate them. Start with get_irating_overview, then use get_breakdown and ' +
   'get_events to explain the trend: when and where the rating rose or fell, which series, tracks or cars went well ' +
   'or badly, and whether qualifying, places gained or incidents explain it. Use only numbers from the tools, never ' +
   'invent data, write to the driver as "you", keep it under 150 words, and use plain text with no markdown.';
 
 export async function runRaceTrends(
   request: RaceTrendsRequest
-): Promise<{ trend: IRatingSeries[]; commentary: string; steps: string[] }> {
+): Promise<{ trend: IRatingSeries[]; incidents: IncidentPoint[]; commentary: string; steps: string[] }> {
   if (!process.env.OPENAI_API_KEY) {
     throw new Error('OPENAI_API_KEY is not configured');
-  }
-
-  const trend = iRatingTrend(request.events);
-  if (trend.length === 0) {
-    return { trend, commentary: 'None of these events counted for iRating, so there is no trend to show.', steps: [] };
   }
 
   const tools = createTools(request);
@@ -243,5 +280,10 @@ export async function runRaceTrends(
       : []
   );
 
-  return { trend, commentary: result.structuredResponse.commentary, steps };
+  return {
+    trend: iRatingTrend(request.events),
+    incidents: incidentTrend(request.events),
+    commentary: result.structuredResponse.commentary,
+    steps,
+  };
 }

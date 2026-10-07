@@ -6,7 +6,7 @@ import type { StintLap } from '@/lib/stintExport';
 
 // Categorical colors in fixed order (sector 1 is always blue, sector 2 orange, ...). This order was
 // checked for color-blind separation between neighboring series; don't cycle or reorder it.
-const SECTOR_COLORS = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#4a3aa7', '#e34948'];
+export const SECTOR_COLORS = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#4a3aa7', '#e34948'];
 
 const HEIGHT = 300;
 const MARGIN = { top: 12, right: 16, bottom: 36, left: 52 };
@@ -17,7 +17,7 @@ const AXIS = '#cbd5e1'; // slate-300
 type Mode = 'time' | 'gap';
 
 // Round tick values for an axis; the first and last ticks extend past min..max so nothing is clipped
-function niceTicks(min: number, max: number, count = 5) {
+export function niceTicks(min: number, max: number, count = 5) {
   const span = max - min || 1;
   const rough = span / count;
   const magnitude = 10 ** Math.floor(Math.log10(rough));

@@ -10,12 +10,13 @@ import StintAnalysis from '@/components/StintAnalysis';
 import LapCompare from '@/components/LapCompare';
 import DebriefCoach from '@/components/DebriefCoach';
 import ReferencePoints from '@/components/ReferencePoints';
+import RaceTrends from '@/components/RaceTrends';
 
 // Space Fact Query tab is hidden for now; set to true to show it again
 const SHOW_SPACE_FACTS_TAB = false;
 
 export default function RacingPage() {
-  const [activeTab, setActiveTab] = useState<'friends' | 'chatbot' | 'spaceFacts' | 'racecar' | 'multiLap' | 'stint' | 'lapCompare' | 'debrief' | 'referencePoints'>(
+  const [activeTab, setActiveTab] = useState<'friends' | 'chatbot' | 'spaceFacts' | 'racecar' | 'multiLap' | 'stint' | 'lapCompare' | 'debrief' | 'referencePoints' | 'raceTrends'>(
     'friends'
   );
 
@@ -128,6 +129,16 @@ export default function RacingPage() {
             >
               Get Reference Points
             </button>
+            <button
+              onClick={() => setActiveTab('raceTrends')}
+              className={`px-6 py-3 font-semibold border-b-2 transition-colors ${
+                activeTab === 'raceTrends'
+                  ? 'text-powder-600 border-powder-600'
+                  : 'text-slate-600 border-transparent hover:text-dark-blue'
+              }`}
+            >
+              Race &amp; Qualy Trends
+            </button>
           </div>
 
           {/* Tab Content */}
@@ -235,6 +246,17 @@ export default function RacingPage() {
                   Upload your laps and get the brake point, max brake pressure and on-throttle point for each focus area.
                 </p>
                 <ReferencePoints />
+              </div>
+            )}
+
+            {/* Race & Qualy Trends Tab */}
+            {activeTab === 'raceTrends' && (
+              <div>
+                <h2 className="text-2xl font-bold text-dark-blue mb-2">Race &amp; Qualy Trends</h2>
+                <p className="text-slate-600 mb-6">
+                  Upload your iRacing event result JSON files and see how your iRating has moved over time.
+                </p>
+                <RaceTrends />
               </div>
             )}
           </div>

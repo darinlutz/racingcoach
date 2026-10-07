@@ -47,17 +47,15 @@ npm run lint         # Run ESLint
 ```
 src/
 ├── app/              # App Router root
-│   ├── layout.tsx    # Root layout with Navigation & Footer
+│   ├── layout.tsx    # Root layout with Navigation
 │   ├── page.tsx      # Home page (Bitcoin ticker, hero, CTA)
 │   ├── globals.css   # Global Tailwind styles
 │   ├── api/
 │   │   ├── bitcoin/      # Bitcoin price ticker data
 │   │   └── ...           # Racing, auth and Stripe routes
 │   ├── racing/       # Racing page (friends, lap/stint analysis, debrief coach)
-│   ├── solutions/    # Solutions showcase page
 └── components/       # Reusable React components
     ├── Navigation.tsx
-    ├── Footer.tsx
     ├── BitcoinTicker.tsx
 ```
 

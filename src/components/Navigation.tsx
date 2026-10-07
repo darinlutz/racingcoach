@@ -59,13 +59,6 @@ export default function Navigation({ user }: NavigationProps) {
             >
               Home 
             </Link>
-          <p>&nbsp;&nbsp;|&nbsp;&nbsp;</p>
-            <Link
-              href="/solutions"
-              className="px-3 py-2 text-dark-blue hover:text-powder-600 transition-colors font-medium"
-            >
-              Solutions
-            </Link>
             <p>&nbsp;&nbsp;|&nbsp;&nbsp;</p>
             <Link
               href="/racing"
@@ -79,12 +72,11 @@ export default function Navigation({ user }: NavigationProps) {
           <div className="hidden md:flex items-center gap-3">
             {user ? (
               <>
-                <span className="text-dark-blue font-medium whitespace-nowrap">Welcome, {user.userName}</span>
                 <Link
                   href="/account"
                   className="px-3 py-2 text-dark-blue hover:text-powder-600 transition-colors font-medium whitespace-nowrap"
                 >
-                  Account
+                  My Account
                 </Link>
                 <button
                   onClick={handleLogout}
@@ -93,6 +85,7 @@ export default function Navigation({ user }: NavigationProps) {
                 >
                   Logout
                 </button>
+                <span className="text-dark-blue font-medium whitespace-nowrap">Driver: {user.userName}</span>
               </>
             ) : (
               <>
@@ -147,13 +140,6 @@ export default function Navigation({ user }: NavigationProps) {
               Home
             </Link>
             <Link
-              href="/solutions"
-              className="block px-3 py-2 rounded-md text-base font-medium text-dark-blue hover:text-powder-600 hover:bg-slate-100 transition-colors"
-              onClick={closeMenu}
-            >
-              Solutions
-            </Link>
-            <Link
               href="/racing"
               className="block px-3 py-2 rounded-md text-base font-medium text-dark-blue hover:text-powder-600 hover:bg-slate-100 transition-colors"
               onClick={closeMenu}
@@ -168,10 +154,9 @@ export default function Navigation({ user }: NavigationProps) {
                     className="block px-3 py-2 rounded-md text-base font-medium text-dark-blue hover:text-powder-600 hover:bg-slate-100 transition-colors"
                     onClick={closeMenu}
                   >
-                    Account
+                    My Account
                   </Link>
-                  <div className="flex items-center justify-between px-3 py-2">
-                    <span className="text-base font-medium text-dark-blue">Welcome, {user.userName}</span>
+                  <div className="flex items-center gap-3 px-3 py-2">
                     <button
                       onClick={handleLogout}
                       disabled={loggingOut}
@@ -179,6 +164,7 @@ export default function Navigation({ user }: NavigationProps) {
                     >
                       Logout
                     </button>
+                    <span className="text-base font-medium text-dark-blue">Driver: {user.userName}</span>
                   </div>
                 </>
               ) : (

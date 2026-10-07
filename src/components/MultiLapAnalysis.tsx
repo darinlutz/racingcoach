@@ -141,7 +141,7 @@ export default function MultiLapAnalysis() {
       const uploadedTrack = added[0].trackName;
       const match = tracks.find((t) => t.fileName.toLowerCase() === uploadedTrack.toLowerCase());
       if (match) setTrackName(match.name);
-      else errors.push(`No track in Track_Area_Information.txt has TrackFileName "${uploadedTrack}".`);
+      else errors.push(`No track in your Track Management list is named "${uploadedTrack}".`);
     }
 
     setFileErrors(errors);
@@ -181,7 +181,7 @@ export default function MultiLapAnalysis() {
 
         for (const area of selectedTrack.areas) {
           if (area.start === null || area.end === null) {
-            lines.push(`${area.name}: missing start/end in Track_Area_Information.txt`, '');
+            lines.push(`${area.name}: missing start/end in Track Management`, '');
             continue;
           }
 

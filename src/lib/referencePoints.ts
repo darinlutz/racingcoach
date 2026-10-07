@@ -45,7 +45,7 @@ export type ReferenceRow = {
   brakeFeet: number | null;
   maxBrakePct: number | null;
   throttleFeet: number | null;
-  // From Track_Area_Information.txt; null when the file has no value (or 0, which it uses as a placeholder)
+  // From the focus area in Track Management; null when no target is set (0 also counts as not set)
   brakeTargetFeet: number | null;
   maxBrakeTargetPct: number | null;
   throttleTargetFeet: number | null;

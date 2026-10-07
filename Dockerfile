@@ -37,8 +37,6 @@ COPY --from=builder /app/.next/static ./.next/static
 # Scripts invoked via execFile('python', ...) at runtime
 COPY app.py GetBankFromRoutingNumber.py GT3_Car_Data.xlsx Track_Information.xlsx ./
 
-# Static track config read by /api/track-names
-COPY data/Track_Area_Information.txt ./data/Track_Area_Information.txt
 COPY src/intro_transformer.py ./src/intro_transformer.py
 COPY src/SampleDealGPT.py ./src/SampleDealGPT.py
 COPY src/prompts.py ./src/prompts.py

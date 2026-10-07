@@ -28,6 +28,10 @@ export default function ReferencePoints() {
   const [dragging, setDragging] = useState(false);
   const [running, setRunning] = useState(false);
   const [rows, setRows] = useState<ReferenceRow[] | null>(null);
+  // The track the grid was measured on, which stays put if another track is picked afterwards
+  const [rowsTrack, setRowsTrack] = useState<Track | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveResult, setSaveResult] = useState<{ ok: boolean; text: string } | null>(null);
   const [commentary, setCommentary] = useState('');
   const [steps, setSteps] = useState<string[]>([]);
   const [runError, setRunError] = useState('');
@@ -62,7 +66,7 @@ export default function ReferencePoints() {
       const uploadedTrack = added[0].trackName;
       const match = tracks.find((t) => t.fileName.toLowerCase() === uploadedTrack.toLowerCase());
       if (match) setTrackName(match.name);
-      else errors.push(`No track in Track_Area_Information.txt has TrackFileName "${uploadedTrack}".`);
+      else errors.push(`No track in your Track Management list is named "${uploadedTrack}".`);
     }
 
     setFileErrors(errors);
@@ -86,6 +90,7 @@ export default function ReferencePoints() {
     setRunning(true);
     setRunError('');
     setRows(null);
+    setSaveResult(null);
     setCommentary('');
     setSteps([]);
     try {
@@ -98,12 +103,67 @@ export default function ReferencePoints() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to get the reference points');
       setRows(data.rows);
+      setRowsTrack(selectedTrack);
       setCommentary(data.commentary);
       setSteps(data.steps);
     } catch (err) {
       setRunError(err instanceof Error ? err.message : 'unknown error');
     } finally {
       setRunning(false);
+    }
+  };
+
+  // Overwrites the focus area targets on the user's saved track with the measured points
+  const saveReferencePoints = async () => {
+    if (!rows || !rowsTrack) return;
+    setSaving(true);
+    setSaveResult(null);
+    try {
+      const res = await fetch('/api/tracks/reference-points', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          trackKey: rowsTrack.name,
+          trackName: rowsTrack.fileName,
+          areas: rows.map((row) => ({
+            name: row.area,
+            brakePointFeet: row.brakeFeet,
+            maxBrakePct: row.maxBrakePct,
+            throttlePointFeet: row.throttleFeet,
+          })),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to save the reference points');
+      const saved: string[] = data.saved;
+      const notFound: string[] = data.notFound;
+      // The saved points are now the targets: show them in the grid and use them in the next run
+      const isSaved = (area: string) => saved.some((name) => name.toLowerCase() === area.toLowerCase());
+      setRows((prev) =>
+        prev?.map((row) =>
+          isSaved(row.area)
+            ? {
+                ...row,
+                brakeTargetFeet: row.brakeFeet ?? row.brakeTargetFeet,
+                maxBrakeTargetPct: row.maxBrakePct === null ? row.maxBrakeTargetPct : Math.min(100, row.maxBrakePct),
+                throttleTargetFeet: row.throttleFeet ?? row.throttleTargetFeet,
+              }
+            : row
+        ) ?? prev
+      );
+      void fetch('/api/track-names')
+        .then((r) => (r.ok ? r.json() : null))
+        .then((fresh) => fresh && setTracks(fresh.tracks));
+      setSaveResult({
+        ok: true,
+        text:
+          `Saved ${saved.length} focus ${saved.length === 1 ? 'area' : 'areas'} to ${data.track}.` +
+          (notFound.length > 0 ? ` Not saved (no focus area with that name on your track): ${notFound.join(', ')}.` : ''),
+      });
+    } catch (err) {
+      setSaveResult({ ok: false, text: err instanceof Error ? err.message : 'Failed to save the reference points' });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -280,10 +340,34 @@ export default function ReferencePoints() {
             </div>
             <p className="text-xs text-slate-500">
               Each point is the average of your fastest third of runs through the area (at least one), measured in feet
-              from the start/finish line. Laps over 110% of the median lap time are left out as incident laps. The target is the value from
-              Track_Area_Information.txt. A dash means no braking or throttle point was found in that area, or no
-              target is set (a target of 0 counts as not set).
+              from the start/finish line. Laps over 110% of the median lap time are left out as incident laps. The target is the
+              focus area&apos;s value in Track Management. A dash means no braking or throttle point was found in that area, or
+              no target is set (a target of 0 counts as not set).
             </p>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={() => void saveReferencePoints()}
+                disabled={rows.length === 0 || saving}
+                className="px-4 py-2 font-semibold text-white bg-gradient-to-r from-powder-500 to-powder-600 rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {saving ? 'Saving…' : 'Save Reference Points'}
+              </button>
+              <p className="text-xs text-slate-500">
+                Overwrites the brake point, max brake pressure and on-throttle point of each focus area on your saved
+                track. A dash keeps the saved value.
+              </p>
+            </div>
+            {saveResult && (
+              <div
+                className={`px-4 py-3 rounded-lg border text-sm ${
+                  saveResult.ok ? 'bg-green-50 border-green-200 text-green-900' : 'bg-red-50 border-red-200 text-red-900'
+                }`}
+              >
+                {saveResult.text}
+              </div>
+            )}
 
             {commentary && (
               <div className="px-5 py-4 bg-white border border-slate-200 rounded-lg">

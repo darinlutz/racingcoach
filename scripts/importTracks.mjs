@@ -1,6 +1,6 @@
 // Imports a Track_Area_Information.txt file into one user's racingcoach."Tracks" and "FocusAreas".
 //
-//   node scripts/importTracks.mjs <email> [path/to/Track_Area_Information.txt]
+//   node scripts/importTracks.mjs <email> <path/to/Track_Area_Information.txt>
 //
 // The user must already have an account (signing up also creates the tables). Re-running is safe: each
 // track is matched on its key, its details are updated and its focus areas are replaced with the file's.
@@ -11,9 +11,9 @@ import pg from 'pg';
 
 const MAX_FOCUS_AREAS = 8;
 
-const [email, filePath = 'data/Track_Area_Information.txt'] = process.argv.slice(2);
-if (!email) {
-  console.error('Usage: node scripts/importTracks.mjs <email> [path/to/Track_Area_Information.txt]');
+const [email, filePath] = process.argv.slice(2);
+if (!email || !filePath) {
+  console.error('Usage: node scripts/importTracks.mjs <email> <path/to/Track_Area_Information.txt>');
   process.exit(1);
 }
 

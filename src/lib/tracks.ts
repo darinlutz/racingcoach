@@ -125,6 +125,62 @@ export async function updateTrack(userId: number, id: number, track: TrackInput)
   });
 }
 
+export const referencePointsInputSchema = z.object({
+  // The Reference Points tab's track: its key and name, as /api/track-names returns them
+  trackKey: z.string().trim().max(200),
+  trackName: z.string().trim().max(200),
+  areas: z
+    .array(
+      z.object({
+        name: z.string().trim().min(1).max(100),
+        brakePointFeet: z.number().nullable(),
+        maxBrakePct: z.number().nullable(),
+        throttlePointFeet: z.number().nullable(),
+      })
+    )
+    .min(1)
+    .max(50),
+});
+
+export type ReferencePointsInput = z.infer<typeof referencePointsInputSchema>;
+
+// Overwrites the brake point, max brake pressure and on-throttle point of the user's matching focus
+// areas (matched by name, ignoring case) on the track matching the key or name. A value the
+// measurement did not find (null) leaves the saved one alone.
+export async function saveReferencePoints(
+  userId: number,
+  input: ReferencePointsInput
+): Promise<{ track: string; saved: string[]; notFound: string[] }> {
+  await ensureUserSchema();
+  return transaction(async (client) => {
+    const { rows: tracks } = await client.query(
+      `SELECT id, track_name FROM racingcoach."Tracks"
+       WHERE user_id = $1 AND (lower(track_key) = lower($2) OR lower(track_name) = lower($3))
+       ORDER BY (lower(track_key) = lower($2)) DESC LIMIT 1`,
+      [userId, input.trackKey, input.trackName]
+    );
+    if (tracks.length === 0) throw new TrackNotFoundError();
+
+    const feet = (v: number | null) => (v === null ? null : Math.max(0, Math.round(v)));
+    const pct = (v: number | null) => (v === null ? null : Math.min(100, Math.max(0, Math.round(v))));
+    const saved: string[] = [];
+    const notFound: string[] = [];
+    for (const area of input.areas) {
+      const { rowCount } = await client.query(
+        `UPDATE racingcoach."FocusAreas"
+         SET brake_point_feet = COALESCE($3, brake_point_feet),
+             max_brake_pct = COALESCE($4, max_brake_pct),
+             throttle_point_feet = COALESCE($5, throttle_point_feet)
+         WHERE track_id = $1 AND lower(name) = lower($2)`,
+        [tracks[0].id, area.name, feet(area.brakePointFeet), pct(area.maxBrakePct), feet(area.throttlePointFeet)]
+      );
+      (rowCount ? saved : notFound).push(area.name);
+    }
+    await client.query('UPDATE racingcoach."Tracks" SET updated_at = now() WHERE id = $1', [tracks[0].id]);
+    return { track: tracks[0].track_name as string, saved, notFound };
+  });
+}
+
 // Only deletes the track if it belongs to this user; its focus areas go with it
 export async function deleteTrack(userId: number, id: number): Promise<void> {
   await ensureUserSchema();

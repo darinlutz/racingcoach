@@ -423,7 +423,7 @@ export default function LapCompare() {
       const match = tracks.find((t) => t.fileName.toLowerCase() === lap.trackName.toLowerCase());
       if (match) setTrackName(match.name);
       setLapError(
-        match ? '' : `No track in Track_Area_Information.txt has TrackFileName "${lap.trackName}".`
+        match ? '' : `No track in your Track Management list is named "${lap.trackName}".`
       );
       setLap(lap);
     } catch (err) {
@@ -470,7 +470,7 @@ export default function LapCompare() {
         // Each focus area gets a line (plus a blank line after it) and a table row
         for (const area of selectedTrack.areas) {
           if (area.start === null || area.end === null) {
-            const note = 'missing start/end in Track_Area_Information.txt';
+            const note = 'missing start/end in Track Management';
             lines.push(`${area.name}: ${note}`, '');
             rows.push({ name: area.name, comparison: null, note });
             continue;

@@ -47,13 +47,6 @@ export default function Home() {
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
             <Link
-              href="/solutions"
-              className="px-4 py-2 bg-gradient-to-r from-powder-500 to-powder-600 text-white font-bold rounded-lg hover:shadow-lg
-              hover:shadow-powder-500/50 transition-all transform hover:scale-105"
-            >
-              Explore Solutions
-            </Link>
-            <Link
               href="/signup"
               className="px-4 py-2 bg-gradient-to-r from-powder-500 to-powder-600 text-white font-bold rounded-lg hover:shadow-lg
               hover:shadow-powder-500/50 transition-all transform hover:scale-105"

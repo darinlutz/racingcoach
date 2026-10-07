@@ -33,9 +33,8 @@ space_facts.csv
 chroma_db/
 qa_chroma_db/
 
-# runtime data (Track_Area_Information.txt is static config and must be deployed)
+# runtime data
 /data/*
-!/data/Track_Area_Information.txt
 
 # local Turso/libSQL dev database
 local.db*

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import PythonRunner from '@/components/PythonRunner';
 import FriendsRoster from '@/components/FriendsRoster';
+import TrackManagement from '@/components/TrackManagement';
 import ChatbotLogger from '@/components/ChatbotLogger';
 import SpaceFactQuery from '@/components/SpaceFactQuery';
 import MultiLapAnalysis from '@/components/MultiLapAnalysis';
@@ -16,7 +17,7 @@ import RaceTrends from '@/components/RaceTrends';
 const SHOW_SPACE_FACTS_TAB = false;
 
 export default function RacingPage() {
-  const [activeTab, setActiveTab] = useState<'friends' | 'chatbot' | 'spaceFacts' | 'racecar' | 'multiLap' | 'stint' | 'lapCompare' | 'debrief' | 'referencePoints' | 'raceTrends'>(
+  const [activeTab, setActiveTab] = useState<'tracks' | 'friends' | 'chatbot' | 'spaceFacts' | 'racecar' | 'multiLap' | 'stint' | 'lapCompare' | 'debrief' | 'referencePoints' | 'raceTrends'>(
     'friends'
   );
 
@@ -37,6 +38,16 @@ export default function RacingPage() {
         <div className="w-full max-w-4xl">
           {/* Tab Navigation */}
           <div className="flex flex-wrap gap-4 mb-6 border-b border-slate-200">
+            <button
+              onClick={() => setActiveTab('tracks')}
+              className={`px-6 py-3 font-semibold border-b-2 transition-colors ${
+                activeTab === 'tracks'
+                  ? 'text-powder-600 border-powder-600'
+                  : 'text-slate-600 border-transparent hover:text-dark-blue'
+              }`}
+            >
+              Track Management
+            </button>
             <button
               onClick={() => setActiveTab('friends')}
               className={`px-6 py-3 font-semibold border-b-2 transition-colors ${
@@ -143,6 +154,18 @@ export default function RacingPage() {
 
           {/* Tab Content */}
           <div className="bg-slate-50 rounded-xl border border-slate-200 p-8">
+            {/* Track Management Tab */}
+            {activeTab === 'tracks' && (
+              <div>
+                <h2 className="text-2xl font-bold text-dark-blue mb-2">Track Management</h2>
+                <p className="text-slate-600 mb-6">
+                  Your tracks and their focus areas (up to 8 per track). Expand a track to see its focus areas, or
+                  press Edit to change them.
+                </p>
+                <TrackManagement />
+              </div>
+            )}
+
             {/* Friends Tab */}
             {activeTab === 'friends' && (
               <div>

@@ -46,16 +46,6 @@ export default function RacingPage() {
             >
               Debrief Coach
             </button>
-            <button
-              onClick={() => setActiveTab('tracks')}
-              className={`px-6 py-3 font-semibold border-b-2 transition-colors ${
-                activeTab === 'tracks'
-                  ? 'text-primary border-primary'
-                  : 'text-muted-foreground border-transparent hover:text-foreground'
-              }`}
-            >
-              Track Management
-            </button>
             {SHOW_SPACE_FACTS_TAB && (
               <button
                 onClick={() => setActiveTab('spaceFacts')}
@@ -68,16 +58,6 @@ export default function RacingPage() {
                 Space Fact Query
               </button>
             )}
-            <button
-              onClick={() => setActiveTab('racecar')}
-              className={`px-6 py-3 font-semibold border-b-2 transition-colors ${
-                activeTab === 'racecar'
-                  ? 'text-primary border-primary'
-                  : 'text-muted-foreground border-transparent hover:text-foreground'
-              }`}
-            >
-              Racecar Analysis
-            </button>
             <button
               onClick={() => setActiveTab('multiLap')}
               className={`px-6 py-3 font-semibold border-b-2 transition-colors ${
@@ -110,7 +90,7 @@ export default function RacingPage() {
             </button>
             <button
               onClick={() => setActiveTab('referencePoints')}
-              className={`px-6 py-3 font-semibold border-b-2 transition-colors ${
+              className={`ml-auto px-6 py-3 font-semibold border-b-2 transition-colors ${
                 activeTab === 'referencePoints'
                   ? 'text-primary border-primary'
                   : 'text-muted-foreground border-transparent hover:text-foreground'
@@ -119,8 +99,28 @@ export default function RacingPage() {
               Get Reference Points
             </button>
             <button
+              onClick={() => setActiveTab('tracks')}
+              className={`px-6 py-3 font-semibold border-b-2 transition-colors ${
+                activeTab === 'tracks'
+                  ? 'text-primary border-primary'
+                  : 'text-muted-foreground border-transparent hover:text-foreground'
+              }`}
+            >
+              Track Management
+            </button>
+            <button
+              onClick={() => setActiveTab('racecar')}
+              className={`px-6 py-3 font-semibold border-b-2 transition-colors ${
+                activeTab === 'racecar'
+                  ? 'text-primary border-primary'
+                  : 'text-muted-foreground border-transparent hover:text-foreground'
+              }`}
+            >
+              Racecar Analysis
+            </button>
+            <button
               onClick={() => setActiveTab('friends')}
-              className={`ml-auto px-6 py-3 font-semibold border-b-2 transition-colors ${
+              className={`px-6 py-3 font-semibold border-b-2 transition-colors ${
                 activeTab === 'friends'
                   ? 'text-primary border-primary'
                   : 'text-muted-foreground border-transparent hover:text-foreground'
@@ -150,7 +150,7 @@ export default function RacingPage() {
               <div>
                 <h2 className="text-2xl font-bold text-foreground mb-2">Friends</h2>
                 <p className="text-muted-foreground mb-6">
-                  Keep track of your friends. Each account has its own list.
+                  Keep track of your racing friends. Each account has its own list.
                 </p>
                 <FriendsRoster />
               </div>

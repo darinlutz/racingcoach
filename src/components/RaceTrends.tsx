@@ -5,14 +5,16 @@ import Link from 'next/link';
 
 import IncidentsChart from '@/components/IncidentsChart';
 import IRatingChart from '@/components/IRatingChart';
+import PositionsChart from '@/components/PositionsChart';
 import type { Connection } from '@/lib/raceHistory';
 import type { IncidentPoint, IRatingSeries, RaceEvent } from '@/lib/raceTrends';
 
-type ChartTab = 'iRating' | 'incidents';
+type ChartTab = 'iRating' | 'incidents' | 'positions';
 
 const CHART_TABS: { value: ChartTab; label: string }[] = [
   { value: 'iRating', label: 'iRating Trend' },
   { value: 'incidents', label: 'Incidents' },
+  { value: 'positions', label: 'Positions Gained/Lost' },
 ];
 
 type SyncState = { running: boolean; loaded: number; total: number; error: string };
@@ -301,6 +303,16 @@ export default function RaceTrends() {
                       Each point is your iRating after a race. iRacing keeps a separate iRating for each license
                       category, so each category gets its own line. Unofficial races (such as 13th week events)
                       don&apos;t change iRating, so they show as flat steps.
+                    </p>
+                  </>
+                )}
+
+                {chartTab === 'positions' && (
+                  <>
+                    <PositionsChart events={events} />
+                    <p className="text-xs text-muted-foreground">
+                      Each pair of bars is one race: where you started and where you finished, in your class. A
+                      shorter orange bar than blue means you gained positions.
                     </p>
                   </>
                 )}

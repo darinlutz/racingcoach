@@ -41,6 +41,12 @@ export default async function AccountPage() {
 
         <dl className="divide-y divide-border bg-card rounded-lg border border-border">
           <div className="flex justify-between gap-4 px-4 py-3">
+            <dt className="text-sm font-medium text-muted-foreground">Email</dt>
+            <dd className="text-foreground font-medium text-right break-all">
+              {user.emailAddress}
+            </dd>
+          </div>
+          <div className="flex justify-between gap-4 px-4 py-3">
             <dt className="text-sm font-medium text-muted-foreground">Name</dt>
             <dd className="text-foreground font-medium text-right">
               {user.userName}

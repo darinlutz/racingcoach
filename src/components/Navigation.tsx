@@ -64,8 +64,8 @@ export default function Navigation({ user }: NavigationProps) {
         <div className="hidden md:flex items-center gap-4">
           {user ? (
             <>
-              <span className="font-semibold text-muted-foreground whitespace-nowrap">Driver: <span className="text-foreground">{user.userName}</span></span>
               <Link href="/account" className={navLink('/account')}>My Account</Link>
+              <span className="font-semibold text-muted-foreground whitespace-nowrap">Driver: <span className="text-foreground">{user.userName}</span></span>
               <button
                 onClick={handleLogout}
                 disabled={loggingOut}

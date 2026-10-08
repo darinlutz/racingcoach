@@ -20,7 +20,7 @@ export async function POST(request: Request) {
   } catch (error) {
     if (error instanceof TrackNotFoundError) {
       return NextResponse.json(
-        { error: 'This track is not in your Track Management list. Add it there first.' },
+        { error: 'This track is not in your Track Data list. Add it there first.' },
         { status: 404 }
       );
     }

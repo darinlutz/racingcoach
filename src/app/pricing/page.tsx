@@ -16,7 +16,7 @@ const PLANS: { plan: Plan; name: string; period: string; blurb: string; features
       'Debrief Coach: AI review of every lap in your session',
       'Multi-Lap, Stint and Lap Compare analysis',
       'Reference points for every focus area',
-      'Track Management with up to 8 focus areas per track',
+      'Track Data with up to 8 focus areas per track',
       'Racecar Analysis Q&A',
       'My Race Trends: iRating and incidents synced from iRacePlan',
       'Cancel anytime',

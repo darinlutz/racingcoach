@@ -48,7 +48,7 @@ export default function DebriefCoach() {
       const uploadedTrack = added[0].trackName;
       const match = tracks.find((t) => t.fileName.toLowerCase() === uploadedTrack.toLowerCase());
       if (match) setTrackName(match.name);
-      else errors.push(`No track in your Track Management list is named "${uploadedTrack}".`);
+      else errors.push(`No track in your Track Data list is named "${uploadedTrack}".`);
     }
 
     setFileErrors(errors);

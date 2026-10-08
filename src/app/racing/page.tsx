@@ -106,7 +106,7 @@ export default function RacingPage() {
                   : 'text-muted-foreground border-transparent hover:text-foreground'
               }`}
             >
-              Track Management
+              Track Data
             </button>
             <button
               onClick={() => setActiveTab('racecar')}
@@ -132,10 +132,10 @@ export default function RacingPage() {
 
           {/* Tab Content */}
           <div className="bg-secondary rounded-xl border border-border p-8">
-            {/* Track Management Tab */}
+            {/* Track Data Tab */}
             {activeTab === 'tracks' && (
               <div>
-                <h2 className="text-2xl font-bold text-foreground mb-2">Track Management</h2>
+                <h2 className="text-2xl font-bold text-foreground mb-2">Track Data</h2>
                 <p className="text-muted-foreground mb-6">
                   Your tracks and their focus areas (up to 8 per track). Expand a track to see its focus areas, or
                   press Edit to change them.

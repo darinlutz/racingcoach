@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 
+import RaceRangePicker from '@/components/RaceRangePicker';
 import { SECTOR_COLORS, niceTicks } from '@/components/SectorChart';
 import type { IRatingPoint, IRatingSeries } from '@/lib/raceTrends';
 
@@ -15,22 +16,45 @@ export const time = (iso: string) => new Date(iso).getTime();
 export const formatDate = (iso: string) => new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 const signed = (n: number) => (n > 0 ? `+${n}` : `${n}`);
 
-// First-of-month ticks between two times, every Nth month so the labels fit
-export function monthTicks(start: number, end: number, maxTicks: number) {
+// Date ticks between two times, thinned so the labels fit: first of each month, or individual days
+// when the span is too short to cross two month starts (e.g. only the last 20 races)
+export function dateTicks(start: number, end: number, maxTicks: number): { t: number; label: string }[] {
   const months: Date[] = [];
   const d = new Date(start);
   d.setDate(1);
   d.setHours(0, 0, 0, 0);
   if (d.getTime() < start) d.setMonth(d.getMonth() + 1);
   for (; d.getTime() <= end; d.setMonth(d.getMonth() + 1)) months.push(new Date(d));
-  const step = Math.max(1, Math.ceil(months.length / Math.max(1, maxTicks)));
-  return months.filter((_, i) => i % step === 0);
+  if (months.length >= 2) {
+    const step = Math.max(1, Math.ceil(months.length / Math.max(1, maxTicks)));
+    return months
+      .filter((_, i) => i % step === 0)
+      .map((m) => ({ t: m.getTime(), label: m.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }) }));
+  }
+
+  const days: Date[] = [];
+  const day = new Date(start);
+  day.setHours(0, 0, 0, 0);
+  if (day.getTime() < start) day.setDate(day.getDate() + 1);
+  for (; day.getTime() <= end; day.setDate(day.getDate() + 1)) days.push(new Date(day));
+  const step = Math.max(1, Math.ceil(days.length / Math.max(1, maxTicks)));
+  return days
+    .filter((_, i) => i % step === 0)
+    .map((m) => ({ t: m.getTime(), label: m.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) }));
 }
 
 type Hovered = { series: IRatingSeries; color: string; point: IRatingPoint };
 
 // iRating after each rated race over time, one line per license category
-export default function IRatingChart({ trend }: { trend: IRatingSeries[] }) {
+export default function IRatingChart({
+  trend,
+  range,
+  onRangeChange,
+}: {
+  trend: IRatingSeries[];
+  range: number;
+  onRangeChange: (range: number) => void;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
   const [hovered, setHovered] = useState<Hovered | null>(null);
@@ -44,7 +68,11 @@ export default function IRatingChart({ trend }: { trend: IRatingSeries[] }) {
     return () => observer.disconnect();
   }, []);
 
+  // The latest `range` rated races across every category
+  const raceTimes = trend.flatMap((s) => s.points.map((p) => time(p.startTime))).sort((a, b) => b - a);
+  const cutoff = range && raceTimes.length > range ? raceTimes[range - 1] : -Infinity;
   const lines = trend
+    .map((s) => ({ ...s, points: s.points.filter((p) => time(p.startTime) >= cutoff) }))
     .filter((s) => s.points.length > 0)
     .slice(0, SECTOR_COLORS.length)
     .map((s, i) => ({ series: s, color: SECTOR_COLORS[i] }));
@@ -64,7 +92,7 @@ export default function IRatingChart({ trend }: { trend: IRatingSeries[] }) {
   const plotHeight = HEIGHT - MARGIN.top - MARGIN.bottom;
   const x = (t: number) => MARGIN.left + (tMax === tMin ? plotWidth / 2 : ((t - tMin) / (tMax - tMin)) * plotWidth);
   const y = (value: number) => MARGIN.top + plotHeight - ((value - yMin) / (yMax - yMin || 1)) * plotHeight;
-  const xTicks = monthTicks(tMin, tMax, Math.floor(plotWidth / 70));
+  const xTicks = dateTicks(tMin, tMax, Math.floor(plotWidth / 70));
 
   // The race nearest the pointer, across every line
   const handlePointer = (e: React.PointerEvent<SVGRectElement>) => {
@@ -91,9 +119,12 @@ export default function IRatingChart({ trend }: { trend: IRatingSeries[] }) {
 
   return (
     <div className="bg-card border border-border rounded-lg p-4">
-      <p className="text-sm font-medium text-foreground mb-3">
-        iRating <span className="font-normal text-muted-foreground">after each rated race</span>
-      </p>
+      <div className="flex flex-wrap items-baseline justify-between gap-2 mb-3">
+        <p className="text-sm font-medium text-foreground">
+          iRating <span className="font-normal text-muted-foreground">after each rated race</span>
+        </p>
+        <RaceRangePicker value={range} onChange={onRangeChange} />
+      </div>
 
       {/* Legend */}
       <ul className="flex flex-wrap gap-x-4 gap-y-1 mb-2 text-xs text-muted-foreground">
@@ -139,16 +170,16 @@ export default function IRatingChart({ trend }: { trend: IRatingSeries[] }) {
               stroke={AXIS}
               strokeWidth={1}
             />
-            {xTicks.map((d) => (
+            {xTicks.map((tick) => (
               <text
-                key={d.getTime()}
-                x={x(d.getTime())}
+                key={tick.t}
+                x={x(tick.t)}
                 y={MARGIN.top + plotHeight + 16}
                 textAnchor="middle"
                 fontSize={11}
                 fill={INK_MUTED}
               >
-                {d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' })}
+                {tick.label}
               </text>
             ))}
 

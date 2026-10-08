@@ -6,6 +6,7 @@ import Link from 'next/link';
 import IncidentsChart from '@/components/IncidentsChart';
 import IRatingChart from '@/components/IRatingChart';
 import PositionsChart from '@/components/PositionsChart';
+import { DEFAULT_RACE_RANGE } from '@/components/RaceRangePicker';
 import type { Connection } from '@/lib/raceHistory';
 import type { IncidentPoint, IRatingSeries, RaceEvent } from '@/lib/raceTrends';
 
@@ -38,6 +39,8 @@ export default function RaceTrends() {
   const [trend, setTrend] = useState<IRatingSeries[] | null>(null);
   const [incidents, setIncidents] = useState<IncidentPoint[]>([]);
   const [chartTab, setChartTab] = useState<ChartTab>('iRating');
+  // Shared by every chart tab, so switching tabs keeps the same races in view
+  const [range, setRange] = useState(DEFAULT_RACE_RANGE);
   const [commentary, setCommentary] = useState('');
   const [steps, setSteps] = useState<string[]>([]);
   const [runError, setRunError] = useState('');
@@ -295,7 +298,7 @@ export default function RaceTrends() {
                 {chartTab === 'iRating' && (
                   <>
                     {trend.length > 0 ? (
-                      <IRatingChart trend={trend} />
+                      <IRatingChart trend={trend} range={range} onRangeChange={setRange} />
                     ) : (
                       <p className="text-sm text-muted-foreground">None of these races have an iRating.</p>
                     )}
@@ -309,7 +312,7 @@ export default function RaceTrends() {
 
                 {chartTab === 'positions' && (
                   <>
-                    <PositionsChart events={events} />
+                    <PositionsChart events={events} range={range} onRangeChange={setRange} />
                     <p className="text-xs text-muted-foreground">
                       Each pair of bars is one race: where you started and where you finished, in your class. A
                       shorter orange bar than blue means you gained positions.
@@ -319,7 +322,7 @@ export default function RaceTrends() {
 
                 {chartTab === 'incidents' && (
                   <>
-                    <IncidentsChart points={incidents} />
+                    <IncidentsChart points={incidents} range={range} onRangeChange={setRange} />
                     <p className="text-xs text-muted-foreground">
                       Each dot is the incident points you picked up in one race, rated or not. The line is the average
                       of your last 10 races at that point, which shows the trend better than single races.

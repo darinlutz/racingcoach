@@ -66,7 +66,7 @@ export default function ReferencePoints() {
       const uploadedTrack = added[0].trackName;
       const match = tracks.find((t) => t.fileName.toLowerCase() === uploadedTrack.toLowerCase());
       if (match) setTrackName(match.name);
-      else errors.push(`No track in your Track Management list is named "${uploadedTrack}".`);
+      else errors.push(`No track in your Track Data list is named "${uploadedTrack}".`);
     }
 
     setFileErrors(errors);
@@ -341,7 +341,7 @@ export default function ReferencePoints() {
             <p className="text-xs text-muted-foreground">
               Each point is the average of your fastest third of runs through the area (at least one), measured in feet
               from the start/finish line. Laps over 110% of the median lap time are left out as incident laps. The target is the
-              focus area&apos;s value in Track Management. A dash means no braking or throttle point was found in that area, or
+              focus area&apos;s value in Track Data. A dash means no braking or throttle point was found in that area, or
               no target is set (a target of 0 counts as not set).
             </p>
 

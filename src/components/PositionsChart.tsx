@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { formatDate } from '@/components/IRatingChart';
+import RaceRangePicker, { lastRaces } from '@/components/RaceRangePicker';
 import { SECTOR_COLORS, niceTicks } from '@/components/SectorChart';
 import type { RaceEvent } from '@/lib/raceTrends';
 
@@ -14,22 +15,22 @@ const AXIS = '#3b3d40'; // just above border
 const START = SECTOR_COLORS[0];
 const FINISH = SECTOR_COLORS[1];
 
-// Grouped bars get unreadable past a few dozen races, so the chart shows the latest ones by default
-const RANGES = [
-  { value: 20, label: 'Last 20' },
-  { value: 50, label: 'Last 50' },
-  { value: 0, label: 'All' },
-];
-
 type Race = RaceEvent & { startPosition: number; finishPosition: number };
 
 const signed = (n: number) => (n > 0 ? `+${n}` : `${n}`);
 
 // Start and finish position in each race, side by side; positions gained is start minus finish
-export default function PositionsChart({ events }: { events: RaceEvent[] }) {
+export default function PositionsChart({
+  events,
+  range,
+  onRangeChange,
+}: {
+  events: RaceEvent[];
+  range: number;
+  onRangeChange: (range: number) => void;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
-  const [range, setRange] = useState(RANGES[0].value);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const [showTable, setShowTable] = useState(false);
 
@@ -45,7 +46,7 @@ export default function PositionsChart({ events }: { events: RaceEvent[] }) {
   if (all.length === 0) {
     return <p className="text-sm text-muted-foreground">None of these races have a start and finish position.</p>;
   }
-  const races = range ? all.slice(-range) : all;
+  const races = lastRaces(all, range);
   const avgGained = races.reduce((s, r) => s + r.startPosition - r.finishPosition, 0) / races.length;
 
   const ticks = niceTicks(0, Math.max(...races.flatMap((r) => [r.startPosition, r.finishPosition])));
@@ -77,21 +78,7 @@ export default function PositionsChart({ events }: { events: RaceEvent[] }) {
             ({signed(Number(avgGained.toFixed(1)))} avg positions over {races.length} races)
           </span>
         </p>
-        <div className="flex gap-1" role="group" aria-label="Races shown">
-          {RANGES.map((r) => (
-            <button
-              key={r.value}
-              type="button"
-              onClick={() => setRange(r.value)}
-              aria-pressed={range === r.value}
-              className={`px-2 py-1 rounded text-xs font-semibold transition-colors ${
-                range === r.value ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              {r.label}
-            </button>
-          ))}
-        </div>
+        <RaceRangePicker value={range} onChange={onRangeChange} />
       </div>
 
       {/* Legend */}

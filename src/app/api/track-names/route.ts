@@ -3,14 +3,14 @@ import type { Track } from '@/lib/lapData';
 import { getCurrentUser } from '@/lib/session';
 import { readTracks } from '@/lib/tracks';
 
-// The signed-in user's tracks and focus areas from Track Management, for the Racing tabs that measure
+// The signed-in user's tracks and focus areas from Track Data, for the Racing tabs that measure
 // laps against focus areas. `name` is the track key and `fileName` the name Garage 61 puts in its CSV
 // file names; start/end are fractions of a lap and the targets are null when not set.
 export async function GET() {
   try {
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json({ error: 'Log in to use your tracks from Track Management' }, { status: 401 });
+      return NextResponse.json({ error: 'Log in to use your tracks from Track Data' }, { status: 401 });
     }
     const tracks: Track[] = (await readTracks(user.id)).map((track) => ({
       name: track.key,

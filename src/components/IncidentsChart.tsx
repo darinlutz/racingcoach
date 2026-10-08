@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-import { formatDate, monthTicks, time } from '@/components/IRatingChart';
+import { dateTicks, formatDate, time } from '@/components/IRatingChart';
+import RaceRangePicker, { lastRaces } from '@/components/RaceRangePicker';
 import { SECTOR_COLORS, niceTicks } from '@/components/SectorChart';
 import type { IncidentPoint } from '@/lib/raceTrends';
 
@@ -18,7 +19,15 @@ const AVERAGE = SECTOR_COLORS[0];
 const WINDOW = 10;
 
 // Incidents in each race over time, with a rolling average line through them
-export default function IncidentsChart({ points }: { points: IncidentPoint[] }) {
+export default function IncidentsChart({
+  points: allPoints,
+  range,
+  onRangeChange,
+}: {
+  points: IncidentPoint[];
+  range: number;
+  onRangeChange: (range: number) => void;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
@@ -32,13 +41,16 @@ export default function IncidentsChart({ points }: { points: IncidentPoint[] }) 
     return () => observer.disconnect();
   }, []);
 
-  if (points.length === 0) return null;
+  if (allPoints.length === 0) return null;
 
-  const span = Math.min(WINDOW, points.length);
-  const averages = points.map((_, i) => {
-    const slice = points.slice(Math.max(0, i - span + 1), i + 1);
+  // Averages run over every race, so the line is already settled at the start of a shorter range
+  const span = Math.min(WINDOW, allPoints.length);
+  const allAverages = allPoints.map((_, i) => {
+    const slice = allPoints.slice(Math.max(0, i - span + 1), i + 1);
     return slice.reduce((s, p) => s + p.incidents, 0) / slice.length;
   });
+  const points = lastRaces(allPoints, range);
+  const averages = lastRaces(allAverages, range);
   const total = points.reduce((s, p) => s + p.incidents, 0);
 
   const ticks = niceTicks(0, Math.max(...points.map((p) => p.incidents), 1));
@@ -50,7 +62,7 @@ export default function IncidentsChart({ points }: { points: IncidentPoint[] }) 
   const plotHeight = HEIGHT - MARGIN.top - MARGIN.bottom;
   const x = (t: number) => MARGIN.left + (tMax === tMin ? plotWidth / 2 : ((t - tMin) / (tMax - tMin)) * plotWidth);
   const y = (value: number) => MARGIN.top + plotHeight - (value / (yMax || 1)) * plotHeight;
-  const xTicks = monthTicks(tMin, tMax, Math.floor(plotWidth / 70));
+  const xTicks = dateTicks(tMin, tMax, Math.floor(plotWidth / 70));
 
   const handlePointer = (e: React.PointerEvent<SVGRectElement>) => {
     const px = e.clientX - e.currentTarget.getBoundingClientRect().left + MARGIN.left;
@@ -67,12 +79,15 @@ export default function IncidentsChart({ points }: { points: IncidentPoint[] }) 
 
   return (
     <div className="bg-card border border-border rounded-lg p-4">
-      <p className="text-sm font-medium text-foreground mb-3">
-        Incidents <span className="font-normal text-muted-foreground">per race</span>
-        <span className="ml-2 font-normal text-muted-foreground" style={{ fontVariantNumeric: 'tabular-nums' }}>
-          ({(total / points.length).toFixed(1)} avg over {points.length} races)
-        </span>
-      </p>
+      <div className="flex flex-wrap items-baseline justify-between gap-2 mb-3">
+        <p className="text-sm font-medium text-foreground">
+          Incidents <span className="font-normal text-muted-foreground">per race</span>
+          <span className="ml-2 font-normal text-muted-foreground" style={{ fontVariantNumeric: 'tabular-nums' }}>
+            ({(total / points.length).toFixed(1)} avg over {points.length} races)
+          </span>
+        </p>
+        <RaceRangePicker value={range} onChange={onRangeChange} />
+      </div>
 
       {/* Legend */}
       <ul className="flex flex-wrap gap-x-4 gap-y-1 mb-2 text-xs text-muted-foreground">
@@ -114,16 +129,16 @@ export default function IncidentsChart({ points }: { points: IncidentPoint[] }) 
               stroke={AXIS}
               strokeWidth={1}
             />
-            {xTicks.map((d) => (
+            {xTicks.map((tick) => (
               <text
-                key={d.getTime()}
-                x={x(d.getTime())}
+                key={tick.t}
+                x={x(tick.t)}
                 y={MARGIN.top + plotHeight + 16}
                 textAnchor="middle"
                 fontSize={11}
                 fill={INK_MUTED}
               >
-                {d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' })}
+                {tick.label}
               </text>
             ))}
 

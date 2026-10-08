@@ -32,26 +32,26 @@ export default function WeatherTable({ stint, onRemove, note, isHighlighted, sho
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
-        <p className="text-sm font-medium text-dark-blue">
-          Weather conditions <span className="font-normal text-slate-500">({stint.fileName})</span>
+        <p className="text-sm font-medium text-foreground">
+          Weather conditions <span className="font-normal text-muted-foreground">({stint.fileName})</span>
         </p>
         <button
           type="button"
           onClick={onRemove}
           aria-label="Remove stint export"
-          className="ml-3 text-slate-500 hover:text-red-600"
+          className="ml-3 text-muted-foreground hover:text-primary"
         >
           ✕
         </button>
       </div>
-      <p className="text-sm text-slate-600 mb-2">
+      <p className="text-sm text-muted-foreground mb-2">
         Track temp {formatTempF(Math.min(...trackTemps))} – {formatTempF(Math.max(...trackTemps))} over the stint.
         {note && ` ${note}`}
       </p>
       {summary}
-      <div className="overflow-x-auto bg-white border border-slate-200 rounded-lg">
-        <table className="w-full text-sm text-dark-blue whitespace-nowrap">
-          <thead className="bg-slate-100 text-left text-slate-600">
+      <div className="overflow-x-auto bg-card border border-border rounded-lg">
+        <table className="w-full text-sm text-foreground whitespace-nowrap">
+          <thead className="bg-secondary text-left text-muted-foreground">
             <tr>
               {headings.map((heading) => (
                 <th key={heading} className="px-3 py-2 font-medium">
@@ -64,7 +64,7 @@ export default function WeatherTable({ stint, onRemove, note, isHighlighted, sho
             {stint.laps.map((lap) => (
               <tr
                 key={`${lap.run}-${lap.lap}`}
-                className={`border-t border-slate-100 ${isHighlighted?.(lap.lapSeconds) ? 'bg-powder-50 font-semibold' : ''}`}
+                className={`border-t border-border ${isHighlighted?.(lap.lapSeconds) ? 'bg-accent font-semibold' : ''}`}
               >
                 <td className="px-3 py-2">{lap.lap}</td>
                 <td className="px-3 py-2">{formatSeconds(lap.lapSeconds)}</td>

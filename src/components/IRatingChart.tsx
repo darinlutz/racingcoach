@@ -7,9 +7,9 @@ import type { IRatingPoint, IRatingSeries } from '@/lib/raceTrends';
 
 const HEIGHT = 320;
 const MARGIN = { top: 12, right: 16, bottom: 36, left: 52 };
-const INK_MUTED = '#64748b'; // slate-500
-const GRID = '#e2e8f0'; // slate-200
-const AXIS = '#cbd5e1'; // slate-300
+const INK_MUTED = '#92959a'; // muted-foreground
+const GRID = '#252629'; // just above card
+const AXIS = '#3b3d40'; // just above border
 
 export const time = (iso: string) => new Date(iso).getTime();
 export const formatDate = (iso: string) => new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -90,20 +90,20 @@ export default function IRatingChart({ trend }: { trend: IRatingSeries[] }) {
   const tableRows = [...allPoints].sort((a, b) => time(b.point.startTime) - time(a.point.startTime));
 
   return (
-    <div className="bg-white border border-slate-200 rounded-lg p-4">
-      <p className="text-sm font-medium text-dark-blue mb-3">
-        iRating <span className="font-normal text-slate-500">after each rated race</span>
+    <div className="bg-card border border-border rounded-lg p-4">
+      <p className="text-sm font-medium text-foreground mb-3">
+        iRating <span className="font-normal text-muted-foreground">after each rated race</span>
       </p>
 
       {/* Legend */}
-      <ul className="flex flex-wrap gap-x-4 gap-y-1 mb-2 text-xs text-slate-600">
+      <ul className="flex flex-wrap gap-x-4 gap-y-1 mb-2 text-xs text-muted-foreground">
         {lines.map(({ series, color }) => {
           const last = series.points[series.points.length - 1];
           return (
             <li key={series.category} className="flex items-center gap-1.5">
               <span className="inline-block w-3 rounded" style={{ backgroundColor: color, height: 2 }} />
               {series.category}{' '}
-              <span className="text-slate-500" style={{ fontVariantNumeric: 'tabular-nums' }}>
+              <span className="text-muted-foreground" style={{ fontVariantNumeric: 'tabular-nums' }}>
                 ({series.points[0].oldIRating} → {last.iRating}, {signed(last.iRating - series.points[0].oldIRating)})
               </span>
             </li>
@@ -182,7 +182,7 @@ export default function IRatingChart({ trend }: { trend: IRatingSeries[] }) {
 
             {/* Hovered race marker, ringed in white so it stands out from the line */}
             {hovered && (
-              <circle cx={hoverX} cy={y(hovered.point.iRating)} r={4} fill={hovered.color} stroke="#ffffff" strokeWidth={2} />
+              <circle cx={hoverX} cy={y(hovered.point.iRating)} r={4} fill={hovered.color} stroke="#151618" strokeWidth={2} />
             )}
 
             {/* Hit area for the pointer */}
@@ -202,20 +202,20 @@ export default function IRatingChart({ trend }: { trend: IRatingSeries[] }) {
         {/* Tooltip */}
         {hovered && (
           <div
-            className="pointer-events-none absolute top-2 z-10 bg-white border border-slate-200 rounded-lg shadow-md px-3 py-2 text-xs text-dark-blue whitespace-nowrap"
+            className="pointer-events-none absolute top-2 z-10 bg-card border border-border rounded-lg shadow-md px-3 py-2 text-xs text-foreground whitespace-nowrap"
             style={tooltipOnLeft ? { right: width - hoverX + 12 } : { left: hoverX + 12 }}
           >
             <p className="font-semibold mb-1 flex items-center gap-2">
               <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: hovered.color }} />
               {formatDate(hovered.point.startTime)}
             </p>
-            <p className="text-slate-600">{hovered.point.series}</p>
-            <p className="text-slate-600">{hovered.point.track}</p>
+            <p className="text-muted-foreground">{hovered.point.series}</p>
+            <p className="text-muted-foreground">{hovered.point.track}</p>
             <p className="mt-1" style={{ fontVariantNumeric: 'tabular-nums' }}>
               iRating {hovered.point.oldIRating} → <span className="font-semibold">{hovered.point.iRating}</span>{' '}
-              <span className="text-slate-500">({signed(hovered.point.iRating - hovered.point.oldIRating)})</span>
+              <span className="text-muted-foreground">({signed(hovered.point.iRating - hovered.point.oldIRating)})</span>
             </p>
-            {hovered.point.finishPosition !== null && <p className="text-slate-600">Finished P{hovered.point.finishPosition}</p>}
+            {hovered.point.finishPosition !== null && <p className="text-muted-foreground">Finished P{hovered.point.finishPosition}</p>}
           </div>
         )}
       </div>
@@ -224,14 +224,14 @@ export default function IRatingChart({ trend }: { trend: IRatingSeries[] }) {
       <button
         type="button"
         onClick={() => setShowTable(!showTable)}
-        className="mt-2 text-xs font-semibold text-powder-600 hover:underline"
+        className="mt-2 text-xs font-semibold text-primary hover:underline"
       >
         {showTable ? 'Hide values' : 'Show values'}
       </button>
       {showTable && (
-        <div className="mt-2 max-h-96 overflow-auto border border-slate-200 rounded-lg">
-          <table className="w-full text-xs text-dark-blue whitespace-nowrap" style={{ fontVariantNumeric: 'tabular-nums' }}>
-            <thead className="sticky top-0 bg-slate-100 text-left text-slate-600">
+        <div className="mt-2 max-h-96 overflow-auto border border-border rounded-lg">
+          <table className="w-full text-xs text-foreground whitespace-nowrap" style={{ fontVariantNumeric: 'tabular-nums' }}>
+            <thead className="sticky top-0 bg-secondary text-left text-muted-foreground">
               <tr>
                 <th className="px-3 py-2 font-medium">Date</th>
                 {lines.length > 1 && <th className="px-3 py-2 font-medium">Category</th>}
@@ -244,7 +244,7 @@ export default function IRatingChart({ trend }: { trend: IRatingSeries[] }) {
             </thead>
             <tbody>
               {tableRows.map(({ series, point }) => (
-                <tr key={point.eventId} className="border-t border-slate-100">
+                <tr key={point.eventId} className="border-t border-border">
                   <td className="px-3 py-1.5">{formatDate(point.startTime)}</td>
                   {lines.length > 1 && <td className="px-3 py-1.5">{series.category}</td>}
                   <td className="px-3 py-1.5">{point.series}</td>

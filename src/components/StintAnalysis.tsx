@@ -9,7 +9,7 @@ import { isStintExport, parseStintExport } from '@/lib/stintExport';
 import { selectBestRun, stintReport, type StintSelection } from '@/lib/stintStats';
 
 const inputClass =
-  'w-full px-4 py-3 bg-white border border-slate-300 rounded-lg text-dark-blue focus:outline-none focus:border-powder-600 focus:ring-1 focus:ring-powder-500 transition-colors';
+  'w-full px-4 py-3 bg-card border border-border rounded-lg text-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors';
 
 const MAX_CSV_BYTES = 25 * 1024 * 1024;
 
@@ -82,7 +82,7 @@ export default function StintAnalysis() {
   };
 
   return (
-    <div className="bg-slate-50 rounded-xl border border-slate-200 p-8 space-y-6">
+    <div className="bg-secondary rounded-xl border border-border p-8 space-y-6">
       {stint ? (
         <WeatherTable
           stint={stint.stint}
@@ -96,7 +96,7 @@ export default function StintAnalysis() {
         />
       ) : (
         <div>
-          <label className="block text-sm text-slate-600 mb-2">Upload Stint CSV</label>
+          <label className="block text-sm text-muted-foreground mb-2">Upload Stint CSV</label>
           <div
             onDragOver={(e) => {
               e.preventDefault();
@@ -109,17 +109,17 @@ export default function StintAnalysis() {
               void handleFiles(e.dataTransfer.files);
             }}
             className={`flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-4 rounded-lg border-2 border-dashed transition-colors ${
-              dragging ? 'border-powder-500 bg-powder-50' : 'border-slate-300 bg-white'
+              dragging ? 'border-primary bg-accent' : 'border-border bg-card'
             }`}
           >
-            <div className="text-sm text-slate-600 text-center sm:text-left">
-              <p className="font-medium text-dark-blue">Drag and drop a stint CSV here</p>
+            <div className="text-sm text-muted-foreground text-center sm:text-left">
+              <p className="font-medium text-foreground">Drag and drop a stint CSV here</p>
               <p>Limit 25MB • Garage 61 stint export CSV</p>
             </div>
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="px-4 py-2 text-sm font-semibold bg-white border border-slate-300 rounded-lg text-dark-blue hover:border-powder-600 hover:text-powder-600 transition-colors"
+              className="px-4 py-2 text-sm font-semibold bg-card border border-border rounded-lg text-foreground hover:border-primary hover:text-primary transition-colors"
             >
               Browse files
             </button>
@@ -138,7 +138,7 @@ export default function StintAnalysis() {
       )}
 
       {fileError && (
-        <div className="px-4 py-3 rounded-lg border text-sm whitespace-pre-wrap bg-red-50 border-red-200 text-red-900">
+        <div className="px-4 py-3 rounded-lg border text-sm whitespace-pre-wrap bg-primary/10 border-primary/40 text-red-300">
           {fileError}
         </div>
       )}
@@ -150,13 +150,13 @@ export default function StintAnalysis() {
           type="button"
           onClick={() => void analyzeStint()}
           disabled={!stint || analyzing}
-          className="px-6 py-3 font-semibold text-white bg-gradient-to-r from-powder-500 to-powder-600 rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-6 py-3 font-semibold text-white bg-gradient-to-r from-primary to-primary-strong rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {analyzing ? 'Analyzing…' : 'Analyze Stint'}
         </button>
 
         <div>
-          <label htmlFor="stint-analysis" className="block text-sm font-medium text-dark-blue mb-2">
+          <label htmlFor="stint-analysis" className="block text-sm font-medium text-foreground mb-2">
             Analysis
           </label>
           <textarea

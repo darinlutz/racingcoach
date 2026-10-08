@@ -91,13 +91,13 @@ function toInput(draft: TrackDraft): TrackInput {
 const target = (value: number | null, unit: string) => (value === null ? '—' : `${value.toLocaleString('en-US')}${unit}`);
 
 const inputClass =
-  'w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-dark-blue placeholder-slate-400 focus:outline-none focus:border-powder-600 focus:ring-1 focus:ring-powder-500 transition-colors';
+  'w-full px-3 py-2 bg-card border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors';
 const cellInputClass =
-  'w-full px-2 py-1.5 bg-white border border-slate-300 rounded text-sm text-dark-blue placeholder-slate-400 focus:outline-none focus:border-powder-600 focus:ring-1 focus:ring-powder-500';
+  'w-full px-2 py-1.5 bg-card border border-border rounded text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary';
 const primaryButton =
-  'px-4 py-2 bg-gradient-to-r from-powder-500 to-powder-600 text-white font-bold rounded-lg hover:shadow-lg hover:shadow-powder-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed';
+  'px-4 py-2 bg-gradient-to-r from-primary to-primary-strong text-white font-bold rounded-lg hover:shadow-lg hover:shadow-primary/40 transition-all disabled:opacity-50 disabled:cursor-not-allowed';
 const secondaryButton =
-  'px-4 py-2 text-sm font-semibold bg-white border border-slate-300 rounded-lg text-dark-blue hover:border-powder-600 hover:text-powder-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed';
+  'px-4 py-2 text-sm font-semibold bg-card border border-border rounded-lg text-foreground hover:border-primary hover:text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed';
 
 export default function TrackManagement() {
   const [tracks, setTracks] = useState<UserTrack[]>([]);
@@ -127,8 +127,8 @@ export default function TrackManagement() {
 
   if (signedOut) {
     return (
-      <div className="bg-slate-50 rounded-xl border border-slate-200 p-8 text-slate-600">
-        <Link href="/login" className="font-semibold text-powder-600 hover:underline">
+      <div className="bg-secondary rounded-xl border border-border p-8 text-muted-foreground">
+        <Link href="/login" className="font-semibold text-primary hover:underline">
           Log in
         </Link>{' '}
         to see and manage your tracks.
@@ -218,19 +218,19 @@ export default function TrackManagement() {
   };
 
   return (
-    <div className="bg-slate-50 rounded-xl border border-slate-200 p-8 space-y-6">
+    <div className="bg-secondary rounded-xl border border-border p-8 space-y-6">
       {message && (
-        <div className="p-3 rounded-lg bg-red-100 border border-red-300 text-red-800 text-sm">{message}</div>
+        <div className="p-3 rounded-lg bg-primary/15 border border-primary/40 text-red-300 text-sm">{message}</div>
       )}
 
       {/* Track editor */}
       {draft ? (
-        <div className="bg-white border border-slate-200 rounded-lg p-6 space-y-5">
-          <h3 className="text-lg font-bold text-dark-blue">{draft.id === null ? 'Add Track' : `Edit ${draft.name || 'Track'}`}</h3>
+        <div className="bg-card border border-border rounded-lg p-6 space-y-5">
+          <h3 className="text-lg font-bold text-foreground">{draft.id === null ? 'Add Track' : `Edit ${draft.name || 'Track'}`}</h3>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="track-name" className="block text-sm font-medium text-dark-blue mb-1">
+              <label htmlFor="track-name" className="block text-sm font-medium text-foreground mb-1">
                 Track Name
               </label>
               <input
@@ -241,11 +241,11 @@ export default function TrackManagement() {
                 placeholder="e.g. Road Atlanta (Full Course)"
                 className={inputClass}
               />
-              <p className="mt-1 text-xs text-slate-500">As it appears in your Garage 61 CSV file names.</p>
+              <p className="mt-1 text-xs text-muted-foreground">As it appears in your Garage 61 CSV file names.</p>
             </div>
             <div>
-              <label htmlFor="track-key" className="block text-sm font-medium text-dark-blue mb-1">
-                Track Key <span className="font-normal text-slate-500">(optional)</span>
+              <label htmlFor="track-key" className="block text-sm font-medium text-foreground mb-1">
+                Track Key <span className="font-normal text-muted-foreground">(optional)</span>
               </label>
               <input
                 id="track-key"
@@ -255,11 +255,11 @@ export default function TrackManagement() {
                 placeholder="e.g. roadatlanta full"
                 className={inputClass}
               />
-              <p className="mt-1 text-xs text-slate-500">The iRacing track key. Left blank, the track name is used.</p>
+              <p className="mt-1 text-xs text-muted-foreground">The iRacing track key. Left blank, the track name is used.</p>
             </div>
             <div>
-              <label htmlFor="track-length" className="block text-sm font-medium text-dark-blue mb-1">
-                Track Length (feet) <span className="font-normal text-slate-500">(optional)</span>
+              <label htmlFor="track-length" className="block text-sm font-medium text-foreground mb-1">
+                Track Length (feet) <span className="font-normal text-muted-foreground">(optional)</span>
               </label>
               <input
                 id="track-length"
@@ -272,8 +272,8 @@ export default function TrackManagement() {
               />
             </div>
             <div>
-              <label htmlFor="track-notes" className="block text-sm font-medium text-dark-blue mb-1">
-                Notes <span className="font-normal text-slate-500">(optional)</span>
+              <label htmlFor="track-notes" className="block text-sm font-medium text-foreground mb-1">
+                Notes <span className="font-normal text-muted-foreground">(optional)</span>
               </label>
               <input
                 id="track-notes"
@@ -288,9 +288,9 @@ export default function TrackManagement() {
           {/* Focus areas */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <p className="text-sm font-medium text-dark-blue">
+              <p className="text-sm font-medium text-foreground">
                 Focus Areas{' '}
-                <span className="font-normal text-slate-500">
+                <span className="font-normal text-muted-foreground">
                   ({draft.areas.length} of {MAX_FOCUS_AREAS})
                 </span>
               </p>
@@ -304,11 +304,11 @@ export default function TrackManagement() {
               </button>
             </div>
             {draft.areas.length === 0 ? (
-              <p className="text-sm text-slate-500">No focus areas yet.</p>
+              <p className="text-sm text-muted-foreground">No focus areas yet.</p>
             ) : (
-              <div className="overflow-x-auto border border-slate-200 rounded-lg">
+              <div className="overflow-x-auto border border-border rounded-lg">
                 <table className="w-full text-sm text-left">
-                  <thead className="bg-slate-100 text-dark-blue">
+                  <thead className="bg-secondary text-foreground">
                     <tr>
                       <th className="px-2 py-2 font-semibold min-w-36">Name</th>
                       <th className="px-2 py-2 font-semibold min-w-20">Start</th>
@@ -322,7 +322,7 @@ export default function TrackManagement() {
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-200">
+                  <tbody className="divide-y divide-border">
                     {draft.areas.map((a, i) => (
                       <tr key={a.uid}>
                         <td className="px-2 py-2">
@@ -377,7 +377,7 @@ export default function TrackManagement() {
                 </table>
               </div>
             )}
-            <p className="mt-2 text-xs text-slate-500">
+            <p className="mt-2 text-xs text-muted-foreground">
               Start and end are fractions of a lap from the start/finish line (0.07 = 7%). Brake and on-throttle
               points are feet from the start/finish line. Leave a target blank if you don&apos;t have one. Areas are
               put in order around the lap when you save.
@@ -401,13 +401,13 @@ export default function TrackManagement() {
 
       {/* Track list */}
       {!loaded ? (
-        <p className="text-sm text-slate-500">Loading your tracks…</p>
+        <p className="text-sm text-muted-foreground">Loading your tracks…</p>
       ) : tracks.length === 0 ? (
-        <p className="text-sm text-slate-500">No tracks added yet.</p>
+        <p className="text-sm text-muted-foreground">No tracks added yet.</p>
       ) : (
-        <div className="overflow-x-auto bg-white border border-slate-200 rounded-lg">
+        <div className="overflow-x-auto bg-card border border-border rounded-lg">
           <table className="w-full text-sm text-left">
-            <thead className="bg-slate-100 text-dark-blue">
+            <thead className="bg-secondary text-foreground">
               <tr>
                 <th scope="col" className="px-4 py-3 font-semibold">
                   Track
@@ -426,33 +426,33 @@ export default function TrackManagement() {
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200 text-slate-700">
+            <tbody className="divide-y divide-border text-foreground">
               {tracks.map((track) => (
                 <Fragment key={track.id}>
-                  <tr className={draft?.id === track.id ? 'bg-powder-50' : undefined}>
-                    <th scope="row" className="px-4 py-3 font-semibold text-dark-blue">
+                  <tr className={draft?.id === track.id ? 'bg-accent' : undefined}>
+                    <th scope="row" className="px-4 py-3 font-semibold text-foreground">
                       <button
                         type="button"
                         onClick={() => setExpanded(expanded === track.id ? null : track.id)}
                         aria-expanded={expanded === track.id}
-                        className="text-left hover:text-powder-600"
+                        className="text-left hover:text-primary"
                       >
-                        <span className="inline-block w-4 text-slate-400">{expanded === track.id ? '▾' : '▸'}</span>
+                        <span className="inline-block w-4 text-muted-foreground">{expanded === track.id ? '▾' : '▸'}</span>
                         {track.name}
                       </button>
-                      {track.key !== track.name && <p className="ml-4 text-xs font-normal text-slate-500">{track.key}</p>}
+                      {track.key !== track.name && <p className="ml-4 text-xs font-normal text-muted-foreground">{track.key}</p>}
                     </th>
                     <td className="px-4 py-3 text-right tabular-nums">{target(track.lengthFeet, '')}</td>
                     <td className="px-4 py-3 text-right tabular-nums">
                       {track.areas.length} / {MAX_FOCUS_AREAS}
                     </td>
-                    <td className="px-4 py-3 text-slate-600">{track.notes ?? ''}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{track.notes ?? ''}</td>
                     <td className="px-4 py-3">
                       <div className="flex justify-end gap-2">
                         <button
                           type="button"
                           onClick={() => startEditing(track)}
-                          className="px-3 py-1 text-sm bg-white border border-slate-300 rounded text-dark-blue hover:border-powder-600 hover:text-powder-600 transition-colors"
+                          className="px-3 py-1 text-sm bg-card border border-border rounded text-foreground hover:border-primary hover:text-primary transition-colors"
                         >
                           Edit
                         </button>
@@ -470,12 +470,12 @@ export default function TrackManagement() {
                   {/* Focus areas for this track */}
                   {expanded === track.id && (
                     <tr>
-                      <td colSpan={5} className="px-4 pb-4 bg-slate-50">
+                      <td colSpan={5} className="px-4 pb-4 bg-secondary">
                         {track.areas.length === 0 ? (
-                          <p className="pt-3 text-sm text-slate-500">No focus areas yet. Press Edit to add some.</p>
+                          <p className="pt-3 text-sm text-muted-foreground">No focus areas yet. Press Edit to add some.</p>
                         ) : (
-                          <table className="mt-3 w-full text-xs text-left bg-white border border-slate-200 rounded">
-                            <thead className="bg-slate-100 text-slate-600">
+                          <table className="mt-3 w-full text-xs text-left bg-card border border-border rounded">
+                            <thead className="bg-secondary text-muted-foreground">
                               <tr>
                                 <th className="px-3 py-2 font-medium">#</th>
                                 <th className="px-3 py-2 font-medium">Name</th>
@@ -486,18 +486,18 @@ export default function TrackManagement() {
                                 <th className="px-3 py-2 font-medium">Notes</th>
                               </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                            <tbody className="divide-y divide-border" style={{ fontVariantNumeric: 'tabular-nums' }}>
                               {track.areas.map((a) => (
                                 <tr key={a.id}>
-                                  <td className="px-3 py-1.5 text-slate-500">{a.position}</td>
-                                  <td className="px-3 py-1.5 font-semibold text-dark-blue">{a.name}</td>
+                                  <td className="px-3 py-1.5 text-muted-foreground">{a.position}</td>
+                                  <td className="px-3 py-1.5 font-semibold text-foreground">{a.name}</td>
                                   <td className="px-3 py-1.5 text-right">
                                     {a.startPoint} – {a.endPoint}
                                   </td>
                                   <td className="px-3 py-1.5 text-right">{target(a.brakePointFeet, ' ft')}</td>
                                   <td className="px-3 py-1.5 text-right">{target(a.maxBrakePct, '%')}</td>
                                   <td className="px-3 py-1.5 text-right">{target(a.throttlePointFeet, ' ft')}</td>
-                                  <td className="px-3 py-1.5 text-slate-600">{a.notes ?? ''}</td>
+                                  <td className="px-3 py-1.5 text-muted-foreground">{a.notes ?? ''}</td>
                                 </tr>
                               ))}
                             </tbody>

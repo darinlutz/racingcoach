@@ -1,30 +1,52 @@
 @import "tailwindcss";
 
-@theme {
-  --color-powder-50: #f0f9ff;
-  --color-powder-100: #e0f2fe;
-  --color-powder-200: #bae6fd;
-  --color-powder-300: #7dd3fc;
-  --color-powder-400: #38bdf8;
-  --color-powder-500: #0ea5e9;
-  --color-powder-600: #0284c7;
-  --color-powder-700: #0369a1;
-  --color-powder-800: #075985;
-  --color-powder-900: #0c3d66;
+/* RacingCoach.app theme: charcoal surfaces, racing red primary (ported from apex-insight) */
+@theme inline {
+  --font-sans: var(--font-barlow), Arial, sans-serif;
+  --font-display: var(--font-barlow-condensed), Impact, sans-serif;
 
-  --color-dark-50: #f9fafb;
-  --color-dark-100: #f3f4f6;
-  --color-dark-200: #e5e7eb;
-  --color-dark-300: #d1d5db;
-  --color-dark-400: #9ca3af;
-  --color-dark-500: #6b7280;
-  --color-dark-600: #4b5563;
-  --color-dark-700: #374151;
-  --color-dark-800: #1f2937;
-  --color-dark-900: #0f172a;
-  --color-dark-950: #030712;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-primary: var(--primary);
+  --color-primary-strong: var(--primary-strong);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-border: var(--border);
+  --color-positive: var(--positive);
+  --color-deep-red: var(--deep-red);
+  --color-hero-shade: var(--hero-shade);
 
-  --color-dark-blue: #1e3a8a;
+  --radius-md: 4px;
+  --radius-lg: 6px;
+}
+
+:root {
+  --background: oklch(0.16 0.003 260);
+  --foreground: oklch(0.97 0.003 260);
+  --card: oklch(0.2 0.004 260);
+  --primary: oklch(0.59 0.225 25);
+  --primary-strong: oklch(0.52 0.21 25);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.24 0.005 260);
+  --muted-foreground: oklch(0.67 0.008 260);
+  --accent: oklch(0.3 0.045 25);
+  --border: oklch(0.31 0.006 260);
+  --positive: oklch(0.76 0.15 160);
+  --deep-red: oklch(0.32 0.11 25);
+  --hero-shade: oklch(0.11 0.004 260);
+  --shadow-panel: 0 20px 60px oklch(0.06 0 0 / 0.2);
+  color-scheme: dark;
+}
+
+/* Centered page column shared by the header, landing page and footer */
+@utility site-container {
+  width: min(1200px, calc(100% - 80px));
+  margin-inline: auto;
+  @media (max-width: 900px) { width: calc(100% - 48px); }
+  @media (max-width: 600px) { width: calc(100% - 36px); }
 }
 
 @layer base {
@@ -32,48 +54,33 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
+    border-color: var(--border);
   }
-}
 
-:root {
-  --background: #ffffff;
-  --foreground: #1e3a8a;
-  --powder-blue: #0284c7;
-  --powder-light: #0369a1;
-  --accent: #1e40af;
+  a {
+    color: inherit;
+    text-decoration: none;
+    transition: color 0.2s ease;
+  }
+
+  button {
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
 }
 
 html {
   scroll-behavior: smooth;
+  scroll-padding-top: 85px;
 }
 
 body {
   background-color: var(--background);
   color: var(--foreground);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: var(--font-sans);
+  font-size: 15px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-}
-
-@layer base {
-  a {
-    color: #0284c7;
-    text-decoration: none;
-    transition: color 0.3s ease;
-  }
-
-  a:hover {
-    color: #1e40af;
-  }
-}
-
-@layer base {
-  button {
-    cursor: pointer;
-    transition: all 0.3s ease;
-  }
 }
 
 /* Scrollbar styling */
@@ -86,10 +93,15 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--powder-blue);
+  background: var(--border);
   border-radius: 5px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--accent);
+  background: var(--primary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  * { transition: none !important; }
 }

@@ -16,7 +16,7 @@ import {
 } from '@/lib/lapData';
 
 const inputClass =
-  'w-full px-4 py-3 bg-white border border-slate-300 rounded-lg text-dark-blue focus:outline-none focus:border-powder-600 focus:ring-1 focus:ring-powder-500 transition-colors';
+  'w-full px-4 py-3 bg-card border border-border rounded-lg text-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors';
 
 // 1234.5 -> "1,235"
 function formatFeet(feet: number) {
@@ -168,8 +168,8 @@ type AreaRow = { name: string; comparison: AreaComparison | null; note: string }
 function diffBackground(diff: number, base: number, higherIsBetter: boolean) {
   if (diff === 0) return '';
   const bigger = base !== 0 && Math.abs(diff) / Math.abs(base) > 0.01;
-  if (diff > 0 === higherIsBetter) return bigger ? 'bg-green-300' : 'bg-green-100';
-  return bigger ? 'bg-red-300' : 'bg-red-100';
+  if (diff > 0 === higherIsBetter) return bigger ? 'bg-positive/35' : 'bg-positive/15';
+  return bigger ? 'bg-primary/35' : 'bg-primary/15';
 }
 
 // Brake Diff text: blue when the Compare lap is more than `threshold` below Base
@@ -177,9 +177,9 @@ function diffBackground(diff: number, base: number, higherIsBetter: boolean) {
 // green when within `threshold` either way
 function brakeDiffText(diff: number | null, threshold: number) {
   if (diff === null) return '';
-  if (diff < -threshold) return 'text-blue-600';
-  if (diff > threshold) return 'text-red-600';
-  return 'text-green-600';
+  if (diff < -threshold) return 'text-sky-400';
+  if (diff > threshold) return 'text-primary';
+  return 'text-positive';
 }
 
 // Focus areas down the left, Base / Compare / Diff for each data point across the top
@@ -195,14 +195,14 @@ function AreaTable({ rows }: { rows: AreaRow[] }) {
   ];
   const columnCount = groups.reduce((sum, group) => sum + group.columns.length, 0);
   const cell = 'px-3 py-2 text-right whitespace-nowrap';
-  const groupStart = 'border-l border-slate-200';
+  const groupStart = 'border-l border-border';
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-      <table className="min-w-full text-sm text-dark-blue">
-        <thead className="bg-slate-100">
+    <div className="overflow-x-auto rounded-lg border border-border bg-card">
+      <table className="min-w-full text-sm text-foreground">
+        <thead className="bg-secondary">
           <tr>
-            <th rowSpan={2} className="sticky left-0 bg-slate-100 px-3 py-2 text-left align-bottom">
+            <th rowSpan={2} className="sticky left-0 bg-secondary px-3 py-2 text-left align-bottom">
               Focus Area
             </th>
             {groups.map((group) => (
@@ -215,7 +215,7 @@ function AreaTable({ rows }: { rows: AreaRow[] }) {
               </th>
             ))}
           </tr>
-          <tr className="text-xs text-slate-600">
+          <tr className="text-xs text-muted-foreground">
             {groups.map((group) =>
               group.columns.map((label, i) => (
                 <th
@@ -230,14 +230,14 @@ function AreaTable({ rows }: { rows: AreaRow[] }) {
             )}
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-200">
+        <tbody className="divide-y divide-border">
           {rows.map(({ name, comparison: c, note }) => (
             <tr key={name}>
-              <th scope="row" className="sticky left-0 bg-white px-3 py-2 text-left font-semibold whitespace-nowrap">
+              <th scope="row" className="sticky left-0 bg-card px-3 py-2 text-left font-semibold whitespace-nowrap">
                 {name}
               </th>
               {!c ? (
-                <td colSpan={columnCount} className={`${groupStart} px-3 py-2 text-slate-500`}>
+                <td colSpan={columnCount} className={`${groupStart} px-3 py-2 text-muted-foreground`}>
                   {note}
                 </td>
               ) : (
@@ -313,7 +313,7 @@ function LapUploader({ id, title, prompt, lap, error, onFiles, onRemove }: LapUp
 
   return (
     <div>
-      <label htmlFor={id} className="block text-sm font-medium text-dark-blue mb-2">
+      <label htmlFor={id} className="block text-sm font-medium text-foreground mb-2">
         {title}
       </label>
       <div
@@ -328,17 +328,17 @@ function LapUploader({ id, title, prompt, lap, error, onFiles, onRemove }: LapUp
           onFiles(e.dataTransfer.files);
         }}
         className={`flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-4 rounded-lg border-2 border-dashed transition-colors ${
-          dragging ? 'border-powder-500 bg-powder-50' : 'border-slate-300 bg-white'
+          dragging ? 'border-primary bg-accent' : 'border-border bg-card'
         }`}
       >
-        <div className="text-sm text-slate-600 text-center sm:text-left">
-          <p className="font-medium text-dark-blue">{prompt}</p>
+        <div className="text-sm text-muted-foreground text-center sm:text-left">
+          <p className="font-medium text-foreground">{prompt}</p>
           <p>Drag and drop 1 file here • Limit 25MB • CSV</p>
         </div>
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          className="px-4 py-2 text-sm font-semibold bg-white border border-slate-300 rounded-lg text-dark-blue hover:border-powder-600 hover:text-powder-600 transition-colors"
+          className="px-4 py-2 text-sm font-semibold bg-card border border-border rounded-lg text-foreground hover:border-primary hover:text-primary transition-colors"
         >
           Browse files
         </button>
@@ -356,23 +356,23 @@ function LapUploader({ id, title, prompt, lap, error, onFiles, onRemove }: LapUp
       </div>
 
       {error && (
-        <div className="mt-2 px-4 py-3 rounded-lg border text-sm whitespace-pre-wrap bg-red-50 border-red-200 text-red-900">
+        <div className="mt-2 px-4 py-3 rounded-lg border text-sm whitespace-pre-wrap bg-primary/10 border-primary/40 text-red-300">
           {error}
         </div>
       )}
 
       {lap && (
-        <div className="mt-2 flex items-center justify-between px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm text-dark-blue">
+        <div className="mt-2 flex items-center justify-between px-4 py-2 bg-card border border-border rounded-lg text-sm text-foreground">
           <span className="min-w-0 truncate">
             📄 {lap.driverName} • {lap.carName} • {lap.trackName} •{' '}
             <span className="font-semibold">{formatLapTime(lap.lapTime)}</span>{' '}
-            <span className="text-slate-500">{formatSize(lap.file.size)}</span>
+            <span className="text-muted-foreground">{formatSize(lap.file.size)}</span>
           </span>
           <button
             type="button"
             onClick={onRemove}
             aria-label={`Remove ${lap.file.name}`}
-            className="ml-3 text-slate-500 hover:text-red-600"
+            className="ml-3 text-muted-foreground hover:text-primary"
           >
             ✕
           </button>
@@ -508,9 +508,9 @@ export default function LapCompare() {
   };
 
   return (
-    <div className="bg-slate-50 rounded-xl border border-slate-200 p-8 space-y-6">
+    <div className="bg-secondary rounded-xl border border-border p-8 space-y-6">
       <div>
-        <label htmlFor="compare-track-name" className="block text-sm font-medium text-dark-blue mb-2">
+        <label htmlFor="compare-track-name" className="block text-sm font-medium text-foreground mb-2">
           Track Name
         </label>
         <select
@@ -527,7 +527,7 @@ export default function LapCompare() {
             </option>
           ))}
         </select>
-        {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+        {error && <p className="mt-2 text-sm text-primary">{error}</p>}
       </div>
 
       <LapUploader
@@ -551,7 +551,7 @@ export default function LapCompare() {
       />
 
       {mismatchedLaps.length > 0 && (
-        <div className="px-4 py-3 rounded-lg border text-sm bg-yellow-50 border-yellow-200 text-yellow-900">
+        <div className="px-4 py-3 rounded-lg border text-sm bg-yellow-500/10 border-yellow-500/40 text-yellow-200">
           {mismatchedLaps.length === 1 ? 'One uploaded lap is' : 'Both uploaded laps are'} not from{' '}
           {selectedTrack?.fileName}.
         </div>
@@ -562,7 +562,7 @@ export default function LapCompare() {
           type="button"
           onClick={() => void analyzeLaps()}
           disabled={!baseLap || !compareLap || analyzing}
-          className="px-6 py-3 font-semibold text-white bg-gradient-to-r from-powder-500 to-powder-600 rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-6 py-3 font-semibold text-white bg-gradient-to-r from-primary to-primary-strong rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {analyzing ? 'Analyzing…' : 'Analyze Laps'}
         </button>
@@ -570,7 +570,7 @@ export default function LapCompare() {
         {areaRows.length > 0 && <AreaTable rows={areaRows} />}
 
         <div>
-          <label htmlFor="lap-compare-analysis" className="block text-sm font-medium text-dark-blue mb-2">
+          <label htmlFor="lap-compare-analysis" className="block text-sm font-medium text-foreground mb-2">
             Analysis
           </label>
           <textarea

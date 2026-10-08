@@ -34,8 +34,8 @@ export default function FriendsRoster() {
 
   if (signedOut) {
     return (
-      <div className="bg-slate-50 rounded-xl border border-slate-200 p-8 text-slate-600">
-        <Link href="/login" className="font-semibold text-powder-600 hover:underline">
+      <div className="bg-secondary rounded-xl border border-border p-8 text-muted-foreground">
+        <Link href="/login" className="font-semibold text-primary hover:underline">
           Log in
         </Link>{' '}
         to see and add your friends.
@@ -93,17 +93,17 @@ export default function FriendsRoster() {
   };
 
   return (
-    <div className="bg-slate-50 rounded-xl border border-slate-200 p-8">
+    <div className="bg-secondary rounded-xl border border-border p-8">
       <div className="flex flex-col sm:flex-row gap-3 mb-2">
         <div className="sm:w-48 flex-shrink-0">
-          <label htmlFor="friend-country" className="block text-sm font-medium text-dark-blue mb-2">
+          <label htmlFor="friend-country" className="block text-sm font-medium text-foreground mb-2">
             Country
           </label>
           <select
             id="friend-country"
             value={country}
             onChange={(e) => setCountry(e.target.value)}
-            className="w-full px-4 py-3 bg-white border border-slate-300 rounded-lg text-dark-blue focus:outline-none focus:border-powder-600 focus:ring-1 focus:ring-powder-500 transition-colors"
+            className="w-full px-4 py-3 bg-card border border-border rounded-lg text-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors"
           >
             {COUNTRIES.map((c) => (
               <option key={c} value={c}>
@@ -113,7 +113,7 @@ export default function FriendsRoster() {
           </select>
         </div>
         <div className="flex-1">
-          <label htmlFor="friend-name" className="block text-sm font-medium text-dark-blue mb-2">
+          <label htmlFor="friend-name" className="block text-sm font-medium text-foreground mb-2">
             Name
           </label>
           <input
@@ -123,14 +123,14 @@ export default function FriendsRoster() {
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleAddFriend()}
             placeholder="Enter a friend's name"
-            className="w-full px-4 py-3 bg-white border border-slate-300 rounded-lg text-dark-blue placeholder-slate-400 focus:outline-none focus:border-powder-600 focus:ring-1 focus:ring-powder-500 transition-colors"
+            className="w-full px-4 py-3 bg-card border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors"
           />
         </div>
         <button
           type="button"
           onClick={handleAddFriend}
           disabled={!name.trim() || status === 'loading'}
-          className="px-4 py-2 bg-gradient-to-r from-powder-500 to-powder-600 text-white font-bold rounded-lg hover:shadow-lg hover:shadow-powder-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 disabled:hover:scale-100 flex-shrink-0 sm:self-end"
+          className="px-4 py-2 bg-gradient-to-r from-primary to-primary-strong text-white font-bold rounded-lg hover:shadow-lg hover:shadow-primary/40 transition-all disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 disabled:hover:scale-100 flex-shrink-0 sm:self-end"
         >
           {status === 'loading' ? (
             <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block"></span>
@@ -141,22 +141,22 @@ export default function FriendsRoster() {
       </div>
 
       {message && (
-        <div className="mt-4 p-3 rounded-lg bg-red-100 border border-red-300 text-red-800 text-sm">
+        <div className="mt-4 p-3 rounded-lg bg-primary/15 border border-primary/40 text-red-300 text-sm">
           {message}
         </div>
       )}
 
       <div className="mt-6 space-y-2">
         {friends.length === 0 ? (
-          <p className="text-sm text-slate-500">No friends added yet.</p>
+          <p className="text-sm text-muted-foreground">No friends added yet.</p>
         ) : (
           friends.map((friend) => (
             <div
               key={friend.id}
-              className="flex items-center justify-between px-4 py-3 bg-white border border-slate-300 rounded-lg"
+              className="flex items-center justify-between px-4 py-3 bg-card border border-border rounded-lg"
             >
-              <span className="text-dark-blue">
-                {friend.country && <span className="text-slate-500">{friend.country} — </span>}
+              <span className="text-foreground">
+                {friend.country && <span className="text-muted-foreground">{friend.country} — </span>}
                 {friend.name}
               </span>
               <button

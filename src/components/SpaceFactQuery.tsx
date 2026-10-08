@@ -77,13 +77,13 @@ export default function SpaceFactQuery({
   };
 
   return (
-    <div className="bg-slate-50 rounded-xl border border-slate-200 p-8">
+    <div className="bg-secondary rounded-xl border border-border p-8">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
         <fieldset>
-          <legend className="block text-sm font-medium text-dark-blue mb-2">LLM Model</legend>
+          <legend className="block text-sm font-medium text-foreground mb-2">LLM Model</legend>
           <div className="space-y-2">
             {llmOptions.map((option) => (
-              <label key={option.value} className="flex items-center gap-2 text-dark-blue text-sm">
+              <label key={option.value} className="flex items-center gap-2 text-foreground text-sm">
                 <input
                   type="radio"
                   name="space-fact-llm"
@@ -91,7 +91,7 @@ export default function SpaceFactQuery({
                   checked={llmType === option.value}
                   onChange={() => setLlmType(option.value)}
                   disabled={status === 'loading'}
-                  className="accent-powder-600"
+                  className="accent-primary"
                 />
                 {option.label}
               </label>
@@ -100,10 +100,10 @@ export default function SpaceFactQuery({
         </fieldset>
 
         <fieldset>
-          <legend className="block text-sm font-medium text-dark-blue mb-2">Embedding Model</legend>
+          <legend className="block text-sm font-medium text-foreground mb-2">Embedding Model</legend>
           <div className="space-y-2">
             {embeddingOptions.map((option) => (
-              <label key={option.value} className="flex items-center gap-2 text-dark-blue text-sm">
+              <label key={option.value} className="flex items-center gap-2 text-foreground text-sm">
                 <input
                   type="radio"
                   name="space-fact-embedding"
@@ -111,7 +111,7 @@ export default function SpaceFactQuery({
                   checked={embeddingType === option.value}
                   onChange={() => setEmbeddingType(option.value)}
                   disabled={status === 'loading'}
-                  className="accent-powder-600"
+                  className="accent-primary"
                 />
                 {option.label}
               </label>
@@ -120,7 +120,7 @@ export default function SpaceFactQuery({
         </fieldset>
       </div>
 
-      <label htmlFor="space-fact-query" className="block text-sm font-medium text-dark-blue mb-2">
+      <label htmlFor="space-fact-query" className="block text-sm font-medium text-foreground mb-2">
         {queryLabel}
       </label>
       <textarea
@@ -129,14 +129,14 @@ export default function SpaceFactQuery({
         onChange={(e) => setQuery(e.target.value)}
         placeholder={placeholder}
         rows={3}
-        className="w-full px-4 py-3 bg-white border border-slate-300 rounded-lg text-dark-blue placeholder-slate-400 focus:outline-none focus:border-powder-600 focus:ring-1 focus:ring-powder-500 transition-colors resize-none"
+        className="w-full px-4 py-3 bg-card border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors resize-none"
       />
 
       <button
         type="button"
         onClick={handleAsk}
         disabled={status === 'loading' || !query.trim()}
-        className="mt-4 w-full px-4 py-2 bg-gradient-to-r from-powder-500 to-powder-600 text-white font-bold rounded-lg hover:shadow-lg hover:shadow-powder-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 disabled:hover:scale-100"
+        className="mt-4 w-full px-4 py-2 bg-gradient-to-r from-primary to-primary-strong text-white font-bold rounded-lg hover:shadow-lg hover:shadow-primary/40 transition-all disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 disabled:hover:scale-100"
       >
         {status === 'loading' ? (
           <span className="flex items-center justify-center gap-2">
@@ -149,15 +149,15 @@ export default function SpaceFactQuery({
       </button>
 
       {message && (
-        <div className="mt-4 p-4 rounded-lg bg-red-100 border border-red-300 text-red-800">
+        <div className="mt-4 p-4 rounded-lg bg-primary/15 border border-primary/40 text-red-300">
           {message}
         </div>
       )}
 
       {response && (
         <div className="mt-6">
-          <h3 className="text-sm font-medium text-dark-blue mb-2">Response</h3>
-          <div className="p-4 rounded-lg bg-white border border-slate-200 text-dark-blue whitespace-pre-wrap leading-relaxed">
+          <h3 className="text-sm font-medium text-foreground mb-2">Response</h3>
+          <div className="p-4 rounded-lg bg-card border border-border text-foreground whitespace-pre-wrap leading-relaxed">
             {response}
           </div>
         </div>
@@ -165,12 +165,12 @@ export default function SpaceFactQuery({
 
       {references.length > 0 && (
         <div className="mt-6">
-          <h3 className="text-sm font-medium text-dark-blue mb-2">References Used</h3>
+          <h3 className="text-sm font-medium text-foreground mb-2">References Used</h3>
           <ul className="space-y-2">
             {references.map((ref, index) => (
               <li
                 key={index}
-                className="p-3 rounded-lg bg-white border border-slate-200 text-dark-blue text-sm"
+                className="p-3 rounded-lg bg-card border border-border text-foreground text-sm"
               >
                 {ref}
               </li>

@@ -53,27 +53,27 @@ export default function OilTicker() {
   }, []);
 
   return (
-    <div className="bg-gradient-to-r from-slate-100 to-slate-50 border border-slate-200 rounded-lg p-6 shadow-xl">
+    <div className="bg-gradient-to-r from-background to-background border border-border rounded-lg p-6 shadow-xl">
       <div className="flex flex-col items-center text-center">
-        <p className="text-slate-600 text-sm uppercase tracking-wide mb-2">WTI</p>
+        <p className="text-muted-foreground text-sm uppercase tracking-wide mb-2">WTI</p>
         {loading && !price ? (
-          <div className="animate-pulse h-8 bg-powder-200 w-32 rounded"></div>
+          <div className="animate-pulse h-8 bg-accent w-32 rounded"></div>
         ) : error ? (
-          <p className="text-red-600 text-sm">{error}</p>
+          <p className="text-primary text-sm">{error}</p>
         ) : price !== null ? (
           <div>
-            <p className="flex items-center justify-center gap-2 text-3xl font-bold text-dark-blue">
-              <Barrel className="w-7 h-7 flex-shrink-0 text-slate-700" aria-hidden="true" />
+            <p className="flex items-center justify-center gap-2 text-3xl font-bold text-foreground">
+              <Barrel className="w-7 h-7 flex-shrink-0 text-foreground" aria-hidden="true" />
               ${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </p>
             {lastUpdate && (
-              <p className="text-xs text-slate-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Updated: {lastUpdate.toLocaleTimeString()}
               </p>
             )}
           </div>
         ) : (
-          <p className="text-slate-600 text-sm">Price unavailable</p>
+          <p className="text-muted-foreground text-sm">Price unavailable</p>
         )}
       </div>
     </div>

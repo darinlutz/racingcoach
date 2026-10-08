@@ -27,10 +27,10 @@ export default function StintConditions({ laps }: { laps: StintLap[] }) {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
       {tiles.map((tile) => (
-        <div key={tile.label} className="bg-white border border-slate-200 rounded-lg px-4 py-3">
-          <p className="text-xs font-medium text-slate-500">{tile.label}</p>
-          <p className="text-lg font-semibold text-dark-blue">{tile.value}</p>
-          {tile.detail && <p className="text-xs text-slate-500">{tile.detail}</p>}
+        <div key={tile.label} className="bg-card border border-border rounded-lg px-4 py-3">
+          <p className="text-xs font-medium text-muted-foreground">{tile.label}</p>
+          <p className="text-lg font-semibold text-foreground">{tile.value}</p>
+          {tile.detail && <p className="text-xs text-muted-foreground">{tile.detail}</p>}
         </div>
       ))}
     </div>

@@ -8,10 +8,10 @@ import type { IncidentPoint } from '@/lib/raceTrends';
 
 const HEIGHT = 320;
 const MARGIN = { top: 12, right: 16, bottom: 36, left: 52 };
-const INK_MUTED = '#64748b'; // slate-500
-const GRID = '#e2e8f0'; // slate-200
-const AXIS = '#cbd5e1'; // slate-300
-const DOT = '#94a3b8'; // slate-400: single races stay in the background
+const INK_MUTED = '#92959a'; // muted-foreground
+const GRID = '#252629'; // just above card
+const AXIS = '#3b3d40'; // just above border
+const DOT = '#5c5f64'; // dim gray: single races stay in the background
 const AVERAGE = SECTOR_COLORS[0];
 
 // Races in the rolling average; one race is too noisy to show a trend
@@ -66,16 +66,16 @@ export default function IncidentsChart({ points }: { points: IncidentPoint[] }) 
   const tooltipOnLeft = hoverX > width / 2;
 
   return (
-    <div className="bg-white border border-slate-200 rounded-lg p-4">
-      <p className="text-sm font-medium text-dark-blue mb-3">
-        Incidents <span className="font-normal text-slate-500">per race</span>
-        <span className="ml-2 font-normal text-slate-500" style={{ fontVariantNumeric: 'tabular-nums' }}>
+    <div className="bg-card border border-border rounded-lg p-4">
+      <p className="text-sm font-medium text-foreground mb-3">
+        Incidents <span className="font-normal text-muted-foreground">per race</span>
+        <span className="ml-2 font-normal text-muted-foreground" style={{ fontVariantNumeric: 'tabular-nums' }}>
           ({(total / points.length).toFixed(1)} avg over {points.length} races)
         </span>
       </p>
 
       {/* Legend */}
-      <ul className="flex flex-wrap gap-x-4 gap-y-1 mb-2 text-xs text-slate-600">
+      <ul className="flex flex-wrap gap-x-4 gap-y-1 mb-2 text-xs text-muted-foreground">
         <li className="flex items-center gap-1.5">
           <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: DOT }} />
           One race
@@ -150,8 +150,8 @@ export default function IncidentsChart({ points }: { points: IncidentPoint[] }) 
             {/* Hovered race, ringed in white so it stands out */}
             {hovered && hoverIndex !== null && (
               <>
-                <circle cx={hoverX} cy={y(hovered.incidents)} r={4} fill={INK_MUTED} stroke="#ffffff" strokeWidth={2} />
-                <circle cx={hoverX} cy={y(averages[hoverIndex])} r={4} fill={AVERAGE} stroke="#ffffff" strokeWidth={2} />
+                <circle cx={hoverX} cy={y(hovered.incidents)} r={4} fill={INK_MUTED} stroke="#151618" strokeWidth={2} />
+                <circle cx={hoverX} cy={y(averages[hoverIndex])} r={4} fill={AVERAGE} stroke="#151618" strokeWidth={2} />
               </>
             )}
 
@@ -172,17 +172,17 @@ export default function IncidentsChart({ points }: { points: IncidentPoint[] }) 
         {/* Tooltip */}
         {hovered && hoverIndex !== null && (
           <div
-            className="pointer-events-none absolute top-2 z-10 bg-white border border-slate-200 rounded-lg shadow-md px-3 py-2 text-xs text-dark-blue whitespace-nowrap"
+            className="pointer-events-none absolute top-2 z-10 bg-card border border-border rounded-lg shadow-md px-3 py-2 text-xs text-foreground whitespace-nowrap"
             style={tooltipOnLeft ? { right: width - hoverX + 12 } : { left: hoverX + 12 }}
           >
             <p className="font-semibold mb-1">{formatDate(hovered.startTime)}</p>
-            <p className="text-slate-600">{hovered.series}</p>
-            <p className="text-slate-600">{hovered.track}</p>
+            <p className="text-muted-foreground">{hovered.series}</p>
+            <p className="text-muted-foreground">{hovered.track}</p>
             <p className="mt-1" style={{ fontVariantNumeric: 'tabular-nums' }}>
               <span className="font-semibold">{hovered.incidents}x</span>{' '}
-              <span className="text-slate-500">in {hovered.lapsComplete} laps</span>
+              <span className="text-muted-foreground">in {hovered.lapsComplete} laps</span>
             </p>
-            <p className="text-slate-600" style={{ fontVariantNumeric: 'tabular-nums' }}>
+            <p className="text-muted-foreground" style={{ fontVariantNumeric: 'tabular-nums' }}>
               {span}-race average {averages[hoverIndex].toFixed(1)}x
             </p>
           </div>
@@ -193,14 +193,14 @@ export default function IncidentsChart({ points }: { points: IncidentPoint[] }) 
       <button
         type="button"
         onClick={() => setShowTable(!showTable)}
-        className="mt-2 text-xs font-semibold text-powder-600 hover:underline"
+        className="mt-2 text-xs font-semibold text-primary hover:underline"
       >
         {showTable ? 'Hide values' : 'Show values'}
       </button>
       {showTable && (
-        <div className="mt-2 max-h-96 overflow-auto border border-slate-200 rounded-lg">
-          <table className="w-full text-xs text-dark-blue whitespace-nowrap" style={{ fontVariantNumeric: 'tabular-nums' }}>
-            <thead className="sticky top-0 bg-slate-100 text-left text-slate-600">
+        <div className="mt-2 max-h-96 overflow-auto border border-border rounded-lg">
+          <table className="w-full text-xs text-foreground whitespace-nowrap" style={{ fontVariantNumeric: 'tabular-nums' }}>
+            <thead className="sticky top-0 bg-secondary text-left text-muted-foreground">
               <tr>
                 <th className="px-3 py-2 font-medium">Date</th>
                 <th className="px-3 py-2 font-medium">Series</th>
@@ -215,7 +215,7 @@ export default function IncidentsChart({ points }: { points: IncidentPoint[] }) 
                 .map((p, i) => ({ p, average: averages[i] }))
                 .reverse()
                 .map(({ p, average }) => (
-                  <tr key={p.eventId} className="border-t border-slate-100">
+                  <tr key={p.eventId} className="border-t border-border">
                     <td className="px-3 py-1.5">{formatDate(p.startTime)}</td>
                     <td className="px-3 py-1.5">{p.series}</td>
                     <td className="px-3 py-1.5">{p.track}</td>

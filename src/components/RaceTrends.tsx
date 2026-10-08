@@ -90,8 +90,8 @@ export default function RaceTrends() {
 
   if (signedOut) {
     return (
-      <div className="bg-slate-50 rounded-xl border border-slate-200 p-8 text-slate-600">
-        <Link href="/login" className="font-semibold text-powder-600 hover:underline">
+      <div className="bg-secondary rounded-xl border border-border p-8 text-muted-foreground">
+        <Link href="/login" className="font-semibold text-primary hover:underline">
           Log in
         </Link>{' '}
         to see your race trends.
@@ -149,22 +149,22 @@ export default function RaceTrends() {
   };
 
   const inputClass =
-    'w-full px-4 py-3 bg-white border border-slate-300 rounded-lg text-dark-blue placeholder-slate-400 focus:outline-none focus:border-powder-600 focus:ring-1 focus:ring-powder-500 transition-colors';
+    'w-full px-4 py-3 bg-card border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors';
   const firstLoad = sync.running && events.length === 0;
 
   return (
-    <div className="bg-slate-50 rounded-xl border border-slate-200 p-8 space-y-6">
+    <div className="bg-secondary rounded-xl border border-border p-8 space-y-6">
       {!loaded ? (
-        <p className="text-sm text-slate-500">Loading your races…</p>
+        <p className="text-sm text-muted-foreground">Loading your races…</p>
       ) : loadError ? (
-        <div className="px-4 py-3 rounded-lg border text-sm bg-red-50 border-red-200 text-red-900">{loadError}</div>
+        <div className="px-4 py-3 rounded-lg border text-sm bg-primary/10 border-primary/40 text-red-300">{loadError}</div>
       ) : connection ? (
         /* iRacePlan connection and sync status */
-        <div className="px-4 py-3 bg-white border border-slate-200 rounded-lg text-sm space-y-2">
+        <div className="px-4 py-3 bg-card border border-border rounded-lg text-sm space-y-2">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-dark-blue">
+            <p className="text-foreground">
               Connected to iRacePlan as <span className="font-semibold">{connection.iracingName}</span>
-              <span className="text-slate-500">
+              <span className="text-muted-foreground">
                 {' '}
                 • {events.length.toLocaleString('en-US')} {events.length === 1 ? 'race' : 'races'}
                 {connection.syncedAt && ` • Last synced ${formatDateTime(connection.syncedAt)}`}
@@ -175,7 +175,7 @@ export default function RaceTrends() {
                 type="button"
                 onClick={() => void runSync()}
                 disabled={sync.running}
-                className="px-3 py-1.5 text-xs font-semibold bg-white border border-slate-300 rounded-lg text-dark-blue hover:border-powder-600 hover:text-powder-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-1.5 text-xs font-semibold bg-card border border-border rounded-lg text-foreground hover:border-primary hover:text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {sync.running ? 'Syncing…' : 'Sync now'}
               </button>
@@ -183,29 +183,29 @@ export default function RaceTrends() {
                 type="button"
                 onClick={() => void disconnectIRacePlan()}
                 disabled={sync.running}
-                className="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-red-600 disabled:opacity-50"
+                className="px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-primary disabled:opacity-50"
               >
                 Disconnect
               </button>
             </div>
           </div>
           {sync.running && (
-            <p className="text-slate-600">
+            <p className="text-muted-foreground">
               Loading your races from iRacePlan
               {sync.total > 0 && `… ${sync.loaded.toLocaleString('en-US')} of ${sync.total.toLocaleString('en-US')}`}
               {firstLoad && ' (the first load takes a few minutes; later syncs only fetch new races)'}
             </p>
           )}
-          {sync.error && <p className="text-red-700">{sync.error}</p>}
+          {sync.error && <p className="text-red-300">{sync.error}</p>}
         </div>
       ) : (
         /* Not connected yet */
-        <div className="px-5 py-4 bg-white border border-slate-200 rounded-lg space-y-3">
+        <div className="px-5 py-4 bg-card border border-border rounded-lg space-y-3">
           <div>
-            <h3 className="font-bold text-dark-blue">Connect iRacePlan</h3>
-            <p className="text-sm text-slate-600">
+            <h3 className="font-bold text-foreground">Connect iRacePlan</h3>
+            <p className="text-sm text-muted-foreground">
               Your races load automatically from{' '}
-              <a href="https://iraceplan.com" target="_blank" rel="noreferrer" className="text-powder-600 hover:underline">
+              <a href="https://iraceplan.com" target="_blank" rel="noreferrer" className="text-primary hover:underline">
                 iRacePlan
               </a>
               . Create an API key under Settings &gt; API Keys there and paste it here.
@@ -226,14 +226,14 @@ export default function RaceTrends() {
               type="button"
               onClick={() => void connectIRacePlan()}
               disabled={!apiKey.trim() || connecting}
-              className="px-6 py-3 font-semibold text-white bg-gradient-to-r from-powder-500 to-powder-600 rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+              className="px-6 py-3 font-semibold text-white bg-gradient-to-r from-primary to-primary-strong rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
             >
               {connecting ? 'Connecting…' : 'Connect'}
             </button>
           </div>
-          {connectError && <p className="text-sm text-red-700">{connectError}</p>}
+          {connectError && <p className="text-sm text-red-300">{connectError}</p>}
           {events.length > 0 && (
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-muted-foreground">
               {events.length.toLocaleString('en-US')} races from before are still here; reconnect to load new ones.
             </p>
           )}
@@ -245,19 +245,19 @@ export default function RaceTrends() {
           type="button"
           onClick={() => void getTrends()}
           disabled={events.length === 0 || firstLoad || running}
-          className="px-6 py-3 font-semibold text-white bg-gradient-to-r from-powder-500 to-powder-600 rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-6 py-3 font-semibold text-white bg-gradient-to-r from-primary to-primary-strong rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {running ? 'Analyzing your races…' : 'Get Trends'}
         </button>
 
         {runError && (
-          <div className="px-4 py-3 rounded-lg border text-sm bg-red-50 border-red-200 text-red-900">
+          <div className="px-4 py-3 rounded-lg border text-sm bg-primary/10 border-primary/40 text-red-300">
             Failed: {runError}
           </div>
         )}
 
         {!trend && !runError && !running && loaded && (
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted-foreground">
             {events.length > 0
               ? 'Press Get Trends to see your iRating and incidents over time.'
               : connection
@@ -270,7 +270,7 @@ export default function RaceTrends() {
           <div className="space-y-4">
             {/* Chart tabs; the commentary below covers both */}
             <div>
-              <div className="flex flex-wrap gap-2 border-b border-slate-200" role="tablist">
+              <div className="flex flex-wrap gap-2 border-b border-border" role="tablist">
                 {CHART_TABS.map((tab) => (
                   <button
                     key={tab.value}
@@ -280,8 +280,8 @@ export default function RaceTrends() {
                     onClick={() => setChartTab(tab.value)}
                     className={`px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition-colors ${
                       chartTab === tab.value
-                        ? 'text-powder-600 border-powder-600'
-                        : 'text-slate-600 border-transparent hover:text-dark-blue'
+                        ? 'text-primary border-primary'
+                        : 'text-muted-foreground border-transparent hover:text-foreground'
                     }`}
                   >
                     {tab.label}
@@ -295,9 +295,9 @@ export default function RaceTrends() {
                     {trend.length > 0 ? (
                       <IRatingChart trend={trend} />
                     ) : (
-                      <p className="text-sm text-slate-600">None of these races have an iRating.</p>
+                      <p className="text-sm text-muted-foreground">None of these races have an iRating.</p>
                     )}
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-muted-foreground">
                       Each point is your iRating after a race. iRacing keeps a separate iRating for each license
                       category, so each category gets its own line. Unofficial races (such as 13th week events)
                       don&apos;t change iRating, so they show as flat steps.
@@ -308,7 +308,7 @@ export default function RaceTrends() {
                 {chartTab === 'incidents' && (
                   <>
                     <IncidentsChart points={incidents} />
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-muted-foreground">
                       Each dot is the incident points you picked up in one race, rated or not. The line is the average
                       of your last 10 races at that point, which shows the trend better than single races.
                     </p>
@@ -318,14 +318,14 @@ export default function RaceTrends() {
             </div>
 
             {commentary && (
-              <div className="px-5 py-4 bg-white border border-slate-200 rounded-lg">
-                <h3 className="font-bold text-dark-blue mb-2">Commentary</h3>
-                <p className="text-sm text-slate-700 whitespace-pre-wrap">{commentary}</p>
+              <div className="px-5 py-4 bg-card border border-border rounded-lg">
+                <h3 className="font-bold text-foreground mb-2">Commentary</h3>
+                <p className="text-sm text-foreground whitespace-pre-wrap">{commentary}</p>
               </div>
             )}
 
             {steps.length > 0 && (
-              <details className="text-sm text-slate-600">
+              <details className="text-sm text-muted-foreground">
                 <summary className="cursor-pointer">What the agent checked ({steps.length} steps)</summary>
                 <ol className="mt-2 list-decimal pl-5 space-y-1 font-mono text-xs">
                   {steps.map((step, i) => (

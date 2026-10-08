@@ -6,7 +6,7 @@ import { useState } from 'react';
 import ForgotPasswordForm from './ForgotPasswordForm';
 
 const inputClass =
-  'w-full px-4 py-3 bg-white border border-slate-300 rounded-lg text-dark-blue placeholder-slate-400 focus:outline-none focus:border-powder-600 focus:ring-1 focus:ring-powder-500 transition-colors';
+  'w-full px-4 py-3 bg-card border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors';
 
 export default function SignupForm() {
   const router = useRouter();
@@ -53,7 +53,7 @@ export default function SignupForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div>
-        <label htmlFor="userName" className="block text-sm font-medium text-dark-blue mb-2">
+        <label htmlFor="userName" className="block text-sm font-medium text-foreground mb-2">
           Name *
         </label>
         <input
@@ -69,7 +69,7 @@ export default function SignupForm() {
       </div>
 
       <div>
-        <label htmlFor="emailAddress" className="block text-sm font-medium text-dark-blue mb-2">
+        <label htmlFor="emailAddress" className="block text-sm font-medium text-foreground mb-2">
           Email Address *
         </label>
         <input
@@ -85,8 +85,8 @@ export default function SignupForm() {
       </div>
 
       <div>
-        <label htmlFor="password" className="block text-sm font-medium text-dark-blue mb-2">
-          Password * <span className="text-slate-500 font-normal">(at least 8 characters)</span>
+        <label htmlFor="password" className="block text-sm font-medium text-foreground mb-2">
+          Password * <span className="text-muted-foreground font-normal">(at least 8 characters)</span>
         </label>
         <input
           type="password"
@@ -102,24 +102,24 @@ export default function SignupForm() {
       </div>
 
       {error && (
-        <p className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">{error}</p>
+        <p className="p-3 rounded-lg bg-primary/10 border border-primary/40 text-red-300 text-sm">{error}</p>
       )}
 
       <button
         type="submit"
         disabled={loading}
-        className="w-full px-6 py-3 rounded-lg bg-gradient-to-r from-powder-500 to-powder-600 text-white font-semibold hover:shadow-lg transition-all disabled:opacity-60"
+        className="w-full px-6 py-3 rounded-lg bg-gradient-to-r from-primary to-primary-strong text-white font-semibold hover:shadow-lg transition-all disabled:opacity-60"
       >
         {loading ? 'Creating account...' : 'Create Account'}
       </button>
 
-      <p className="text-center text-sm text-slate-600">
+      <p className="text-center text-sm text-muted-foreground">
         Already have an account?{' '}
-        <Link href="/login" className="text-powder-600 hover:underline font-medium">
+        <Link href="/login" className="text-primary hover:underline font-medium">
           Log in
         </Link>
       </p>
-      <p className="text-center text-sm text-slate-600">
+      <p className="text-center text-sm text-muted-foreground">
         Forgot password?{' '}
         <a
           href="#"
@@ -127,7 +127,7 @@ export default function SignupForm() {
             e.preventDefault();
             setForgotPassword(true);
           }}
-          className="text-powder-600 hover:underline font-medium"
+          className="text-primary hover:underline font-medium"
         >
           Click here
         </a>

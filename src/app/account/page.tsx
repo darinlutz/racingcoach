@@ -10,12 +10,12 @@ function statusBadgeClass(accountStatus: string): string {
   switch (accountStatus) {
     case ACCOUNT_STATUS.monthly:
     case ACCOUNT_STATUS.lifetime:
-      return 'bg-green-100 text-green-700';
+      return 'bg-positive/15 text-positive';
     case ACCOUNT_STATUS.canceled:
     case ACCOUNT_STATUS.expired:
-      return 'bg-red-100 text-red-700';
+      return 'bg-primary/15 text-red-300';
     default:
-      return 'bg-powder-500/15 text-powder-600';
+      return 'bg-primary/15 text-primary';
   }
 }
 
@@ -32,22 +32,22 @@ export default async function AccountPage() {
   const canBuyLifetime = canBuy(user, 'lifetime');
 
   return (
-    <section className="py-12 px-4 bg-gradient-to-b from-slate-100 to-white flex justify-center">
-      <div className="w-full max-w-lg bg-slate-50 rounded-xl border border-slate-200 p-6 sm:p-8">
-        <h1 className="text-3xl font-bold mb-2 bg-gradient-to-r from-powder-600 via-powder-500 to-powder-600 bg-clip-text text-transparent">
+    <section className="py-12 px-4 bg-gradient-to-b from-background to-background flex justify-center">
+      <div className="w-full max-w-lg bg-secondary rounded-xl border border-border p-6 sm:p-8">
+        <h1 className="text-3xl font-bold mb-2 bg-gradient-to-r from-primary-strong via-primary to-primary-strong bg-clip-text text-transparent">
           My Account
         </h1>
-        <p className="text-slate-600 mb-8">Your account details.</p>
+        <p className="text-muted-foreground mb-8">Your account details.</p>
 
-        <dl className="divide-y divide-slate-200 bg-white rounded-lg border border-slate-200">
+        <dl className="divide-y divide-border bg-card rounded-lg border border-border">
           <div className="flex justify-between gap-4 px-4 py-3">
-            <dt className="text-sm font-medium text-slate-500">Name</dt>
-            <dd className="text-dark-blue font-medium text-right">
+            <dt className="text-sm font-medium text-muted-foreground">Name</dt>
+            <dd className="text-foreground font-medium text-right">
               {user.userName}
             </dd>
           </div>
           <div className="flex justify-between items-center gap-4 px-4 py-3">
-            <dt className="text-sm font-medium text-slate-500">Account Status</dt>
+            <dt className="text-sm font-medium text-muted-foreground">Account Status</dt>
             <dd>
               <span
                 className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${statusBadgeClass(user.accountStatus)}`}
@@ -57,15 +57,15 @@ export default async function AccountPage() {
             </dd>
           </div>
           <div className="flex justify-between gap-4 px-4 py-3">
-            <dt className="text-sm font-medium text-slate-500">Signup Date</dt>
-            <dd className="text-dark-blue font-medium text-right">
+            <dt className="text-sm font-medium text-muted-foreground">Signup Date</dt>
+            <dd className="text-foreground font-medium text-right">
               {formatDate(user.signupDate)}
             </dd>
           </div>
           {isMonthly && (
             <div className="flex justify-between gap-4 px-4 py-3">
-              <dt className="text-sm font-medium text-slate-500">Subscription End Date</dt>
-              <dd className="text-dark-blue font-medium text-right">
+              <dt className="text-sm font-medium text-muted-foreground">Subscription End Date</dt>
+              <dd className="text-foreground font-medium text-right">
                 {formatDate(user.subscriptionEndDate)}
               </dd>
             </div>
@@ -79,7 +79,7 @@ export default async function AccountPage() {
                 type="submit"
                 name="plan"
                 value="monthly"
-                className="w-full px-6 py-3 rounded-lg font-semibold text-white bg-gradient-to-r from-powder-500 to-powder-600 hover:from-powder-600 hover:to-powder-500 transition-colors"
+                className="w-full px-6 py-3 rounded-lg font-semibold text-white bg-gradient-to-r from-primary to-primary-strong hover:from-primary-strong hover:to-primary transition-colors"
               >
                 Monthly Subscription
               </button>
@@ -89,7 +89,7 @@ export default async function AccountPage() {
                 type="submit"
                 name="plan"
                 value="lifetime"
-                className="w-full px-6 py-3 rounded-lg font-semibold text-white bg-gradient-to-r from-powder-500 to-powder-600 hover:from-powder-600 hover:to-powder-500 transition-colors"
+                className="w-full px-6 py-3 rounded-lg font-semibold text-white bg-gradient-to-r from-primary to-primary-strong hover:from-primary-strong hover:to-primary transition-colors"
               >
                 Lifetime Subscription
               </button>

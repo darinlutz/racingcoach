@@ -41,24 +41,24 @@ export default function TrackFileExport() {
         type="button"
         onClick={() => void generate()}
         disabled={status === 'loading'}
-        className="px-4 py-2 text-sm font-semibold bg-white border border-slate-300 rounded-lg text-dark-blue hover:border-powder-600 hover:text-powder-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        className="px-4 py-2 text-sm font-semibold bg-card border border-border rounded-lg text-foreground hover:border-primary hover:text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {status === 'loading' ? 'Generating…' : 'Generate Text File'}
       </button>
 
-      {message && <div className="p-3 rounded-lg bg-red-100 border border-red-300 text-red-800 text-sm">{message}</div>}
+      {message && <div className="p-3 rounded-lg bg-primary/15 border border-primary/40 text-red-300 text-sm">{message}</div>}
 
       {text && (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <label htmlFor="track-file-text" className="text-sm font-medium text-dark-blue">
+            <label htmlFor="track-file-text" className="text-sm font-medium text-foreground">
               Track_Area_Information.txt{' '}
-              <span className="font-normal text-slate-500">({text.split('\n').length.toLocaleString('en-US')} lines)</span>
+              <span className="font-normal text-muted-foreground">({text.split('\n').length.toLocaleString('en-US')} lines)</span>
             </label>
             <button
               type="button"
               onClick={() => void copy()}
-              className="px-4 py-2 text-sm font-semibold bg-gradient-to-r from-powder-500 to-powder-600 text-white rounded-lg hover:opacity-90 transition-opacity"
+              className="px-4 py-2 text-sm font-semibold bg-gradient-to-r from-primary to-primary-strong text-white rounded-lg hover:opacity-90 transition-opacity"
             >
               {status === 'copied' ? 'Copied!' : 'Copy'}
             </button>
@@ -69,7 +69,7 @@ export default function TrackFileExport() {
             value={text}
             rows={8}
             spellCheck={false}
-            className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg font-mono text-xs text-dark-blue focus:outline-none focus:border-powder-600 focus:ring-1 focus:ring-powder-500"
+            className="w-full px-3 py-2 bg-card border border-border rounded-lg font-mono text-xs text-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
           />
         </div>
       )}

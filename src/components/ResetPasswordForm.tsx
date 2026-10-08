@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 
 const inputClass =
-  'w-full px-4 py-3 bg-white border border-slate-300 rounded-lg text-dark-blue placeholder-slate-400 focus:outline-none focus:border-powder-600 focus:ring-1 focus:ring-powder-500 transition-colors';
+  'w-full px-4 py-3 bg-card border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors';
 
 export default function ResetPasswordForm({ token }: { token: string }) {
   const [password, setPassword] = useState('');
@@ -38,12 +38,12 @@ export default function ResetPasswordForm({ token }: { token: string }) {
   if (done) {
     return (
       <div className="space-y-6">
-        <p className="p-3 rounded-lg bg-green-50 border border-green-200 text-green-700 text-sm">
+        <p className="p-3 rounded-lg bg-positive/10 border border-positive/40 text-positive text-sm">
           Your password has been reset.
         </p>
         <Link
           href="/login"
-          className="block w-full text-center px-6 py-3 rounded-lg bg-gradient-to-r from-powder-500 to-powder-600 text-white font-semibold hover:shadow-lg transition-all"
+          className="block w-full text-center px-6 py-3 rounded-lg bg-gradient-to-r from-primary to-primary-strong text-white font-semibold hover:shadow-lg transition-all"
         >
           Log in
         </Link>
@@ -54,8 +54,8 @@ export default function ResetPasswordForm({ token }: { token: string }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div>
-        <label htmlFor="password" className="block text-sm font-medium text-dark-blue mb-2">
-          Password * <span className="text-slate-500 font-normal">(at least 8 characters)</span>
+        <label htmlFor="password" className="block text-sm font-medium text-foreground mb-2">
+          Password * <span className="text-muted-foreground font-normal">(at least 8 characters)</span>
         </label>
         <input
           type="password"
@@ -71,13 +71,13 @@ export default function ResetPasswordForm({ token }: { token: string }) {
       </div>
 
       {error && (
-        <p className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">{error}</p>
+        <p className="p-3 rounded-lg bg-primary/10 border border-primary/40 text-red-300 text-sm">{error}</p>
       )}
 
       <button
         type="submit"
         disabled={loading}
-        className="w-full px-6 py-3 rounded-lg bg-gradient-to-r from-powder-500 to-powder-600 text-white font-semibold hover:shadow-lg transition-all disabled:opacity-60"
+        className="w-full px-6 py-3 rounded-lg bg-gradient-to-r from-primary to-primary-strong text-white font-semibold hover:shadow-lg transition-all disabled:opacity-60"
       >
         {loading ? 'Resetting...' : 'Reset Password'}
       </button>

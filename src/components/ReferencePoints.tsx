@@ -13,8 +13,8 @@ const cell = (value: number | null) => (value === null ? '—' : value.toLocaleS
 function Measured({ value, target }: { value: number | null; target: number | null }) {
   return (
     <>
-      <span className="font-semibold text-dark-blue">{cell(value)}</span>
-      <span className="ml-2 text-xs text-slate-500">(target {cell(target)})</span>
+      <span className="font-semibold text-foreground">{cell(value)}</span>
+      <span className="ml-2 text-xs text-muted-foreground">(target {cell(target)})</span>
     </>
   );
 }
@@ -168,12 +168,12 @@ export default function ReferencePoints() {
   };
 
   const inputClass =
-    'w-full px-4 py-3 bg-white border border-slate-300 rounded-lg text-dark-blue focus:outline-none focus:border-powder-600 focus:ring-1 focus:ring-powder-500 transition-colors';
+    'w-full px-4 py-3 bg-card border border-border rounded-lg text-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors';
 
   return (
-    <div className="bg-slate-50 rounded-xl border border-slate-200 p-8 space-y-6">
+    <div className="bg-secondary rounded-xl border border-border p-8 space-y-6">
       <div>
-        <label htmlFor="reference-track-name" className="block text-sm font-medium text-dark-blue mb-2">
+        <label htmlFor="reference-track-name" className="block text-sm font-medium text-foreground mb-2">
           Track Name
         </label>
         <select
@@ -190,12 +190,12 @@ export default function ReferencePoints() {
             </option>
           ))}
         </select>
-        {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+        {error && <p className="mt-2 text-sm text-primary">{error}</p>}
       </div>
 
       {/* File upload */}
       <div>
-        <label className="block text-sm text-slate-600 mb-2">Upload your lap CSVs</label>
+        <label className="block text-sm text-muted-foreground mb-2">Upload your lap CSVs</label>
         <div
           onDragOver={(e) => {
             e.preventDefault();
@@ -208,17 +208,17 @@ export default function ReferencePoints() {
             void handleFiles(e.dataTransfer.files);
           }}
           className={`flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-4 rounded-lg border-2 border-dashed transition-colors ${
-            dragging ? 'border-powder-500 bg-powder-50' : 'border-slate-300 bg-white'
+            dragging ? 'border-primary bg-accent' : 'border-border bg-card'
           }`}
         >
-          <div className="text-sm text-slate-600 text-center sm:text-left">
-            <p className="font-medium text-dark-blue">Drag and drop files here</p>
+          <div className="text-sm text-muted-foreground text-center sm:text-left">
+            <p className="font-medium text-foreground">Drag and drop files here</p>
             <p>Limit 25MB per file • CSV • Multiple files</p>
           </div>
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="px-4 py-2 text-sm font-semibold bg-white border border-slate-300 rounded-lg text-dark-blue hover:border-powder-600 hover:text-powder-600 transition-colors"
+            className="px-4 py-2 text-sm font-semibold bg-card border border-border rounded-lg text-foreground hover:border-primary hover:text-primary transition-colors"
           >
             Browse files
           </button>
@@ -236,13 +236,13 @@ export default function ReferencePoints() {
         </div>
 
         {fileErrors.length > 0 && (
-          <div className="mt-2 px-4 py-3 rounded-lg border text-sm whitespace-pre-wrap bg-red-50 border-red-200 text-red-900">
+          <div className="mt-2 px-4 py-3 rounded-lg border text-sm whitespace-pre-wrap bg-primary/10 border-primary/40 text-red-300">
             {fileErrors.join('\n')}
           </div>
         )}
 
         {otherLaps > 0 && (
-          <div className="mt-2 px-4 py-3 rounded-lg border text-sm bg-yellow-50 border-yellow-200 text-yellow-900">
+          <div className="mt-2 px-4 py-3 rounded-lg border text-sm bg-yellow-500/10 border-yellow-500/40 text-yellow-200">
             {otherLaps} uploaded {otherLaps === 1 ? 'lap is' : 'laps are'} not from {selectedTrack?.fileName} and will
             be left out.
           </div>
@@ -253,18 +253,18 @@ export default function ReferencePoints() {
             {lapFiles.map((lap) => (
               <li
                 key={lap.fileId}
-                className="flex items-center justify-between px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm text-dark-blue"
+                className="flex items-center justify-between px-4 py-2 bg-card border border-border rounded-lg text-sm text-foreground"
               >
                 <span className="min-w-0 truncate">
-                  📄 <span className="text-slate-500">[{lapId(lap)}]</span> {lap.driverName} • {lap.carName} •{' '}
+                  📄 <span className="text-muted-foreground">[{lapId(lap)}]</span> {lap.driverName} • {lap.carName} •{' '}
                   <span className="font-semibold">{formatLapTime(lap.lapTime)}</span>{' '}
-                  <span className="text-slate-500">{formatSize(lap.file.size)}</span>
+                  <span className="text-muted-foreground">{formatSize(lap.file.size)}</span>
                 </span>
                 <button
                   type="button"
                   onClick={() => removeFile(lap.fileId)}
                   aria-label={`Remove ${lap.file.name}`}
-                  className="ml-3 text-slate-500 hover:text-red-600"
+                  className="ml-3 text-muted-foreground hover:text-primary"
                 >
                   ✕
                 </button>
@@ -279,19 +279,19 @@ export default function ReferencePoints() {
           type="button"
           onClick={() => void getReferencePoints()}
           disabled={trackLaps.length < 1 || !selectedTrack?.areas.length || running}
-          className="px-6 py-3 font-semibold text-white bg-gradient-to-r from-powder-500 to-powder-600 rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-6 py-3 font-semibold text-white bg-gradient-to-r from-primary to-primary-strong rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {running ? 'Analyzing your laps…' : 'Get Reference Points'}
         </button>
 
         {runError && (
-          <div className="px-4 py-3 rounded-lg border text-sm bg-red-50 border-red-200 text-red-900">
+          <div className="px-4 py-3 rounded-lg border text-sm bg-primary/10 border-primary/40 text-red-300">
             Failed: {runError}
           </div>
         )}
 
         {!rows && !runError && !running && (
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted-foreground">
             {trackLaps.length < 1
               ? 'Upload at least 1 lap from the selected track, then press Get Reference Points.'
               : 'Press Get Reference Points to see the brake and throttle points for each focus area.'}
@@ -300,9 +300,9 @@ export default function ReferencePoints() {
 
         {rows && (
           <div className="space-y-4">
-            <div className="overflow-x-auto bg-white border border-slate-200 rounded-lg">
+            <div className="overflow-x-auto bg-card border border-border rounded-lg">
               <table className="w-full text-sm text-left">
-                <thead className="bg-slate-100 text-dark-blue">
+                <thead className="bg-secondary text-foreground">
                   <tr>
                     <th scope="col" className="px-4 py-3 font-semibold">
                       Focus Area
@@ -318,10 +318,10 @@ export default function ReferencePoints() {
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200 text-slate-700">
+                <tbody className="divide-y divide-border text-foreground">
                   {rows.map((row) => (
                     <tr key={row.area}>
-                      <th scope="row" className="px-4 py-3 font-semibold text-dark-blue">
+                      <th scope="row" className="px-4 py-3 font-semibold text-foreground">
                         {row.area}
                       </th>
                       <td className="px-4 py-3 text-right tabular-nums">
@@ -338,7 +338,7 @@ export default function ReferencePoints() {
                 </tbody>
               </table>
             </div>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-muted-foreground">
               Each point is the average of your fastest third of runs through the area (at least one), measured in feet
               from the start/finish line. Laps over 110% of the median lap time are left out as incident laps. The target is the
               focus area&apos;s value in Track Management. A dash means no braking or throttle point was found in that area, or
@@ -350,11 +350,11 @@ export default function ReferencePoints() {
                 type="button"
                 onClick={() => void saveReferencePoints()}
                 disabled={rows.length === 0 || saving}
-                className="px-4 py-2 font-semibold text-white bg-gradient-to-r from-powder-500 to-powder-600 rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 font-semibold text-white bg-gradient-to-r from-primary to-primary-strong rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {saving ? 'Saving…' : 'Save Reference Points'}
               </button>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-muted-foreground">
                 Overwrites the brake point, max brake pressure and on-throttle point of each focus area on your saved
                 track. A dash keeps the saved value.
               </p>
@@ -362,7 +362,7 @@ export default function ReferencePoints() {
             {saveResult && (
               <div
                 className={`px-4 py-3 rounded-lg border text-sm ${
-                  saveResult.ok ? 'bg-green-50 border-green-200 text-green-900' : 'bg-red-50 border-red-200 text-red-900'
+                  saveResult.ok ? 'bg-positive/10 border-positive/40 text-positive' : 'bg-primary/10 border-primary/40 text-red-300'
                 }`}
               >
                 {saveResult.text}
@@ -370,14 +370,14 @@ export default function ReferencePoints() {
             )}
 
             {commentary && (
-              <div className="px-5 py-4 bg-white border border-slate-200 rounded-lg">
-                <h3 className="font-bold text-dark-blue mb-2">Commentary</h3>
-                <p className="text-sm text-slate-700 whitespace-pre-wrap">{commentary}</p>
+              <div className="px-5 py-4 bg-card border border-border rounded-lg">
+                <h3 className="font-bold text-foreground mb-2">Commentary</h3>
+                <p className="text-sm text-foreground whitespace-pre-wrap">{commentary}</p>
               </div>
             )}
 
             {steps.length > 0 && (
-              <details className="text-sm text-slate-600">
+              <details className="text-sm text-muted-foreground">
                 <summary className="cursor-pointer">What the agent checked ({steps.length} steps)</summary>
                 <ol className="mt-2 list-decimal pl-5 space-y-1 font-mono text-xs">
                   {steps.map((step, i) => (

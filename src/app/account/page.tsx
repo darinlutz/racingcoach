@@ -28,6 +28,8 @@ export default async function AccountPage() {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
   const isMonthly = user.accountStatus === ACCOUNT_STATUS.monthly;
+  // A canceled monthly subscription keeps its end date: the end of the last paid month
+  const showEndDate = isMonthly || (user.accountStatus === ACCOUNT_STATUS.canceled && user.subscriptionEndDate !== null);
   const canBuyMonthly = canBuy(user, 'monthly');
   const canBuyLifetime = canBuy(user, 'lifetime');
 
@@ -68,7 +70,7 @@ export default async function AccountPage() {
               {formatDate(user.signupDate)}
             </dd>
           </div>
-          {isMonthly && (
+          {showEndDate && (
             <div className="flex justify-between gap-4 px-4 py-3">
               <dt className="text-sm font-medium text-muted-foreground">Subscription End Date</dt>
               <dd className="text-foreground font-medium text-right">

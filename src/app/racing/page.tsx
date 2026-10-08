@@ -4,6 +4,7 @@ import { useState } from 'react';
 import FriendsRoster from '@/components/FriendsRoster';
 import TrackFileExport from '@/components/TrackFileExport';
 import TrackManagement from '@/components/TrackManagement';
+import CarDataManagement from '@/components/CarDataManagement';
 import SpaceFactQuery from '@/components/SpaceFactQuery';
 import MultiLapAnalysis from '@/components/MultiLapAnalysis';
 import StintAnalysis from '@/components/StintAnalysis';
@@ -15,7 +16,7 @@ import ReferencePoints from '@/components/ReferencePoints';
 const SHOW_SPACE_FACTS_TAB = false;
 
 export default function RacingPage() {
-  const [activeTab, setActiveTab] = useState<'tracks' | 'friends' | 'spaceFacts' | 'racecar' | 'multiLap' | 'stint' | 'lapCompare' | 'debrief' | 'referencePoints'>(
+  const [activeTab, setActiveTab] = useState<'tracks' | 'cars' | 'friends' | 'spaceFacts' | 'racecar' | 'multiLap' | 'stint' | 'lapCompare' | 'debrief' | 'referencePoints'>(
     'debrief'
   );
 
@@ -24,7 +25,7 @@ export default function RacingPage() {
       <section className="py-16 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-background to-background border-b border-border">
         <div className="max-w-4xl mx-auto text-center">
           <h1 className="text-4xl md:text-5xl font-bold mb-4 pb-2 bg-gradient-to-r from-primary-strong via-primary to-primary-strong bg-clip-text text-transparent">
-            Analysis &amp; Coaching
+            Coaching &amp; Analysis
           </h1>
           <p className="text-lg text-muted-foreground">
             Debriefs, lap and stint analysis, and reference points
@@ -99,6 +100,16 @@ export default function RacingPage() {
               Get Reference Points
             </button>
             <button
+              onClick={() => setActiveTab('cars')}
+              className={`px-6 py-3 font-semibold border-b-2 transition-colors ${
+                activeTab === 'cars'
+                  ? 'text-primary border-primary'
+                  : 'text-muted-foreground border-transparent hover:text-foreground'
+              }`}
+            >
+              Car Data
+            </button>
+            <button
               onClick={() => setActiveTab('tracks')}
               className={`px-6 py-3 font-semibold border-b-2 transition-colors ${
                 activeTab === 'tracks'
@@ -132,6 +143,17 @@ export default function RacingPage() {
 
           {/* Tab Content */}
           <div className="bg-secondary rounded-xl border border-border p-8">
+            {/* Car Data Tab */}
+            {activeTab === 'cars' && (
+              <div>
+                <h2 className="text-2xl font-bold text-foreground mb-2">Car Data</h2>
+                <p className="text-muted-foreground mb-6">
+                  Your cars and their specs. Expand a car to see its dimensions and notes, or press Edit to change them.
+                </p>
+                <CarDataManagement />
+              </div>
+            )}
+
             {/* Track Data Tab */}
             {activeTab === 'tracks' && (
               <div>

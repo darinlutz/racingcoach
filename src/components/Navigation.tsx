@@ -15,7 +15,7 @@ type NavigationProps = {
 const links = [
   { href: '/#toolkit', label: 'Toolkit' },
   { href: '/#how-it-works', label: 'How It Works' },
-  { href: '/racing', label: 'Analysis & Coaching' },
+  { href: '/racing', label: 'Coaching & Analysis' },
   { href: '/race-trends', label: 'My Race Trends' },
   { href: '/pricing', label: 'Pricing' },
 ];
@@ -43,7 +43,7 @@ export default function Navigation({ user }: NavigationProps) {
     }
   };
 
-  // Same type treatment as the Analysis & Coaching tabs: semibold, muted, red when current
+  // Same type treatment as the Coaching & Analysis tabs: semibold, muted, red when current
   const linkColor = (href: string) => (href === pathname ? 'text-primary' : 'text-muted-foreground hover:text-foreground');
   const navLink = (href: string) => `font-semibold whitespace-nowrap transition-colors ${linkColor(href)}`;
   const mobileLink = (href: string) => `block px-3 py-2 rounded-md font-semibold hover:bg-secondary transition-colors ${linkColor(href)}`;

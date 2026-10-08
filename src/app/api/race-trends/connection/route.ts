@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { IRacePlanAuthError } from '@/lib/iRacePlan';
-import { connect, disconnect } from '@/lib/raceHistory';
+import { connect, disconnect, NoIRacingProfileError } from '@/lib/raceHistory';
 import { getCurrentUser } from '@/lib/session';
 
 const NOT_SIGNED_IN = { error: 'Log in to connect iRacePlan' };
@@ -24,9 +24,11 @@ export async function PUT(request: Request) {
     if (error instanceof IRacePlanAuthError) {
       return NextResponse.json({ error: 'iRacePlan did not accept that API key' }, { status: 400 });
     }
+    if (error instanceof NoIRacingProfileError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     console.error('iRacePlan connect error:', error);
-    const message = error instanceof Error && error.message.includes('iRacing profile') ? error.message : 'Failed to connect iRacePlan';
-    return NextResponse.json({ error: message }, { status: 502 });
+    return NextResponse.json({ error: 'Failed to connect iRacePlan' }, { status: 502 });
   }
 }
 

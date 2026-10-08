@@ -14,7 +14,7 @@ type NavigationProps = {
 
 const links = [
   { href: '/#toolkit', label: 'Toolkit' },
-  { href: '/#how-it-works', label: 'How it works' },
+  { href: '/#how-it-works', label: 'How It Works' },
   { href: '/racing', label: 'Analysis & Coaching' },
   { href: '/race-trends', label: 'My Race Trends' },
   { href: '/pricing', label: 'Pricing' },

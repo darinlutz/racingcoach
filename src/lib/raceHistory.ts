@@ -4,6 +4,7 @@ import {
   fetchPlanning,
   fetchSchedule,
   fetchSeries,
+  type IRacingProfile,
   type Planning,
   type Series,
 } from './iRacePlan';
@@ -43,14 +44,28 @@ export async function readConnection(userId: number): Promise<Connection | null>
   };
 }
 
-// Checks the key with iRacePlan, then saves it with the iRacing profile it belongs to. A different
-// iRacing profile than before starts the race history over.
-export async function connect(userId: number, apiKey: string): Promise<Connection> {
-  await ensureUserSchema();
-  const { user } = await fetchMe(apiKey);
-  const profile = user.iracing_profile;
-  if (!profile) throw new Error('Your iRacePlan account is not linked to an iRacing profile yet');
+export class NoIRacingProfileError extends Error {
+  constructor() {
+    super('Your iRacePlan account is not linked to an iRacing profile yet');
+  }
+}
 
+// The iRacing profile an API key belongs to. Throws IRacePlanAuthError for a bad key.
+export async function fetchIRacingProfile(apiKey: string): Promise<IRacingProfile> {
+  const { user } = await fetchMe(apiKey);
+  if (!user.iracing_profile) throw new NoIRacingProfileError();
+  return user.iracing_profile;
+}
+
+// Checks the key with iRacePlan, then saves it with the iRacing profile it belongs to.
+export async function connect(userId: number, apiKey: string): Promise<Connection> {
+  return saveConnection(userId, apiKey, await fetchIRacingProfile(apiKey));
+}
+
+// Saves a key already checked with iRacePlan. A different iRacing profile than before starts the race
+// history over.
+export async function saveConnection(userId: number, apiKey: string, profile: IRacingProfile): Promise<Connection> {
+  await ensureUserSchema();
   const [previous] = await query(
     'SELECT iracing_customer_id FROM racingcoach."IRacePlanConnections" WHERE user_id = $1',
     [userId]

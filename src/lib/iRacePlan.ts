@@ -19,8 +19,10 @@ async function get<T>(apiKey: string, path: string): Promise<T> {
   return (await response.json()) as T;
 }
 
+export type IRacingProfile = { customer_id: number; display_name: string };
+
 export type IRacePlanMe = {
-  user: { id: number; iracing_profile: { customer_id: number; display_name: string } | null };
+  user: { id: number; iracing_profile: IRacingProfile | null };
 };
 
 export type ScheduleRace = {

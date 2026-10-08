@@ -11,7 +11,7 @@ const inputClass =
 export default function SignupForm() {
   const router = useRouter();
   const [formData, setFormData] = useState({
-    userName: '',
+    apiKey: '',
     emailAddress: '',
     password: '',
   });
@@ -53,19 +53,28 @@ export default function SignupForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div>
-        <label htmlFor="userName" className="block text-sm font-medium text-foreground mb-2">
-          Name *
+        <label htmlFor="apiKey" className="block text-sm font-medium text-foreground mb-2">
+          iRacePlan API Key *
         </label>
         <input
-          type="text"
-          id="userName"
-          name="userName"
-          value={formData.userName}
+          type="password"
+          id="apiKey"
+          name="apiKey"
+          value={formData.apiKey}
           onChange={handleChange}
           required
-          autoComplete="name"
+          maxLength={500}
+          autoComplete="off"
           className={inputClass}
         />
+        <p className="mt-2 text-sm text-muted-foreground">
+          Sign in to{' '}
+          <a href="https://iraceplan.com" target="_blank" rel="noreferrer" className="text-primary hover:underline">
+            iRacePlan
+          </a>{' '}
+          with your Garage 61 account, then create an API key under Settings &gt; API Keys and paste it here.
+          Your driver name comes from your iRacing profile, and your races load into My Race Trends.
+        </p>
       </div>
 
       <div>

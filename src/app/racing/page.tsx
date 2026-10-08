@@ -6,7 +6,6 @@ import TrackFileExport from '@/components/TrackFileExport';
 import TrackManagement from '@/components/TrackManagement';
 import CarDataManagement from '@/components/CarDataManagement';
 import SpaceFactQuery from '@/components/SpaceFactQuery';
-import MultiLapAnalysis from '@/components/MultiLapAnalysis';
 import StintAnalysis from '@/components/StintAnalysis';
 import LapCompare from '@/components/LapCompare';
 import DebriefCoach from '@/components/DebriefCoach';
@@ -16,7 +15,7 @@ import ReferencePoints from '@/components/ReferencePoints';
 const SHOW_SPACE_FACTS_TAB = false;
 
 export default function RacingPage() {
-  const [activeTab, setActiveTab] = useState<'tracks' | 'cars' | 'friends' | 'spaceFacts' | 'racecar' | 'multiLap' | 'stint' | 'lapCompare' | 'debrief' | 'referencePoints'>(
+  const [activeTab, setActiveTab] = useState<'tracks' | 'cars' | 'friends' | 'spaceFacts' | 'racecar' | 'stint' | 'lapCompare' | 'debrief' | 'referencePoints'>(
     'debrief'
   );
 
@@ -59,16 +58,6 @@ export default function RacingPage() {
                 Space Fact Query
               </button>
             )}
-            <button
-              onClick={() => setActiveTab('multiLap')}
-              className={`px-6 py-3 font-semibold border-b-2 transition-colors ${
-                activeTab === 'multiLap'
-                  ? 'text-primary border-primary'
-                  : 'text-muted-foreground border-transparent hover:text-foreground'
-              }`}
-            >
-              Multi-Lap Analysis
-            </button>
             <button
               onClick={() => setActiveTab('stint')}
               className={`px-6 py-3 font-semibold border-b-2 transition-colors ${
@@ -201,17 +190,6 @@ export default function RacingPage() {
                   queryLabel="Ask a Question About Racecars"
                   placeholder="Enter your racecar question here"
                 />
-              </div>
-            )}
-
-            {/* Multi-Lap Analysis Tab */}
-            {activeTab === 'multiLap' && (
-              <div>
-                <h2 className="text-2xl font-bold text-foreground mb-2">Multi-Lap Analysis</h2>
-                <p className="text-muted-foreground mb-6">
-                  Analyze multiple laps to find where you are most inconsistent.
-                </p>
-                <MultiLapAnalysis />
               </div>
             )}
 

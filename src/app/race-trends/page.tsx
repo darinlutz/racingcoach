@@ -17,7 +17,7 @@ export default function RaceTrendsPage() {
       <section className="py-16 px-6 sm:px-10 lg:px-16 bg-card flex flex-col items-center">
         <div className="w-full max-w-4xl">
           <div className="bg-secondary rounded-xl border border-border p-8">
-            <h2 className="text-2xl font-bold text-foreground mb-2">Race &amp; Qualy Trends</h2>
+            <h2 className="text-2xl font-bold text-foreground mb-2">Race Trends</h2>
             <p className="text-muted-foreground mb-6">
               Your races load automatically from iRacePlan. See how your iRating and incidents have moved over time.
             </p>

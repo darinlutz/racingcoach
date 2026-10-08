@@ -11,7 +11,7 @@ import {
 import type { RaceEvent } from './raceTrends';
 import { ensureUserSchema } from './users';
 
-// Race & Qualy Trends data. Each user connects their own iRacePlan API key; their completed races are
+// Race Trends data. Each user connects their own iRacePlan API key; their completed races are
 // copied into racingcoach."RaceResults" so the tab loads instantly and only new races are fetched later.
 // iRacePlan's schedule lists every race in one call, but each result needs its own (slow) request, so a
 // sync fetches at most SYNC_BATCH results and the browser calls it again until nothing is left.

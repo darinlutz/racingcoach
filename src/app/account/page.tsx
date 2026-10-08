@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import CancelSubscriptionButton from '@/components/CancelSubscriptionButton';
+import { getDiscordConnection } from '@/lib/discord';
 import { getCurrentUser } from '@/lib/session';
 import { canBuy } from '@/lib/users';
 import { ACCOUNT_STATUS } from '@/lib/accountStatus';
@@ -24,9 +25,27 @@ function formatDate(iso: string | null): string {
   return new Date(iso).toLocaleDateString('en-US', { dateStyle: 'long' });
 }
 
-export default async function AccountPage() {
+// What /api/discord/* send back in ?discord=, and whether it's good news
+const DISCORD_MESSAGES: Record<string, { text: string; ok: boolean }> = {
+  connected: { text: 'Your Discord account is now linked.', ok: true },
+  disconnected: { text: 'Your Discord account has been unlinked.', ok: true },
+  canceled: { text: 'Discord linking was canceled.', ok: false },
+  expired: { text: 'That Discord link request expired. Please try again.', ok: false },
+  taken: { text: 'That Discord account is already linked to another Clarivex account.', ok: false },
+  unavailable: { text: 'Discord linking is not available right now.', ok: false },
+  error: { text: 'Something went wrong linking Discord. Please try again.', ok: false },
+};
+
+export default async function AccountPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
+  const { discord: discordResult } = await searchParams;
+  const discordMessage = typeof discordResult === 'string' ? DISCORD_MESSAGES[discordResult] : undefined;
+  const discord = await getDiscordConnection(user.id);
   const isMonthly = user.accountStatus === ACCOUNT_STATUS.monthly;
   // A canceled monthly subscription keeps its end date: the end of the last paid month
   const showEndDate = isMonthly || (user.accountStatus === ACCOUNT_STATUS.canceled && user.subscriptionEndDate !== null);
@@ -79,6 +98,55 @@ export default async function AccountPage() {
             </div>
           )}
         </dl>
+
+        {/* Linked Discord account */}
+        <div className="mt-6 bg-card rounded-lg border border-border px-4 py-4">
+          <h2 className="text-sm font-medium text-muted-foreground mb-3">Discord</h2>
+          {discordMessage && (
+            <p
+              className={`mb-3 p-3 rounded-lg text-sm ${
+                discordMessage.ok ? 'bg-green-500/15 text-green-400' : 'bg-primary/15 border border-primary/40 text-red-300'
+              }`}
+            >
+              {discordMessage.text}
+            </p>
+          )}
+          {discord ? (
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3 min-w-0">
+                {discord.avatarUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element -- small remote avatar, not worth configuring next/image for
+                  <img src={discord.avatarUrl} alt="" width={40} height={40} className="w-10 h-10 rounded-full" />
+                )}
+                <div className="min-w-0">
+                  <p className="text-foreground font-medium truncate">{discord.globalName ?? discord.username}</p>
+                  <p className="text-sm text-muted-foreground truncate">
+                    @{discord.username} · linked {formatDate(discord.connectedAt)}
+                  </p>
+                </div>
+              </div>
+              <form action="/api/discord/disconnect" method="POST">
+                <button
+                  type="submit"
+                  className="px-4 py-2 text-sm font-semibold rounded-lg text-foreground bg-card border border-border hover:border-primary hover:text-primary transition-colors"
+                >
+                  Disconnect
+                </button>
+              </form>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between gap-4">
+              <p className="text-sm text-muted-foreground">Link your Discord account to Clarivex.</p>
+              {/* A plain link: /api/discord/connect redirects to Discord */}
+              <a
+                href="/api/discord/connect"
+                className="shrink-0 px-4 py-2 text-sm font-semibold rounded-lg text-white bg-[#5865F2] hover:bg-[#4752C4] transition-colors"
+              >
+                Connect Discord
+              </a>
+            </div>
+          )}
+        </div>
 
         {(canBuyMonthly || canBuyLifetime) && (
           <form action="/api/create-checkout-session" method="POST" className="mt-8 space-y-3">

@@ -52,7 +52,8 @@ let schemaReady: Promise<void> | null = null;
 
 // The racingcoach schema holds the site's accounts and everything tied to one:
 // Users, each user's own Friends, Tracks and their FocusAreas, CarData, IRacePlanConnections
-// and synced RaceResults, sign-in Sessions, PasswordResets links and CancellationReason feedback.
+// and synced RaceResults, DiscordConnections, sign-in Sessions, PasswordResets links and
+// CancellationReason feedback.
 export function ensureUserSchema(): Promise<void> {
   if (!schemaReady) {
     schemaReady = transaction(async (client) => {
@@ -229,6 +230,16 @@ export function ensureUserSchema(): Promise<void> {
       await client.query(
         'CREATE INDEX IF NOT EXISTS cancellation_reason_user_id_idx ON racingcoach."CancellationReason" (user_id)'
       );
+      // Each user's linked Discord account (Discord OAuth2, identify scope). A Discord account can be
+      // linked to only one user. No Discord tokens are kept.
+      await client.query(`CREATE TABLE IF NOT EXISTS racingcoach."DiscordConnections" (
+        user_id INTEGER PRIMARY KEY REFERENCES racingcoach."Users"(id) ON DELETE CASCADE,
+        discord_user_id TEXT NOT NULL UNIQUE,
+        discord_username TEXT NOT NULL,
+        discord_global_name TEXT,
+        discord_avatar TEXT,
+        connected_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      )`);
     }).catch((error) => {
       schemaReady = null;
       throw error;

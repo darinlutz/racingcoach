@@ -2,19 +2,8 @@ import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { getCurrentUser } from '@/lib/session';
 import { getSiteOrigin } from '@/lib/siteOrigin';
+import { getPlanPrice, getStripeConfig, isPlan } from '@/lib/stripePlans';
 import { canBuy } from '@/lib/users';
-
-// Each plan is a Stripe Product; Checkout charges its default Price
-const PLAN_PRODUCT_ENV = {
-  monthly: 'STRIPE_MONTHLY_PRODUCT_ID',
-  lifetime: 'STRIPE_LIFETIME_PRODUCT_ID',
-} as const;
-
-type Plan = keyof typeof PLAN_PRODUCT_ENV;
-
-function isPlan(value: unknown): value is Plan {
-  return value === 'monthly' || value === 'lifetime';
-}
 
 export async function POST(request: Request) {
   try {
@@ -25,14 +14,14 @@ export async function POST(request: Request) {
     }
 
     // Check if Stripe secret key and the plan's product are configured
-    const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
-    const productId = process.env[PLAN_PRODUCT_ENV[plan]];
-    if (!stripeSecretKey || !productId) {
+    const config = getStripeConfig(plan);
+    if (!config) {
       return NextResponse.json(
         { error: 'Stripe is not configured' },
         { status: 500 }
       );
     }
+    const { stripe, productId } = config;
 
     const origin = getSiteOrigin(request);
 
@@ -47,13 +36,8 @@ export async function POST(request: Request) {
       return NextResponse.redirect(`${origin}/account`, 303);
     }
 
-    const stripe = new Stripe(stripeSecretKey);
-
-    const product = await stripe.products.retrieve(productId, {
-      expand: ['default_price'],
-    });
-    const price = product.default_price;
-    if (!price || typeof price === 'string') {
+    const price = await getPlanPrice(stripe, productId);
+    if (!price) {
       console.error(`Stripe product ${productId} has no default price`);
       return NextResponse.json(
         { error: 'Stripe product has no price' },

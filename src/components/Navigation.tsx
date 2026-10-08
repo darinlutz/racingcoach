@@ -6,15 +6,18 @@ import { useState } from 'react';
 import { ArrowRight, Menu, X } from 'lucide-react';
 import Brand from '@/components/Brand';
 import { buttonVariants } from '@/components/Button';
+import { ACCOUNT_STATUS } from '@/lib/accountStatus';
 
 type NavigationProps = {
-  user: { userName: string } | null;
+  user: { userName: string; accountStatus: string } | null;
 };
 
 const links = [
-  { href: '/racing', label: 'Analysis Tools' },
-  { href: '/#toolkit', label: 'The toolkit' },
+  { href: '/#toolkit', label: 'Toolkit' },
   { href: '/#how-it-works', label: 'How it works' },
+  { href: '/racing', label: 'Analysis & Coaching' },
+  { href: '/race-trends', label: 'My Race Trends' },
+  { href: '/pricing', label: 'Pricing' },
 ];
 
 export default function Navigation({ user }: NavigationProps) {
@@ -22,6 +25,8 @@ export default function Navigation({ user }: NavigationProps) {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  // Lifetime subscribers have nothing left to buy
+  const visibleLinks = user?.accountStatus === ACCOUNT_STATUS.lifetime ? links.filter((link) => link.href !== '/pricing') : links;
 
   const toggleMenu = () => setIsOpen(!isOpen);
   const closeMenu = () => setIsOpen(false);
@@ -38,7 +43,7 @@ export default function Navigation({ user }: NavigationProps) {
     }
   };
 
-  // Same type treatment as the Analysis Tools tabs: semibold, muted, red when current
+  // Same type treatment as the Analysis & Coaching tabs: semibold, muted, red when current
   const linkColor = (href: string) => (href === pathname ? 'text-primary' : 'text-muted-foreground hover:text-foreground');
   const navLink = (href: string) => `font-semibold whitespace-nowrap transition-colors ${linkColor(href)}`;
   const mobileLink = (href: string) => `block px-3 py-2 rounded-md font-semibold hover:bg-secondary transition-colors ${linkColor(href)}`;
@@ -50,7 +55,7 @@ export default function Navigation({ user }: NavigationProps) {
 
         {/* Desktop Navigation */}
         <div className="hidden md:flex items-center gap-8">
-          {links.map((link) => (
+          {visibleLinks.map((link) => (
             <Link key={link.href} href={link.href} className={navLink(link.href)}>{link.label}</Link>
           ))}
         </div>
@@ -94,7 +99,7 @@ export default function Navigation({ user }: NavigationProps) {
       {isOpen && (
         <div className="md:hidden bg-card border-t border-border">
           <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-            {links.map((link) => (
+            {visibleLinks.map((link) => (
               <Link key={link.href} href={link.href} className={mobileLink(link.href)} onClick={closeMenu}>{link.label}</Link>
             ))}
             <div className="border-t border-border pt-2 mt-2">

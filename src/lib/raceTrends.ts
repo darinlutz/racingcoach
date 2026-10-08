@@ -3,7 +3,7 @@ import { ChatOpenAI } from '@langchain/openai';
 import { createAgent, tool } from 'langchain';
 import { z } from 'zod';
 
-// Race & Qualy Trends tab. The driver's races are synced from iRacePlan into racingcoach."RaceResults"
+// My Race Trends page. The driver's races are synced from iRacePlan into racingcoach."RaceResults"
 // (see raceHistory.ts). The iRating and incident trends are computed here so the charts' numbers are
 // exact; the agent digs through the same races with the tools below and writes the commentary.
 

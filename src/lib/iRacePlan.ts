@@ -1,5 +1,5 @@
 // Minimal client for the iRacePlan API (https://iraceplan.com/api/v1), authenticated with each user's
-// own API key. Only the read endpoints the Race & Qualy Trends tab needs.
+// own API key. Only the read endpoints the My Race Trends page needs.
 
 const BASE_URL = 'https://iraceplan.com/api/v1';
 

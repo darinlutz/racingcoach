@@ -10,7 +10,7 @@ function statusBadgeClass(accountStatus: string): string {
   switch (accountStatus) {
     case ACCOUNT_STATUS.monthly:
     case ACCOUNT_STATUS.lifetime:
-      return 'bg-positive/15 text-positive';
+      return 'bg-green-500/15 text-green-400';
     case ACCOUNT_STATUS.canceled:
     case ACCOUNT_STATUS.expired:
       return 'bg-primary/15 text-red-300';
@@ -91,7 +91,7 @@ export default async function AccountPage() {
                 value="lifetime"
                 className="w-full px-6 py-3 rounded-lg font-semibold text-white bg-gradient-to-r from-primary to-primary-strong hover:from-primary-strong hover:to-primary transition-colors"
               >
-                Lifetime Subscription
+                {isMonthly ? 'Upgrade to Lifetime Subscription' : 'Lifetime Subscription'}
               </button>
             )}
           </form>

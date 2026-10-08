@@ -10,13 +10,12 @@ import StintAnalysis from '@/components/StintAnalysis';
 import LapCompare from '@/components/LapCompare';
 import DebriefCoach from '@/components/DebriefCoach';
 import ReferencePoints from '@/components/ReferencePoints';
-import RaceTrends from '@/components/RaceTrends';
 
 // Space Fact Query tab is hidden for now; set to true to show it again
 const SHOW_SPACE_FACTS_TAB = false;
 
 export default function RacingPage() {
-  const [activeTab, setActiveTab] = useState<'tracks' | 'friends' | 'spaceFacts' | 'racecar' | 'multiLap' | 'stint' | 'lapCompare' | 'debrief' | 'referencePoints' | 'raceTrends'>(
+  const [activeTab, setActiveTab] = useState<'tracks' | 'friends' | 'spaceFacts' | 'racecar' | 'multiLap' | 'stint' | 'lapCompare' | 'debrief' | 'referencePoints'>(
     'debrief'
   );
 
@@ -25,10 +24,10 @@ export default function RacingPage() {
       <section className="py-16 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-background to-background border-b border-border">
         <div className="max-w-4xl mx-auto text-center">
           <h1 className="text-4xl md:text-5xl font-bold mb-4 pb-2 bg-gradient-to-r from-primary-strong via-primary to-primary-strong bg-clip-text text-transparent">
-            Analysis Tools
+            Analysis &amp; Coaching
           </h1>
           <p className="text-lg text-muted-foreground">
-            Debriefs, lap and stint analysis, and race trends
+            Debriefs, lap and stint analysis, and reference points
           </p>
         </div>
       </section>
@@ -118,16 +117,6 @@ export default function RacingPage() {
               }`}
             >
               Get Reference Points
-            </button>
-            <button
-              onClick={() => setActiveTab('raceTrends')}
-              className={`px-6 py-3 font-semibold border-b-2 transition-colors ${
-                activeTab === 'raceTrends'
-                  ? 'text-primary border-primary'
-                  : 'text-muted-foreground border-transparent hover:text-foreground'
-              }`}
-            >
-              Race &amp; Qualy Trends
             </button>
             <button
               onClick={() => setActiveTab('friends')}
@@ -245,17 +234,6 @@ export default function RacingPage() {
                   Upload your laps and get the brake point, max brake pressure and on-throttle point for each focus area.
                 </p>
                 <ReferencePoints />
-              </div>
-            )}
-
-            {/* Race & Qualy Trends Tab */}
-            {activeTab === 'raceTrends' && (
-              <div>
-                <h2 className="text-2xl font-bold text-foreground mb-2">Race &amp; Qualy Trends</h2>
-                <p className="text-muted-foreground mb-6">
-                  Your races load automatically from iRacePlan. See how your iRating and incidents have moved over time.
-                </p>
-                <RaceTrends />
               </div>
             )}
           </div>

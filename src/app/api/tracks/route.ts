@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { isUniqueViolation } from '@/lib/db';
+import { isAdmin } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
 import { addTrack, deleteTrack, readTracks, TrackNotFoundError, trackInputSchema, updateTrack } from '@/lib/tracks';
 
@@ -18,7 +19,8 @@ export async function GET() {
     if (!user) {
       return NextResponse.json(NOT_SIGNED_IN, { status: 401 });
     }
-    return NextResponse.json({ tracks: await readTracks(user.id) });
+    // isAdmin shows Track Data's Save Data button (the site owner's SimHub file)
+    return NextResponse.json({ tracks: await readTracks(user.id), isAdmin: isAdmin(user.role) });
   } catch (error) {
     console.error('Read tracks error:', error);
     return NextResponse.json({ error: 'Failed to load tracks' }, { status: 500 });

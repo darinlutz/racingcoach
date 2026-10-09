@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import CancelSubscriptionButton from '@/components/CancelSubscriptionButton';
-import { getDiscordConnection } from '@/lib/discord';
+import { DISCORD_INVITE_URL, getDiscordConnection } from '@/lib/discord';
 import { getCurrentUser } from '@/lib/session';
 import { canBuy } from '@/lib/users';
 import { ACCOUNT_STATUS } from '@/lib/accountStatus';
@@ -27,7 +27,6 @@ function formatDate(iso: string | null): string {
 
 // What /api/discord/* send back in ?discord=, and whether it's good news
 const DISCORD_MESSAGES: Record<string, { text: string; ok: boolean }> = {
-  connected: { text: 'Your Discord account is now linked.', ok: true },
   disconnected: { text: 'Your Discord account has been unlinked.', ok: true },
   canceled: { text: 'Discord linking was canceled.', ok: false },
   expired: { text: 'That Discord link request expired. Please try again.', ok: false },
@@ -125,19 +124,29 @@ export default async function AccountPage({
                   </p>
                 </div>
               </div>
-              <form action="/api/discord/disconnect" method="POST">
-                <button
-                  type="submit"
-                  className="px-4 py-2 text-sm font-semibold rounded-lg text-foreground bg-card border border-border hover:border-primary hover:text-primary transition-colors"
+              <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                <a
+                  href={DISCORD_INVITE_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-4 py-2 text-sm font-semibold rounded-lg text-white bg-[#5865F2] hover:bg-[#4752C4] transition-colors"
                 >
-                  Disconnect
-                </button>
-              </form>
+                  Join Server
+                </a>
+                <form action="/api/discord/disconnect" method="POST">
+                  <button
+                    type="submit"
+                    className="px-4 py-2 text-sm font-semibold rounded-lg text-foreground bg-card border border-border hover:border-primary hover:text-primary transition-colors"
+                  >
+                    Disconnect
+                  </button>
+                </form>
+              </div>
             </div>
           ) : (
             <div className="flex items-center justify-between gap-4">
               <p className="text-sm text-muted-foreground">Link your Discord account to RacingCoach.</p>
-              {/* A plain link: /api/discord/connect redirects to Discord */}
+              {/* A plain link: /api/discord/connect redirects to Discord, then on to the server invite */}
               <a
                 href="/api/discord/connect"
                 className="shrink-0 px-4 py-2 text-sm font-semibold rounded-lg text-white bg-[#5865F2] hover:bg-[#4752C4] transition-colors"

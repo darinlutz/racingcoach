@@ -8,6 +8,9 @@ import { ensureUserSchema } from './users';
 
 const DISCORD_API = 'https://discord.com/api/v10';
 
+// The RacingCoach Discord server. Users are sent here once their account is linked.
+export const DISCORD_INVITE_URL = 'https://discord.com/invite/gdYvmNefy';
+
 // Holds the OAuth2 state between /api/discord/connect and /api/discord/callback
 export const DISCORD_STATE_COOKIE = 'discord_oauth_state';
 

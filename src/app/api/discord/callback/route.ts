@@ -2,6 +2,7 @@ import { timingSafeEqual } from 'node:crypto';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import {
+  DISCORD_INVITE_URL,
   DISCORD_STATE_COOKIE,
   DiscordAlreadyLinkedError,
   discordRedirectUri,
@@ -17,15 +18,17 @@ function sameState(a: string, b: string): boolean {
   return left.length === right.length && timingSafeEqual(left, right);
 }
 
-// Discord sends the user back here after they approve (or cancel) linking their account. The result
-// is shown on the account page via ?discord=
+// Discord sends the user back here after they approve (or cancel) linking their account. Once linked
+// they go on to the RacingCoach Discord server's invite; otherwise the result is shown on the account
+// page via ?discord=
 export async function GET(request: Request) {
   const origin = getSiteOrigin(request);
-  const back = (result: string) => {
-    const response = NextResponse.redirect(`${origin}/account?discord=${result}`, 303);
+  const redirect = (url: string) => {
+    const response = NextResponse.redirect(url, 303);
     response.cookies.delete({ name: DISCORD_STATE_COOKIE, path: '/api/discord' });
     return response;
   };
+  const back = (result: string) => redirect(`${origin}/account?discord=${result}`);
 
   try {
     const user = await getCurrentUser();
@@ -44,7 +47,7 @@ export async function GET(request: Request) {
 
     const discordUser = await fetchDiscordUser(code, discordRedirectUri(request));
     await saveDiscordConnection(user.id, discordUser);
-    return back('connected');
+    return redirect(DISCORD_INVITE_URL);
   } catch (error) {
     if (error instanceof DiscordAlreadyLinkedError) return back('taken');
     console.error('Discord callback error:', error);

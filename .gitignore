@@ -54,3 +54,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Discord bot (bot/ has its own package.json)
+/bot/node_modules

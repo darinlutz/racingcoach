@@ -8,3 +8,4 @@ node_modules
 *.tsbuildinfo
 npm-debug.log*
 README.md
+bot

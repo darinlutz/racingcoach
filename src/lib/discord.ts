@@ -1,5 +1,5 @@
 import { isUniqueViolation, query } from './db';
-import { getSiteOrigin } from './siteOrigin';
+import { getPublicSiteUrl } from './siteOrigin';
 import { ensureUserSchema } from './users';
 
 // Links a user's Discord account with Discord OAuth2 (https://discord.com/developers/docs/topics/oauth2).
@@ -34,10 +34,9 @@ export function discordConfig(): { clientId: string; clientSecret: string } | nu
   return clientId && clientSecret ? { clientId, clientSecret } : null;
 }
 
-// Must match a Redirect URI on the Discord application's OAuth2 page exactly. SITE_URL pins it to
-// the real domain in production.
+// Must match a Redirect URI on the Discord application's OAuth2 page exactly
 export function discordRedirectUri(request: Request): string {
-  return `${process.env.SITE_URL || getSiteOrigin(request)}/api/discord/callback`;
+  return `${getPublicSiteUrl(request)}/api/discord/callback`;
 }
 
 export function discordAuthorizeUrl(clientId: string, redirectUri: string, state: string): string {
@@ -121,6 +120,15 @@ export async function getDiscordConnection(userId: number): Promise<DiscordConne
     avatarUrl: avatar ? `https://cdn.discordapp.com/avatars/${discordUserId}/${avatar}.png?size=64` : null,
     connectedAt: (row.connected_at as Date).toISOString(),
   };
+}
+
+// The RacingCoach user a Discord account is linked to, for the Discord bot
+export async function getUserIdByDiscordId(discordUserId: string): Promise<number | null> {
+  await ensureUserSchema();
+  const [row] = await query('SELECT user_id FROM racingcoach."DiscordConnections" WHERE discord_user_id = $1', [
+    discordUserId,
+  ]);
+  return row ? (row.user_id as number) : null;
 }
 
 export async function deleteDiscordConnection(userId: number): Promise<void> {

@@ -41,3 +41,31 @@ export async function getLinkedUser(discordUserId) {
   if (!row) return null;
   return { id: row.id, userName: row.user_name, accountStatus: row.account_status };
 }
+
+// The user's most recent races with a result, newest first. They are synced from iRacePlan into
+// racingcoach."RaceResults" by the website's Race Trends page (src/lib/raceHistory.ts).
+// Positions are 1-based, lap times in seconds, and null means iRacePlan didn't report the value.
+export async function getRecentRaces(userId, limit) {
+  const rows = await query(
+    `SELECT start_time, series, track, car, start_position, finish_position, incidents,
+            old_irating, new_irating, best_lap_seconds, average_lap_seconds
+     FROM racingcoach."RaceResults"
+     WHERE user_id = $1 AND has_result
+     ORDER BY start_time DESC
+     LIMIT $2`,
+    [userId, limit],
+  );
+  return rows.map((row) => ({
+    startTime: row.start_time,
+    series: row.series,
+    track: row.track,
+    car: row.car,
+    startPosition: row.start_position,
+    finishPosition: row.finish_position,
+    incidents: row.incidents ?? 0,
+    oldIRating: row.old_irating,
+    newIRating: row.new_irating,
+    bestLapSeconds: row.best_lap_seconds,
+    averageLapSeconds: row.average_lap_seconds,
+  }));
+}

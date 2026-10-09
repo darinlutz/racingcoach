@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createPasswordResetToken } from '@/lib/passwordReset';
-import { getSiteOrigin } from '@/lib/siteOrigin';
+import { getPublicSiteUrl } from '@/lib/siteOrigin';
 import { getUserByEmail } from '@/lib/users';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -31,7 +31,7 @@ export async function POST(request: Request) {
 
     // SITE_URL pins the link to the real domain so a forged Host header can't
     // send the reset token somewhere else; locally it falls back to the request.
-    const siteUrl = process.env.SITE_URL || getSiteOrigin(request);
+    const siteUrl = getPublicSiteUrl(request);
     const token = await createPasswordResetToken(user.id);
     const resetUrl = `${siteUrl}/reset-password?token=${token}`;
 

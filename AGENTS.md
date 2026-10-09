@@ -35,6 +35,7 @@ npm run lint         # Run ESLint
 - `RESEND_FROM_EMAIL` - Sender for password reset emails, on a domain verified in Resend (e.g. `Clarivex <no-reply@clarivex.app>`). Defaults to `onboarding@resend.dev`, which only delivers to the Resend account owner
 - `SITE_URL` - Public site URL used in password reset links (e.g. `https://clarivex.app`). Set in production; locally it falls back to the request's host
 - `OPENAI_API_KEY` - OpenAI API key (Racing page: Debrief Coach, lap summaries, reference points, Race Trends, Racecar Analysis RAG)
+- `BOT_API_SECRET` - Shared secret the Discord bot sends to `/api/bot/*` routes (see Discord Bot below); the bot worker has the same value
 - `DATABASE_URL` - PostgreSQL connection string, e.g. `postgres://user:pass@host:5432/clarivex`. Passed to `pg` as-is, plus `search_path=racingcoach`. Required; tables are created on first use (`ensureUserSchema()` in `src/lib/users.ts`). Everything lives in the `racingcoach` schema: `"Users"` (role `Admin` for the site owner, `User` for everyone else), `"Friends"` (each user's own Racing friends list, linked by `user_id`), `"Tracks"` and `"FocusAreas"` (Track Data), `"CarData"` (each user's own cars, seeded with the GT3 defaults in `src/lib/defaultCars.ts` at sign-up), `"IRacePlanConnections"` (each user's own iRacePlan API key) and `"RaceResults"` (races synced from iRacePlan for Race Trends, see `src/lib/raceHistory.ts`), `"DiscordConnections"` (each user's linked Discord account, see `src/lib/discord.ts`), `"Sessions"`, `"PasswordResets"` and `"CancellationReason"` (why each monthly subscriber canceled, see `src/lib/cancellationReasons.ts`)
 - `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET` - OAuth2 credentials of the Discord application (discord.com/developers) behind the Account page's Connect Discord button. Its OAuth2 Redirects must include `<SITE_URL>/api/discord/callback` (and `http://localhost:3000/api/discord/callback` for local development)
 - `STRIPE_SECRET_KEY` - Stripe secret key (Checkout Session creation, success page lookup)
@@ -123,14 +124,17 @@ export async function POST(request: Request) {
 The RacingCoach Discord bot lives in `bot/`, a separate Node.js app (plain JavaScript, ES modules, discord.js) with its own `package.json`. It is not part of the Next.js build: `.dockerignore` excludes it, and it can't import from `src/`.
 
 - **Deployed as** the Render Background Worker `racingcoach-bot` (Root Directory `bot`, Node runtime, build `npm ci`, start `npm start`). It redeploys only when files under `bot/` change.
-- **Files**: `index.js` (logs in and answers slash commands), `deploy-commands.js` (registers the commands), `db.js` (read-only database access, set up like `src/lib/db.ts`)
-- **Commands**: `/command` (online check), `/whoami` (shows the RacingCoach account linked to the caller's Discord account through `racingcoach."DiscordConnections"`, which the Account page's Connect Discord button fills)
+- **Files**: `index.js` (logs in and answers slash commands), `deploy-commands.js` (registers the commands), `db.js` (read-only database access, set up like `src/lib/db.ts`), `api.js` (calls the website's bot-only routes), `coach.js` (builds the `/coach` embeds)
+- **Commands**: `/command` (online check), `/whoami` (shows the RacingCoach account linked to the caller's Discord account through `racingcoach."DiscordConnections"`, which the Account page's Connect Discord button fills), `/coach` (the caller's last 5 races from `RaceResults`, then the Race Trends agent's commentary from the website)
+- **Bot-only API**: AI features stay in the website and are exposed to the bot under `src/app/api/bot/` (e.g. `POST /api/bot/coach` with `{ discordUserId }`), authenticated with `Authorization: Bearer <BOT_API_SECRET>`. The website and the bot worker must have the same `BOT_API_SECRET`
 - **Registering commands**: commands are guild commands in the RacingCoach.app server, so changes show up immediately. After adding, renaming or changing a command in `deploy-commands.js`, run `npm run deploy-commands` from `bot/` locally; Render only runs the bot.
 - **Running locally**: `cd bot`, `npm install`, then `npm start`. Stop the Render worker or the local bot first; two running copies both receive each command.
 - **Environment variables** (`bot/.env` locally, git-ignored; the worker's Environment in Render):
   - `DISCORD_BOT_TOKEN` - Bot token from the Discord application's Bot tab (the same application as `DISCORD_CLIENT_ID`)
   - `DATABASE_URL` - Same database as the website
-  - `SITE_URL` - Optional; used for the Account page link in `/whoami` replies
+  - `SITE_URL` - Used for website links in replies, and as the website API's address unless `RACINGCOACH_API_URL` is set
+  - `BOT_API_SECRET` - Shared secret for the website's bot-only API (same value as the website's)
+  - `RACINGCOACH_API_URL` - Optional; the website address the bot calls, e.g. `http://localhost:3000` to use a local site
   - `DISCORD_CLIENT_ID`, `DISCORD_GUILD_ID` - Only needed by `deploy-commands.js`. The guild ID is the RacingCoach.app server's ID (digits only)
 
 ## Linting & Code Quality

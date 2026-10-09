@@ -284,3 +284,48 @@ export async function runRaceTrends(
     steps,
   };
 }
+
+// The Discord bot's /coach (src/app/api/bot/coach): the same tools and races, but the agent picks the
+// driver's top three opportunities as structured items the bot lays out as a card.
+const coachingSchema = z.object({
+  summary: z.string().describe("One sentence on the driver's recent form"),
+  opportunities: z
+    .array(
+      z.object({
+        title: z.string().describe('2-5 words naming the opportunity, e.g. "Cut incidents at Motegi"'),
+        focus: z.enum(['Incidents', 'Racecraft', 'Qualifying', 'Consistency', 'Track choice', 'Car choice']),
+        advice: z.string().describe('One or two sentences on what to do differently'),
+        impact: z.string().describe('One short line with the number from the tools that shows why it matters'),
+      })
+    )
+    .length(3)
+    .describe('The three opportunities, most important first'),
+});
+
+export type RaceCoaching = z.infer<typeof coachingSchema>;
+
+const COACHING_PROMPT =
+  "You are a sim racing coach reviewing a driver's iRacing race results for a short coaching card. Start with " +
+  'get_irating_overview, then use get_breakdown and get_events to find the three changes that would most improve ' +
+  'their iRating and results, weighting recent races most. You only have race results (positions, incidents, iRating, ' +
+  'safety rating), not telemetry, so never mention corners, braking points or lap-by-lap driving. Use only numbers ' +
+  'from the tools, never invent data, write to the driver as "you", and use plain text with no markdown.';
+
+export async function runRaceCoaching(driver: string, events: RaceEvent[]): Promise<RaceCoaching> {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error('OPENAI_API_KEY is not configured');
+  }
+
+  const agent = createAgent({
+    model: new ChatOpenAI({ model: 'gpt-4o', temperature: 0.2 }),
+    tools: createTools(driver, events),
+    systemPrompt: COACHING_PROMPT,
+    responseFormat: coachingSchema,
+  });
+
+  const result = await agent.invoke(
+    { messages: [{ role: 'user', content: `Coach ${driver} on their race results.` }] },
+    { recursionLimit: 30 }
+  );
+  return result.structuredResponse;
+}

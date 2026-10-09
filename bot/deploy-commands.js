@@ -19,6 +19,9 @@ const commands = [
   new SlashCommandBuilder()
     .setName('whoami')
     .setDescription('Show which RacingCoach account your Discord account is linked to'),
+  new SlashCommandBuilder()
+    .setName('coach')
+    .setDescription('Get your recent races and AI coaching on your results'),
 ].map((command) => command.toJSON());
 
 const rest = new REST().setToken(DISCORD_BOT_TOKEN);

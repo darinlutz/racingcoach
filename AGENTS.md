@@ -118,6 +118,21 @@ export async function POST(request: Request) {
 - Component: `BitcoinTicker.tsx`
 - No external API—check route implementation for data source
 
+## Discord Bot
+
+The RacingCoach Discord bot lives in `bot/`, a separate Node.js app (plain JavaScript, ES modules, discord.js) with its own `package.json`. It is not part of the Next.js build: `.dockerignore` excludes it, and it can't import from `src/`.
+
+- **Deployed as** the Render Background Worker `racingcoach-bot` (Root Directory `bot`, Node runtime, build `npm ci`, start `npm start`). It redeploys only when files under `bot/` change.
+- **Files**: `index.js` (logs in and answers slash commands), `deploy-commands.js` (registers the commands), `db.js` (read-only database access, set up like `src/lib/db.ts`)
+- **Commands**: `/command` (online check), `/whoami` (shows the RacingCoach account linked to the caller's Discord account through `racingcoach."DiscordConnections"`, which the Account page's Connect Discord button fills)
+- **Registering commands**: commands are guild commands in the RacingCoach.app server, so changes show up immediately. After adding, renaming or changing a command in `deploy-commands.js`, run `npm run deploy-commands` from `bot/` locally; Render only runs the bot.
+- **Running locally**: `cd bot`, `npm install`, then `npm start`. Stop the Render worker or the local bot first; two running copies both receive each command.
+- **Environment variables** (`bot/.env` locally, git-ignored; the worker's Environment in Render):
+  - `DISCORD_BOT_TOKEN` - Bot token from the Discord application's Bot tab (the same application as `DISCORD_CLIENT_ID`)
+  - `DATABASE_URL` - Same database as the website
+  - `SITE_URL` - Optional; used for the Account page link in `/whoami` replies
+  - `DISCORD_CLIENT_ID`, `DISCORD_GUILD_ID` - Only needed by `deploy-commands.js`. The guild ID is the RacingCoach.app server's ID (digits only)
+
 ## Linting & Code Quality
 
 **ESLint configuration** (`eslint.config.mjs`):

@@ -16,6 +16,9 @@ const commands = [
   new SlashCommandBuilder()
     .setName('command')
     .setDescription('Check that RacingCoach is online'),
+  new SlashCommandBuilder()
+    .setName('whoami')
+    .setDescription('Show which RacingCoach account your Discord account is linked to'),
 ].map((command) => command.toJSON());
 
 const rest = new REST().setToken(DISCORD_BOT_TOKEN);

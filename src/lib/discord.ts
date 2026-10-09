@@ -21,7 +21,7 @@ export type DiscordConnection = {
 
 export class DiscordAlreadyLinkedError extends Error {
   constructor() {
-    super('That Discord account is already linked to another Clarivex account');
+    super('That Discord account is already linked to another RacingCoach account');
   }
 }
 

@@ -1,4 +1,4 @@
-# Clarivex Website Developer Guidelines
+# RacingCoach Website Developer Guidelines
 
 <!-- BEGIN:nextjs-agent-rules -->
 
@@ -12,7 +12,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ## Project Overview
 
-**Clarivex** is a business automation consulting website specializing in process automation and integration services.
+**RacingCoach** is a business automation consulting website specializing in process automation and integration services.
 
 **Tech Stack:**
 - Frontend: Next.js 16.2.6 (App Router), React 19.2.4, TypeScript 5, Tailwind CSS 4

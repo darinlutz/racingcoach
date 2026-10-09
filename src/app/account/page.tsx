@@ -31,7 +31,7 @@ const DISCORD_MESSAGES: Record<string, { text: string; ok: boolean }> = {
   disconnected: { text: 'Your Discord account has been unlinked.', ok: true },
   canceled: { text: 'Discord linking was canceled.', ok: false },
   expired: { text: 'That Discord link request expired. Please try again.', ok: false },
-  taken: { text: 'That Discord account is already linked to another Clarivex account.', ok: false },
+  taken: { text: 'That Discord account is already linked to another RacingCoach account.', ok: false },
   unavailable: { text: 'Discord linking is not available right now.', ok: false },
   error: { text: 'Something went wrong linking Discord. Please try again.', ok: false },
 };
@@ -136,7 +136,7 @@ export default async function AccountPage({
             </div>
           ) : (
             <div className="flex items-center justify-between gap-4">
-              <p className="text-sm text-muted-foreground">Link your Discord account to Clarivex.</p>
+              <p className="text-sm text-muted-foreground">Link your Discord account to RacingCoach.</p>
               {/* A plain link: /api/discord/connect redirects to Discord */}
               <a
                 href="/api/discord/connect"

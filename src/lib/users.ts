@@ -25,7 +25,7 @@ const USER_COLUMNS =
   'id, user_name, email_address, account_status, signup_date, subscription_end_date, stripe_subscription_id, role';
 
 // The site owner is made Admin on sign-up; everyone else is a User
-const OWNER_EMAIL = 'darinlutz@yahoo.com';
+export const OWNER_EMAIL = 'darinlutz@yahoo.com';
 
 // Dates are stored as ISO 8601 UTC strings, so they compare correctly as text.
 // One month from `from`, clamped so Jan 31 becomes Feb 28/29 rather than Mar 3.

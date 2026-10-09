@@ -1,12 +1,14 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import {
+  getUserById,
   grantLifetimeAccess,
   renewSubscription,
   setStatusBySubscriptionId,
   startSubscription,
 } from '@/lib/users';
 import { ACCOUNT_STATUS } from '@/lib/accountStatus';
+import { notifyOwner, type OwnerEvent } from '@/lib/ownerNotifications';
 import { STRIPE_APP } from '@/lib/stripePlans';
 
 export async function POST(request: Request) {
@@ -80,6 +82,7 @@ export async function POST(request: Request) {
               console.error('Failed to cancel monthly subscription after Lifetime purchase:', error);
             }
           }
+          await notifyOwnerOfPurchase('lifetime', userId);
           break;
         }
         if (event.type !== 'checkout.session.completed') break;
@@ -94,6 +97,7 @@ export async function POST(request: Request) {
         }
         // Subscription mode sessions only complete once the first payment succeeds
         await startSubscription(userId, session.customer, session.subscription);
+        await notifyOwnerOfPurchase('monthly', userId);
         break;
       }
       // Monthly renewal paid: extend the subscription another month
@@ -125,4 +129,14 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json({ received: true });
+}
+
+// Never throws: an error here would make Stripe retry an event already applied
+async function notifyOwnerOfPurchase(plan: Extract<OwnerEvent, 'monthly' | 'lifetime'>, userId: number) {
+  try {
+    const user = await getUserById(userId);
+    if (user) await notifyOwner(plan, user.emailAddress);
+  } catch (error) {
+    console.error('Owner purchase notification error:', error);
+  }
 }

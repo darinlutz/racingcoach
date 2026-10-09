@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { IRacePlanAuthError } from '@/lib/iRacePlan';
 import { fetchIRacingProfile, NoIRacingProfileError, saveConnection } from '@/lib/raceHistory';
+import { notifyOwner } from '@/lib/ownerNotifications';
 import { createSession } from '@/lib/session';
 import { createUser, EmailTakenError } from '@/lib/users';
 
@@ -31,6 +32,7 @@ export async function POST(request: Request) {
     const user = await createUser({ userName: profile.display_name, emailAddress, password });
     await saveConnection(user.id, apiKey, profile);
     await createSession(user.id);
+    await notifyOwner('signup', user.emailAddress);
     return NextResponse.json({ user: { userName: user.userName } }, { status: 201 });
   } catch (error) {
     if (error instanceof EmailTakenError) {

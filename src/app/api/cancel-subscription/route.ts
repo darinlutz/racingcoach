@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
+import { notifyOwner } from '@/lib/ownerNotifications';
 import { getCurrentUser } from '@/lib/session';
 import { recordCancellation } from '@/lib/users';
 import { ACCOUNT_STATUS } from '@/lib/accountStatus';
@@ -55,6 +56,7 @@ export async function POST(request: Request) {
       canceledAt,
       stripeSubscriptionId: subscription.id,
     });
+    await notifyOwner('canceled', user.emailAddress);
 
     const confirmation: CancellationConfirmation = {
       confirmationNumber: subscription.id,

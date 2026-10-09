@@ -22,6 +22,9 @@ const commands = [
   new SlashCommandBuilder()
     .setName('coach')
     .setDescription('Get your recent races and AI coaching on your results'),
+  new SlashCommandBuilder()
+    .setName('debrief')
+    .setDescription('See the fixes from your latest Debrief Coach session'),
 ].map((command) => command.toJSON());
 
 const rest = new REST().setToken(DISCORD_BOT_TOKEN);

@@ -2,7 +2,8 @@ import 'dotenv/config';
 import { Client, Events, GatewayIntentBits, MessageFlags } from 'discord.js';
 import { getCoaching } from './api.js';
 import { buildCoachEmbed } from './coach.js';
-import { closeDb, getLinkedUser, getRecentRaces } from './db.js';
+import { closeDb, getLatestDebrief, getLinkedUser, getRecentRaces } from './db.js';
+import { buildDebriefEmbed } from './debrief.js';
 
 // The RacingCoach Discord bot. Keeps a connection open to Discord and answers slash commands.
 // Commands are registered separately by deploy-commands.js.
@@ -31,6 +32,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await handleWhoami(interaction);
     } else if (interaction.commandName === 'coach') {
       await handleCoach(interaction);
+    } else if (interaction.commandName === 'debrief') {
+      await handleDebrief(interaction);
     }
   } catch (error) {
     console.error(`Error handling /${interaction.commandName}:`, error);
@@ -99,6 +102,29 @@ async function handleCoach(interaction) {
     console.error('Coaching error:', error);
     await interaction.editReply({ embeds: [buildCoachEmbed(races, null, { failed: true })] });
   }
+}
+
+// Shows the driver's latest saved Debrief Coach run, visible only to them. No AI call: the website
+// saved the debrief when they ran it.
+async function handleDebrief(interaction) {
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+  const user = await getLinkedUser(interaction.user.id);
+  if (!user) {
+    await interaction.editReply(notLinkedMessage());
+    return;
+  }
+
+  const saved = await getLatestDebrief(user.id);
+  if (!saved) {
+    const racingPage = sitePage('/racing', 'the Racing page');
+    await interaction.editReply(
+      `No debriefs saved for **${user.userName}** yet. Sign in, run **Debrief Coach** on ${racingPage}, then try again.`,
+    );
+    return;
+  }
+
+  await interaction.editReply({ embeds: [buildDebriefEmbed(saved)] });
 }
 
 // Let Render stop the worker cleanly on redeploys

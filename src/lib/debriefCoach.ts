@@ -45,6 +45,12 @@ const debriefSchema = z.object({
     .array(
       z.object({
         area: z.string().describe('Focus area name, exactly as in the data'),
+        focus: z
+          .enum(['Braking', 'Brake pressure', 'Mid-corner speed', 'Corner exit', 'Consistency'])
+          .describe(
+            'What the fix changes: Braking for the brakepoint, Brake pressure for peak brake, Mid-corner speed for ' +
+              'minimum speed, Corner exit for exit speed, Consistency when no single input explains the time'
+          ),
         timeGainSeconds: z.number().describe("Time available per lap: the area's average time lost to its best"),
         problem: z.string().describe('What you are doing wrong there, with the numbers that show it'),
         fix: z.string().describe('One concrete change to make in the car, with a number to aim for'),

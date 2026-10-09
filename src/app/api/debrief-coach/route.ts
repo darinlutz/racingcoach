@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { debriefSessionSchema, runDebriefCoach } from '@/lib/debriefCoach';
+import { saveDebrief } from '@/lib/debriefHistory';
+import { getCurrentUser } from '@/lib/session';
 
 // The agent makes several model calls (one per tool round), so give it more than the default
 export const maxDuration = 60;
@@ -25,6 +27,15 @@ export async function POST(request: Request) {
     }
 
     const { debrief, steps } = await runDebriefCoach(parsed.data);
+
+    // Kept for signed-in users (e.g. for the Discord bot's /debrief). Saving is extra, so a failure
+    // is logged rather than costing them the debrief.
+    try {
+      const user = await getCurrentUser();
+      if (user) await saveDebrief(user.id, parsed.data, debrief);
+    } catch (error) {
+      console.error('Save debrief error:', error);
+    }
 
     return NextResponse.json({ success: true, debrief, steps }, { status: 200 });
   } catch (error) {

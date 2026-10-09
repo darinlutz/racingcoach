@@ -4,10 +4,10 @@ import { EmbedBuilder } from 'discord.js';
 // the AI coach's top three opportunities (see getCoaching in api.js) once they're ready.
 
 const ACCENT_COLOR = 0xe10600; // racing red
-const NUMBERS = ['1️⃣', '2️⃣', '3️⃣'];
+export const NUMBERS = ['1️⃣', '2️⃣', '3️⃣'];
 
 // 83.456 -> "1:23.456"
-function formatLapTime(seconds) {
+export function formatLapTime(seconds) {
   const minutes = Math.floor(seconds / 60);
   const rest = (seconds - minutes * 60).toFixed(3).padStart(6, '0');
   return `${minutes}:${rest}`;

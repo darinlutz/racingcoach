@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { getCurrentUser } from '@/lib/session';
 import { getSiteOrigin } from '@/lib/siteOrigin';
-import { getPlanPrice, getStripeConfig, isPlan } from '@/lib/stripePlans';
+import { getPlanPrice, getStripeConfig, isPlan, STRIPE_APP } from '@/lib/stripePlans';
 import { canBuy } from '@/lib/users';
 
 export async function POST(request: Request) {
@@ -64,8 +64,9 @@ export async function POST(request: Request) {
       success_url: `${origin}/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/account`,
       line_items: [{ price: price.id, quantity: 1 }],
-      // The webhook reads the plan to decide how to update the account
-      metadata: { plan },
+      // The webhook reads the plan to decide how to update the account, and
+      // skips sessions whose app isn't this one
+      metadata: { plan, app: STRIPE_APP },
     };
     if (sessionParams.mode === 'subscription') {
       sessionParams.payment_method_collection = 'always';

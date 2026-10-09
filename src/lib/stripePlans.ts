@@ -1,6 +1,11 @@
 import Stripe from 'stripe';
 import type { Plan } from './accountStatus';
 
+// Tags this app's Checkout Sessions (metadata.app). The Stripe account is shared
+// with TalkNinja, whose webhook endpoint also receives these events, so each app's
+// webhook ignores Checkout Sessions not tagged as its own.
+export const STRIPE_APP = 'racingcoach';
+
 // Each plan is a Stripe Product; Checkout charges its default Price
 const PLAN_PRODUCT_ENV: Record<Plan, string> = {
   monthly: 'STRIPE_COACHING_MONTHLY_PRODUCT_ID',

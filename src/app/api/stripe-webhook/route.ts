@@ -7,6 +7,7 @@ import {
   startSubscription,
 } from '@/lib/users';
 import { ACCOUNT_STATUS } from '@/lib/accountStatus';
+import { STRIPE_APP } from '@/lib/stripePlans';
 
 export async function POST(request: Request) {
   // Check if Stripe keys are configured
@@ -53,6 +54,11 @@ export async function POST(request: Request) {
       // Delayed payment methods (e.g. bank debits) confirm Lifetime payments here
       case 'checkout.session.async_payment_succeeded': {
         const session = event.data.object;
+        // Another app's session on the shared Stripe account: its user IDs aren't ours
+        if (session.metadata?.app !== STRIPE_APP) {
+          console.log('Ignoring Checkout Session from another app:', session.id);
+          break;
+        }
         const userId = Number(session.client_reference_id);
         if (session.mode === 'payment') {
           if (session.metadata?.plan !== 'lifetime' || !Number.isInteger(userId)) {

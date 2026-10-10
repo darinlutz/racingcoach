@@ -139,6 +139,14 @@ The RacingCoach Discord bot lives in `bot/`, a separate Node.js app (plain JavaS
   - `RACINGCOACH_API_URL` - Optional; the website address the bot calls, e.g. `http://localhost:3000` to use a local site
   - `DISCORD_CLIENT_ID`, `DISCORD_GUILD_ID` - Only needed by `deploy-commands.js`. The guild ID is the RacingCoach.app server's ID (digits only)
 
+## Telemetry Collector
+
+`collector/RacingCoach.Collector/` is a Windows console app (C#, .NET 10) that reads live telemetry from iRacing. Like `bot/`, it's not part of the Next.js build (`.dockerignore` excludes it). It's a proof of concept: it only prints to the terminal and doesn't talk to the website yet.
+
+- **Library**: `SVappsLAB.iRacingTelemetrySDK` (NuGet). Before changing collector code, read https://raw.githubusercontent.com/SVappsLAB/iRacingTelemetrySDK/main/docs/ai/SDK_USAGE.md. Telemetry variables are listed in `[RequiredTelemetryVars(...)]`, and the SDK generates the `TelemetryData` struct from that list; don't define it by hand
+- **Connection**: `client.Monitor(...)` waits for iRacing, reconnects after it restarts, and reports changes through `OnConnectStateChanged`. Ctrl+C cancels it
+- **Running**: `cd collector/RacingCoach.Collector`, then `dotnet run` for live telemetry, or `dotnet run -- path\to\file.ibt` to play back a recorded iRacing telemetry file at real-time speed (no simulator needed)
+
 ## Linting & Code Quality
 
 **ESLint configuration** (`eslint.config.mjs`):

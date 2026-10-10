@@ -1,30 +1,35 @@
 using System.Diagnostics;
 using System.Globalization;
+using System.Runtime.InteropServices;
+using System.Text;
 using SVappsLAB.iRacingTelemetrySDK;
 
 namespace RacingCoach.Collector;
 
 /// <summary>
 /// Shows live telemetry as a fixed block at the bottom of the console, redrawn in place
-/// about 10 times per second. Messages (connect, session) scroll above the block.
+/// about 10 times per second. Messages (connect, session, laps) scroll above the block.
 /// All console output goes through this class, so the SDK's handlers can call it from
 /// different threads.
 /// </summary>
+/// <remarks>
+/// The block is redrawn with VT escape codes that move the cursor relative to where it is
+/// (up N lines), so it keeps working when the console scrolls or is resized.
+/// </remarks>
 internal sealed class TelemetryDisplay
 {
     private const float MetersPerSecondToMph = 2.23694f;
     private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
 
     private readonly object _lock = new();
-    // When output is redirected to a file there is no cursor to move, so print one line per second instead.
-    private readonly bool _interactive = !Console.IsOutputRedirected;
+    // Without a VT-capable console (e.g. output redirected to a file), print one line per second instead.
+    private readonly bool _interactive = !Console.IsOutputRedirected && EnableVirtualTerminal();
     private readonly int _renderIntervalMs;
     private readonly Stopwatch _sinceRender = new();
     private readonly Stopwatch _rateWindow = new();
     private int _samplesInWindow;
     private double _samplesPerSecond;
-    private int _blockTop = -1; // console row where the block starts; -1 when no block is on screen
-    private int _blockHeight;
+    private int _blockHeight; // lines of the block currently on screen; the cursor sits just below them
 
     public TelemetryDisplay()
     {
@@ -32,7 +37,7 @@ internal sealed class TelemetryDisplay
     }
 
     /// <summary>Called for every telemetry sample (60 Hz); only redraws every render interval.</summary>
-    public void OnSample(in TelemetryData data)
+    public void OnSample(in TelemetryData data, string recording)
     {
         lock (_lock)
         {
@@ -50,7 +55,7 @@ internal sealed class TelemetryDisplay
                 return;
             _sinceRender.Restart();
 
-            var lines = Format(data);
+            var lines = Format(data, recording);
             if (_interactive)
                 DrawBlock(lines);
             else
@@ -79,21 +84,18 @@ internal sealed class TelemetryDisplay
         }
     }
 
-    /// <summary>Leaves the last block on screen, moves the cursor below it and shows the cursor again.</summary>
+    /// <summary>Leaves the last block on screen (the cursor is already below it) and shows the cursor again.</summary>
     public void Close()
     {
         lock (_lock)
         {
-            if (_interactive && _blockTop >= 0)
-            {
-                TryMoveCursor(_blockTop + _blockHeight);
-                Console.CursorVisible = true;
-            }
-            _blockTop = -1;
+            if (_interactive)
+                Console.Out.Write("\e[?25h");
+            _blockHeight = 0;
         }
     }
 
-    private string[] Format(in TelemetryData d) =>
+    private string[] Format(in TelemetryData d, string recording) =>
     [
         Line("Speed:", d.Speed is { } mps ? $"{(mps * MetersPerSecondToMph).ToString("F1", Inv)} MPH" : null),
         Line("Throttle:", Percent(d.Throttle)),
@@ -104,6 +106,7 @@ internal sealed class TelemetryDisplay
         Line("Lap:", d.Lap?.ToString(Inv)),
         Line("Session Time:", d.SessionTime is { } t ? $"{t.ToString("F2", Inv)} seconds" : null),
         Line("Telemetry:", $"{_samplesPerSecond.ToString("F1", Inv)} samples/s"),
+        Line("Recording:", recording),
     ];
 
     private static string Line(string label, string? value) => $"{label,-14}{value ?? "--"}";
@@ -114,66 +117,60 @@ internal sealed class TelemetryDisplay
 
     private void DrawBlock(string[] lines)
     {
-        try
-        {
-            var width = Math.Max(Console.WindowWidth - 1, 1);
-            if (_blockTop < 0)
-            {
-                // First draw: WriteLine lets the console scroll if the cursor is at the bottom.
-                Console.CursorVisible = false;
-                foreach (var line in lines)
-                    Console.WriteLine(Fit(line, width));
-                _blockTop = Console.CursorTop - lines.Length;
-                _blockHeight = lines.Length;
-                return;
-            }
-
-            for (var i = 0; i < lines.Length; i++)
-            {
-                Console.SetCursorPosition(0, _blockTop + i);
-                Console.Write(Fit(lines[i], width));
-            }
-        }
-        catch (Exception e) when (e is IOException or ArgumentOutOfRangeException)
-        {
-            // The window was resized or scrolled; draw a fresh block next time.
-            _blockTop = -1;
-        }
+        var width = WindowWidth();
+        var sb = new StringBuilder();
+        if (_blockHeight > 0)
+            sb.Append($"\e[{_blockHeight}F"); // up to the start of the block
+        else
+            sb.Append("\e[?25l");             // hide the cursor while the block is shown
+        foreach (var line in lines)
+            sb.Append("\e[2K").Append(line.Length > width ? line[..width] : line).Append('\n');
+        if (_blockHeight > lines.Length)
+            sb.Append("\e[0J");               // erase leftovers of a taller block
+        Console.Out.Write(sb.ToString());     // one write per frame keeps it flicker-free
+        Console.Out.Flush();
+        _blockHeight = lines.Length;
     }
 
     private void ClearBlock()
     {
-        if (!_interactive || _blockTop < 0)
+        if (!_interactive || _blockHeight == 0)
             return;
-        try
-        {
-            var blank = new string(' ', Math.Max(Console.WindowWidth - 1, 1));
-            for (var i = 0; i < _blockHeight; i++)
-            {
-                Console.SetCursorPosition(0, _blockTop + i);
-                Console.Write(blank);
-            }
-            Console.SetCursorPosition(0, _blockTop);
-        }
-        catch (Exception e) when (e is IOException or ArgumentOutOfRangeException)
-        {
-            // Nothing to clean up if the console moved underneath us.
-        }
-        _blockTop = -1;
+        Console.Out.Write($"\e[{_blockHeight}F\e[0J"); // up to the start of the block, erase to the end of the screen
+        _blockHeight = 0;
     }
 
-    private static void TryMoveCursor(int row)
+    // Cut lines to the window width so they never wrap (a wrapped line breaks the "up N lines" redraw).
+    private static int WindowWidth()
     {
         try
         {
-            Console.SetCursorPosition(0, Math.Min(row, Console.BufferHeight - 1));
+            return Math.Max(Console.WindowWidth - 1, 1);
         }
-        catch (Exception e) when (e is IOException or ArgumentOutOfRangeException)
+        catch (IOException)
         {
+            return 80;
         }
     }
 
-    // Pad to clear leftovers from a longer previous value; cut to avoid wrapping in a narrow window.
-    private static string Fit(string line, int width) =>
-        line.Length >= width ? line[..width] : line.PadRight(width);
+    // Windows 10's classic console only understands VT escape codes once this mode is switched on.
+    private static bool EnableVirtualTerminal()
+    {
+        const int StdOutputHandle = -11;
+        const uint EnableVirtualTerminalProcessing = 0x0004;
+        if (!OperatingSystem.IsWindows())
+            return true;
+        var handle = GetStdHandle(StdOutputHandle);
+        return GetConsoleMode(handle, out var mode)
+            && ((mode & EnableVirtualTerminalProcessing) != 0 || SetConsoleMode(handle, mode | EnableVirtualTerminalProcessing));
+    }
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern IntPtr GetStdHandle(int nStdHandle);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool GetConsoleMode(IntPtr hConsoleHandle, out uint lpMode);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool SetConsoleMode(IntPtr hConsoleHandle, uint dwMode);
 }

@@ -141,11 +141,15 @@ The RacingCoach Discord bot lives in `bot/`, a separate Node.js app (plain JavaS
 
 ## Telemetry Collector
 
-`collector/RacingCoach.Collector/` is a Windows console app (C#, .NET 10) that reads live telemetry from iRacing. Like `bot/`, it's not part of the Next.js build (`.dockerignore` excludes it). It's a proof of concept: it only prints to the terminal and doesn't talk to the website yet.
+`collector/RacingCoach.Collector/` is a Windows console app (C#, .NET 10) that reads live telemetry from iRacing, shows it in the terminal and saves each completed lap as a CSV. Like `bot/`, it's not part of the Next.js build (`.dockerignore` excludes it). It doesn't talk to the website yet.
+
+- **Files**: `Program.cs` (wires the SDK's handlers together), `TelemetryDisplay.cs` (live console block), `LapRecorder.cs` (splits the 60 Hz stream into complete laps and throws away interrupted ones; no I/O), `LapWriter.cs` (writes laps on a background task)
+- **Lap files**: `Documents\RacingCoach\Laps\<date time> <track> - <car>\`, one CSV per lap plus `session.json` (track, car, driver, session IDs, and each lap's time, sample count, incidents, pit road and off-track flags). CSVs use iRacing's variable names and units like Garage 61's exports (Speed in m/s, pedals 0-1), one row per 60 Hz sample from the start/finish line to the first sample of the next lap. File names follow Garage 61's pattern with a `RacingCoach` prefix and an `S<sessionNum>L<lap>` ID, e.g. `RacingCoach - Driver - Car - Track - 01.50.486 - S0L005.csv`; `src/lib/lapData.ts` doesn't accept them yet
 
 - **Library**: `SVappsLAB.iRacingTelemetrySDK` (NuGet). Before changing collector code, read https://raw.githubusercontent.com/SVappsLAB/iRacingTelemetrySDK/main/docs/ai/SDK_USAGE.md. Telemetry variables are listed in `[RequiredTelemetryVars(...)]`, and the SDK generates the `TelemetryData` struct from that list; don't define it by hand
 - **Connection**: `client.Monitor(...)` waits for iRacing, reconnects after it restarts, and reports changes through `OnConnectStateChanged`. Ctrl+C cancels it
-- **Running**: `cd collector/RacingCoach.Collector`, then `dotnet run` for live telemetry, or `dotnet run -- path\to\file.ibt` to play back a recorded iRacing telemetry file at real-time speed (no simulator needed)
+- **Running**: `cd collector/RacingCoach.Collector`, then `dotnet run` for live telemetry, or `dotnet run -- path\to\file.ibt [speed]` to play back a recorded iRacing telemetry file (no simulator needed; `speed` defaults to 1 = real time, e.g. 1000 records a whole session in seconds)
+- **Shipping to the sim PC**: `dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o bin/publish` builds one `RacingCoach.Collector.exe` with .NET inside, so the sim PC needs nothing installed
 
 ## Linting & Code Quality
 

@@ -29,7 +29,7 @@ export async function POST(request: Request) {
 
     const { debrief, steps } = await runDebriefCoach(parsed.data);
 
-    // Kept for signed-in users (e.g. for the Discord bot's /debrief). Saving is extra, so a failure
+    // Kept for signed-in users (e.g. for the Discord bot's /coach debrief). Saving is extra, so a failure
     // is logged rather than costing them the debrief.
     try {
       const user = await getCurrentUser();

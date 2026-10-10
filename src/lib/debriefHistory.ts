@@ -3,7 +3,7 @@ import type { Debrief, DebriefSession } from './debriefCoach';
 import { ensureUserSchema } from './users';
 
 // Saved Debrief Coach runs (racingcoach."DebriefSessions"), so a user's debriefs outlive the Racing
-// page and the Discord bot's /debrief can show them.
+// page and the Discord bot's /coach debrief can show them.
 
 export async function saveDebrief(userId: number, session: DebriefSession, debrief: Debrief): Promise<void> {
   await ensureUserSchema();

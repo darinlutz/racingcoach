@@ -1,10 +1,10 @@
 import { EmbedBuilder } from 'discord.js';
 import { formatLapTime, NUMBERS } from './coach.js';
 
-// Builds the /debrief card from the driver's latest saved Debrief Coach run (see getLatestDebrief
+// Builds the /coach debrief card from the driver's latest saved Debrief Coach run (see getLatestDebrief
 // in db.js): the session's best lap, the time the fixes are worth, and each fix.
 
-const ACCENT_COLOR = 0xe10600; // racing red, same as /coach
+const ACCENT_COLOR = 0xe10600; // racing red, same as /coach results
 
 // 0.197 -> "0.20 sec"
 function formatGain(seconds) {

@@ -70,25 +70,30 @@ export async function getRecentRaces(userId, limit) {
   }));
 }
 
-// The user's most recent saved Debrief Coach run, or null. The website saves one each time a
+// The user's most recent saved Debrief Coach runs, newest first. The website saves one each time a
 // signed-in user runs Debrief Coach (src/lib/debriefHistory.ts). `debrief` is the coach's
 // { headline, fixes: [{ area, timeGainSeconds, problem, fix, evidence }], keepDoing }.
-export async function getLatestDebrief(userId) {
-  const [row] = await query(
+export async function getRecentDebriefs(userId, limit) {
+  const rows = await query(
     `SELECT track, car, lap_count, best_lap_seconds, debrief, created_at
      FROM racingcoach."DebriefSessions"
      WHERE user_id = $1
      ORDER BY created_at DESC
-     LIMIT 1`,
-    [userId],
+     LIMIT $2`,
+    [userId, limit],
   );
-  if (!row) return null;
-  return {
+  return rows.map((row) => ({
     track: row.track,
     car: row.car,
     lapCount: row.lap_count,
     bestLapSeconds: row.best_lap_seconds,
     debrief: row.debrief,
     createdAt: row.created_at,
-  };
+  }));
+}
+
+// The user's most recent saved Debrief Coach run, or null
+export async function getLatestDebrief(userId) {
+  const [latest] = await getRecentDebriefs(userId, 1);
+  return latest ?? null;
 }

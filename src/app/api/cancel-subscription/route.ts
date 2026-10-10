@@ -10,7 +10,7 @@ import {
   type CancellationConfirmation,
 } from '@/lib/cancellationReasons';
 
-// Cancels the user's monthly subscription in Stripe and records why (racingcoach."CancellationReason").
+// Cancels the user's subscription in Stripe and records why (racingcoach."CancellationReason").
 // Body: { reason: one of CANCELLATION_REASONS' labels, notes?: string }
 export async function POST(request: Request) {
   try {
@@ -19,8 +19,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Log in to cancel your subscription' }, { status: 401 });
     }
 
-    if (user.accountStatus !== ACCOUNT_STATUS.monthly || !user.stripeSubscriptionId) {
-      return NextResponse.json({ error: 'No active monthly subscription to cancel' }, { status: 400 });
+    if (user.accountStatus !== ACCOUNT_STATUS.subscribed || !user.stripeSubscriptionId) {
+      return NextResponse.json({ error: 'No active subscription to cancel' }, { status: 400 });
     }
 
     const body = await request.json().catch(() => ({}));

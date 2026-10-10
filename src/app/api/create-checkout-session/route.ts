@@ -30,28 +30,25 @@ export async function POST(request: Request) {
     if (!user) {
       return NextResponse.redirect(`${origin}/login`, 303);
     }
-    // Prevents buying a plan the account already has (or one it's past,
-    // e.g. Monthly on a Lifetime account)
-    if (!canBuy(user, plan)) {
+    // Prevents subscribing an account that's already Subscribed
+    if (!canBuy(user)) {
       return NextResponse.redirect(`${origin}/account`, 303);
     }
 
+    // Both plans (Monthly and Annual) are recurring subscriptions
     const price = await getPlanPrice(stripe, productId);
-    if (!price) {
-      console.error(`Stripe product ${productId} has no default price`);
+    if (!price || price.type !== 'recurring') {
+      console.error(`Stripe product ${productId} has no recurring default price`);
       return NextResponse.json(
-        { error: 'Stripe product has no price' },
+        { error: 'Stripe product has no recurring price' },
         { status: 500 }
       );
     }
 
-    // Monthly is a recurring price; Lifetime is a one-time payment
-    const mode: Stripe.Checkout.SessionCreateParams.Mode =
-      price.type === 'recurring' ? 'subscription' : 'payment';
-
     const sessionParams: Stripe.Checkout.SessionCreateParams = {
       ui_mode: 'hosted_page',
-      mode,
+      mode: 'subscription',
+      payment_method_collection: 'always',
       billing_address_collection: 'auto',
       phone_number_collection: { enabled: false },
       automatic_tax: { enabled: false },
@@ -68,12 +65,6 @@ export async function POST(request: Request) {
       // skips sessions whose app isn't this one
       metadata: { plan, app: STRIPE_APP },
     };
-    if (sessionParams.mode === 'subscription') {
-      sessionParams.payment_method_collection = 'always';
-    } else {
-      // Payment mode only creates a Stripe Customer when asked to
-      sessionParams.customer_creation = 'always';
-    }
 
     const session = await stripe.checkout.sessions.create(sessionParams);
 

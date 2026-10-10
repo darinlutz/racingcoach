@@ -3,13 +3,13 @@ import { OWNER_EMAIL } from './users';
 // Emails the site owner when a user signs up, buys a plan, or cancels.
 const APP_NAME = 'RacingCoach';
 
-export type OwnerEvent = 'signup' | 'monthly' | 'lifetime' | 'canceled';
+export type OwnerEvent = 'signup' | 'monthly' | 'annual' | 'canceled';
 
 const EVENTS: Record<OwnerEvent, { subject: string; action: string }> = {
   signup: { subject: 'New user sign up', action: 'signed up' },
   monthly: { subject: 'New monthly subscription', action: 'purchased a monthly subscription' },
-  lifetime: { subject: 'New lifetime subscription', action: 'purchased a lifetime subscription' },
-  canceled: { subject: 'Subscription canceled', action: 'canceled their monthly subscription' },
+  annual: { subject: 'New annual subscription', action: 'purchased an annual subscription' },
+  canceled: { subject: 'Subscription canceled', action: 'canceled their subscription' },
 };
 
 // Never throws: a failed notification is logged and shouldn't fail the

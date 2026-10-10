@@ -13,7 +13,7 @@ function formatDate(iso: string | null, withTime = false): string {
   return new Date(iso).toLocaleString('en-US', withTime ? { dateStyle: 'long', timeStyle: 'short' } : { dateStyle: 'long' });
 }
 
-// Asks the monthly subscriber why they're leaving, then cancels the subscription in Stripe and shows
+// Asks the subscriber why they're leaving, then cancels the subscription in Stripe and shows
 // Stripe's confirmation
 export default function CancelSubscriptionButton() {
   const router = useRouter();
@@ -103,7 +103,7 @@ export default function CancelSubscriptionButton() {
             ) : (
               <>
                 <h2 id="cancelSubscriptionTitle" className="text-lg font-bold text-foreground mb-1">
-                  Cancel your monthly subscription?
+                  Cancel your subscription?
                 </h2>
                 <p className="text-sm text-muted-foreground mb-4">Before you go, please tell us why you&apos;re canceling.</p>
 
@@ -154,7 +154,7 @@ export default function CancelSubscriptionButton() {
                     disabled={submitting}
                     className="flex-1 px-4 py-2 rounded-lg font-semibold text-foreground bg-card border border-border hover:bg-secondary transition-colors disabled:opacity-50"
                   >
-                    Remain Monthly Subscriber
+                    Remain Subscribed
                   </button>
                   <button
                     type="button"

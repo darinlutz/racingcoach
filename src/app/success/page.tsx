@@ -33,11 +33,7 @@ export default async function SuccessPage({
         </h1>
         <p className="text-muted-foreground mb-8">
           {isComplete
-            ? `${
-                session.mode === 'payment'
-                  ? 'Your lifetime subscription is active.'
-                  : 'Your subscription is active.'
-              }${
+            ? `Your subscription is active.${
                 session.customer_details?.email
                   ? ` A receipt has been sent to ${session.customer_details.email}.`
                   : ''

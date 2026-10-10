@@ -9,8 +9,7 @@ import { ACCOUNT_STATUS } from '@/lib/accountStatus';
 // blue (the site color) otherwise
 function statusBadgeClass(accountStatus: string): string {
   switch (accountStatus) {
-    case ACCOUNT_STATUS.monthly:
-    case ACCOUNT_STATUS.lifetime:
+    case ACCOUNT_STATUS.subscribed:
       return 'bg-green-500/15 text-green-400';
     case ACCOUNT_STATUS.canceled:
     case ACCOUNT_STATUS.expired:
@@ -46,11 +45,12 @@ export default async function AccountPage({
   const { discord: discordResult } = await searchParams;
   const discordMessage = typeof discordResult === 'string' ? DISCORD_MESSAGES[discordResult] : undefined;
   const discord = await getDiscordConnection(user.id);
-  const isMonthly = user.accountStatus === ACCOUNT_STATUS.monthly;
-  // A canceled monthly subscription keeps its end date: the end of the last paid month
-  const showEndDate = isMonthly || (user.accountStatus === ACCOUNT_STATUS.canceled && user.subscriptionEndDate !== null);
-  const canBuyMonthly = canBuy(user, 'monthly');
-  const canBuyLifetime = canBuy(user, 'lifetime');
+  const isSubscribed = user.accountStatus === ACCOUNT_STATUS.subscribed;
+  // A canceled subscription keeps its end date: the end of the last paid period
+  const showEndDate =
+    user.subscriptionEndDate !== null &&
+    (isSubscribed || user.accountStatus === ACCOUNT_STATUS.canceled);
+  const canSubscribe = canBuy(user);
 
   return (
     <section className="py-12 px-4 bg-gradient-to-b from-background to-background flex justify-center">
@@ -158,32 +158,28 @@ export default async function AccountPage({
           )}
         </div>
 
-        {(canBuyMonthly || canBuyLifetime) && (
+        {canSubscribe && (
           <form action="/api/create-checkout-session" method="POST" className="mt-8 space-y-3">
-            {canBuyMonthly && (
-              <button
-                type="submit"
-                name="plan"
-                value="monthly"
-                className="w-full px-6 py-3 rounded-lg font-semibold text-white bg-gradient-to-r from-primary to-primary-strong hover:from-primary-strong hover:to-primary transition-colors"
-              >
-                Monthly Subscription
-              </button>
-            )}
-            {canBuyLifetime && (
-              <button
-                type="submit"
-                name="plan"
-                value="lifetime"
-                className="w-full px-6 py-3 rounded-lg font-semibold text-white bg-gradient-to-r from-primary to-primary-strong hover:from-primary-strong hover:to-primary transition-colors"
-              >
-                {isMonthly ? 'Upgrade to Lifetime Subscription' : 'Lifetime Subscription'}
-              </button>
-            )}
+            <button
+              type="submit"
+              name="plan"
+              value="monthly"
+              className="w-full px-6 py-3 rounded-lg font-semibold text-white bg-gradient-to-r from-primary to-primary-strong hover:from-primary-strong hover:to-primary transition-colors"
+            >
+              Monthly Subscription
+            </button>
+            <button
+              type="submit"
+              name="plan"
+              value="annual"
+              className="w-full px-6 py-3 rounded-lg font-semibold text-white bg-gradient-to-r from-primary to-primary-strong hover:from-primary-strong hover:to-primary transition-colors"
+            >
+              Annual Subscription
+            </button>
           </form>
         )}
 
-        {isMonthly && <CancelSubscriptionButton />}
+        {isSubscribed && <CancelSubscriptionButton />}
       </div>
     </section>
   );

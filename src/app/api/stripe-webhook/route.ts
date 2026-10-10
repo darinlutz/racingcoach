@@ -2,14 +2,13 @@ import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import {
   getUserById,
-  grantLifetimeAccess,
   renewSubscription,
   setStatusBySubscriptionId,
   startSubscription,
 } from '@/lib/users';
-import { ACCOUNT_STATUS } from '@/lib/accountStatus';
-import { notifyOwner, type OwnerEvent } from '@/lib/ownerNotifications';
-import { STRIPE_APP } from '@/lib/stripePlans';
+import { ACCOUNT_STATUS, type Plan } from '@/lib/accountStatus';
+import { notifyOwner } from '@/lib/ownerNotifications';
+import { isPlan, STRIPE_APP } from '@/lib/stripePlans';
 
 export async function POST(request: Request) {
   // Check if Stripe keys are configured
@@ -51,10 +50,8 @@ export async function POST(request: Request) {
 
   try {
     switch (event.type) {
-      // First payment: start a one-month Monthly Subscription, or a Lifetime Subscription
-      case 'checkout.session.completed':
-      // Delayed payment methods (e.g. bank debits) confirm Lifetime payments here
-      case 'checkout.session.async_payment_succeeded': {
+      // First payment: start a Monthly or Annual subscription (account status Subscribed)
+      case 'checkout.session.completed': {
         const session = event.data.object;
         // Another app's session on the shared Stripe account: its user IDs aren't ours
         if (session.metadata?.app !== STRIPE_APP) {
@@ -62,32 +59,10 @@ export async function POST(request: Request) {
           break;
         }
         const userId = Number(session.client_reference_id);
-        if (session.mode === 'payment') {
-          if (session.metadata?.plan !== 'lifetime' || !Number.isInteger(userId)) {
-            console.warn('Payment session not linked to a Lifetime purchase:', session.id);
-            break;
-          }
-          // A delayed payment completes the session before the money arrives
-          if (session.payment_status !== 'paid') break;
-          const previousSubscriptionId = await grantLifetimeAccess(
-            userId,
-            typeof session.customer === 'string' ? session.customer : null
-          );
-          // A monthly subscriber upgraded: stop charging them monthly
-          if (previousSubscriptionId) {
-            try {
-              await stripe.subscriptions.cancel(previousSubscriptionId);
-            } catch (error) {
-              // e.g. it was already canceled; the account is Lifetime either way
-              console.error('Failed to cancel monthly subscription after Lifetime purchase:', error);
-            }
-          }
-          await notifyOwnerOfPurchase('lifetime', userId);
-          break;
-        }
-        if (event.type !== 'checkout.session.completed') break;
+        const plan = session.metadata?.plan;
         if (
           session.mode !== 'subscription' ||
+          !isPlan(plan) ||
           !Number.isInteger(userId) ||
           typeof session.customer !== 'string' ||
           typeof session.subscription !== 'string'
@@ -96,18 +71,24 @@ export async function POST(request: Request) {
           break;
         }
         // Subscription mode sessions only complete once the first payment succeeds
-        await startSubscription(userId, session.customer, session.subscription);
-        await notifyOwnerOfPurchase('monthly', userId);
+        await startSubscription(userId, session.customer, session.subscription, plan);
+        await notifyOwnerOfPurchase(plan, userId);
         break;
       }
-      // Monthly renewal paid: extend the subscription another month
+      // Renewal paid: extend the subscription to the end of the period just paid for
       case 'invoice.paid': {
         const invoice = event.data.object;
         const subscription = invoice.parent?.subscription_details?.subscription;
         // The first invoice is handled by checkout.session.completed
         if (invoice.billing_reason !== 'subscription_cycle' || !subscription) break;
+        const periodEnd = Math.max(0, ...invoice.lines.data.map((line) => line.period.end));
+        if (!periodEnd) {
+          console.warn('Renewal invoice has no billing period:', invoice.id);
+          break;
+        }
         await renewSubscription(
-          typeof subscription === 'string' ? subscription : subscription.id
+          typeof subscription === 'string' ? subscription : subscription.id,
+          new Date(periodEnd * 1000).toISOString()
         );
         break;
       }
@@ -132,7 +113,7 @@ export async function POST(request: Request) {
 }
 
 // Never throws: an error here would make Stripe retry an event already applied
-async function notifyOwnerOfPurchase(plan: Extract<OwnerEvent, 'monthly' | 'lifetime'>, userId: number) {
+async function notifyOwnerOfPurchase(plan: Plan, userId: number) {
   try {
     const user = await getUserById(userId);
     if (user) await notifyOwner(plan, user.emailAddress);

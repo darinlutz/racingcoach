@@ -25,8 +25,8 @@ export default function Navigation({ user }: NavigationProps) {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
-  // Lifetime subscribers have nothing left to buy
-  const visibleLinks = user?.accountStatus === ACCOUNT_STATUS.lifetime ? links.filter((link) => link.href !== '/pricing') : links;
+  // Subscribers have nothing left to buy
+  const visibleLinks = user?.accountStatus === ACCOUNT_STATUS.subscribed ? links.filter((link) => link.href !== '/pricing') : links;
 
   const toggleMenu = () => setIsOpen(!isOpen);
   const closeMenu = () => setIsOpen(false);

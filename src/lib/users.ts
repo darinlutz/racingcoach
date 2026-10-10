@@ -2,7 +2,7 @@ import { randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 import { isUniqueViolation, query, transaction } from './db';
 import { ROLES } from './roles';
-import { ACCOUNT_STATUS, canBuyPlan } from './accountStatus';
+import { ACCOUNT_STATUS, canSubscribe, LEGACY_SUBSCRIBED_STATUSES, type Plan } from './accountStatus';
 import { seedDefaultCars } from './defaultCars';
 import { copyDefaultTracks, seedDefaultTracks } from './defaultTracks';
 
@@ -39,8 +39,18 @@ export function oneMonthFrom(from: Date = new Date()): string {
   return end.toISOString();
 }
 
-export function canBuy(user: User, plan: 'monthly' | 'lifetime'): boolean {
-  return canBuyPlan(user.accountStatus, plan);
+// One year from `from`, clamped so Feb 29 becomes Feb 28 rather than Mar 1.
+export function oneYearFrom(from: Date = new Date()): string {
+  const end = new Date(from);
+  end.setUTCDate(1);
+  end.setUTCFullYear(end.getUTCFullYear() + 1);
+  const lastDay = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth() + 1, 0)).getUTCDate();
+  end.setUTCDate(Math.min(from.getUTCDate(), lastDay));
+  return end.toISOString();
+}
+
+export function canBuy(user: User): boolean {
+  return canSubscribe(user.accountStatus);
 }
 
 export class EmailTakenError extends Error {
@@ -82,6 +92,11 @@ export function ensureUserSchema(): Promise<void> {
       await client.query(
         'CREATE INDEX IF NOT EXISTS users_stripe_subscription_id_idx ON racingcoach."Users" (stripe_subscription_id)'
       );
+      // Monthly Subscription and Lifetime Subscription are now both Subscribed
+      await client.query('UPDATE racingcoach."Users" SET account_status = $1 WHERE account_status = ANY($2)', [
+        ACCOUNT_STATUS.subscribed,
+        LEGACY_SUBSCRIBED_STATUSES,
+      ]);
       // Each friend belongs to one user. `seq` records insertion order for listing.
       await client.query(`CREATE TABLE IF NOT EXISTS racingcoach."Friends" (
         id TEXT PRIMARY KEY,
@@ -442,11 +457,11 @@ export async function updatePassword(userId: number, password: string): Promise<
 
 export async function getUserById(id: number): Promise<User | null> {
   await ensureUserSchema();
-  // A monthly subscription whose end date has passed (e.g. a failed renewal) is expired
+  // A subscription whose end date has passed (e.g. a failed renewal) is expired
   await query(
     `UPDATE racingcoach."Users" SET account_status = $3
      WHERE id = $1 AND account_status = $4 AND subscription_end_date < $2`,
-    [id, new Date().toISOString(), ACCOUNT_STATUS.expired, ACCOUNT_STATUS.monthly]
+    [id, new Date().toISOString(), ACCOUNT_STATUS.expired, ACCOUNT_STATUS.subscribed]
   );
   const [row] = await query(`SELECT ${USER_COLUMNS} FROM racingcoach."Users" WHERE id = $1`, [id]);
   return row ? rowToUser(row) : null;
@@ -455,53 +470,41 @@ export async function getUserById(id: number): Promise<User | null> {
 // Stripe purchases only change account_status; the role (Admin or User)
 // never changes with a subscription.
 
-// Links a completed Checkout Session to the user who started it.
+// Links a completed Checkout Session to the user who started it. The paid
+// period is one month or one year, depending on the plan.
 export async function startSubscription(
   userId: number,
   stripeCustomerId: string,
-  stripeSubscriptionId: string
+  stripeSubscriptionId: string,
+  plan: Plan
 ): Promise<void> {
   await ensureUserSchema();
   await query(
     `UPDATE racingcoach."Users" SET stripe_customer_id = $1, stripe_subscription_id = $2, account_status = $5,
        subscription_end_date = $3
      WHERE id = $4`,
-    [stripeCustomerId, stripeSubscriptionId, oneMonthFrom(), userId, ACCOUNT_STATUS.monthly]
+    [
+      stripeCustomerId,
+      stripeSubscriptionId,
+      plan === 'annual' ? oneYearFrom() : oneMonthFrom(),
+      userId,
+      ACCOUNT_STATUS.subscribed,
+    ]
   );
 }
 
-// A paid Lifetime purchase never expires. Clearing the subscription ID keeps
-// events from an earlier monthly subscription from changing the status.
-// Returns that earlier monthly subscription's ID, if any, so the caller can
-// cancel it in Stripe.
-export async function grantLifetimeAccess(
-  userId: number,
-  stripeCustomerId: string | null
-): Promise<string | null> {
-  await ensureUserSchema();
-  const [row] = await query(
-    `UPDATE racingcoach."Users" AS u SET account_status = $3, subscription_end_date = NULL,
-       stripe_subscription_id = NULL, stripe_customer_id = COALESCE($1, u.stripe_customer_id)
-     FROM (SELECT id, stripe_subscription_id FROM racingcoach."Users" WHERE id = $2) AS previous
-     WHERE u.id = previous.id
-     RETURNING previous.stripe_subscription_id AS previous_subscription_id`,
-    [stripeCustomerId, userId, ACCOUNT_STATUS.lifetime]
-  );
-  return (row?.previous_subscription_id as string | null | undefined) ?? null;
-}
-
-// Called on each successful monthly renewal payment.
-export async function renewSubscription(stripeSubscriptionId: string): Promise<void> {
+// Called on each successful renewal payment, with the end of the period it paid for.
+export async function renewSubscription(stripeSubscriptionId: string, subscriptionEndDate: string): Promise<void> {
   await ensureUserSchema();
   await query(
     `UPDATE racingcoach."Users" SET account_status = $3, subscription_end_date = $1
      WHERE stripe_subscription_id = $2`,
-    [oneMonthFrom(), stripeSubscriptionId, ACCOUNT_STATUS.monthly]
+    [subscriptionEndDate, stripeSubscriptionId, ACCOUNT_STATUS.subscribed]
   );
 }
 
-// After Stripe has canceled the user's monthly subscription: marks the account Canceled (keeping
-// subscription_end_date, the end of the paid month) and saves why they canceled.
+// After Stripe has canceled the user's subscription: marks the account Canceled (keeping
+// subscription_end_date, the end of the paid period) and saves why they canceled.
 export async function recordCancellation(
   user: User,
   cancellation: { reason: string; notes: string | null; canceledAt: string; stripeSubscriptionId: string }

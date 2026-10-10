@@ -6,14 +6,14 @@ import type { Plan } from './accountStatus';
 // webhook ignores Checkout Sessions not tagged as its own.
 export const STRIPE_APP = 'racingcoach';
 
-// Each plan is a Stripe Product; Checkout charges its default Price
+// Each plan is a Stripe Product; Checkout charges its default (recurring) Price
 const PLAN_PRODUCT_ENV: Record<Plan, string> = {
-  monthly: 'STRIPE_COACHING_MONTHLY_PRODUCT_ID',
-  lifetime: 'STRIPE_COACHING_LIFETIME_PRODUCT_ID',
+  monthly: 'RACINGCOACH_MONTHLY_PRODUCT_ID',
+  annual: 'RACINGCOACH_ANNUAL_PRODUCT_ID',
 };
 
 export function isPlan(value: unknown): value is Plan {
-  return value === 'monthly' || value === 'lifetime';
+  return value === 'monthly' || value === 'annual';
 }
 
 // null when the secret key or the plan's product isn't configured
@@ -31,6 +31,18 @@ export async function getPlanPrice(stripe: Stripe, productId: string): Promise<S
   });
   const price = product.default_price;
   return price && typeof price !== 'string' ? price : null;
+}
+
+// How much cheaper the annual price is than 12 monthly payments, as a whole
+// percent (e.g. 17), or null if the prices can't be compared or there's no saving
+export function annualDiscountPercent(monthly: Stripe.Price, annual: Stripe.Price): number | null {
+  if (monthly.unit_amount == null || annual.unit_amount == null || monthly.currency !== annual.currency) {
+    return null;
+  }
+  const twelveMonths = monthly.unit_amount * 12;
+  if (twelveMonths <= 0) return null;
+  const percent = Math.round((1 - annual.unit_amount / twelveMonths) * 100);
+  return percent > 0 ? percent : null;
 }
 
 // e.g. "$9.99", or "$9" for whole amounts

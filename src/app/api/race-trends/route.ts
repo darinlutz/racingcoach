@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { aiErrorResponse } from '@/lib/aiErrors';
 import { readConnection, readRaceEvents } from '@/lib/raceHistory';
 import { runRaceTrends } from '@/lib/raceTrends';
 import { getCurrentUser } from '@/lib/session';
@@ -46,6 +47,6 @@ export async function POST() {
     return NextResponse.json({ success: true, trend, incidents, commentary, steps }, { status: 200 });
   } catch (error) {
     console.error('Race trends error:', error);
-    return NextResponse.json({ error: 'Failed to get the race trends' }, { status: 500 });
+    return aiErrorResponse(error, 'Failed to get the race trends');
   }
 }

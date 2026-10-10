@@ -100,7 +100,8 @@ async function handleCoach(interaction) {
     await interaction.editReply({ embeds: [buildCoachEmbed(races, coaching)] });
   } catch (error) {
     console.error('Coaching error:', error);
-    await interaction.editReply({ embeds: [buildCoachEmbed(races, null, { failed: true })] });
+    const outOfCredits = error.code === 'out_of_credits';
+    await interaction.editReply({ embeds: [buildCoachEmbed(races, null, { failed: true, outOfCredits })] });
   }
 }
 

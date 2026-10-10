@@ -1,5 +1,6 @@
 import { timingSafeEqual } from 'node:crypto';
 import { NextResponse } from 'next/server';
+import { isAiOutOfCredits } from '@/lib/aiErrors';
 import { getUserIdByDiscordId } from '@/lib/discord';
 import { readConnection, readRaceEvents } from '@/lib/raceHistory';
 import { runRaceCoaching } from '@/lib/raceTrends';
@@ -55,6 +56,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, coaching });
   } catch (error) {
     console.error('Bot coach error:', error);
+    if (isAiOutOfCredits(error)) {
+      return NextResponse.json({ error: 'out_of_credits' }, { status: 503 });
+    }
     return NextResponse.json({ error: 'Failed to get coaching' }, { status: 500 });
   }
 }

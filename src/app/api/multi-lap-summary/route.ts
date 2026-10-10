@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { aiErrorResponse } from '@/lib/aiErrors';
 import { summarizeMultiLap } from '@/lib/lapSummary';
 
 // Multi-lap statistics for one track are a few KB; anything much bigger isn't a multi-lap analysis
@@ -27,6 +28,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, summary }, { status: 200 });
   } catch (error) {
     console.error('Multi-lap summary error:', error);
-    return NextResponse.json({ error: 'Failed to analyze the laps' }, { status: 500 });
+    return aiErrorResponse(error, 'Failed to analyze the laps');
   }
 }

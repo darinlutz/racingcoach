@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { aiErrorResponse } from '@/lib/aiErrors';
 import { referenceSessionSchema, runReferencePoints } from '@/lib/referencePoints';
 
 // The agent makes several model calls (one per tool round), so give it more than the default
@@ -26,6 +27,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, rows, commentary, steps }, { status: 200 });
   } catch (error) {
     console.error('Reference points error:', error);
-    return NextResponse.json({ error: 'Failed to get the reference points' }, { status: 500 });
+    return aiErrorResponse(error, 'Failed to get the reference points');
   }
 }

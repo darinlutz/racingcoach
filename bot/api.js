@@ -24,7 +24,10 @@ export async function getCoaching(discordUserId) {
   });
   const body = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(`Coaching request failed: ${response.status} ${body.error ?? ''}`.trim());
+    const error = new Error(`Coaching request failed: ${response.status} ${body.error ?? ''}`.trim());
+    // The website's error code, e.g. out_of_credits when the AI service has no credits left
+    error.code = body.error;
+    throw error;
   }
   return body.coaching;
 }

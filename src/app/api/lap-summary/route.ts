@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { aiErrorResponse } from '@/lib/aiErrors';
 import { summarizeLapComparison } from '@/lib/lapSummary';
 
 // Focus-area text for one track is a few KB; anything much bigger isn't a lap comparison
@@ -27,6 +28,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, summary }, { status: 200 });
   } catch (error) {
     console.error('Lap summary error:', error);
-    return NextResponse.json({ error: 'Failed to summarize the laps' }, { status: 500 });
+    return aiErrorResponse(error, 'Failed to summarize the laps');
   }
 }

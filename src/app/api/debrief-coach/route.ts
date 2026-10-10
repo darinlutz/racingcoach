@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { aiErrorResponse } from '@/lib/aiErrors';
 import { debriefSessionSchema, runDebriefCoach } from '@/lib/debriefCoach';
 import { saveDebrief } from '@/lib/debriefHistory';
 import { getCurrentUser } from '@/lib/session';
@@ -40,6 +41,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, debrief, steps }, { status: 200 });
   } catch (error) {
     console.error('Debrief coach error:', error);
-    return NextResponse.json({ error: 'Failed to run the debrief' }, { status: 500 });
+    return aiErrorResponse(error, 'Failed to run the debrief');
   }
 }

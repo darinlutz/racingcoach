@@ -27,8 +27,9 @@ function stat(name, value) {
 }
 
 // `coaching` is the website's { summary, opportunities }, or null while it's being written.
-// `failed` shows a try-again note instead.
-export function buildCoachEmbed(races, coaching, { failed = false } = {}) {
+// `failed` shows a try-again note instead, or says the AI service is out of credits when
+// `outOfCredits` is set.
+export function buildCoachEmbed(races, coaching, { failed = false, outOfCredits = false } = {}) {
   const latest = races[0];
 
   const changes = races.map(iRatingChange).filter((change) => change != null);
@@ -58,7 +59,9 @@ export function buildCoachEmbed(races, coaching, { failed = false } = {}) {
   if (failed) {
     embed.addFields({
       name: '⚠️ Coaching unavailable',
-      value: "The AI coach couldn't analyze your races right now. Please try again in a few minutes.",
+      value: outOfCredits
+        ? 'The AI service is out of credits.'
+        : "The AI coach couldn't analyze your races right now. Please try again in a few minutes.",
     });
   } else if (!coaching) {
     embed.addFields({

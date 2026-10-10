@@ -12,19 +12,27 @@ if (!DISCORD_BOT_TOKEN || !DISCORD_CLIENT_ID || !DISCORD_GUILD_ID) {
   process.exit(1);
 }
 
+// Everything is grouped under /coach as subcommands (/coach results, /coach debrief, ...). Discord
+// doesn't allow running a command that has subcommands on its own, so plain /coach isn't available.
 const commands = [
   new SlashCommandBuilder()
-    .setName('command')
-    .setDescription('Check that RacingCoach is online'),
-  new SlashCommandBuilder()
-    .setName('whoami')
-    .setDescription('Show which RacingCoach account your Discord account is linked to'),
-  new SlashCommandBuilder()
     .setName('coach')
-    .setDescription('Get your recent races and AI coaching on your results'),
-  new SlashCommandBuilder()
-    .setName('debrief')
-    .setDescription('See the fixes from your latest Debrief Coach session'),
+    .setDescription('RacingCoach commands')
+    .addSubcommand((sub) => sub
+      .setName('results')
+      .setDescription('Get your recent races and AI coaching on your results'))
+    .addSubcommand((sub) => sub
+      .setName('debrief')
+      .setDescription('See the fixes from your latest Debrief Coach session'))
+    .addSubcommand((sub) => sub
+      .setName('recent')
+      .setDescription('List your recent Debrief Coach sessions'))
+    .addSubcommand((sub) => sub
+      .setName('whoami')
+      .setDescription('Show which RacingCoach account your Discord account is linked to'))
+    .addSubcommand((sub) => sub
+      .setName('status')
+      .setDescription('Check that RacingCoach is online')),
 ].map((command) => command.toJSON());
 
 const rest = new REST().setToken(DISCORD_BOT_TOKEN);
@@ -34,7 +42,8 @@ try {
     Routes.applicationGuildCommands(DISCORD_CLIENT_ID, DISCORD_GUILD_ID),
     { body: commands },
   );
-  console.log(`Registered ${registered.length} command(s): ${registered.map((c) => `/${c.name}`).join(', ')}`);
+  const names = registered.flatMap((c) => c.options?.length ? c.options.map((o) => `/${c.name} ${o.name}`) : [`/${c.name}`]);
+  console.log(`Registered ${names.length} command(s): ${names.join(', ')}`);
 } catch (error) {
   console.error('Failed to register commands:', error);
   process.exitCode = 1;

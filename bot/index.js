@@ -2,8 +2,9 @@ import 'dotenv/config';
 import { Client, Events, GatewayIntentBits, MessageFlags } from 'discord.js';
 import { getCoaching } from './api.js';
 import { buildCoachEmbed } from './coach.js';
-import { closeDb, getLatestDebrief, getLinkedUser, getRecentRaces } from './db.js';
+import { closeDb, getLatestDebrief, getLinkedUser, getRecentDebriefs, getRecentRaces } from './db.js';
 import { buildDebriefEmbed } from './debrief.js';
+import { buildRecentEmbed } from './recent.js';
 
 // The RacingCoach Discord bot. Keeps a connection open to Discord and answers slash commands.
 // Commands are registered separately by deploy-commands.js.
@@ -25,18 +26,24 @@ client.once(Events.ClientReady, (readyClient) => {
 client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
+  // All commands are subcommands of /coach (see deploy-commands.js)
+  if (interaction.commandName !== 'coach') return;
+  const subcommand = interaction.options.getSubcommand();
+
   try {
-    if (interaction.commandName === 'command') {
+    if (subcommand === 'status') {
       await interaction.reply('RacingCoach is online! Your racing coach is ready.');
-    } else if (interaction.commandName === 'whoami') {
+    } else if (subcommand === 'whoami') {
       await handleWhoami(interaction);
-    } else if (interaction.commandName === 'coach') {
+    } else if (subcommand === 'results') {
       await handleCoach(interaction);
-    } else if (interaction.commandName === 'debrief') {
+    } else if (subcommand === 'debrief') {
       await handleDebrief(interaction);
+    } else if (subcommand === 'recent') {
+      await handleRecent(interaction);
     }
   } catch (error) {
-    console.error(`Error handling /${interaction.commandName}:`, error);
+    console.error(`Error handling /coach ${subcommand}:`, error);
     const message = { content: 'Something went wrong running that command.', flags: MessageFlags.Ephemeral };
     if (interaction.deferred && !interaction.replied) {
       await interaction.editReply(message).catch(() => {});
@@ -126,6 +133,30 @@ async function handleDebrief(interaction) {
   }
 
   await interaction.editReply({ embeds: [buildDebriefEmbed(saved)] });
+}
+
+const RECENT_SESSION_COUNT = 5;
+
+// Lists the driver's last few saved Debrief Coach sessions, visible only to them
+async function handleRecent(interaction) {
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+  const user = await getLinkedUser(interaction.user.id);
+  if (!user) {
+    await interaction.editReply(notLinkedMessage());
+    return;
+  }
+
+  const sessions = await getRecentDebriefs(user.id, RECENT_SESSION_COUNT);
+  if (!sessions.length) {
+    const racingPage = sitePage('/racing', 'the Racing page');
+    await interaction.editReply(
+      `No debriefs saved for **${user.userName}** yet. Sign in, run **Debrief Coach** on ${racingPage}, then try again.`,
+    );
+    return;
+  }
+
+  await interaction.editReply({ embeds: [buildRecentEmbed(sessions)] });
 }
 
 // Let Render stop the worker cleanly on redeploys

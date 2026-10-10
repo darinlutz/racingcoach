@@ -1,6 +1,6 @@
 import { EmbedBuilder } from 'discord.js';
 
-// Builds the /coach card: stats from the driver's recent races (see getRecentRaces in db.js), then
+// Builds the /coach results card: stats from the driver's recent races (see getRecentRaces in db.js), then
 // the AI coach's top three opportunities (see getCoaching in api.js) once they're ready.
 
 const ACCENT_COLOR = 0xe10600; // racing red

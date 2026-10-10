@@ -1,7 +1,8 @@
 import type { PoolClient } from 'pg';
 
-// The GT3 cars every account starts with in racingcoach."CarData" (from GT3_Car_Data.xlsx). Each
-// user gets their own copy on sign-up and can edit or delete them from the Car Data tab.
+// The GT3 cars every account starts with (from GT3_Car_Data.xlsx). They are seeded once into
+// racingcoach."Cars"; each user gets their own copy in "CarsUsers" on sign-up (copyDefaultCars) and
+// can edit or delete them from the Car Data tab.
 
 export type DefaultCar = {
   name: string;
@@ -174,21 +175,16 @@ export const DEFAULT_CARS: DefaultCar[] = [
   },
 ];
 
-// Inserts DEFAULT_CARS for one user, or for every user when userId is null (the one-time backfill
-// when the CarData table is first created). Runs on the caller's transaction.
-export async function seedDefaultCars(client: PoolClient, userId: number | null): Promise<void> {
+// Fills racingcoach."Cars" with DEFAULT_CARS. Runs once, on the caller's transaction, when the Cars
+// table is first created; after that the table is the source of truth.
+export async function seedDefaultCars(client: PoolClient): Promise<void> {
   const column = <K extends keyof DefaultCar>(key: K) => DEFAULT_CARS.map((c) => c[key]);
   await client.query(
-    `INSERT INTO racingcoach."CarData"
-       (user_id, car_name, length_in, width_in, wheelbase_in, dry_weight_lbs, wet_weight_lbs,
+    `INSERT INTO racingcoach."Cars"
+       (car_name, length_in, width_in, wheelbase_in, dry_weight_lbs, wet_weight_lbs,
         displacement_liters, rpm_limit, torque_lb_ft, power_bhp, notes)
-     SELECT u.id, c.*
-     FROM racingcoach."Users" u
-     CROSS JOIN unnest($1::text[], $2::float8[], $3::float8[], $4::float8[], $5::int[], $6::int[],
-                       $7::float8[], $8::int[], $9::int[], $10::int[], $11::text[])
-       AS c(car_name, length_in, width_in, wheelbase_in, dry_weight_lbs, wet_weight_lbs,
-            displacement_liters, rpm_limit, torque_lb_ft, power_bhp, notes)
-     WHERE $12::int IS NULL OR u.id = $12
+     SELECT * FROM unnest($1::text[], $2::float8[], $3::float8[], $4::float8[], $5::int[], $6::int[],
+                          $7::float8[], $8::int[], $9::int[], $10::int[], $11::text[])
      ON CONFLICT DO NOTHING`,
     [
       column('name'),
@@ -202,7 +198,23 @@ export async function seedDefaultCars(client: PoolClient, userId: number | null)
       column('torqueLbFt'),
       column('powerBhp'),
       column('notes'),
-      userId,
     ]
+  );
+}
+
+// Copies every car in racingcoach."Cars" into one user's "CarsUsers", or every user's when userId is
+// null (the one-time backfill when CarsUsers is first created). A car the user already has (same name)
+// is skipped. Runs on the caller's transaction.
+export async function copyDefaultCars(client: PoolClient, userId: number | null): Promise<void> {
+  await client.query(
+    `INSERT INTO racingcoach."CarsUsers"
+       (user_id, car_name, length_in, width_in, wheelbase_in, dry_weight_lbs, wet_weight_lbs,
+        displacement_liters, rpm_limit, torque_lb_ft, power_bhp, notes)
+     SELECT u.id, c.car_name, c.length_in, c.width_in, c.wheelbase_in, c.dry_weight_lbs, c.wet_weight_lbs,
+            c.displacement_liters, c.rpm_limit, c.torque_lb_ft, c.power_bhp, c.notes
+     FROM racingcoach."Users" u CROSS JOIN racingcoach."Cars" c
+     WHERE $1::int IS NULL OR u.id = $1
+     ON CONFLICT DO NOTHING`,
+    [userId]
   );
 }

@@ -2,8 +2,8 @@ import { z } from 'zod';
 import { query } from './db';
 import { ensureUserSchema } from './users';
 
-// Each user's own cars in racingcoach."CarData" (created by ensureUserSchema and seeded with
-// DEFAULT_CARS from lib/defaultCars when the account is created).
+// Each user's own cars in racingcoach."CarsUsers" (created by ensureUserSchema and copied from the
+// default cars in racingcoach."Cars" when the account is created).
 
 const measure = z.number().positive().max(100000).nullable();
 const whole = z.number().int().positive().max(100000).nullable();
@@ -55,7 +55,7 @@ const carValues = (car: CarInput) => [
 export async function readCars(userId: number): Promise<UserCar[]> {
   await ensureUserSchema();
   const rows = await query(
-    `SELECT id, ${CAR_COLUMNS} FROM racingcoach."CarData" WHERE user_id = $1 ORDER BY lower(car_name)`,
+    `SELECT id, ${CAR_COLUMNS} FROM racingcoach."CarsUsers" WHERE user_id = $1 ORDER BY lower(car_name)`,
     [userId]
   );
   return rows.map((r) => ({
@@ -78,7 +78,7 @@ export async function readCars(userId: number): Promise<UserCar[]> {
 export async function addCar(userId: number, car: CarInput): Promise<number> {
   await ensureUserSchema();
   const [row] = await query(
-    `INSERT INTO racingcoach."CarData" (user_id, ${CAR_COLUMNS})
+    `INSERT INTO racingcoach."CarsUsers" (user_id, ${CAR_COLUMNS})
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id`,
     [userId, ...carValues(car)]
   );
@@ -89,7 +89,7 @@ export async function addCar(userId: number, car: CarInput): Promise<number> {
 export async function updateCar(userId: number, id: number, car: CarInput): Promise<void> {
   await ensureUserSchema();
   const rows = await query(
-    `UPDATE racingcoach."CarData" SET car_name = $3, length_in = $4, width_in = $5, wheelbase_in = $6,
+    `UPDATE racingcoach."CarsUsers" SET car_name = $3, length_in = $4, width_in = $5, wheelbase_in = $6,
        dry_weight_lbs = $7, wet_weight_lbs = $8, displacement_liters = $9, rpm_limit = $10,
        torque_lb_ft = $11, power_bhp = $12, notes = $13, updated_at = now()
      WHERE id = $1 AND user_id = $2 RETURNING id`,
@@ -101,5 +101,5 @@ export async function updateCar(userId: number, id: number, car: CarInput): Prom
 // Only deletes the car if it belongs to this user
 export async function deleteCar(userId: number, id: number): Promise<void> {
   await ensureUserSchema();
-  await query('DELETE FROM racingcoach."CarData" WHERE id = $1 AND user_id = $2', [id, userId]);
+  await query('DELETE FROM racingcoach."CarsUsers" WHERE id = $1 AND user_id = $2', [id, userId]);
 }

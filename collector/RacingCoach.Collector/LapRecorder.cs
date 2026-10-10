@@ -98,7 +98,7 @@ internal sealed class LapRecorder(Action<CompletedLap> onLapCompleted, Action<st
         if (_lap is not null)
         {
             _missingSamples += tick - prevTick - 1;
-            _lap.Add(d); // on a crossing this is the first sample of the next lap, like Garage 61's exports
+            _lap.Add(d); // on a crossing this is the first sample of the next lap
         }
         if (!crossedForward)
             return;

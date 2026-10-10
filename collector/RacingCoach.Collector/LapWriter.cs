@@ -16,7 +16,7 @@ internal sealed class LapWriter : IAsyncDisposable
     private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true, PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
-    // Same names and units as iRacing (and Garage 61's exports): Speed in m/s, pedals 0..1, LapDistPct 0..1.
+    // Same names and units as iRacing: Speed in m/s, pedals 0..1, LapDistPct 0..1.
     private static readonly (string Name, Func<TelemetryData, string> Value)[] Columns =
     [
         ("Speed", d => F(d.Speed)),
@@ -159,7 +159,7 @@ internal sealed class LapWriter : IAsyncDisposable
         return path;
     }
 
-    // "01.50.486", the lap time format in Garage 61 file names.
+    // "01.50.486", the lap time format in RacingCoach lap file names.
     private static string FormatLapTime(double seconds)
     {
         var t = TimeSpan.FromMilliseconds(Math.Round(seconds * 1000));

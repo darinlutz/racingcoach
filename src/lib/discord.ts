@@ -28,6 +28,28 @@ export class DiscordAlreadyLinkedError extends Error {
   }
 }
 
+// Discord's Cloudflare protection answers 429 when it has temporarily banned the server's IP address
+// (Render shares outbound IPs between many apps, some of them busy Discord bots)
+export class DiscordBlockedError extends Error {
+  constructor(step: string) {
+    super(`Discord temporarily blocked the ${step} request (429)`);
+  }
+}
+
+// Calls the Discord API directly, or through the Cloudflare Worker in discord-proxy/ when
+// DISCORD_PROXY_URL is set, so the requests come from Cloudflare's IP addresses instead of Render's.
+// The Worker only forwards requests carrying DISCORD_PROXY_SECRET.
+async function discordFetch(path: string, step: string, init: RequestInit): Promise<Response> {
+  const proxyUrl = process.env.DISCORD_PROXY_URL?.trim().replace(/\/+$/, '');
+  const proxySecret = process.env.DISCORD_PROXY_SECRET?.trim();
+  if (proxyUrl && !proxySecret) throw new Error('DISCORD_PROXY_URL is set but DISCORD_PROXY_SECRET is not');
+  const headers = new Headers(init.headers);
+  if (proxyUrl) headers.set('X-Proxy-Secret', proxySecret as string);
+  const response = await fetch(`${proxyUrl ? `${proxyUrl}/api/v10` : DISCORD_API}${path}`, { ...init, headers });
+  if (response.status === 429) throw new DiscordBlockedError(step);
+  return response;
+}
+
 export function discordConfig(): { clientId: string; clientSecret: string } | null {
   const clientId = process.env.DISCORD_CLIENT_ID;
   const clientSecret = process.env.DISCORD_CLIENT_SECRET;
@@ -59,25 +81,27 @@ export async function fetchDiscordUser(code: string, redirectUri: string): Promi
   if (!config) throw new Error('Discord is not configured');
   const credentials = { client_id: config.clientId, client_secret: config.clientSecret };
 
-  const tokenResponse = await fetch(`${DISCORD_API}/oauth2/token`, {
+  const tokenResponse = await discordFetch('/oauth2/token', 'token exchange', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ ...credentials, grant_type: 'authorization_code', code, redirect_uri: redirectUri }),
   });
   if (!tokenResponse.ok) {
-    throw new Error(`Discord token exchange failed: ${tokenResponse.status} ${await tokenResponse.text()}`);
+    // Discord's JSON error is short; an HTML error page is not worth logging whole
+    const detail = (await tokenResponse.text()).slice(0, 300);
+    throw new Error(`Discord token exchange failed: ${tokenResponse.status} ${detail}`);
   }
   const { access_token: accessToken } = (await tokenResponse.json()) as { access_token: string };
 
   try {
-    const userResponse = await fetch(`${DISCORD_API}/users/@me`, {
+    const userResponse = await discordFetch('/users/@me', 'profile lookup', {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
     if (!userResponse.ok) throw new Error(`Discord profile lookup failed: ${userResponse.status}`);
     return (await userResponse.json()) as DiscordUser;
   } finally {
     // Not needed after this; revoking it is best effort
-    await fetch(`${DISCORD_API}/oauth2/token/revoke`, {
+    await discordFetch('/oauth2/token/revoke', 'token revoke', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({ ...credentials, token: accessToken, token_type_hint: 'access_token' }),

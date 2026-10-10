@@ -32,6 +32,7 @@ const DISCORD_MESSAGES: Record<string, { text: string; ok: boolean }> = {
   expired: { text: 'That Discord link request expired. Please try again.', ok: false },
   taken: { text: 'That Discord account is already linked to another RacingCoach account.', ok: false },
   unavailable: { text: 'Discord linking is not available right now.', ok: false },
+  blocked: { text: 'Discord is temporarily blocking our server. Please try again later.', ok: false },
   error: { text: 'Something went wrong linking Discord. Please try again.', ok: false },
 };
 

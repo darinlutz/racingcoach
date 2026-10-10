@@ -1,0 +1,5 @@
+# Cloudflare Worker that forwards the website's Discord OAuth2 requests (see src/index.js).
+# Deploy from this folder with `npx wrangler deploy`; set the secret with `npx wrangler secret put PROXY_SECRET`.
+name = "racingcoach-discord-proxy"
+main = "src/index.js"
+compatibility_date = "2026-10-01"

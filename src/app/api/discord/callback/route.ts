@@ -5,6 +5,7 @@ import {
   DISCORD_INVITE_URL,
   DISCORD_STATE_COOKIE,
   DiscordAlreadyLinkedError,
+  DiscordBlockedError,
   discordRedirectUri,
   fetchDiscordUser,
   saveDiscordConnection,
@@ -50,6 +51,10 @@ export async function GET(request: Request) {
     return redirect(DISCORD_INVITE_URL);
   } catch (error) {
     if (error instanceof DiscordAlreadyLinkedError) return back('taken');
+    if (error instanceof DiscordBlockedError) {
+      console.error('Discord callback error:', error.message);
+      return back('blocked');
+    }
     console.error('Discord callback error:', error);
     return back('error');
   }

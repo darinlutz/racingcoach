@@ -57,3 +57,7 @@ next-env.d.ts
 
 # Discord bot (bot/ has its own package.json)
 /bot/node_modules
+
+# Cloudflare Worker local state and secrets
+.wrangler
+.dev.vars

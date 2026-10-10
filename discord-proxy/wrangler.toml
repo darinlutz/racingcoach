@@ -3,3 +3,7 @@
 name = "racingcoach-discord-proxy"
 main = "src/index.js"
 compatibility_date = "2026-10-01"
+
+# Served at https://racingcoach-discord-proxy.<account subdomain>.workers.dev (DISCORD_PROXY_URL on the website)
+workers_dev = true
+preview_urls = false

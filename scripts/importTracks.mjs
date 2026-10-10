@@ -1,4 +1,4 @@
-// Imports a Track_Area_Information.txt file into one user's racingcoach."Tracks" and "FocusAreas".
+// Imports a Track_Area_Information.txt file into one user's racingcoach."UsersTracks" and "UsersFocusAreas".
 //
 //   node scripts/importTracks.mjs <email> <path/to/Track_Area_Information.txt>
 //
@@ -77,7 +77,7 @@ try {
     const {
       rows: [{ id: trackId }],
     } = await client.query(
-      `INSERT INTO racingcoach."Tracks" (user_id, track_key, track_name, track_length_feet, notes)
+      `INSERT INTO racingcoach."UsersTracks" (user_id, track_key, track_name, track_length_feet, notes)
        VALUES ($1, $2, $3, $4, $5)
        ON CONFLICT (user_id, lower(track_key)) DO UPDATE
          SET track_name = EXCLUDED.track_name, track_length_feet = EXCLUDED.track_length_feet,
@@ -85,10 +85,10 @@ try {
        RETURNING id`,
       [userId, track.key, track.name, track.lengthFeet, track.notes]
     );
-    await client.query('DELETE FROM racingcoach."FocusAreas" WHERE track_id = $1', [trackId]);
+    await client.query('DELETE FROM racingcoach."UsersFocusAreas" WHERE track_id = $1', [trackId]);
     for (const area of track.areas) {
       await client.query(
-        `INSERT INTO racingcoach."FocusAreas"
+        `INSERT INTO racingcoach."UsersFocusAreas"
            (track_id, position, name, start_point, end_point, notes, brake_point_feet, max_brake_pct, throttle_point_feet)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
         [trackId, area.position, area.name, area.start, area.end, area.notes, area.brakeFeet, area.maxBrakePct, area.throttleFeet]

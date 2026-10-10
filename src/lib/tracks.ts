@@ -2,9 +2,10 @@ import { z } from 'zod';
 import { query, transaction } from './db';
 import { ensureUserSchema } from './users';
 
-// Each user's own tracks and focus areas in racingcoach."Tracks" and "FocusAreas" (created by
-// ensureUserSchema). A track is saved whole: its details plus its focus areas, which replace the old
-// ones and are numbered 1-8 in order around the lap (by start point).
+// Each user's own tracks and focus areas in racingcoach."UsersTracks" and "UsersFocusAreas" (created by
+// ensureUserSchema and copied from the default "Tracks" when the account is created). A track is saved
+// whole: its details plus its focus areas, which replace the old ones and are numbered 1-8 in order
+// around the lap (by start point).
 
 export const MAX_FOCUS_AREAS = 8;
 
@@ -49,14 +50,14 @@ export class TrackNotFoundError extends Error {
 export async function readTracks(userId: number): Promise<UserTrack[]> {
   await ensureUserSchema();
   const tracks = await query(
-    `SELECT id, track_key, track_name, track_length_feet, notes FROM racingcoach."Tracks"
+    `SELECT id, track_key, track_name, track_length_feet, notes FROM racingcoach."UsersTracks"
      WHERE user_id = $1 ORDER BY lower(track_name)`,
     [userId]
   );
   const areas = await query(
     `SELECT f.id, f.track_id, f.position, f.name, f.start_point, f.end_point, f.notes,
             f.brake_point_feet, f.max_brake_pct, f.throttle_point_feet
-     FROM racingcoach."FocusAreas" f JOIN racingcoach."Tracks" t ON t.id = f.track_id
+     FROM racingcoach."UsersFocusAreas" f JOIN racingcoach."UsersTracks" t ON t.id = f.track_id
      WHERE t.user_id = $1 ORDER BY f.track_id, f.position`,
     [userId]
   );
@@ -85,11 +86,11 @@ export async function readTracks(userId: number): Promise<UserTrack[]> {
 type Client = Parameters<Parameters<typeof transaction>[0]>[0];
 
 async function replaceAreas(client: Client, trackId: number, areas: TrackInput['areas']) {
-  await client.query('DELETE FROM racingcoach."FocusAreas" WHERE track_id = $1', [trackId]);
+  await client.query('DELETE FROM racingcoach."UsersFocusAreas" WHERE track_id = $1', [trackId]);
   const ordered = [...areas].sort((a, b) => a.startPoint - b.startPoint);
   for (const [i, a] of ordered.entries()) {
     await client.query(
-      `INSERT INTO racingcoach."FocusAreas"
+      `INSERT INTO racingcoach."UsersFocusAreas"
          (track_id, position, name, start_point, end_point, notes, brake_point_feet, max_brake_pct, throttle_point_feet)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
       [trackId, i + 1, a.name, a.startPoint, a.endPoint, a.notes, a.brakePointFeet, a.maxBrakePct, a.throttlePointFeet]
@@ -102,7 +103,7 @@ export async function addTrack(userId: number, track: TrackInput): Promise<numbe
   await ensureUserSchema();
   return transaction(async (client) => {
     const { rows } = await client.query(
-      `INSERT INTO racingcoach."Tracks" (user_id, track_key, track_name, track_length_feet, notes)
+      `INSERT INTO racingcoach."UsersTracks" (user_id, track_key, track_name, track_length_feet, notes)
        VALUES ($1, $2, $3, $4, $5) RETURNING id`,
       [userId, track.key || track.name, track.name, track.lengthFeet, track.notes]
     );
@@ -116,7 +117,7 @@ export async function updateTrack(userId: number, id: number, track: TrackInput)
   await ensureUserSchema();
   await transaction(async (client) => {
     const { rowCount } = await client.query(
-      `UPDATE racingcoach."Tracks" SET track_key = $3, track_name = $4, track_length_feet = $5, notes = $6, updated_at = now()
+      `UPDATE racingcoach."UsersTracks" SET track_key = $3, track_name = $4, track_length_feet = $5, notes = $6, updated_at = now()
        WHERE id = $1 AND user_id = $2`,
       [id, userId, track.key || track.name, track.name, track.lengthFeet, track.notes]
     );
@@ -154,7 +155,7 @@ export async function saveReferencePoints(
   await ensureUserSchema();
   return transaction(async (client) => {
     const { rows: tracks } = await client.query(
-      `SELECT id, track_name FROM racingcoach."Tracks"
+      `SELECT id, track_name FROM racingcoach."UsersTracks"
        WHERE user_id = $1 AND (lower(track_key) = lower($2) OR lower(track_name) = lower($3))
        ORDER BY (lower(track_key) = lower($2)) DESC LIMIT 1`,
       [userId, input.trackKey, input.trackName]
@@ -167,7 +168,7 @@ export async function saveReferencePoints(
     const notFound: string[] = [];
     for (const area of input.areas) {
       const { rowCount } = await client.query(
-        `UPDATE racingcoach."FocusAreas"
+        `UPDATE racingcoach."UsersFocusAreas"
          SET brake_point_feet = COALESCE($3, brake_point_feet),
              max_brake_pct = COALESCE($4, max_brake_pct),
              throttle_point_feet = COALESCE($5, throttle_point_feet)
@@ -176,7 +177,7 @@ export async function saveReferencePoints(
       );
       (rowCount ? saved : notFound).push(area.name);
     }
-    await client.query('UPDATE racingcoach."Tracks" SET updated_at = now() WHERE id = $1', [tracks[0].id]);
+    await client.query('UPDATE racingcoach."UsersTracks" SET updated_at = now() WHERE id = $1', [tracks[0].id]);
     return { track: tracks[0].track_name as string, saved, notFound };
   });
 }
@@ -184,5 +185,5 @@ export async function saveReferencePoints(
 // Only deletes the track if it belongs to this user; its focus areas go with it
 export async function deleteTrack(userId: number, id: number): Promise<void> {
   await ensureUserSchema();
-  await query('DELETE FROM racingcoach."Tracks" WHERE id = $1 AND user_id = $2', [id, userId]);
+  await query('DELETE FROM racingcoach."UsersTracks" WHERE id = $1 AND user_id = $2', [id, userId]);
 }

@@ -23,7 +23,8 @@ export default function DebriefCoach() {
   const [runError, setRunError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
+  // Track Data: loaded on open, and again after Set Target changes a track's targets
+  const loadTracks = useCallback(() => {
     fetch('/api/track-names')
       .then(async (res) => {
         const data = await res.json();
@@ -32,6 +33,10 @@ export default function DebriefCoach() {
       })
       .catch((err: Error) => setError(err.message));
   }, []);
+
+  useEffect(() => {
+    loadTracks();
+  }, [loadTracks]);
 
   const handleFiles = async (fileList: FileList | null | undefined) => {
     if (!fileList || fileList.length === 0) return;
@@ -145,7 +150,7 @@ export default function DebriefCoach() {
       {/* Laps the RacingCoach collector uploaded */}
       <div>
         <p className="block text-sm text-muted-foreground mb-2">Your recorded laps</p>
-        <RecordedLaps tracks={tracks} onChange={pickRecordedLaps} />
+        <RecordedLaps tracks={tracks} onChange={pickRecordedLaps} onTargetsSaved={loadTracks} />
       </div>
 
       {/* File upload */}

@@ -56,6 +56,9 @@ public partial class MainWindow : Window
     private SessionLaps? _currentLaps;
     private bool _lapSavedThisRun;
     private string? _updateUrl;
+    // The newer release being downloaded or installed, and whether closing should start it (Restart Now)
+    private AvailableUpdate? _update;
+    private bool _restartForUpdate;
     private bool _closing;
     private bool _closed;
     private OverlayWindow? _overlayWindow;
@@ -113,10 +116,88 @@ public partial class MainWindow : Window
         await SetUpUploadsAsync();
 
         if (await UpdateCheck.FindNewerAsync() is { } update)
+            await GetUpdateAsync(update);
+    }
+
+    // ---------------------------------------------------------------- Updates
+
+    // Downloads a newer release in the background; it installs on Restart Now or when the window closes.
+    // Builds that can't replace themselves (dotnet run), and failed downloads, offer the release page instead.
+    private async Task GetUpdateAsync(AvailableUpdate update)
+    {
+        _update = update;
+        _updateUrl = update.PageUrl;
+        UpdateBanner.Visibility = Visibility.Visible;
+        if (!SelfUpdater.CanUpdate || update.DownloadUrl is null)
         {
-            _updateUrl = update.Url;
-            UpdateText.Text = $"RacingCoach Collector {update.Version} is available (you have {UpdateCheck.Current}). Download it, close this one and run the new one.";
-            UpdateBanner.Visibility = Visibility.Visible;
+            ShowManualUpdate($"RacingCoach Collector {update.Version} is available (you have {UpdateCheck.Current}). Download it, close this one and run the new one.");
+            return;
+        }
+
+        UpdateButton.Visibility = Visibility.Collapsed;
+        UpdateText.Text = $"Downloading RacingCoach Collector {update.Version}…";
+        var progress = new Progress<double>(fraction =>
+            UpdateText.Text = $"Downloading RacingCoach Collector {update.Version}… {fraction:P0}");
+        try
+        {
+            await SelfUpdater.DownloadAsync(update, progress, _stop.Token);
+            ActivityLog.Shared.Write($"Downloaded RacingCoach Collector {update.Version}; it installs when you restart or close the collector.");
+            UpdateText.Text = $"RacingCoach Collector {update.Version} is ready (you have {UpdateCheck.Current}). Restart now to update, or it installs itself when you close the collector.";
+            UpdateButton.Content = "Restart Now";
+            UpdateButton.Visibility = Visibility.Visible;
+        }
+        catch (OperationCanceledException) when (_stop.IsCancellationRequested)
+        {
+            // closing
+        }
+        catch (Exception e)
+        {
+            ActivityLog.Shared.Write($"Couldn't download RacingCoach Collector {update.Version}: {e.Message}", isError: true);
+            ShowManualUpdate($"RacingCoach Collector {update.Version} is available, but downloading it failed ({e.Message}). Download it yourself, close this one and run the new one.");
+        }
+    }
+
+    private void ShowManualUpdate(string text)
+    {
+        UpdateText.Text = text;
+        UpdateButton.Content = "Download";
+        UpdateButton.Visibility = Visibility.Visible;
+    }
+
+    private void UpdateButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (!SelfUpdater.Ready)
+        {
+            Open(_updateUrl ?? UpdateCheck.ReleasesPage);
+            return;
+        }
+        // The lap being driven is only saved once it's complete
+        if (_engine.State == SimState.Connected && MessageBox.Show(this,
+                "Restarting stops recording for a few seconds, and the lap you're on won't be saved. Restart now?",
+                "Update RacingCoach Collector", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            return;
+        _restartForUpdate = true;
+        Close();
+    }
+
+    // Called once the last laps are saved: swaps in the downloaded exe, and starts it after Restart Now
+    private void InstallUpdate()
+    {
+        if (!SelfUpdater.Ready)
+            return;
+        try
+        {
+            SelfUpdater.Install();
+            ActivityLog.Shared.Write($"Installed RacingCoach Collector {_update?.Version}.");
+            if (_restartForUpdate)
+                SelfUpdater.StartNewVersion(Environment.GetCommandLineArgs().Skip(1));
+        }
+        catch (Exception e)
+        {
+            ActivityLog.Shared.Write($"Couldn't install RacingCoach Collector {_update?.Version}: {e.Message}", isError: true);
+            if (_restartForUpdate)
+                MessageBox.Show($"The update couldn't be installed ({e.Message}). This version will keep working; download the new one from {_updateUrl ?? UpdateCheck.ReleasesPage}.",
+                    "Update RacingCoach Collector", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
 
@@ -533,7 +614,6 @@ public partial class MainWindow : Window
     private void OpenLogFile_Click(object sender, RoutedEventArgs e) => Open(ActivityLog.Shared.FilePath);
     private void OpenSite_Click(object sender, RoutedEventArgs e) => Open(_siteUrl);
     private void OpenAccount_Click(object sender, RoutedEventArgs e) => Open($"{_siteUrl}/account");
-    private void DownloadUpdate_Click(object sender, RoutedEventArgs e) => Open(_updateUrl ?? UpdateCheck.ReleasesPage);
 
     // Opens the overlay (or brings it to the front): focus areas and brake points from TelemetryEngine.js
     private void LaunchOverlay_Click(object sender, RoutedEventArgs e)
@@ -590,6 +670,7 @@ public partial class MainWindow : Window
         _stop.Cancel();
         if (_run is not null)
             await Task.WhenAny(_run, Task.Delay(TimeSpan.FromSeconds(30)));
+        InstallUpdate();
         _closed = true;
         Close();
     }

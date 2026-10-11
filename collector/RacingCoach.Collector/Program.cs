@@ -76,6 +76,9 @@ public static class Program
     [STAThread]
     public static int Main(string[] args)
     {
+        // Started by Restart Now after an update: the old collector is still saving its last laps
+        var afterUpdate = args.Contains(SelfUpdater.AfterUpdateArg);
+        args = [.. args.Where(a => a != SelfUpdater.AfterUpdateArg)];
         if (!TryParseArgs(args, out var options))
         {
             MessageBox.Show(Usage, "RacingCoach Collector", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -83,6 +86,9 @@ public static class Program
         }
 
         using var single = new Mutex(initiallyOwned: true, SingleInstanceName, out var firstInstance);
+        if (!firstInstance && afterUpdate)
+            firstInstance = WaitForOldCollector(single);
+        SelfUpdater.CleanUp();
         if (!firstInstance && !options.Playback)
         {
             MessageBox.Show("The RacingCoach Collector is already running. Look for it on the taskbar.",
@@ -99,6 +105,19 @@ public static class Program
             e.Handled = true;
         };
         return app.Run(new MainWindow(options));
+    }
+
+    // Waits for the collector being replaced to finish closing (it saves laps and gives uploads a few seconds)
+    private static bool WaitForOldCollector(Mutex single)
+    {
+        try
+        {
+            return single.WaitOne(TimeSpan.FromSeconds(60));
+        }
+        catch (AbandonedMutexException)
+        {
+            return true; // it exited without letting go; the mutex is ours now
+        }
     }
 
     private static bool TryParseArgs(string[] args, out CollectorOptions options)

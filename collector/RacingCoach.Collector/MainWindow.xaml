@@ -123,11 +123,11 @@
                 </StackPanel>
             </Grid>
 
-            <!-- Newer version available -->
+            <!-- Newer version: downloading, ready to install (Restart Now), or the manual Download fallback -->
             <Border x:Name="UpdateBanner" DockPanel.Dock="Top" Visibility="Collapsed" Margin="0,0,0,14" CornerRadius="10" Padding="16,10"
                     Background="#1F3A5F" BorderBrush="{StaticResource BlueBrush}" BorderThickness="1">
                 <DockPanel>
-                    <Button DockPanel.Dock="Right" Style="{StaticResource Button}" Content="Download" Click="DownloadUpdate_Click" />
+                    <Button x:Name="UpdateButton" DockPanel.Dock="Right" Style="{StaticResource Button}" Content="Download" Click="UpdateButton_Click" Margin="12,0,0,0" />
                     <TextBlock x:Name="UpdateText" VerticalAlignment="Center" TextWrapping="Wrap" />
                 </DockPanel>
             </Border>

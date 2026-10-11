@@ -136,7 +136,7 @@ export type AreaTrace = { pcts: number[]; brakes: number[]; throttles: number[];
 // shorter than BLIP_MAX_SAMPLES or the brake is on during it. Throttle that was already on (the lift
 // as braking starts) and a pickup that stays on are real and kept.
 const PEDAL_OFF = 0.02;
-const BLIP_MAX_SAMPLES = 18; // 0.3 s at 60 Hz
+const BLIP_MAX_SAMPLES = 24; // 0.4 s at 60 Hz
 
 export function withoutThrottleBlips(brakes: number[], throttles: number[]): number[] {
   const out = [...throttles];

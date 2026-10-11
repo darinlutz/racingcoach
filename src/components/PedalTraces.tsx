@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
 
+import TrackLineMap from '@/components/TrackLineMap';
 import type { AreaTrace } from '@/lib/lapData';
 
 // Brake red and throttle green, checked with the dataviz palette validator against the panel surface
@@ -215,7 +216,8 @@ function TraceChart({
 }
 
 // Brake and throttle through one focus area for the Base and Compare laps, on the same horizontal axis,
-// with a crosshair that follows the pointer (or arrow keys) on both charts at once. id must be unique on
+// with a crosshair that follows the pointer (or arrow keys) on both charts at once, and below them both
+// laps' driving lines on a map (TrackLineMap) with the crosshair's position marked on each. id must be unique on
 // the page (the charts' clip paths are named after it). Charts only draw once the container has a width,
 // so inside a closed <details> they draw when it's opened.
 export default function PedalTraces({
@@ -247,6 +249,7 @@ export default function PedalTraces({
         <>
           <TraceChart id={`${id}-base`} lap={base} axis={axis} width={width} hoverPct={hoverPct} onHover={setHoverPct} />
           <TraceChart id={`${id}-compare`} lap={compare} axis={axis} width={width} hoverPct={hoverPct} onHover={setHoverPct} />
+          <TrackLineMap base={base} compare={compare} width={width} hoverPct={hoverPct} onHover={setHoverPct} />
         </>
       )}
     </div>

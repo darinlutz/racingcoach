@@ -1,7 +1,8 @@
 import { execFile } from 'node:child_process';
 import path from 'node:path';
 import { NextResponse } from 'next/server';
-import { AI_OUT_OF_CREDITS, isAiOutOfCredits } from './aiErrors';
+import { isAiOutOfCredits } from './aiErrors';
+import { apiText } from './i18n/server';
 
 const LLM_TYPES = ['openai', 'ollama'];
 const EMBEDDING_TYPES = ['openai', 'chroma', 'nomic'];
@@ -109,7 +110,7 @@ export function createRagRoute(scriptFile: string, timeoutMs = 60000) {
       return NextResponse.json({ response: result.response, references: result.references ?? [] });
     } catch (error) {
       if (isAiOutOfCredits(error)) {
-        return NextResponse.json({ error: AI_OUT_OF_CREDITS }, { status: 503 });
+        return NextResponse.json({ error: (await apiText()).aiOutOfCredits }, { status: 503 });
       }
       return NextResponse.json(
         { error: error instanceof Error ? error.message : 'Script failed' },

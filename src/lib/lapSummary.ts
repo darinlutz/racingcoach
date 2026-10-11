@@ -1,5 +1,6 @@
 import { ChatPromptTemplate } from '@langchain/core/prompts';
 import { ChatOpenAI } from '@langchain/openai';
+import { aiLanguageRule, DEFAULT_LANGUAGE, type Language } from './i18n/languages';
 
 const PROMPT_TEMPLATE = ChatPromptTemplate.fromMessages([
   [
@@ -20,20 +21,20 @@ const PROMPT_TEMPLATE = ChatPromptTemplate.fromMessages([
       'brake earlier. Both laps were driven in the same conditions, which may be wet, so do not assume a dry ' +
       'track; when the advice is more pressure, say to build it progressively to avoid locking up. ' +
       'Write plain prose in a single paragraph with no ' +
-      'headings, lists, or markdown, and do not invent data that is not in the comparison.',
+      'headings, lists, or markdown, and do not invent data that is not in the comparison.{languageRule}',
   ],
   ['user', '{comparison}'],
 ]);
 
 // Coaching summary of a Lap Compare result, written for the Compare lap
-export async function summarizeLapComparison(comparison: string, track: string): Promise<string> {
+export async function summarizeLapComparison(comparison: string, track: string, language: Language = DEFAULT_LANGUAGE): Promise<string> {
   if (!process.env.OPENAI_API_KEY) {
     throw new Error('OPENAI_API_KEY is not configured');
   }
 
   const model = new ChatOpenAI({ model: 'gpt-4o', temperature: 0.3 });
   const chain = PROMPT_TEMPLATE.pipe(model);
-  const response = await chain.invoke({ comparison, track });
+  const response = await chain.invoke({ comparison, track, languageRule: aiLanguageRule(language) });
   return typeof response.content === 'string' ? response.content.trim() : '';
 }
 
@@ -53,20 +54,20 @@ const MULTI_LAP_PROMPT_TEMPLATE = ChatPromptTemplate.fromMessages([
       'covers consistency: which focus areas have the largest variation from lap to lap (time, ' +
       'brakepoint, brake pressure or speeds), what that variation suggests the driver is doing, and ' +
       'where the driver is already consistent. Use the numbers from the data, write to the driver as ' +
-      '"you", use no headings, lists, or markdown, and do not invent data that is not in the statistics.',
+      '"you", use no headings, lists, or markdown, and do not invent data that is not in the statistics.{languageRule}',
   ],
   ['user', '{stats}'],
 ]);
 
 // Opportunities and consistency analysis of a Multi-Lap Analysis result
-export async function summarizeMultiLap(stats: string, track: string): Promise<string> {
+export async function summarizeMultiLap(stats: string, track: string, language: Language = DEFAULT_LANGUAGE): Promise<string> {
   if (!process.env.OPENAI_API_KEY) {
     throw new Error('OPENAI_API_KEY is not configured');
   }
 
   const model = new ChatOpenAI({ model: 'gpt-4o', temperature: 0.3 });
   const chain = MULTI_LAP_PROMPT_TEMPLATE.pipe(model);
-  const response = await chain.invoke({ stats, track });
+  const response = await chain.invoke({ stats, track, languageRule: aiLanguageRule(language) });
   return typeof response.content === 'string' ? response.content.trim() : '';
 }
 
@@ -83,19 +84,19 @@ const STINT_PROMPT_TEMPLATE = ChatPromptTemplate.fromMessages([
       'weather plausibly affected pace (a correlation can also come from the driver improving over the ' +
       'stint, so say so when that is possible) and what the fuel numbers mean for stint length. Use the ' +
       'numbers from the report, write to the driver as "you", use no headings, lists, or markdown, and do ' +
-      'not invent data that is not in the report.',
+      'not invent data that is not in the report.{languageRule}',
   ],
   ['user', '{report}'],
 ]);
 
 // Coaching analysis of a Stint Analysis report
-export async function summarizeStint(report: string, track: string): Promise<string> {
+export async function summarizeStint(report: string, track: string, language: Language = DEFAULT_LANGUAGE): Promise<string> {
   if (!process.env.OPENAI_API_KEY) {
     throw new Error('OPENAI_API_KEY is not configured');
   }
 
   const model = new ChatOpenAI({ model: 'gpt-4o', temperature: 0.3 });
   const chain = STINT_PROMPT_TEMPLATE.pipe(model);
-  const response = await chain.invoke({ report, track });
+  const response = await chain.invoke({ report, track, languageRule: aiLanguageRule(language) });
   return typeof response.content === 'string' ? response.content.trim() : '';
 }

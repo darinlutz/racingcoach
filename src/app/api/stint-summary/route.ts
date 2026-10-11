@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { aiErrorResponse } from '@/lib/aiErrors';
 import { summarizeStint } from '@/lib/lapSummary';
-import { apiText } from '@/lib/i18n/server';
+import { apiText, getLanguage } from '@/lib/i18n/server';
 
 // A stint report is a few KB; anything much bigger isn't a stint report
 const MAX_REPORT_CHARS = 20000;
@@ -25,11 +25,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: t.aiNotConfigured }, { status: 500 });
     }
 
-    const summary = await summarizeStint(report, track);
+    const summary = await summarizeStint(report, track, await getLanguage());
 
     return NextResponse.json({ success: true, summary }, { status: 200 });
   } catch (error) {
     console.error('Stint summary error:', error);
-    return aiErrorResponse(error, 'Failed to analyze the stint');
+    return aiErrorResponse(error, t.failedStintSummary, t.aiOutOfCredits);
   }
 }

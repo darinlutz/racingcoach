@@ -4,8 +4,9 @@ import { notifyOwner } from '@/lib/ownerNotifications';
 import { getCurrentUser } from '@/lib/session';
 import { recordCancellation } from '@/lib/users';
 import { ACCOUNT_STATUS } from '@/lib/accountStatus';
-import {
+import { fmt } from '@/lib/i18n/languages';
 import { apiText } from '@/lib/i18n/server';
+import {
   CANCELLATION_REASONS,
   MAX_CANCELLATION_NOTES,
   type CancellationConfirmation,
@@ -33,7 +34,7 @@ export async function POST(request: Request) {
     const notes = typeof body.notes === 'string' ? body.notes.trim() || null : null;
     if (notes && notes.length > MAX_CANCELLATION_NOTES) {
       return NextResponse.json(
-        { error: `Comments can be at most ${MAX_CANCELLATION_NOTES} characters` },
+        { error: fmt(t.commentsTooLong, { max: MAX_CANCELLATION_NOTES }) },
         { status: 400 }
       );
     }

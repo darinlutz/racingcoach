@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { aiErrorResponse } from '@/lib/aiErrors';
 import { summarizeLapComparison } from '@/lib/lapSummary';
-import { apiText } from '@/lib/i18n/server';
+import { apiText, getLanguage } from '@/lib/i18n/server';
 
 // Focus-area text for one track is a few KB; anything much bigger isn't a lap comparison
 const MAX_COMPARISON_CHARS = 20000;
@@ -25,11 +25,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: t.aiNotConfigured }, { status: 500 });
     }
 
-    const summary = await summarizeLapComparison(comparison, track);
+    const summary = await summarizeLapComparison(comparison, track, await getLanguage());
 
     return NextResponse.json({ success: true, summary }, { status: 200 });
   } catch (error) {
     console.error('Lap summary error:', error);
-    return aiErrorResponse(error, 'Failed to summarize the laps');
+    return aiErrorResponse(error, t.failedLapSummary, t.aiOutOfCredits);
   }
 }

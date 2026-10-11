@@ -5,14 +5,13 @@ import { getCurrentUser } from '@/lib/session';
 import { apiText } from '@/lib/i18n/server';
 
 // Each signed-in user has their own friends list.
-const NOT_SIGNED_IN = { error: 'Log in to see your friends' };
 
 export async function GET() {
   const t = await apiText();
   try {
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json(NOT_SIGNED_IN, { status: 401 });
+      return NextResponse.json({ error: t.logInFriends }, { status: 401 });
     }
     const friends = await readFriends(user.id);
     return NextResponse.json({ friends });
@@ -27,7 +26,7 @@ export async function POST(request: Request) {
   try {
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json(NOT_SIGNED_IN, { status: 401 });
+      return NextResponse.json({ error: t.logInFriends }, { status: 401 });
     }
     const body = await request.json().catch(() => ({}));
     const name = typeof body.name === 'string' ? body.name.trim() : '';
@@ -54,7 +53,7 @@ export async function DELETE(request: Request) {
   try {
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json(NOT_SIGNED_IN, { status: 401 });
+      return NextResponse.json({ error: t.logInFriends }, { status: 401 });
     }
     const body = await request.json().catch(() => ({}));
     const id = typeof body.id === 'string' ? body.id : '';

@@ -18,9 +18,9 @@ export function isAiOutOfCredits(error: unknown): boolean {
 }
 
 // The error response for a failed AI route: the out-of-credits message when that is the cause,
-// otherwise the route's own message
-export function aiErrorResponse(error: unknown, fallback: string): NextResponse {
+// otherwise the route's own message. Pass outOfCredits to show it in the user's language.
+export function aiErrorResponse(error: unknown, fallback: string, outOfCredits = AI_OUT_OF_CREDITS): NextResponse {
   return isAiOutOfCredits(error)
-    ? NextResponse.json({ error: AI_OUT_OF_CREDITS }, { status: 503 })
+    ? NextResponse.json({ error: outOfCredits }, { status: 503 })
     : NextResponse.json({ error: fallback }, { status: 500 });
 }

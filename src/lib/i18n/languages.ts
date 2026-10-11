@@ -30,6 +30,16 @@ export const AI_LANGUAGE_NAMES: Record<Language, string> = {
   es: 'Latin American Spanish',
 };
 
+// Added to the end of an AI feature's system prompt so it answers in the user's language. Names from the
+// data are kept as given, because the site matches them (e.g. a debrief fix's focus area) against Track Data.
+export function aiLanguageRule(language: Language): string {
+  if (language === 'en') return '';
+  return (
+    ` Write all of your answer in ${AI_LANGUAGE_NAMES[language]}, but keep focus area, track, car and series ` +
+    'names exactly as they appear in the data.'
+  );
+}
+
 export function isLanguage(value: unknown): value is Language {
   return typeof value === 'string' && (LANGUAGES as readonly string[]).includes(value);
 }

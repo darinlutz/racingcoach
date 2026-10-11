@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { DEFAULT_LANGUAGE, isLanguage } from '@/lib/i18n/languages';
+import { DEFAULT_LANGUAGE, fmt, isLanguage } from '@/lib/i18n/languages';
 import { setLanguageCookie } from '@/lib/i18n/server';
 import { notifyOwner } from '@/lib/ownerNotifications';
 import { createSession } from '@/lib/session';
@@ -24,7 +24,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: t.allFieldsRequired }, { status: 400 });
     }
     if (userName.length > MAX_NAME_LENGTH) {
-      return NextResponse.json({ error: `Name must be at most ${MAX_NAME_LENGTH} characters` }, { status: 400 });
+      return NextResponse.json({ error: fmt(t.nameTooLong, { max: MAX_NAME_LENGTH }) }, { status: 400 });
     }
     if (!EMAIL_REGEX.test(emailAddress)) {
       return NextResponse.json({ error: t.invalidEmail }, { status: 400 });

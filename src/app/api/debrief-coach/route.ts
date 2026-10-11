@@ -3,7 +3,7 @@ import { aiErrorResponse } from '@/lib/aiErrors';
 import { debriefSessionSchema, runDebriefCoach } from '@/lib/debriefCoach';
 import { saveDebrief } from '@/lib/debriefHistory';
 import { getCurrentUser } from '@/lib/session';
-import { apiText } from '@/lib/i18n/server';
+import { apiText, getLanguage } from '@/lib/i18n/server';
 
 // The agent makes several model calls (one per tool round), so give it more than the default
 export const maxDuration = 60;
@@ -29,7 +29,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: t.aiNotConfigured }, { status: 500 });
     }
 
-    const { debrief, steps } = await runDebriefCoach(parsed.data);
+    const { debrief, steps } = await runDebriefCoach(parsed.data, await getLanguage());
 
     // Kept for signed-in users (e.g. for the Discord bot's /coach debrief). Saving is extra, so a failure
     // is logged rather than costing them the debrief.
@@ -43,6 +43,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, debrief, steps }, { status: 200 });
   } catch (error) {
     console.error('Debrief coach error:', error);
-    return aiErrorResponse(error, 'Failed to run the debrief');
+    return aiErrorResponse(error, t.failedDebrief, t.aiOutOfCredits);
   }
 }

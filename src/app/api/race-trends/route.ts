@@ -3,12 +3,10 @@ import { aiErrorResponse } from '@/lib/aiErrors';
 import { readConnection, readRaceEvents } from '@/lib/raceHistory';
 import { runRaceTrends } from '@/lib/raceTrends';
 import { getCurrentUser } from '@/lib/session';
-import { apiText } from '@/lib/i18n/server';
+import { apiText, getLanguage } from '@/lib/i18n/server';
 
 // The agent makes several model calls (one per tool round), so give it more than the default
 export const maxDuration = 60;
-
-const NOT_SIGNED_IN = { error: 'Log in to see your race trends' };
 
 // The user's iRacePlan connection and the races synced from it so far
 export async function GET() {
@@ -16,7 +14,7 @@ export async function GET() {
   try {
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json(NOT_SIGNED_IN, { status: 401 });
+      return NextResponse.json({ error: t.logInRaceTrends }, { status: 401 });
     }
     const [connection, events] = await Promise.all([readConnection(user.id), readRaceEvents(user.id)]);
     return NextResponse.json({ connection, events });
@@ -32,7 +30,7 @@ export async function POST() {
   try {
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json(NOT_SIGNED_IN, { status: 401 });
+      return NextResponse.json({ error: t.logInRaceTrends }, { status: 401 });
     }
 
     if (!process.env.OPENAI_API_KEY) {
@@ -45,11 +43,11 @@ export async function POST() {
       return NextResponse.json({ error: t.noRacesYet }, { status: 400 });
     }
 
-    const { trend, incidents, commentary, steps } = await runRaceTrends(connection?.iracingName ?? user.userName, events);
+    const { trend, incidents, commentary, steps } = await runRaceTrends(connection?.iracingName ?? user.userName, events, await getLanguage(user));
 
     return NextResponse.json({ success: true, trend, incidents, commentary, steps }, { status: 200 });
   } catch (error) {
     console.error('Race trends error:', error);
-    return aiErrorResponse(error, 'Failed to get the race trends');
+    return aiErrorResponse(error, t.failedRaceTrends, t.aiOutOfCredits);
   }
 }

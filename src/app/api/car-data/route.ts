@@ -5,8 +5,6 @@ import { addCar, CarNotFoundError, carInputSchema, deleteCar, readCars, updateCa
 import { apiText } from '@/lib/i18n/server';
 
 // Each signed-in user manages their own cars.
-const NOT_SIGNED_IN = { error: 'Log in to manage your cars' };
-const DUPLICATE = { error: 'You already have a car with that name' };
 
 // The first validation problem, worded for the person filling in the form
 function invalid(error: { issues: { message: string }[] }) {
@@ -18,7 +16,7 @@ export async function GET() {
   try {
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json(NOT_SIGNED_IN, { status: 401 });
+      return NextResponse.json({ error: t.logInCars }, { status: 401 });
     }
     return NextResponse.json({ cars: await readCars(user.id) });
   } catch (error) {
@@ -32,7 +30,7 @@ export async function POST(request: Request) {
   try {
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json(NOT_SIGNED_IN, { status: 401 });
+      return NextResponse.json({ error: t.logInCars }, { status: 401 });
     }
     const body = await request.json().catch(() => ({}));
     const parsed = carInputSchema.safeParse(body.car);
@@ -41,7 +39,7 @@ export async function POST(request: Request) {
     const id = await addCar(user.id, parsed.data);
     return NextResponse.json({ id, cars: await readCars(user.id) }, { status: 201 });
   } catch (error) {
-    if (isUniqueViolation(error)) return NextResponse.json(DUPLICATE, { status: 409 });
+    if (isUniqueViolation(error)) return NextResponse.json({ error: t.carNameTaken }, { status: 409 });
     console.error('Add car error:', error);
     return NextResponse.json({ error: t.failedAddCar }, { status: 500 });
   }
@@ -52,7 +50,7 @@ export async function PUT(request: Request) {
   try {
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json(NOT_SIGNED_IN, { status: 401 });
+      return NextResponse.json({ error: t.logInCars }, { status: 401 });
     }
     const body = await request.json().catch(() => ({}));
     if (!Number.isInteger(body.id)) {
@@ -65,7 +63,7 @@ export async function PUT(request: Request) {
     return NextResponse.json({ cars: await readCars(user.id) });
   } catch (error) {
     if (error instanceof CarNotFoundError) return NextResponse.json({ error: error.message }, { status: 404 });
-    if (isUniqueViolation(error)) return NextResponse.json(DUPLICATE, { status: 409 });
+    if (isUniqueViolation(error)) return NextResponse.json({ error: t.carNameTaken }, { status: 409 });
     console.error('Update car error:', error);
     return NextResponse.json({ error: t.failedSaveCar }, { status: 500 });
   }
@@ -76,7 +74,7 @@ export async function DELETE(request: Request) {
   try {
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json(NOT_SIGNED_IN, { status: 401 });
+      return NextResponse.json({ error: t.logInCars }, { status: 401 });
     }
     const body = await request.json().catch(() => ({}));
     if (!Number.isInteger(body.id)) {

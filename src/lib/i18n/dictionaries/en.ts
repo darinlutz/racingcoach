@@ -864,6 +864,7 @@ export const en = {
     // General
     notConfigured: 'This feature isn’t available right now. Please try again later.',
     aiNotConfigured: 'The AI coach isn’t available right now. Please try again later.',
+    aiOutOfCredits: 'The AI service is out of credits',
     unknownLanguage: 'Unknown language',
     failedSaveLanguage: 'Failed to save your language',
     // Accounts
@@ -937,6 +938,11 @@ export const en = {
     comparisonTooLong: 'Lap comparison is too long to summarize',
     missingStint: 'Missing stint report to analyze',
     stintTooLong: 'Stint report is too long to analyze',
+    failedDebrief: 'Failed to run the debrief',
+    failedLapSummary: 'Failed to summarize the laps',
+    failedStintSummary: 'Failed to analyze the stint',
+    failedReferencePoints: 'Failed to get the reference points',
+    failedRaceTrends: 'Failed to get the race trends',
     // Race trends
     logInRaceTrends: 'Log in to see your race trends',
     failedLoadRaces: 'Failed to load your races',

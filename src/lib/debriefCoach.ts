@@ -2,6 +2,7 @@ import { AIMessage } from '@langchain/core/messages';
 import { ChatOpenAI } from '@langchain/openai';
 import { createAgent, tool } from 'langchain';
 import { z } from 'zod';
+import { aiLanguageRule, DEFAULT_LANGUAGE, type Language } from './i18n/languages';
 
 // Post-session debrief coach for the Debrief Coach tab. The browser measures every lap in every
 // focus area (the CSVs are too big to send) and posts the numbers here; the agent digs through
@@ -285,11 +286,15 @@ const SYSTEM_PROMPT =
   'nothing in the data explains the time, say the cause is not in the data instead of guessing. Use the numbers ' +
   'from the tools, never invent data, write to the driver as "you", and use plain text with no markdown.';
 
-// "brake about 30 ft later", "braking earlier", "brake later" -> the direction words in a fix
-const BRAKE_DIRECTION_RE = /\bbrak\w*\b(?:\W+[\w%~]+){0,5}?\W+(later|earlier|sooner)\b/gi;
+// "brake about 30 ft later", "braking earlier", "brake later" -> the direction words in a fix. Also
+// Portuguese ("freie uns 30 ft mais tarde") and Spanish ("frena más tarde"), for answers in those languages
+// ("frente", front, is not braking).
+const BRAKE_DIRECTION_RE =
+  /(?<!\p{L})(?:brak|fre(?!nt)[aein])\p{L}*(?:[^\p{L}\p{N}%~]+[\p{L}\p{N}%~]+){0,5}?[^\p{L}\p{N}%~]+(later|earlier|sooner|mais tarde|más tarde|mais cedo|más temprano|antes)(?!\p{L})/giu;
+const LATER_WORDS = new Set(['later', 'mais tarde', 'más tarde']);
 
 function brakeDirectionsIn(text: string) {
-  return new Set([...text.matchAll(BRAKE_DIRECTION_RE)].map((m) => (m[1].toLowerCase() === 'later' ? 'later' : 'earlier')));
+  return new Set([...text.matchAll(BRAKE_DIRECTION_RE)].map((m) => (LATER_WORDS.has(m[1].toLowerCase()) ? 'later' : 'earlier')));
 }
 
 // Fixes whose brake instruction points the opposite way to what the fastest runs did
@@ -321,7 +326,10 @@ function toolSteps(messages: unknown[]) {
   );
 }
 
-export async function runDebriefCoach(session: DebriefSession): Promise<{ debrief: Debrief; steps: string[] }> {
+export async function runDebriefCoach(
+  session: DebriefSession,
+  language: Language = DEFAULT_LANGUAGE
+): Promise<{ debrief: Debrief; steps: string[] }> {
   if (!process.env.OPENAI_API_KEY) {
     throw new Error('OPENAI_API_KEY is not configured');
   }
@@ -330,7 +338,7 @@ export async function runDebriefCoach(session: DebriefSession): Promise<{ debrie
   const agent = createAgent({
     model: new ChatOpenAI({ model: 'gpt-4o', temperature: 0.2 }),
     tools,
-    systemPrompt: SYSTEM_PROMPT,
+    systemPrompt: SYSTEM_PROMPT + aiLanguageRule(language),
     responseFormat: debriefSchema,
   });
 

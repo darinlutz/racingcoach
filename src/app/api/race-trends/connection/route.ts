@@ -4,7 +4,6 @@ import { connect, disconnect, NoIRacingProfileError } from '@/lib/raceHistory';
 import { getCurrentUser } from '@/lib/session';
 import { apiText } from '@/lib/i18n/server';
 
-const NOT_SIGNED_IN = { error: 'Log in to connect iRacePlan' };
 
 // Saves the user's iRacePlan API key after checking it with iRacePlan
 export async function PUT(request: Request) {
@@ -12,7 +11,7 @@ export async function PUT(request: Request) {
   try {
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json(NOT_SIGNED_IN, { status: 401 });
+      return NextResponse.json({ error: t.logInConnect }, { status: 401 });
     }
     const body = await request.json().catch(() => ({}));
     const apiKey = typeof body.apiKey === 'string' ? body.apiKey.trim() : '';
@@ -40,7 +39,7 @@ export async function DELETE() {
   try {
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json(NOT_SIGNED_IN, { status: 401 });
+      return NextResponse.json({ error: t.logInConnect }, { status: 401 });
     }
     await disconnect(user.id);
     return NextResponse.json({ success: true });

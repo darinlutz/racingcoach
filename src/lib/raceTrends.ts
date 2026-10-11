@@ -2,6 +2,7 @@ import { AIMessage } from '@langchain/core/messages';
 import { ChatOpenAI } from '@langchain/openai';
 import { createAgent, tool } from 'langchain';
 import { z } from 'zod';
+import { aiLanguageRule, DEFAULT_LANGUAGE, type Language } from './i18n/languages';
 
 // My Race Trends page. The driver's races are synced from iRacePlan into racingcoach."RaceResults"
 // (see raceHistory.ts). The iRating and incident trends are computed here so the charts' numbers are
@@ -249,7 +250,8 @@ const SYSTEM_PROMPT =
 
 export async function runRaceTrends(
   driver: string,
-  events: RaceEvent[]
+  events: RaceEvent[],
+  language: Language = DEFAULT_LANGUAGE
 ): Promise<{ trend: IRatingSeries[]; incidents: IncidentPoint[]; commentary: string; steps: string[] }> {
   if (!process.env.OPENAI_API_KEY) {
     throw new Error('OPENAI_API_KEY is not configured');
@@ -259,7 +261,7 @@ export async function runRaceTrends(
   const agent = createAgent({
     model: new ChatOpenAI({ model: 'gpt-4o', temperature: 0.2 }),
     tools,
-    systemPrompt: SYSTEM_PROMPT,
+    systemPrompt: SYSTEM_PROMPT + aiLanguageRule(language),
     responseFormat: commentarySchema,
   });
 

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { aiErrorResponse } from '@/lib/aiErrors';
 import { referenceSessionSchema, runReferencePoints } from '@/lib/referencePoints';
-import { apiText } from '@/lib/i18n/server';
+import { apiText, getLanguage } from '@/lib/i18n/server';
 
 // The agent makes several model calls (one per tool round), so give it more than the default
 export const maxDuration = 60;
@@ -24,11 +24,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: t.aiNotConfigured }, { status: 500 });
     }
 
-    const { rows, commentary, steps } = await runReferencePoints(parsed.data);
+    const { rows, commentary, steps } = await runReferencePoints(parsed.data, await getLanguage());
 
     return NextResponse.json({ success: true, rows, commentary, steps }, { status: 200 });
   } catch (error) {
     console.error('Reference points error:', error);
-    return aiErrorResponse(error, 'Failed to get the reference points');
+    return aiErrorResponse(error, t.failedReferencePoints, t.aiOutOfCredits);
   }
 }

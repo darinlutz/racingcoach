@@ -2,6 +2,7 @@ import { AIMessage } from '@langchain/core/messages';
 import { ChatOpenAI } from '@langchain/openai';
 import { createAgent, tool } from 'langchain';
 import { z } from 'zod';
+import { aiLanguageRule, DEFAULT_LANGUAGE, type Language } from './i18n/languages';
 
 // Reference Points tab. The browser measures every lap in every focus area (the CSVs are too big to
 // send) and posts the numbers here. The reference table is computed here from the fastest runs through
@@ -187,7 +188,8 @@ const SYSTEM_PROMPT =
   'never invent data, write to the driver as "you", keep it under 150 words, and use plain text with no markdown.';
 
 export async function runReferencePoints(
-  session: ReferenceSession
+  session: ReferenceSession,
+  language: Language = DEFAULT_LANGUAGE
 ): Promise<{ rows: ReferenceRow[]; commentary: string; steps: string[] }> {
   if (!process.env.OPENAI_API_KEY) {
     throw new Error('OPENAI_API_KEY is not configured');
@@ -197,7 +199,7 @@ export async function runReferencePoints(
   const agent = createAgent({
     model: new ChatOpenAI({ model: 'gpt-4o', temperature: 0.2 }),
     tools,
-    systemPrompt: SYSTEM_PROMPT,
+    systemPrompt: SYSTEM_PROMPT + aiLanguageRule(language),
     responseFormat: commentarySchema,
   });
 

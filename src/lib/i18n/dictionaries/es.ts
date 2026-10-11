@@ -153,6 +153,7 @@ export const es: Dictionary = {
     email: 'Correo electrónico',
     name: 'Nombre',
     accountStatus: 'Estado de la cuenta',
+    membershipLevel: 'Nivel de membresía',
     signupDate: 'Fecha de registro',
     subscriptionEndDate: 'Fin de la suscripción',
     statuses: {
@@ -176,8 +177,7 @@ export const es: Dictionary = {
     disconnect: 'Desconectar',
     linkDiscord: 'Vincula tu cuenta de Discord a RacingCoach.',
     connectDiscord: 'Conectar Discord',
-    monthlySubscription: 'Suscripción mensual',
-    annualSubscription: 'Suscripción anual',
+    viewPlans: 'Ver planes de membresía',
   },
 
   collectorCard: {
@@ -204,35 +204,55 @@ export const es: Dictionary = {
   },
 
   pricing: {
-    title: 'Precios',
-    intro: 'Todas las herramientas, de cualquier forma. Paga mensual o anual.',
-    introDiscount: 'Todas las herramientas, de cualquier forma. Paga mensual, o anual y ahorra {discount}%.',
-    features: [
-      'Debrief Coach: revisión con IA de cada vuelta de tu sesión',
-      'Análisis de varias vueltas, de stint y Comparación de vueltas',
-      'Puntos de referencia para cada zona de enfoque',
-      'Datos de pistas con hasta 8 zonas de enfoque por pista',
-      'Preguntas y respuestas de Análisis de autos',
-      'Mis tendencias: iRating e incidentes sincronizados desde iRacePlan',
-    ],
-    cancelAnytime: 'Cancela cuando quieras',
-    monthly: {
-      name: 'Mensual',
-      period: '/ mes',
-      blurb: 'Acceso completo, facturado cada mes.',
-      subscription: 'Suscripción mensual',
-    },
-    annual: {
-      name: 'Anual',
-      period: '/ año',
-      blurb: 'Acceso completo, facturado una vez al año.',
-      subscription: 'Suscripción anual',
-      features: ['Todo lo del plan Mensual', 'Un solo pago cubre todo el año'],
-    },
+    title: 'Niveles de membresía',
+    intro:
+      'Elige la membresía que esté a la altura de tu ambición. Empieza gratis con Bronce y sube de nivel cuando estés listo para encontrar más ritmo.',
+    saveUpTo: 'Ahorra hasta {discount}% con la facturación anual.',
+    free: 'Gratis',
+    forever: 'para siempre',
+    perMonth: '/ mes',
+    orAnnual: 'o {price} / año',
     save: 'Ahorra {discount}%',
-    lessThanMonthly: '{discount}% menos que 12 meses del plan Mensual',
-    getStarted: 'Comenzar',
-    subscribed: 'Suscrito',
+    mostPopular: 'El más popular',
+    levels: {
+      Bronze: {
+        tagline: 'Perfecto para pilotos que corren de vez en cuando.',
+        features: [
+          'Todas las herramientas de análisis de telemetría: varias vueltas, stint y Comparación de vueltas',
+          'Tablas y gráficos detallados de velocidad, frenado, acelerador y dirección',
+          'Datos de pistas con hasta 8 zonas de enfoque por pista',
+          'Mis tendencias: iRating e incidentes sincronizados desde iRacePlan',
+        ],
+        limits: 'Tiempo y actividad limitados en el sitio',
+      },
+      Silver: {
+        tagline: 'Para pilotos comprometidos que quieren una mirada experta en cada sesión.',
+        features: [
+          'Todo lo de Bronce, sin límites de uso',
+          'Debriefs del AI Coach: una revisión vuelta por vuelta de cada sesión',
+          'Consejos claros y priorizados sobre dónde pierdes tiempo',
+          'Tus debriefs guardados en tu cuenta y en Discord',
+        ],
+      },
+      Gold: {
+        tagline: 'El paquete de coaching completo, del garaje a la parrilla.',
+        features: [
+          'Todo lo de Plata',
+          'Overlay en el auto con objetivos de frenado, acelerador y velocidad en vivo para cada zona de enfoque',
+          'Coaching con IA en tiempo real mientras manejas',
+          'La experiencia RacingCoach completa, dentro y fuera de la pista',
+        ],
+      },
+    },
+    levelNames: { Bronze: 'Bronce', Silver: 'Plata', Gold: 'Oro' } as Record<string, string>,
+    monthly: 'Mensual',
+    annual: 'Anual',
+    getStarted: 'Comienza gratis',
+    currentPlan: 'Tu plan actual',
+    included: 'Incluido en tu plan',
+    upgradeNote: 'Al subir de nivel, tu suscripción Plata se cancela automáticamente. El tiempo no usado se acredita a tu renovación Oro.',
+    fineprint:
+      'Las membresías pagas se renuevan automáticamente y puedes cancelarlas cuando quieras desde Mi cuenta. Pago seguro con Stripe.',
   },
 
   cancelSubscription: {

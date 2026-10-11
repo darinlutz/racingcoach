@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import CancelSubscriptionButton from '@/components/CancelSubscriptionButton';
 import CollectorKeyCard from '@/components/CollectorKeyCard';
@@ -7,8 +8,8 @@ import { DISCORD_INVITE_URL, getDiscordConnection } from '@/lib/discord';
 import { fmt, LANGUAGE_LOCALES } from '@/lib/i18n/languages';
 import { getDictionary } from '@/lib/i18n/server';
 import { getCurrentUser } from '@/lib/session';
-import { canBuy } from '@/lib/users';
-import { ACCOUNT_STATUS } from '@/lib/accountStatus';
+import { canBuyAnything } from '@/lib/users';
+import { ACCOUNT_STATUS, MEMBERSHIP_LEVEL } from '@/lib/accountStatus';
 
 // Green for a current subscription, red once it's canceled or expired,
 // blue (the site color) otherwise
@@ -21,6 +22,18 @@ function statusBadgeClass(accountStatus: string): string {
       return 'bg-primary/15 text-red-300';
     default:
       return 'bg-primary/15 text-primary';
+  }
+}
+
+// Each level's medal color
+function levelBadgeClass(membershipLevel: string): string {
+  switch (membershipLevel) {
+    case MEMBERSHIP_LEVEL.gold:
+      return 'bg-amber-400/15 text-amber-400';
+    case MEMBERSHIP_LEVEL.silver:
+      return 'bg-slate-300/15 text-slate-300';
+    default:
+      return 'bg-[#cd7f32]/15 text-[#cd7f32]';
   }
 }
 
@@ -50,7 +63,8 @@ export default async function AccountPage({
   const showEndDate =
     user.subscriptionEndDate !== null &&
     (isSubscribed || user.accountStatus === ACCOUNT_STATUS.canceled);
-  const canSubscribe = canBuy(user);
+  // Everyone but a current Gold subscriber has a plan to buy or upgrade to
+  const canUpgrade = canBuyAnything(user);
 
   return (
     <section className="py-12 px-4 bg-gradient-to-b from-background to-background flex justify-center">
@@ -80,6 +94,16 @@ export default async function AccountPage({
                 className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${statusBadgeClass(user.accountStatus)}`}
               >
                 {t.account.statuses[user.accountStatus] ?? user.accountStatus}
+              </span>
+            </dd>
+          </div>
+          <div className="flex justify-between items-center gap-4 px-4 py-3">
+            <dt className="text-sm font-medium text-muted-foreground">{t.account.membershipLevel}</dt>
+            <dd>
+              <span
+                className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${levelBadgeClass(user.membershipLevel)}`}
+              >
+                {t.pricing.levelNames[user.membershipLevel] ?? user.membershipLevel}
               </span>
             </dd>
           </div>
@@ -167,25 +191,13 @@ export default async function AccountPage({
 
         <CollectorKeyCard initialKey={collectorKey} />
 
-        {canSubscribe && (
-          <form action="/api/create-checkout-session" method="POST" className="mt-8 space-y-3">
-            <button
-              type="submit"
-              name="plan"
-              value="monthly"
-              className="w-full px-6 py-3 rounded-lg font-semibold text-white bg-gradient-to-r from-primary to-primary-strong hover:from-primary-strong hover:to-primary transition-colors"
-            >
-              {t.account.monthlySubscription}
-            </button>
-            <button
-              type="submit"
-              name="plan"
-              value="annual"
-              className="w-full px-6 py-3 rounded-lg font-semibold text-white bg-gradient-to-r from-primary to-primary-strong hover:from-primary-strong hover:to-primary transition-colors"
-            >
-              {t.account.annualSubscription}
-            </button>
-          </form>
+        {canUpgrade && (
+          <Link
+            href="/pricing"
+            className="mt-8 block w-full px-6 py-3 rounded-lg font-semibold text-center text-white bg-gradient-to-r from-primary to-primary-strong hover:from-primary-strong hover:to-primary transition-colors"
+          >
+            {t.account.viewPlans}
+          </Link>
         )}
 
         {isSubscribed && <CancelSubscriptionButton />}

@@ -153,6 +153,7 @@ export const pt: Dictionary = {
     email: 'E-mail',
     name: 'Nome',
     accountStatus: 'Status da conta',
+    membershipLevel: 'Nível de assinatura',
     signupDate: 'Data de cadastro',
     subscriptionEndDate: 'Fim da assinatura',
     statuses: {
@@ -176,8 +177,7 @@ export const pt: Dictionary = {
     disconnect: 'Desconectar',
     linkDiscord: 'Vincule sua conta do Discord ao RacingCoach.',
     connectDiscord: 'Conectar Discord',
-    monthlySubscription: 'Assinatura mensal',
-    annualSubscription: 'Assinatura anual',
+    viewPlans: 'Ver planos de assinatura',
   },
 
   collectorCard: {
@@ -204,35 +204,55 @@ export const pt: Dictionary = {
   },
 
   pricing: {
-    title: 'Preços',
-    intro: 'Todas as ferramentas, de qualquer forma. Pague por mês ou por ano.',
-    introDiscount: 'Todas as ferramentas, de qualquer forma. Pague por mês, ou por ano e economize {discount}%.',
-    features: [
-      'Debrief Coach: análise com IA de cada volta da sua sessão',
-      'Análise de várias voltas, de stint e Comparação de voltas',
-      'Pontos de referência para cada área de foco',
-      'Dados de pista com até 8 áreas de foco por pista',
-      'Perguntas e respostas da Análise de carros',
-      'Minhas tendências: iRating e incidentes sincronizados do iRacePlan',
-    ],
-    cancelAnytime: 'Cancele quando quiser',
-    monthly: {
-      name: 'Mensal',
-      period: '/ mês',
-      blurb: 'Acesso completo, cobrado todo mês.',
-      subscription: 'Assinatura mensal',
-    },
-    annual: {
-      name: 'Anual',
-      period: '/ ano',
-      blurb: 'Acesso completo, cobrado uma vez por ano.',
-      subscription: 'Assinatura anual',
-      features: ['Tudo do plano Mensal', 'Um pagamento cobre o ano inteiro'],
-    },
+    title: 'Níveis de assinatura',
+    intro:
+      'Escolha a assinatura à altura da sua ambição. Comece grátis com o Bronze e suba de nível quando estiver pronto para encontrar mais ritmo.',
+    saveUpTo: 'Economize até {discount}% com o pagamento anual.',
+    free: 'Grátis',
+    forever: 'para sempre',
+    perMonth: '/ mês',
+    orAnnual: 'ou {price} / ano',
     save: 'Economize {discount}%',
-    lessThanMonthly: '{discount}% a menos que 12 meses do plano Mensal',
-    getStarted: 'Comece agora',
-    subscribed: 'Assinante',
+    mostPopular: 'Mais popular',
+    levels: {
+      Bronze: {
+        tagline: 'Perfeito para pilotos que correm de vez em quando.',
+        features: [
+          'Todas as ferramentas de análise de telemetria: várias voltas, stint e Comparação de voltas',
+          'Tabelas e gráficos detalhados de velocidade, frenagem, acelerador e direção',
+          'Dados de pista com até 8 áreas de foco por pista',
+          'Minhas tendências: iRating e incidentes sincronizados do iRacePlan',
+        ],
+        limits: 'Tempo e atividade limitados no site',
+      },
+      Silver: {
+        tagline: 'Para pilotos dedicados que querem um olhar especialista em cada sessão.',
+        features: [
+          'Tudo do Bronze, sem limites de uso',
+          'Debriefs do AI Coach: uma análise volta a volta de cada sessão',
+          'Conselhos claros e priorizados sobre onde você perde tempo',
+          'Seus debriefs salvos na sua conta e no Discord',
+        ],
+      },
+      Gold: {
+        tagline: 'O pacote de coaching completo, da garagem ao grid.',
+        features: [
+          'Tudo do Prata',
+          'Overlay no carro com metas ao vivo de frenagem, acelerador e velocidade para cada área de foco',
+          'Coaching com IA em tempo real enquanto você pilota',
+          'A experiência RacingCoach completa, dentro e fora da pista',
+        ],
+      },
+    },
+    levelNames: { Bronze: 'Bronze', Silver: 'Prata', Gold: 'Ouro' } as Record<string, string>,
+    monthly: 'Mensal',
+    annual: 'Anual',
+    getStarted: 'Comece grátis',
+    currentPlan: 'Seu plano atual',
+    included: 'Incluído no seu plano',
+    upgradeNote: 'Ao subir de nível, sua assinatura Prata é cancelada automaticamente. O tempo não usado vira crédito na sua renovação Ouro.',
+    fineprint:
+      'As assinaturas pagas são renovadas automaticamente e podem ser canceladas quando quiser em Minha conta. Pagamento seguro pelo Stripe.',
   },
 
   cancelSubscription: {

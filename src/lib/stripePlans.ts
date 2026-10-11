@@ -8,13 +8,11 @@ export const STRIPE_APP = 'racingcoach';
 
 // Each plan is a Stripe Product; Checkout charges its default (recurring) Price
 const PLAN_PRODUCT_ENV: Record<Plan, string> = {
-  monthly: 'RACINGCOACH_MONTHLY_PRODUCT_ID',
-  annual: 'RACINGCOACH_ANNUAL_PRODUCT_ID',
+  silver_monthly: 'RACING_COACH_SILVER_MONTHLY_PRODUCT_ID',
+  silver_annual: 'RACING_COACH_SILVER_ANNUAL_PRODUCT_ID',
+  gold_monthly: 'RACING_COACH_GOLD_MONTHLY_PRODUCT_ID',
+  gold_annual: 'RACING_COACH_GOLD_ANNUAL_PRODUCT_ID',
 };
-
-export function isPlan(value: unknown): value is Plan {
-  return value === 'monthly' || value === 'annual';
-}
 
 // null when the secret key or the plan's product isn't configured
 export function getStripeConfig(plan: Plan): { stripe: Stripe; productId: string } | null {

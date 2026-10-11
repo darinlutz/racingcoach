@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { getCurrentUser } from '@/lib/session';
 import { getSiteOrigin } from '@/lib/siteOrigin';
-import { getPlanPrice, getStripeConfig, isPlan, STRIPE_APP } from '@/lib/stripePlans';
+import { getPlanPrice, getStripeConfig, STRIPE_APP } from '@/lib/stripePlans';
+import { ACCOUNT_STATUS, isPlan } from '@/lib/accountStatus';
 import { canBuy } from '@/lib/users';
 import { apiText } from '@/lib/i18n/server';
 
@@ -32,12 +33,18 @@ export async function POST(request: Request) {
     if (!user) {
       return NextResponse.redirect(`${origin}/login`, 303);
     }
-    // Prevents subscribing an account that's already Subscribed
-    if (!canBuy(user)) {
+    // Prevents buying a plan the account already has (or one below it): a current
+    // subscriber can only upgrade, from Silver to Gold
+    if (!canBuy(user, plan)) {
       return NextResponse.redirect(`${origin}/account`, 303);
     }
+    // An upgrade replaces the current subscription: the webhook cancels it once the
+    // new one is paid for. Using the same Stripe customer keeps both on one record.
+    const replacesSubscription =
+      user.accountStatus === ACCOUNT_STATUS.subscribed ? user.stripeSubscriptionId : null;
+    const customer = replacesSubscription ? user.stripeCustomerId : null;
 
-    // Both plans (Monthly and Annual) are recurring subscriptions
+    // Every plan (Silver or Gold, Monthly or Annual) is a recurring subscription
     const price = await getPlanPrice(stripe, productId);
     if (!price || price.type !== 'recurring') {
       console.error(`Stripe product ${productId} has no recurring default price`);
@@ -59,13 +66,17 @@ export async function POST(request: Request) {
       integration_identifier: 'hosted_web_0001',
       origin_context: 'web',
       client_reference_id: String(user.id),
-      customer_email: user.emailAddress,
+      ...(customer ? { customer } : { customer_email: user.emailAddress }),
       success_url: `${origin}/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/account`,
       line_items: [{ price: price.id, quantity: 1 }],
-      // The webhook reads the plan to decide how to update the account, and
-      // skips sessions whose app isn't this one
-      metadata: { plan, app: STRIPE_APP },
+      // The webhook reads the plan to decide how to update the account, cancels
+      // the subscription an upgrade replaces, and skips sessions whose app isn't this one
+      metadata: {
+        plan,
+        app: STRIPE_APP,
+        ...(replacesSubscription ? { replaces_subscription: replacesSubscription } : {}),
+      },
     };
 
     const session = await stripe.checkout.sessions.create(sessionParams);

@@ -7,11 +7,10 @@ import { ArrowRight, Menu, X } from 'lucide-react';
 import Brand from '@/components/Brand';
 import { buttonVariants } from '@/components/Button';
 import { useLanguage } from '@/components/LanguageProvider';
-import { ACCOUNT_STATUS } from '@/lib/accountStatus';
 
 type NavigationProps = {
-  // isAdmin shows the Admin link (the activity log)
-  user: { userName: string; accountStatus: string; isAdmin: boolean } | null;
+  // isAdmin shows the Admin link (the activity log); canUpgrade is false for Gold subscribers
+  user: { userName: string; canUpgrade: boolean; isAdmin: boolean } | null;
 };
 
 const links = [
@@ -28,8 +27,8 @@ export default function Navigation({ user }: NavigationProps) {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
-  // Subscribers have nothing left to buy
-  const visibleLinks = user?.accountStatus === ACCOUNT_STATUS.subscribed ? links.filter((link) => link.href !== '/pricing') : links;
+  // Gold subscribers have nothing left to buy
+  const visibleLinks = user && !user.canUpgrade ? links.filter((link) => link.href !== '/pricing') : links;
 
   const toggleMenu = () => setIsOpen(!isOpen);
   const closeMenu = () => setIsOpen(false);

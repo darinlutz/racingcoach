@@ -2,7 +2,15 @@ import { randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 import { isUniqueViolation, query, transaction } from './db';
 import { ROLES, type Role } from './roles';
-import { ACCOUNT_STATUS, canSubscribe, LEGACY_SUBSCRIBED_STATUSES, type Plan } from './accountStatus';
+import {
+  ACCOUNT_STATUS,
+  canBuyPlan,
+  canUpgrade,
+  LEGACY_SUBSCRIBED_STATUSES,
+  MEMBERSHIP_LEVEL,
+  PLANS,
+  type Plan,
+} from './accountStatus';
 import { copyDefaultCars, seedDefaultCars } from './defaultCars';
 import { copyDefaultTracks, seedDefaultTracks } from './defaultTracks';
 import { DEFAULT_LANGUAGE, isLanguage, type Language } from './i18n/languages';
@@ -16,9 +24,12 @@ export type User = {
   userName: string;
   emailAddress: string;
   accountStatus: string;
+  // One of MEMBERSHIP_LEVEL: Bronze, Silver or Gold
+  membershipLevel: string;
   signupDate: string | null;
   subscriptionEndDate: string | null;
   stripeSubscriptionId: string | null;
+  stripeCustomerId: string | null;
   // One of ROLES
   role: string;
   // The language the site and its AI features use for this user
@@ -26,7 +37,7 @@ export type User = {
 };
 
 const USER_COLUMNS =
-  'id, user_name, email_address, account_status, signup_date, subscription_end_date, stripe_subscription_id, role, preferred_language';
+  'id, user_name, email_address, account_status, membership_level, signup_date, subscription_end_date, stripe_subscription_id, stripe_customer_id, role, preferred_language';
 
 // The site owner is made Admin on sign-up; everyone else is a User
 export const OWNER_EMAIL = 'darinlutz@yahoo.com';
@@ -52,8 +63,13 @@ export function oneYearFrom(from: Date = new Date()): string {
   return end.toISOString();
 }
 
-export function canBuy(user: User): boolean {
-  return canSubscribe(user.accountStatus);
+export function canBuy(user: User, plan: Plan): boolean {
+  return canBuyPlan(user.accountStatus, user.membershipLevel, plan);
+}
+
+// False only for a current Gold subscriber
+export function canBuyAnything(user: User): boolean {
+  return canUpgrade(user.accountStatus, user.membershipLevel);
 }
 
 export class EmailTakenError extends Error {
@@ -89,6 +105,30 @@ export function ensureUserSchema(): Promise<void> {
         subscription_end_date TEXT,
         role TEXT NOT NULL DEFAULT '${ROLES.user}'
       )`);
+      // Bronze, Silver or Gold (MEMBERSHIP_LEVEL). When the column is added, accounts that already paid
+      // (before there were levels) are Silver, the level that matches what they bought.
+      const [{ level_missing: levelMissing }] = (
+        await client.query(`SELECT NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_schema = 'racingcoach' AND table_name = 'Users' AND column_name = 'membership_level'
+        ) AS level_missing`)
+      ).rows;
+      if (levelMissing) {
+        await client.query(
+          `ALTER TABLE racingcoach."Users" ADD COLUMN membership_level TEXT NOT NULL DEFAULT '${MEMBERSHIP_LEVEL.bronze}'`
+        );
+        await client.query(
+          `UPDATE racingcoach."Users" SET membership_level = $1
+           WHERE (account_status = ANY($2) AND (subscription_end_date > $3 OR subscription_end_date IS NULL))
+              OR (account_status = $4 AND subscription_end_date > $3)`,
+          [
+            MEMBERSHIP_LEVEL.silver,
+            [ACCOUNT_STATUS.subscribed, ...LEGACY_SUBSCRIBED_STATUSES],
+            new Date().toISOString(),
+            ACCOUNT_STATUS.canceled,
+          ]
+        );
+      }
       // The language the site and its AI features use for the user: en, pt or es (src/lib/i18n/languages.ts)
       await client.query(
         `ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS preferred_language TEXT NOT NULL DEFAULT '${DEFAULT_LANGUAGE}'`
@@ -504,11 +544,13 @@ function rowToUser(row: Record<string, unknown>): User {
     userName: row.user_name as string,
     emailAddress: row.email_address as string,
     accountStatus: row.account_status as string,
+    membershipLevel: (row.membership_level as string | null) ?? MEMBERSHIP_LEVEL.bronze,
     role: row.role as string,
     preferredLanguage: isLanguage(row.preferred_language) ? row.preferred_language : DEFAULT_LANGUAGE,
     signupDate: (row.signup_date as string | null) ?? null,
     subscriptionEndDate: (row.subscription_end_date as string | null) ?? null,
     stripeSubscriptionId: (row.stripe_subscription_id as string | null) ?? null,
+    stripeCustomerId: (row.stripe_customer_id as string | null) ?? null,
   };
 }
 
@@ -525,12 +567,13 @@ export async function createUser(input: {
   await ensureUserSchema();
   const passwordHash = await hashPassword(input.password);
   try {
-    // The account starts with its own copy of the default cars and tracks to edit in the Car Data and
-    // Track Data tabs
+    // The account starts at the Bronze level, with its own copy of the default cars and tracks to edit in
+    // the Car Data and Track Data tabs
     return await transaction(async (client) => {
       const { rows } = await client.query(
-        `INSERT INTO racingcoach."Users" (user_name, email_address, password, account_status, signup_date, role, preferred_language)
-         VALUES ($1, $2, $3, $6, $4, $5, $7)
+        `INSERT INTO racingcoach."Users"
+           (user_name, email_address, password, account_status, membership_level, signup_date, role, preferred_language)
+         VALUES ($1, $2, $3, $6, $8, $4, $5, $7)
          RETURNING ${USER_COLUMNS}`,
         [
           input.userName,
@@ -540,6 +583,7 @@ export async function createUser(input: {
           initialRole(input.emailAddress),
           ACCOUNT_STATUS.unsubscribed,
           input.preferredLanguage,
+          MEMBERSHIP_LEVEL.bronze,
         ]
       );
       const user = rowToUser(rows[0]);
@@ -619,21 +663,32 @@ export async function updatePassword(userId: number, password: string): Promise<
 
 export async function getUserById(id: number): Promise<User | null> {
   await ensureUserSchema();
-  // A subscription whose end date has passed (e.g. a failed renewal) is expired
+  // A subscription whose end date has passed (e.g. a failed renewal) is expired, and the account is back
+  // at Bronze. A canceled one keeps its level until the end of the period it paid for.
   await query(
-    `UPDATE racingcoach."Users" SET account_status = $3
-     WHERE id = $1 AND account_status = $4 AND subscription_end_date < $2`,
-    [id, new Date().toISOString(), ACCOUNT_STATUS.expired, ACCOUNT_STATUS.subscribed]
+    `UPDATE racingcoach."Users"
+     SET account_status = CASE WHEN account_status = $4 THEN $3 ELSE account_status END, membership_level = $5
+     WHERE id = $1 AND subscription_end_date < $2
+       AND (account_status = $4 OR (account_status = $6 AND membership_level <> $5))`,
+    [
+      id,
+      new Date().toISOString(),
+      ACCOUNT_STATUS.expired,
+      ACCOUNT_STATUS.subscribed,
+      MEMBERSHIP_LEVEL.bronze,
+      ACCOUNT_STATUS.canceled,
+    ]
   );
   const [row] = await query(`SELECT ${USER_COLUMNS} FROM racingcoach."Users" WHERE id = $1`, [id]);
   return row ? rowToUser(row) : null;
 }
 
-// Stripe purchases only change account_status; the role (Admin or User)
-// never changes with a subscription.
+// Stripe purchases only change account_status and membership_level; the role
+// (Admin, Coach or User) never changes with a subscription.
 
-// Links a completed Checkout Session to the user who started it. The paid
-// period is one month or one year, depending on the plan.
+// Links a completed Checkout Session to the user who started it and sets the
+// plan's level (Silver or Gold). The paid period is one month or one year from
+// now, depending on the plan; an upgrade starts a new period the same way.
 export async function startSubscription(
   userId: number,
   stripeCustomerId: string,
@@ -643,14 +698,15 @@ export async function startSubscription(
   await ensureUserSchema();
   await query(
     `UPDATE racingcoach."Users" SET stripe_customer_id = $1, stripe_subscription_id = $2, account_status = $5,
-       subscription_end_date = $3
+       membership_level = $6, subscription_end_date = $3
      WHERE id = $4`,
     [
       stripeCustomerId,
       stripeSubscriptionId,
-      plan === 'annual' ? oneYearFrom() : oneMonthFrom(),
+      PLANS[plan].period === 'annual' ? oneYearFrom() : oneMonthFrom(),
       userId,
       ACCOUNT_STATUS.subscribed,
+      PLANS[plan].level,
     ]
   );
 }

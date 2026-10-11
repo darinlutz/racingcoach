@@ -7,6 +7,7 @@ import Navigation from "@/components/Navigation";
 import { getDictionary, getLanguage } from "@/lib/i18n/server";
 import { isAdmin } from "@/lib/roles";
 import { getCurrentUser } from "@/lib/session";
+import { canBuyAnything } from "@/lib/users";
 import "./globals.css";
 
 const barlow = Barlow({
@@ -46,7 +47,7 @@ export default async function RootLayout({
       <body className="min-h-screen bg-background text-foreground flex flex-col">
         <LanguageProvider language={language} dictionary={t}>
           <ActivityTracker />
-          <Navigation user={user ? { userName: user.userName, accountStatus: user.accountStatus, isAdmin: isAdmin(user.role) } : null} />
+          <Navigation user={user ? { userName: user.userName, canUpgrade: canBuyAnything(user), isAdmin: isAdmin(user.role) } : null} />
           <main className="flex-1">
             {children}
           </main>

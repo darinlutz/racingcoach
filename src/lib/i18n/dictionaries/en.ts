@@ -152,6 +152,7 @@ export const en = {
     email: 'Email',
     name: 'Name',
     accountStatus: 'Account Status',
+    membershipLevel: 'Membership Level',
     signupDate: 'Signup Date',
     subscriptionEndDate: 'Subscription End Date',
     statuses: {
@@ -175,8 +176,7 @@ export const en = {
     disconnect: 'Disconnect',
     linkDiscord: 'Link your Discord account to RacingCoach.',
     connectDiscord: 'Connect Discord',
-    monthlySubscription: 'Monthly Subscription',
-    annualSubscription: 'Annual Subscription',
+    viewPlans: 'View Membership Plans',
   },
 
   collectorCard: {
@@ -203,35 +203,55 @@ export const en = {
   },
 
   pricing: {
-    title: 'Pricing',
-    intro: 'Every tool, either way. Pay monthly, or pay yearly.',
-    introDiscount: 'Every tool, either way. Pay monthly, or pay yearly and save {discount}%.',
-    features: [
-      'Debrief Coach: AI review of every lap in your session',
-      'Multi-Lap, Stint and Lap Compare analysis',
-      'Reference points for every focus area',
-      'Track Data with up to 8 focus areas per track',
-      'Racecar Analysis Q&A',
-      'My Race Trends: iRating and incidents synced from iRacePlan',
-    ],
-    cancelAnytime: 'Cancel anytime',
-    monthly: {
-      name: 'Monthly',
-      period: '/ month',
-      blurb: 'Full access, billed every month.',
-      subscription: 'Monthly Subscription',
-    },
-    annual: {
-      name: 'Annual',
-      period: '/ year',
-      blurb: 'Full access, billed once a year.',
-      subscription: 'Annual Subscription',
-      features: ['Everything in Monthly', 'One payment covers the whole year'],
-    },
+    title: 'Membership Levels',
+    intro:
+      'Choose the membership that matches your ambition. Start free with Bronze, and step up whenever you’re ready to find more pace.',
+    saveUpTo: 'Save up to {discount}% with annual billing.',
+    free: 'Free',
+    forever: 'forever',
+    perMonth: '/ month',
+    orAnnual: 'or {price} / year',
     save: 'Save {discount}%',
-    lessThanMonthly: '{discount}% less than 12 months of Monthly',
-    getStarted: 'Get Started',
-    subscribed: 'Subscribed',
+    mostPopular: 'Most Popular',
+    levels: {
+      Bronze: {
+        tagline: 'Perfect for drivers who race occasionally.',
+        features: [
+          'Every telemetry analysis tool: Multi-Lap, Stint and Lap Compare',
+          'Detailed charts and graphs of speed, braking, throttle and steering',
+          'Track Data with up to 8 focus areas per track',
+          'My Race Trends: iRating and incidents synced from iRacePlan',
+        ],
+        limits: 'Limited time and activity on the site',
+      },
+      Silver: {
+        tagline: 'For committed drivers who want an expert eye on every session.',
+        features: [
+          'Everything in Bronze, with no usage limits',
+          'AI Coach debriefs: a lap-by-lap review of every session',
+          'Clear, prioritized advice on where you’re losing time',
+          'Your debriefs saved to your account and on Discord',
+        ],
+      },
+      Gold: {
+        tagline: 'The complete coaching package, from the garage to the grid.',
+        features: [
+          'Everything in Silver',
+          'In-car overlay with live brake, throttle and speed targets for every focus area',
+          'Real-time AI coaching while you drive',
+          'The full RacingCoach experience, on track and off',
+        ],
+      },
+    },
+    levelNames: { Bronze: 'Bronze', Silver: 'Silver', Gold: 'Gold' } as Record<string, string>,
+    monthly: 'Monthly',
+    annual: 'Annual',
+    getStarted: 'Get Started Free',
+    currentPlan: 'Your Current Plan',
+    included: 'Included in Your Plan',
+    upgradeNote: 'Upgrading cancels your Silver subscription automatically. Its unused time is credited to your Gold renewal.',
+    fineprint:
+      'Paid memberships renew automatically and can be canceled anytime from My Account. Secure checkout by Stripe.',
   },
 
   cancelSubscription: {

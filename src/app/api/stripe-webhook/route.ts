@@ -6,9 +6,9 @@ import {
   setStatusBySubscriptionId,
   startSubscription,
 } from '@/lib/users';
-import { ACCOUNT_STATUS, type Plan } from '@/lib/accountStatus';
+import { ACCOUNT_STATUS, parsePlan, type Plan } from '@/lib/accountStatus';
 import { notifyOwner } from '@/lib/ownerNotifications';
-import { isPlan, STRIPE_APP } from '@/lib/stripePlans';
+import { STRIPE_APP } from '@/lib/stripePlans';
 
 export async function POST(request: Request) {
   // Check if Stripe keys are configured
@@ -50,7 +50,8 @@ export async function POST(request: Request) {
 
   try {
     switch (event.type) {
-      // First payment: start a Monthly or Annual subscription (account status Subscribed)
+      // First payment: start a Silver or Gold subscription (account status Subscribed). An
+      // upgrade from Silver to Gold then cancels the Silver subscription it replaces.
       case 'checkout.session.completed': {
         const session = event.data.object;
         // Another app's session on the shared Stripe account: its user IDs aren't ours
@@ -59,10 +60,10 @@ export async function POST(request: Request) {
           break;
         }
         const userId = Number(session.client_reference_id);
-        const plan = session.metadata?.plan;
+        const plan = parsePlan(session.metadata?.plan);
         if (
           session.mode !== 'subscription' ||
-          !isPlan(plan) ||
+          !plan ||
           !Number.isInteger(userId) ||
           typeof session.customer !== 'string' ||
           typeof session.subscription !== 'string'
@@ -71,7 +72,13 @@ export async function POST(request: Request) {
           break;
         }
         // Subscription mode sessions only complete once the first payment succeeds
+        // The account moves to the new subscription first, so the old one's
+        // customer.subscription.deleted event no longer matches it
         await startSubscription(userId, session.customer, session.subscription, plan);
+        const replaced = session.metadata?.replaces_subscription;
+        if (replaced && replaced !== session.subscription) {
+          await cancelReplacedSubscription(stripe, replaced, plan);
+        }
         await notifyOwnerOfPurchase(plan, userId);
         break;
       }
@@ -110,6 +117,19 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json({ received: true });
+}
+
+// Cancels the subscription an upgrade replaced, right away. The unused part of it is
+// credited (prorated) to the customer's balance, which Stripe takes off their next invoice.
+// Throws on failure so Stripe retries the event; startSubscription is safe to repeat.
+async function cancelReplacedSubscription(stripe: Stripe, subscriptionId: string, plan: Plan) {
+  const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+  // Already gone: canceled by the user, or by an earlier delivery of this event
+  if (subscription.status === 'canceled' || subscription.status === 'incomplete_expired') return;
+  await stripe.subscriptions.cancel(subscriptionId, {
+    prorate: true,
+    cancellation_details: { comment: `Upgraded to ${plan}` },
+  });
 }
 
 // Never throws: an error here would make Stripe retry an event already applied

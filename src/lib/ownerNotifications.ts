@@ -1,16 +1,27 @@
+import { PLANS, type Plan } from './accountStatus';
 import { OWNER_EMAIL } from './users';
 
 // Emails the site owner when a user signs up, buys a plan, or cancels.
 const APP_NAME = 'RacingCoach';
 
-export type OwnerEvent = 'signup' | 'monthly' | 'annual' | 'canceled';
+export type OwnerEvent = 'signup' | Plan | 'canceled';
 
-const EVENTS: Record<OwnerEvent, { subject: string; action: string }> = {
-  signup: { subject: 'New user sign up', action: 'signed up' },
-  monthly: { subject: 'New monthly subscription', action: 'purchased a monthly subscription' },
-  annual: { subject: 'New annual subscription', action: 'purchased an annual subscription' },
-  canceled: { subject: 'Subscription canceled', action: 'canceled their subscription' },
-};
+function describe(event: OwnerEvent): { subject: string; action: string } {
+  switch (event) {
+    case 'signup':
+      return { subject: 'New user sign up', action: 'signed up' };
+    case 'canceled':
+      return { subject: 'Subscription canceled', action: 'canceled their subscription' };
+    default: {
+      // e.g. "Gold annual"
+      const { level, period } = PLANS[event];
+      return {
+        subject: `New ${level} ${period} subscription`,
+        action: `purchased a ${level} ${period} subscription`,
+      };
+    }
+  }
+}
 
 // Never throws: a failed notification is logged and shouldn't fail the
 // signup, payment or cancellation that triggered it.
@@ -21,7 +32,7 @@ export async function notifyOwner(event: OwnerEvent, userEmail: string): Promise
     return;
   }
 
-  const { subject, action } = EVENTS[event];
+  const { subject, action } = describe(event);
   try {
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',

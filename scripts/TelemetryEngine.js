@@ -3358,3 +3358,58 @@ function GetControlOverlapDistance(areaNumber)
         root[overlapDistanceKey]
     ) + " ft";
 }
+
+
+    // ========================================================
+    // PEAK BRAKE PRESSURE
+    // ========================================================
+function GetMaximumBrakePressure()
+{
+    var brake = Math.round($prop('Brake'));
+    var now = Date.now();
+
+    if (root["PeakBrake"] == null) {
+    root["PeakBrake"] = 0;
+    root["PeakBrakeTime"] = 0;
+    }
+
+    if (brake > root["PeakBrake"]) {
+    root["PeakBrake"] = brake;
+    root["PeakBrakeTime"] = now;
+    }
+
+    if (root["PeakBrake"] > 0 && (now - root["PeakBrakeTime"]) >= 4000) {
+    root["PeakBrake"] = 0;
+    root["PeakBrakeTime"] = 0;
+    }
+
+    return root["PeakBrake"];
+}
+
+
+    // ========================================================
+    // MINIMUM SPEED
+    // ========================================================
+function GetMinimumSpeed()
+{
+var speed = $prop('SpeedLocal');
+ var now = Date.now();
+ 
+ if (root["MinSpeed"] == null) {
+ root["MinSpeed"] = speed;
+ root["MinSpeedTime"] = now;
+ }
+ 
+ if (speed < root["MinSpeed"]) {
+ root["MinSpeed"] = speed;
+ root["MinSpeedTime"] = now;
+ }
+ 
+ if (now - root["MinSpeedTime"] >= 5000) {
+ root["MinSpeed"] = speed;
+ root["MinSpeedTime"] = now;
+ }
+ 
+ return format(root["MinSpeed"], "0.0");
+}
+

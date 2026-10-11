@@ -1,29 +1,78 @@
 using System.Globalization;
 using System.Reflection;
+using System.Speech.Synthesis;
 using Jint;
 using Jint.Native;
 using SVappsLAB.iRacingTelemetrySDK;
 
 namespace RacingCoach.Collector;
 
+/// <summary>One focus area's values on this lap, as TelemetryEngine.js's functions return them (colors are
+/// SimHub color names such as "Firebrick", or "Transparent").</summary>
+internal sealed record OverlayAreaValues(
+    string AlertColor,
+    string Brake, string BrakeColor,
+    string Force, string ForceColor,
+    string Gas, string GasColor,
+    string Time, string Exit, string Coast, string Overlap);
+
 /// <summary>What the overlay window shows, copied out of OverlayEngine for the UI thread.</summary>
-internal sealed record OverlaySnapshot(string? Track, IReadOnlyList<string?> AreaNames, IReadOnlyList<int?> BrakePoints, string? Error);
+internal sealed record OverlaySnapshot(
+    string? Track,
+    IReadOnlyList<string?> AreaNames,
+    IReadOnlyList<OverlayAreaValues?> Areas,
+    string? MaxBrake,
+    string? MinSpeed,
+    string? Error);
 
 /// <summary>
 /// Runs TelemetryEngine.js (scripts/ in the repo, a SimHub script) for the overlay. The script expects SimHub,
-/// so this provides what it uses: $prop(name) answers from live iRacing telemetry in SimHub's units, root is
-/// a plain object the script keeps its state in, and TrackConfig holds the user's Track Data track for the
-/// current track (the same shape as the Track Data text file). Every telemetry sample is fed through
-/// LapBrakePoint(1..8), since the script works out area crossings from consecutive samples.
+/// so this provides what it uses: $prop(name) answers from live iRacing telemetry in SimHub's units, format()
+/// formats a number like SimHub's, root is a plain object the script keeps its state in, and TrackConfig holds
+/// the user's Track Data track for the current track (the same shape as the Track Data text file). Every
+/// telemetry sample is fed through all the functions the overlay shows, since the script works out area
+/// crossings from consecutive samples. root starts empty again with each new session, so nothing carries over.
 /// All script calls happen on the telemetry thread (OnSample); the UI reads Snapshot.
 /// </summary>
 internal sealed class OverlayEngine
 {
     public const int AreaCount = 8;
     private const string ScriptName = "TelemetryEngine.js";
-    private const double FeetPerMeter = 3.280839895;
+    private const double MphPerMetersPerSecond = 2.2369362921;
+
+    // The script functions the overlay calls; checked when the script loads
+    private static readonly string[] Functions =
+    [
+        "LapBrakePoint", "GetAreaMaxBrake", "GetThrottlePickupPoint", "GetBrakepointAlertColor",
+        "GetBrakepointDiffTarget", "GetBrakepointColorTarget",
+        "GetBrakePressureDiffTarget", "GetBrakePressureDiffTargetColor",
+        "GetThrottlePickupDiffTarget", "GetThrottlePickupColorTarget",
+        "GetTimeArea", "GetSpeedArea", "GetCoastingDistance", "GetControlOverlapDistance",
+        "GetMaximumBrakePressure", "GetMinimumSpeed",
+    ];
+    // The functions that only compare and format what the measuring ones recorded run every this many samples
+    // (60 Hz / 6 = 10 times a second, as often as the window refreshes), since the script is slow enough that
+    // running all of them for 8 areas would take most of the time between samples
+    private const int TextEvery = 6;
+
+    // Spoken when the car crosses the start/finish line. Created on first use and kept for the app's lifetime
+    // (null if Windows has no voice)
+    private static readonly Lazy<SpeechSynthesizer?> Voice = new(() =>
+    {
+        try
+        {
+            var voice = new SpeechSynthesizer();
+            voice.SetOutputToDefaultAudioDevice();
+            return voice;
+        }
+        catch
+        {
+            return null;
+        }
+    });
 
     private readonly Engine _js;
+    private readonly Dictionary<string, JsValue> _functions = [];
     private readonly Action<string, bool> _log;
     private readonly object _lock = new();
 
@@ -31,6 +80,9 @@ internal sealed class OverlayEngine
     private TelemetryData _sample;
     private string _trackName = "";
     private double _trackLengthMeters;
+    private (int? UniqueId, int? Num)? _session;
+    private float? _lastLapDistPct;
+    private int _sampleCount;
 
     // A track waiting to be handed to the script on the telemetry thread (set from the UI thread)
     private (string Name, string? Json)? _pendingTrack;
@@ -38,20 +90,26 @@ internal sealed class OverlayEngine
     private string? _scriptTrack;
 
     private readonly string?[] _areaNames = new string?[AreaCount];
-    private readonly int?[] _brakePoints = new int?[AreaCount];
+    private readonly OverlayAreaValues?[] _areas = new OverlayAreaValues?[AreaCount];
+    private string? _maxBrake;
+    private string? _minSpeed;
     private string? _error;
 
-    /// <summary>Loads the script. Throws if it can't be read or doesn't run.</summary>
+    /// <summary>Loads the script. Throws if it can't be read, doesn't run or lacks a function the overlay uses.</summary>
     public OverlayEngine(Action<string, bool> log)
     {
         _log = log;
         (var script, ScriptSource) = LoadScript();
         _js = new Engine();
         _js.SetValue("$prop", new Func<string, object?>(Prop));
+        _js.SetValue("format", new Func<object?, string?, string>(Format));
         _js.Execute("var root = {}; var TrackConfig = {};");
         _js.Execute(script);
-        if (_js.GetValue("LapBrakePoint") is not Jint.Native.Function.Function)
-            throw new InvalidOperationException($"{ScriptName} has no LapBrakePoint function");
+        foreach (var name in Functions)
+            _functions[name] = _js.GetValue(name);
+        var missing = Functions.Where(name => _functions[name] is not Jint.Native.Function.Function).ToList();
+        if (missing.Count > 0)
+            throw new InvalidOperationException($"{ScriptName} has no {string.Join(", ", missing)} function{(missing.Count > 1 ? "s" : "")}");
     }
 
     /// <summary>Where the script came from: the copy in Documents\RacingCoach, or the one built into the exe.</summary>
@@ -81,7 +139,7 @@ internal sealed class OverlayEngine
     public OverlaySnapshot Snapshot()
     {
         lock (_lock)
-            return new OverlaySnapshot(_scriptTrack, [.. _areaNames], [.. _brakePoints], _error);
+            return new OverlaySnapshot(_scriptTrack, [.. _areaNames], [.. _areas], _maxBrake, _minSpeed, _error);
     }
 
     /// <summary>Runs the script for one telemetry sample (on the telemetry thread).</summary>
@@ -89,22 +147,39 @@ internal sealed class OverlayEngine
     {
         try
         {
+            // A new session (another event, or practice to qualifying to race) starts every value over
+            var sessionKey = (data.SessionUniqueID, data.SessionNum);
+            if (_session != sessionKey)
+            {
+                _session = sessionKey;
+                _lastLapDistPct = null;
+                ResetValues();
+            }
+            AnnounceNewLap(data.LapDistPct);
             ApplyPendingTrack(session);
-            if (_scriptTrack is null)
-                return;
 
             _sample = data;
-            var results = new int?[AreaCount];
-            for (var area = 1; area <= AreaCount; area++)
+            var maxBrake = Text(Call("GetMaximumBrakePressure"));
+            var minSpeed = Text(Call("GetMinimumSpeed"));
+
+            var withText = _sampleCount++ % TextEvery == 0;
+            OverlayAreaValues?[] previous;
+            lock (_lock)
+                previous = [.. _areas];
+            var results = new OverlayAreaValues?[AreaCount];
+            if (_scriptTrack is not null)
             {
-                if (_areaNames[area - 1] is null)
-                    continue;
-                var value = _js.Invoke("LapBrakePoint", area);
-                results[area - 1] = value.IsNumber() && double.IsFinite(value.AsNumber()) ? (int)Math.Round(value.AsNumber()) : null;
+                for (var area = 1; area <= AreaCount; area++)
+                {
+                    if (_areaNames[area - 1] is not null)
+                        results[area - 1] = AreaValues(area, withText ? null : previous[area - 1]);
+                }
             }
             lock (_lock)
             {
-                results.CopyTo(_brakePoints, 0);
+                results.CopyTo(_areas, 0);
+                _maxBrake = maxBrake;
+                _minSpeed = minSpeed;
                 _error = null;
             }
         }
@@ -122,6 +197,72 @@ internal sealed class OverlayEngine
         }
     }
 
+    /// <summary>One area's values for this sample. The measuring functions (which compare this sample's position
+    /// with the last one's) run every sample; the rest, which call them again and only compare and format, reuse
+    /// <paramref name="keepText"/> unless it's null. Calling a measuring function twice in a sample changes nothing.</summary>
+    private OverlayAreaValues AreaValues(int area, OverlayAreaValues? keepText)
+    {
+        Call("LapBrakePoint", area);
+        Call("GetAreaMaxBrake", area);
+        Call("GetThrottlePickupPoint", area);
+        var measured = new OverlayAreaValues(
+            AlertColor: Text(Call("GetBrakepointAlertColor", area)),
+            Brake: "", BrakeColor: "", Force: "", ForceColor: "", Gas: "", GasColor: "", Time: "",
+            // GetSpeedArea takes the track name too
+            Exit: Text(Call("GetSpeedArea", _trackName, area)),
+            Coast: Text(Call("GetCoastingDistance", area)),
+            Overlap: Text(Call("GetControlOverlapDistance", area)));
+
+        if (keepText is not null)
+        {
+            return measured with
+            {
+                Brake = keepText.Brake, BrakeColor = keepText.BrakeColor,
+                Force = keepText.Force, ForceColor = keepText.ForceColor,
+                Gas = keepText.Gas, GasColor = keepText.GasColor,
+                Time = keepText.Time,
+            };
+        }
+        return measured with
+        {
+            Brake = Text(Call("GetBrakepointDiffTarget", area)),
+            BrakeColor = Text(Call("GetBrakepointColorTarget", area)),
+            Force = Text(Call("GetBrakePressureDiffTarget", area)),
+            ForceColor = Text(Call("GetBrakePressureDiffTargetColor", area)),
+            Gas = Text(Call("GetThrottlePickupDiffTarget", area)),
+            GasColor = Text(Call("GetThrottlePickupColorTarget", area)),
+            Time = Text(Call("GetTimeArea", _trackName, area)),
+        };
+    }
+
+    private JsValue Call(string function, params object[] arguments) => _js.Invoke(_functions[function], arguments);
+
+    private static string Text(JsValue value) => value.IsNull() || value.IsUndefined() ? "" : value.ToString();
+
+    /// <summary>Forgets everything the script has measured, and what the overlay shows from it.</summary>
+    private void ResetValues()
+    {
+        _js.Execute("root = {};");
+        lock (_lock)
+        {
+            Array.Clear(_areas);
+            _maxBrake = null;
+            _minSpeed = null;
+        }
+    }
+
+    /// <summary>Says "Starting new lap" when the car crosses the start/finish line (the script's own test:
+    /// from past 90% of the lap to under 10%). iRacing's LapDistPct is -1 when the car isn't on track.</summary>
+    private void AnnounceNewLap(float? lapDistPct)
+    {
+        var crossed = _lastLapDistPct > 0.9f && lapDistPct is >= 0 and < 0.1f;
+        _lastLapDistPct = lapDistPct;
+        if (!crossed || Voice.Value is not { } voice)
+            return;
+        voice.SpeakAsyncCancelAll();
+        voice.SpeakAsync("Starting new lap");
+    }
+
     private void ApplyPendingTrack(SessionDetails? session)
     {
         (string Name, string? Json)? pending;
@@ -136,6 +277,7 @@ internal sealed class OverlayEngine
             _trackName = track.Name;
             var names = new string?[AreaCount];
             _trackDataLengthFeet = 0;
+            ResetValues();
             if (track.Json is null)
             {
                 _js.Execute("TrackConfig = {};");
@@ -160,12 +302,11 @@ internal sealed class OverlayEngine
             {
                 _scriptTrack = track.Json is null ? null : track.Name;
                 names.CopyTo(_areaNames, 0);
-                Array.Clear(_brakePoints);
             }
         }
 
         // Track Data's length (feet) is more precise than iRacing's (km, two decimals); SimHub gives meters
-        _trackLengthMeters = _trackDataLengthFeet > 0 ? _trackDataLengthFeet / FeetPerMeter : IRacingLengthMeters(session?.TrackLength);
+        _trackLengthMeters = _trackDataLengthFeet > 0 ? _trackDataLengthFeet / 3.280839895 : IRacingLengthMeters(session?.TrackLength);
     }
 
     // iRacing gives the length as e.g. "4.0900 km"
@@ -177,6 +318,18 @@ internal sealed class OverlayEngine
             : 0;
     }
 
+    /// <summary>SimHub's format(value, "0.00"): a .NET number format.</summary>
+    private static string Format(object? value, string? format)
+    {
+        var number = value switch
+        {
+            null => 0,
+            string s => double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed) ? parsed : 0,
+            _ => Convert.ToDouble(value, CultureInfo.InvariantCulture),
+        };
+        return number.ToString(format ?? "", CultureInfo.InvariantCulture);
+    }
+
     /// <summary>SimHub's $prop for the properties TelemetryEngine.js reads, in SimHub's units.</summary>
     private object? Prop(string name) => name switch
     {
@@ -185,8 +338,10 @@ internal sealed class OverlayEngine
         "GameRawData.Telemetry.Brake" => (double?)_sample.Brake,
         "GameRawData.Telemetry.Throttle" => (double?)_sample.Throttle,
         "GameRawData.Telemetry.SessionUniqueID" => _sample.SessionUniqueID,
-        // iRacing's Speed is m/s; SimHub's SpeedLocal is km/h
-        "DataCorePlugin.GameData.NewData.SpeedLocal" => _sample.Speed is { } speed ? speed * 3.6 : null,
+        // SimHub's Brake is 0-100 (iRacing's is 0-1)
+        "Brake" or "DataCorePlugin.GameData.NewData.Brake" => _sample.Brake is { } brake ? brake * 100.0 : null,
+        // SimHub's SpeedLocal is in the user's units; the script labels speeds mph. iRacing's Speed is m/s
+        "SpeedLocal" or "DataCorePlugin.GameData.NewData.SpeedLocal" => _sample.Speed is { } speed ? speed * MphPerMetersPerSecond : null,
         "TrackName" => _trackName,
         // meters, as in SimHub
         "TrackLength" => _trackLengthMeters,

@@ -1,27 +1,38 @@
-using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Threading;
 
 namespace RacingCoach.Collector;
 
 /// <summary>
 /// The overlay the Launch Overlay button opens: a see-through, always-on-top window with the current
-/// track's focus areas (from the user's Track Data on RacingCoach.app) and each one's brake point on this lap,
-/// from TelemetryEngine.js's LapBrakePoint (OverlayEngine). Loads the track again whenever it changes.
+/// track's focus areas (from the user's Track Data on RacingCoach.app) and each one's values on this lap from
+/// TelemetryEngine.js (OverlayEngine), plus the recent peak brake pressure and minimum speed. Rows for areas the
+/// track doesn't have are hidden. Loads the track again whenever it changes.
 /// </summary>
 public partial class OverlayWindow : Window
 {
-    private static readonly CultureInfo Culture = CultureInfo.GetCultureInfo("en-US");
     // After the site couldn't be reached, try loading the track again this often
     private static readonly TimeSpan RetryAfter = TimeSpan.FromSeconds(30);
 
     private readonly CollectorEngine _engine;
     private readonly OverlayEngine _overlay;
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromMilliseconds(100) };
-    private readonly TextBox[] _nameBoxes = new TextBox[OverlayEngine.AreaCount];
-    private readonly TextBox[] _brakeBoxes = new TextBox[OverlayEngine.AreaCount];
+    // Each column's heading and share of the width (the Focus Area name first)
+    private static readonly (string Heading, double Width)[] Columns =
+    [
+        ("Focus Area", 95), ("Brake", 115), ("Force", 95), ("Gas", 115),
+        ("Time", 80), ("Exit", 90), ("Coast", 80), ("Overlap", 80),
+    ];
+    private static readonly Brush BoxBackground = Frozen(Color.FromRgb(0x1A, 0x1B, 0x1E));
+    private static readonly Brush LightText = Frozen(Color.FromRgb(0xF3, 0xF4, 0xF6));
+    private static readonly Brush DarkText = Frozen(Color.FromRgb(0x12, 0x13, 0x15));
+    // The script's color names (e.g. "Firebrick") as brushes; null for a name WPF doesn't know
+    private static readonly Dictionary<string, SolidColorBrush?> NamedBrushes = [];
+
+    private readonly TextBox[,] _boxes = new TextBox[OverlayEngine.AreaCount, Columns.Length];
 
     // The track (and connection) Track Data was last asked for, and how that went
     private string? _loadedTrack;
@@ -37,16 +48,32 @@ public partial class OverlayWindow : Window
         _overlay = overlay;
 
         var box = (Style)FindResource("Box");
+        var heading = (Style)FindResource("Heading");
+        AreaGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        for (var c = 0; c < Columns.Length; c++)
+        {
+            AreaGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Columns[c].Width, GridUnitType.Star) });
+            var text = new TextBlock { Style = heading, Text = Columns[c].Heading };
+            Grid.SetColumn(text, c);
+            AreaGrid.Children.Add(text);
+        }
         for (var i = 0; i < OverlayEngine.AreaCount; i++)
         {
             AreaGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            _nameBoxes[i] = new TextBox { Style = box, TextWrapping = TextWrapping.NoWrap };
-            _brakeBoxes[i] = new TextBox { Style = box, TextAlignment = TextAlignment.Right };
-            Grid.SetRow(_nameBoxes[i], i + 1);
-            Grid.SetRow(_brakeBoxes[i], i + 1);
-            Grid.SetColumn(_brakeBoxes[i], 2);
-            AreaGrid.Children.Add(_nameBoxes[i]);
-            AreaGrid.Children.Add(_brakeBoxes[i]);
+            for (var c = 0; c < Columns.Length; c++)
+            {
+                var cell = new TextBox
+                {
+                    Style = box,
+                    TextAlignment = c == 0 ? TextAlignment.Left : TextAlignment.Right,
+                    Margin = new Thickness(0, 0, c == Columns.Length - 1 ? 0 : 4, 5),
+                    Visibility = Visibility.Collapsed,
+                };
+                Grid.SetRow(cell, i + 1);
+                Grid.SetColumn(cell, c);
+                AreaGrid.Children.Add(cell);
+                _boxes[i, c] = cell;
+            }
         }
 
         _timer.Tick += (_, _) => Refresh();
@@ -66,14 +93,33 @@ public partial class OverlayWindow : Window
 
         var snapshot = _overlay.Snapshot();
         TrackText.Text = track ?? "Waiting for iRacing…";
+        MaxBrakeBox.Text = snapshot.MaxBrake ?? "";
+        MinSpeedBox.Text = snapshot.MinSpeed ?? "";
         for (var i = 0; i < OverlayEngine.AreaCount; i++)
         {
             var name = snapshot.AreaNames[i];
-            _nameBoxes[i].Text = name ?? "";
-            // No brake point yet this lap (or no braking in the area) comes back as 0
-            _brakeBoxes[i].Text = name is null ? ""
-                : snapshot.BrakePoints[i] is int feet and not 0 ? $"{feet.ToString("N0", Culture)} ft"
-                : "—";
+            // Only the track's own areas get a row
+            for (var c = 0; c < Columns.Length; c++)
+                _boxes[i, c].Visibility = name is null ? Visibility.Collapsed : Visibility.Visible;
+            if (name is null)
+                continue;
+
+            var area = snapshot.Areas[i];
+            var nameBox = _boxes[i, 0];
+            nameBox.Text = name;
+            // The brake point alert: "Transparent" (or nothing yet) leaves the box as it is
+            var alert = NamedBrush(area?.AlertColor);
+            var alerting = alert is not null && alert.Color.A > 0;
+            nameBox.Background = alerting ? alert : BoxBackground;
+            nameBox.Foreground = alerting && IsLight(alert!.Color) ? DarkText : LightText;
+
+            Show(_boxes[i, 1], area?.Brake, area?.BrakeColor);
+            Show(_boxes[i, 2], area?.Force, area?.ForceColor);
+            Show(_boxes[i, 3], area?.Gas, area?.GasColor);
+            Show(_boxes[i, 4], area?.Time, null);
+            Show(_boxes[i, 5], area?.Exit, null);
+            Show(_boxes[i, 6], area?.Coast, null);
+            Show(_boxes[i, 7], area?.Overlap, null);
         }
 
         var status = snapshot.Error is not null ? $"TelemetryEngine.js: {snapshot.Error}"
@@ -81,6 +127,42 @@ public partial class OverlayWindow : Window
             : _loadProblem ?? (_loading && snapshot.Track is null ? "Loading your focus areas…" : null);
         StatusText.Text = status ?? "";
         StatusText.Visibility = status is null ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    private static void Show(TextBox box, string? text, string? color)
+    {
+        box.Text = text ?? "";
+        box.Foreground = NamedBrush(color) is { } brush && brush.Color.A > 0 ? brush : LightText;
+    }
+
+    private static SolidColorBrush? NamedBrush(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return null;
+        if (!NamedBrushes.TryGetValue(name, out var brush))
+        {
+            try
+            {
+                brush = new BrushConverter().ConvertFromInvariantString(name.Trim()) as SolidColorBrush;
+                brush?.Freeze();
+            }
+            catch (FormatException)
+            {
+                brush = null;
+            }
+            NamedBrushes[name] = brush;
+        }
+        return brush;
+    }
+
+    // Light backgrounds (e.g. Gainsboro, Orange) take dark text
+    private static bool IsLight(Color color) => 0.299 * color.R + 0.587 * color.G + 0.114 * color.B > 150;
+
+    private static SolidColorBrush Frozen(Color color)
+    {
+        var brush = new SolidColorBrush(color);
+        brush.Freeze();
+        return brush;
     }
 
     private async Task LoadTrackAsync(string track, RacingCoachApi? api)

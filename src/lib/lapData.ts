@@ -125,10 +125,36 @@ function crossingIndex(pcts: number[], target: number, from: number) {
   return null;
 }
 
-// The Brake and Throttle samples (0-1) through a focus area, for charting, with each sample's unwrapped
+// The Brake and Throttle samples (0-1) through a focus area, for charting (throttle without downshift
+// blips, see withoutThrottleBlips), with each sample's unwrapped
 // lap position. Same stretch of samples areaStats measures; null if the lap doesn't cover the area.
 // domain is the area's start and end as lap positions (an end past the start/finish line is > 1).
 export type AreaTrace = { pcts: number[]; brakes: number[]; throttles: number[]; domain: [number, number] };
+
+// Downshift throttle blips (the engine revved to match a lower gear) read as spikes in a pedal trace.
+// A blip is a pulse that rises from (near) 0% and drops back to 0%; it's flattened to 0% if it's
+// shorter than BLIP_MAX_SAMPLES or the brake is on during it. Throttle that was already on (the lift
+// as braking starts) and a pickup that stays on are real and kept.
+const PEDAL_OFF = 0.02;
+const BLIP_MAX_SAMPLES = 18; // 0.3 s at 60 Hz
+
+export function withoutThrottleBlips(brakes: number[], throttles: number[]): number[] {
+  const out = [...throttles];
+  for (let i = 1; i < out.length; i++) {
+    if (out[i] <= PEDAL_OFF || out[i - 1] > PEDAL_OFF) continue;
+    // A pulse starts at i (the previous sample is off); find where it ends
+    let j = i;
+    let braking = false;
+    while (j < out.length && out[j] > PEDAL_OFF) {
+      braking ||= brakes[j] > PEDAL_OFF;
+      j++;
+    }
+    // Only pulses that drop back to off inside the area are judged
+    if (j < out.length && (j - i < BLIP_MAX_SAMPLES || braking)) out.fill(0, i, j);
+    i = j;
+  }
+  return out;
+}
 
 export function areaTrace({ pcts, brakes, throttles }: LapSamples, start: number, end: number): AreaTrace | null {
   const startIndex = crossingIndex(pcts, start, 0);
@@ -138,10 +164,11 @@ export function areaTrace({ pcts, brakes, throttles }: LapSamples, start: number
   if (endIndex === null) return null;
   const from = Math.floor(startIndex);
   const to = Math.min(Math.ceil(endIndex), pcts.length - 1) + 1;
+  const areaBrakes = brakes.slice(from, to);
   return {
     pcts: pcts.slice(from, to),
-    brakes: brakes.slice(from, to),
-    throttles: throttles.slice(from, to),
+    brakes: areaBrakes,
+    throttles: withoutThrottleBlips(areaBrakes, throttles.slice(from, to)),
     domain: [start, domainEnd],
   };
 }

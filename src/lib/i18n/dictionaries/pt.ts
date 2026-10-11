@@ -345,6 +345,9 @@ export const pt: Dictionary = {
   },
 
   recordedLaps: {
+    driver: 'Piloto',
+    driverOption: '{name} · {laps}',
+    you: '{name} (você)',
     loading: 'Carregando suas voltas gravadas…',
     failedLoad: 'Não foi possível carregar suas voltas gravadas',
     logIn: 'Entre',
@@ -854,6 +857,22 @@ export const pt: Dictionary = {
   },
 
   admin: {
+    pageTitle: 'Administração',
+    rolesTitle: 'Funções dos usuários',
+    rolesIntro: 'Encontre um usuário, escolha a função e salve.',
+    findUser: 'Encontrar um usuário',
+    findPlaceholder: 'Nome ou endereço de e-mail',
+    noMatches: 'Nenhum usuário encontrado.',
+    keepTyping: 'Mostrando os primeiros {n}. Continue digitando para filtrar.',
+    selectUser: 'Selecione um usuário para alterar a função.',
+    role: 'Função',
+    saveRole: 'Salvar',
+    savingRole: 'Salvando…',
+    roleSaved: '{user} agora é {role}.',
+    ownRole: 'Você não pode alterar a própria função.',
+    you: '(você)',
+    // Keyed by the stored role (src/lib/roles.ts)
+    roles: { Admin: 'Administrador', Coach: 'Treinador', User: 'Usuário' } as Record<string, string>,
     title: 'Registro de atividades',
     intro: 'Cada visualização de página e clique no site. Datas e horários em {timeZone}.',
     from: 'De',
@@ -910,6 +929,13 @@ export const pt: Dictionary = {
   },
 
   api: {
+    ownLapsOnly: 'Você só pode ver as suas próprias voltas',
+    adminOnly: 'Não encontrado',
+    invalidRole: 'Função desconhecida',
+    userNotFound: 'Usuário não encontrado',
+    cannotChangeOwnRole: 'Você não pode alterar a própria função',
+    lastAdmin: 'É preciso haver pelo menos um administrador',
+    failedSaveRole: 'Não foi possível salvar a função',
     notConfigured: 'Este recurso não está disponível no momento. Tente novamente mais tarde.',
     aiNotConfigured: 'O coach de IA não está disponível no momento. Tente novamente mais tarde.',
     aiOutOfCredits: 'O serviço de IA está sem créditos',

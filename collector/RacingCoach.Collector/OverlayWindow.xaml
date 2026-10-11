@@ -1,0 +1,71 @@
+<Window x:Class="RacingCoach.Collector.OverlayWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="RacingCoach Overlay"
+        Width="440" Height="430" MinWidth="320" MinHeight="300"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        Opacity="0.6" Topmost="True" ShowInTaskbar="False" ResizeMode="CanResizeWithGrip"
+        WindowStartupLocation="Manual" Left="40" Top="120"
+        Icon="Assets/collector.ico"
+        FontFamily="Segoe UI" FontSize="13" Foreground="#F3F4F6"
+        UseLayoutRounding="True" TextOptions.TextFormattingMode="Display"
+        MouseLeftButtonDown="Window_MouseLeftButtonDown">
+
+    <!-- Medium opacity (Opacity above) so the sim shows through. Drag anywhere to move it. -->
+    <Window.Resources>
+        <Style x:Key="Heading" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#9A9CA3" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="2,0,0,4" />
+        </Style>
+        <!-- Read-only, and not hit-testable, so a click on a box drags the window like anywhere else -->
+        <Style x:Key="Box" TargetType="TextBox">
+            <Setter Property="IsReadOnly" Value="True" />
+            <Setter Property="IsHitTestVisible" Value="False" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Background" Value="#1A1B1E" />
+            <Setter Property="Foreground" Value="#F3F4F6" />
+            <Setter Property="BorderBrush" Value="#303136" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="8,5" />
+            <Setter Property="Margin" Value="0,0,0,5" />
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+    </Window.Resources>
+
+    <Border Background="#121315" BorderBrush="#303136" BorderThickness="1" CornerRadius="10" Padding="14,10,14,14">
+        <DockPanel>
+            <!-- Header: the track, and a close button -->
+            <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                <Button DockPanel.Dock="Right" Content="✕" Click="Close_Click" ToolTip="Close the overlay"
+                        Width="26" Height="26" Padding="0" FontSize="12" Cursor="Hand"
+                        Foreground="#F3F4F6" Background="#232428" BorderBrush="#303136" />
+                <StackPanel>
+                    <TextBlock FontWeight="Bold" FontSize="14">
+                        <Run Text="RACINGCOACH" /><Run Text=" OVERLAY" Foreground="#DE3341" FontWeight="Normal" />
+                    </TextBlock>
+                    <TextBlock x:Name="TrackText" Foreground="#9A9CA3" FontSize="12" TextTrimming="CharacterEllipsis" Text="Waiting for iRacing…" />
+                </StackPanel>
+            </DockPanel>
+
+            <TextBlock x:Name="StatusText" DockPanel.Dock="Top" Foreground="#E3A82B" FontSize="12" TextWrapping="Wrap"
+                       Margin="0,0,0,8" Visibility="Collapsed" />
+
+            <!-- Focus Area names and this lap's Brake Point, one row per area (rows added in code) -->
+            <Grid x:Name="AreaGrid">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="12" />
+                    <ColumnDefinition Width="120" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Column="0" Style="{StaticResource Heading}" Text="Focus Area" />
+                <TextBlock Grid.Column="2" Style="{StaticResource Heading}" Text="Brake Point" />
+            </Grid>
+        </DockPanel>
+    </Border>
+</Window>

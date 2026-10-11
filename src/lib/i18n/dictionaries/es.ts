@@ -345,6 +345,9 @@ export const es: Dictionary = {
   },
 
   recordedLaps: {
+    driver: 'Piloto',
+    driverOption: '{name} · {laps}',
+    you: '{name} (tú)',
     loading: 'Cargando tus vueltas grabadas…',
     failedLoad: 'No se pudieron cargar tus vueltas grabadas',
     logIn: 'Inicia sesión',
@@ -854,6 +857,22 @@ export const es: Dictionary = {
   },
 
   admin: {
+    pageTitle: 'Administración',
+    rolesTitle: 'Roles de usuario',
+    rolesIntro: 'Busca un usuario, elige su rol y guarda.',
+    findUser: 'Buscar un usuario',
+    findPlaceholder: 'Nombre o correo electrónico',
+    noMatches: 'Ningún usuario coincide.',
+    keepTyping: 'Se muestran los primeros {n}. Sigue escribiendo para acotar la lista.',
+    selectUser: 'Selecciona un usuario para cambiar su rol.',
+    role: 'Rol',
+    saveRole: 'Guardar',
+    savingRole: 'Guardando…',
+    roleSaved: '{user} ahora es {role}.',
+    ownRole: 'No puedes cambiar tu propio rol.',
+    you: '(tú)',
+    // Keyed by the stored role (src/lib/roles.ts)
+    roles: { Admin: 'Administrador', Coach: 'Entrenador', User: 'Usuario' } as Record<string, string>,
     title: 'Registro de actividad',
     intro: 'Cada vista de página y clic en el sitio. Fechas y horas en {timeZone}.',
     from: 'Desde',
@@ -910,6 +929,13 @@ export const es: Dictionary = {
   },
 
   api: {
+    ownLapsOnly: 'Solo puedes ver tus propias vueltas',
+    adminOnly: 'No encontrado',
+    invalidRole: 'Rol desconocido',
+    userNotFound: 'No se encontró el usuario',
+    cannotChangeOwnRole: 'No puedes cambiar tu propio rol',
+    lastAdmin: 'Debe haber al menos un administrador',
+    failedSaveRole: 'No se pudo guardar el rol',
     notConfigured: 'Esta función no está disponible en este momento. Inténtalo más tarde.',
     aiNotConfigured: 'El coach de IA no está disponible en este momento. Inténtalo más tarde.',
     aiOutOfCredits: 'El servicio de IA se quedó sin créditos',

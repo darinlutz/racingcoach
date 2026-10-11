@@ -17,6 +17,13 @@
   <ItemGroup>
     <!-- Also brings Microsoft.Extensions.Logging.Abstractions; DPAPI (ProtectedData) comes with Windows Desktop -->
     <PackageReference Include="SVappsLAB.iRacingTelemetrySDK" Version="2.5.0" />
+    <!-- Runs scripts/TelemetryEngine.js (a SimHub script) for the overlay -->
+    <PackageReference Include="Jint" Version="4.17.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Built into the exe; Documents\RacingCoach\TelemetryEngine.js replaces it when present (OverlayEngine.cs) -->
+    <EmbeddedResource Include="..\..\scripts\TelemetryEngine.js" LogicalName="TelemetryEngine.js" />
   </ItemGroup>
 
   <ItemGroup>

@@ -5,24 +5,45 @@ import {
   collectorLapSchema,
   InvalidLapCsvError,
   listCollectorLaps,
+  listLapOwners,
   MAX_UPLOAD_BYTES,
   saveCollectorLap,
 } from '@/lib/collectorLaps';
+import { canSeeAllLaps } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
 import { apiText } from '@/lib/i18n/server';
 
 const UNAUTHORIZED = { error: 'Missing or unknown upload key' };
 
-// The signed-in user's uploaded laps (details only, newest first), for the Racing page.
-// Uses the browser's sign-in, unlike POST.
-export async function GET() {
+// Uploaded laps (details only, newest first), for the Racing page. Uses the browser's sign-in, unlike POST.
+// Users get their own laps. Coaches and Admins (canSeeAllLaps) can pass ?userId= for any driver's laps
+// (their own by default), and also get `drivers`: every account with laps, for the page's Driver box.
+export async function GET(request: Request) {
   const t = await apiText();
   try {
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: t.logInRecordedLaps }, { status: 401 });
     }
-    return NextResponse.json({ laps: await listCollectorLaps(user.id) });
+
+    const requested = new URL(request.url).searchParams.get('userId');
+    const userId = requested === null ? user.id : Number(requested);
+    if (!Number.isInteger(userId) || userId <= 0) {
+      return NextResponse.json({ error: t.lapNotFound }, { status: 400 });
+    }
+    if (!canSeeAllLaps(user.role)) {
+      if (userId !== user.id) {
+        return NextResponse.json({ error: t.ownLapsOnly }, { status: 403 });
+      }
+      return NextResponse.json({ laps: await listCollectorLaps(user.id) });
+    }
+
+    const [laps, owners] = await Promise.all([listCollectorLaps(userId), listLapOwners()]);
+    // The coach is always in the list, so they can get back to their own laps even with none yet
+    const drivers = owners.some((owner) => owner.userId === user.id)
+      ? owners
+      : [{ userId: user.id, userName: user.userName, lapCount: 0 }, ...owners];
+    return NextResponse.json({ laps, drivers, userId, currentUserId: user.id });
   } catch (error) {
     console.error('Collector lap list error:', error);
     return NextResponse.json({ error: t.failedLoadRecordedLaps }, { status: 500 });

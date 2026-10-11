@@ -348,6 +348,9 @@ export const en = {
   },
 
   recordedLaps: {
+    driver: 'Driver',
+    driverOption: '{name} · {laps}',
+    you: '{name} (you)',
     loading: 'Loading your recorded laps…',
     failedLoad: 'Failed to load your recorded laps',
     logIn: 'Log in',
@@ -862,6 +865,22 @@ export const en = {
 
   // The Admin page's activity log (src/app/admin/page.tsx)
   admin: {
+    pageTitle: 'Admin',
+    rolesTitle: 'User Roles',
+    rolesIntro: 'Find a user, choose their role and save.',
+    findUser: 'Find a user',
+    findPlaceholder: 'Name or email address',
+    noMatches: 'No users match.',
+    keepTyping: 'Showing the first {n}. Keep typing to narrow the list.',
+    selectUser: 'Select a user to change their role.',
+    role: 'Role',
+    saveRole: 'Save',
+    savingRole: 'Saving…',
+    roleSaved: '{user} is now {role}.',
+    ownRole: 'You can’t change your own role.',
+    you: '(you)',
+    // Keyed by the stored role (src/lib/roles.ts)
+    roles: { Admin: 'Admin', Coach: 'Coach', User: 'User' } as Record<string, string>,
     title: 'Activity Log',
     intro: 'Every page view and click on the site. Dates and times are in {timeZone}.',
     from: 'From',
@@ -919,6 +938,13 @@ export const en = {
 
   // Error messages the API routes send back to the site (src/lib/i18n/server.ts apiText)
   api: {
+    ownLapsOnly: 'You can only see your own laps',
+    adminOnly: 'Not found',
+    invalidRole: 'Unknown role',
+    userNotFound: 'User not found',
+    cannotChangeOwnRole: 'You can’t change your own role',
+    lastAdmin: 'There must be at least one Admin',
+    failedSaveRole: 'Failed to save the role',
     // General
     notConfigured: 'This feature isn’t available right now. Please try again later.',
     aiNotConfigured: 'The AI coach isn’t available right now. Please try again later.',

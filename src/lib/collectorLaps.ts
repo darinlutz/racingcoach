@@ -148,14 +148,29 @@ export async function listCollectorLaps(userId: number): Promise<CollectorLapSum
   }));
 }
 
-// The lap's CSV, or null if the user has no lap with that id
-export async function readCollectorLapCsv(userId: number, id: number): Promise<string | null> {
+// The lap's CSV, or null if there's no lap with that id. With a userId, only that user's lap is returned
+// (a User opening their own laps); null opens anyone's (Coaches and Admins, see canSeeAllLaps).
+export async function readCollectorLapCsv(userId: number | null, id: number): Promise<string | null> {
   await ensureUserSchema();
   const [row] = await query<{ csv_gzip: Buffer }>(
-    'SELECT csv_gzip FROM racingcoach."CollectorLaps" WHERE user_id = $1 AND id = $2',
-    [userId, id]
+    'SELECT csv_gzip FROM racingcoach."CollectorLaps" WHERE id = $1 AND ($2::integer IS NULL OR user_id = $2)',
+    [id, userId]
   );
   return row ? gunzipSync(row.csv_gzip).toString('utf8') : null;
+}
+
+// A driver whose laps a Coach or Admin can open in Debrief Coach
+export type LapOwner = { userId: number; userName: string; lapCount: number };
+
+// Every account with recorded laps, by name
+export async function listLapOwners(): Promise<LapOwner[]> {
+  await ensureUserSchema();
+  const rows = await query<{ id: number; user_name: string; lap_count: string }>(
+    `SELECT u.id, u.user_name, count(*) AS lap_count
+     FROM racingcoach."CollectorLaps" l JOIN racingcoach."Users" u ON u.id = l.user_id
+     GROUP BY u.id, u.user_name ORDER BY lower(u.user_name), u.id`
+  );
+  return rows.map((row) => ({ userId: Number(row.id), userName: row.user_name, lapCount: Number(row.lap_count) }));
 }
 
 // Saves a lap for the user. Uploading the same clientLapId again (a retry) keeps the first copy and

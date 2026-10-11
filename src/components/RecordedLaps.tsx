@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { useLanguage } from '@/components/LanguageProvider';
-import type { CollectorLapSummary } from '@/lib/collectorLaps';
+import type { CollectorLapSummary, LapOwner } from '@/lib/collectorLaps';
 import {
   areaStats,
   brakeFeet,
@@ -71,6 +71,8 @@ const smallButtonClass =
 // (the Reference Points tab's /api/tracks/reference-points); onTargetsSaved then reloads Track Data.
 // A Compare column takes up to two laps; Compare sends them to onCompare, fastest first (the Racing
 // page opens them in Lap Compare as the Base and Compare laps).
+// Coaches and Admins also get a Driver box listing every account with laps (their own first shown);
+// Users only ever see their own laps (the API enforces it).
 export default function RecordedLaps({
   tracks,
   onChange,
@@ -97,21 +99,74 @@ export default function RecordedLaps({
   // Laps ticked in the Compare column, oldest tick first (at most two), and whether Compare is loading them
   const [comparePicks, setComparePicks] = useState<number[]>([]);
   const [comparing, setComparing] = useState(false);
+  // Coaches and Admins only: the drivers they can pick, whose laps are shown, and which driver is them
+  const [drivers, setDrivers] = useState<LapOwner[] | null>(null);
+  const [driverId, setDriverId] = useState<number | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
 
   useEffect(() => {
-    fetch('/api/collector/laps')
+    // A slower answer for a driver picked earlier mustn't replace the one picked last
+    let current = true;
+    fetch(driverId === null ? '/api/collector/laps' : `/api/collector/laps?userId=${driverId}`)
       .then(async (res) => {
+        if (!current) return;
         if (res.status === 401) return setStatus('signed-out');
         const data = await res.json();
+        if (!current) return;
         if (!res.ok) throw new Error(data.error || t.failedLoad);
         setLaps(data.laps);
+        if (data.drivers) {
+          setDrivers(data.drivers);
+          setCurrentUserId(data.currentUserId);
+        }
         setStatus('ready');
       })
       .catch((err: Error) => {
+        if (!current) return;
         setError(err.message);
         setStatus('error');
       });
-  }, [t]);
+    return () => {
+      current = false;
+    };
+  }, [t, driverId]);
+
+  // Shows another driver's laps, starting over with nothing picked
+  const changeDriver = (id: number) => {
+    setSelected(new Set());
+    setFiles({});
+    setLoading(new Set());
+    setTargetPicks(new Set());
+    setComparePicks([]);
+    setError('');
+    setNotice('');
+    setStatus('loading');
+    setDriverId(id);
+  };
+
+  const shownDriverId = driverId ?? currentUserId;
+  const driverPicker = drivers && (
+    <div className="flex items-center gap-2">
+      <label htmlFor="recorded-laps-driver" className="text-sm text-muted-foreground">
+        {t.driver}
+      </label>
+      <select
+        id="recorded-laps-driver"
+        value={shownDriverId ?? ''}
+        onChange={(e) => changeDriver(Number(e.target.value))}
+        className="px-3 py-1.5 bg-card border border-border rounded-lg text-sm text-foreground focus:outline-none focus:border-primary"
+      >
+        {drivers.map((driver) => {
+          const name = driver.userId === currentUserId ? fmt(t.you, { name: driver.userName }) : driver.userName;
+          return (
+            <option key={driver.userId} value={driver.userId}>
+              {fmt(t.driverOption, { name, laps: plural(driver.lapCount, t.lapCount) })}
+            </option>
+          );
+        })}
+      </select>
+    </div>
+  );
 
   const sessions = useMemo(() => groupSessions(laps), [laps]);
 
@@ -258,7 +313,12 @@ export default function RecordedLaps({
   };
 
   if (status === 'loading') {
-    return <p className="text-sm text-muted-foreground">{t.loading}</p>;
+    return (
+      <div className="space-y-2">
+        {driverPicker}
+        <p className="text-sm text-muted-foreground">{t.loading}</p>
+      </div>
+    );
   }
   if (status === 'signed-out') {
     return (
@@ -273,16 +333,20 @@ export default function RecordedLaps({
   }
   if (laps.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground">
-        {t.noneBefore}
-        <a href="/account" className="text-primary hover:underline">{t.account}</a>
-        {t.noneAfter}
-      </p>
+      <div className="space-y-2">
+        {driverPicker}
+        <p className="text-sm text-muted-foreground">
+          {t.noneBefore}
+          <a href="/account" className="text-primary hover:underline">{t.account}</a>
+          {t.noneAfter}
+        </p>
+      </div>
     );
   }
 
   return (
     <div className="space-y-2">
+      {driverPicker}
       {error && (
         <div className="px-4 py-3 rounded-lg border text-sm bg-primary/10 border-primary/40 text-red-300">{error}</div>
       )}

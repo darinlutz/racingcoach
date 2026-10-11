@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
 import { readCollectorLapCsv } from '@/lib/collectorLaps';
+import { canSeeAllLaps } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
 import { apiText } from '@/lib/i18n/server';
 
-// One of the signed-in user's uploaded laps as CSV, for analysing it in the browser like a dropped file
+// One uploaded lap as CSV, for analysing it in the browser like a dropped file. Users can only open their own
+// laps (anyone else's is a 404, as if it didn't exist); Coaches and Admins can open any driver's.
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const t = await apiText();
   try {
@@ -16,7 +18,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: t.lapNotFound }, { status: 404 });
     }
 
-    const csv = await readCollectorLapCsv(user.id, Number(id));
+    const csv = await readCollectorLapCsv(canSeeAllLaps(user.role) ? null : user.id, Number(id));
     if (csv === null) {
       return NextResponse.json({ error: t.lapNotFound }, { status: 404 });
     }

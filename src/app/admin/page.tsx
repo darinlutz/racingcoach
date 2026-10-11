@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import AdminTimeZone from '@/components/AdminTimeZone';
+import UserRoleManager from '@/components/UserRoleManager';
 import {
   ACTIVITY_PAGE_SIZE,
   activityFilterParams,
@@ -8,7 +9,7 @@ import {
   type CountedItem,
   dateInZone,
   describeUserAgent,
-  listUsersForFilter,
+  listUsersForAdmin,
   MAX_EXPORT_ROWS,
   parseActivityFilters,
   readActivityReport,
@@ -18,8 +19,9 @@ import { getDictionary } from '@/lib/i18n/server';
 import { isAdmin } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
 
-// The site owner's view of racingcoach."ActivityLog": every page view and click, filtered through the URL
-// (so a filtered view can be bookmarked), with totals, the top pages and controls, and a CSV export.
+// The site owner's Admin page: User Roles (src/components/UserRoleManager.tsx), then racingcoach."ActivityLog",
+// every page view and click, filtered through the URL (so a filtered view can be bookmarked), with totals,
+// the top pages and controls, and a CSV export.
 // Only for the Admin role; anyone else gets a 404, so the page's existence isn't advertised.
 
 const inputClass =
@@ -40,7 +42,7 @@ export default async function AdminPage({
   const t = getDictionary(user.preferredLanguage);
   const a = t.admin;
   const locale = LANGUAGE_LOCALES[user.preferredLanguage];
-  const [report, users] = await Promise.all([readActivityReport(filters), listUsersForFilter()]);
+  const [report, users] = await Promise.all([readActivityReport(filters), listUsersForAdmin()]);
   const { summary, topPages, topClicks, rows } = report;
 
   const href = (changes: Partial<ActivityFilters>) => `/admin?${activityFilterParams(filters, changes)}`;
@@ -70,11 +72,15 @@ export default async function AdminPage({
     <section data-no-track className="py-10 px-4">
       <AdminTimeZone current={typeof params.tz === 'string' ? params.tz : null} />
       <div className="site-container space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold mb-2 bg-gradient-to-r from-primary-strong via-primary to-primary-strong bg-clip-text text-transparent">
-            {a.title}
-          </h1>
-          <p className="text-muted-foreground">{fmt(a.intro, { timeZone: filters.timeZone })}</p>
+        <h1 className="text-3xl font-bold bg-gradient-to-r from-primary-strong via-primary to-primary-strong bg-clip-text text-transparent">
+          {a.pageTitle}
+        </h1>
+
+        <UserRoleManager users={users} currentUserId={user.id} />
+
+        <div className="pt-4">
+          <h2 className="text-xl font-bold text-foreground mb-1">{a.title}</h2>
+          <p className="text-sm text-muted-foreground">{fmt(a.intro, { timeZone: filters.timeZone })}</p>
         </div>
 
         {/* Filters: a plain GET form, so every view has its own URL */}

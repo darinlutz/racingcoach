@@ -1,7 +1,7 @@
 import { randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 import { isUniqueViolation, query, transaction } from './db';
-import { ROLES } from './roles';
+import { ROLES, type Role } from './roles';
 import { ACCOUNT_STATUS, canSubscribe, LEGACY_SUBSCRIBED_STATUSES, type Plan } from './accountStatus';
 import { copyDefaultCars, seedDefaultCars } from './defaultCars';
 import { copyDefaultTracks, seedDefaultTracks } from './defaultTracks';
@@ -573,6 +573,32 @@ export async function getUserByEmail(emailAddress: string): Promise<User | null>
     emailAddress,
   ]);
   return row ? rowToUser(row) : null;
+}
+
+export class RoleChangeError extends Error {
+  constructor(readonly reason: 'not-found' | 'own-role' | 'last-admin') {
+    super(`Role change refused: ${reason}`);
+  }
+}
+
+// Sets a user's role from the Admin page. An admin can't change their own role (so they can't lock
+// themselves out), and the last Admin can't be demoted. Returns the user's name and new role.
+export async function setUserRole(userId: number, role: Role, changedBy: number): Promise<{ userName: string; role: Role }> {
+  await ensureUserSchema();
+  if (userId === changedBy) throw new RoleChangeError('own-role');
+  return transaction(async (client) => {
+    // Locks the Admin rows too, so two admins demoting each other at once can't leave none
+    const { rows } = await client.query(
+      'SELECT id, user_name, role FROM racingcoach."Users" WHERE id = $1 OR role = $2 FOR UPDATE',
+      [userId, ROLES.admin]
+    );
+    const target = rows.find((row) => Number(row.id) === userId);
+    if (!target) throw new RoleChangeError('not-found');
+    const admins = rows.filter((row) => row.role === ROLES.admin).length;
+    if (target.role === ROLES.admin && role !== ROLES.admin && admins <= 1) throw new RoleChangeError('last-admin');
+    await client.query('UPDATE racingcoach."Users" SET role = $1 WHERE id = $2', [role, userId]);
+    return { userName: target.user_name as string, role };
+  });
 }
 
 export async function setPreferredLanguage(userId: number, language: Language): Promise<void> {

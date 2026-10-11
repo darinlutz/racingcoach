@@ -93,6 +93,10 @@ internal sealed class CollectorEngine
     public string RecorderStatus => _recorder.Status;
     public double SamplesPerSecond { get; private set; }
     public LapUploader? Uploader => _uploader;
+    /// <summary>The site connection for the upload key in use, or null without one (the overlay loads Track Data with it).</summary>
+    public RacingCoachApi? Api { get; private set; }
+    /// <summary>The overlay's TelemetryEngine.js while the overlay is open; it gets every telemetry sample.</summary>
+    public OverlayEngine? Overlay { get; set; }
 
     /// <summary>The latest telemetry sample, if there's been one since connecting.</summary>
     public bool TryGetLatest(out TelemetryData data)
@@ -109,6 +113,7 @@ internal sealed class CollectorEngine
     public void UseApi(RacingCoachApi? api)
     {
         var old = _uploader;
+        Api = api;
         _uploader = api is null ? null : new LapUploader(api, _writer.RecordUploadResult, message => Log(message));
         _writer.SetUploader(_uploader);
         if (old is not null)
@@ -219,6 +224,7 @@ internal sealed class CollectorEngine
         OnTelemetryUpdate = data =>
         {
             _recorder.OnSample(data);
+            Overlay?.OnSample(data, Session);
             lock (_sampleLock)
             {
                 _latest = data;

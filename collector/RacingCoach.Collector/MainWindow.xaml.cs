@@ -58,6 +58,7 @@ public partial class MainWindow : Window
     private string? _updateUrl;
     private bool _closing;
     private bool _closed;
+    private OverlayWindow? _overlayWindow;
 
     internal MainWindow(CollectorOptions options)
     {
@@ -534,6 +535,32 @@ public partial class MainWindow : Window
     private void OpenAccount_Click(object sender, RoutedEventArgs e) => Open($"{_siteUrl}/account");
     private void DownloadUpdate_Click(object sender, RoutedEventArgs e) => Open(_updateUrl ?? UpdateCheck.ReleasesPage);
 
+    // Opens the overlay (or brings it to the front): focus areas and brake points from TelemetryEngine.js
+    private void LaunchOverlay_Click(object sender, RoutedEventArgs e)
+    {
+        if (_overlayWindow is not null)
+        {
+            _overlayWindow.Activate();
+            return;
+        }
+        OverlayEngine overlay;
+        try
+        {
+            overlay = new OverlayEngine((message, isError) => ActivityLog.Shared.Write(message, isError));
+        }
+        catch (Exception ex)
+        {
+            ActivityLog.Shared.Write($"Couldn't start the overlay: TelemetryEngine.js didn't load ({ex.Message}).", isError: true);
+            MessageBox.Show(this, $"TelemetryEngine.js didn't load:\n\n{ex.Message}", "RacingCoach Overlay", MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
+        }
+        ActivityLog.Shared.Write($"Overlay opened (TelemetryEngine.js: {overlay.ScriptSource}).");
+        _engine.Overlay = overlay;
+        _overlayWindow = new OverlayWindow(_engine, overlay);
+        _overlayWindow.Closed += (_, _) => _overlayWindow = null;
+        _overlayWindow.Show();
+    }
+
     private static void Open(string target)
     {
         try
@@ -557,6 +584,7 @@ public partial class MainWindow : Window
         if (_closing)
             return;
         _closing = true;
+        _overlayWindow?.Close();
         ClosingOverlay.Visibility = Visibility.Visible;
         _timer.Stop();
         _stop.Cancel();

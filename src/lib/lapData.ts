@@ -78,6 +78,7 @@ export function formatLapTime(lapTime: string) {
 // speeds are in m/s, as exported by Garage 61
 export const MPH_PER_METER_PER_SECOND = 2.23694;
 
+// steerings is SteeringWheelAngle in radians, positive to the left (0 where the CSV has none).
 // lats/lons are the car's position in degrees; NaN where the CSV has none (laps the collector hasn't
 // added positions to yet, see IbtEnricher.cs)
 export type LapSamples = {
@@ -85,6 +86,7 @@ export type LapSamples = {
   brakes: number[];
   speeds: number[];
   throttles: number[];
+  steerings: number[];
   lats: number[];
   lons: number[];
 };
@@ -95,7 +97,7 @@ const BRAKE_THRESHOLD = 0;
 // Throttle (0-1) at or above this counts as the driver being back on the power
 const THROTTLE_THRESHOLD = 0.1;
 
-// Reads the LapDistPct, Brake, Throttle, Speed, Lat and Lon columns. LapDistPct is unwrapped so it keeps
+// Reads the LapDistPct, Brake, Throttle, Speed, SteeringWheelAngle, Lat and Lon columns. LapDistPct is unwrapped so it keeps
 // increasing past the start/finish line (e.g. 0.999 -> 1.001 instead of 0.001).
 export async function readLapSamples(file: File): Promise<LapSamples> {
   const lines = (await file.text()).split(/\r?\n/);
@@ -104,12 +106,14 @@ export async function readLapSamples(file: File): Promise<LapSamples> {
   const brakeColumn = header.indexOf('Brake');
   const speedColumn = header.indexOf('Speed');
   const throttleColumn = header.indexOf('Throttle');
+  const steeringColumn = header.indexOf('SteeringWheelAngle');
   const latColumn = header.indexOf('Lat');
   const lonColumn = header.indexOf('Lon');
   const pcts: number[] = [];
   const brakes: number[] = [];
   const speeds: number[] = [];
   const throttles: number[] = [];
+  const steerings: number[] = [];
   const lats: number[] = [];
   const lons: number[] = [];
   let offset = 0;
@@ -124,11 +128,12 @@ export async function readLapSamples(file: File): Promise<LapSamples> {
     brakes.push(parseFloat(cells[brakeColumn]) || 0);
     speeds.push(parseFloat(cells[speedColumn]) || 0);
     throttles.push(parseFloat(cells[throttleColumn]) || 0);
+    steerings.push(parseFloat(cells[steeringColumn]) || 0);
     // parseFloat of a missing or empty cell is NaN
     lats.push(latColumn < 0 ? NaN : parseFloat(cells[latColumn]));
     lons.push(lonColumn < 0 ? NaN : parseFloat(cells[lonColumn]));
   }
-  return { pcts, brakes, speeds, throttles, lats, lons };
+  return { pcts, brakes, speeds, throttles, steerings, lats, lons };
 }
 
 // Fractional sample index where the lap first reaches `target`, at or after `from`
@@ -145,11 +150,13 @@ function crossingIndex(pcts: number[], target: number, from: number) {
 // blips, see withoutThrottleBlips), with each sample's unwrapped
 // lap position. Same stretch of samples areaStats measures; null if the lap doesn't cover the area.
 // domain is the area's start and end as lap positions (an end past the start/finish line is > 1).
+// steerings is the steering wheel angle at each sample (radians, positive to the left).
 // positions is the car's [lat, lon] at each sample, or null if the lap has no track positions there.
 export type AreaTrace = {
   pcts: number[];
   brakes: number[];
   throttles: number[];
+  steerings: number[];
   positions: [number, number][] | null;
   domain: [number, number];
 };
@@ -179,7 +186,11 @@ export function withoutThrottleBlips(brakes: number[], throttles: number[]): num
   return out;
 }
 
-export function areaTrace({ pcts, brakes, throttles, lats, lons }: LapSamples, start: number, end: number): AreaTrace | null {
+export function areaTrace(
+  { pcts, brakes, throttles, steerings, lats, lons }: LapSamples,
+  start: number,
+  end: number
+): AreaTrace | null {
   const startIndex = crossingIndex(pcts, start, 0);
   if (startIndex === null) return null;
   const domainEnd = end < start ? end + 1 : end;
@@ -193,6 +204,7 @@ export function areaTrace({ pcts, brakes, throttles, lats, lons }: LapSamples, s
     pcts: pcts.slice(from, to),
     brakes: areaBrakes,
     throttles: withoutThrottleBlips(areaBrakes, throttles.slice(from, to)),
+    steerings: steerings.slice(from, to),
     positions: positions.every(([lat, lon]) => Number.isFinite(lat) && Number.isFinite(lon)) ? positions : null,
     domain: [start, domainEnd],
   };

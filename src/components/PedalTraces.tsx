@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
 
+import SteeringTrace from '@/components/SteeringTrace';
 import TrackLineMap from '@/components/TrackLineMap';
+import { CHART_MARGIN as MARGIN, clamp, nearestIndex, positionLabel, xTicks, type Axis } from '@/lib/lapCharts';
 import type { AreaTrace } from '@/lib/lapData';
 
 // Brake red and throttle green, checked with the dataviz palette validator against the panel surface
@@ -11,7 +13,6 @@ const BRAKE_COLOR = '#c9302c';
 const THROTTLE_COLOR = '#26a764';
 
 const HEIGHT = 180;
-const MARGIN = { top: 10, right: 64, bottom: 28, left: 40 };
 const Y_TICKS = [0, 0.25, 0.5, 0.75, 1];
 // End labels closer than this (px) would collide, so the legend carries identity instead
 const MIN_LABEL_GAP = 14;
@@ -21,43 +22,6 @@ export type PedalTraceLap = {
   trace: AreaTrace;
   summary: string; // text version of the chart, e.g. "Brakes at 812 ft (max 80%), throttle at 1,299 ft"
 };
-
-type Axis = {
-  domain: [number, number];
-  lengthFeet: number | null;
-};
-
-const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
-
-// Lap position -> axis label: feet from the start/finish line, or % of the lap without a track length
-function positionLabel(pct: number, lengthFeet: number | null) {
-  const lapPct = ((pct % 1) + 1) % 1;
-  return lengthFeet ? `${Math.round(lapPct * lengthFeet).toLocaleString('en-US')} ft` : `${(lapPct * 100).toFixed(1)}%`;
-}
-
-// Round tick positions (lap positions) across the domain: steps of 1/2/5 x 10^n feet (or % of the lap)
-function xTicks({ domain, lengthFeet }: Axis) {
-  const unit = lengthFeet ?? 100;
-  const [lo, hi] = [domain[0] * unit, domain[1] * unit];
-  const raw = (hi - lo) / 5;
-  const magnitude = 10 ** Math.floor(Math.log10(raw));
-  const step = [1, 2, 5, 10].map((m) => m * magnitude).find((s) => s >= raw) ?? raw;
-  const ticks: number[] = [];
-  for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step) ticks.push(v / unit);
-  return ticks;
-}
-
-// Index of the sample nearest a lap position (pcts are increasing)
-function nearestIndex(pcts: number[], pct: number) {
-  let lo = 0;
-  let hi = pcts.length - 1;
-  while (hi - lo > 1) {
-    const mid = (lo + hi) >> 1;
-    if (pcts[mid] < pct) lo = mid;
-    else hi = mid;
-  }
-  return Math.abs(pcts[lo] - pct) <= Math.abs(pcts[hi] - pct) ? lo : hi;
-}
 
 function useWidth() {
   const ref = useRef<HTMLDivElement>(null);
@@ -216,8 +180,9 @@ function TraceChart({
 }
 
 // Brake and throttle through one focus area for the Base and Compare laps, on the same horizontal axis,
-// with a crosshair that follows the pointer (or arrow keys) on both charts at once, and below them both
-// laps' driving lines on a map (TrackLineMap) with the crosshair's position marked on each. id must be unique on
+// with a crosshair that follows the pointer (or arrow keys) on all the charts at once. Below them, both
+// laps' steering angle on one chart (SteeringTrace), then their driving lines on a map (TrackLineMap)
+// with the crosshair's position marked on each. id must be unique on
 // the page (the charts' clip paths are named after it). Charts only draw once the container has a width,
 // so inside a closed <details> they draw when it's opened.
 export default function PedalTraces({
@@ -249,6 +214,7 @@ export default function PedalTraces({
         <>
           <TraceChart id={`${id}-base`} lap={base} axis={axis} width={width} hoverPct={hoverPct} onHover={setHoverPct} />
           <TraceChart id={`${id}-compare`} lap={compare} axis={axis} width={width} hoverPct={hoverPct} onHover={setHoverPct} />
+          <SteeringTrace id={`${id}-steering`} base={base} compare={compare} axis={axis} width={width} hoverPct={hoverPct} onHover={setHoverPct} />
           <TrackLineMap base={base} compare={compare} width={width} hoverPct={hoverPct} onHover={setHoverPct} />
         </>
       )}

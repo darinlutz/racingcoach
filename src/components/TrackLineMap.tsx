@@ -3,11 +3,9 @@
 import { useEffect, useRef, useState, type MouseEvent, type PointerEvent } from 'react';
 
 import type { PedalTraceLap } from '@/components/PedalTraces';
+import { BASE_LAP_COLOR as BASE_COLOR, clamp, COMPARE_LAP_COLOR as COMPARE_COLOR, nearestIndex } from '@/lib/lapCharts';
 
-// The user asked for Base in blue and Compare in red; bright variants so both read on dark asphalt,
-// each drawn over a dark casing so they also hold up on light concrete and run-off
-const BASE_COLOR = '#3b8bff';
-const COMPARE_COLOR = '#ff4040';
+// Under each line, so it also holds up on light concrete and run-off
 const CASING_COLOR = 'rgba(0, 0, 0, 0.55)';
 
 const HEIGHT = 360;
@@ -67,18 +65,6 @@ function project([lat, lon]: [number, number]): [number, number] {
   ];
 }
 
-// Index of the sample nearest a lap position (pcts are increasing)
-function nearestIndex(pcts: number[], pct: number) {
-  let lo = 0;
-  let hi = pcts.length - 1;
-  while (hi - lo > 1) {
-    const mid = (lo + hi) >> 1;
-    if (pcts[mid] < pct) lo = mid;
-    else hi = mid;
-  }
-  return Math.abs(pcts[lo] - pct) <= Math.abs(pcts[hi] - pct) ? lo : hi;
-}
-
 // A round scale bar length (m) close to 100 px
 function scaleBar(metersPerPixel: number) {
   const target = metersPerPixel * 100;
@@ -86,8 +72,6 @@ function scaleBar(metersPerPixel: number) {
   const meters = [1, 2, 5, 10].map((m) => m * magnitude).filter((m) => m <= target).at(-1) ?? magnitude;
   return { meters: Number(meters.toPrecision(2)), pixels: meters / metersPerPixel };
 }
-
-const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
 // Keeps the center over the lines; fully zoomed out is always the fitted view
 function settle(view: View, frame: Frame): View {

@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import PedalTraces, { type PedalTraceLap } from '@/components/PedalTraces';
 import {
   areaStats,
+  areaTrace,
   brakeFeet,
   formatLapTime,
   formatSize,
@@ -22,6 +24,16 @@ const inputClass =
 // 1234.5 -> "1,235"
 function formatFeet(feet: number) {
   return Math.round(feet).toLocaleString('en-US');
+}
+
+// One lap through one focus area in words, the text version of its pedal trace chart
+function pedalSummary(stats: AreaStats, lengthFeet: number | null) {
+  const where = (pct: number) =>
+    lengthFeet ? `${formatFeet(brakeFeet(pct, lengthFeet))} ft` : `${((((pct % 1) + 1) % 1) * 100).toFixed(1)}% of the lap`;
+  const braking =
+    stats.brakePct === null ? 'No braking' : `Brakes at ${where(stats.brakePct)} (max ${Math.round(stats.maxBrake * 100)}%)`;
+  const throttle = stats.throttlePct === null ? 'no throttle pickup found' : `back on throttle at ${where(stats.throttlePct)}`;
+  return `${braking}, ${throttle}.`;
 }
 
 // 0.12 -> "+0.120", -0.05 -> "-0.050"
@@ -394,6 +406,13 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
   const [compareError, setCompareError] = useState('');
   const [analysis, setAnalysis] = useState('');
   const [areaRows, setAreaRows] = useState<AreaRow[]>([]);
+  // Brake/throttle charts for the focus area where the Compare lap loses the most time
+  const [traces, setTraces] = useState<{
+    areaName: string;
+    caption: string;
+    base: PedalTraceLap;
+    compare: PedalTraceLap;
+  } | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
 
   // Starts on the initial laps' track when there are any, otherwise the first track
@@ -449,30 +468,33 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
     if (!baseLap || !compareLap) return;
     setAnalyzing(true);
     setAreaRows([]);
+    setTraces(null);
     try {
       const baseSeconds = lapTimeToSeconds(baseLap.lapTime);
       const compareSeconds = lapTimeToSeconds(compareLap.lapTime);
-      const lines = [
-        `Base lap: ${formatLapTime(baseLap.lapTime)} (${baseLap.driverName}, ${baseLap.carName})`,
-        `Compare lap: ${formatLapTime(compareLap.lapTime)} (${compareLap.driverName}, ${compareLap.carName}) (${formatSecondsDiff(
-          compareSeconds - baseSeconds
-        )})`,
-        '',
-      ];
+      // One line per focus area: what the summary is written from
+      const lines: string[] = [];
 
+      // Only the coach's summary is shown (the focus areas are in the table); the lines below are what
+      // the summary is written from
       if (!selectedTrack || selectedTrack.areas.length === 0) {
-        lines.push('No focus areas for the selected track.');
+        setAnalysis('No focus areas for the selected track.');
       } else if (mismatchedLaps.length > 0) {
-        lines.push(`Both laps must be from ${selectedTrack.fileName}.`);
+        setAnalysis(`Both laps must be from ${selectedTrack.fileName}.`);
       } else {
         const [baseSamples, compareSamples] = await Promise.all([
           readLapSamples(baseLap.file),
           readLapSamples(compareLap.file),
         ]);
-        lines.push(`Focus areas (${selectedTrack.fileName}):`, '');
-        const areasStart = lines.length;
         const rows: AreaRow[] = [];
         const advice: string[] = [];
+        // The measured area where the Compare lap loses the most time to the Base lap
+        let worst: {
+          area: { name: string; start: number; end: number };
+          comparison: AreaComparison;
+          base: AreaStats;
+          compare: AreaStats;
+        } | null = null;
 
         // Each focus area gets a line (plus a blank line after it) and a table row
         for (const area of selectedTrack.areas) {
@@ -489,6 +511,9 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
             lines.push(formatAreaLine(area.name, comparison, selectedTrack.lengthFeet), '');
             rows.push({ name: area.name, comparison, note: '' });
             advice.push(formatAreaAdvice(area.name, comparison));
+            if (!worst || comparison.secondsDiff > worst.comparison.secondsDiff) {
+              worst = { area: { name: area.name, start: area.start, end: area.end }, comparison, base, compare };
+            }
           } else {
             const note = `no data for the ${!base ? 'Base' : 'Compare'} lap`;
             lines.push(`${area.name}: ${note}`, '');
@@ -497,16 +522,39 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
         }
         setAreaRows(rows);
 
-        // Show the focus areas right away, then add the coaching summary below them
-        setAnalysis(`${lines.join('\n').trimEnd()}\n\nSummary: writing…`);
+        if (worst) {
+          const baseTrace = areaTrace(baseSamples, worst.area.start, worst.area.end);
+          const compareTrace = areaTrace(compareSamples, worst.area.start, worst.area.end);
+          if (baseTrace && compareTrace) {
+            const diff = worst.comparison.secondsDiff;
+            setTraces({
+              areaName: worst.area.name,
+              caption:
+                diff > 0
+                  ? `Where the Compare lap loses the most time: ${formatSecondsDiff(diff)} s against the Base lap.`
+                  : `The Compare lap is as fast or faster in every focus area; this is where it gains the least (${formatSecondsDiff(diff)} s).`,
+              base: {
+                title: `Base lap · ${formatLapTime(baseLap.lapTime)}`,
+                trace: baseTrace,
+                summary: pedalSummary(worst.base, selectedTrack.lengthFeet),
+              },
+              compare: {
+                title: `Compare lap · ${formatLapTime(compareLap.lapTime)}`,
+                trace: compareTrace,
+                summary: pedalSummary(worst.compare, selectedTrack.lengthFeet),
+              },
+            });
+          }
+        }
+
+        // The table shows right away; the summary follows once the coach has written it
+        setAnalysis('Writing the summary…');
         const summary = await fetchSummary(
-          [lines.slice(areasStart).join('\n').trim(), '', 'Braking advice (follow exactly):', ...advice].join('\n'),
+          [lines.join('\n').trim(), '', 'Braking advice (follow exactly):', ...advice].join('\n'),
           selectedTrack.fileName
         );
-        lines.push('Summary:', summary);
+        setAnalysis(summary.trim());
       }
-
-      setAnalysis(lines.join('\n').trimEnd());
     } catch (err) {
       setAnalysis(`Error analyzing laps: ${err instanceof Error ? err.message : 'unknown error'}`);
     } finally {
@@ -578,7 +626,7 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
 
         <div>
           <label htmlFor="lap-compare-analysis" className="block text-sm font-medium text-foreground mb-2">
-            Analysis
+            Summary
           </label>
           <textarea
             id="lap-compare-analysis"
@@ -591,6 +639,16 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
             className={`${inputClass} resize-y font-mono text-sm`}
           />
         </div>
+
+        {traces && (
+          <PedalTraces
+            areaName={traces.areaName}
+            caption={traces.caption}
+            lengthFeet={selectedTrack?.lengthFeet ?? null}
+            base={traces.base}
+            compare={traces.compare}
+          />
+        )}
       </div>
     </div>
   );

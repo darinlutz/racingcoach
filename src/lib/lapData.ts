@@ -125,6 +125,27 @@ function crossingIndex(pcts: number[], target: number, from: number) {
   return null;
 }
 
+// The Brake and Throttle samples (0-1) through a focus area, for charting, with each sample's unwrapped
+// lap position. Same stretch of samples areaStats measures; null if the lap doesn't cover the area.
+// domain is the area's start and end as lap positions (an end past the start/finish line is > 1).
+export type AreaTrace = { pcts: number[]; brakes: number[]; throttles: number[]; domain: [number, number] };
+
+export function areaTrace({ pcts, brakes, throttles }: LapSamples, start: number, end: number): AreaTrace | null {
+  const startIndex = crossingIndex(pcts, start, 0);
+  if (startIndex === null) return null;
+  const domainEnd = end < start ? end + 1 : end;
+  const endIndex = crossingIndex(pcts, domainEnd, startIndex);
+  if (endIndex === null) return null;
+  const from = Math.floor(startIndex);
+  const to = Math.min(Math.ceil(endIndex), pcts.length - 1) + 1;
+  return {
+    pcts: pcts.slice(from, to),
+    brakes: brakes.slice(from, to),
+    throttles: throttles.slice(from, to),
+    domain: [start, domainEnd],
+  };
+}
+
 // Seconds spent between start and end, the highest Brake value (0-1) in that
 // stretch, the lowest speed (m/s) in it, and the speed (m/s) at the end of it. Samples are evenly spaced (60 Hz), so each one is
 // lapSeconds / sampleCount long.

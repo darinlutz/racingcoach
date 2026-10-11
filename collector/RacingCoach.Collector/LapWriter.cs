@@ -199,8 +199,9 @@ internal sealed class LapWriter : IAsyncDisposable
         manifest.Save(result.Folder);
     }
 
-    // Laps from earlier runs that haven't been uploaded (and weren't refused), oldest first. Laps saved
-    // before uploads existed get their upload ID here.
+    // Laps from earlier runs that haven't been uploaded, oldest first. Laps RacingCoach.app refused are
+    // tried again too, in case the refusal was a problem since fixed on either side; laps without a
+    // known track never are. Laps saved before uploads existed get their upload ID here.
     private void QueueEarlierLaps()
     {
         if (!Directory.Exists(_root))
@@ -212,7 +213,7 @@ internal sealed class LapWriter : IAsyncDisposable
             var manifest = SessionManifest.Load(folder);
             if (manifest is null)
                 continue;
-            var pending = manifest.Laps.Where(l => !l.Uploaded && l.UploadError is null).ToList();
+            var pending = manifest.Laps.Where(l => !l.Uploaded && l.UploadError != UnknownTrackError).ToList();
             if (pending.Count == 0)
                 continue;
 

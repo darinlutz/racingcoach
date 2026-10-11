@@ -59,6 +59,7 @@ internal sealed class ManifestLap
     public DateTimeOffset RecordedAt { get; set; }
     /// <summary>True once RacingCoach.app has the lap.</summary>
     public bool Uploaded { get; set; }
-    /// <summary>Why RacingCoach.app refused the lap; such laps aren't retried.</summary>
+    /// <summary>Why RacingCoach.app refused the lap (or why it isn't uploaded). Refused laps are tried
+    /// again the next time the collector starts.</summary>
     public string? UploadError { get; set; }
 }

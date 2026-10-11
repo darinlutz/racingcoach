@@ -84,13 +84,16 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
             lap.RecordedAt,
         };
 
-        using var form = new MultipartFormDataContent
-        {
-            { new StringContent(JsonSerializer.Serialize(details, JsonOptions), Encoding.UTF8, "application/json"), "lap" },
-        };
+        // The parts' Content-Disposition headers are written by hand: .NET's own leave the names unquoted
+        // and add a filename* parameter, and Node 20's form parser (the website's server) rejects both.
+        using var form = new MultipartFormDataContent();
+        var lapContent = new StringContent(JsonSerializer.Serialize(details, JsonOptions), Encoding.UTF8, "application/json");
+        lapContent.Headers.ContentDisposition = new ContentDispositionHeaderValue("form-data") { Name = "\"lap\"" };
+        form.Add(lapContent);
         var csvContent = new ByteArrayContent(csvGzip);
         csvContent.Headers.ContentType = new MediaTypeHeaderValue("application/gzip");
-        form.Add(csvContent, "csv", "lap.csv.gz");
+        csvContent.Headers.ContentDisposition = new ContentDispositionHeaderValue("form-data") { Name = "\"csv\"", FileName = "\"lap.csv.gz\"" };
+        form.Add(csvContent);
 
         try
         {

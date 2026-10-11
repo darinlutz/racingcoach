@@ -99,7 +99,7 @@ internal sealed class LapUploader : IAsyncDisposable
                         case UploadOutcome.Rejected:
                             Interlocked.Decrement(ref _waiting);
                             _onFinished(item, message);
-                            _log($"RacingCoach.app did not accept lap {item.Lap.LapNumber}: {message}");
+                            _log($"RacingCoach.app did not accept lap {item.Lap.LapNumber}: {message}. It will be tried again the next time the collector starts.");
                             break;
                         case UploadOutcome.Unauthorized:
                             _keyRejected = true;

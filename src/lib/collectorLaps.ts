@@ -100,7 +100,8 @@ export type CollectorLapSummary = {
 // How many of the user's most recent laps the Racing page lists
 const LIST_LIMIT = 1000;
 
-export async function listCollectorLaps(userId: number): Promise<CollectorLapSummary[]> {
+// The user's laps, or with a null userId every driver's (Coaches and Admins, see canSeeAllLaps)
+export async function listCollectorLaps(userId: number | null): Promise<CollectorLapSummary[]> {
   await ensureUserSchema();
   const rows = await query<{
     id: number;
@@ -123,7 +124,8 @@ export async function listCollectorLaps(userId: number): Promise<CollectorLapSum
   }>(
     `SELECT id, client_lap_id, track, car, driver, iracing_session_id, iracing_subsession_id, session_num, session_type,
             lap_number, lap_time_seconds, sample_count, missing_samples, incidents, pit_road, off_track, recorded_at
-     FROM racingcoach."CollectorLaps" WHERE user_id = $1 ORDER BY recorded_at DESC, id DESC LIMIT $2`,
+     FROM racingcoach."CollectorLaps" WHERE ($1::integer IS NULL OR user_id = $1)
+     ORDER BY recorded_at DESC, id DESC LIMIT $2`,
     [userId, LIST_LIMIT]
   );
   return rows.map((row) => ({

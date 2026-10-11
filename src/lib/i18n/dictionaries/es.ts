@@ -367,6 +367,7 @@ export const es: Dictionary = {
   recordedLaps: {
     driver: 'Piloto',
     driverOption: '{name} · {laps}',
+    allDrivers: 'Todos los pilotos',
     you: '{name} (tú)',
     loading: 'Cargando tus vueltas grabadas…',
     failedLoad: 'No se pudieron cargar tus vueltas grabadas',

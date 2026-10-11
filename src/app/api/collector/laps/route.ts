@@ -17,7 +17,8 @@ const UNAUTHORIZED = { error: 'Missing or unknown upload key' };
 
 // Uploaded laps (details only, newest first), for the Racing page. Uses the browser's sign-in, unlike POST.
 // Users get their own laps. Coaches and Admins (canSeeAllLaps) can pass ?userId= for any driver's laps
-// (their own by default), and also get `drivers`: every account with laps, for the page's Driver box.
+// (their own by default) or ?userId=all for every driver's, and also get `drivers`: every account with
+// laps, for the page's Driver box.
 export async function GET(request: Request) {
   const t = await apiText();
   try {
@@ -27,8 +28,9 @@ export async function GET(request: Request) {
     }
 
     const requested = new URL(request.url).searchParams.get('userId');
-    const userId = requested === null ? user.id : Number(requested);
-    if (!Number.isInteger(userId) || userId <= 0) {
+    // null = all drivers
+    const userId = requested === null ? user.id : requested === 'all' ? null : Number(requested);
+    if (userId !== null && (!Number.isInteger(userId) || userId <= 0)) {
       return NextResponse.json({ error: t.lapNotFound }, { status: 400 });
     }
     if (!canSeeAllLaps(user.role)) {

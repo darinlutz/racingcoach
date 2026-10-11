@@ -27,7 +27,8 @@ function groupSessions(laps: CollectorLapSummary[]): Session[] {
   const sessions: Session[] = [];
   const oldestFirst = [...laps].sort((a, b) => a.recordedAt.localeCompare(b.recordedAt) || a.id - b.id);
   for (const lap of oldestFirst) {
-    const sameAs = [lap.track, lap.car, lap.sessionId, lap.subSessionId, lap.sessionNum].join('|');
+    // The driver keeps two drivers' laps from one session apart when All Drivers is shown
+    const sameAs = [lap.driver, lap.track, lap.car, lap.sessionId, lap.subSessionId, lap.sessionNum].join('|');
     const current = sessions.at(-1);
     const previous = current?.laps.at(-1);
     if (
@@ -71,8 +72,8 @@ const smallButtonClass =
 // (the Reference Points tab's /api/tracks/reference-points); onTargetsSaved then reloads Track Data.
 // A Compare column takes up to two laps; Compare sends them to onCompare, fastest first (the Racing
 // page opens them in Lap Compare as the Base and Compare laps).
-// Coaches and Admins also get a Driver box listing every account with laps (their own first shown);
-// Users only ever see their own laps (the API enforces it).
+// Coaches and Admins also get a Driver box listing every account with laps (their own first shown),
+// headed by All Drivers; Users only ever see their own laps (the API enforces it).
 export default function RecordedLaps({
   tracks,
   onChange,
@@ -101,7 +102,8 @@ export default function RecordedLaps({
   const [comparing, setComparing] = useState(false);
   // Coaches and Admins only: the drivers they can pick, whose laps are shown, and which driver is them
   const [drivers, setDrivers] = useState<LapOwner[] | null>(null);
-  const [driverId, setDriverId] = useState<number | null>(null);
+  // null until a driver is picked (the coach's own laps), 'all' for All Drivers
+  const [driverId, setDriverId] = useState<number | 'all' | null>(null);
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
 
   useEffect(() => {
@@ -132,7 +134,7 @@ export default function RecordedLaps({
   }, [t, driverId]);
 
   // Shows another driver's laps, starting over with nothing picked
-  const changeDriver = (id: number) => {
+  const changeDriver = (id: number | 'all') => {
     setSelected(new Set());
     setFiles({});
     setLoading(new Set());
@@ -153,9 +155,10 @@ export default function RecordedLaps({
       <select
         id="recorded-laps-driver"
         value={shownDriverId ?? ''}
-        onChange={(e) => changeDriver(Number(e.target.value))}
+        onChange={(e) => changeDriver(e.target.value === 'all' ? 'all' : Number(e.target.value))}
         className="px-3 py-1.5 bg-card border border-border rounded-lg text-sm text-foreground focus:outline-none focus:border-primary"
       >
+        <option value="all">{t.allDrivers}</option>
         {drivers.map((driver) => {
           const name = driver.userId === currentUserId ? fmt(t.you, { name: driver.userName }) : driver.userName;
           return (
@@ -366,6 +369,7 @@ export default function RecordedLaps({
         return (
           <details key={session.key} open={index === 0} className="bg-card border border-border rounded-lg">
             <summary className="cursor-pointer px-4 py-3 text-sm">
+              {driverId === 'all' && <span className="font-semibold text-primary">{first.driver} • </span>}
               <span className="font-semibold text-foreground">{first.track}</span>
               <span className="text-muted-foreground"> • {first.car}</span>
               <span className="block text-xs text-muted-foreground">

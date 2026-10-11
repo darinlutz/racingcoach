@@ -194,14 +194,15 @@ function formatAreaAdvice(areaName: string, c: AreaComparison) {
 // A table row: the comparison, or why there isn't one (in the user's language)
 type AreaRow = { name: string; comparison: AreaComparison | null; note: string };
 
-// Diff cell background: green when the Compare lap is better, red when worse,
-// darker when the difference is more than 1% of the Base value. `diff` is the
-// value as shown, so a displayed zero stays uncolored.
+// Diff cell background: green when the Compare lap is better, red when worse.
+// A difference of more than 1% of the Base value gets the stronger green, and the
+// dark red (the fainter red reads darker on the dark page). `diff` is the value
+// as shown, so a displayed zero stays uncolored.
 function diffBackground(diff: number, base: number, higherIsBetter: boolean) {
   if (diff === 0) return '';
   const bigger = base !== 0 && Math.abs(diff) / Math.abs(base) > 0.01;
   if (diff > 0 === higherIsBetter) return bigger ? 'bg-positive/35' : 'bg-positive/15';
-  return bigger ? 'bg-primary/35' : 'bg-primary/15';
+  return bigger ? 'bg-primary/15' : 'bg-primary/35';
 }
 
 // Brake Diff text: blue when the Compare lap is more than `threshold` below Base

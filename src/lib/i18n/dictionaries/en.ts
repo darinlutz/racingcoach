@@ -370,6 +370,7 @@ export const en = {
   recordedLaps: {
     driver: 'Driver',
     driverOption: '{name} · {laps}',
+    allDrivers: 'All Drivers',
     you: '{name} (you)',
     loading: 'Loading your recorded laps…',
     failedLoad: 'Failed to load your recorded laps',

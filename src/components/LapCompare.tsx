@@ -406,13 +406,10 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
   const [compareError, setCompareError] = useState('');
   const [analysis, setAnalysis] = useState('');
   const [areaRows, setAreaRows] = useState<AreaRow[]>([]);
-  // Brake/throttle charts for the focus area where the Compare lap loses the most time
-  const [traces, setTraces] = useState<{
-    areaName: string;
-    caption: string;
-    base: PedalTraceLap;
-    compare: PedalTraceLap;
-  } | null>(null);
+  // Brake/throttle charts for every measured focus area, in track order; diff is Compare minus Base (s)
+  const [traces, setTraces] = useState<
+    { name: string; diff: number; base: PedalTraceLap; compare: PedalTraceLap }[]
+  >([]);
   const [analyzing, setAnalyzing] = useState(false);
 
   // Starts on the initial laps' track when there are any, otherwise the first track
@@ -457,6 +454,9 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
     }
   };
 
+  // The focus area where the Compare lap loses the most time; its pedal traces start open
+  const worstTraceIndex = traces.reduce((worst, t, i) => (t.diff > traces[worst].diff ? i : worst), 0);
+
   const selectedTrack = tracks.find((t) => t.name === trackName);
   const mismatchedLaps = selectedTrack
     ? [baseLap, compareLap].filter(
@@ -468,7 +468,7 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
     if (!baseLap || !compareLap) return;
     setAnalyzing(true);
     setAreaRows([]);
-    setTraces(null);
+    setTraces([]);
     try {
       const baseSeconds = lapTimeToSeconds(baseLap.lapTime);
       const compareSeconds = lapTimeToSeconds(compareLap.lapTime);
@@ -488,13 +488,8 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
         ]);
         const rows: AreaRow[] = [];
         const advice: string[] = [];
-        // The measured area where the Compare lap loses the most time to the Base lap
-        let worst: {
-          area: { name: string; start: number; end: number };
-          comparison: AreaComparison;
-          base: AreaStats;
-          compare: AreaStats;
-        } | null = null;
+        const areaTraces: typeof traces = [];
+        const lapTitle = (label: string, lap: LapFile) => `${label} lap · ${formatLapTime(lap.lapTime)}`;
 
         // Each focus area gets a line (plus a blank line after it) and a table row
         for (const area of selectedTrack.areas) {
@@ -511,8 +506,19 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
             lines.push(formatAreaLine(area.name, comparison, selectedTrack.lengthFeet), '');
             rows.push({ name: area.name, comparison, note: '' });
             advice.push(formatAreaAdvice(area.name, comparison));
-            if (!worst || comparison.secondsDiff > worst.comparison.secondsDiff) {
-              worst = { area: { name: area.name, start: area.start, end: area.end }, comparison, base, compare };
+            const baseTrace = areaTrace(baseSamples, area.start, area.end);
+            const compareTrace = areaTrace(compareSamples, area.start, area.end);
+            if (baseTrace && compareTrace) {
+              areaTraces.push({
+                name: area.name,
+                diff: comparison.secondsDiff,
+                base: { title: lapTitle('Base', baseLap), trace: baseTrace, summary: pedalSummary(base, selectedTrack.lengthFeet) },
+                compare: {
+                  title: lapTitle('Compare', compareLap),
+                  trace: compareTrace,
+                  summary: pedalSummary(compare, selectedTrack.lengthFeet),
+                },
+              });
             }
           } else {
             const note = `no data for the ${!base ? 'Base' : 'Compare'} lap`;
@@ -521,31 +527,7 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
           }
         }
         setAreaRows(rows);
-
-        if (worst) {
-          const baseTrace = areaTrace(baseSamples, worst.area.start, worst.area.end);
-          const compareTrace = areaTrace(compareSamples, worst.area.start, worst.area.end);
-          if (baseTrace && compareTrace) {
-            const diff = worst.comparison.secondsDiff;
-            setTraces({
-              areaName: worst.area.name,
-              caption:
-                diff > 0
-                  ? `Where the Compare lap loses the most time: ${formatSecondsDiff(diff)} s against the Base lap.`
-                  : `The Compare lap is as fast or faster in every focus area; this is where it gains the least (${formatSecondsDiff(diff)} s).`,
-              base: {
-                title: `Base lap · ${formatLapTime(baseLap.lapTime)}`,
-                trace: baseTrace,
-                summary: pedalSummary(worst.base, selectedTrack.lengthFeet),
-              },
-              compare: {
-                title: `Compare lap · ${formatLapTime(compareLap.lapTime)}`,
-                trace: compareTrace,
-                summary: pedalSummary(worst.compare, selectedTrack.lengthFeet),
-              },
-            });
-          }
-        }
+        setTraces(areaTraces);
 
         // The table shows right away; the summary follows once the coach has written it
         setAnalysis('Writing the summary…');
@@ -640,14 +622,41 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
           />
         </div>
 
-        {traces && (
-          <PedalTraces
-            areaName={traces.areaName}
-            caption={traces.caption}
-            lengthFeet={selectedTrack?.lengthFeet ?? null}
-            base={traces.base}
-            compare={traces.compare}
-          />
+        {traces.length > 0 && (
+          <div className="space-y-2">
+            <h3 className="text-sm font-medium text-foreground">Pedal traces</h3>
+            <p className="text-xs text-muted-foreground">
+              Brake and throttle through each focus area. The area where the Compare lap loses the most time is open.
+            </p>
+            {traces.map((area, index) => {
+              const isWorst = index === worstTraceIndex && area.diff > 0;
+              return (
+                <details key={area.name} open={isWorst} className="bg-card border border-border rounded-lg">
+                  <summary className="cursor-pointer px-4 py-3 text-sm">
+                    <span className="font-semibold text-foreground">{area.name}</span>
+                    <span className="text-muted-foreground">
+                      {' '}
+                      • Compare lap{' '}
+                      {area.diff === 0
+                        ? 'same time'
+                        : `${Math.abs(area.diff).toFixed(3)} s ${area.diff > 0 ? 'slower' : 'faster'}`}
+                    </span>
+                    {isWorst && (
+                      <span className="ml-2 px-1.5 rounded text-xs bg-primary/15 text-red-300">most time lost</span>
+                    )}
+                  </summary>
+                  <div className="px-4 pb-4">
+                    <PedalTraces
+                      id={`pedal-${index}`}
+                      lengthFeet={selectedTrack?.lengthFeet ?? null}
+                      base={area.base}
+                      compare={area.compare}
+                    />
+                  </div>
+                </details>
+              );
+            })}
+          </div>
         )}
       </div>
     </div>

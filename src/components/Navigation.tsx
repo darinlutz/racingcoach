@@ -10,7 +10,8 @@ import { useLanguage } from '@/components/LanguageProvider';
 import { ACCOUNT_STATUS } from '@/lib/accountStatus';
 
 type NavigationProps = {
-  user: { userName: string; accountStatus: string } | null;
+  // isAdmin shows the Admin link (the activity log)
+  user: { userName: string; accountStatus: string; isAdmin: boolean } | null;
 };
 
 const links = [
@@ -66,6 +67,7 @@ export default function Navigation({ user }: NavigationProps) {
         <div className="hidden md:flex items-center gap-4">
           {user ? (
             <>
+              {user.isAdmin && <Link href="/admin" className={navLink('/admin')}>{t.nav.admin}</Link>}
               <Link href="/account" className={navLink('/account')}>{t.nav.myAccount}</Link>
               <span className="font-semibold text-muted-foreground whitespace-nowrap">{t.nav.driver} <span className="text-foreground">{user.userName}</span></span>
               <button
@@ -107,6 +109,9 @@ export default function Navigation({ user }: NavigationProps) {
             <div className="border-t border-border pt-2 mt-2">
               {user ? (
                 <>
+                  {user.isAdmin && (
+                    <Link href="/admin" className={mobileLink('/admin')} onClick={closeMenu}>{t.nav.admin}</Link>
+                  )}
                   <Link href="/account" className={mobileLink('/account')} onClick={closeMenu}>{t.nav.myAccount}</Link>
                   <div className="flex items-center gap-3 px-3 py-2">
                     <button

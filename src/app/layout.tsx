@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import { Barlow, Barlow_Condensed } from "next/font/google";
+import ActivityTracker from "@/components/ActivityTracker";
 import Brand from "@/components/Brand";
 import LanguageProvider from "@/components/LanguageProvider";
 import Navigation from "@/components/Navigation";
 import { getDictionary, getLanguage } from "@/lib/i18n/server";
+import { isAdmin } from "@/lib/roles";
 import { getCurrentUser } from "@/lib/session";
 import "./globals.css";
 
@@ -43,7 +45,8 @@ export default async function RootLayout({
     >
       <body className="min-h-screen bg-background text-foreground flex flex-col">
         <LanguageProvider language={language} dictionary={t}>
-          <Navigation user={user ? { userName: user.userName, accountStatus: user.accountStatus } : null} />
+          <ActivityTracker />
+          <Navigation user={user ? { userName: user.userName, accountStatus: user.accountStatus, isAdmin: isAdmin(user.role) } : null} />
           <main className="flex-1">
             {children}
           </main>

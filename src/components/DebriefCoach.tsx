@@ -29,7 +29,6 @@ export default function DebriefCoach() {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Failed to load track names');
         setTracks(data.tracks);
-        if (data.tracks.length > 0) setTrackName(data.tracks[0].name);
       })
       .catch((err: Error) => setError(err.message));
   }, []);
@@ -82,8 +81,9 @@ export default function DebriefCoach() {
     setLapFiles((prev) => prev.filter((lap) => lap.fileId !== fileId));
   };
 
-  const selectedTrack = tracks.find((t) => t.name === trackName);
   const allLaps = [...lapFiles, ...recordedLaps];
+  // The track comes from the laps picked or dropped (pickRecordedLaps, handleFiles); none without laps
+  const selectedTrack = allLaps.length > 0 ? tracks.find((t) => t.name === trackName) : undefined;
   // Only laps from the selected track can be measured against its focus areas
   const trackLaps = selectedTrack ? allLaps.filter((lap) => sameTrackName(lap.trackName, selectedTrack.fileName)) : [];
   const otherLaps = allLaps.length - trackLaps.length;
@@ -122,20 +122,23 @@ export default function DebriefCoach() {
         <label htmlFor="debrief-track-name" className="block text-sm font-medium text-foreground mb-2">
           Track Name
         </label>
-        <select
+        {/* Set by the laps picked or dropped below, so it isn't editable */}
+        <input
           id="debrief-track-name"
-          value={trackName}
-          onChange={(e) => setTrackName(e.target.value)}
-          disabled={tracks.length === 0}
-          className={inputClass}
-        >
-          {tracks.length === 0 && <option value="">{error ? 'Unavailable' : 'Loading…'}</option>}
-          {tracks.map((track) => (
-            <option key={track.name} value={track.name}>
-              {track.fileName}
-            </option>
-          ))}
-        </select>
+          type="text"
+          readOnly
+          value={selectedTrack?.fileName ?? ''}
+          placeholder={
+            tracks.length === 0
+              ? error
+                ? 'Unavailable'
+                : 'Loading…'
+              : allLaps.length > 0
+                ? 'Not in your Track Data list'
+                : 'Set by the laps you pick'
+          }
+          className={`${inputClass} cursor-default`}
+        />
         {error && <p className="mt-2 text-sm text-primary">{error}</p>}
       </div>
 

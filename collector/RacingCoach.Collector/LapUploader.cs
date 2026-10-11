@@ -27,7 +27,16 @@ internal sealed class LapUploader : IAsyncDisposable
     private readonly Action<string> _log;
     private readonly Task _worker;
     private int _waiting;
-    private bool _keyRejected;
+    private volatile bool _keyRejected;
+    private volatile bool _offline;
+
+    /// <summary>Laps queued and not uploaded yet.</summary>
+    public int Pending => Math.Max(0, Volatile.Read(ref _waiting));
+    /// <summary>RacingCoach.app stopped accepting the upload key; nothing uploads until a new one is entered.</summary>
+    public bool KeyRejected => _keyRejected;
+    /// <summary>The last upload attempt couldn't reach RacingCoach.app; it's being retried.</summary>
+    public bool Offline => _offline;
+    public string SiteUrl => _api.SiteUrl;
 
     public LapUploader(RacingCoachApi api, Action<UploadItem, string?> onFinished, Action<string> log)
     {
@@ -54,13 +63,12 @@ internal sealed class LapUploader : IAsyncDisposable
         var left = Volatile.Read(ref _waiting);
         if (left > 0)
             _log(_keyRejected
-                ? $"{left} lap(s) not uploaded yet; they will upload once you enter a new key with --set-key."
+                ? $"{left} lap(s) not uploaded yet; they will upload once you enter a new upload key."
                 : $"{left} lap(s) not uploaded yet; they will upload the next time the collector runs.");
     }
 
     private async Task RunAsync()
     {
-        var offline = false;
         try
         {
             await foreach (var item in _queue.Reader.ReadAllAsync(_stop.Token))
@@ -76,17 +84,17 @@ internal sealed class LapUploader : IAsyncDisposable
 
                     if (outcome == UploadOutcome.RetryLater)
                     {
-                        if (!offline)
+                        if (!_offline)
                             _log($"Could not reach {_api.SiteUrl} ({message}). Laps are saved and will upload when it's reachable again.");
-                        offline = true;
+                        _offline = true;
                         await Task.Delay(delay, _stop.Token);
                         delay = TimeSpan.FromTicks(Math.Min(delay.Ticks * 2, MaxRetryDelay.Ticks));
                         continue;
                     }
 
-                    if (offline)
+                    if (_offline)
                         _log($"{_api.SiteUrl} is reachable again.");
-                    offline = false;
+                    _offline = false;
 
                     switch (outcome)
                     {
@@ -107,7 +115,7 @@ internal sealed class LapUploader : IAsyncDisposable
                         case UploadOutcome.Unauthorized:
                             _keyRejected = true;
                             _log("RacingCoach.app no longer accepts your upload key. Laps are still saved; "
-                                + "run RacingCoach.Collector.exe --set-key with a new key from your Account page to upload them.");
+                                + "press Change Upload Key and enter a new key from your Account page to upload them.");
                             break;
                     }
                     break;

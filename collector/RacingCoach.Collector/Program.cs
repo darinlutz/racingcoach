@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging;
+using System.Windows;
 using SVappsLAB.iRacingTelemetrySDK;
 
 namespace RacingCoach.Collector;
@@ -14,9 +14,9 @@ namespace RacingCoach.Collector;
     TelemetryVar.LapDistPct,
     TelemetryVar.Lap,
     TelemetryVar.SessionTime,
+    TelemetryVar.SteeringWheelAngle,
     // saved to the lap CSVs
     TelemetryVar.Clutch,
-    TelemetryVar.SteeringWheelAngle,
     TelemetryVar.BrakeABSactive,
     TelemetryVar.LatAccel,
     TelemetryVar.LongAccel,
@@ -39,8 +39,20 @@ namespace RacingCoach.Collector;
     TelemetryVar.OnPitRoad,
     TelemetryVar.PlayerTrackSurface,
     TelemetryVar.PlayerCarMyIncidentCount,
+    // only shown in the window
+    TelemetryVar.FuelLevel,
+    TelemetryVar.FuelLevelPct,
+    TelemetryVar.TrackTempCrew,
+    TelemetryVar.AirTemp,
+    TelemetryVar.SessionTimeRemain,
+    TelemetryVar.SessionLapsRemainEx,
+    TelemetryVar.LapCurrentLapTime,
+    TelemetryVar.LapLastLapTime,
+    TelemetryVar.LapBestLapTime,
+    TelemetryVar.LapDeltaToBestLap,
+    TelemetryVar.PlayerCarPosition,
 ])]
-public class Program
+public static class Program
 {
     private const string Usage = """
         Usage: RacingCoach.Collector.exe [options]
@@ -56,166 +68,40 @@ public class Program
                               from .ibt files to live laps this time
         """;
 
-    public static async Task<int> Main(string[] args)
+    // One collector at a time: two would both record every lap and upload it twice
+    private const string SingleInstanceName = @"Local\RacingCoach.Collector";
+
+    [STAThread]
+    public static int Main(string[] args)
     {
         if (!TryParseArgs(args, out var options))
         {
-            Console.Error.WriteLine(Usage);
+            MessageBox.Show(Usage, "RacingCoach Collector", MessageBoxButton.OK, MessageBoxImage.Information);
             return 1;
         }
 
-        // Optional: a recorded .ibt file to play back instead of reading live iRacing, and a speed multiplier.
-        IBTOptions? ibtOptions = options.IbtFile is null ? null : new IBTOptions(options.IbtFile, options.Speed);
-        // Playback waits for each handler call instead of dropping samples when it runs faster than we keep up.
-        var clientOptions = ibtOptions is null ? new ClientOptions() : new ClientOptions { DeliveryMode = TelemetryDeliveryMode.Synchronous };
-
-        var documents = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-        var lapsFolder = Path.Combine(documents, "RacingCoach", "Laps");
-
-        // Played-back files are usually someone else's laps, so they only upload when asked to
-        var wantUploads = !options.NoUpload && (ibtOptions is null || options.Upload);
-        using var api = wantUploads ? await UploadSetup.ConnectAsync(options.SiteUrl, options.SetKey) : null;
-
-        using var loggerFactory = LoggerFactory.Create(b => b.AddConsole().SetMinimumLevel(LogLevel.Warning));
-        var logger = loggerFactory.CreateLogger("RacingCoach.Collector");
-
-        using var cts = new CancellationTokenSource();
-        Console.CancelKeyPress += (_, e) =>
+        using var single = new Mutex(initiallyOwned: true, SingleInstanceName, out var firstInstance);
+        if (!firstInstance && !options.Playback)
         {
-            e.Cancel = true; // let Monitor() finish instead of killing the process
-            cts.Cancel();
+            MessageBox.Show("The RacingCoach Collector is already running. Look for it on the taskbar.",
+                "RacingCoach Collector", MessageBoxButton.OK, MessageBoxImage.Information);
+            return 0;
+        }
+
+        var app = new Application { ShutdownMode = ShutdownMode.OnMainWindowClose };
+        app.DispatcherUnhandledException += (_, e) =>
+        {
+            ActivityLog.Shared.Write($"Unexpected error: {e.Exception}", isError: true);
+            MessageBox.Show($"Something went wrong: {e.Exception.Message}\n\nDetails are in {ActivityLog.Shared.FilePath}",
+                "RacingCoach Collector", MessageBoxButton.OK, MessageBoxImage.Error);
+            e.Handled = true;
         };
-
-        var display = new TelemetryDisplay();
-        // Live telemetry has no track positions; iRacing only writes them to its .ibt files, so live laps get them
-        // from there after each stint. Played-back laps have them already.
-        var enricher = ibtOptions is null && !options.NoPositions
-            ? new IbtEnricher(Path.Combine(documents, "iRacing", "telemetry"), message => display.WriteMessage(message))
-            : null;
-        var writer = new LapWriter(lapsFolder, enricher, message => display.WriteMessage(message));
-        var uploader = api is null ? null : new LapUploader(api, writer.RecordUploadResult, message => display.WriteMessage(message));
-        writer.Uploader = uploader;
-        writer.Start();
-        var recorder = new LapRecorder(writer.Enqueue, message => display.WriteMessage(message));
-
-        await using var client = TelemetryClient<TelemetryData>.Create(logger, ibtOptions, clientOptions);
-
-        display.WriteMessage(ibtOptions is null
-            ? "Waiting for iRacing... (Ctrl+C to quit)"
-            : $"Playing back {options.IbtFile}... (Ctrl+C to quit)");
-        display.WriteMessage($"Completed laps are saved under {lapsFolder}");
-        if (!wantUploads)
-            display.WriteMessage("Uploading is off for this run.");
-        if (enricher is not null)
-            display.WriteMessage($"Track positions are added after each stint from iRacing's .ibt files in {enricher.IbtFolder}");
-
-        // iRacing re-sends session info every few seconds (flags, driver list, ...);
-        // only print it when the track or car changes.
-        string? lastSession = null;
-        // .ibt recording: asked for once per connection (so turning it off with Alt+L sticks), and
-        // a finished recording is the cue to add track positions to the stint's laps
-        var askedForIbt = false;
-        var wasRecordingIbt = false;
-
-        var handlers = new TelemetryHandlers<TelemetryData>
-        {
-            OnConnectStateChanged = state =>
-            {
-                display.ResetRate();
-                askedForIbt = false;
-                if (state == ConnectState.Connected)
-                {
-                    display.WriteMessage("Connected to iRacing.");
-                }
-                else
-                {
-                    lastSession = null;
-                    wasRecordingIbt = false;
-                    display.WriteMessage("Disconnected from iRacing. Waiting for iRacing...");
-                    writer.AddPositionsFromIbt(); // iRacing closed its .ibt file
-                }
-                return Task.CompletedTask;
-            },
-            OnSessionInfoUpdate = session =>
-            {
-                var weekend = session.WeekendInfo;
-                var track = weekend?.TrackDisplayName ?? "Unknown Track";
-                if (!string.IsNullOrWhiteSpace(weekend?.TrackConfigName))
-                    track += $" ({weekend.TrackConfigName})";
-                var driverIdx = session.DriverInfo?.DriverCarIdx;
-                var driver = session.DriverInfo?.Drivers?.FirstOrDefault(d => d.CarIdx == driverIdx);
-                var car = driver?.CarScreenName ?? "Unknown Car";
-
-                recorder.Session = new SessionContext(
-                    track,
-                    car,
-                    driver?.UserName ?? "Unknown Driver",
-                    weekend?.SessionID ?? 0,
-                    weekend?.SubSessionID ?? 0,
-                    session.SessionInfo?.Sessions?.ToDictionary(s => s.SessionNum, s => s.SessionType) ?? []);
-
-                var current = $"{track} / {car}";
-                if (current != lastSession)
-                {
-                    lastSession = current;
-                    display.WriteMessage($"Session: {current}");
-                }
-                return Task.CompletedTask;
-            },
-            OnTelemetryUpdate = data =>
-            {
-                recorder.OnSample(data);
-                display.OnSample(data, recorder.Status);
-
-                if (enricher is not null)
-                {
-                    // iRacing only records while the driver is in the car
-                    if (!askedForIbt && data.IsOnTrack == true && data.IsDiskLoggingEnabled == false)
-                    {
-                        askedForIbt = true;
-                        client.SimControl.TelemetryRecording.Start();
-                        display.WriteMessage("Turned on iRacing's telemetry recording (.ibt) for track positions.");
-                    }
-                    var recordingIbt = data.IsDiskLoggingActive == true;
-                    if (wasRecordingIbt && !recordingIbt)
-                        writer.AddPositionsFromIbt(); // left the car: the stint's .ibt file is done
-                    wasRecordingIbt = recordingIbt;
-                }
-                return Task.CompletedTask;
-            },
-            OnError = error =>
-            {
-                display.WriteMessage($"SDK error: {error.Message}", isError: true);
-                return Task.CompletedTask;
-            },
-        };
-
-        try
-        {
-            await client.Monitor(handlers, cts.Token);
-        }
-        catch (OperationCanceledException) when (cts.IsCancellationRequested)
-        {
-            // Ctrl+C
-        }
-        finally
-        {
-            await writer.FlushAsync(); // finish saving laps already completed (which queues their uploads)
-            if (uploader is not null)
-                await uploader.DisposeAsync(); // give queued uploads a few seconds; the rest go next run
-            await writer.DisposeAsync(); // record the last upload results in session.json
-            display.Close();
-        }
-
-        Console.WriteLine("Stopped.");
-        return 0;
+        return app.Run(new MainWindow(options));
     }
 
-    private sealed record Options(string? IbtFile, int Speed, bool SetKey, bool NoUpload, bool Upload, string? SiteUrl, bool NoPositions);
-
-    private static bool TryParseArgs(string[] args, out Options options)
+    private static bool TryParseArgs(string[] args, out CollectorOptions options)
     {
-        options = new Options(null, 1, false, false, false, null, false);
+        options = new CollectorOptions(null, 1, false, false, false, null, false);
         var positional = new List<string>();
         for (var i = 0; i < args.Length; i++)
         {

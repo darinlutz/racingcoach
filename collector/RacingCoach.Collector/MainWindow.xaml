@@ -1,0 +1,463 @@
+<Window x:Class="RacingCoach.Collector.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="RacingCoach Collector"
+        Width="1180" Height="840" MinWidth="980" MinHeight="700"
+        WindowStartupLocation="CenterScreen"
+        Icon="Assets/collector.ico"
+        FontFamily="Segoe UI" FontSize="13"
+        Background="{DynamicResource BgBrush}" Foreground="{DynamicResource FgBrush}"
+        UseLayoutRounding="True" TextOptions.TextFormattingMode="Display">
+
+    <!-- Colors follow RacingCoach.app's dark theme (src/app/globals.css) -->
+    <Window.Resources>
+        <SolidColorBrush x:Key="BgBrush" Color="#121315" />
+        <SolidColorBrush x:Key="CardBrush" Color="#1A1B1E" />
+        <SolidColorBrush x:Key="SecondaryBrush" Color="#232428" />
+        <SolidColorBrush x:Key="BorderBrush" Color="#303136" />
+        <SolidColorBrush x:Key="FgBrush" Color="#F3F4F6" />
+        <SolidColorBrush x:Key="MutedBrush" Color="#9A9CA3" />
+        <SolidColorBrush x:Key="PrimaryBrush" Color="#DE3341" />
+        <SolidColorBrush x:Key="GreenBrush" Color="#2EB872" />
+        <SolidColorBrush x:Key="AmberBrush" Color="#E3A82B" />
+        <SolidColorBrush x:Key="BlueBrush" Color="#3B8BFF" />
+        <SolidColorBrush x:Key="GreyBrush" Color="#6B6D74" />
+
+        <Style x:Key="Card" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource CardBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="16,14" />
+        </Style>
+        <Style x:Key="Label" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="0,0,0,4" />
+        </Style>
+        <Style x:Key="Muted" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        </Style>
+        <Style x:Key="Value" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        </Style>
+        <Style x:Key="Bar" TargetType="Border">
+            <Setter Property="Height" Value="8" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="RenderTransformOrigin" Value="0,0.5" />
+        </Style>
+        <Style x:Key="BarTrack" TargetType="Border">
+            <Setter Property="Height" Value="8" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Background" Value="{StaticResource SecondaryBrush}" />
+        </Style>
+
+        <Style x:Key="Button" TargetType="Button">
+            <Setter Property="Foreground" Value="{StaticResource FgBrush}" />
+            <Setter Property="Background" Value="{StaticResource CardBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Padding" Value="14,7" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Box" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="1" CornerRadius="8" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource PrimaryBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource PrimaryBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Box" Property="Opacity" Value="0.5" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource Button}">
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="Background" Value="{StaticResource PrimaryBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource PrimaryBrush}" />
+        </Style>
+
+        <!-- A status tile in the row under the header -->
+        <Style x:Key="Dot" TargetType="Ellipse">
+            <Setter Property="Width" Value="10" />
+            <Setter Property="Height" Value="10" />
+            <Setter Property="Margin" Value="0,0,8,0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Fill" Value="{StaticResource GreyBrush}" />
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <DockPanel Margin="20,16,20,20">
+
+            <!-- Header -->
+            <Grid DockPanel.Dock="Top" Margin="0,0,0,14">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Image Source="Assets/collector.ico" Width="34" Height="34" Margin="0,0,12,0" />
+                    <StackPanel>
+                        <TextBlock FontSize="20" FontWeight="Bold">
+                            <Run Text="RACINGCOACH" /><Run Text=" COLLECTOR" Foreground="{StaticResource PrimaryBrush}" FontWeight="Normal" />
+                        </TextBlock>
+                        <TextBlock x:Name="SubtitleText" Style="{StaticResource Muted}" FontSize="12" Text="Records your iRacing laps and sends them to RacingCoach.app" />
+                    </StackPanel>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <Button Style="{StaticResource Button}" Content="Open Laps Folder" Click="OpenLapsFolder_Click" Margin="0,0,8,0" />
+                    <Button Style="{StaticResource Button}" Content="Upload Key" Click="ChangeKey_Click" Margin="0,0,8,0" x:Name="KeyButton" />
+                    <Button Style="{StaticResource Button}" Content="RacingCoach.app" Click="OpenSite_Click" />
+                </StackPanel>
+            </Grid>
+
+            <!-- Newer version available -->
+            <Border x:Name="UpdateBanner" DockPanel.Dock="Top" Visibility="Collapsed" Margin="0,0,0,14" CornerRadius="10" Padding="16,10"
+                    Background="#1F3A5F" BorderBrush="{StaticResource BlueBrush}" BorderThickness="1">
+                <DockPanel>
+                    <Button DockPanel.Dock="Right" Style="{StaticResource Button}" Content="Download" Click="DownloadUpdate_Click" />
+                    <TextBlock x:Name="UpdateText" VerticalAlignment="Center" TextWrapping="Wrap" />
+                </DockPanel>
+            </Border>
+
+            <!-- Status tiles -->
+            <UniformGrid DockPanel.Dock="Top" Columns="4" Margin="-6,0,-6,14">
+                <Border Style="{StaticResource Card}" Margin="6,0">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource Label}" Text="IRACING" />
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse x:Name="SimDot" Style="{StaticResource Dot}" />
+                            <TextBlock x:Name="SimText" Style="{StaticResource Value}" Text="Starting…" />
+                        </StackPanel>
+                        <TextBlock x:Name="SimDetail" Style="{StaticResource Muted}" Margin="18,2,0,0" />
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource Card}" Margin="6,0">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource Label}" Text="LAP RECORDING" />
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse x:Name="RecordDot" Style="{StaticResource Dot}" />
+                            <TextBlock x:Name="RecordText" Style="{StaticResource Value}" Text="Not recording" />
+                        </StackPanel>
+                        <TextBlock x:Name="RecordDetail" Style="{StaticResource Muted}" Margin="18,2,0,0" />
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource Card}" Margin="6,0">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource Label}" Text="UPLOADS" />
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse x:Name="UploadDot" Style="{StaticResource Dot}" />
+                            <TextBlock x:Name="UploadText" Style="{StaticResource Value}" Text="Checking…" />
+                        </StackPanel>
+                        <TextBlock x:Name="UploadDetail" Style="{StaticResource Muted}" Margin="18,2,0,0" />
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource Card}" Margin="6,0">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource Label}" Text="TRACK POSITIONS" />
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse x:Name="IbtDot" Style="{StaticResource Dot}" />
+                            <TextBlock x:Name="IbtText" Style="{StaticResource Value}" />
+                        </StackPanel>
+                        <TextBlock x:Name="IbtDetail" Style="{StaticResource Muted}" Margin="18,2,0,0" />
+                    </StackPanel>
+                </Border>
+            </UniformGrid>
+
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="5*" />
+                    <ColumnDefinition Width="14" />
+                    <ColumnDefinition Width="4*" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Session, car and conditions -->
+                <Grid Grid.Row="0" Grid.Column="0" Margin="0,0,0,14">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="14" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Border Style="{StaticResource Card}" Grid.Column="0">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource Label}" Text="TRACK" />
+                            <TextBlock x:Name="TrackText" Style="{StaticResource Value}" FontSize="17" Text="—" TextWrapping="Wrap" />
+                            <TextBlock x:Name="TrackDetail" Style="{StaticResource Muted}" TextWrapping="Wrap" />
+                            <TextBlock Style="{StaticResource Label}" Text="CAR" Margin="0,14,0,4" />
+                            <TextBlock x:Name="CarText" Style="{StaticResource Value}" FontSize="17" Text="—" TextWrapping="Wrap" />
+                            <TextBlock x:Name="CarDetail" Style="{StaticResource Muted}" />
+                            <TextBlock Style="{StaticResource Label}" Text="SESSION" Margin="0,14,0,4" />
+                            <TextBlock x:Name="SessionText" Style="{StaticResource Value}" Text="—" />
+                            <TextBlock x:Name="SessionDetail" Style="{StaticResource Muted}" />
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource Card}" Grid.Column="2">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource Label}" Text="FUEL" />
+                            <DockPanel>
+                                <TextBlock x:Name="FuelPctText" DockPanel.Dock="Right" Style="{StaticResource Muted}" VerticalAlignment="Bottom" />
+                                <TextBlock x:Name="FuelText" Style="{StaticResource Value}" FontSize="17" Text="—" />
+                            </DockPanel>
+                            <Grid Margin="0,6,0,0">
+                                <Border Style="{StaticResource BarTrack}" />
+                                <Border x:Name="FuelBar" Style="{StaticResource Bar}" Background="{StaticResource AmberBrush}">
+                                    <Border.RenderTransform><ScaleTransform x:Name="FuelScale" ScaleX="0" /></Border.RenderTransform>
+                                </Border>
+                            </Grid>
+                            <Grid Margin="0,14,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource Label}" Text="TRACK TEMP" />
+                                    <TextBlock x:Name="TrackTempText" Style="{StaticResource Value}" Text="—" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="1">
+                                    <TextBlock Style="{StaticResource Label}" Text="AIR TEMP" />
+                                    <TextBlock x:Name="AirTempText" Style="{StaticResource Value}" Text="—" />
+                                </StackPanel>
+                            </Grid>
+                            <TextBlock x:Name="SkiesText" Style="{StaticResource Muted}" Margin="0,4,0,0" />
+                            <Grid Margin="0,14,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource Label}" Text="TIME LEFT" />
+                                    <TextBlock x:Name="TimeLeftText" Style="{StaticResource Value}" Text="—" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="1">
+                                    <TextBlock Style="{StaticResource Label}" Text="LAPS LEFT" />
+                                    <TextBlock x:Name="LapsLeftText" Style="{StaticResource Value}" Text="—" />
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <!-- Live inputs -->
+                <Border Style="{StaticResource Card}" Grid.Row="0" Grid.Column="2" Margin="0,0,0,14">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource Label}" Text="LIVE" />
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom">
+                                <TextBlock x:Name="SpeedText" FontSize="44" FontWeight="Bold" Text="—" />
+                                <TextBlock Text=" MPH" Style="{StaticResource Muted}" VerticalAlignment="Bottom" Margin="0,0,0,10" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2" HorizontalAlignment="Right">
+                                <TextBlock Style="{StaticResource Label}" Text="GEAR" HorizontalAlignment="Right" />
+                                <TextBlock x:Name="GearText" FontSize="32" FontWeight="Bold" Text="—" HorizontalAlignment="Right" />
+                            </StackPanel>
+                        </Grid>
+                        <TextBlock x:Name="RpmText" Style="{StaticResource Muted}" Text="— RPM" Margin="0,-4,0,10" />
+
+                        <DockPanel>
+                            <TextBlock x:Name="ThrottleText" DockPanel.Dock="Right" Style="{StaticResource Muted}" Width="40" TextAlignment="Right" />
+                            <TextBlock Text="Throttle" Width="64" Style="{StaticResource Muted}" />
+                            <Grid VerticalAlignment="Center">
+                                <Border Style="{StaticResource BarTrack}" />
+                                <Border Style="{StaticResource Bar}" Background="{StaticResource GreenBrush}">
+                                    <Border.RenderTransform><ScaleTransform x:Name="ThrottleScale" ScaleX="0" /></Border.RenderTransform>
+                                </Border>
+                            </Grid>
+                        </DockPanel>
+                        <DockPanel Margin="0,8,0,0">
+                            <TextBlock x:Name="BrakeText" DockPanel.Dock="Right" Style="{StaticResource Muted}" Width="40" TextAlignment="Right" />
+                            <TextBlock Text="Brake" Width="64" Style="{StaticResource Muted}" />
+                            <Grid VerticalAlignment="Center">
+                                <Border Style="{StaticResource BarTrack}" />
+                                <Border Style="{StaticResource Bar}" Background="{StaticResource PrimaryBrush}">
+                                    <Border.RenderTransform><ScaleTransform x:Name="BrakeScale" ScaleX="0" /></Border.RenderTransform>
+                                </Border>
+                            </Grid>
+                        </DockPanel>
+                        <DockPanel Margin="0,8,0,0">
+                            <TextBlock x:Name="SteeringText" DockPanel.Dock="Right" Style="{StaticResource Muted}" Width="40" TextAlignment="Right" />
+                            <TextBlock Text="Steering" Width="64" Style="{StaticResource Muted}" />
+                            <Grid x:Name="SteeringTrack" VerticalAlignment="Center">
+                                <Border Style="{StaticResource BarTrack}" />
+                                <Border Width="2" Height="12" Background="{StaticResource GreyBrush}" HorizontalAlignment="Center" />
+                                <Border Width="10" Height="10" CornerRadius="5" Background="{StaticResource BlueBrush}" HorizontalAlignment="Center">
+                                    <Border.RenderTransform><TranslateTransform x:Name="SteeringShift" /></Border.RenderTransform>
+                                </Border>
+                            </Grid>
+                        </DockPanel>
+
+                        <DockPanel Margin="0,14,0,0">
+                            <TextBlock x:Name="LapProgressText" DockPanel.Dock="Right" Style="{StaticResource Muted}" />
+                            <TextBlock x:Name="LapNumberText" Style="{StaticResource Muted}" Text="Lap —" />
+                        </DockPanel>
+                        <Grid Margin="0,6,0,0">
+                            <Border Style="{StaticResource BarTrack}" />
+                            <Border Style="{StaticResource Bar}" Background="{StaticResource BlueBrush}">
+                                <Border.RenderTransform><ScaleTransform x:Name="LapScale" ScaleX="0" /></Border.RenderTransform>
+                            </Border>
+                        </Grid>
+
+                        <UniformGrid Columns="4" Margin="0,14,0,0">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource Label}" Text="CURRENT" />
+                                <TextBlock x:Name="CurrentLapText" Style="{StaticResource Value}" Text="—" FontFamily="Consolas" />
+                            </StackPanel>
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource Label}" Text="LAST" />
+                                <TextBlock x:Name="LastLapText" Style="{StaticResource Value}" Text="—" FontFamily="Consolas" />
+                            </StackPanel>
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource Label}" Text="BEST" />
+                                <TextBlock x:Name="BestLapText" Style="{StaticResource Value}" Text="—" FontFamily="Consolas" />
+                            </StackPanel>
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource Label}" Text="VS BEST" />
+                                <TextBlock x:Name="DeltaText" Style="{StaticResource Value}" Text="—" FontFamily="Consolas" />
+                            </StackPanel>
+                        </UniformGrid>
+                    </StackPanel>
+                </Border>
+
+                <!-- This session's laps -->
+                <Border Style="{StaticResource Card}" Grid.Row="1" Grid.Column="0" Padding="0,14,0,8">
+                    <DockPanel>
+                        <DockPanel DockPanel.Dock="Top" Margin="16,0,16,8">
+                            <TextBlock x:Name="LapsSummaryText" DockPanel.Dock="Right" Style="{StaticResource Muted}" />
+                            <TextBlock x:Name="LapsTitle" Style="{StaticResource Label}" Text="LAPS THIS SESSION" />
+                        </DockPanel>
+                        <Grid DockPanel.Dock="Top" Margin="16,0,16,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="44" />
+                                <ColumnDefinition Width="86" />
+                                <ColumnDefinition Width="74" />
+                                <ColumnDefinition Width="36" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="104" />
+                                <ColumnDefinition Width="104" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Style="{StaticResource Label}" Text="LAP" />
+                            <TextBlock Grid.Column="1" Style="{StaticResource Label}" Text="TIME" />
+                            <TextBlock Grid.Column="2" Style="{StaticResource Label}" Text="TO BEST" />
+                            <TextBlock Grid.Column="3" Style="{StaticResource Label}" Text="INC" />
+                            <TextBlock Grid.Column="4" Style="{StaticResource Label}" Text="NOTES" />
+                            <TextBlock Grid.Column="5" Style="{StaticResource Label}" Text="UPLOADED" />
+                            <TextBlock Grid.Column="6" Style="{StaticResource Label}" Text="POSITIONS" />
+                        </Grid>
+                        <Border DockPanel.Dock="Top" Height="1" Background="{StaticResource BorderBrush}" />
+                        <Grid>
+                            <TextBlock x:Name="NoLapsText" Style="{StaticResource Muted}" Margin="16,14" TextWrapping="Wrap"
+                                       Text="Laps appear here as you complete them. A lap counts from the start/finish line all the way around to it again." />
+                            <ScrollViewer x:Name="LapsScroll" VerticalScrollBarVisibility="Auto">
+                                <ItemsControl x:Name="LapsList">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Background="{Binding RowBackground}" Padding="16,6">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="44" />
+                                                        <ColumnDefinition Width="86" />
+                                                        <ColumnDefinition Width="74" />
+                                                        <ColumnDefinition Width="36" />
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="104" />
+                                                        <ColumnDefinition Width="104" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Grid.Column="0" Text="{Binding Lap}" />
+                                                    <TextBlock Grid.Column="1" Text="{Binding Time}" FontFamily="Consolas" FontWeight="SemiBold" />
+                                                    <TextBlock Grid.Column="2" Text="{Binding Gap}" FontFamily="Consolas" Foreground="{Binding GapBrush}" />
+                                                    <TextBlock Grid.Column="3" Text="{Binding Incidents}" />
+                                                    <TextBlock Grid.Column="4" Text="{Binding Notes}" Foreground="{StaticResource MutedBrush}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Notes}" />
+                                                    <TextBlock Grid.Column="5" Text="{Binding Upload}" Foreground="{Binding UploadBrush}" ToolTip="{Binding UploadTip}" />
+                                                    <TextBlock Grid.Column="6" Text="{Binding Positions}" Foreground="{Binding PositionsBrush}" ToolTip="{Binding PositionsTip}" />
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Grid>
+                    </DockPanel>
+                </Border>
+
+                <!-- Activity -->
+                <Border Style="{StaticResource Card}" Grid.Row="1" Grid.Column="2" Padding="0,14,0,8">
+                    <DockPanel>
+                        <DockPanel DockPanel.Dock="Top" Margin="16,0,16,8">
+                            <TextBlock DockPanel.Dock="Right">
+                                <Hyperlink Click="OpenLogFile_Click" Foreground="{StaticResource MutedBrush}">Log file</Hyperlink>
+                            </TextBlock>
+                            <TextBlock Style="{StaticResource Label}" Text="ACTIVITY" />
+                        </DockPanel>
+                        <Border DockPanel.Dock="Top" Height="1" Background="{StaticResource BorderBrush}" />
+                        <ScrollViewer x:Name="ActivityScroll" VerticalScrollBarVisibility="Auto">
+                            <ItemsControl x:Name="ActivityList" Margin="16,6">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <DockPanel Margin="0,3">
+                                            <TextBlock DockPanel.Dock="Left" Text="{Binding Time}" Width="62" Foreground="{StaticResource MutedBrush}" FontFamily="Consolas" />
+                                            <TextBlock Text="{Binding Message}" Foreground="{Binding Brush}" TextWrapping="Wrap" />
+                                        </DockPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </DockPanel>
+                </Border>
+            </Grid>
+        </DockPanel>
+
+        <!-- Upload key entry -->
+        <Grid x:Name="KeyOverlay" Background="#D9000000" Visibility="Collapsed">
+            <Border Style="{StaticResource Card}" Width="560" VerticalAlignment="Center" HorizontalAlignment="Center" Padding="26,22">
+                <StackPanel>
+                    <TextBlock Text="Connect to RacingCoach.app" FontSize="20" FontWeight="Bold" Margin="0,0,0,8" />
+                    <TextBlock x:Name="KeyIntro" TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,6" />
+                    <TextBlock TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,14">
+                        <Run Text="Create an upload key on your" />
+                        <Hyperlink Click="OpenAccount_Click" Foreground="{StaticResource PrimaryBrush}">Account page</Hyperlink>
+                        <Run Text="(Telemetry Collector card), copy it and paste it here." />
+                    </TextBlock>
+                    <TextBox x:Name="KeyBox" FontFamily="Consolas" FontSize="14" Padding="10,8"
+                             Background="{StaticResource SecondaryBrush}" Foreground="{StaticResource FgBrush}"
+                             BorderBrush="{StaticResource BorderBrush}" CaretBrush="{StaticResource FgBrush}"
+                             KeyDown="KeyBox_KeyDown" />
+                    <TextBlock x:Name="KeyStatusText" TextWrapping="Wrap" Margin="0,8,0,0" MinHeight="18" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
+                        <Button x:Name="KeySkipButton" Style="{StaticResource Button}" Content="Skip for now" Click="KeySkip_Click" Margin="0,0,8,0" />
+                        <Button x:Name="KeyConnectButton" Style="{StaticResource PrimaryButton}" Content="Connect" Click="KeyConnect_Click" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- Shown while closing: the last laps are saved and queued uploads get a few seconds -->
+        <Grid x:Name="ClosingOverlay" Background="#D9000000" Visibility="Collapsed">
+            <Border Style="{StaticResource Card}" VerticalAlignment="Center" HorizontalAlignment="Center" Padding="26,20">
+                <StackPanel>
+                    <TextBlock Text="Finishing up…" FontSize="18" FontWeight="Bold" />
+                    <TextBlock Foreground="{StaticResource MutedBrush}" Margin="0,6,0,0"
+                               Text="Saving your last laps and finishing uploads. Laps that don't upload now go next time." />
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>

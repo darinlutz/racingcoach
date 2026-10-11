@@ -68,4 +68,7 @@ internal sealed class ManifestLap
     /// <summary>Why RacingCoach.app refused the lap (or why it isn't uploaded). Refused laps are tried
     /// again the next time the collector starts.</summary>
     public string? UploadError { get; set; }
+
+    /// <summary>A copy for another thread (every property is a value or a string).</summary>
+    public ManifestLap Copy() => (ManifestLap)MemberwiseClone();
 }

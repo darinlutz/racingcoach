@@ -5,13 +5,17 @@ using SVappsLAB.iRacingTelemetrySDK;
 
 namespace RacingCoach.Collector;
 
+/// <summary>A session folder's laps (copies), reported whenever its session.json changes.</summary>
+internal sealed record SessionLaps(string Folder, string Track, string Car, IReadOnlyList<ManifestLap> Laps, bool NewLap);
+
 /// <summary>
 /// Saves completed laps on a background task, so slow disk writes never hold up the
 /// 60 Hz telemetry handler. Each iRacing session gets its own folder with one CSV per lap
 /// and a session.json manifest describing them. With an uploader, each saved lap is then queued
 /// for upload, and laps from earlier runs that never uploaded are queued when it starts.
 /// With an IbtEnricher, live laps get their track positions from iRacing's .ibt file after the session
-/// and are uploaded again.
+/// and are uploaded again. Every change to a session.json is reported through LapsChanged, which the
+/// window's lap list shows.
 /// </summary>
 internal sealed class LapWriter : IAsyncDisposable
 {
@@ -55,6 +59,7 @@ internal sealed class LapWriter : IAsyncDisposable
     private sealed record SaveLap(CompletedLap Lap) : Job;
     private sealed record RecordUpload(string Folder, Guid ClientLapId, bool HadPosition, string? Error) : Job;
     private sealed record AddPositions(int Attempt) : Job;
+    private sealed record UseUploader(LapUploader? Uploader) : Job;
     private sealed record Flush(TaskCompletionSource Done) : Job;
 
     private readonly Channel<Job> _queue = Channel.CreateUnbounded<Job>(new UnboundedChannelOptions { SingleReader = true });
@@ -66,6 +71,7 @@ internal sealed class LapWriter : IAsyncDisposable
     // Only touched by the worker task.
     private SessionContext? _folderSession;
     private string? _folder;
+    private LapUploader? _uploader;
 
     /// <summary>enricher is null when laps shouldn't get track positions from .ibt files (e.g. playback).</summary>
     public LapWriter(string root, IbtEnricher? enricher, Action<string> log)
@@ -75,10 +81,15 @@ internal sealed class LapWriter : IAsyncDisposable
         _log = log;
     }
 
-    /// <summary>Set before Start; laps are only saved locally without it.</summary>
-    public LapUploader? Uploader { get; set; }
+    /// <summary>Called on the writer's task with a copy of a session folder's laps whenever its session.json
+    /// changes. NewLap is true when a lap was just saved there. Set before Start.</summary>
+    public Action<SessionLaps>? LapsChanged { get; init; }
 
     public void Start() => _worker = Task.Run(RunAsync);
+
+    /// <summary>Uploads laps from now on (null: stop uploading), starting with earlier laps that haven't
+    /// uploaded. Laps are only saved on this PC until an uploader is set.</summary>
+    public void SetUploader(LapUploader? uploader) => _queue.Writer.TryWrite(new UseUploader(uploader));
 
     public void Enqueue(CompletedLap lap) => _queue.Writer.TryWrite(new SaveLap(lap));
 
@@ -113,17 +124,20 @@ internal sealed class LapWriter : IAsyncDisposable
 
     private async Task RunAsync()
     {
-        if (Uploader is not null)
+        // The window shows the most recent session's laps until a new lap is saved
+        try
         {
-            try
-            {
-                QueueEarlierLaps();
-            }
-            catch (Exception e)
-            {
-                _log($"Could not check earlier laps for uploading: {e.Message}");
-            }
+            var latest = Directory.Exists(_root)
+                ? Directory.GetDirectories(_root).OrderDescending(StringComparer.Ordinal).FirstOrDefault(f => File.Exists(Path.Combine(f, "session.json")))
+                : null;
+            if (latest is not null && SessionManifest.Load(latest) is { } manifest)
+                Report(latest, manifest, newLap: false);
         }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
+        {
+            _log($"Could not read the last session's laps: {e.Message}");
+        }
+
         // Sessions driven since the last run
         AddPositionsFromIbt();
 
@@ -142,6 +156,11 @@ internal sealed class LapWriter : IAsyncDisposable
                     case AddPositions add:
                         AddPositionsFromIbt(add.Attempt);
                         break;
+                    case UseUploader use:
+                        _uploader = use.Uploader;
+                        if (_uploader is not null)
+                            QueueEarlierLaps();
+                        break;
                     case Flush flush:
                         flush.Done.SetResult();
                         break;
@@ -153,6 +172,7 @@ internal sealed class LapWriter : IAsyncDisposable
                 {
                     SaveLap s => $"Could not save lap {s.Lap.LapNumber}: {e.Message}",
                     AddPositions => $"Could not add track positions from .ibt files: {e.Message}",
+                    UseUploader => $"Could not check earlier laps for uploading: {e.Message}",
                     _ => $"Could not record an upload in session.json: {e.Message}",
                 });
             }
@@ -207,6 +227,7 @@ internal sealed class LapWriter : IAsyncDisposable
         manifest.SubSessionId = session.SubSessionId;
         manifest.Laps.Add(entry);
         manifest.Save(folder);
+        Report(folder, manifest, newLap: true);
 
         var notes = new List<string>();
         if (lap.OnPitRoad) notes.Add("pit road");
@@ -218,8 +239,11 @@ internal sealed class LapWriter : IAsyncDisposable
         _log($"Lap {lap.LapNumber} saved: {(int)t.TotalMinutes}:{t.Seconds:00}.{t.Milliseconds:000} ({lap.Samples.Count:N0} samples){suffix}");
 
         if (entry.UploadError is null)
-            Uploader?.Enqueue(new UploadItem(folder, InfoOf(manifest), entry, Earlier: false));
+            _uploader?.Enqueue(new UploadItem(folder, InfoOf(manifest), entry, Earlier: false));
     }
+
+    private void Report(string folder, SessionManifest manifest, bool newLap) =>
+        LapsChanged?.Invoke(new SessionLaps(folder, manifest.Track, manifest.Car, manifest.Laps.Select(l => l.Copy()).ToList(), newLap));
 
     private void RecordUploadResult(RecordUpload result)
     {
@@ -233,6 +257,7 @@ internal sealed class LapWriter : IAsyncDisposable
         lap.Uploaded = result.Error is null;
         lap.UploadError = result.Error;
         manifest.Save(result.Folder);
+        Report(result.Folder, manifest, newLap: false);
     }
 
     private void AddPositionsFromIbt(int attempt)
@@ -245,7 +270,9 @@ internal sealed class LapWriter : IAsyncDisposable
         foreach (var (folder, manifest) in toUpload.Select(e => (e.Folder, e.Manifest)).Distinct())
             manifest.Save(folder);
         foreach (var (folder, manifest, lap) in toUpload)
-            Uploader?.Enqueue(new UploadItem(folder, InfoOf(manifest), lap, Earlier: false, WithPositions: true));
+            _uploader?.Enqueue(new UploadItem(folder, InfoOf(manifest), lap, Earlier: false, WithPositions: true));
+        foreach (var (folder, manifest) in enriched.Select(e => (e.Folder, e.Manifest)).Distinct())
+            Report(folder, manifest, newLap: false);
 
         // iRacing can take a moment to close the file after the car leaves the track
         if (stillWriting && attempt < IbtMaxAttempts)
@@ -289,7 +316,7 @@ internal sealed class LapWriter : IAsyncDisposable
 
             var info = InfoOf(manifest);
             foreach (var lap in pending)
-                Uploader!.Enqueue(new UploadItem(folder, info, lap, Earlier: true));
+                _uploader!.Enqueue(new UploadItem(folder, info, lap, Earlier: true));
             count += pending.Count;
         }
         if (count > 0)

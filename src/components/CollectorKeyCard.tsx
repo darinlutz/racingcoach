@@ -8,11 +8,14 @@ function formatDate(iso: string | null): string {
   return new Date(iso).toLocaleDateString('en-US', { dateStyle: 'long' });
 }
 
+// The newest collector .exe, published by .github/workflows/collector-release.yml for each collector-v* tag
+const DOWNLOAD_URL = 'https://github.com/darinlutz/racingcoach/releases/latest/download/RacingCoach.Collector.exe';
+
 const buttonClass =
   'shrink-0 px-4 py-2 text-sm font-semibold rounded-lg text-foreground bg-card border border-border hover:border-primary hover:text-primary transition-colors disabled:opacity-50';
 
-// The Account page's upload key for the telemetry collector: create one (shown once, to paste into the
-// collector), replace it, or revoke it
+// The Account page's telemetry collector card: download the collector, and its upload key: create one
+// (shown once, to paste into the collector), replace it, or revoke it
 export default function CollectorKeyCard({ initialKey }: { initialKey: CollectorKeyInfo | null }) {
   const [info, setInfo] = useState(initialKey);
   const [newKey, setNewKey] = useState('');
@@ -69,6 +72,23 @@ export default function CollectorKeyCard({ initialKey }: { initialKey: Collector
   return (
     <div className="mt-6 bg-card rounded-lg border border-border px-4 py-4">
       <h2 className="text-sm font-medium text-muted-foreground mb-3">Telemetry Collector</h2>
+
+      <div className="mb-4 pb-4 border-b border-border flex items-center justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-foreground font-medium">RacingCoach Collector for Windows</p>
+          <p className="text-sm text-muted-foreground">
+            Run it on the PC you race on. It records every lap from iRacing and sends it here. Nothing to install.
+            If Windows says it protected your PC, click More info, then Run anyway.
+          </p>
+        </div>
+        <a
+          href={DOWNLOAD_URL}
+          className="shrink-0 px-4 py-2 text-sm font-semibold rounded-lg text-white bg-gradient-to-r from-primary to-primary-strong hover:from-primary-strong hover:to-primary transition-colors"
+        >
+          Download
+        </a>
+      </div>
+
       {error && <p className="mb-3 p-3 rounded-lg text-sm bg-primary/15 border border-primary/40 text-red-300">{error}</p>}
 
       {newKey && (

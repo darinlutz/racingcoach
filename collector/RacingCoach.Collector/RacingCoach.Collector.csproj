@@ -1,17 +1,26 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
+    <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>RacingCoach.Collector</RootNamespace>
+    <!-- The release workflow (.github/workflows/collector-release.yml) sets this from the collector-v* tag -->
+    <Version>1.1.0</Version>
+    <Product>RacingCoach Collector</Product>
+    <Company>RacingCoach.app</Company>
+    <ApplicationIcon>Assets\collector.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Also brings Microsoft.Extensions.Logging.Abstractions; DPAPI (ProtectedData) comes with Windows Desktop -->
     <PackageReference Include="SVappsLAB.iRacingTelemetrySDK" Version="2.5.0" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="10.0.0" />
-    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.12" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\collector.ico" />
   </ItemGroup>
 
 </Project>

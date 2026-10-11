@@ -1,16 +1,20 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+
+import RecordedLaps from '@/components/RecordedLaps';
 
 import type { Debrief } from '@/lib/debriefCoach';
 import { buildDebriefSession, lapId } from '@/lib/debriefSession';
-import { formatLapTime, formatSize, parseLapFile, type LapFile, type Track } from '@/lib/lapData';
+import { formatLapTime, formatSize, parseLapFile, sameTrackName, type LapFile, type Track } from '@/lib/lapData';
 
 export default function DebriefCoach() {
   const [tracks, setTracks] = useState<Track[]>([]);
   const [trackName, setTrackName] = useState('');
   const [error, setError] = useState('');
   const [lapFiles, setLapFiles] = useState<LapFile[]>([]);
+  // Laps picked from the RacingCoach collector's uploads
+  const [recordedLaps, setRecordedLaps] = useState<LapFile[]>([]);
   const [fileErrors, setFileErrors] = useState<string[]>([]);
   const [dragging, setDragging] = useState(false);
   const [running, setRunning] = useState(false);
@@ -46,7 +50,7 @@ export default function DebriefCoach() {
     // Select the track matching the uploaded files' track name
     if (added.length > 0) {
       const uploadedTrack = added[0].trackName;
-      const match = tracks.find((t) => t.fileName.toLowerCase() === uploadedTrack.toLowerCase());
+      const match = tracks.find((t) => sameTrackName(t.fileName, uploadedTrack));
       if (match) setTrackName(match.name);
       else errors.push(`No track in your Track Data list is named "${uploadedTrack}".`);
     }
@@ -59,16 +63,31 @@ export default function DebriefCoach() {
     ]);
   };
 
+  // Also selects the picked laps' track, unless the selected track already matches them
+  const pickRecordedLaps = useCallback(
+    (laps: LapFile[]) => {
+      setRecordedLaps(laps);
+      const picked = laps[0]?.trackName;
+      if (!picked) return;
+      setTrackName((current) => {
+        const currentTrack = tracks.find((t) => t.name === current);
+        if (currentTrack && sameTrackName(currentTrack.fileName, picked)) return current;
+        return tracks.find((t) => sameTrackName(t.fileName, picked))?.name ?? current;
+      });
+    },
+    [tracks]
+  );
+
   const removeFile = (fileId: string) => {
     setLapFiles((prev) => prev.filter((lap) => lap.fileId !== fileId));
   };
 
   const selectedTrack = tracks.find((t) => t.name === trackName);
+  const allLaps = [...lapFiles, ...recordedLaps];
   // Only laps from the selected track can be measured against its focus areas
-  const trackLaps = selectedTrack
-    ? lapFiles.filter((lap) => lap.trackName.toLowerCase() === selectedTrack.fileName.toLowerCase())
-    : [];
-  const otherLaps = lapFiles.length - trackLaps.length;
+  const trackLaps = selectedTrack ? allLaps.filter((lap) => sameTrackName(lap.trackName, selectedTrack.fileName)) : [];
+  const otherLaps = allLaps.length - trackLaps.length;
+
 
   const runDebrief = async () => {
     if (!selectedTrack) return;
@@ -120,9 +139,15 @@ export default function DebriefCoach() {
         {error && <p className="mt-2 text-sm text-primary">{error}</p>}
       </div>
 
+      {/* Laps the RacingCoach collector uploaded */}
+      <div>
+        <p className="block text-sm text-muted-foreground mb-2">Your recorded laps</p>
+        <RecordedLaps tracks={tracks} onChange={pickRecordedLaps} />
+      </div>
+
       {/* File upload */}
       <div>
-        <label className="block text-sm text-muted-foreground mb-2">Upload the session&apos;s lap CSVs</label>
+        <label className="block text-sm text-muted-foreground mb-2">Or upload the session&apos;s lap CSVs</label>
         <div
           onDragOver={(e) => {
             e.preventDefault();
@@ -170,7 +195,7 @@ export default function DebriefCoach() {
 
         {otherLaps > 0 && (
           <div className="mt-2 px-4 py-3 rounded-lg border text-sm bg-yellow-500/10 border-yellow-500/40 text-yellow-200">
-            {otherLaps} uploaded {otherLaps === 1 ? 'lap is' : 'laps are'} not from {selectedTrack?.fileName} and
+            {otherLaps} selected {otherLaps === 1 ? 'lap is' : 'laps are'} not from {selectedTrack?.fileName} and
             will be left out.
           </div>
         )}
@@ -220,7 +245,7 @@ export default function DebriefCoach() {
         {!debrief && !runError && !running && (
           <p className="text-sm text-muted-foreground">
             {trackLaps.length < 2
-              ? 'Upload at least 2 laps from the selected track, then press Run Debrief.'
+              ? 'Pick or upload at least 2 laps from the selected track, then press Run Debrief.'
               : 'Press Run Debrief to get the things to fix next session.'}
           </p>
         )}

@@ -64,6 +64,88 @@ export function checkLapCsv(csvGzip: Buffer, samples: number): number {
   return csv.length;
 }
 
+// A stored lap's details, as listed on the Racing page (the CSV itself comes from readCollectorLapCsv)
+export type CollectorLapSummary = {
+  id: number;
+  clientLapId: string;
+  track: string;
+  car: string;
+  driver: string;
+  sessionId: number;
+  subSessionId: number;
+  sessionNum: number;
+  sessionType: string;
+  lapNumber: number;
+  lapTimeSeconds: number;
+  samples: number;
+  missingSamples: number;
+  incidents: number;
+  pitRoad: boolean;
+  offTrack: boolean;
+  recordedAt: string;
+};
+
+// How many of the user's most recent laps the Racing page lists
+const LIST_LIMIT = 1000;
+
+export async function listCollectorLaps(userId: number): Promise<CollectorLapSummary[]> {
+  await ensureUserSchema();
+  const rows = await query<{
+    id: number;
+    client_lap_id: string;
+    track: string;
+    car: string;
+    driver: string;
+    iracing_session_id: string;
+    iracing_subsession_id: string;
+    session_num: number;
+    session_type: string;
+    lap_number: number;
+    lap_time_seconds: number;
+    sample_count: number;
+    missing_samples: number;
+    incidents: number;
+    pit_road: boolean;
+    off_track: boolean;
+    recorded_at: Date;
+  }>(
+    `SELECT id, client_lap_id, track, car, driver, iracing_session_id, iracing_subsession_id, session_num, session_type,
+            lap_number, lap_time_seconds, sample_count, missing_samples, incidents, pit_road, off_track, recorded_at
+     FROM racingcoach."CollectorLaps" WHERE user_id = $1 ORDER BY recorded_at DESC, id DESC LIMIT $2`,
+    [userId, LIST_LIMIT]
+  );
+  return rows.map((row) => ({
+    id: row.id,
+    clientLapId: row.client_lap_id,
+    track: row.track,
+    car: row.car,
+    driver: row.driver,
+    // BIGINT columns come back from pg as strings
+    sessionId: Number(row.iracing_session_id),
+    subSessionId: Number(row.iracing_subsession_id),
+    sessionNum: row.session_num,
+    sessionType: row.session_type,
+    lapNumber: row.lap_number,
+    lapTimeSeconds: row.lap_time_seconds,
+    samples: row.sample_count,
+    missingSamples: row.missing_samples,
+    incidents: row.incidents,
+    pitRoad: row.pit_road,
+    offTrack: row.off_track,
+    recordedAt: row.recorded_at.toISOString(),
+  }));
+}
+
+// The lap's CSV, or null if the user has no lap with that id
+export async function readCollectorLapCsv(userId: number, id: number): Promise<string | null> {
+  await ensureUserSchema();
+  const [row] = await query<{ csv_gzip: Buffer }>(
+    'SELECT csv_gzip FROM racingcoach."CollectorLaps" WHERE user_id = $1 AND id = $2',
+    [userId, id]
+  );
+  return row ? gunzipSync(row.csv_gzip).toString('utf8') : null;
+}
+
 // Saves a lap for the user. Uploading the same clientLapId again (a retry) keeps the first copy and
 // reports it as a duplicate.
 export async function saveCollectorLap(

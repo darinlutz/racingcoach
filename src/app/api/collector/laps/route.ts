@@ -4,18 +4,34 @@ import {
   checkLapCsv,
   collectorLapSchema,
   InvalidLapCsvError,
+  listCollectorLaps,
   MAX_UPLOAD_BYTES,
   saveCollectorLap,
 } from '@/lib/collectorLaps';
+import { getCurrentUser } from '@/lib/session';
+
+const UNAUTHORIZED = { error: 'Missing or unknown upload key' };
+
+// The signed-in user's uploaded laps (details only, newest first), for the Racing page.
+// Uses the browser's sign-in, unlike POST.
+export async function GET() {
+  try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Log in to see your recorded laps' }, { status: 401 });
+    }
+    return NextResponse.json({ laps: await listCollectorLaps(user.id) });
+  } catch (error) {
+    console.error('Collector lap list error:', error);
+    return NextResponse.json({ error: 'Failed to load your recorded laps' }, { status: 500 });
+  }
+}
 
 // Lap uploads from the telemetry collector (collector/ in this repo). Not for browsers: the collector
 // sends the user's upload key (Account page) as a bearer token, and a multipart/form-data body with
 //   lap: the lap's details as JSON (collectorLapSchema)
 //   csv: the lap CSV, gzip-compressed
 // Answers 201 with the lap's id, or 200 with duplicate: true if that lap was already uploaded.
-
-const UNAUTHORIZED = { error: 'Missing or unknown upload key' };
-
 export async function POST(request: Request) {
   try {
     const userId = await authenticateCollector(request);

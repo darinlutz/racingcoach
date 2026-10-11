@@ -39,6 +39,30 @@ export function formatSize(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
 }
 
+// Track names from Track Data, Garage 61 and iRacing (the RacingCoach collector) can differ slightly, e.g.
+// "Circuit de Spa-Francorchamps (Grand Prix Pits)" and "(Grand Prix Pit)", so compare them ignoring case,
+// punctuation and a plural "s"
+function normalizeTrackName(name: string) {
+  return name
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean)
+    .map((word) => (word.length > 3 ? word.replace(/s$/, '') : word))
+    .join(' ');
+}
+
+export function sameTrackName(a: string, b: string) {
+  return normalizeTrackName(a) === normalizeTrackName(b);
+}
+
+// 78.683 -> "01.18.683", the lap time format in lap file names
+export function secondsToLapTime(seconds: number) {
+  const millis = Math.round(seconds * 1000);
+  const minutes = Math.floor(millis / 60000);
+  const secs = Math.floor((millis % 60000) / 1000);
+  return `${String(minutes).padStart(2, '0')}.${String(secs).padStart(2, '0')}.${String(millis % 1000).padStart(3, '0')}`;
+}
+
 // "01.18.683" -> 78.683
 export function lapTimeToSeconds(lapTime: string) {
   const [minutes, seconds, millis] = lapTime.split('.').map(Number);

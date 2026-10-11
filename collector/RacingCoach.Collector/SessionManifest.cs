@@ -9,7 +9,7 @@ namespace RacingCoach.Collector;
 /// </summary>
 internal sealed class SessionManifest
 {
-    public int Version { get; set; } = 2;
+    public int Version { get; set; } = 3;
     public string Track { get; set; } = "";
     public string Car { get; set; } = "";
     public string Driver { get; set; } = "";
@@ -57,6 +57,12 @@ internal sealed class ManifestLap
     public bool PitRoad { get; set; }
     public bool OffTrack { get; set; }
     public DateTimeOffset RecordedAt { get; set; }
+    /// <summary>True once the CSV's Lat/Lon/Alt columns are filled in. Live laps get them after the session,
+    /// from iRacing's .ibt file (IbtEnricher), and are then uploaded again.</summary>
+    public bool HasPosition { get; set; }
+    /// <summary>The session's .ibt file didn't cover the whole lap (e.g. its recording started mid-lap),
+    /// so the lap stays without track positions.</summary>
+    public bool PositionMissing { get; set; }
     /// <summary>True once RacingCoach.app has the lap.</summary>
     public bool Uploaded { get; set; }
     /// <summary>Why RacingCoach.app refused the lap (or why it isn't uploaded). Refused laps are tried

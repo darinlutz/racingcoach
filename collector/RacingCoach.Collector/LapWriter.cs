@@ -10,6 +10,8 @@ namespace RacingCoach.Collector;
 /// 60 Hz telemetry handler. Each iRacing session gets its own folder with one CSV per lap
 /// and a session.json manifest describing them. With an uploader, each saved lap is then queued
 /// for upload, and laps from earlier runs that never uploaded are queued when it starts.
+/// With an IbtEnricher, live laps get their track positions from iRacing's .ibt file after the session
+/// and are uploaded again.
 /// </summary>
 internal sealed class LapWriter : IAsyncDisposable
 {
@@ -38,26 +40,38 @@ internal sealed class LapWriter : IAsyncDisposable
         ("LapDist", d => F(d.LapDist)),
         ("SessionTime", d => d.SessionTime?.ToString(Inv) ?? ""),
         ("SessionTick", d => I(d.SessionTick)),
+        // Empty in live laps until IbtEnricher fills them in from the session's .ibt file
+        ("Lat", d => D(d.Lat)),
+        ("Lon", d => D(d.Lon)),
+        ("Alt", d => D(d.Alt)),
     ];
+
+    // How often, and how many times, to look again for an .ibt file iRacing hasn't finished writing
+    private static readonly TimeSpan IbtRetryDelay = TimeSpan.FromSeconds(10);
+    private const int IbtMaxAttempts = 12;
 
     // Everything the worker task does, in order: save a lap, or record how an upload went
     private abstract record Job;
     private sealed record SaveLap(CompletedLap Lap) : Job;
-    private sealed record RecordUpload(string Folder, Guid ClientLapId, string? Error) : Job;
+    private sealed record RecordUpload(string Folder, Guid ClientLapId, bool HadPosition, string? Error) : Job;
+    private sealed record AddPositions(int Attempt) : Job;
     private sealed record Flush(TaskCompletionSource Done) : Job;
 
     private readonly Channel<Job> _queue = Channel.CreateUnbounded<Job>(new UnboundedChannelOptions { SingleReader = true });
     private readonly string _root;
     private readonly Action<string> _log;
+    private readonly IbtEnricher? _enricher;
     private Task? _worker;
 
     // Only touched by the worker task.
     private SessionContext? _folderSession;
     private string? _folder;
 
-    public LapWriter(string root, Action<string> log)
+    /// <summary>enricher is null when laps shouldn't get track positions from .ibt files (e.g. playback).</summary>
+    public LapWriter(string root, IbtEnricher? enricher, Action<string> log)
     {
         _root = root;
+        _enricher = enricher;
         _log = log;
     }
 
@@ -72,7 +86,14 @@ internal sealed class LapWriter : IAsyncDisposable
     /// arrives after DisposeAsync is lost, which is harmless: the lap is uploaded again next run and
     /// RacingCoach.app recognises it as a duplicate.</summary>
     public void RecordUploadResult(UploadItem item, string? error) =>
-        _queue.Writer.TryWrite(new RecordUpload(item.Folder, item.Lap.ClientLapId!.Value, error));
+        _queue.Writer.TryWrite(new RecordUpload(item.Folder, item.Lap.ClientLapId!.Value, item.Lap.HasPosition, error));
+
+    /// <summary>Adds track positions to laps whose .ibt file iRacing has finished, e.g. after leaving the car.</summary>
+    public void AddPositionsFromIbt()
+    {
+        if (_enricher is not null)
+            _queue.Writer.TryWrite(new AddPositions(1));
+    }
 
     /// <summary>Waits until everything queued so far is done, e.g. the last laps are saved (and handed
     /// to the uploader) before the uploader is shut down. The writer keeps running.</summary>
@@ -103,6 +124,8 @@ internal sealed class LapWriter : IAsyncDisposable
                 _log($"Could not check earlier laps for uploading: {e.Message}");
             }
         }
+        // Sessions driven since the last run
+        AddPositionsFromIbt();
 
         await foreach (var job in _queue.Reader.ReadAllAsync())
         {
@@ -116,6 +139,9 @@ internal sealed class LapWriter : IAsyncDisposable
                     case RecordUpload result:
                         RecordUploadResult(result);
                         break;
+                    case AddPositions add:
+                        AddPositionsFromIbt(add.Attempt);
+                        break;
                     case Flush flush:
                         flush.Done.SetResult();
                         break;
@@ -123,7 +149,12 @@ internal sealed class LapWriter : IAsyncDisposable
             }
             catch (Exception e)
             {
-                _log(job is SaveLap s ? $"Could not save lap {s.Lap.LapNumber}: {e.Message}" : $"Could not record an upload in session.json: {e.Message}");
+                _log(job switch
+                {
+                    SaveLap s => $"Could not save lap {s.Lap.LapNumber}: {e.Message}",
+                    AddPositions => $"Could not add track positions from .ibt files: {e.Message}",
+                    _ => $"Could not record an upload in session.json: {e.Message}",
+                });
             }
         }
     }
@@ -162,6 +193,8 @@ internal sealed class LapWriter : IAsyncDisposable
             PitRoad = lap.OnPitRoad,
             OffTrack = lap.OffTrack,
             RecordedAt = DateTimeOffset.Now,
+            // Only played-back .ibt files have them already
+            HasPosition = lap.Samples.All(s => s.Lat is { } lat && s.Lon is { } lon && (lat != 0 || lon != 0)),
             // Without session info the lap can't be matched to a track on RacingCoach.app; it's kept here only
             UploadError = lap.Session is null ? UnknownTrackError : null,
         };
@@ -194,9 +227,29 @@ internal sealed class LapWriter : IAsyncDisposable
         var lap = manifest?.Laps.FirstOrDefault(l => l.ClientLapId == result.ClientLapId);
         if (manifest is null || lap is null)
             return;
+        // Sent before the lap got track positions; the copy with them is queued and records its own result
+        if (lap.HasPosition && !result.HadPosition)
+            return;
         lap.Uploaded = result.Error is null;
         lap.UploadError = result.Error;
         manifest.Save(result.Folder);
+    }
+
+    private void AddPositionsFromIbt(int attempt)
+    {
+        var (enriched, stillWriting) = _enricher!.Run(_root);
+        // Upload them again (replacing the copies without positions), unless they never could be
+        var toUpload = enriched.Where(e => e.Lap.UploadError != UnknownTrackError).ToList();
+        foreach (var (_, _, lap) in toUpload)
+            lap.Uploaded = false;
+        foreach (var (folder, manifest) in toUpload.Select(e => (e.Folder, e.Manifest)).Distinct())
+            manifest.Save(folder);
+        foreach (var (folder, manifest, lap) in toUpload)
+            Uploader?.Enqueue(new UploadItem(folder, InfoOf(manifest), lap, Earlier: false, WithPositions: true));
+
+        // iRacing can take a moment to close the file after the car leaves the track
+        if (stillWriting && attempt < IbtMaxAttempts)
+            _ = Task.Delay(IbtRetryDelay).ContinueWith(_ => _queue.Writer.TryWrite(new AddPositions(attempt + 1)), TaskScheduler.Default);
     }
 
     // Laps from earlier runs that haven't been uploaded, oldest first. Laps RacingCoach.app refused are
@@ -282,6 +335,7 @@ internal sealed class LapWriter : IAsyncDisposable
         string.Concat(name.Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));
 
     private static string F(float? v) => v?.ToString(Inv) ?? "";
+    private static string D(double? v) => v?.ToString(Inv) ?? "";
     private static string I(int? v) => v?.ToString(Inv) ?? "";
     private static string B(bool? v) => v is { } b ? (b ? "true" : "false") : "";
 }

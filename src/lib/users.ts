@@ -429,6 +429,10 @@ export function ensureUserSchema(): Promise<void> {
         csv_gzip BYTEA NOT NULL,
         UNIQUE (user_id, client_lap_id)
       )`);
+      // True when the CSV has Lat/Lon columns, which the collector adds from iRacing's .ibt file after the session
+      await client.query(
+        'ALTER TABLE racingcoach."CollectorLaps" ADD COLUMN IF NOT EXISTS has_position BOOLEAN NOT NULL DEFAULT false'
+      );
       await client.query(
         'CREATE INDEX IF NOT EXISTS collector_laps_user_id_recorded_at_idx ON racingcoach."CollectorLaps" (user_id, recorded_at)'
       );

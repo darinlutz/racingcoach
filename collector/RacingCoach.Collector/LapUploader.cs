@@ -2,8 +2,9 @@ using System.Threading.Channels;
 
 namespace RacingCoach.Collector;
 
-/// <summary>A saved lap waiting to be uploaded. Earlier is true for laps from previous runs.</summary>
-internal sealed record UploadItem(string Folder, SessionInfo Session, ManifestLap Lap, bool Earlier);
+/// <summary>A saved lap waiting to be uploaded. Earlier is true for laps from previous runs; WithPositions
+/// for a lap uploaded again because it now has track positions from the session's .ibt file.</summary>
+internal sealed record UploadItem(string Folder, SessionInfo Session, ManifestLap Lap, bool Earlier, bool WithPositions = false);
 
 /// <summary>
 /// Uploads saved laps to RacingCoach.app on its own background task, one at a time and in order.
@@ -92,7 +93,9 @@ internal sealed class LapUploader : IAsyncDisposable
                         case UploadOutcome.Uploaded:
                             Interlocked.Decrement(ref _waiting);
                             _onFinished(item, null);
-                            _log(item.Earlier
+                            _log(item.WithPositions
+                                ? $"Lap {item.Lap.LapNumber} uploaded with track positions ({item.Session.Track}, {item.Lap.RecordedAt:yyyy-MM-dd HH:mm})."
+                                : item.Earlier
                                 ? $"Uploaded earlier lap {item.Lap.LapNumber} ({item.Session.Track}, {item.Lap.RecordedAt:yyyy-MM-dd})."
                                 : $"Lap {item.Lap.LapNumber} uploaded.");
                             break;

@@ -41,9 +41,13 @@ export type CollectorLap = z.infer<typeof collectorLapSchema>;
 
 export class InvalidLapCsvError extends Error {}
 
+// Track position columns the collector adds from iRacing's .ibt file once the session's file is written
+// (iRacing's live telemetry doesn't include them). Lat/Lon in degrees, Alt in meters.
+const POSITION_COLUMNS = ['Lat', 'Lon'];
+
 // Checks the upload is a gzip-compressed lap CSV with one row per sample and the columns the analysis
-// needs. Returns the CSV's uncompressed size in bytes.
-export function checkLapCsv(csvGzip: Buffer, samples: number): number {
+// needs. Returns the CSV's uncompressed size in bytes, and whether every row has a track position.
+export function checkLapCsv(csvGzip: Buffer, samples: number): { csvBytes: number; hasPosition: boolean } {
   let csv: Buffer;
   try {
     csv = gunzipSync(csvGzip, { maxOutputLength: MAX_CSV_BYTES });
@@ -61,7 +65,15 @@ export function checkLapCsv(csvGzip: Buffer, samples: number): number {
   if (lines.length - 1 !== samples) {
     throw new InvalidLapCsvError(`csv has ${lines.length - 1} rows but the lap has ${samples} samples`);
   }
-  return csv.length;
+
+  const positionIndexes = POSITION_COLUMNS.map((column) => header.indexOf(column));
+  const hasPosition =
+    positionIndexes.every((index) => index >= 0) &&
+    lines.slice(1).every((line) => {
+      const cells = line.split(',');
+      return positionIndexes.every((index) => (cells[index] ?? '').trim() !== '');
+    });
+  return { csvBytes: csv.length, hasPosition };
 }
 
 // A stored lap's details, as listed on the Racing page (the CSV itself comes from readCollectorLapCsv)
@@ -147,21 +159,23 @@ export async function readCollectorLapCsv(userId: number, id: number): Promise<s
 }
 
 // Saves a lap for the user. Uploading the same clientLapId again (a retry) keeps the first copy and
-// reports it as a duplicate.
+// reports it as a duplicate, unless the new CSV has track positions and the stored one doesn't: the
+// collector uploads each lap again once it has added them from the .ibt file, and that copy replaces it.
 export async function saveCollectorLap(
   userId: number,
   lap: CollectorLap,
   csvGzip: Buffer,
-  csvBytes: number
-): Promise<{ id: number; duplicate: boolean }> {
+  csvBytes: number,
+  hasPosition: boolean
+): Promise<{ id: number; duplicate: boolean; replaced: boolean }> {
   await ensureUserSchema();
   try {
     const [row] = await query<{ id: number }>(
       `INSERT INTO racingcoach."CollectorLaps" (
          user_id, client_lap_id, track, car, driver, iracing_session_id, iracing_subsession_id, session_num,
          session_type, lap_number, lap_time_seconds, sample_count, missing_samples, incidents, pit_road,
-         off_track, recorded_at, csv_bytes, csv_gzip)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+         off_track, recorded_at, csv_bytes, csv_gzip, has_position)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
        RETURNING id`,
       [
         userId,
@@ -183,15 +197,27 @@ export async function saveCollectorLap(
         lap.recordedAt,
         csvBytes,
         csvGzip,
+        hasPosition,
       ]
     );
-    return { id: row.id, duplicate: false };
+    return { id: row.id, duplicate: false, replaced: false };
   } catch (error) {
     if (!isUniqueViolation(error)) throw error;
+    if (hasPosition) {
+      // The samples and lap details are the same as the first upload's; only the CSV gains columns
+      const [replaced] = await query<{ id: number }>(
+        `UPDATE racingcoach."CollectorLaps"
+         SET csv_gzip = $3, csv_bytes = $4, has_position = true, uploaded_at = now()
+         WHERE user_id = $1 AND client_lap_id = $2 AND NOT has_position
+         RETURNING id`,
+        [userId, lap.clientLapId, csvGzip, csvBytes]
+      );
+      if (replaced) return { id: replaced.id, duplicate: true, replaced: true };
+    }
     const [existing] = await query<{ id: number }>(
       'SELECT id FROM racingcoach."CollectorLaps" WHERE user_id = $1 AND client_lap_id = $2',
       [userId, lap.clientLapId]
     );
-    return { id: existing.id, duplicate: true };
+    return { id: existing.id, duplicate: true, replaced: false };
   }
 }

@@ -25,6 +25,13 @@ namespace RacingCoach.Collector;
     TelemetryVar.YawRate,
     TelemetryVar.LapDist,
     TelemetryVar.SessionTick,
+    // Track position: only in .ibt files, so live laps get these afterwards from the session's .ibt (IbtEnricher)
+    TelemetryVar.Lat,
+    TelemetryVar.Lon,
+    TelemetryVar.Alt,
+    // used to turn on iRacing's .ibt recording and notice when a file is finished
+    TelemetryVar.IsDiskLoggingEnabled,
+    TelemetryVar.IsDiskLoggingActive,
     // used to decide whether a lap is complete and clean
     TelemetryVar.SessionNum,
     TelemetryVar.IsOnTrack,
@@ -45,6 +52,8 @@ public class Program
           --no-upload         Only save laps on this PC this time
           --upload            Also upload laps when playing back a file (off by default)
           --site <url>        Upload to another RacingCoach.app address this time (for testing)
+          --no-positions      Don't turn on iRacing's .ibt recording or add track positions (Lat/Lon)
+                              from .ibt files to live laps this time
         """;
 
     public static async Task<int> Main(string[] args)
@@ -60,7 +69,8 @@ public class Program
         // Playback waits for each handler call instead of dropping samples when it runs faster than we keep up.
         var clientOptions = ibtOptions is null ? new ClientOptions() : new ClientOptions { DeliveryMode = TelemetryDeliveryMode.Synchronous };
 
-        var lapsFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "RacingCoach", "Laps");
+        var documents = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+        var lapsFolder = Path.Combine(documents, "RacingCoach", "Laps");
 
         // Played-back files are usually someone else's laps, so they only upload when asked to
         var wantUploads = !options.NoUpload && (ibtOptions is null || options.Upload);
@@ -77,7 +87,12 @@ public class Program
         };
 
         var display = new TelemetryDisplay();
-        var writer = new LapWriter(lapsFolder, message => display.WriteMessage(message));
+        // Live telemetry has no track positions; iRacing only writes them to its .ibt files, so live laps get them
+        // from there after each stint. Played-back laps have them already.
+        var enricher = ibtOptions is null && !options.NoPositions
+            ? new IbtEnricher(Path.Combine(documents, "iRacing", "telemetry"), message => display.WriteMessage(message))
+            : null;
+        var writer = new LapWriter(lapsFolder, enricher, message => display.WriteMessage(message));
         var uploader = api is null ? null : new LapUploader(api, writer.RecordUploadResult, message => display.WriteMessage(message));
         writer.Uploader = uploader;
         writer.Start();
@@ -91,16 +106,23 @@ public class Program
         display.WriteMessage($"Completed laps are saved under {lapsFolder}");
         if (!wantUploads)
             display.WriteMessage("Uploading is off for this run.");
+        if (enricher is not null)
+            display.WriteMessage($"Track positions are added after each stint from iRacing's .ibt files in {enricher.IbtFolder}");
 
         // iRacing re-sends session info every few seconds (flags, driver list, ...);
         // only print it when the track or car changes.
         string? lastSession = null;
+        // .ibt recording: asked for once per connection (so turning it off with Alt+L sticks), and
+        // a finished recording is the cue to add track positions to the stint's laps
+        var askedForIbt = false;
+        var wasRecordingIbt = false;
 
         var handlers = new TelemetryHandlers<TelemetryData>
         {
             OnConnectStateChanged = state =>
             {
                 display.ResetRate();
+                askedForIbt = false;
                 if (state == ConnectState.Connected)
                 {
                     display.WriteMessage("Connected to iRacing.");
@@ -108,7 +130,9 @@ public class Program
                 else
                 {
                     lastSession = null;
+                    wasRecordingIbt = false;
                     display.WriteMessage("Disconnected from iRacing. Waiting for iRacing...");
+                    writer.AddPositionsFromIbt(); // iRacing closed its .ibt file
                 }
                 return Task.CompletedTask;
             },
@@ -142,6 +166,21 @@ public class Program
             {
                 recorder.OnSample(data);
                 display.OnSample(data, recorder.Status);
+
+                if (enricher is not null)
+                {
+                    // iRacing only records while the driver is in the car
+                    if (!askedForIbt && data.IsOnTrack == true && data.IsDiskLoggingEnabled == false)
+                    {
+                        askedForIbt = true;
+                        client.SimControl.TelemetryRecording.Start();
+                        display.WriteMessage("Turned on iRacing's telemetry recording (.ibt) for track positions.");
+                    }
+                    var recordingIbt = data.IsDiskLoggingActive == true;
+                    if (wasRecordingIbt && !recordingIbt)
+                        writer.AddPositionsFromIbt(); // left the car: the stint's .ibt file is done
+                    wasRecordingIbt = recordingIbt;
+                }
                 return Task.CompletedTask;
             },
             OnError = error =>
@@ -172,11 +211,11 @@ public class Program
         return 0;
     }
 
-    private sealed record Options(string? IbtFile, int Speed, bool SetKey, bool NoUpload, bool Upload, string? SiteUrl);
+    private sealed record Options(string? IbtFile, int Speed, bool SetKey, bool NoUpload, bool Upload, string? SiteUrl, bool NoPositions);
 
     private static bool TryParseArgs(string[] args, out Options options)
     {
-        options = new Options(null, 1, false, false, false, null);
+        options = new Options(null, 1, false, false, false, null, false);
         var positional = new List<string>();
         for (var i = 0; i < args.Length; i++)
         {
@@ -185,6 +224,7 @@ public class Program
                 case "--set-key": options = options with { SetKey = true }; break;
                 case "--no-upload": options = options with { NoUpload = true }; break;
                 case "--upload": options = options with { Upload = true }; break;
+                case "--no-positions": options = options with { NoPositions = true }; break;
                 case "--site" when i + 1 < args.Length && Uri.TryCreate(args[i + 1], UriKind.Absolute, out _):
                     options = options with { SiteUrl = args[++i] };
                     break;

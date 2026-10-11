@@ -31,7 +31,8 @@ export async function GET() {
 // sends the user's upload key (Account page) as a bearer token, and a multipart/form-data body with
 //   lap: the lap's details as JSON (collectorLapSchema)
 //   csv: the lap CSV, gzip-compressed
-// Answers 201 with the lap's id, or 200 with duplicate: true if that lap was already uploaded.
+// Answers 201 with the lap's id, or 200 with duplicate: true if that lap was already uploaded (and
+// replaced: true if this copy's track positions replaced a stored copy without them).
 export async function POST(request: Request) {
   try {
     const userId = await authenticateCollector(request);
@@ -68,10 +69,10 @@ export async function POST(request: Request) {
     }
 
     const csvGzip = Buffer.from(await csvField.arrayBuffer());
-    const csvBytes = checkLapCsv(csvGzip, parsed.data.samples);
+    const { csvBytes, hasPosition } = checkLapCsv(csvGzip, parsed.data.samples);
 
-    const { id, duplicate } = await saveCollectorLap(userId, parsed.data, csvGzip, csvBytes);
-    return NextResponse.json({ success: true, id, duplicate }, { status: duplicate ? 200 : 201 });
+    const { id, duplicate, replaced } = await saveCollectorLap(userId, parsed.data, csvGzip, csvBytes, hasPosition);
+    return NextResponse.json({ success: true, id, duplicate, replaced }, { status: duplicate ? 200 : 201 });
   } catch (error) {
     if (error instanceof InvalidLapCsvError) {
       return NextResponse.json({ error: error.message }, { status: 400 });

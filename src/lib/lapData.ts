@@ -150,10 +150,12 @@ function crossingIndex(pcts: number[], target: number, from: number) {
 // blips, see withoutThrottleBlips), with each sample's unwrapped
 // lap position. Same stretch of samples areaStats measures; null if the lap doesn't cover the area.
 // domain is the area's start and end as lap positions (an end past the start/finish line is > 1).
+// times is each sample's time from the start of the lap (s), spaced like areaStats counts them.
 // steerings is the steering wheel angle at each sample (radians, positive to the left).
 // positions is the car's [lat, lon] at each sample, or null if the lap has no track positions there.
 export type AreaTrace = {
   pcts: number[];
+  times: number[];
   brakes: number[];
   throttles: number[];
   steerings: number[];
@@ -188,6 +190,7 @@ export function withoutThrottleBlips(brakes: number[], throttles: number[]): num
 
 export function areaTrace(
   { pcts, brakes, throttles, steerings, lats, lons }: LapSamples,
+  lapSeconds: number,
   start: number,
   end: number
 ): AreaTrace | null {
@@ -200,14 +203,33 @@ export function areaTrace(
   const to = Math.min(Math.ceil(endIndex), pcts.length - 1) + 1;
   const areaBrakes = brakes.slice(from, to);
   const positions = lats.slice(from, to).map((lat, i): [number, number] => [lat, lons[from + i]]);
+  const sampleSeconds = lapSeconds / pcts.length;
   return {
     pcts: pcts.slice(from, to),
+    times: Array.from({ length: to - from }, (_, i) => (from + i) * sampleSeconds),
     brakes: areaBrakes,
     throttles: withoutThrottleBlips(areaBrakes, throttles.slice(from, to)),
     steerings: steerings.slice(from, to),
     positions: positions.every(([lat, lon]) => Number.isFinite(lat) && Number.isFinite(lon)) ? positions : null,
     domain: [start, domainEnd],
   };
+}
+
+// The lap's time (s from the start of the lap) when it reached a lap position, interpolated between
+// samples the same way areaStats interpolates its start and end crossings
+export function timeAtPosition({ pcts, times }: AreaTrace, pct: number) {
+  if (pct <= pcts[0]) return times[0];
+  const last = pcts.length - 1;
+  if (pct >= pcts[last]) return times[last];
+  let lo = 0;
+  let hi = last;
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >> 1;
+    if (pcts[mid] <= pct) lo = mid;
+    else hi = mid;
+  }
+  const fraction = pcts[hi] > pcts[lo] ? (pct - pcts[lo]) / (pcts[hi] - pcts[lo]) : 0;
+  return times[lo] + fraction * (times[hi] - times[lo]);
 }
 
 // Seconds spent between start and end, the highest Brake value (0-1) in that

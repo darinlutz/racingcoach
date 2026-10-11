@@ -506,8 +506,8 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
             lines.push(formatAreaLine(area.name, comparison, selectedTrack.lengthFeet), '');
             rows.push({ name: area.name, comparison, note: '' });
             advice.push(formatAreaAdvice(area.name, comparison));
-            const baseTrace = areaTrace(baseSamples, area.start, area.end);
-            const compareTrace = areaTrace(compareSamples, area.start, area.end);
+            const baseTrace = areaTrace(baseSamples, baseSeconds, area.start, area.end);
+            const compareTrace = areaTrace(compareSamples, compareSeconds, area.start, area.end);
             if (baseTrace && compareTrace) {
               areaTraces.push({
                 name: area.name,

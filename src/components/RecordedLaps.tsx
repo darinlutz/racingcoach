@@ -68,14 +68,18 @@ const smallButtonClass =
 // Each lap also has a Target checkbox: Set Target measures the one ticked lap in every focus area of
 // its track and saves the brake point, max brake pressure and on-throttle point as the track's targets
 // (the Reference Points tab's /api/tracks/reference-points); onTargetsSaved then reloads Track Data.
+// A Compare column takes up to two laps; Compare sends them to onCompare, fastest first (the Racing
+// page opens them in Lap Compare as the Base and Compare laps).
 export default function RecordedLaps({
   tracks,
   onChange,
   onTargetsSaved,
+  onCompare,
 }: {
   tracks: Track[];
   onChange: (laps: LapFile[]) => void;
   onTargetsSaved?: () => void;
+  onCompare?: (base: LapFile, compare: LapFile) => void;
 }) {
   const [status, setStatus] = useState<'loading' | 'signed-out' | 'ready' | 'error'>('loading');
   const [laps, setLaps] = useState<CollectorLapSummary[]>([]);
@@ -87,6 +91,9 @@ export default function RecordedLaps({
   const [targetPicks, setTargetPicks] = useState<Set<number>>(new Set());
   const [settingTarget, setSettingTarget] = useState<string | null>(null);
   const [notice, setNotice] = useState('');
+  // Laps ticked in the Compare column, oldest tick first (at most two), and whether Compare is loading them
+  const [comparePicks, setComparePicks] = useState<number[]>([]);
+  const [comparing, setComparing] = useState(false);
 
   useEffect(() => {
     fetch('/api/collector/laps')
@@ -141,7 +148,7 @@ export default function RecordedLaps({
   };
 
   // Ticks (on) or unticks the picked laps. With clearFirst, every lap in clearFirst is unticked before
-  // the picked ones are ticked, in one update (Select clean laps = Clear, then tick the clean laps).
+  // the picked ones are ticked, in one update (Select clean = Clear, then tick the clean laps).
   const select = (picked: CollectorLapSummary[], on: boolean, clearFirst: CollectorLapSummary[] = []) => {
     setError('');
     setSelected((prev) => {
@@ -156,13 +163,41 @@ export default function RecordedLaps({
     if (on) void loadCsvs(picked);
   };
 
+  // Only one target lap at a time: ticking one clears every other Target tick (in all sessions)
   const toggleTarget = (lap: CollectorLapSummary, on: boolean) => {
-    setTargetPicks((prev) => {
-      const next = new Set(prev);
-      if (on) next.add(lap.id);
-      else next.delete(lap.id);
-      return next;
-    });
+    setTargetPicks(on ? new Set([lap.id]) : new Set());
+  };
+
+  // At most two Compare ticks: a third tick unticks the oldest one
+  const toggleCompare = (lap: CollectorLapSummary, on: boolean) => {
+    setComparePicks((prev) => (on ? [...prev.filter((id) => id !== lap.id), lap.id].slice(-2) : prev.filter((id) => id !== lap.id)));
+  };
+
+  // The lap's CSV as a LapFile, from the cache or fetched (and cached)
+  const lapFile = async (lap: CollectorLapSummary): Promise<LapFile> => {
+    const cached = files[lap.id];
+    if (cached) return cached;
+    const res = await fetch(`/api/collector/laps/${lap.id}`);
+    if (!res.ok) throw new Error(`lap ${lap.lapNumber} could not be loaded`);
+    const file = toLapFile(lap, await res.text());
+    setFiles((prev) => ({ ...prev, [lap.id]: file }));
+    return file;
+  };
+
+  // Sends the two Compare laps to Lap Compare: the faster one as the Base lap
+  const compare = async () => {
+    const picked = laps.filter((lap) => comparePicks.includes(lap.id));
+    if (picked.length !== 2 || !onCompare) return;
+    const [base, other] = [...picked].sort((a, b) => a.lapTimeSeconds - b.lapTimeSeconds);
+    setError('');
+    setComparing(true);
+    try {
+      const [baseFile, otherFile] = await Promise.all([lapFile(base), lapFile(other)]);
+      onCompare(baseFile, otherFile);
+    } catch (err) {
+      setError(`Compare failed: ${err instanceof Error ? err.message : 'unknown error'}`);
+      setComparing(false);
+    }
   };
 
   // Sets every focus area's targets on the session's track from the one lap ticked in its Target column
@@ -180,13 +215,7 @@ export default function RecordedLaps({
 
     setSettingTarget(session.key);
     try {
-      let file = files[lap.id];
-      if (!file) {
-        const res = await fetch(`/api/collector/laps/${lap.id}`);
-        if (!res.ok) throw new Error(`lap ${lap.lapNumber} could not be loaded`);
-        file = toLapFile(lap, await res.text());
-        setFiles((prev) => ({ ...prev, [lap.id]: file }));
-      }
+      const file = await lapFile(lap);
 
       // Measured the same way as the Reference Points tab (referenceSession.ts)
       const samples = await readLapSamples(file.file);
@@ -263,6 +292,8 @@ export default function RecordedLaps({
         const best = Math.min(...session.laps.map((lap) => lap.lapTimeSeconds));
         const pickedCount = session.laps.filter((lap) => selected.has(lap.id)).length;
         const targetCount = session.laps.filter((lap) => targetPicks.has(lap.id)).length;
+        // Compare can pair laps from different sessions; it's enabled in each session holding one of them
+        const comparesHere = session.laps.some((lap) => comparePicks.includes(lap.id));
         const inTrackData = tracks.length === 0 || tracks.some((track) => sameTrackName(track.fileName, first.track));
         return (
           <details key={session.key} open={index === 0} className="bg-card border border-border rounded-lg">
@@ -285,12 +316,18 @@ export default function RecordedLaps({
                 </p>
               )}
               <div className="flex flex-wrap gap-2">
+                <button type="button" className={smallButtonClass} onClick={() => select(session.laps, false)}>
+                  Clear
+                </button>
                 <button
                   type="button"
                   className={smallButtonClass}
                   onClick={() => select(session.laps.filter(isClean), true, session.laps)}
                 >
-                  Select clean laps
+                  Select clean
+                </button>
+                <button type="button" className={smallButtonClass} onClick={() => select(session.laps, true)}>
+                  Select all
                 </button>
                 {/* Only enabled with exactly one lap ticked in this session's Target column */}
                 <button
@@ -301,16 +338,22 @@ export default function RecordedLaps({
                 >
                   {settingTarget === session.key ? 'Setting Target…' : 'Set Target'}
                 </button>
-                <button type="button" className={smallButtonClass} onClick={() => select(session.laps, true)}>
-                  Select all
-                </button>
-                <button type="button" className={smallButtonClass} onClick={() => select(session.laps, false)}>
-                  Clear
-                </button>
+                {/* Only enabled with exactly two laps ticked in the Compare column */}
+                {onCompare && (
+                  <button
+                    type="button"
+                    disabled={comparePicks.length !== 2 || !comparesHere || comparing}
+                    onClick={() => void compare()}
+                    className="px-3 py-1 text-xs font-semibold rounded-lg text-white bg-blue-600 hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {comparing && comparesHere ? 'Loading…' : 'Compare'}
+                  </button>
+                )}
               </div>
               <div className="flex items-center gap-3 px-2 text-xs text-muted-foreground">
                 <span className="w-12 text-center">Debrief</span>
                 <span className="w-12 text-center">Target</span>
+                {onCompare && <span className="w-12 text-center">Compare</span>}
               </div>
               <ul className="space-y-1">
                 {session.laps.map((lap) => (
@@ -333,9 +376,20 @@ export default function RecordedLaps({
                         className="accent-green-600"
                       />
                     </span>
+                    {onCompare && (
+                      <span className="w-12 flex justify-center">
+                        <input
+                          type="checkbox"
+                          checked={comparePicks.includes(lap.id)}
+                          onChange={(e) => toggleCompare(lap, e.target.checked)}
+                          aria-label={`Compare lap ${lap.lapNumber}`}
+                          className="accent-blue-600"
+                        />
+                      </span>
+                    )}
                     <label htmlFor={`debrief-lap-${lap.id}`} className="flex items-center gap-3 cursor-pointer">
                       <span className="w-14 text-muted-foreground">Lap {lap.lapNumber}</span>
-                      <span className={`font-semibold ${lap.lapTimeSeconds === best ? 'text-primary' : 'text-foreground'}`}>
+                      <span className={`font-semibold ${lap.lapTimeSeconds === best ? 'text-purple-400' : 'text-foreground'}`}>
                         {formatLapTime(secondsToLapTime(lap.lapTimeSeconds))}
                       </span>
                       <span className="flex flex-wrap gap-1 text-xs">

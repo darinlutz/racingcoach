@@ -10,6 +10,7 @@ import StintAnalysis from '@/components/StintAnalysis';
 import LapCompare from '@/components/LapCompare';
 import DebriefCoach from '@/components/DebriefCoach';
 import ReferencePoints from '@/components/ReferencePoints';
+import type { LapFile } from '@/lib/lapData';
 
 // Space Fact Query tab is hidden for now; set to true to show it again
 const SHOW_SPACE_FACTS_TAB = false;
@@ -18,6 +19,12 @@ export default function RacingPage() {
   const [activeTab, setActiveTab] = useState<'tracks' | 'cars' | 'friends' | 'spaceFacts' | 'racecar' | 'stint' | 'lapCompare' | 'debrief' | 'referencePoints'>(
     'debrief'
   );
+  // Laps sent from Debrief Coach's Compare button, opened in Lap Compare (Base = the faster one)
+  const [lapsToCompare, setLapsToCompare] = useState<{ base: LapFile; compare: LapFile } | null>(null);
+  const compareLaps = (base: LapFile, compare: LapFile) => {
+    setLapsToCompare({ base, compare });
+    setActiveTab('lapCompare');
+  };
 
   return (
     <div className="w-full">
@@ -211,7 +218,7 @@ export default function RacingPage() {
                 <p className="text-muted-foreground mb-6">
                   Compare two laps focus area by focus area.
                 </p>
-                <LapCompare />
+                <LapCompare initialLaps={lapsToCompare} />
               </div>
             )}
 
@@ -222,7 +229,7 @@ export default function RacingPage() {
                 <p className="text-muted-foreground mb-6">
                   An AI coach reviews every lap of your session and tells you what to fix next time.
                 </p>
-                <DebriefCoach />
+                <DebriefCoach onCompare={compareLaps} />
               </div>
             )}
 

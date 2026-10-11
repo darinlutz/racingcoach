@@ -10,6 +10,7 @@ import {
   MPH_PER_METER_PER_SECOND,
   parseLapFile,
   readLapSamples,
+  sameTrackName,
   type AreaStats,
   type LapFile,
   type Track,
@@ -382,28 +383,34 @@ function LapUploader({ id, title, prompt, lap, error, onFiles, onRemove }: LapUp
   );
 }
 
-export default function LapCompare() {
+// initialLaps: laps to start with, e.g. two recorded laps sent from Debrief Coach's Compare button
+export default function LapCompare({ initialLaps = null }: { initialLaps?: { base: LapFile; compare: LapFile } | null }) {
   const [tracks, setTracks] = useState<Track[]>([]);
   const [trackName, setTrackName] = useState('');
   const [error, setError] = useState('');
-  const [baseLap, setBaseLap] = useState<LapFile | null>(null);
-  const [compareLap, setCompareLap] = useState<LapFile | null>(null);
+  const [baseLap, setBaseLap] = useState<LapFile | null>(initialLaps?.base ?? null);
+  const [compareLap, setCompareLap] = useState<LapFile | null>(initialLaps?.compare ?? null);
   const [baseError, setBaseError] = useState('');
   const [compareError, setCompareError] = useState('');
   const [analysis, setAnalysis] = useState('');
   const [areaRows, setAreaRows] = useState<AreaRow[]>([]);
   const [analyzing, setAnalyzing] = useState(false);
 
+  // Starts on the initial laps' track when there are any, otherwise the first track
+  const initialTrack = initialLaps?.base.trackName;
   useEffect(() => {
     fetch('/api/track-names')
       .then(async (res) => {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Failed to load track names');
-        setTracks(data.tracks);
-        if (data.tracks.length > 0) setTrackName(data.tracks[0].name);
+        const tracks: Track[] = data.tracks;
+        setTracks(tracks);
+        const match = initialTrack ? tracks.find((t) => sameTrackName(t.fileName, initialTrack)) : undefined;
+        if (match) setTrackName(match.name);
+        else if (tracks.length > 0) setTrackName(tracks[0].name);
       })
       .catch((err: Error) => setError(err.message));
-  }, []);
+  }, [initialTrack]);
 
   // Validates a drop/browse into one uploader and stores the lap if it's good
   const handleFiles = async (
@@ -420,7 +427,7 @@ export default function LapCompare() {
     try {
       const lap = await parseLapFile(fileList[0]);
       // Select the track matching the uploaded file's track name
-      const match = tracks.find((t) => t.fileName.toLowerCase() === lap.trackName.toLowerCase());
+      const match = tracks.find((t) => sameTrackName(t.fileName, lap.trackName));
       if (match) setTrackName(match.name);
       setLapError(
         match ? '' : `No track in your Track Data list is named "${lap.trackName}".`
@@ -434,7 +441,7 @@ export default function LapCompare() {
   const selectedTrack = tracks.find((t) => t.name === trackName);
   const mismatchedLaps = selectedTrack
     ? [baseLap, compareLap].filter(
-        (lap) => lap && lap.trackName.toLowerCase() !== selectedTrack.fileName.toLowerCase()
+        (lap) => lap && !sameTrackName(lap.trackName, selectedTrack.fileName)
       )
     : [];
 

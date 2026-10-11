@@ -8,7 +8,8 @@ import type { Debrief } from '@/lib/debriefCoach';
 import { buildDebriefSession, lapId } from '@/lib/debriefSession';
 import { formatLapTime, formatSize, parseLapFile, sameTrackName, type LapFile, type Track } from '@/lib/lapData';
 
-export default function DebriefCoach() {
+// onCompare: called with two recorded laps (fastest first) when the lap list's Compare button is pressed
+export default function DebriefCoach({ onCompare }: { onCompare?: (base: LapFile, compare: LapFile) => void }) {
   const [tracks, setTracks] = useState<Track[]>([]);
   const [trackName, setTrackName] = useState('');
   const [error, setError] = useState('');
@@ -150,7 +151,7 @@ export default function DebriefCoach() {
       {/* Laps the RacingCoach collector uploaded */}
       <div>
         <p className="block text-sm text-muted-foreground mb-2">Your recorded laps</p>
-        <RecordedLaps tracks={tracks} onChange={pickRecordedLaps} onTargetsSaved={loadTracks} />
+        <RecordedLaps tracks={tracks} onChange={pickRecordedLaps} onTargetsSaved={loadTracks} onCompare={onCompare} />
       </div>
 
       {/* File upload */}

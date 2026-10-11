@@ -2,20 +2,20 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useLanguage } from '@/components/LanguageProvider';
 import {
   CANCELLATION_REASONS,
   MAX_CANCELLATION_NOTES,
   type CancellationConfirmation,
 } from '@/lib/cancellationReasons';
 
-function formatDate(iso: string | null, withTime = false): string {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleString('en-US', withTime ? { dateStyle: 'long', timeStyle: 'short' } : { dateStyle: 'long' });
-}
-
 // Asks the subscriber why they're leaving, then cancels the subscription in Stripe and shows
 // Stripe's confirmation
 export default function CancelSubscriptionButton() {
+  const { t: dictionary, locale } = useLanguage();
+  const t = dictionary.cancelSubscription;
+  const formatDate = (iso: string | null, withTime = false) =>
+    iso ? new Date(iso).toLocaleString(locale, withTime ? { dateStyle: 'long', timeStyle: 'short' } : { dateStyle: 'long' }) : '—';
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState('');
@@ -41,10 +41,10 @@ export default function CancelSubscriptionButton() {
         body: JSON.stringify({ reason, notes }),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to cancel subscription');
+      if (!response.ok) throw new Error(data.error || t.failed);
       setConfirmation(data.confirmation);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to cancel subscription');
+      setError(err instanceof Error ? err.message : t.failed);
     } finally {
       setSubmitting(false);
     }
@@ -57,7 +57,7 @@ export default function CancelSubscriptionButton() {
         onClick={() => setOpen(true)}
         className="w-full px-6 py-3 rounded-lg font-semibold text-primary bg-card border border-primary/40 hover:bg-primary/10 transition-colors"
       >
-        Cancel Subscription
+        {t.button}
       </button>
 
       {open && (
@@ -72,22 +72,22 @@ export default function CancelSubscriptionButton() {
             {confirmation ? (
               <>
                 <h2 id="cancelSubscriptionTitle" className="text-lg font-bold text-foreground mb-2">
-                  Your subscription has been canceled
+                  {t.canceledTitle}
                 </h2>
                 <p className="text-sm text-muted-foreground mb-4">
-                  You won&apos;t be charged again. Keep these details as proof of cancellation.
+                  {t.canceledIntro}
                 </p>
                 <dl className="divide-y divide-border rounded-lg border border-border text-sm mb-6">
                   <div className="flex justify-between gap-4 px-4 py-2">
-                    <dt className="text-muted-foreground">Confirmation Number</dt>
+                    <dt className="text-muted-foreground">{t.confirmationNumber}</dt>
                     <dd className="font-mono text-foreground text-right break-all">{confirmation.confirmationNumber}</dd>
                   </div>
                   <div className="flex justify-between gap-4 px-4 py-2">
-                    <dt className="text-muted-foreground">Canceled On</dt>
+                    <dt className="text-muted-foreground">{t.canceledOn}</dt>
                     <dd className="text-foreground text-right">{formatDate(confirmation.canceledAt, true)}</dd>
                   </div>
                   <div className="flex justify-between gap-4 px-4 py-2">
-                    <dt className="text-muted-foreground">Subscription End Date</dt>
+                    <dt className="text-muted-foreground">{t.subscriptionEndDate}</dt>
                     <dd className="text-foreground text-right">{formatDate(confirmation.subscriptionEndDate)}</dd>
                   </div>
                 </dl>
@@ -97,19 +97,19 @@ export default function CancelSubscriptionButton() {
                   onClick={close}
                   className="w-full px-4 py-2 rounded-lg font-semibold text-white bg-gradient-to-r from-primary to-primary-strong"
                 >
-                  Done
+                  {dictionary.common.done}
                 </button>
               </>
             ) : (
               <>
                 <h2 id="cancelSubscriptionTitle" className="text-lg font-bold text-foreground mb-1">
-                  Cancel your subscription?
+                  {t.askTitle}
                 </h2>
-                <p className="text-sm text-muted-foreground mb-4">Before you go, please tell us why you&apos;re canceling.</p>
+                <p className="text-sm text-muted-foreground mb-4">{t.askIntro}</p>
 
                 <fieldset className="space-y-2 mb-4">
-                  <legend className="sr-only">Reason for canceling</legend>
-                  {CANCELLATION_REASONS.map(({ label }) => (
+                  <legend className="sr-only">{t.reasonLegend}</legend>
+                  {CANCELLATION_REASONS.map(({ label, stripeFeedback }) => (
                     <label
                       key={label}
                       className={`flex items-center gap-3 px-3 py-2 rounded-lg border cursor-pointer transition-colors ${
@@ -124,13 +124,13 @@ export default function CancelSubscriptionButton() {
                         onChange={() => setReason(label)}
                         className="accent-primary"
                       />
-                      <span className="text-sm text-foreground">{label}</span>
+                      <span className="text-sm text-foreground">{t.reasons[stripeFeedback] ?? label}</span>
                     </label>
                   ))}
                 </fieldset>
 
                 <label htmlFor="cancellationNotes" className="block text-sm font-medium text-foreground mb-1">
-                  Comments <span className="font-normal text-muted-foreground">(optional)</span>
+                  {t.comments} <span className="font-normal text-muted-foreground">{dictionary.common.optional}</span>
                 </label>
                 <textarea
                   id="cancellationNotes"
@@ -138,7 +138,7 @@ export default function CancelSubscriptionButton() {
                   maxLength={MAX_CANCELLATION_NOTES}
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Anything we could have done better?"
+                  placeholder={t.commentsPlaceholder}
                   className="w-full px-3 py-2 mb-4 bg-card border border-border rounded-lg text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
                 />
 
@@ -154,7 +154,7 @@ export default function CancelSubscriptionButton() {
                     disabled={submitting}
                     className="flex-1 px-4 py-2 rounded-lg font-semibold text-foreground bg-card border border-border hover:bg-secondary transition-colors disabled:opacity-50"
                   >
-                    Remain Subscribed
+                    {t.remain}
                   </button>
                   <button
                     type="button"
@@ -162,7 +162,7 @@ export default function CancelSubscriptionButton() {
                     disabled={!reason || submitting}
                     className="flex-1 px-4 py-2 rounded-lg font-semibold text-white bg-red-600 hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {submitting ? 'Canceling…' : 'Cancel Subscription'}
+                    {submitting ? t.canceling : t.button}
                   </button>
                 </div>
               </>

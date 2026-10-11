@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 
+import { useLanguage } from '@/components/LanguageProvider';
 import type { CollectorLapSummary } from '@/lib/collectorLaps';
 import {
   areaStats,
@@ -81,6 +82,8 @@ export default function RecordedLaps({
   onTargetsSaved?: () => void;
   onCompare?: (base: LapFile, compare: LapFile) => void;
 }) {
+  const { t: dictionary, fmt, plural, locale } = useLanguage();
+  const t = dictionary.recordedLaps;
   const [status, setStatus] = useState<'loading' | 'signed-out' | 'ready' | 'error'>('loading');
   const [laps, setLaps] = useState<CollectorLapSummary[]>([]);
   const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -100,7 +103,7 @@ export default function RecordedLaps({
       .then(async (res) => {
         if (res.status === 401) return setStatus('signed-out');
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Failed to load your recorded laps');
+        if (!res.ok) throw new Error(data.error || t.failedLoad);
         setLaps(data.laps);
         setStatus('ready');
       })
@@ -108,7 +111,7 @@ export default function RecordedLaps({
         setError(err.message);
         setStatus('error');
       });
-  }, []);
+  }, [t]);
 
   const sessions = useMemo(() => groupSessions(laps), [laps]);
 
@@ -129,7 +132,7 @@ export default function RecordedLaps({
     const results = await Promise.allSettled(
       missing.map(async (lap) => {
         const res = await fetch(`/api/collector/laps/${lap.id}`);
-        if (!res.ok) throw new Error(`lap ${lap.lapNumber} could not be loaded`);
+        if (!res.ok) throw new Error(fmt(t.lapCouldNotLoad, { lap: lap.lapNumber }));
         return toLapFile(lap, await res.text());
       })
     );
@@ -143,7 +146,7 @@ export default function RecordedLaps({
     setLoading((prev) => new Set([...prev].filter((id) => !missing.some((lap) => lap.id === id))));
     if (failed.length > 0) {
       setSelected((prev) => new Set([...prev].filter((id) => !failed.includes(id))));
-      setError(`${failed.length} ${failed.length === 1 ? 'lap' : 'laps'} could not be loaded. Please try again.`);
+      setError(plural(failed.length, t.lapsCouldNotLoad));
     }
   };
 
@@ -178,7 +181,7 @@ export default function RecordedLaps({
     const cached = files[lap.id];
     if (cached) return cached;
     const res = await fetch(`/api/collector/laps/${lap.id}`);
-    if (!res.ok) throw new Error(`lap ${lap.lapNumber} could not be loaded`);
+    if (!res.ok) throw new Error(fmt(t.lapCouldNotLoad, { lap: lap.lapNumber }));
     const file = toLapFile(lap, await res.text());
     setFiles((prev) => ({ ...prev, [lap.id]: file }));
     return file;
@@ -195,7 +198,7 @@ export default function RecordedLaps({
       const [baseFile, otherFile] = await Promise.all([lapFile(base), lapFile(other)]);
       onCompare(baseFile, otherFile);
     } catch (err) {
-      setError(`Compare failed: ${err instanceof Error ? err.message : 'unknown error'}`);
+      setError(fmt(t.compareFailed, { error: err instanceof Error ? err.message : dictionary.common.unknownError }));
       setComparing(false);
     }
   };
@@ -203,13 +206,13 @@ export default function RecordedLaps({
   // Sets every focus area's targets on the session's track from the one lap ticked in its Target column
   const setTarget = async (session: Session) => {
     const lap = session.laps.find((l) => targetPicks.has(l.id));
-    if (!lap || !window.confirm('Set all target points using this lap?')) return;
+    if (!lap || !window.confirm(t.setTargetConfirm)) return;
     setError('');
     setNotice('');
 
-    const track = tracks.find((t) => sameTrackName(t.fileName, lap.track));
+    const track = tracks.find((candidate) => sameTrackName(candidate.fileName, lap.track));
     if (!track) {
-      setError(`No track in your Track Data list is named "${lap.track}". Add it in the Track Data tab first.`);
+      setError(fmt(t.addTrackFirst, { track: lap.track }));
       return;
     }
 
@@ -233,7 +236,7 @@ export default function RecordedLaps({
           },
         ];
       });
-      if (areas.length === 0) throw new Error(`none of ${track.fileName}'s focus areas could be measured on this lap`);
+      if (areas.length === 0) throw new Error(fmt(t.noAreasMeasured, { track: track.fileName }));
 
       const res = await fetch('/api/tracks/reference-points', {
         method: 'POST',
@@ -241,27 +244,27 @@ export default function RecordedLaps({
         body: JSON.stringify({ trackKey: track.name, trackName: track.fileName, areas }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to save the target points');
+      if (!res.ok) throw new Error(data.error || t.failedSaveTargets);
 
-      const lapLabel = `lap ${lap.lapNumber} (${formatLapTime(secondsToLapTime(lap.lapTimeSeconds))})`;
-      const missing = data.notFound.length > 0 ? ` Not found in Track Data: ${data.notFound.join(', ')}.` : '';
-      setNotice(`Target points for ${data.track} set from ${lapLabel} in ${data.saved.length} focus areas.${missing}`);
+      const lapLabel = fmt(t.lapLabel, { lap: lap.lapNumber, time: formatLapTime(secondsToLapTime(lap.lapTimeSeconds)) });
+      const missing = data.notFound.length > 0 ? fmt(t.notFound, { areas: data.notFound.join(', ') }) : '';
+      setNotice(plural(data.saved.length, t.targetsSet, { track: data.track, lap: lapLabel }) + missing);
       onTargetsSaved?.();
     } catch (err) {
-      setError(`Set Target failed: ${err instanceof Error ? err.message : 'unknown error'}`);
+      setError(fmt(t.setTargetFailed, { error: err instanceof Error ? err.message : dictionary.common.unknownError }));
     } finally {
       setSettingTarget(null);
     }
   };
 
   if (status === 'loading') {
-    return <p className="text-sm text-muted-foreground">Loading your recorded laps…</p>;
+    return <p className="text-sm text-muted-foreground">{t.loading}</p>;
   }
   if (status === 'signed-out') {
     return (
       <p className="text-sm text-muted-foreground">
-        <a href="/login" className="text-primary hover:underline">Log in</a> to use laps recorded by the RacingCoach
-        collector.
+        <a href="/login" className="text-primary hover:underline">{t.logIn}</a>
+        {t.signedOut}
       </p>
     );
   }
@@ -271,8 +274,9 @@ export default function RecordedLaps({
   if (laps.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
-        No recorded laps yet. Laps from the RacingCoach collector show up here once they&apos;re uploaded (create an
-        upload key on your <a href="/account" className="text-primary hover:underline">Account</a> page).
+        {t.noneBefore}
+        <a href="/account" className="text-primary hover:underline">{t.account}</a>
+        {t.noneAfter}
       </p>
     );
   }
@@ -301,33 +305,32 @@ export default function RecordedLaps({
               <span className="font-semibold text-foreground">{first.track}</span>
               <span className="text-muted-foreground"> • {first.car}</span>
               <span className="block text-xs text-muted-foreground">
-                {new Date(first.recordedAt).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })} •{' '}
-                {first.sessionType} • {session.laps.length} {session.laps.length === 1 ? 'lap' : 'laps'} • best{' '}
-                {formatLapTime(secondsToLapTime(best))}
-                {pickedCount > 0 && <span className="text-primary"> • {pickedCount} selected</span>}
+                {new Date(first.recordedAt).toLocaleString(locale, { dateStyle: 'medium', timeStyle: 'short' })} •{' '}
+                {dictionary.laps.sessionTypes[first.sessionType] ?? first.sessionType} •{' '}
+                {plural(session.laps.length, t.lapCount)} • {fmt(t.best, { time: formatLapTime(secondsToLapTime(best)) })}
+                {pickedCount > 0 && <span className="text-primary"> • {fmt(t.selectedCount, { n: pickedCount })}</span>}
               </span>
             </summary>
 
             <div className="px-4 pb-3 space-y-2">
               {!inTrackData && (
                 <p className="px-3 py-2 rounded-lg border text-xs bg-yellow-500/10 border-yellow-500/40 text-yellow-200">
-                  No track in your Track Data list is named &quot;{first.track}&quot;. Add it in the Track Data tab to
-                  debrief these laps.
+                  {fmt(t.notInTrackData, { track: first.track })}
                 </p>
               )}
               <div className="flex flex-wrap gap-2">
                 <button type="button" className={smallButtonClass} onClick={() => select(session.laps, false)}>
-                  Clear
+                  {t.clear}
                 </button>
                 <button
                   type="button"
                   className={smallButtonClass}
                   onClick={() => select(session.laps.filter(isClean), true, session.laps)}
                 >
-                  Select clean
+                  {t.selectClean}
                 </button>
                 <button type="button" className={smallButtonClass} onClick={() => select(session.laps, true)}>
-                  Select all
+                  {t.selectAll}
                 </button>
                 {/* Only enabled with exactly one lap ticked in this session's Target column */}
                 <button
@@ -336,7 +339,7 @@ export default function RecordedLaps({
                   onClick={() => void setTarget(session)}
                   className="px-3 py-1 text-xs font-semibold rounded-lg text-white bg-green-600 hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {settingTarget === session.key ? 'Setting Target…' : 'Set Target'}
+                  {settingTarget === session.key ? t.settingTarget : t.setTarget}
                 </button>
                 {/* Only enabled with exactly two laps ticked in the Compare column */}
                 {onCompare && (
@@ -346,14 +349,14 @@ export default function RecordedLaps({
                     onClick={() => void compare()}
                     className="px-3 py-1 text-xs font-semibold rounded-lg text-white bg-blue-600 hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {comparing && comparesHere ? 'Loading…' : 'Compare'}
+                    {comparing && comparesHere ? t.loadingShort : t.compare}
                   </button>
                 )}
               </div>
               <div className="flex items-center gap-3 px-2 text-xs text-muted-foreground">
-                <span className="w-12 text-center">Debrief</span>
-                <span className="w-12 text-center">Target</span>
-                {onCompare && <span className="w-12 text-center">Compare</span>}
+                <span className="w-12 text-center">{t.debriefColumn}</span>
+                <span className="w-12 text-center">{t.targetColumn}</span>
+                {onCompare && <span className="w-12 text-center">{t.compareColumn}</span>}
               </div>
               <ul className="space-y-1">
                 {session.laps.map((lap) => (
@@ -372,7 +375,7 @@ export default function RecordedLaps({
                         type="checkbox"
                         checked={targetPicks.has(lap.id)}
                         onChange={(e) => toggleTarget(lap, e.target.checked)}
-                        aria-label={`Use lap ${lap.lapNumber} as the target lap`}
+                        aria-label={fmt(t.useAsTarget, { lap: lap.lapNumber })}
                         className="accent-green-600"
                       />
                     </span>
@@ -382,23 +385,23 @@ export default function RecordedLaps({
                           type="checkbox"
                           checked={comparePicks.includes(lap.id)}
                           onChange={(e) => toggleCompare(lap, e.target.checked)}
-                          aria-label={`Compare lap ${lap.lapNumber}`}
+                          aria-label={fmt(t.compareLap, { lap: lap.lapNumber })}
                           className="accent-blue-600"
                         />
                       </span>
                     )}
                     <label htmlFor={`debrief-lap-${lap.id}`} className="flex items-center gap-3 cursor-pointer">
-                      <span className="w-14 text-muted-foreground">Lap {lap.lapNumber}</span>
+                      <span className="w-14 text-muted-foreground">{fmt(t.lapN, { lap: lap.lapNumber })}</span>
                       <span className={`font-semibold ${lap.lapTimeSeconds === best ? 'text-purple-400' : 'text-foreground'}`}>
                         {formatLapTime(secondsToLapTime(lap.lapTimeSeconds))}
                       </span>
                       <span className="flex flex-wrap gap-1 text-xs">
-                        {lap.pitRoad && <span className="px-1.5 rounded bg-secondary text-muted-foreground">pit road</span>}
-                        {lap.offTrack && <span className="px-1.5 rounded bg-yellow-500/15 text-yellow-200">off track</span>}
+                        {lap.pitRoad && <span className="px-1.5 rounded bg-secondary text-muted-foreground">{t.pitRoad}</span>}
+                        {lap.offTrack && <span className="px-1.5 rounded bg-yellow-500/15 text-yellow-200">{t.offTrack}</span>}
                         {lap.incidents > 0 && (
                           <span className="px-1.5 rounded bg-primary/15 text-red-300">{lap.incidents}x</span>
                         )}
-                        {loading.has(lap.id) && <span className="text-muted-foreground">loading…</span>}
+                        {loading.has(lap.id) && <span className="text-muted-foreground">{t.loadingLap}</span>}
                       </span>
                     </label>
                   </li>

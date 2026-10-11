@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { MAX_TILE_ZOOM, satelliteTileUrl } from '@/lib/mapTiles';
 import { getCurrentUser } from '@/lib/session';
+import { apiText } from '@/lib/i18n/server';
 
 // One satellite imagery tile (Web Mercator z/x/y) for Lap Compare's track position maps, fetched from
 // the provider in SATELLITE_TILE_URL (src/lib/mapTiles.ts). Signed-in users only, so the provider key
@@ -9,10 +10,11 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ z: string; x: string; y: string }> }
 ) {
+  const t = await apiText();
   try {
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json({ error: 'Log in to see track maps' }, { status: 401 });
+      return NextResponse.json({ error: t.logInMaps }, { status: 401 });
     }
     const { z, x, y } = await params;
     const [zoom, column, row] = [z, x, y].map(Number);

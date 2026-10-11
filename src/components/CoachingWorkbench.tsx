@@ -3,18 +3,13 @@
 import { useRef, useState, type ReactNode } from 'react';
 import { ArrowRight, ChartNoAxesCombined, Flag, Gauge, GitCompareArrows, MapPin, Sparkles, Upload, X } from 'lucide-react';
 import Button from '@/components/Button';
+import { useLanguage } from '@/components/LanguageProvider';
 
 // Landing page preview of the Racing toolkit. Everything here is sample data;
 // nothing is sent to the real analysis APIs.
 
-const tools = [
-  { name: 'Lap Compare', icon: GitCompareArrows, description: 'Two laps. Every corner. A clear path to a faster time.' },
-  { name: 'Debrief Coach', icon: Sparkles, description: 'Turn your session into a focused plan for your next race.' },
-  { name: 'Race Trends', icon: ChartNoAxesCombined, description: 'Your progress, from the first green flag to the latest finish.' },
-  { name: 'Track Focus Areas', icon: MapPin, description: 'Make every corner a deliberate part of your practice.' },
-  { name: 'Racecar Analysis', icon: Gauge, description: 'The right car for the track. Informed by the details.' },
-  { name: 'Stint Analysis', icon: Flag, description: 'See where your pace holds up — and where it falls away.' },
-];
+// Icons for the dictionary's workbench.tools, in the same order
+const toolIcons = [GitCompareArrows, Sparkles, ChartNoAxesCombined, MapPin, Gauge, Flag];
 const LAP_COMPARE = 0, DEBRIEF = 1, TRENDS = 2, FOCUS_AREAS = 3, RACECAR = 4, STINT = 5;
 
 const tracks = ['Mobility Resort Motegi (Grand Prix)', 'Circuit Zandvoort', 'Spa-Francorchamps'];
@@ -28,24 +23,27 @@ const focusRows = [
   ['T 10', '0.63 – 0.69', '10,129 ft', '86%', '10,488 ft'],
 ];
 
-const comparisonRows = [
-  ['T 1 & 2', '−0.016s', '58 ft earlier', '+2 mph'],
-  ['T 5', '+0.123s', '29 ft earlier', '−2 mph'],
-  ['T 9', '−0.061s', '4 ft earlier', '+0 mph'],
-  ['T 10', '+0.023s', '139 ft earlier', '+0 mph'],
+// Focus area, time difference, feet braked earlier, minimum speed difference
+const comparisonRows: [string, string, number, string][] = [
+  ['T 1 & 2', '−0.016s', 58, '+2 mph'],
+  ['T 5', '+0.123s', 29, '−2 mph'],
+  ['T 9', '−0.061s', 4, '+0 mph'],
+  ['T 10', '+0.023s', 139, '+0 mph'],
 ];
 
-const sampleCars = [
-  ['Porsche 911 GT3 R', 'Responsive front end, strong traction, precise rotation.'],
-  ['Ferrari 296 GT3', 'Balanced handling and confidence through technical corners.'],
-  ['BMW M4 GT3 EVO', 'Stable braking platform with predictable power delivery.'],
-];
+// Paired with the dictionary's workbench.sampleCars descriptions
+const sampleCars = ['Porsche 911 GT3 R', 'Ferrari 296 GT3', 'BMW M4 GT3 EVO'];
 
 function TelemetryChart({ trend = false, stint = false }: { trend?: boolean; stint?: boolean }) {
+  const { t, fmt } = useLanguage();
   const pace = '35,60 60,59 79,62 95,126 112,150 133,123 149,78 172,55 192,60 207,96 223,144 239,130 255,58 283,48 300,69 315,156 333,138 351,99 370,52 399,50 412,93 430,157 450,141 471,72 497,48 516,56 530,110 549,132 570,58';
   const ratings = '35,150 59,158 82,148 106,165 133,150 150,126 174,134 191,108 212,117 237,91 253,121 272,98 292,105 313,72 333,84 354,70 379,89 399,67 420,60 442,76 463,43 483,56 501,35 521,48 546,40 570,51';
-  const label = trend ? 'Sample iRating increases over six months' : stint ? 'Sample lap times across a racing stint' : 'Sample speed comparison of two laps across the track';
-  const axis = trend ? ['May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct'] : stint ? ['Lap 2', 'Lap 4', 'Lap 6', 'Lap 8', 'Lap 10'] : ['0 m', '1,000 m', '2,000 m', '3,000 m', '4,000 m'];
+  const label = trend ? t.workbench.chartLabelTrend : stint ? t.workbench.chartLabelStint : t.workbench.chartLabelCompare;
+  const axis = trend
+    ? t.workbench.months
+    : stint
+      ? [2, 4, 6, 8, 10].map((n) => fmt(t.workbench.lapN, { n }))
+      : ['0 m', '1,000 m', '2,000 m', '3,000 m', '4,000 m'];
 
   return (
     <div className="chart-box">
@@ -64,13 +62,14 @@ function TelemetryChart({ trend = false, stint = false }: { trend?: boolean; sti
   );
 }
 
-function Insight({ title = 'Carry more speed through T 10', tag = 'Priority focus', gain = '~0.10s / lap potential', children }: { title?: string; tag?: string; gain?: string; children: ReactNode }) {
+function Insight({ title, tag, gain, children }: { title?: string; tag?: string; gain?: string; children: ReactNode }) {
+  const { t } = useLanguage();
   return (
     <div className="insight">
-      <span className="insight-tag">{tag}</span>
-      <h4>{title}</h4>
+      <span className="insight-tag">{tag ?? t.workbench.priorityFocus}</span>
+      <h4>{title ?? t.workbench.insightTitle}</h4>
       <p>{children}</p>
-      <span className="insight-gain">{gain}</span>
+      <span className="insight-gain">{gain ?? t.workbench.insightGain}</span>
     </div>
   );
 }
@@ -78,12 +77,14 @@ function Insight({ title = 'Carry more speed through T 10', tag = 'Priority focu
 function TrackSelect({ value, onChange, label }: { value: string; onChange: (track: string) => void; label: string }) {
   return (
     <select className="track-select" aria-label={label} value={value} onChange={(e) => onChange(e.target.value)}>
-      {tracks.map((t) => <option key={t}>{t}</option>)}
+      {tracks.map((track) => <option key={track}>{track}</option>)}
     </select>
   );
 }
 
 export default function CoachingWorkbench() {
+  const { t: dictionary, fmt, plural } = useLanguage();
+  const t = dictionary.workbench;
   const [active, setActive] = useState(LAP_COMPARE);
   const [track, setTrack] = useState(tracks[0]);
   const [files, setFiles] = useState<File[]>([]);
@@ -91,7 +92,7 @@ export default function CoachingWorkbench() {
   const [dragging, setDragging] = useState(false);
   const [reviewed, setReviewed] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
-  const [question, setQuestion] = useState('Which GT3 car should I drive at Zandvoort?');
+  const [question, setQuestion] = useState(t.defaultQuestion);
   const [answer, setAnswer] = useState(false);
   const [newArea, setNewArea] = useState('');
   const [areas, setAreas] = useState(focusRows);
@@ -101,96 +102,95 @@ export default function CoachingWorkbench() {
     const selected = Array.from(incoming);
     const valid = selected.filter((file) => file.name.toLowerCase().endsWith('.csv') && file.size <= 25 * 1024 * 1024);
     setFiles((prev) => [...prev, ...valid]);
-    setMessage(valid.length !== selected.length
-      ? 'Please choose CSV files smaller than 25 MB.'
-      : `${valid.length} CSV ${valid.length === 1 ? 'file' : 'files'} added. Preview only — live analysis is not connected.`);
+    setMessage(valid.length !== selected.length ? t.tooLarge : plural(valid.length, t.filesAdded));
   }
 
   function footerAction() {
     if (active === LAP_COMPARE) setShowDetails(!showDetails);
-    else if (active === DEBRIEF) { setReviewed(true); setMessage('Sample debrief displayed. Live CSV analysis is not connected.'); }
-    else if (active === TRENDS) setMessage('Live iRacing sync is not connected to this website preview.');
-    else if (active === STINT) setMessage('Sample stint: 6 clean laps, best lap 1:49.331, average variation ±0.42s.');
+    else if (active === DEBRIEF) { setReviewed(true); setMessage(t.sampleDebriefShown); }
+    else if (active === TRENDS) setMessage(t.syncNotConnected);
+    else if (active === STINT) setMessage(t.sampleStint);
     else { setActive(LAP_COMPARE); setShowDetails(false); }
   }
 
-  const footerLabel = active === LAP_COMPARE ? (showDetails ? 'Hide full comparison' : 'Explore lap comparison')
-    : active === DEBRIEF ? 'Preview debrief'
-    : active === TRENDS ? 'Sync iRacing'
-    : active === STINT ? 'Review sample stint'
-    : 'Explore lap comparison';
+  const footerLabel = active === LAP_COMPARE ? (showDetails ? t.hideComparison : t.exploreComparison)
+    : active === DEBRIEF ? t.previewDebrief
+    : active === TRENDS ? t.syncIRacing
+    : active === STINT ? t.reviewStint
+    : t.exploreComparison;
 
-  const stats = active === TRENDS ? [['iRating', '1,991'], ['Safety rating', '3.42'], ['Avg. start', 'P8']]
-    : active === STINT ? [['Best lap', '1:49.331'], ['Consistency', '±0.42s'], ['Clean laps', '6 / 8']]
-    : [['Your lap', '1:50.056'], ['Reference lap', '1:49.410'], ['Time to find', '0.646s']];
+  const [statLabels, statValues] = active === TRENDS ? [t.statsTrend, ['1,991', '3.42', 'P8']]
+    : active === STINT ? [t.statsStint, ['1:49.331', '±0.42s', '6 / 8']]
+    : [t.statsCompare, ['1:50.056', '1:49.410', '0.646s']];
 
   return (
     <>
-      <div className="tool-tabs" role="tablist" aria-label="Coaching tools">
-        {tools.map((tool, index) => (
-          <Button
-            key={tool.name}
-            variant="ghost"
-            role="tab"
-            id={`tool-tab-${index}`}
-            aria-controls="coaching-panel"
-            aria-selected={active === index}
-            onClick={() => { setActive(index); setMessage(''); setShowDetails(false); }}
-          >
-            <tool.icon size={15} />{tool.name}
-          </Button>
-        ))}
+      <div className="tool-tabs" role="tablist" aria-label={t.toolsLabel}>
+        {t.tools.map((tool, index) => {
+          const Icon = toolIcons[index];
+          return (
+            <Button
+              key={tool.name}
+              variant="ghost"
+              role="tab"
+              id={`tool-tab-${index}`}
+              aria-controls="coaching-panel"
+              aria-selected={active === index}
+              onClick={() => { setActive(index); setMessage(''); setShowDetails(false); }}
+            >
+              <Icon size={15} />{tool.name}
+            </Button>
+          );
+        })}
       </div>
 
       <div className="workbench" role="tabpanel" id="coaching-panel" aria-labelledby={`tool-tab-${active}`}>
         <div className="workspace-heading">
           <div>
-            <h3>{tools[active].name}</h3>
-            <p>{tools[active].description}</p>
+            <h3>{t.tools[active].name}</h3>
+            <p>{t.tools[active].description}</p>
           </div>
-          <span className="demo-badge">Interactive preview</span>
+          <span className="demo-badge">{t.preview}</span>
         </div>
 
         {(active === LAP_COMPARE || active === TRENDS || active === STINT) && (
           <div className="workspace-grid">
             <div>
               <div className="chart-top">
-                <TrackSelect label="Track" value={track} onChange={setTrack} />
+                <TrackSelect label={t.track} value={track} onChange={setTrack} />
                 <div className="chart-legend">
-                  <span><i className="legend-dot" />{active === TRENDS ? 'iRating' : active === STINT ? 'Lap time' : 'Your lap'}</span>
-                  {active !== TRENDS && <span><i className="legend-dot reference" />Reference</span>}
+                  <span><i className="legend-dot" />{active === TRENDS ? t.iRating : active === STINT ? t.lapTime : t.yourLap}</span>
+                  {active !== TRENDS && <span><i className="legend-dot reference" />{t.reference}</span>}
                 </div>
               </div>
               <TelemetryChart trend={active === TRENDS} stint={active === STINT} />
               <div className="lap-summary">
-                {stats.map(([label, value], i) => (
+                {statLabels.map((label, i) => (
                   <div key={label}>
                     <span className="stat-label">{label}</span>
-                    <strong className={`stat-value ${i === 2 ? 'stat-positive' : ''}`}>{value}</strong>
+                    <strong className={`stat-value ${i === 2 ? 'stat-positive' : ''}`}>{statValues[i]}</strong>
                   </div>
                 ))}
               </div>
             </div>
             <div>
-              <div className="insight-heading"><Sparkles />COACH&apos;S INSIGHT</div>
+              <div className="insight-heading"><Sparkles />{t.coachInsight}</div>
               {active === TRENDS ? (
                 <>
-                  <Insight title="Your pace is trending up" gain="+641 iRating in the sample period">
-                    The sample season shows a steady climb from 1,350 to 1,991. Strong finishes and cleaner races are moving in the right direction.
+                  <Insight title={t.trendUpTitle} gain={t.trendUpGain}>
+                    {t.trendUpCopy}
                   </Insight>
-                  <Insight tag="Next up" title="Consistency beats one fast lap" gain="Keep building clean finishes">
-                    Compare safety rating and starting position alongside pace to see a more complete picture of your development.
+                  <Insight tag={t.nextUp} title={t.consistencyTitle} gain={t.consistencyGain}>
+                    {t.consistencyCopy}
                   </Insight>
                 </>
               ) : (
                 <>
-                  <Insight title={active === STINT ? 'Keep your middle stint consistent' : undefined}>
-                    {active === STINT
-                      ? 'The middle of this sample stint shows the largest time variation. Focus on repeatable braking and a stable minimum corner speed.'
-                      : 'You’re losing momentum at the apex. Aim for a minimum speed of 42.3 mph, and get back to the throttle with a smoother transition.'}
+                  <Insight title={active === STINT ? t.stintTitle : undefined}>
+                    {active === STINT ? t.stintCopy : t.apexCopy}
                   </Insight>
-                  <Insight tag="Next up" title="Fine-tune your braking at T 9" gain="~0.09s / lap potential">
-                    Brake a little later and release progressively. Your reference lap carries more speed into the corner without sacrificing the exit.
+                  <Insight tag={t.nextUp} title={t.brakingTitle} gain={t.brakingGain}>
+                    {t.brakingCopy}
                   </Insight>
                 </>
               )}
@@ -209,9 +209,9 @@ export default function CoachingWorkbench() {
                 onDrop={(e) => { e.preventDefault(); setDragging(false); addFiles(e.dataTransfer.files); }}
               >
                 <Upload />
-                <p>Drop your lap CSV files here</p>
-                <small>CSV · Up to 25 MB per file · At least 2 laps</small>
-                <Button variant="outline" onClick={() => input.current?.click()}>Browse files <ArrowRight /></Button>
+                <p>{t.dropFiles}</p>
+                <small>{t.fileRules}</small>
+                <Button variant="outline" onClick={() => input.current?.click()}>{t.browseFiles} <ArrowRight /></Button>
                 <input
                   ref={input}
                   type="file"
@@ -224,17 +224,15 @@ export default function CoachingWorkbench() {
               {files.map((file, i) => (
                 <div className="file-row" key={`${file.name}-${i}`}>
                   <span>{file.name}</span>
-                  <Button variant="ghost" size="icon" aria-label={`Remove ${file.name}`} onClick={() => setFiles((prev) => prev.filter((_, index) => index !== i))}><X /></Button>
+                  <Button variant="ghost" size="icon" aria-label={fmt(t.removeFile, { name: file.name })} onClick={() => setFiles((prev) => prev.filter((_, index) => index !== i))}><X /></Button>
                 </div>
               ))}
               <p className="status-message" role="status">{message}</p>
             </div>
             <div>
-              <div className="insight-heading"><Sparkles />{reviewed ? 'SAMPLE DEBRIEF' : 'DEBRIEF PREVIEW'}</div>
-              <Insight>
-                Sample session: the faster laps maintain 42.3 mph through T 10, compared with 39.8 mph on the slower laps. Carry more speed through the apex.
-              </Insight>
-              <p className="analysis-note">Sample coaching findings are shown here. Uploaded files are not sent for AI analysis in this website preview.</p>
+              <div className="insight-heading"><Sparkles />{reviewed ? t.sampleDebrief : t.debriefPreview}</div>
+              <Insight>{t.debriefCopy}</Insight>
+              <p className="analysis-note">{t.debriefNote}</p>
             </div>
           </div>
         )}
@@ -242,20 +240,20 @@ export default function CoachingWorkbench() {
         {active === FOCUS_AREAS && (
           <>
             <div className="chart-top">
-              <TrackSelect label="Focus area track" value={track} onChange={setTrack} />
-              <span className="stat-label">{areas.length} sample focus areas</span>
+              <TrackSelect label={t.focusAreaTrack} value={track} onChange={setTrack} />
+              <span className="stat-label">{plural(areas.length, t.sampleAreas)}</span>
             </div>
             <div className="table-wrap">
               <table className="data-table">
                 <thead>
-                  <tr>{['Focus area', 'Start – End', 'Brake point', 'Max brake', 'On throttle', ''].map((h, i) => <th key={i}>{h}</th>)}</tr>
+                  <tr>{[...t.focusColumns, ''].map((h, i) => <th key={i}>{h}</th>)}</tr>
                 </thead>
                 <tbody>
                   {areas.map((row, i) => (
                     <tr key={i}>
                       {row.map((v, j) => <td key={j}>{v}</td>)}
                       <td>
-                        <Button variant="ghost" size="icon" aria-label={`Delete ${row[0]}`} onClick={() => setAreas((prev) => prev.filter((_, idx) => idx !== i))}><X /></Button>
+                        <Button variant="ghost" size="icon" aria-label={fmt(t.deleteArea, { name: row[0] })} onClick={() => setAreas((prev) => prev.filter((_, idx) => idx !== i))}><X /></Button>
                       </td>
                     </tr>
                   ))}
@@ -269,34 +267,34 @@ export default function CoachingWorkbench() {
                 if (newArea.trim()) { setAreas((prev) => [...prev, [newArea.trim(), '—', '—', '—', '—']]); setNewArea(''); }
               }}
             >
-              <input className="text-input" value={newArea} onChange={(e) => setNewArea(e.target.value)} placeholder="New focus area name" aria-label="New focus area name" required />
-              <Button type="submit">Add focus area <MapPin /></Button>
+              <input className="text-input" value={newArea} onChange={(e) => setNewArea(e.target.value)} placeholder={t.newAreaName} aria-label={t.newAreaName} required />
+              <Button type="submit">{t.addArea} <MapPin /></Button>
             </form>
-            <p className="analysis-note">Sample Motegi measurements. Track selections and edits are for this preview only.</p>
+            <p className="analysis-note">{t.focusNote}</p>
           </>
         )}
 
         {active === RACECAR && (
           <>
             <form className="question-form" onSubmit={(e) => { e.preventDefault(); if (question.trim()) setAnswer(true); }}>
-              <input className="text-input" aria-label="Racecar question" value={question} onChange={(e) => { setQuestion(e.target.value); setAnswer(false); }} required />
-              <Button type="submit"><Sparkles />Preview analysis</Button>
+              <input className="text-input" aria-label={t.racecarQuestion} value={question} onChange={(e) => { setQuestion(e.target.value); setAnswer(false); }} required />
+              <Button type="submit"><Sparkles />{t.previewAnalysis}</Button>
             </form>
             {answer ? (
               <>
-                <p className="analysis-note">Illustrative Zandvoort comparison — not a live answer to your question. Actual recommendations require connected car and track data.</p>
-                {sampleCars.map(([car, copy], i) => (
+                <p className="analysis-note">{t.racecarIllustrative}</p>
+                {sampleCars.map((car, i) => (
                   <div className="car-result" key={car}>
                     <div className="car-result-main">
                       <span className="rank">0{i + 1}</span>
-                      <div><strong>{car}</strong><p>{copy}</p></div>
+                      <div><strong>{car}</strong><p>{t.sampleCars[i]}</p></div>
                     </div>
                     <Gauge className="text-muted-foreground" />
                   </div>
                 ))}
               </>
             ) : (
-              <div className="analysis-note">Preview a car comparison based on a technical circuit with high cornering demands.</div>
+              <div className="analysis-note">{t.racecarIntro}</div>
             )}
           </>
         )}
@@ -304,16 +302,23 @@ export default function CoachingWorkbench() {
         {showDetails && active === LAP_COMPARE && (
           <div className="table-wrap">
             <table className="data-table">
-              <thead><tr><th>Focus area</th><th>Time difference</th><th>Braking</th><th>Minimum speed</th></tr></thead>
+              <thead><tr>{t.compareColumns.map((h) => <th key={h}>{h}</th>)}</tr></thead>
               <tbody>
-                {comparisonRows.map((row) => <tr key={row[0]}>{row.map((cell, i) => <td key={i}>{cell}</td>)}</tr>)}
+                {comparisonRows.map(([area, time, feet, speed]) => (
+                  <tr key={area}>
+                    <td>{area}</td>
+                    <td>{time}</td>
+                    <td>{fmt(t.feetEarlier, { n: feet })}</td>
+                    <td>{speed}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
         )}
 
         <div className="panel-footer">
-          <p>Sample data. Real insights. A feel for what’s possible.</p>
+          <p>{t.footer}</p>
           <Button size="sm" variant={showDetails ? 'outline' : 'default'} onClick={footerAction}>{footerLabel}<ArrowRight /></Button>
         </div>
         {message && active !== DEBRIEF && <p className="status-message" role="status">{message}</p>}

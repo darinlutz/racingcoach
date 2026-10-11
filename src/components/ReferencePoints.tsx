@@ -2,24 +2,27 @@
 
 import { useEffect, useRef, useState } from 'react';
 
+import { useLanguage } from '@/components/LanguageProvider';
 import { lapId } from '@/lib/debriefSession';
-import { formatLapTime, formatSize, parseLapFile, type LapFile, type Track } from '@/lib/lapData';
+import { formatLapTime, formatSize, lapFileErrorText, parseLapFile, type LapFile, type Track } from '@/lib/lapData';
 import type { ReferenceRow } from '@/lib/referencePoints';
 import { buildReferenceSession } from '@/lib/referenceSession';
 
-const cell = (value: number | null) => (value === null ? '—' : value.toLocaleString('en-US'));
-
 // A measured value with the file's target beside it
 function Measured({ value, target }: { value: number | null; target: number | null }) {
+  const { t, fmt, locale } = useLanguage();
+  const cell = (n: number | null) => (n === null ? '—' : n.toLocaleString(locale));
   return (
     <>
       <span className="font-semibold text-foreground">{cell(value)}</span>
-      <span className="ml-2 text-xs text-muted-foreground">(target {cell(target)})</span>
+      <span className="ml-2 text-xs text-muted-foreground">{fmt(t.referencePoints.target, { value: cell(target) })}</span>
     </>
   );
 }
 
 export default function ReferencePoints() {
+  const { t: dictionary, fmt, plural } = useLanguage();
+  const t = dictionary.referencePoints;
   const [tracks, setTracks] = useState<Track[]>([]);
   const [trackName, setTrackName] = useState('');
   const [error, setError] = useState('');
@@ -41,12 +44,12 @@ export default function ReferencePoints() {
     fetch('/api/track-names')
       .then(async (res) => {
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Failed to load track names');
+        if (!res.ok) throw new Error(data.error || dictionary.laps.failedTrackNames);
         setTracks(data.tracks);
         if (data.tracks.length > 0) setTrackName(data.tracks[0].name);
       })
       .catch((err: Error) => setError(err.message));
-  }, []);
+  }, [dictionary]);
 
   const handleFiles = async (fileList: FileList | null | undefined) => {
     if (!fileList || fileList.length === 0) return;
@@ -58,15 +61,15 @@ export default function ReferencePoints() {
 
     results.forEach((result, index) => {
       if (result.status === 'fulfilled') added.push(result.value);
-      else errors.push(`${files[index].name}: ${(result.reason as Error).message}`);
+      else errors.push(fmt(dictionary.laps.fileError, { name: files[index].name, error: lapFileErrorText(result.reason, dictionary.laps.errors) }));
     });
 
     // Select the track matching the uploaded files' track name
     if (added.length > 0) {
       const uploadedTrack = added[0].trackName;
-      const match = tracks.find((t) => t.fileName.toLowerCase() === uploadedTrack.toLowerCase());
+      const match = tracks.find((track) => track.fileName.toLowerCase() === uploadedTrack.toLowerCase());
       if (match) setTrackName(match.name);
-      else errors.push(`No track in your Track Data list is named "${uploadedTrack}".`);
+      else errors.push(fmt(dictionary.laps.noSuchTrack, { track: uploadedTrack }));
     }
 
     setFileErrors(errors);
@@ -78,7 +81,7 @@ export default function ReferencePoints() {
     setLapFiles((prev) => prev.filter((lap) => lap.fileId !== fileId));
   };
 
-  const selectedTrack = tracks.find((t) => t.name === trackName);
+  const selectedTrack = tracks.find((track) => track.name === trackName);
   // Only laps from the selected track can be measured against its focus areas
   const trackLaps = selectedTrack
     ? lapFiles.filter((lap) => lap.trackName.toLowerCase() === selectedTrack.fileName.toLowerCase())
@@ -101,13 +104,13 @@ export default function ReferencePoints() {
         body: JSON.stringify({ session }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to get the reference points');
+      if (!res.ok) throw new Error(data.error || t.failedGet);
       setRows(data.rows);
       setRowsTrack(selectedTrack);
       setCommentary(data.commentary);
       setSteps(data.steps);
     } catch (err) {
-      setRunError(err instanceof Error ? err.message : 'unknown error');
+      setRunError(err instanceof Error ? err.message : dictionary.common.unknownError);
     } finally {
       setRunning(false);
     }
@@ -134,7 +137,7 @@ export default function ReferencePoints() {
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to save the reference points');
+      if (!res.ok) throw new Error(data.error || t.failedSave);
       const saved: string[] = data.saved;
       const notFound: string[] = data.notFound;
       // The saved points are now the targets: show them in the grid and use them in the next run
@@ -157,11 +160,11 @@ export default function ReferencePoints() {
       setSaveResult({
         ok: true,
         text:
-          `Saved ${saved.length} focus ${saved.length === 1 ? 'area' : 'areas'} to ${data.track}.` +
-          (notFound.length > 0 ? ` Not saved (no focus area with that name on your track): ${notFound.join(', ')}.` : ''),
+          plural(saved.length, t.saved, { track: data.track }) +
+          (notFound.length > 0 ? fmt(t.notSaved, { areas: notFound.join(', ') }) : ''),
       });
     } catch (err) {
-      setSaveResult({ ok: false, text: err instanceof Error ? err.message : 'Failed to save the reference points' });
+      setSaveResult({ ok: false, text: err instanceof Error ? err.message : t.failedSave });
     } finally {
       setSaving(false);
     }
@@ -174,7 +177,7 @@ export default function ReferencePoints() {
     <div className="bg-secondary rounded-xl border border-border p-8 space-y-6">
       <div>
         <label htmlFor="reference-track-name" className="block text-sm font-medium text-foreground mb-2">
-          Track Name
+          {dictionary.laps.trackName}
         </label>
         <select
           id="reference-track-name"
@@ -183,7 +186,7 @@ export default function ReferencePoints() {
           disabled={tracks.length === 0}
           className={inputClass}
         >
-          {tracks.length === 0 && <option value="">{error ? 'Unavailable' : 'Loading…'}</option>}
+          {tracks.length === 0 && <option value="">{error ? dictionary.laps.unavailable : dictionary.common.loading}</option>}
           {tracks.map((track) => (
             <option key={track.name} value={track.name}>
               {track.fileName}
@@ -195,7 +198,7 @@ export default function ReferencePoints() {
 
       {/* File upload */}
       <div>
-        <label className="block text-sm text-muted-foreground mb-2">Upload your lap CSVs</label>
+        <label className="block text-sm text-muted-foreground mb-2">{t.uploadLaps}</label>
         <div
           onDragOver={(e) => {
             e.preventDefault();
@@ -212,15 +215,15 @@ export default function ReferencePoints() {
           }`}
         >
           <div className="text-sm text-muted-foreground text-center sm:text-left">
-            <p className="font-medium text-foreground">Drag and drop files here</p>
-            <p>Limit 25MB per file • CSV • Multiple files</p>
+            <p className="font-medium text-foreground">{dictionary.laps.dragDrop}</p>
+            <p>{t.limits}</p>
           </div>
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
             className="px-4 py-2 text-sm font-semibold bg-card border border-border rounded-lg text-foreground hover:border-primary hover:text-primary transition-colors"
           >
-            Browse files
+            {dictionary.laps.browseFiles}
           </button>
           <input
             ref={fileInputRef}
@@ -243,8 +246,7 @@ export default function ReferencePoints() {
 
         {otherLaps > 0 && (
           <div className="mt-2 px-4 py-3 rounded-lg border text-sm bg-yellow-500/10 border-yellow-500/40 text-yellow-200">
-            {otherLaps} uploaded {otherLaps === 1 ? 'lap is' : 'laps are'} not from {selectedTrack?.fileName} and will
-            be left out.
+            {plural(otherLaps, t.otherLaps, { track: selectedTrack?.fileName ?? '' })}
           </div>
         )}
 
@@ -263,7 +265,7 @@ export default function ReferencePoints() {
                 <button
                   type="button"
                   onClick={() => removeFile(lap.fileId)}
-                  aria-label={`Remove ${lap.file.name}`}
+                  aria-label={fmt(dictionary.laps.removeFile, { name: lap.file.name })}
                   className="ml-3 text-muted-foreground hover:text-primary"
                 >
                   ✕
@@ -281,20 +283,18 @@ export default function ReferencePoints() {
           disabled={trackLaps.length < 1 || !selectedTrack?.areas.length || running}
           className="px-6 py-3 font-semibold text-white bg-gradient-to-r from-primary to-primary-strong rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {running ? 'Analyzing your laps…' : 'Get Reference Points'}
+          {running ? t.running : t.get}
         </button>
 
         {runError && (
           <div className="px-4 py-3 rounded-lg border text-sm bg-primary/10 border-primary/40 text-red-300">
-            Failed: {runError}
+            {fmt(dictionary.common.failed, { error: runError })}
           </div>
         )}
 
         {!rows && !runError && !running && (
           <p className="text-sm text-muted-foreground">
-            {trackLaps.length < 1
-              ? 'Upload at least 1 lap from the selected track, then press Get Reference Points.'
-              : 'Press Get Reference Points to see the brake and throttle points for each focus area.'}
+            {trackLaps.length < 1 ? t.needLap : t.pressGet}
           </p>
         )}
 
@@ -305,16 +305,16 @@ export default function ReferencePoints() {
                 <thead className="bg-secondary text-foreground">
                   <tr>
                     <th scope="col" className="px-4 py-3 font-semibold">
-                      Focus Area
+                      {t.focusArea}
                     </th>
                     <th scope="col" className="px-4 py-3 font-semibold text-right">
-                      Brake Point (feet)
+                      {t.brakePoint}
                     </th>
                     <th scope="col" className="px-4 py-3 font-semibold text-right">
-                      Max Brake Pressure (%)
+                      {t.maxBrake}
                     </th>
                     <th scope="col" className="px-4 py-3 font-semibold text-right">
-                      On Throttle Point (feet)
+                      {t.throttlePoint}
                     </th>
                   </tr>
                 </thead>
@@ -339,10 +339,7 @@ export default function ReferencePoints() {
               </table>
             </div>
             <p className="text-xs text-muted-foreground">
-              Each point is the average of your fastest third of runs through the area (at least one), measured in feet
-              from the start/finish line. Laps over 110% of the median lap time are left out as incident laps. The target is the
-              focus area&apos;s value in Track Data. A dash means no braking or throttle point was found in that area, or
-              no target is set (a target of 0 counts as not set).
+              {t.note}
             </p>
 
             <div className="flex flex-wrap items-center gap-3">
@@ -352,11 +349,10 @@ export default function ReferencePoints() {
                 disabled={rows.length === 0 || saving}
                 className="px-4 py-2 font-semibold text-white bg-gradient-to-r from-primary to-primary-strong rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {saving ? 'Saving…' : 'Save Reference Points'}
+                {saving ? t.saving : t.save}
               </button>
               <p className="text-xs text-muted-foreground">
-                Overwrites the brake point, max brake pressure and on-throttle point of each focus area on your saved
-                track. A dash keeps the saved value.
+                {t.saveNote}
               </p>
             </div>
             {saveResult && (
@@ -371,14 +367,14 @@ export default function ReferencePoints() {
 
             {commentary && (
               <div className="px-5 py-4 bg-card border border-border rounded-lg">
-                <h3 className="font-bold text-foreground mb-2">Commentary</h3>
+                <h3 className="font-bold text-foreground mb-2">{t.commentary}</h3>
                 <p className="text-sm text-foreground whitespace-pre-wrap">{commentary}</p>
               </div>
             )}
 
             {steps.length > 0 && (
               <details className="text-sm text-muted-foreground">
-                <summary className="cursor-pointer">What the agent checked ({steps.length} steps)</summary>
+                <summary className="cursor-pointer">{plural(steps.length, t.stepsChecked)}</summary>
                 <ol className="mt-2 list-decimal pl-5 space-y-1 font-mono text-xs">
                   {steps.map((step, i) => (
                     <li key={i}>{step}</li>

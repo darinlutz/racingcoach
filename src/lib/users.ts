@@ -5,6 +5,7 @@ import { ROLES } from './roles';
 import { ACCOUNT_STATUS, canSubscribe, LEGACY_SUBSCRIBED_STATUSES, type Plan } from './accountStatus';
 import { copyDefaultCars, seedDefaultCars } from './defaultCars';
 import { copyDefaultTracks, seedDefaultTracks } from './defaultTracks';
+import { DEFAULT_LANGUAGE, isLanguage, type Language } from './i18n/languages';
 
 const scryptAsync = promisify(scrypt) as (password: string, salt: Buffer, keylen: number) => Promise<Buffer>;
 
@@ -20,10 +21,12 @@ export type User = {
   stripeSubscriptionId: string | null;
   // One of ROLES
   role: string;
+  // The language the site and its AI features use for this user
+  preferredLanguage: Language;
 };
 
 const USER_COLUMNS =
-  'id, user_name, email_address, account_status, signup_date, subscription_end_date, stripe_subscription_id, role';
+  'id, user_name, email_address, account_status, signup_date, subscription_end_date, stripe_subscription_id, role, preferred_language';
 
 // The site owner is made Admin on sign-up; everyone else is a User
 export const OWNER_EMAIL = 'darinlutz@yahoo.com';
@@ -86,6 +89,10 @@ export function ensureUserSchema(): Promise<void> {
         subscription_end_date TEXT,
         role TEXT NOT NULL DEFAULT '${ROLES.user}'
       )`);
+      // The language the site and its AI features use for the user: en, pt or es (src/lib/i18n/languages.ts)
+      await client.query(
+        `ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS preferred_language TEXT NOT NULL DEFAULT '${DEFAULT_LANGUAGE}'`
+      );
       // Email addresses are unique regardless of case
       await client.query(
         'CREATE UNIQUE INDEX IF NOT EXISTS users_email_address_key ON racingcoach."Users" (lower(email_address))'
@@ -466,6 +473,7 @@ function rowToUser(row: Record<string, unknown>): User {
     emailAddress: row.email_address as string,
     accountStatus: row.account_status as string,
     role: row.role as string,
+    preferredLanguage: isLanguage(row.preferred_language) ? row.preferred_language : DEFAULT_LANGUAGE,
     signupDate: (row.signup_date as string | null) ?? null,
     subscriptionEndDate: (row.subscription_end_date as string | null) ?? null,
     stripeSubscriptionId: (row.stripe_subscription_id as string | null) ?? null,
@@ -480,6 +488,7 @@ export async function createUser(input: {
   userName: string;
   emailAddress: string;
   password: string;
+  preferredLanguage: Language;
 }): Promise<User> {
   await ensureUserSchema();
   const passwordHash = await hashPassword(input.password);
@@ -488,10 +497,18 @@ export async function createUser(input: {
     // Track Data tabs
     return await transaction(async (client) => {
       const { rows } = await client.query(
-        `INSERT INTO racingcoach."Users" (user_name, email_address, password, account_status, signup_date, role)
-         VALUES ($1, $2, $3, $6, $4, $5)
+        `INSERT INTO racingcoach."Users" (user_name, email_address, password, account_status, signup_date, role, preferred_language)
+         VALUES ($1, $2, $3, $6, $4, $5, $7)
          RETURNING ${USER_COLUMNS}`,
-        [input.userName, input.emailAddress, passwordHash, new Date().toISOString(), initialRole(input.emailAddress), ACCOUNT_STATUS.unsubscribed]
+        [
+          input.userName,
+          input.emailAddress,
+          passwordHash,
+          new Date().toISOString(),
+          initialRole(input.emailAddress),
+          ACCOUNT_STATUS.unsubscribed,
+          input.preferredLanguage,
+        ]
       );
       const user = rowToUser(rows[0]);
       await copyDefaultCars(client, user.id);
@@ -524,6 +541,11 @@ export async function getUserByEmail(emailAddress: string): Promise<User | null>
     emailAddress,
   ]);
   return row ? rowToUser(row) : null;
+}
+
+export async function setPreferredLanguage(userId: number, language: Language): Promise<void> {
+  await ensureUserSchema();
+  await query('UPDATE racingcoach."Users" SET preferred_language = $1 WHERE id = $2', [language, userId]);
 }
 
 // Also signs the user out everywhere, since an old session may belong to

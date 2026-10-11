@@ -3,6 +3,7 @@ import { isUniqueViolation } from '@/lib/db';
 import { isAdmin } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
 import { addTrack, deleteTrack, readTracks, TrackNotFoundError, trackInputSchema, updateTrack } from '@/lib/tracks';
+import { apiText } from '@/lib/i18n/server';
 
 // Each signed-in user manages their own tracks and focus areas.
 const NOT_SIGNED_IN = { error: 'Log in to manage your tracks' };
@@ -14,6 +15,7 @@ function invalid(error: { issues: { message: string }[] }) {
 }
 
 export async function GET() {
+  const t = await apiText();
   try {
     const user = await getCurrentUser();
     if (!user) {
@@ -23,11 +25,12 @@ export async function GET() {
     return NextResponse.json({ tracks: await readTracks(user.id), isAdmin: isAdmin(user.role) });
   } catch (error) {
     console.error('Read tracks error:', error);
-    return NextResponse.json({ error: 'Failed to load tracks' }, { status: 500 });
+    return NextResponse.json({ error: t.failedLoadTracks }, { status: 500 });
   }
 }
 
 export async function POST(request: Request) {
+  const t = await apiText();
   try {
     const user = await getCurrentUser();
     if (!user) {
@@ -42,11 +45,12 @@ export async function POST(request: Request) {
   } catch (error) {
     if (isUniqueViolation(error)) return NextResponse.json(DUPLICATE, { status: 409 });
     console.error('Add track error:', error);
-    return NextResponse.json({ error: 'Failed to add track' }, { status: 500 });
+    return NextResponse.json({ error: t.failedAddTrack }, { status: 500 });
   }
 }
 
 export async function PUT(request: Request) {
+  const t = await apiText();
   try {
     const user = await getCurrentUser();
     if (!user) {
@@ -65,11 +69,12 @@ export async function PUT(request: Request) {
     if (error instanceof TrackNotFoundError) return NextResponse.json({ error: error.message }, { status: 404 });
     if (isUniqueViolation(error)) return NextResponse.json(DUPLICATE, { status: 409 });
     console.error('Update track error:', error);
-    return NextResponse.json({ error: 'Failed to save track' }, { status: 500 });
+    return NextResponse.json({ error: t.failedSaveTrack }, { status: 500 });
   }
 }
 
 export async function DELETE(request: Request) {
+  const t = await apiText();
   try {
     const user = await getCurrentUser();
     if (!user) {
@@ -84,6 +89,6 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Delete track error:', error);
-    return NextResponse.json({ error: 'Failed to delete track' }, { status: 500 });
+    return NextResponse.json({ error: t.failedDeleteTrack }, { status: 500 });
   }
 }

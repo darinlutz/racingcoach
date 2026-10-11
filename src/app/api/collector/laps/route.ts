@@ -9,21 +9,23 @@ import {
   saveCollectorLap,
 } from '@/lib/collectorLaps';
 import { getCurrentUser } from '@/lib/session';
+import { apiText } from '@/lib/i18n/server';
 
 const UNAUTHORIZED = { error: 'Missing or unknown upload key' };
 
 // The signed-in user's uploaded laps (details only, newest first), for the Racing page.
 // Uses the browser's sign-in, unlike POST.
 export async function GET() {
+  const t = await apiText();
   try {
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json({ error: 'Log in to see your recorded laps' }, { status: 401 });
+      return NextResponse.json({ error: t.logInRecordedLaps }, { status: 401 });
     }
     return NextResponse.json({ laps: await listCollectorLaps(user.id) });
   } catch (error) {
     console.error('Collector lap list error:', error);
-    return NextResponse.json({ error: 'Failed to load your recorded laps' }, { status: 500 });
+    return NextResponse.json({ error: t.failedLoadRecordedLaps }, { status: 500 });
   }
 }
 

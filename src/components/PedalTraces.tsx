@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
 
 import SteeringTrace from '@/components/SteeringTrace';
+import { useLanguage } from '@/components/LanguageProvider';
 import TimeDeltaTrace from '@/components/TimeDeltaTrace';
 import TrackLineMap from '@/components/TrackLineMap';
 import { CHART_MARGIN as MARGIN, clamp, nearestIndex, positionLabel, xTicks, type Axis } from '@/lib/lapCharts';
@@ -56,6 +57,7 @@ function TraceChart({
   hoverPct: number | null;
   onHover: (pct: number | null) => void;
 }) {
+  const { t } = useLanguage();
   const { pcts, brakes, throttles } = lap.trace;
   const [d0, d1] = axis.domain;
   const span = d1 - d0;
@@ -119,7 +121,7 @@ function TraceChart({
         ))}
         {xTicks(axis).map((tick) => (
           <text key={tick} x={x(tick)} y={HEIGHT - 8} textAnchor="middle" fontSize={11} fill="currentColor" className="tabular-nums">
-            {positionLabel(tick, axis.lengthFeet)}
+            {positionLabel(tick, axis)}
           </text>
         ))}
 
@@ -132,10 +134,10 @@ function TraceChart({
         {showEndLabels && (
           <g fontSize={11} fill="currentColor">
             <text x={MARGIN.left + innerW + 6} y={brakeEndY} dy="0.32em">
-              Brake
+              {t.charts.brake}
             </text>
             <text x={MARGIN.left + innerW + 6} y={throttleEndY} dy="0.32em">
-              Throttle
+              {t.charts.throttle}
             </text>
           </g>
         )}
@@ -161,16 +163,16 @@ function TraceChart({
           className="pointer-events-none absolute top-6 z-10 px-3 py-2 rounded-lg border border-border bg-card shadow-lg text-xs"
           style={hoverX > width / 2 ? { right: width - hoverX + 8 } : { left: hoverX + 8 }}
         >
-          <p className="text-muted-foreground mb-1 tabular-nums">{positionLabel(pcts[hoverIndex], axis.lengthFeet)}</p>
+          <p className="text-muted-foreground mb-1 tabular-nums">{positionLabel(pcts[hoverIndex], axis)}</p>
           <p className="flex items-center gap-2">
             <LineKey color={BRAKE_COLOR} />
             <span className="font-semibold text-foreground tabular-nums">{Math.round(brakes[hoverIndex] * 100)}%</span>
-            <span className="text-muted-foreground">Brake</span>
+            <span className="text-muted-foreground">{t.charts.brake}</span>
           </p>
           <p className="flex items-center gap-2">
             <LineKey color={THROTTLE_COLOR} />
             <span className="font-semibold text-foreground tabular-nums">{Math.round(throttles[hoverIndex] * 100)}%</span>
-            <span className="text-muted-foreground">Throttle</span>
+            <span className="text-muted-foreground">{t.charts.throttle}</span>
           </p>
         </div>
       )}
@@ -198,18 +200,19 @@ export default function PedalTraces({
   base: PedalTraceLap;
   compare: PedalTraceLap;
 }) {
+  const { t, locale } = useLanguage();
   const [containerRef, width] = useWidth();
   const [hoverPct, setHoverPct] = useState<number | null>(null);
-  const axis: Axis = { domain: base.trace.domain, lengthFeet };
+  const axis: Axis = { domain: base.trace.domain, lengthFeet, locale };
 
   return (
     <div ref={containerRef} className="space-y-4">
       <p className="flex gap-4 text-xs text-muted-foreground">
         <span className="flex items-center gap-1.5">
-          <LineKey color={BRAKE_COLOR} /> Brake
+          <LineKey color={BRAKE_COLOR} /> {t.charts.brake}
         </span>
         <span className="flex items-center gap-1.5">
-          <LineKey color={THROTTLE_COLOR} /> Throttle
+          <LineKey color={THROTTLE_COLOR} /> {t.charts.throttle}
         </span>
       </p>
       {width > 0 && (

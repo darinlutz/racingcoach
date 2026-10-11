@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { ArrowRight, Menu, X } from 'lucide-react';
 import Brand from '@/components/Brand';
 import { buttonVariants } from '@/components/Button';
+import { useLanguage } from '@/components/LanguageProvider';
 import { ACCOUNT_STATUS } from '@/lib/accountStatus';
 
 type NavigationProps = {
@@ -13,14 +14,15 @@ type NavigationProps = {
 };
 
 const links = [
-  { href: '/#toolkit', label: 'Toolkit' },
-  { href: '/#how-it-works', label: 'How It Works' },
-  { href: '/racing', label: 'Coaching & Analysis' },
-  { href: '/race-trends', label: 'My Race Trends' },
-  { href: '/pricing', label: 'Pricing' },
-];
+  { href: '/#toolkit', key: 'toolkit' },
+  { href: '/#how-it-works', key: 'howItWorks' },
+  { href: '/racing', key: 'coachingAnalysis' },
+  { href: '/race-trends', key: 'raceTrends' },
+  { href: '/pricing', key: 'pricing' },
+] as const;
 
 export default function Navigation({ user }: NavigationProps) {
+  const { t } = useLanguage();
   const router = useRouter();
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
@@ -56,7 +58,7 @@ export default function Navigation({ user }: NavigationProps) {
         {/* Desktop Navigation */}
         <div className="hidden md:flex items-center gap-8">
           {visibleLinks.map((link) => (
-            <Link key={link.href} href={link.href} className={navLink(link.href)}>{link.label}</Link>
+            <Link key={link.href} href={link.href} className={navLink(link.href)}>{t.nav[link.key]}</Link>
           ))}
         </div>
 
@@ -64,21 +66,21 @@ export default function Navigation({ user }: NavigationProps) {
         <div className="hidden md:flex items-center gap-4">
           {user ? (
             <>
-              <Link href="/account" className={navLink('/account')}>My Account</Link>
-              <span className="font-semibold text-muted-foreground whitespace-nowrap">Driver: <span className="text-foreground">{user.userName}</span></span>
+              <Link href="/account" className={navLink('/account')}>{t.nav.myAccount}</Link>
+              <span className="font-semibold text-muted-foreground whitespace-nowrap">{t.nav.driver} <span className="text-foreground">{user.userName}</span></span>
               <button
                 onClick={handleLogout}
                 disabled={loggingOut}
                 className={buttonVariants({ variant: 'racingOutline', size: 'sm', className: 'disabled:opacity-60' })}
               >
-                Logout
+                {t.nav.logout}
               </button>
             </>
           ) : (
             <>
-              <Link href="/login" className={navLink('/login')}>Log In</Link>
+              <Link href="/login" className={navLink('/login')}>{t.nav.logIn}</Link>
               <Link href="/signup" className={buttonVariants({ variant: 'racing', size: 'sm' })}>
-                Get Started <ArrowRight />
+                {t.nav.getStarted} <ArrowRight />
               </Link>
             </>
           )}
@@ -89,7 +91,7 @@ export default function Navigation({ user }: NavigationProps) {
           onClick={toggleMenu}
           className="md:hidden inline-flex items-center justify-center p-2 rounded-md hover:text-primary focus:outline-none transition-colors"
           aria-expanded={isOpen}
-          aria-label={isOpen ? 'Close menu' : 'Open menu'}
+          aria-label={isOpen ? t.nav.closeMenu : t.nav.openMenu}
         >
           {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
         </button>
@@ -100,27 +102,27 @@ export default function Navigation({ user }: NavigationProps) {
         <div className="md:hidden bg-card border-t border-border">
           <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
             {visibleLinks.map((link) => (
-              <Link key={link.href} href={link.href} className={mobileLink(link.href)} onClick={closeMenu}>{link.label}</Link>
+              <Link key={link.href} href={link.href} className={mobileLink(link.href)} onClick={closeMenu}>{t.nav[link.key]}</Link>
             ))}
             <div className="border-t border-border pt-2 mt-2">
               {user ? (
                 <>
-                  <Link href="/account" className={mobileLink('/account')} onClick={closeMenu}>My Account</Link>
+                  <Link href="/account" className={mobileLink('/account')} onClick={closeMenu}>{t.nav.myAccount}</Link>
                   <div className="flex items-center gap-3 px-3 py-2">
                     <button
                       onClick={handleLogout}
                       disabled={loggingOut}
                       className={buttonVariants({ variant: 'racingOutline', size: 'sm', className: 'disabled:opacity-60' })}
                     >
-                      Logout
+                      {t.nav.logout}
                     </button>
-                    <span className="font-semibold text-muted-foreground">Driver: <span className="text-foreground">{user.userName}</span></span>
+                    <span className="font-semibold text-muted-foreground">{t.nav.driver} <span className="text-foreground">{user.userName}</span></span>
                   </div>
                 </>
               ) : (
                 <>
-                  <Link href="/login" className={mobileLink('/login')} onClick={closeMenu}>Log In</Link>
-                  <Link href="/signup" className={mobileLink('/signup')} onClick={closeMenu}>Get Started</Link>
+                  <Link href="/login" className={mobileLink('/login')} onClick={closeMenu}>{t.nav.logIn}</Link>
+                  <Link href="/signup" className={mobileLink('/signup')} onClick={closeMenu}>{t.nav.getStarted}</Link>
                 </>
               )}
             </div>

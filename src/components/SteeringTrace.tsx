@@ -2,7 +2,10 @@
 
 import { type KeyboardEvent, type PointerEvent } from 'react';
 
+import { useLanguage } from '@/components/LanguageProvider';
 import type { PedalTraceLap } from '@/components/PedalTraces';
+import type { Dictionary } from '@/lib/i18n/dictionaries/en';
+import { fmt } from '@/lib/i18n/languages';
 import {
   BASE_LAP_COLOR,
   CHART_MARGIN as MARGIN,
@@ -23,9 +26,9 @@ const MIN_LABEL_GAP = 14;
 const degrees = (radians: number) => (radians * 180) / Math.PI;
 
 // iRacing's steering angle is positive to the left: 30 -> "30° L", -30 -> "30° R"
-function steeringLabel(deg: number) {
+function steeringLabel(deg: number, t: Dictionary['charts']) {
   const rounded = Math.round(deg);
-  return rounded === 0 ? '0°' : `${Math.abs(rounded)}° ${rounded > 0 ? 'L' : 'R'}`;
+  return rounded === 0 ? '0°' : fmt(rounded > 0 ? t.steeringLeft : t.steeringRight, { n: Math.abs(rounded) });
 }
 
 function LineKey({ color }: { color: string }) {
@@ -51,9 +54,11 @@ export default function SteeringTrace({
   hoverPct: number | null;
   onHover: (pct: number | null) => void;
 }) {
+  const { t: dictionary } = useLanguage();
+  const t = dictionary.charts;
   const laps = [
-    { key: 'base', label: 'Base', lap: base, color: BASE_LAP_COLOR, angles: base.trace.steerings.map(degrees) },
-    { key: 'compare', label: 'Compare', lap: compare, color: COMPARE_LAP_COLOR, angles: compare.trace.steerings.map(degrees) },
+    { key: 'base', label: dictionary.lapCompare.base, lap: base, color: BASE_LAP_COLOR, angles: base.trace.steerings.map(degrees) },
+    { key: 'compare', label: dictionary.lapCompare.compare, lap: compare, color: COMPARE_LAP_COLOR, angles: compare.trace.steerings.map(degrees) },
   ];
 
   const largest = Math.max(...laps.flatMap(({ angles }) => angles.map(Math.abs)), 1);
@@ -81,8 +86,8 @@ export default function SteeringTrace({
     .map(({ label, angles }) => {
       const left = Math.max(0, ...angles);
       const right = Math.min(0, ...angles);
-      const parts = [left >= 1 && `${Math.round(left)}° left`, right <= -1 && `${Math.round(-right)}° right`].filter(Boolean);
-      return `${label} lap: ${parts.length > 0 ? `up to ${parts.join(' and ')}` : 'straight'}`;
+      const parts = [left >= 1 && fmt(t.upToLeft, { n: Math.round(left) }), right <= -1 && fmt(t.upToRight, { n: Math.round(-right) })].filter(Boolean);
+      return parts.length > 0 ? fmt(t.lapUpTo, { lap: label, angles: parts.join(t.and) }) : fmt(t.lapStraight, { lap: label });
     })
     .join('; ');
 
@@ -103,7 +108,7 @@ export default function SteeringTrace({
   return (
     <figure className="relative">
       <div className="flex flex-wrap items-center gap-4 mb-1 text-xs text-muted-foreground">
-        <span className="text-sm font-semibold text-foreground">Steering</span>
+        <span className="text-sm font-semibold text-foreground">{t.steeringTitle}</span>
         {laps.map(({ key, lap, color }) => (
           <span key={key} className="flex items-center gap-1.5">
             <LineKey color={color} /> {lap.title}
@@ -115,7 +120,7 @@ export default function SteeringTrace({
         height={HEIGHT}
         tabIndex={0}
         role="img"
-        aria-label={`Steering wheel angle. ${summary}`}
+        aria-label={fmt(t.steeringAria, { summary })}
         onKeyDown={onKeyDown}
         onFocus={() => onHover(hoverPct ?? d0)}
         onBlur={() => onHover(null)}
@@ -140,13 +145,13 @@ export default function SteeringTrace({
               strokeWidth={1}
             />
             <text x={MARGIN.left - 6} y={y(tick)} dy="0.32em" textAnchor="end" fontSize={11} fill="currentColor" className="tabular-nums">
-              {steeringLabel(tick)}
+              {steeringLabel(tick, t)}
             </text>
           </g>
         ))}
         {xTicks(axis).map((tick) => (
           <text key={tick} x={x(tick)} y={HEIGHT - 8} textAnchor="middle" fontSize={11} fill="currentColor" className="tabular-nums">
-            {positionLabel(tick, axis.lengthFeet)}
+            {positionLabel(tick, axis)}
           </text>
         ))}
 
@@ -188,18 +193,18 @@ export default function SteeringTrace({
           className="pointer-events-none absolute top-8 z-10 px-3 py-2 rounded-lg border border-border bg-card shadow-lg text-xs"
           style={hoverX > width / 2 ? { right: width - hoverX + 8 } : { left: hoverX + 8 }}
         >
-          <p className="text-muted-foreground mb-1 tabular-nums">{positionLabel(hoverPct, axis.lengthFeet)}</p>
+          <p className="text-muted-foreground mb-1 tabular-nums">{positionLabel(hoverPct, axis)}</p>
           {laps.map(({ key, label, color }, i) => (
             <p key={key} className="flex items-center gap-2">
               <LineKey color={color} />
-              <span className="font-semibold text-foreground tabular-nums">{steeringLabel(hoverAngles[i])}</span>
+              <span className="font-semibold text-foreground tabular-nums">{steeringLabel(hoverAngles[i], t)}</span>
               <span className="text-muted-foreground">{label}</span>
             </p>
           ))}
         </div>
       )}
 
-      <figcaption className="mt-1 text-xs text-muted-foreground">{summary}. Left turns are up, right turns down.</figcaption>
+      <figcaption className="mt-1 text-xs text-muted-foreground">{summary}. {t.steeringCaption}</figcaption>
     </figure>
   );
 }

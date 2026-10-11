@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import Stripe from 'stripe';
+import { fmt } from '@/lib/i18n/languages';
+import { getDictionary, getLanguage } from '@/lib/i18n/server';
 
 async function getCheckoutSession(sessionId: string | undefined) {
   const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
@@ -24,28 +26,25 @@ export default async function SuccessPage({
     typeof session_id === 'string' ? session_id : undefined
   );
   const isComplete = session?.status === 'complete';
+  const t = getDictionary(await getLanguage()).success;
 
   return (
     <section className="py-12 px-4 bg-gradient-to-b from-background to-background flex justify-center">
       <div className="w-full max-w-lg bg-secondary rounded-xl border border-border p-6 sm:p-8 text-center">
         <h1 className="text-3xl font-bold mb-2 bg-gradient-to-r from-primary-strong via-primary to-primary-strong bg-clip-text text-transparent">
-          {isComplete ? 'Thank You!' : 'Payment Not Confirmed'}
+          {isComplete ? t.thankYou : t.notConfirmed}
         </h1>
         <p className="text-muted-foreground mb-8">
           {isComplete
-            ? `Your subscription is active.${
-                session.customer_details?.email
-                  ? ` A receipt has been sent to ${session.customer_details.email}.`
-                  : ''
-              }`
-            : "We couldn't confirm your payment. If you were charged, please contact us."}
+            ? t.active + (session.customer_details?.email ? fmt(t.receipt, { email: session.customer_details.email }) : '')
+            : t.couldNotConfirm}
         </p>
 
         <Link
           href="/account"
           className="inline-block px-6 py-3 rounded-lg font-semibold text-white bg-gradient-to-r from-primary to-primary-strong hover:from-primary-strong hover:to-primary transition-colors"
         >
-          Back to My Account
+          {t.backToAccount}
         </Link>
       </div>
     </section>

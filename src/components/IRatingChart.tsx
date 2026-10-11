@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 
+import { useLanguage } from '@/components/LanguageProvider';
 import RaceRangePicker from '@/components/RaceRangePicker';
 import { SECTOR_COLORS, niceTicks } from '@/components/SectorChart';
 import type { IRatingPoint, IRatingSeries } from '@/lib/raceTrends';
@@ -13,12 +14,13 @@ const GRID = '#252629'; // just above card
 const AXIS = '#3b3d40'; // just above border
 
 export const time = (iso: string) => new Date(iso).getTime();
-export const formatDate = (iso: string) => new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+export const formatDate = (iso: string, locale = 'en-US') =>
+  new Date(iso).toLocaleDateString(locale, { month: 'short', day: 'numeric', year: 'numeric' });
 const signed = (n: number) => (n > 0 ? `+${n}` : `${n}`);
 
 // Date ticks between two times, thinned so the labels fit: first of each month, or individual days
 // when the span is too short to cross two month starts (e.g. only the last 20 races)
-export function dateTicks(start: number, end: number, maxTicks: number): { t: number; label: string }[] {
+export function dateTicks(start: number, end: number, maxTicks: number, locale = 'en-US'): { t: number; label: string }[] {
   const months: Date[] = [];
   const d = new Date(start);
   d.setDate(1);
@@ -29,7 +31,7 @@ export function dateTicks(start: number, end: number, maxTicks: number): { t: nu
     const step = Math.max(1, Math.ceil(months.length / Math.max(1, maxTicks)));
     return months
       .filter((_, i) => i % step === 0)
-      .map((m) => ({ t: m.getTime(), label: m.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }) }));
+      .map((m) => ({ t: m.getTime(), label: m.toLocaleDateString(locale, { month: 'short', year: '2-digit' }) }));
   }
 
   const days: Date[] = [];
@@ -40,7 +42,7 @@ export function dateTicks(start: number, end: number, maxTicks: number): { t: nu
   const step = Math.max(1, Math.ceil(days.length / Math.max(1, maxTicks)));
   return days
     .filter((_, i) => i % step === 0)
-    .map((m) => ({ t: m.getTime(), label: m.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) }));
+    .map((m) => ({ t: m.getTime(), label: m.toLocaleDateString(locale, { month: 'short', day: 'numeric' }) }));
 }
 
 type Hovered = { series: IRatingSeries; color: string; point: IRatingPoint };
@@ -55,6 +57,8 @@ export default function IRatingChart({
   range: number;
   onRangeChange: (range: number) => void;
 }) {
+  const { t: dictionary, fmt, locale } = useLanguage();
+  const t = dictionary.raceCharts;
   const containerRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
   const [hovered, setHovered] = useState<Hovered | null>(null);
@@ -92,7 +96,7 @@ export default function IRatingChart({
   const plotHeight = HEIGHT - MARGIN.top - MARGIN.bottom;
   const x = (t: number) => MARGIN.left + (tMax === tMin ? plotWidth / 2 : ((t - tMin) / (tMax - tMin)) * plotWidth);
   const y = (value: number) => MARGIN.top + plotHeight - ((value - yMin) / (yMax - yMin || 1)) * plotHeight;
-  const xTicks = dateTicks(tMin, tMax, Math.floor(plotWidth / 70));
+  const xTicks = dateTicks(tMin, tMax, Math.floor(plotWidth / 70), locale);
 
   // The race nearest the pointer, across every line
   const handlePointer = (e: React.PointerEvent<SVGRectElement>) => {
@@ -121,7 +125,7 @@ export default function IRatingChart({
     <div className="bg-card border border-border rounded-lg p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2 mb-3">
         <p className="text-sm font-medium text-foreground">
-          iRating <span className="font-normal text-muted-foreground">after each rated race</span>
+          {t.iRatingTitle} <span className="font-normal text-muted-foreground">{t.afterEachRace}</span>
         </p>
         <RaceRangePicker value={range} onChange={onRangeChange} />
       </div>
@@ -148,7 +152,7 @@ export default function IRatingChart({
             width={width}
             height={HEIGHT}
             role="img"
-            aria-label={`Line chart of iRating over time for ${lines.map((l) => l.series.category).join(' and ')}`}
+            aria-label={fmt(t.iRatingAria, { categories: lines.map((l) => l.series.category).join(t.and) })}
             className="block"
             style={{ fontVariantNumeric: 'tabular-nums' }}
           >
@@ -157,7 +161,7 @@ export default function IRatingChart({
               <g key={tick}>
                 <line x1={MARGIN.left} x2={MARGIN.left + plotWidth} y1={y(tick)} y2={y(tick)} stroke={GRID} strokeWidth={1} />
                 <text x={MARGIN.left - 8} y={y(tick)} dy="0.32em" textAnchor="end" fontSize={11} fill={INK_MUTED}>
-                  {tick.toLocaleString('en-US')}
+                  {tick.toLocaleString(locale)}
                 </text>
               </g>
             ))}
@@ -238,15 +242,15 @@ export default function IRatingChart({
           >
             <p className="font-semibold mb-1 flex items-center gap-2">
               <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: hovered.color }} />
-              {formatDate(hovered.point.startTime)}
+              {formatDate(hovered.point.startTime, locale)}
             </p>
             <p className="text-muted-foreground">{hovered.point.series}</p>
             <p className="text-muted-foreground">{hovered.point.track}</p>
             <p className="mt-1" style={{ fontVariantNumeric: 'tabular-nums' }}>
-              iRating {hovered.point.oldIRating} → <span className="font-semibold">{hovered.point.iRating}</span>{' '}
+              {fmt(t.iRatingLine, { from: hovered.point.oldIRating })}<span className="font-semibold">{hovered.point.iRating}</span>{' '}
               <span className="text-muted-foreground">({signed(hovered.point.iRating - hovered.point.oldIRating)})</span>
             </p>
-            {hovered.point.finishPosition !== null && <p className="text-muted-foreground">Finished P{hovered.point.finishPosition}</p>}
+            {hovered.point.finishPosition !== null && <p className="text-muted-foreground">{fmt(t.finishedP, { n: hovered.point.finishPosition })}</p>}
           </div>
         )}
       </div>
@@ -257,26 +261,26 @@ export default function IRatingChart({
         onClick={() => setShowTable(!showTable)}
         className="mt-2 text-xs font-semibold text-primary hover:underline"
       >
-        {showTable ? 'Hide values' : 'Show values'}
+        {showTable ? t.hideValues : t.showValues}
       </button>
       {showTable && (
         <div className="mt-2 max-h-96 overflow-auto border border-border rounded-lg">
           <table className="w-full text-xs text-foreground whitespace-nowrap" style={{ fontVariantNumeric: 'tabular-nums' }}>
             <thead className="sticky top-0 bg-secondary text-left text-muted-foreground">
               <tr>
-                <th className="px-3 py-2 font-medium">Date</th>
-                {lines.length > 1 && <th className="px-3 py-2 font-medium">Category</th>}
-                <th className="px-3 py-2 font-medium">Series</th>
-                <th className="px-3 py-2 font-medium">Track</th>
-                <th className="px-3 py-2 font-medium text-right">Finish</th>
-                <th className="px-3 py-2 font-medium text-right">iRating</th>
-                <th className="px-3 py-2 font-medium text-right">Change</th>
+                <th className="px-3 py-2 font-medium">{t.date}</th>
+                {lines.length > 1 && <th className="px-3 py-2 font-medium">{t.category}</th>}
+                <th className="px-3 py-2 font-medium">{t.series}</th>
+                <th className="px-3 py-2 font-medium">{t.track}</th>
+                <th className="px-3 py-2 font-medium text-right">{t.finish}</th>
+                <th className="px-3 py-2 font-medium text-right">{t.iRatingTitle}</th>
+                <th className="px-3 py-2 font-medium text-right">{t.change}</th>
               </tr>
             </thead>
             <tbody>
               {tableRows.map(({ series, point }) => (
                 <tr key={point.eventId} className="border-t border-border">
-                  <td className="px-3 py-1.5">{formatDate(point.startTime)}</td>
+                  <td className="px-3 py-1.5">{formatDate(point.startTime, locale)}</td>
                   {lines.length > 1 && <td className="px-3 py-1.5">{series.category}</td>}
                   <td className="px-3 py-1.5">{point.series}</td>
                   <td className="px-3 py-1.5">{point.track}</td>

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import FriendsRoster from '@/components/FriendsRoster';
+import { useLanguage } from '@/components/LanguageProvider';
 import TrackFileExport from '@/components/TrackFileExport';
 import TrackManagement from '@/components/TrackManagement';
 import CarDataManagement from '@/components/CarDataManagement';
@@ -15,10 +16,14 @@ import type { LapFile } from '@/lib/lapData';
 // Space Fact Query tab is hidden for now; set to true to show it again
 const SHOW_SPACE_FACTS_TAB = false;
 
+type Tab = 'tracks' | 'cars' | 'friends' | 'spaceFacts' | 'racecar' | 'stint' | 'lapCompare' | 'debrief' | 'referencePoints';
+
+// Tab bar order; Get Reference Points starts the right-hand group
+const TABS: Tab[] = ['debrief', 'spaceFacts', 'stint', 'lapCompare', 'referencePoints', 'cars', 'tracks', 'racecar', 'friends'];
+
 export default function RacingPage() {
-  const [activeTab, setActiveTab] = useState<'tracks' | 'cars' | 'friends' | 'spaceFacts' | 'racecar' | 'stint' | 'lapCompare' | 'debrief' | 'referencePoints'>(
-    'debrief'
-  );
+  const { t } = useLanguage();
+  const [activeTab, setActiveTab] = useState<Tab>('debrief');
   // Laps sent from Debrief Coach's Compare button, opened in Lap Compare (Base = the faster one)
   const [lapsToCompare, setLapsToCompare] = useState<{ base: LapFile; compare: LapFile } | null>(null);
   const compareLaps = (base: LapFile, compare: LapFile) => {
@@ -31,11 +36,9 @@ export default function RacingPage() {
       <section className="py-16 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-background to-background border-b border-border">
         <div className="max-w-4xl mx-auto text-center">
           <h1 className="text-4xl md:text-5xl font-bold mb-4 pb-2 bg-gradient-to-r from-primary-strong via-primary to-primary-strong bg-clip-text text-transparent">
-            Coaching &amp; Analysis
+            {t.racing.title}
           </h1>
-          <p className="text-lg text-muted-foreground">
-            Debriefs, lap and stint analysis, and reference points
-          </p>
+          <p className="text-lg text-muted-foreground">{t.racing.intro}</p>
         </div>
       </section>
 
@@ -43,206 +46,46 @@ export default function RacingPage() {
         <div className="w-full max-w-4xl">
           {/* Tab Navigation */}
           <div className="flex flex-wrap gap-4 mb-6 border-b border-border">
-            <button
-              onClick={() => setActiveTab('debrief')}
-              className={`px-6 py-3 font-semibold border-b-2 transition-colors ${
-                activeTab === 'debrief'
-                  ? 'text-primary border-primary'
-                  : 'text-muted-foreground border-transparent hover:text-foreground'
-              }`}
-            >
-              Debrief Coach
-            </button>
-            {SHOW_SPACE_FACTS_TAB && (
+            {TABS.filter((tab) => tab !== 'spaceFacts' || SHOW_SPACE_FACTS_TAB).map((tab) => (
               <button
-                onClick={() => setActiveTab('spaceFacts')}
-                className={`px-6 py-3 font-semibold border-b-2 transition-colors ${
-                  activeTab === 'spaceFacts'
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`${tab === 'referencePoints' ? 'ml-auto ' : ''}px-6 py-3 font-semibold border-b-2 transition-colors ${
+                  activeTab === tab
                     ? 'text-primary border-primary'
                     : 'text-muted-foreground border-transparent hover:text-foreground'
                 }`}
               >
-                Space Fact Query
+                {t.racing.tabs[tab]}
               </button>
-            )}
-            <button
-              onClick={() => setActiveTab('stint')}
-              className={`px-6 py-3 font-semibold border-b-2 transition-colors ${
-                activeTab === 'stint'
-                  ? 'text-primary border-primary'
-                  : 'text-muted-foreground border-transparent hover:text-foreground'
-              }`}
-            >
-              Stint Analysis
-            </button>
-            <button
-              onClick={() => setActiveTab('lapCompare')}
-              className={`px-6 py-3 font-semibold border-b-2 transition-colors ${
-                activeTab === 'lapCompare'
-                  ? 'text-primary border-primary'
-                  : 'text-muted-foreground border-transparent hover:text-foreground'
-              }`}
-            >
-              Lap Compare
-            </button>
-            <button
-              onClick={() => setActiveTab('referencePoints')}
-              className={`ml-auto px-6 py-3 font-semibold border-b-2 transition-colors ${
-                activeTab === 'referencePoints'
-                  ? 'text-primary border-primary'
-                  : 'text-muted-foreground border-transparent hover:text-foreground'
-              }`}
-            >
-              Get Reference Points
-            </button>
-            <button
-              onClick={() => setActiveTab('cars')}
-              className={`px-6 py-3 font-semibold border-b-2 transition-colors ${
-                activeTab === 'cars'
-                  ? 'text-primary border-primary'
-                  : 'text-muted-foreground border-transparent hover:text-foreground'
-              }`}
-            >
-              Car Data
-            </button>
-            <button
-              onClick={() => setActiveTab('tracks')}
-              className={`px-6 py-3 font-semibold border-b-2 transition-colors ${
-                activeTab === 'tracks'
-                  ? 'text-primary border-primary'
-                  : 'text-muted-foreground border-transparent hover:text-foreground'
-              }`}
-            >
-              Track Data
-            </button>
-            <button
-              onClick={() => setActiveTab('racecar')}
-              className={`px-6 py-3 font-semibold border-b-2 transition-colors ${
-                activeTab === 'racecar'
-                  ? 'text-primary border-primary'
-                  : 'text-muted-foreground border-transparent hover:text-foreground'
-              }`}
-            >
-              Racecar Analysis
-            </button>
-            <button
-              onClick={() => setActiveTab('friends')}
-              className={`px-6 py-3 font-semibold border-b-2 transition-colors ${
-                activeTab === 'friends'
-                  ? 'text-primary border-primary'
-                  : 'text-muted-foreground border-transparent hover:text-foreground'
-              }`}
-            >
-              Friends
-            </button>
+            ))}
           </div>
 
           {/* Tab Content */}
           <div className="bg-secondary rounded-xl border border-border p-8">
-            {/* Car Data Tab */}
-            {activeTab === 'cars' && (
-              <div>
-                <h2 className="text-2xl font-bold text-foreground mb-2">Car Data</h2>
-                <p className="text-muted-foreground mb-6">
-                  Your cars and their specs. Expand a car to see its dimensions and notes, or press Edit to change them.
-                </p>
-                <CarDataManagement />
-              </div>
-            )}
+            <h2 className="text-2xl font-bold text-foreground mb-2">{t.racing.tabs[activeTab]}</h2>
+            <p className="text-muted-foreground mb-6">{t.racing.intros[activeTab]}</p>
 
-            {/* Track Data Tab */}
+            {activeTab === 'cars' && <CarDataManagement />}
             {activeTab === 'tracks' && (
-              <div>
-                <h2 className="text-2xl font-bold text-foreground mb-2">Track Data</h2>
-                <p className="text-muted-foreground mb-6">
-                  Your tracks and their focus areas (up to 8 per track). Expand a track to see its focus areas, or
-                  press Edit to change them.
-                </p>
+              <>
                 <TrackFileExport />
                 <TrackManagement />
-              </div>
+              </>
             )}
-
-            {/* Friends Tab */}
-            {activeTab === 'friends' && (
-              <div>
-                <h2 className="text-2xl font-bold text-foreground mb-2">Friends</h2>
-                <p className="text-muted-foreground mb-6">
-                  Keep track of your racing friends. Each account has its own list.
-                </p>
-                <FriendsRoster />
-              </div>
-            )}
-
-            {/* Space Fact Query Tab */}
-            {activeTab === 'spaceFacts' && (
-              <div>
-                <h2 className="text-2xl font-bold text-foreground mb-2">Space Fact Query</h2>
-                <p className="text-muted-foreground mb-6">
-                  Ask a question and get an answer grounded in a small set of space facts (RAG).
-                </p>
-                <SpaceFactQuery />
-              </div>
-            )}
-
-            {/* Racecar Analysis Tab */}
+            {activeTab === 'friends' && <FriendsRoster />}
+            {activeTab === 'spaceFacts' && <SpaceFactQuery />}
             {activeTab === 'racecar' && (
-              <div>
-                <h2 className="text-2xl font-bold text-foreground mb-2">Racecar Analysis</h2>
-                <p className="text-muted-foreground mb-6">
-                  Ask a question and get an answer grounded in the racecar analysis data (RAG).
-                </p>
-                <SpaceFactQuery
-                  endpoint="/api/racecar-analysis"
-                  queryLabel="Ask a Question About Racecars"
-                  placeholder="Enter your racecar question here"
-                />
-              </div>
+              <SpaceFactQuery
+                endpoint="/api/racecar-analysis"
+                queryLabel={t.racing.racecarQuestionLabel}
+                placeholder={t.racing.racecarPlaceholder}
+              />
             )}
-
-            {/* Stint Analysis Tab */}
-            {activeTab === 'stint' && (
-              <div>
-                <h2 className="text-2xl font-bold text-foreground mb-2">Stint Analysis</h2>
-                <p className="text-muted-foreground mb-6">
-                  Analyze a Garage 61 stint export: pace, sectors, weather and fuel.
-                </p>
-                <StintAnalysis />
-              </div>
-            )}
-
-            {/* Lap Compare Tab */}
-            {activeTab === 'lapCompare' && (
-              <div>
-                <h2 className="text-2xl font-bold text-foreground mb-2">Lap Compare</h2>
-                <p className="text-muted-foreground mb-6">
-                  Compare two laps focus area by focus area.
-                </p>
-                <LapCompare initialLaps={lapsToCompare} />
-              </div>
-            )}
-
-            {/* Debrief Coach Tab */}
-            {activeTab === 'debrief' && (
-              <div>
-                <h2 className="text-2xl font-bold text-foreground mb-2">Debrief Coach</h2>
-                <p className="text-muted-foreground mb-6">
-                  An AI coach reviews every lap of your session and tells you what to fix next time.
-                </p>
-                <DebriefCoach onCompare={compareLaps} />
-              </div>
-            )}
-
-            {/* Get Reference Points Tab */}
-            {activeTab === 'referencePoints' && (
-              <div>
-                <h2 className="text-2xl font-bold text-foreground mb-2">Get Reference Points</h2>
-                <p className="text-muted-foreground mb-6">
-                  Upload your laps and get the brake point, max brake pressure and on-throttle point for each focus area.
-                </p>
-                <ReferencePoints />
-              </div>
-            )}
+            {activeTab === 'stint' && <StintAnalysis />}
+            {activeTab === 'lapCompare' && <LapCompare initialLaps={lapsToCompare} />}
+            {activeTab === 'debrief' && <DebriefCoach onCompare={compareLaps} />}
+            {activeTab === 'referencePoints' && <ReferencePoints />}
           </div>
         </div>
       </section>

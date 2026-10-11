@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { isUniqueViolation } from '@/lib/db';
 import { getCurrentUser } from '@/lib/session';
 import { addCar, CarNotFoundError, carInputSchema, deleteCar, readCars, updateCar } from '@/lib/carData';
+import { apiText } from '@/lib/i18n/server';
 
 // Each signed-in user manages their own cars.
 const NOT_SIGNED_IN = { error: 'Log in to manage your cars' };
@@ -13,6 +14,7 @@ function invalid(error: { issues: { message: string }[] }) {
 }
 
 export async function GET() {
+  const t = await apiText();
   try {
     const user = await getCurrentUser();
     if (!user) {
@@ -21,11 +23,12 @@ export async function GET() {
     return NextResponse.json({ cars: await readCars(user.id) });
   } catch (error) {
     console.error('Read cars error:', error);
-    return NextResponse.json({ error: 'Failed to load cars' }, { status: 500 });
+    return NextResponse.json({ error: t.failedLoadCars }, { status: 500 });
   }
 }
 
 export async function POST(request: Request) {
+  const t = await apiText();
   try {
     const user = await getCurrentUser();
     if (!user) {
@@ -40,11 +43,12 @@ export async function POST(request: Request) {
   } catch (error) {
     if (isUniqueViolation(error)) return NextResponse.json(DUPLICATE, { status: 409 });
     console.error('Add car error:', error);
-    return NextResponse.json({ error: 'Failed to add car' }, { status: 500 });
+    return NextResponse.json({ error: t.failedAddCar }, { status: 500 });
   }
 }
 
 export async function PUT(request: Request) {
+  const t = await apiText();
   try {
     const user = await getCurrentUser();
     if (!user) {
@@ -63,11 +67,12 @@ export async function PUT(request: Request) {
     if (error instanceof CarNotFoundError) return NextResponse.json({ error: error.message }, { status: 404 });
     if (isUniqueViolation(error)) return NextResponse.json(DUPLICATE, { status: 409 });
     console.error('Update car error:', error);
-    return NextResponse.json({ error: 'Failed to save car' }, { status: 500 });
+    return NextResponse.json({ error: t.failedSaveCar }, { status: 500 });
   }
 }
 
 export async function DELETE(request: Request) {
+  const t = await apiText();
   try {
     const user = await getCurrentUser();
     if (!user) {
@@ -82,6 +87,6 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Delete car error:', error);
-    return NextResponse.json({ error: 'Failed to delete car' }, { status: 500 });
+    return NextResponse.json({ error: t.failedDeleteCar }, { status: 500 });
   }
 }

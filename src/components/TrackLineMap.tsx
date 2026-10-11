@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type MouseEvent, type PointerEvent } from 'react';
 
+import { useLanguage } from '@/components/LanguageProvider';
 import type { PedalTraceLap } from '@/components/PedalTraces';
 import { BASE_LAP_COLOR as BASE_COLOR, clamp, COMPARE_LAP_COLOR as COMPARE_COLOR, nearestIndex } from '@/lib/lapCharts';
 
@@ -121,6 +122,8 @@ export default function TrackLineMap({
   hoverPct: number | null;
   onHover: (pct: number | null) => void;
 }) {
+  const { t: dictionary, fmt, locale } = useLanguage();
+  const t = dictionary.charts;
   const settings = useMapSettings();
   // The zoomed or panned view, and the laps it was set for: analyzing other laps starts fitted again
   const [saved, setSaved] = useState<{ view: View; trace: unknown } | null>(null);
@@ -136,7 +139,7 @@ export default function TrackLineMap({
     { key: 'base' as const, lap: base, color: BASE_COLOR, positions: base.trace.positions },
     { key: 'compare' as const, lap: compare, color: COMPARE_COLOR, positions: compare.trace.positions },
   ].filter((line): line is Line => line.positions !== null && line.positions.length > 1);
-  const missing = [!base.trace.positions && 'Base', !compare.trace.positions && 'Compare'].filter(Boolean);
+  const missing = [!base.trace.positions && dictionary.lapCompare.base, !compare.trace.positions && dictionary.lapCompare.compare].filter(Boolean);
 
   // Fit both lines in the view, centered
   const projected = lines.map((line) => line.positions.map(project));
@@ -187,8 +190,7 @@ export default function TrackLineMap({
   if (!hasLines) {
     return (
       <p className="text-xs text-muted-foreground">
-        Neither lap has track positions, so there&apos;s no driving line to show. Garage 61 laps have them, and laps
-        from the RacingCoach collector get them once iRacing&apos;s telemetry file for the session is processed.
+        {t.noPositions}
       </p>
     );
   }
@@ -292,7 +294,7 @@ export default function TrackLineMap({
   return (
     <figure className="space-y-1">
       <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
-        <span className="text-sm font-semibold text-foreground">Driving line</span>
+        <span className="text-sm font-semibold text-foreground">{t.drivingLine}</span>
         {lines.map((line) => (
           <span key={line.key} className="flex items-center gap-1.5">
             <span className="inline-block w-3 h-0.5 rounded-full" style={{ backgroundColor: line.color }} />
@@ -324,7 +326,7 @@ export default function TrackLineMap({
           width={width}
           height={HEIGHT}
           role="img"
-          aria-label={`Driving lines through the focus area: ${lines.map((l) => l.lap.title).join(' and ')}`}
+          aria-label={fmt(t.drivingLinesAria, { laps: lines.map((l) => l.lap.title).join(t.and) })}
           className="absolute inset-0 touch-none cursor-grab active:cursor-grabbing select-none"
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
@@ -381,7 +383,7 @@ export default function TrackLineMap({
             <line x1={0} x2={0} y1={-4} y2={0} stroke="white" strokeWidth={2} />
             <line x1={bar.pixels} x2={bar.pixels} y1={-4} y2={0} stroke="white" strokeWidth={2} />
             <text x={bar.pixels / 2} y={-5} textAnchor="middle">
-              {bar.meters} m
+              {fmt(t.meters, { n: bar.meters.toLocaleString(locale) })}
             </text>
           </g>
         </svg>
@@ -389,20 +391,20 @@ export default function TrackLineMap({
         <div className="absolute top-2 right-2 flex flex-col gap-1">
           <button
             type="button"
-            aria-label="Zoom in"
+            aria-label={t.zoomIn}
             className={buttonClass}
             disabled={scale >= 2 ** MAX_USER_ZOOM * 0.999}
             onClick={() => zoomButton(ZOOM_STEP)}
           >
             +
           </button>
-          <button type="button" aria-label="Zoom out" className={buttonClass} disabled={!zoomedIn} onClick={() => zoomButton(1 / ZOOM_STEP)}>
+          <button type="button" aria-label={t.zoomOut} className={buttonClass} disabled={!zoomedIn} onClick={() => zoomButton(1 / ZOOM_STEP)}>
             −
           </button>
           <button
             type="button"
-            aria-label="Show the whole focus area"
-            title="Show the whole focus area"
+            aria-label={t.showWholeArea}
+            title={t.showWholeArea}
             className={`${buttonClass} text-sm`}
             disabled={!zoomedIn}
             onClick={() => show(fit)}
@@ -419,9 +421,9 @@ export default function TrackLineMap({
       </div>
 
       <figcaption className="text-xs text-muted-foreground">
-        {settings && !settings.available && 'Satellite imagery isn’t set up, so only the lines are shown. '}
-        {missing.length > 0 && `The ${missing.join(' and ')} lap has no track positions here. `}
-        Scroll, pinch or double-click to zoom, drag to move. Arrows show the direction of travel.
+        {settings && !settings.available && t.noImagery}
+        {missing.length > 0 && fmt(t.lapNoPositions, { laps: missing.join(t.and) })}
+        {t.mapHelp}
       </figcaption>
     </figure>
   );

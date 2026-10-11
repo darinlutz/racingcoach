@@ -2,7 +2,10 @@
 
 import { useRef, useState } from 'react';
 
+import { useLanguage } from '@/components/LanguageProvider';
 import SectorChart from '@/components/SectorChart';
+import type { Dictionary } from '@/lib/i18n/dictionaries/en';
+import { fmt } from '@/lib/i18n/languages';
 import StintConditions from '@/components/StintConditions';
 import WeatherTable from '@/components/WeatherTable';
 import { isStintExport, parseStintExport } from '@/lib/stintExport';
@@ -14,7 +17,7 @@ const inputClass =
 const MAX_CSV_BYTES = 25 * 1024 * 1024;
 
 // Asks the server for a coaching analysis of the stint report
-async function fetchStintSummary(report: string) {
+async function fetchStintSummary(report: string, t: Dictionary) {
   try {
     const res = await fetch('/api/stint-summary', {
       method: 'POST',
@@ -22,14 +25,16 @@ async function fetchStintSummary(report: string) {
       body: JSON.stringify({ report }),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Failed to analyze the stint');
+    if (!res.ok) throw new Error(data.error || t.stint.failedAnalyze);
     return data.summary as string;
   } catch (err) {
-    return `Summary unavailable: ${err instanceof Error ? err.message : 'unknown error'}`;
+    return fmt(t.lapCompare.summaryUnavailable, { error: err instanceof Error ? err.message : t.common.unknownError });
   }
 }
 
 export default function StintAnalysis() {
+  const { t: dictionary, locale, plural } = useLanguage();
+  const t = dictionary.stint;
   const [stint, setStint] = useState<StintSelection | null>(null);
   const [fileError, setFileError] = useState('');
   const [dragging, setDragging] = useState(false);
@@ -40,24 +45,24 @@ export default function StintAnalysis() {
   const handleFiles = async (fileList: FileList | null | undefined) => {
     if (!fileList || fileList.length === 0) return;
     if (fileList.length > 1) {
-      setFileError(`Only 1 stint CSV can be uploaded here (${fileList.length} were selected).`);
+      setFileError(fmt(t.onlyOne, { n: fileList.length }));
       return;
     }
 
     const file = fileList[0];
     try {
-      if (!file.name.toLowerCase().endsWith('.csv')) throw new Error('only CSV files are supported');
-      if (file.size > MAX_CSV_BYTES) throw new Error('file is too large (25 MB max)');
+      if (!file.name.toLowerCase().endsWith('.csv')) throw new Error(dictionary.laps.errors.notCsv);
+      if (file.size > MAX_CSV_BYTES) throw new Error(dictionary.laps.errors.tooLarge);
       if (!(await isStintExport(file))) {
-        throw new Error('not a Garage 61 stint export (expected columns like Run, Lap, Lap time, Track temp)');
+        throw new Error(t.notStint);
       }
       const selection = selectBestRun(await parseStintExport(file));
-      if (!selection) throw new Error('no full, clean laps (every lap is an in/out lap, incomplete or not clean)');
+      if (!selection) throw new Error(t.noCleanLaps);
       setStint(selection);
       setFileError('');
       setAnalysis('');
     } catch (err) {
-      setFileError(`${file.name}: ${(err as Error).message}`);
+      setFileError(fmt(dictionary.laps.fileError, { name: file.name, error: (err as Error).message }));
     }
   };
 
@@ -65,12 +70,12 @@ export default function StintAnalysis() {
     if (!stint) return;
     setAnalyzing(true);
     try {
-      const report = stintReport(stint);
+      const report = stintReport(stint, dictionary.stintReport, locale);
       // Show the statistics right away, then add the coaching summary below them
-      setAnalysis(`${report}\n\nSummary: writing…`);
-      setAnalysis(`${report}\n\nSummary:\n${await fetchStintSummary(report)}`);
+      setAnalysis(`${report}\n\n${t.summaryWriting}`);
+      setAnalysis(`${report}\n\n${t.summaryHeading}\n${await fetchStintSummary(report, dictionary)}`);
     } catch (err) {
-      setAnalysis(`Error analyzing stint: ${err instanceof Error ? err.message : 'unknown error'}`);
+      setAnalysis(fmt(t.errorAnalyzing, { error: err instanceof Error ? err.message : dictionary.common.unknownError }));
     } finally {
       setAnalyzing(false);
     }
@@ -90,13 +95,13 @@ export default function StintAnalysis() {
           showWetness={false}
           summary={<StintConditions laps={stint.stint.laps} />}
           note={
-            `Showing the ${stint.stint.laps.length} full, clean lap${stint.stint.laps.length === 1 ? '' : 's'} of run ${stint.run}` +
-            (stint.runCount > 1 ? ` (the run with the most, of ${stint.runCount} runs).` : '.')
+            plural(stint.stint.laps.length, t.showing, { run: stint.run }) +
+            (stint.runCount > 1 ? fmt(t.mostRuns, { runs: stint.runCount }) : '.')
           }
         />
       ) : (
         <div>
-          <label className="block text-sm text-muted-foreground mb-2">Upload Stint CSV</label>
+          <label className="block text-sm text-muted-foreground mb-2">{t.upload}</label>
           <div
             onDragOver={(e) => {
               e.preventDefault();
@@ -113,15 +118,15 @@ export default function StintAnalysis() {
             }`}
           >
             <div className="text-sm text-muted-foreground text-center sm:text-left">
-              <p className="font-medium text-foreground">Drag and drop a stint CSV here</p>
-              <p>Limit 25MB • Garage 61 stint export CSV</p>
+              <p className="font-medium text-foreground">{t.dragDrop}</p>
+              <p>{t.limits}</p>
             </div>
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
               className="px-4 py-2 text-sm font-semibold bg-card border border-border rounded-lg text-foreground hover:border-primary hover:text-primary transition-colors"
             >
-              Browse files
+              {dictionary.laps.browseFiles}
             </button>
             <input
               ref={fileInputRef}
@@ -152,19 +157,19 @@ export default function StintAnalysis() {
           disabled={!stint || analyzing}
           className="px-6 py-3 font-semibold text-white bg-gradient-to-r from-primary to-primary-strong rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {analyzing ? 'Analyzing…' : 'Analyze Stint'}
+          {analyzing ? t.analyzing : t.analyze}
         </button>
 
         <div>
           <label htmlFor="stint-analysis" className="block text-sm font-medium text-foreground mb-2">
-            Analysis
+            {t.analysis}
           </label>
           <textarea
             id="stint-analysis"
             value={analysis}
             readOnly
             rows={16}
-            placeholder={stint ? 'Press Analyze Stint.' : 'Upload a stint CSV, then press Analyze Stint.'}
+            placeholder={stint ? t.placeholder : t.placeholderNoStint}
             className={`${inputClass} resize-y font-mono text-sm`}
           />
         </div>

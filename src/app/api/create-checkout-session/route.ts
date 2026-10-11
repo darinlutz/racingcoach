@@ -4,20 +4,22 @@ import { getCurrentUser } from '@/lib/session';
 import { getSiteOrigin } from '@/lib/siteOrigin';
 import { getPlanPrice, getStripeConfig, isPlan, STRIPE_APP } from '@/lib/stripePlans';
 import { canBuy } from '@/lib/users';
+import { apiText } from '@/lib/i18n/server';
 
 export async function POST(request: Request) {
+  const t = await apiText();
   try {
     const formData = await request.formData();
     const plan = formData.get('plan');
     if (!isPlan(plan)) {
-      return NextResponse.json({ error: 'Invalid plan' }, { status: 400 });
+      return NextResponse.json({ error: t.invalidPlan }, { status: 400 });
     }
 
     // Check if Stripe secret key and the plan's product are configured
     const config = getStripeConfig(plan);
     if (!config) {
       return NextResponse.json(
-        { error: 'Stripe is not configured' },
+        { error: t.notConfigured },
         { status: 500 }
       );
     }
@@ -40,7 +42,7 @@ export async function POST(request: Request) {
     if (!price || price.type !== 'recurring') {
       console.error(`Stripe product ${productId} has no recurring default price`);
       return NextResponse.json(
-        { error: 'Stripe product has no recurring price' },
+        { error: t.notConfigured },
         { status: 500 }
       );
     }
@@ -70,7 +72,7 @@ export async function POST(request: Request) {
 
     if (!session.url) {
       return NextResponse.json(
-        { error: 'Checkout session has no URL' },
+        { error: t.failedCheckout },
         { status: 500 }
       );
     }
@@ -80,7 +82,7 @@ export async function POST(request: Request) {
     console.error('Stripe checkout error:', error);
 
     return NextResponse.json(
-      { error: 'Failed to create checkout session' },
+      { error: t.failedCheckout },
       { status: 500 }
     );
   }

@@ -97,15 +97,16 @@ export function formatTempF(celsius: number) {
   return `${((celsius * 9) / 5 + 32).toFixed(1)}°F`;
 }
 
-export function formatWind(velocity: number, radians: number) {
-  const points = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+// compass: the eight directions from N clockwise, in the user's language (dictionary weather.compass)
+export function formatWind(velocity: number, radians: number, compass: string[] = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']) {
+  const points = compass;
   const degrees = ((((radians * 180) / Math.PI) % 360) + 360) % 360;
   return `${(velocity * MPH_PER_METER_PER_SECOND).toFixed(1)} mph ${points[Math.round(degrees / 45) % 8]}`;
 }
 
-// iRacing sky values: 0 clear, 1 partly cloudy, 2 mostly cloudy, 3 overcast
-export function formatClouds(value: number) {
-  return ['Clear', 'Partly cloudy', 'Mostly cloudy', 'Overcast'][value] ?? String(value);
+// iRacing sky values: 0 clear, 1 partly cloudy, 2 mostly cloudy, 3 overcast (names: dictionary weather.clouds)
+export function formatClouds(value: number, names: string[] = ['Clear', 'Partly cloudy', 'Mostly cloudy', 'Overcast']) {
+  return names[value] ?? String(value);
 }
 
 // Pa -> inHg

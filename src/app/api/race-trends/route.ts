@@ -3,6 +3,7 @@ import { aiErrorResponse } from '@/lib/aiErrors';
 import { readConnection, readRaceEvents } from '@/lib/raceHistory';
 import { runRaceTrends } from '@/lib/raceTrends';
 import { getCurrentUser } from '@/lib/session';
+import { apiText } from '@/lib/i18n/server';
 
 // The agent makes several model calls (one per tool round), so give it more than the default
 export const maxDuration = 60;
@@ -11,6 +12,7 @@ const NOT_SIGNED_IN = { error: 'Log in to see your race trends' };
 
 // The user's iRacePlan connection and the races synced from it so far
 export async function GET() {
+  const t = await apiText();
   try {
     const user = await getCurrentUser();
     if (!user) {
@@ -20,12 +22,13 @@ export async function GET() {
     return NextResponse.json({ connection, events });
   } catch (error) {
     console.error('Read race trends error:', error);
-    return NextResponse.json({ error: 'Failed to load your races' }, { status: 500 });
+    return NextResponse.json({ error: t.failedLoadRaces }, { status: 500 });
   }
 }
 
 // Charts and agent commentary over the user's synced races
 export async function POST() {
+  const t = await apiText();
   try {
     const user = await getCurrentUser();
     if (!user) {
@@ -34,12 +37,12 @@ export async function POST() {
 
     if (!process.env.OPENAI_API_KEY) {
       console.error('OPENAI_API_KEY is not configured');
-      return NextResponse.json({ error: 'OpenAI API key not configured' }, { status: 500 });
+      return NextResponse.json({ error: t.aiNotConfigured }, { status: 500 });
     }
 
     const [connection, events] = await Promise.all([readConnection(user.id), readRaceEvents(user.id)]);
     if (events.length === 0) {
-      return NextResponse.json({ error: 'No races yet. Connect iRacePlan and let your races load first.' }, { status: 400 });
+      return NextResponse.json({ error: t.noRacesYet }, { status: 400 });
     }
 
     const { trend, incidents, commentary, steps } = await runRaceTrends(connection?.iracingName ?? user.userName, events);

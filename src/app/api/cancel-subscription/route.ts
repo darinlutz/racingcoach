@@ -5,6 +5,7 @@ import { getCurrentUser } from '@/lib/session';
 import { recordCancellation } from '@/lib/users';
 import { ACCOUNT_STATUS } from '@/lib/accountStatus';
 import {
+import { apiText } from '@/lib/i18n/server';
   CANCELLATION_REASONS,
   MAX_CANCELLATION_NOTES,
   type CancellationConfirmation,
@@ -13,20 +14,21 @@ import {
 // Cancels the user's subscription in Stripe and records why (racingcoach."CancellationReason").
 // Body: { reason: one of CANCELLATION_REASONS' labels, notes?: string }
 export async function POST(request: Request) {
+  const t = await apiText();
   try {
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json({ error: 'Log in to cancel your subscription' }, { status: 401 });
+      return NextResponse.json({ error: t.logInToCancel }, { status: 401 });
     }
 
     if (user.accountStatus !== ACCOUNT_STATUS.subscribed || !user.stripeSubscriptionId) {
-      return NextResponse.json({ error: 'No active subscription to cancel' }, { status: 400 });
+      return NextResponse.json({ error: t.noSubscription }, { status: 400 });
     }
 
     const body = await request.json().catch(() => ({}));
     const reason = CANCELLATION_REASONS.find((r) => r.label === body.reason);
     if (!reason) {
-      return NextResponse.json({ error: 'Please choose a reason for canceling' }, { status: 400 });
+      return NextResponse.json({ error: t.chooseReason }, { status: 400 });
     }
     const notes = typeof body.notes === 'string' ? body.notes.trim() || null : null;
     if (notes && notes.length > MAX_CANCELLATION_NOTES) {
@@ -39,7 +41,7 @@ export async function POST(request: Request) {
     // Check if Stripe secret key is configured
     const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
     if (!stripeSecretKey) {
-      return NextResponse.json({ error: 'Stripe is not configured' }, { status: 500 });
+      return NextResponse.json({ error: t.notConfigured }, { status: 500 });
     }
 
     // Cancels immediately: no further charges, no refund. SubscriptionEndDate is kept.
@@ -66,6 +68,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ confirmation });
   } catch (error) {
     console.error('Stripe cancel subscription error:', error);
-    return NextResponse.json({ error: 'Failed to cancel subscription' }, { status: 500 });
+    return NextResponse.json({ error: t.failedCancel }, { status: 500 });
   }
 }

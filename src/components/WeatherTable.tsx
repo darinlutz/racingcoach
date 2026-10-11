@@ -1,5 +1,8 @@
+'use client';
+
 import type { ReactNode } from 'react';
 
+import { useLanguage } from '@/components/LanguageProvider';
 import {
   formatClouds,
   formatPressure,
@@ -18,34 +21,37 @@ type WeatherTableProps = {
   summary?: ReactNode; // shown between the heading and the table
 };
 
-const WETNESS_HEADINGS = ['Precip.', 'Wetness'];
+const WETNESS_HEADINGS = ['precip', 'wetness'] as const;
 const HEADINGS = [
-  'Lap', 'Lap time', 'Started', 'Clean', 'Track temp', 'Air temp', 'Humidity', 'Wind', 'Clouds',
-  'Pressure', ...WETNESS_HEADINGS, 'Track usage',
-];
+  'lap', 'lapTime', 'started', 'clean', 'trackTemp', 'airTemp', 'humidity', 'wind', 'clouds',
+  'pressure', ...WETNESS_HEADINGS, 'trackUsage',
+] as const;
 
 // Per-lap weather from a Garage 61 stint export
 export default function WeatherTable({ stint, onRemove, note, isHighlighted, showWetness = true, summary }: WeatherTableProps) {
-  const headings = showWetness ? HEADINGS : HEADINGS.filter((h) => !WETNESS_HEADINGS.includes(h));
+  const { t, fmt, locale } = useLanguage();
+  const headings = showWetness
+    ? HEADINGS
+    : HEADINGS.filter((h) => !(WETNESS_HEADINGS as readonly string[]).includes(h));
   const trackTemps = stint.laps.map((lap) => lap.trackTempC);
 
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
         <p className="text-sm font-medium text-foreground">
-          Weather conditions <span className="font-normal text-muted-foreground">({stint.fileName})</span>
+          {t.weather.title} <span className="font-normal text-muted-foreground">({stint.fileName})</span>
         </p>
         <button
           type="button"
           onClick={onRemove}
-          aria-label="Remove stint export"
+          aria-label={t.weather.remove}
           className="ml-3 text-muted-foreground hover:text-primary"
         >
           ✕
         </button>
       </div>
       <p className="text-sm text-muted-foreground mb-2">
-        Track temp {formatTempF(Math.min(...trackTemps))} – {formatTempF(Math.max(...trackTemps))} over the stint.
+        {fmt(t.weather.trackTempRange, { min: formatTempF(Math.min(...trackTemps)), max: formatTempF(Math.max(...trackTemps)) })}
         {note && ` ${note}`}
       </p>
       {summary}
@@ -55,7 +61,7 @@ export default function WeatherTable({ stint, onRemove, note, isHighlighted, sho
             <tr>
               {headings.map((heading) => (
                 <th key={heading} className="px-3 py-2 font-medium">
-                  {heading}
+                  {t.weather.headings[heading]}
                 </th>
               ))}
             </tr>
@@ -69,14 +75,14 @@ export default function WeatherTable({ stint, onRemove, note, isHighlighted, sho
                 <td className="px-3 py-2">{lap.lap}</td>
                 <td className="px-3 py-2">{formatSeconds(lap.lapSeconds)}</td>
                 <td className="px-3 py-2">
-                  {new Date(lap.startedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' })}
+                  {new Date(lap.startedAt).toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit', second: '2-digit' })}
                 </td>
-                <td className="px-3 py-2">{lap.clean ? 'Yes' : 'No'}</td>
+                <td className="px-3 py-2">{lap.clean ? t.common.yes : t.common.no}</td>
                 <td className="px-3 py-2">{formatTempF(lap.trackTempC)}</td>
                 <td className="px-3 py-2">{formatTempF(lap.airTempC)}</td>
                 <td className="px-3 py-2">{Math.round(lap.relativeHumidity * 100)}%</td>
-                <td className="px-3 py-2">{formatWind(lap.windVelocity, lap.windDirection)}</td>
-                <td className="px-3 py-2">{formatClouds(lap.cloudCover)}</td>
+                <td className="px-3 py-2">{formatWind(lap.windVelocity, lap.windDirection, t.weather.compass)}</td>
+                <td className="px-3 py-2">{formatClouds(lap.cloudCover, t.weather.clouds)}</td>
                 <td className="px-3 py-2">{formatPressure(lap.airPressure)}</td>
                 {showWetness && (
                   <>

@@ -1,11 +1,13 @@
 'use client';
 
 import { useState } from 'react';
+import { useLanguage } from './LanguageProvider';
 
 const inputClass =
   'w-full px-4 py-3 bg-card border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors';
 
 export default function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
+  const { t, fmt } = useLanguage();
   const [emailAddress, setEmailAddress] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -24,11 +26,11 @@ export default function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to send reset email');
+        throw new Error(data.error || t.auth.failedSendReset);
       }
       setSent(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to send reset email');
+      setError(err instanceof Error ? err.message : t.auth.failedSendReset);
     } finally {
       setLoading(false);
     }
@@ -38,7 +40,7 @@ export default function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
     <form onSubmit={handleSubmit} className="space-y-6">
       <div>
         <label htmlFor="resetEmailAddress" className="block text-sm font-medium text-foreground mb-2">
-          Email Address *
+          {fmt(t.common.required, { label: t.common.emailAddress })}
         </label>
         <input
           type="email"
@@ -57,7 +59,7 @@ export default function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
       )}
       {sent && (
         <p className="p-3 rounded-lg bg-positive/10 border border-positive/40 text-positive text-sm">
-          We sent a password reset link to {emailAddress}. It expires in 1 hour.
+          {fmt(t.auth.resetSent, { email: emailAddress })}
         </p>
       )}
 
@@ -66,12 +68,12 @@ export default function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
         disabled={loading}
         className="w-full px-6 py-3 rounded-lg bg-gradient-to-r from-primary to-primary-strong text-white font-semibold hover:shadow-lg transition-all disabled:opacity-60"
       >
-        {loading ? 'Sending...' : 'Reset Password'}
+        {loading ? t.auth.sending : t.auth.resetPassword}
       </button>
 
       <p className="text-center text-sm text-muted-foreground">
         <button type="button" onClick={onBack} className="text-primary hover:underline font-medium">
-          Back to Create an Account
+          {t.auth.backToSignUp}
         </button>
       </p>
     </form>

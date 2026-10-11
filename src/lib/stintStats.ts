@@ -1,5 +1,7 @@
 // Statistics for the Stint Analysis tab, computed from a Garage 61 stint export.
 
+import type { Dictionary } from '@/lib/i18n/dictionaries/en';
+import { fmt } from '@/lib/i18n/languages';
 import { formatSeconds, formatTempF, type StintExport, type StintLap } from '@/lib/stintExport';
 
 function mean(values: number[]) {
@@ -33,7 +35,6 @@ function correlation(xs: number[], ys: number[]) {
   return sxy / Math.sqrt(sxx * syy);
 }
 
-const seconds = (value: number | null) => (value === null ? 'n/a' : `${value.toFixed(3)}s`);
 const signed = (value: number) => `${value >= 0 ? '+' : '-'}${Math.abs(value).toFixed(3)}s`;
 
 export type StintConditions = {
@@ -104,20 +105,22 @@ export function selectBestRun(stint: StintExport): StintSelection | null {
   return { stint: { ...stint, laps }, run, runCount: cleanByRun.size, lapsInExport: stint.laps.length };
 }
 
-// Plain-text stint report: shown in the text box and sent to the AI for the summary
-export function stintReport({ stint, run, runCount, lapsInExport }: StintSelection) {
+// Plain-text stint report: shown in the text box and sent to the AI for the summary. Written in the
+// user's language (t is the dictionary's stintReport; locale formats the start time).
+export function stintReport({ stint, run, runCount, lapsInExport }: StintSelection, t: Dictionary['stintReport'], locale: string) {
   const timed = stint.laps;
   const first = timed[0];
+  const seconds = (value: number | null) => (value === null ? t.na : `${value.toFixed(3)}s`);
   const lines = [
-    `Driver: ${first.driver}`,
-    `Started: ${new Date(first.startedAt).toLocaleString()}`,
-    `Run analyzed: ${run}${runCount > 1 ? ` (the run with the most full, clean laps, out of ${runCount} runs)` : ''}`,
-    `Laps in export: ${lapsInExport}, full clean laps analyzed (complete, no pit): ${timed.length}`,
+    fmt(t.driver, { driver: first.driver }),
+    fmt(t.started, { date: new Date(first.startedAt).toLocaleString(locale) }),
+    fmt(t.runAnalyzed, { run }) + (runCount > 1 ? fmt(t.runOfMany, { runs: runCount }) : ''),
+    fmt(t.lapsCount, { laps: lapsInExport, clean: timed.length }),
     '',
   ];
 
   if (timed.length < 2) {
-    lines.push('Need at least 2 clean, complete laps to analyze the stint.');
+    lines.push(t.needTwo);
     return lines.join('\n');
   }
 
@@ -126,11 +129,22 @@ export function stintReport({ stint, run, runCount, lapsInExport }: StintSelecti
   const best = timed.reduce((a, b) => (b.lapSeconds < a.lapSeconds ? b : a));
   const worst = timed.reduce((a, b) => (b.lapSeconds > a.lapSeconds ? b : a));
   const avg = mean(times);
-  const withinHalf = times.filter((t) => t - best.lapSeconds <= 0.5).length;
+  const withinHalf = times.filter((time) => time - best.lapSeconds <= 0.5).length;
   lines.push(
-    'Lap times:',
-    `  Best ${formatSeconds(best.lapSeconds)} (lap ${best.lap}), average ${formatSeconds(avg)}, worst ${formatSeconds(worst.lapSeconds)} (lap ${worst.lap})`,
-    `  Std dev ${seconds(stdDev(times))}, spread ${(worst.lapSeconds - best.lapSeconds).toFixed(3)}s, ${withinHalf} of ${timed.length} laps within 0.5s of best`
+    t.lapTimes,
+    fmt(t.bestAvgWorst, {
+      best: formatSeconds(best.lapSeconds),
+      bestLap: best.lap,
+      avg: formatSeconds(avg),
+      worst: formatSeconds(worst.lapSeconds),
+      worstLap: worst.lap,
+    }),
+    fmt(t.spread, {
+      stdDev: seconds(stdDev(times)),
+      spread: (worst.lapSeconds - best.lapSeconds).toFixed(3),
+      within: withinHalf,
+      laps: timed.length,
+    })
   );
 
   // Pace trend: first half vs second half, and the per-lap slope
@@ -139,8 +153,8 @@ export function stintReport({ stint, run, runCount, lapsInExport }: StintSelecti
   const secondHalf = mean(times.slice(timed.length - half));
   const trend = slope(timed.map((lap) => lap.lap), times);
   lines.push(
-    `  First ${half} laps avg ${formatSeconds(firstHalf)}, last ${half} laps avg ${formatSeconds(secondHalf)} (${signed(secondHalf - firstHalf)})`,
-    `  Trend ${trend === null ? 'n/a' : `${signed(trend)} per lap`}`,
+    fmt(t.halves, { half, first: formatSeconds(firstHalf), last: formatSeconds(secondHalf), diff: signed(secondHalf - firstHalf) }),
+    fmt(t.trend, { trend: trend === null ? t.na : fmt(t.perLap, { value: signed(trend) }) }),
     ''
   );
 
@@ -159,34 +173,45 @@ export function stintReport({ stint, run, runCount, lapsInExport }: StintSelecti
     });
     const theoretical = sectorStats.reduce((sum, s) => sum + s.best, 0);
     lines.push(
-      `Theoretical best (best sectors combined): ${formatSeconds(theoretical)}, ${(best.lapSeconds - theoretical).toFixed(3)}s faster than your best lap`,
+      fmt(t.theoretical, { time: formatSeconds(theoretical), gap: (best.lapSeconds - theoretical).toFixed(3) }),
       '',
-      'Sectors (avg lost = average minus best):'
+      t.sectorsHeading
     );
     for (const s of sectorStats) {
       lines.push(
-        `  Sector ${s.number}: best ${s.best.toFixed(3)}s (lap ${s.bestLap}), avg ${s.avg.toFixed(3)}s, ` +
-          `avg lost ${(s.avg - s.best).toFixed(3)}s, std dev ${seconds(s.stdDev)}`
+        fmt(t.sectorLine, {
+          n: s.number,
+          best: s.best.toFixed(3),
+          lap: s.bestLap,
+          avg: s.avg.toFixed(3),
+          lost: (s.avg - s.best).toFixed(3),
+          stdDev: seconds(s.stdDev),
+        })
       );
     }
     const mostLost = sectorStats.reduce((a, b) => (b.avg - b.best > a.avg - a.best ? b : a));
     const leastConsistent = sectorStats.reduce((a, b) => ((b.stdDev ?? 0) > (a.stdDev ?? 0) ? b : a));
-    lines.push(
-      `  Most time lost on average: sector ${mostLost.number}; least consistent: sector ${leastConsistent.number}`,
-      ''
-    );
+    lines.push(fmt(t.mostLost, { most: mostLost.number, least: leastConsistent.number }), '');
   }
 
   // Conditions and their relation to pace
   const trackTemps = timed.map((lap) => lap.trackTempC);
   const tempCorrelation = correlation(trackTemps, times);
   lines.push(
-    'Conditions:',
-    `  Track temp ${formatTempF(trackTemps[0])} at the start, ${formatTempF(trackTemps[trackTemps.length - 1])} at the end ` +
-      `(range ${formatTempF(Math.min(...trackTemps))} – ${formatTempF(Math.max(...trackTemps))})`,
-    `  Air temp ${formatTempF(Math.min(...timed.map((l) => l.airTempC)))} – ${formatTempF(Math.max(...timed.map((l) => l.airTempC)))}, ` +
-      `humidity ${Math.round(Math.min(...timed.map((l) => l.relativeHumidity)) * 100)}–${Math.round(Math.max(...timed.map((l) => l.relativeHumidity)) * 100)}%`,
-    `  Correlation between track temp and lap time: ${tempCorrelation === null ? 'n/a (track temp did not change)' : tempCorrelation.toFixed(2)}`,
+    t.conditions,
+    fmt(t.trackTemp, {
+      start: formatTempF(trackTemps[0]),
+      end: formatTempF(trackTemps[trackTemps.length - 1]),
+      min: formatTempF(Math.min(...trackTemps)),
+      max: formatTempF(Math.max(...trackTemps)),
+    }),
+    fmt(t.airTemp, {
+      min: formatTempF(Math.min(...timed.map((l) => l.airTempC))),
+      max: formatTempF(Math.max(...timed.map((l) => l.airTempC))),
+      humMin: Math.round(Math.min(...timed.map((l) => l.relativeHumidity)) * 100),
+      humMax: Math.round(Math.max(...timed.map((l) => l.relativeHumidity)) * 100),
+    }),
+    fmt(t.correlation, { value: tempCorrelation === null ? t.noTempChange : tempCorrelation.toFixed(2) }),
     ''
   );
 
@@ -194,10 +219,8 @@ export function stintReport({ stint, run, runCount, lapsInExport }: StintSelecti
   const fuelPerLap = mean(timed.map((lap) => lap.fuelUsed));
   const last = timed[timed.length - 1];
   const fuelLeft = last.fuelLevel - (last.fuelUsed || 0);
-  lines.push(
-    'Fuel:',
-    `  Average ${fuelPerLap.toFixed(2)} L per timed lap; ${fuelLeft.toFixed(1)} L left after the last clean lap (about ${Math.floor(fuelLeft / fuelPerLap)} more lap${Math.floor(fuelLeft / fuelPerLap) === 1 ? '' : 's'})`
-  );
+  const lapsLeft = Math.floor(fuelLeft / fuelPerLap);
+  lines.push(t.fuel, fmt(lapsLeft === 1 ? t.fuelLine.one : t.fuelLine.other, { perLap: fuelPerLap.toFixed(2), left: fuelLeft.toFixed(1), n: lapsLeft }));
 
   return lines.join('\n');
 }

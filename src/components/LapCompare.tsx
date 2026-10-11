@@ -1,13 +1,17 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useLanguage } from '@/components/LanguageProvider';
 import PedalTraces, { type PedalTraceLap } from '@/components/PedalTraces';
+import type { Dictionary } from '@/lib/i18n/dictionaries/en';
+import { fmt } from '@/lib/i18n/languages';
 import {
   areaStats,
   areaTrace,
   brakeFeet,
   formatLapTime,
   formatSize,
+  lapFileErrorText,
   lapTimeToSeconds,
   MPH_PER_METER_PER_SECOND,
   parseLapFile,
@@ -21,24 +25,39 @@ import {
 const inputClass =
   'w-full px-4 py-3 bg-card border border-border rounded-lg text-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors';
 
-// 1234.5 -> "1,235"
-function formatFeet(feet: number) {
-  return Math.round(feet).toLocaleString('en-US');
+type Words = Dictionary['lapCompare'];
+
+// The comparison lines and braking advice are only read by the summary's AI, which is told the
+// user's language separately, so they're always written in English
+const ENGLISH_DIFF_WORDS = {
+  same: 'same',
+  feetLater: '{n} ft later',
+  feetEarlier: '{n} ft earlier',
+  pctHarder: '{n}% harder',
+  pctLighter: '{n}% lighter',
+};
+type DiffWords = typeof ENGLISH_DIFF_WORDS;
+
+// 1234.5 -> "1,235" (or "1.235" in Portuguese and Spanish)
+function formatFeet(feet: number, locale = 'en-US') {
+  return Math.round(feet).toLocaleString(locale);
 }
 
 // One lap through one focus area in words, the text version of its pedal trace chart
-function pedalSummary(stats: AreaStats, lengthFeet: number | null) {
+function pedalSummary(stats: AreaStats, lengthFeet: number | null, t: Words, locale: string) {
   const where = (pct: number) =>
-    lengthFeet ? `${formatFeet(brakeFeet(pct, lengthFeet))} ft` : `${((((pct % 1) + 1) % 1) * 100).toFixed(1)}% of the lap`;
+    lengthFeet
+      ? fmt(t.feetWhere, { n: formatFeet(brakeFeet(pct, lengthFeet), locale) })
+      : fmt(t.pctOfLap, { n: ((((pct % 1) + 1) % 1) * 100).toLocaleString(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) });
   const braking =
-    stats.brakePct === null ? 'No braking' : `Brakes at ${where(stats.brakePct)} (max ${Math.round(stats.maxBrake * 100)}%)`;
-  const throttle = stats.throttlePct === null ? 'no throttle pickup found' : `back on throttle at ${where(stats.throttlePct)}`;
+    stats.brakePct === null ? t.noBraking : fmt(t.brakesAt, { where: where(stats.brakePct), max: Math.round(stats.maxBrake * 100) });
+  const throttle = stats.throttlePct === null ? t.noThrottle : fmt(t.throttleAt, { where: where(stats.throttlePct) });
   return `${braking}, ${throttle}.`;
 }
 
 // 0.12 -> "+0.120", -0.05 -> "-0.050"
-function formatSecondsDiff(diff: number) {
-  return `${diff >= 0 ? '+' : '-'}${Math.abs(diff).toFixed(3)}`;
+function formatSecondsDiff(diff: number, locale = 'en-US') {
+  return `${diff >= 0 ? '+' : '-'}${Math.abs(diff).toLocaleString(locale, { minimumFractionDigits: 3, maximumFractionDigits: 3, useGrouping: false })}`;
 }
 
 // Compare brakepoint minus Base brakepoint, in feet. Positive = Compare brakes later.
@@ -113,13 +132,13 @@ function compareArea(base: AreaStats, compare: AreaStats, lengthFeet: number | n
 }
 
 // 150 -> "150 ft later", 0 -> "same"
-function formatBrakeDiff(diff: number) {
-  return diff === 0 ? 'same' : `${formatFeet(Math.abs(diff))} ft ${diff > 0 ? 'later' : 'earlier'}`;
+function formatBrakeDiff(diff: number, words: DiffWords = ENGLISH_DIFF_WORDS, locale = 'en-US') {
+  return diff === 0 ? words.same : fmt(diff > 0 ? words.feetLater : words.feetEarlier, { n: formatFeet(Math.abs(diff), locale) });
 }
 
 // 3 -> "3% harder", 0 -> "same"
-function formatPressureDiff(diff: number) {
-  return diff === 0 ? 'same' : `${Math.abs(diff)}% ${diff > 0 ? 'harder' : 'lighter'}`;
+function formatPressureDiff(diff: number, words: DiffWords = ENGLISH_DIFF_WORDS) {
+  return diff === 0 ? words.same : fmt(diff > 0 ? words.pctHarder : words.pctLighter, { n: Math.abs(diff) });
 }
 
 // 3 -> "+3", -2 -> "-2"
@@ -172,7 +191,7 @@ function formatAreaAdvice(areaName: string, c: AreaComparison) {
     : `${areaName} advice: braking is about the same on both laps, so the time is in the speeds; do not give braking advice here.`;
 }
 
-// A table row: the comparison, or why there isn't one
+// A table row: the comparison, or why there isn't one (in the user's language)
 type AreaRow = { name: string; comparison: AreaComparison | null; note: string };
 
 // Diff cell background: green when the Compare lap is better, red when worse,
@@ -198,14 +217,16 @@ function brakeDiffText(diff: number | null, threshold: number) {
 // Focus areas down the left, Base / Compare / Diff for each data point across the top
 // (Max Brake shows Base and Diff; everything else shows only its Diff)
 function AreaTable({ rows }: { rows: AreaRow[] }) {
+  const { t: dictionary, locale } = useLanguage();
+  const t = dictionary.lapCompare;
   const groups = [
-    { label: 'Time', columns: ['Diff'] },
-    { label: 'Brakepoint', columns: ['Diff'] },
-    { label: 'Max Brake', columns: ['Base', 'Diff'] },
-    { label: 'Entry Speed', columns: ['Diff'] },
-    { label: 'Min Speed', columns: ['Diff'] },
-    { label: 'Exit Speed', columns: ['Diff'] },
-  ];
+    { label: t.groups.time, columns: ['diff'] },
+    { label: t.groups.brakepoint, columns: ['diff'] },
+    { label: t.groups.maxBrake, columns: ['base', 'diff'] },
+    { label: t.groups.entrySpeed, columns: ['diff'] },
+    { label: t.groups.minSpeed, columns: ['diff'] },
+    { label: t.groups.exitSpeed, columns: ['diff'] },
+  ] as const;
   const columnCount = groups.reduce((sum, group) => sum + group.columns.length, 0);
   const cell = 'px-3 py-2 text-right whitespace-nowrap';
   const groupStart = 'border-l border-border';
@@ -216,7 +237,7 @@ function AreaTable({ rows }: { rows: AreaRow[] }) {
         <thead className="bg-secondary">
           <tr>
             <th rowSpan={2} className="sticky left-0 bg-secondary px-3 py-2 text-left align-bottom">
-              Focus Area
+              {t.focusArea}
             </th>
             {groups.map((group) => (
               <th
@@ -230,14 +251,14 @@ function AreaTable({ rows }: { rows: AreaRow[] }) {
           </tr>
           <tr className="text-xs text-muted-foreground">
             {groups.map((group) =>
-              group.columns.map((label, i) => (
+              group.columns.map((column, i) => (
                 <th
-                  key={group.label + label}
-                  className={`px-3 py-2 whitespace-nowrap font-medium ${label === 'Diff' ? 'text-center' : 'text-right'} ${
+                  key={group.label + column}
+                  className={`px-3 py-2 whitespace-nowrap font-medium ${column === 'diff' ? 'text-center' : 'text-right'} ${
                     i === 0 ? groupStart : ''
                   }`}
                 >
-                  {label}
+                  {t[column]}
                 </th>
               ))
             )}
@@ -262,15 +283,15 @@ function AreaTable({ rows }: { rows: AreaRow[] }) {
                       false
                     )}`}
                   >
-                    {formatSecondsDiff(c.secondsDiff)} s
+                    {formatSecondsDiff(c.secondsDiff, locale)} s
                   </td>
 
                   <td className={`${cell} ${groupStart} ${brakeDiffText(c.brakeFeetDiff, 10)}`}>
-                    {c.brakeFeetDiff === null ? '—' : formatBrakeDiff(c.brakeFeetDiff)}
+                    {c.brakeFeetDiff === null ? '—' : formatBrakeDiff(c.brakeFeetDiff, t, locale)}
                   </td>
 
                   <td className={`${cell} ${groupStart}`}>{c.basePressure}%</td>
-                  <td className={`${cell} ${brakeDiffText(c.pressureDiff, 3)}`}>{formatPressureDiff(c.pressureDiff)}</td>
+                  <td className={`${cell} ${brakeDiffText(c.pressureDiff, 3)}`}>{formatPressureDiff(c.pressureDiff, t)}</td>
 
                   <td className={`${cell} ${groupStart} ${diffBackground(c.entryDiff, c.baseEntry, true)}`}>
                     {formatSignedDiff(c.entryDiff)} mph
@@ -294,7 +315,7 @@ function AreaTable({ rows }: { rows: AreaRow[] }) {
 }
 
 // Asks the server for a 6-7 sentence coaching summary written for the Compare lap
-async function fetchSummary(comparison: string, track: string) {
+async function fetchSummary(comparison: string, track: string, t: Dictionary) {
   try {
     const res = await fetch('/api/lap-summary', {
       method: 'POST',
@@ -302,10 +323,10 @@ async function fetchSummary(comparison: string, track: string) {
       body: JSON.stringify({ comparison, track }),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Failed to summarize the laps');
+    if (!res.ok) throw new Error(data.error || t.lapCompare.failedSummary);
     return data.summary as string;
   } catch (err) {
-    return `Summary unavailable: ${err instanceof Error ? err.message : 'unknown error'}`;
+    return fmt(t.lapCompare.summaryUnavailable, { error: err instanceof Error ? err.message : t.common.unknownError });
   }
 }
 
@@ -321,6 +342,7 @@ type LapUploaderProps = {
 
 // Drop zone that holds a single lap CSV
 function LapUploader({ id, title, prompt, lap, error, onFiles, onRemove }: LapUploaderProps) {
+  const { t, fmt: format } = useLanguage();
   const [dragging, setDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -346,14 +368,14 @@ function LapUploader({ id, title, prompt, lap, error, onFiles, onRemove }: LapUp
       >
         <div className="text-sm text-muted-foreground text-center sm:text-left">
           <p className="font-medium text-foreground">{prompt}</p>
-          <p>Drag and drop 1 file here • Limit 25MB • CSV</p>
+          <p>{t.lapCompare.dropOne}</p>
         </div>
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
           className="px-4 py-2 text-sm font-semibold bg-card border border-border rounded-lg text-foreground hover:border-primary hover:text-primary transition-colors"
         >
-          Browse files
+          {t.laps.browseFiles}
         </button>
         <input
           ref={fileInputRef}
@@ -384,7 +406,7 @@ function LapUploader({ id, title, prompt, lap, error, onFiles, onRemove }: LapUp
           <button
             type="button"
             onClick={onRemove}
-            aria-label={`Remove ${lap.file.name}`}
+            aria-label={format(t.laps.removeFile, { name: lap.file.name })}
             className="ml-3 text-muted-foreground hover:text-primary"
           >
             ✕
@@ -397,6 +419,8 @@ function LapUploader({ id, title, prompt, lap, error, onFiles, onRemove }: LapUp
 
 // initialLaps: laps to start with, e.g. two recorded laps sent from Debrief Coach's Compare button
 export default function LapCompare({ initialLaps = null }: { initialLaps?: { base: LapFile; compare: LapFile } | null }) {
+  const { t: dictionary, locale } = useLanguage();
+  const t = dictionary.lapCompare;
   const [tracks, setTracks] = useState<Track[]>([]);
   const [trackName, setTrackName] = useState('');
   const [error, setError] = useState('');
@@ -418,15 +442,15 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
     fetch('/api/track-names')
       .then(async (res) => {
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Failed to load track names');
+        if (!res.ok) throw new Error(data.error || dictionary.laps.failedTrackNames);
         const tracks: Track[] = data.tracks;
         setTracks(tracks);
-        const match = initialTrack ? tracks.find((t) => sameTrackName(t.fileName, initialTrack)) : undefined;
+        const match = initialTrack ? tracks.find((track) => sameTrackName(track.fileName, initialTrack)) : undefined;
         if (match) setTrackName(match.name);
         else if (tracks.length > 0) setTrackName(tracks[0].name);
       })
       .catch((err: Error) => setError(err.message));
-  }, [initialTrack]);
+  }, [initialTrack, dictionary]);
 
   // Validates a drop/browse into one uploader and stores the lap if it's good
   const handleFiles = async (
@@ -436,28 +460,26 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
   ) => {
     if (!fileList || fileList.length === 0) return;
     if (fileList.length > 1) {
-      setLapError(`Only 1 CSV file can be uploaded here (${fileList.length} were selected).`);
+      setLapError(fmt(t.onlyOne, { n: fileList.length }));
       return;
     }
 
     try {
       const lap = await parseLapFile(fileList[0]);
       // Select the track matching the uploaded file's track name
-      const match = tracks.find((t) => sameTrackName(t.fileName, lap.trackName));
+      const match = tracks.find((track) => sameTrackName(track.fileName, lap.trackName));
       if (match) setTrackName(match.name);
-      setLapError(
-        match ? '' : `No track in your Track Data list is named "${lap.trackName}".`
-      );
+      setLapError(match ? '' : fmt(dictionary.laps.noSuchTrack, { track: lap.trackName }));
       setLap(lap);
     } catch (err) {
-      setLapError(`${fileList[0].name}: ${(err as Error).message}`);
+      setLapError(fmt(dictionary.laps.fileError, { name: fileList[0].name, error: lapFileErrorText(err, dictionary.laps.errors) }));
     }
   };
 
   // The focus area where the Compare lap loses the most time; its pedal traces start open
-  const worstTraceIndex = traces.reduce((worst, t, i) => (t.diff > traces[worst].diff ? i : worst), 0);
+  const worstTraceIndex = traces.reduce((worst, trace, i) => (trace.diff > traces[worst].diff ? i : worst), 0);
 
-  const selectedTrack = tracks.find((t) => t.name === trackName);
+  const selectedTrack = tracks.find((track) => track.name === trackName);
   const mismatchedLaps = selectedTrack
     ? [baseLap, compareLap].filter(
         (lap) => lap && !sameTrackName(lap.trackName, selectedTrack.fileName)
@@ -478,9 +500,9 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
       // Only the coach's summary is shown (the focus areas are in the table); the lines below are what
       // the summary is written from
       if (!selectedTrack || selectedTrack.areas.length === 0) {
-        setAnalysis('No focus areas for the selected track.');
+        setAnalysis(t.noFocusAreas);
       } else if (mismatchedLaps.length > 0) {
-        setAnalysis(`Both laps must be from ${selectedTrack.fileName}.`);
+        setAnalysis(fmt(t.bothFrom, { track: selectedTrack.fileName }));
       } else {
         const [baseSamples, compareSamples] = await Promise.all([
           readLapSamples(baseLap.file),
@@ -489,14 +511,13 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
         const rows: AreaRow[] = [];
         const advice: string[] = [];
         const areaTraces: typeof traces = [];
-        const lapTitle = (label: string, lap: LapFile) => `${label} lap · ${formatLapTime(lap.lapTime)}`;
+        const lapTitle = (title: string, lap: LapFile) => fmt(title, { time: formatLapTime(lap.lapTime) });
 
         // Each focus area gets a line (plus a blank line after it) and a table row
         for (const area of selectedTrack.areas) {
           if (area.start === null || area.end === null) {
-            const note = 'missing start/end in Track Data';
-            lines.push(`${area.name}: ${note}`, '');
-            rows.push({ name: area.name, comparison: null, note });
+            lines.push(`${area.name}: missing start/end in Track Data`, '');
+            rows.push({ name: area.name, comparison: null, note: t.missingStartEnd });
             continue;
           }
           const base = areaStats(baseSamples, baseSeconds, area.start, area.end);
@@ -512,33 +533,37 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
               areaTraces.push({
                 name: area.name,
                 diff: comparison.secondsDiff,
-                base: { title: lapTitle('Base', baseLap), trace: baseTrace, summary: pedalSummary(base, selectedTrack.lengthFeet) },
+                base: {
+                  title: lapTitle(t.lapTitleBase, baseLap),
+                  trace: baseTrace,
+                  summary: pedalSummary(base, selectedTrack.lengthFeet, t, locale),
+                },
                 compare: {
-                  title: lapTitle('Compare', compareLap),
+                  title: lapTitle(t.lapTitleCompare, compareLap),
                   trace: compareTrace,
-                  summary: pedalSummary(compare, selectedTrack.lengthFeet),
+                  summary: pedalSummary(compare, selectedTrack.lengthFeet, t, locale),
                 },
               });
             }
           } else {
-            const note = `no data for the ${!base ? 'Base' : 'Compare'} lap`;
-            lines.push(`${area.name}: ${note}`, '');
-            rows.push({ name: area.name, comparison: null, note });
+            lines.push(`${area.name}: no data for the ${!base ? 'Base' : 'Compare'} lap`, '');
+            rows.push({ name: area.name, comparison: null, note: !base ? t.noDataBase : t.noDataCompare });
           }
         }
         setAreaRows(rows);
         setTraces(areaTraces);
 
         // The table shows right away; the summary follows once the coach has written it
-        setAnalysis('Writing the summary…');
+        setAnalysis(t.writing);
         const summary = await fetchSummary(
           [lines.join('\n').trim(), '', 'Braking advice (follow exactly):', ...advice].join('\n'),
-          selectedTrack.fileName
+          selectedTrack.fileName,
+          dictionary
         );
         setAnalysis(summary.trim());
       }
     } catch (err) {
-      setAnalysis(`Error analyzing laps: ${err instanceof Error ? err.message : 'unknown error'}`);
+      setAnalysis(fmt(t.errorAnalyzing, { error: err instanceof Error ? err.message : dictionary.common.unknownError }));
     } finally {
       setAnalyzing(false);
     }
@@ -548,7 +573,7 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
     <div className="bg-secondary rounded-xl border border-border p-8 space-y-6">
       <div>
         <label htmlFor="compare-track-name" className="block text-sm font-medium text-foreground mb-2">
-          Track Name
+          {dictionary.laps.trackName}
         </label>
         <select
           id="compare-track-name"
@@ -557,7 +582,7 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
           disabled={tracks.length === 0}
           className={inputClass}
         >
-          {tracks.length === 0 && <option value="">{error ? 'Unavailable' : 'Loading…'}</option>}
+          {tracks.length === 0 && <option value="">{error ? dictionary.laps.unavailable : dictionary.common.loading}</option>}
           {tracks.map((track) => (
             <option key={track.name} value={track.name}>
               {track.fileName}
@@ -569,8 +594,8 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
 
       <LapUploader
         id="base-lap-file"
-        title="Base Lap"
-        prompt="Upload a Base lap CSV file"
+        title={t.baseLap}
+        prompt={t.uploadBase}
         lap={baseLap}
         error={baseError}
         onFiles={(files) => void handleFiles(files, setBaseLap, setBaseError)}
@@ -579,8 +604,8 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
 
       <LapUploader
         id="compare-lap-file"
-        title="Compare Lap"
-        prompt="Upload a Compare lap CSV file"
+        title={t.compareLap}
+        prompt={t.uploadCompare}
         lap={compareLap}
         error={compareError}
         onFiles={(files) => void handleFiles(files, setCompareLap, setCompareError)}
@@ -589,8 +614,7 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
 
       {mismatchedLaps.length > 0 && (
         <div className="px-4 py-3 rounded-lg border text-sm bg-yellow-500/10 border-yellow-500/40 text-yellow-200">
-          {mismatchedLaps.length === 1 ? 'One uploaded lap is' : 'Both uploaded laps are'} not from{' '}
-          {selectedTrack?.fileName}.
+          {fmt(mismatchedLaps.length === 1 ? t.oneNotFrom : t.bothNotFrom, { track: selectedTrack?.fileName ?? '' })}
         </div>
       )}
 
@@ -601,33 +625,29 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
           disabled={!baseLap || !compareLap || analyzing}
           className="px-6 py-3 font-semibold text-white bg-gradient-to-r from-primary to-primary-strong rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {analyzing ? 'Analyzing…' : 'Analyze Laps'}
+          {analyzing ? t.analyzing : t.analyze}
         </button>
 
         {areaRows.length > 0 && <AreaTable rows={areaRows} />}
 
         <div>
           <label htmlFor="lap-compare-analysis" className="block text-sm font-medium text-foreground mb-2">
-            Summary
+            {t.summary}
           </label>
           <textarea
             id="lap-compare-analysis"
             value={analysis}
             readOnly
             rows={12}
-            placeholder={
-              !baseLap || !compareLap ? 'Upload a Base lap and a Compare lap, then press Analyze Laps.' : 'Press Analyze Laps.'
-            }
+            placeholder={!baseLap || !compareLap ? t.summaryPlaceholderNoLaps : t.summaryPlaceholder}
             className={`${inputClass} resize-y font-mono text-sm`}
           />
         </div>
 
         {traces.length > 0 && (
           <div className="space-y-2">
-            <h3 className="text-sm font-medium text-foreground">Pedal traces</h3>
-            <p className="text-xs text-muted-foreground">
-              Brake and throttle through each focus area. The area where the Compare lap loses the most time is open.
-            </p>
+            <h3 className="text-sm font-medium text-foreground">{t.pedalTraces}</h3>
+            <p className="text-xs text-muted-foreground">{t.pedalTracesIntro}</p>
             {traces.map((area, index) => {
               const isWorst = index === worstTraceIndex && area.diff > 0;
               return (
@@ -635,14 +655,15 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
                   <summary className="cursor-pointer px-4 py-3 text-sm">
                     <span className="font-semibold text-foreground">{area.name}</span>
                     <span className="text-muted-foreground">
-                      {' '}
-                      • Compare lap{' '}
+                      {' • '}
                       {area.diff === 0
-                        ? 'same time'
-                        : `${Math.abs(area.diff).toFixed(3)} s ${area.diff > 0 ? 'slower' : 'faster'}`}
+                        ? t.compareLapSame
+                        : fmt(area.diff > 0 ? t.compareLapSlower : t.compareLapFaster, {
+                            seconds: Math.abs(area.diff).toLocaleString(locale, { minimumFractionDigits: 3, maximumFractionDigits: 3 }),
+                          })}
                     </span>
                     {isWorst && (
-                      <span className="ml-2 px-1.5 rounded text-xs bg-primary/15 text-red-300">most time lost</span>
+                      <span className="ml-2 px-1.5 rounded text-xs bg-primary/15 text-red-300">{t.mostTimeLost}</span>
                     )}
                   </summary>
                   <div className="px-4 pb-4">

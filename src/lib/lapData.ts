@@ -282,25 +282,39 @@ export function brakeFeet(brakePct: number, lengthFeet: number) {
   return Math.round(lapFraction * lengthFeet);
 }
 
+// Why parseLapFile refused a file; the tabs show it in the user's language (dictionary laps.errors)
+export class LapFileError extends Error {
+  constructor(
+    public code: 'notCsv' | 'tooLarge' | 'badName' | 'missingColumns',
+    public columns: string[] = []
+  ) {
+    super(code);
+  }
+}
+
+// The text for a file parseLapFile refused, from the dictionary's laps.errors
+export function lapFileErrorText(error: unknown, messages: Record<LapFileError['code'], string>): string {
+  if (error instanceof LapFileError) return messages[error.code].replace('{columns}', error.columns.join(', '));
+  return error instanceof Error ? error.message : String(error);
+}
+
 export async function parseLapFile(file: File): Promise<LapFile> {
   if (!file.name.toLowerCase().endsWith('.csv')) {
-    throw new Error('only CSV files are supported');
+    throw new LapFileError('notCsv');
   }
   if (file.size > MAX_CSV_BYTES) {
-    throw new Error('file is too large (25 MB max)');
+    throw new LapFileError('tooLarge');
   }
 
   const match = file.name.match(FILE_NAME_PATTERN);
   if (!match) {
-    throw new Error(
-      'file name must look like "Garage 61 - Driver - Car - Track - 01.18.683 - ID.csv"'
-    );
+    throw new LapFileError('badName');
   }
 
   const header = (await file.slice(0, 4096).text()).split(/\r?\n/)[0].split(',').map((c) => c.trim());
   const missing = EXPECTED_COLUMNS.filter((column) => !header.includes(column));
   if (missing.length > 0) {
-    throw new Error(`missing columns: ${missing.join(', ')}`);
+    throw new LapFileError('missingColumns', missing);
   }
 
   const [, driverName, carName, trackName, lapTime, fileId] = match;

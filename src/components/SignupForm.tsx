@@ -4,14 +4,17 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import ForgotPasswordForm from './ForgotPasswordForm';
+import LanguageSelect from './LanguageSelect';
+import { useLanguage } from './LanguageProvider';
 
 const inputClass =
   'w-full px-4 py-3 bg-card border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors';
 
 export default function SignupForm() {
+  const { t, fmt, language } = useLanguage();
   const router = useRouter();
   const [formData, setFormData] = useState({
-    apiKey: '',
+    userName: '',
     emailAddress: '',
     password: '',
   });
@@ -32,16 +35,17 @@ export default function SignupForm() {
       const response = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        // The Preferred Language box switches the page as soon as it changes, so the page's language is the choice
+        body: JSON.stringify({ ...formData, preferredLanguage: language }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to create account');
+        throw new Error(data.error || t.auth.failedCreate);
       }
       router.push('/');
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create account');
+      setError(err instanceof Error ? err.message : t.auth.failedCreate);
       setLoading(false);
     }
   };
@@ -53,33 +57,25 @@ export default function SignupForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div>
-        <label htmlFor="apiKey" className="block text-sm font-medium text-foreground mb-2">
-          iRacePlan API Key *
+        <label htmlFor="userName" className="block text-sm font-medium text-foreground mb-2">
+          {fmt(t.common.required, { label: t.common.name })}
         </label>
         <input
-          type="password"
-          id="apiKey"
-          name="apiKey"
-          value={formData.apiKey}
+          type="text"
+          id="userName"
+          name="userName"
+          value={formData.userName}
           onChange={handleChange}
           required
-          maxLength={500}
-          autoComplete="off"
+          maxLength={100}
+          autoComplete="name"
           className={inputClass}
         />
-        <p className="mt-2 text-sm text-muted-foreground">
-          Sign in to{' '}
-          <a href="https://iraceplan.com" target="_blank" rel="noreferrer" className="text-primary hover:underline">
-            iRacePlan
-          </a>{' '}
-          with your Garage 61 account, then create an API key under Settings &gt; API Keys and paste it here.
-          Your driver name comes from your iRacing profile, and your races load into My Race Trends.
-        </p>
       </div>
 
       <div>
         <label htmlFor="emailAddress" className="block text-sm font-medium text-foreground mb-2">
-          Email Address *
+          {fmt(t.common.required, { label: t.common.emailAddress })}
         </label>
         <input
           type="email"
@@ -95,7 +91,8 @@ export default function SignupForm() {
 
       <div>
         <label htmlFor="password" className="block text-sm font-medium text-foreground mb-2">
-          Password * <span className="text-muted-foreground font-normal">(at least 8 characters)</span>
+          {fmt(t.common.required, { label: t.common.password })}{' '}
+          <span className="text-muted-foreground font-normal">{t.common.passwordHint}</span>
         </label>
         <input
           type="password"
@@ -110,6 +107,8 @@ export default function SignupForm() {
         />
       </div>
 
+      <LanguageSelect id="preferredLanguage" className={inputClass} />
+
       {error && (
         <p className="p-3 rounded-lg bg-primary/10 border border-primary/40 text-red-300 text-sm">{error}</p>
       )}
@@ -119,17 +118,17 @@ export default function SignupForm() {
         disabled={loading}
         className="w-full px-6 py-3 rounded-lg bg-gradient-to-r from-primary to-primary-strong text-white font-semibold hover:shadow-lg transition-all disabled:opacity-60"
       >
-        {loading ? 'Creating account...' : 'Create Account'}
+        {loading ? t.auth.creatingAccount : t.auth.createAccount}
       </button>
 
       <p className="text-center text-sm text-muted-foreground">
-        Already have an account?{' '}
+        {t.auth.haveAccount}{' '}
         <Link href="/login" className="text-primary hover:underline font-medium">
-          Log in
+          {t.auth.logInLink}
         </Link>
       </p>
       <p className="text-center text-sm text-muted-foreground">
-        Forgot password?{' '}
+        {t.auth.forgotPassword}{' '}
         <a
           href="#"
           onClick={(e) => {
@@ -138,7 +137,7 @@ export default function SignupForm() {
           }}
           className="text-primary hover:underline font-medium"
         >
-          Click here
+          {t.auth.clickHere}
         </a>
       </p>
     </form>

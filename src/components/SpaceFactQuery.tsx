@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useLanguage } from '@/components/LanguageProvider';
 
 const LLM_OPTIONS = [
   { value: 'openai', label: 'OpenAI (gpt-4o-mini)', needsOllama: false },
@@ -21,9 +22,11 @@ interface SpaceFactQueryProps {
 
 export default function SpaceFactQuery({
   endpoint = '/api/space-fact-query',
-  queryLabel = 'Ask a Question About Space',
-  placeholder = 'e.g., What is the Hubble Space Telescope?',
+  queryLabel,
+  placeholder,
 }: SpaceFactQueryProps) {
+  const { t: dictionary } = useLanguage();
+  const t = dictionary.qa;
   const [ollamaAvailable, setOllamaAvailable] = useState(false);
   const [llmType, setLlmType] = useState('openai');
   const [embeddingType, setEmbeddingType] = useState('openai');
@@ -64,7 +67,7 @@ export default function SpaceFactQuery({
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to query space facts');
+        throw new Error(data.error || t.failed);
       }
 
       setResponse(data.response);
@@ -72,7 +75,7 @@ export default function SpaceFactQuery({
       setStatus('idle');
     } catch (error) {
       setStatus('error');
-      setMessage(error instanceof Error ? error.message : 'Failed to query space facts');
+      setMessage(error instanceof Error ? error.message : t.failed);
     }
   };
 
@@ -80,7 +83,7 @@ export default function SpaceFactQuery({
     <div className="bg-secondary rounded-xl border border-border p-8">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
         <fieldset>
-          <legend className="block text-sm font-medium text-foreground mb-2">LLM Model</legend>
+          <legend className="block text-sm font-medium text-foreground mb-2">{t.llmModel}</legend>
           <div className="space-y-2">
             {llmOptions.map((option) => (
               <label key={option.value} className="flex items-center gap-2 text-foreground text-sm">
@@ -100,7 +103,7 @@ export default function SpaceFactQuery({
         </fieldset>
 
         <fieldset>
-          <legend className="block text-sm font-medium text-foreground mb-2">Embedding Model</legend>
+          <legend className="block text-sm font-medium text-foreground mb-2">{t.embeddingModel}</legend>
           <div className="space-y-2">
             {embeddingOptions.map((option) => (
               <label key={option.value} className="flex items-center gap-2 text-foreground text-sm">
@@ -121,13 +124,13 @@ export default function SpaceFactQuery({
       </div>
 
       <label htmlFor="space-fact-query" className="block text-sm font-medium text-foreground mb-2">
-        {queryLabel}
+        {queryLabel ?? t.spaceLabel}
       </label>
       <textarea
         id="space-fact-query"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder={placeholder}
+        placeholder={placeholder ?? t.spacePlaceholder}
         rows={3}
         className="w-full px-4 py-3 bg-card border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors resize-none"
       />
@@ -141,10 +144,10 @@ export default function SpaceFactQuery({
         {status === 'loading' ? (
           <span className="flex items-center justify-center gap-2">
             <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-            Asking...
+            {t.asking}
           </span>
         ) : (
-          'Ask'
+          t.ask
         )}
       </button>
 
@@ -156,7 +159,7 @@ export default function SpaceFactQuery({
 
       {response && (
         <div className="mt-6">
-          <h3 className="text-sm font-medium text-foreground mb-2">Response</h3>
+          <h3 className="text-sm font-medium text-foreground mb-2">{t.response}</h3>
           <div className="p-4 rounded-lg bg-card border border-border text-foreground whitespace-pre-wrap leading-relaxed">
             {response}
           </div>
@@ -165,7 +168,7 @@ export default function SpaceFactQuery({
 
       {references.length > 0 && (
         <div className="mt-6">
-          <h3 className="text-sm font-medium text-foreground mb-2">References Used</h3>
+          <h3 className="text-sm font-medium text-foreground mb-2">{t.references}</h3>
           <ul className="space-y-2">
             {references.map((ref, index) => (
               <li

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useLanguage } from '@/components/LanguageProvider';
 import { COUNTRIES } from '@/lib/countries';
 
 type Friend = {
@@ -11,6 +12,8 @@ type Friend = {
 };
 
 export default function FriendsRoster() {
+  const { t: dictionary } = useLanguage();
+  const t = dictionary.friends;
   const [friends, setFriends] = useState<Friend[]>([]);
   const [name, setName] = useState('');
   const [country, setCountry] = useState<string>('Brazil');
@@ -29,16 +32,16 @@ export default function FriendsRoster() {
         return response.json();
       })
       .then((data) => setFriends(data.friends ?? []))
-      .catch(() => setMessage('Failed to load friends'));
-  }, []);
+      .catch(() => setMessage(t.failedLoad));
+  }, [t]);
 
   if (signedOut) {
     return (
       <div className="bg-secondary rounded-xl border border-border p-8 text-muted-foreground">
         <Link href="/login" className="font-semibold text-primary hover:underline">
-          Log in
-        </Link>{' '}
-        to see and add your friends.
+          {t.logIn}
+        </Link>
+        {t.signedOut}
       </div>
     );
   }
@@ -59,7 +62,7 @@ export default function FriendsRoster() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to add friend');
+        throw new Error(data.error || t.failedAdd);
       }
 
       setFriends((prev) => [...prev, data.friend]);
@@ -67,7 +70,7 @@ export default function FriendsRoster() {
       setStatus('idle');
     } catch (error) {
       setStatus('error');
-      setMessage(error instanceof Error ? error.message : 'Failed to add friend');
+      setMessage(error instanceof Error ? error.message : t.failedAdd);
     }
   };
 
@@ -83,12 +86,12 @@ export default function FriendsRoster() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to delete friend');
+        throw new Error(data.error || t.failedDelete);
       }
 
       setFriends((prev) => prev.filter((friend) => friend.id !== id));
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Failed to delete friend');
+      setMessage(error instanceof Error ? error.message : t.failedDelete);
     }
   };
 
@@ -97,7 +100,7 @@ export default function FriendsRoster() {
       <div className="flex flex-col sm:flex-row gap-3 mb-2">
         <div className="sm:w-48 flex-shrink-0">
           <label htmlFor="friend-country" className="block text-sm font-medium text-foreground mb-2">
-            Country
+            {t.country}
           </label>
           <select
             id="friend-country"
@@ -114,7 +117,7 @@ export default function FriendsRoster() {
         </div>
         <div className="flex-1">
           <label htmlFor="friend-name" className="block text-sm font-medium text-foreground mb-2">
-            Name
+            {t.name}
           </label>
           <input
             id="friend-name"
@@ -122,7 +125,7 @@ export default function FriendsRoster() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleAddFriend()}
-            placeholder="Enter a friend's name"
+            placeholder={t.namePlaceholder}
             className="w-full px-4 py-3 bg-card border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors"
           />
         </div>
@@ -135,7 +138,7 @@ export default function FriendsRoster() {
           {status === 'loading' ? (
             <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block"></span>
           ) : (
-            'Add Friend'
+            t.add
           )}
         </button>
       </div>
@@ -148,7 +151,7 @@ export default function FriendsRoster() {
 
       <div className="mt-6 space-y-2">
         {friends.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No friends added yet.</p>
+          <p className="text-sm text-muted-foreground">{t.none}</p>
         ) : (
           friends.map((friend) => (
             <div
@@ -164,7 +167,7 @@ export default function FriendsRoster() {
                 onClick={() => handleDeleteFriend(friend.id)}
                 className="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
               >
-                Delete
+                {dictionary.common.delete}
               </button>
             </div>
           ))

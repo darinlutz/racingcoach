@@ -2,14 +2,24 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { useLanguage } from '@/components/LanguageProvider';
 import RecordedLaps from '@/components/RecordedLaps';
 
 import type { Debrief } from '@/lib/debriefCoach';
 import { buildDebriefSession, lapId } from '@/lib/debriefSession';
-import { formatLapTime, formatSize, parseLapFile, sameTrackName, type LapFile, type Track } from '@/lib/lapData';
+import {
+  formatLapTime,
+  formatSize,
+  lapFileErrorText,
+  parseLapFile,
+  sameTrackName,
+  type LapFile,
+  type Track,
+} from '@/lib/lapData';
 
 // onCompare: called with two recorded laps (fastest first) when the lap list's Compare button is pressed
 export default function DebriefCoach({ onCompare }: { onCompare?: (base: LapFile, compare: LapFile) => void }) {
+  const { t, fmt, plural, number } = useLanguage();
   const [tracks, setTracks] = useState<Track[]>([]);
   const [trackName, setTrackName] = useState('');
   const [error, setError] = useState('');
@@ -29,11 +39,11 @@ export default function DebriefCoach({ onCompare }: { onCompare?: (base: LapFile
     fetch('/api/track-names')
       .then(async (res) => {
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Failed to load track names');
+        if (!res.ok) throw new Error(data.error || t.laps.failedTrackNames);
         setTracks(data.tracks);
       })
       .catch((err: Error) => setError(err.message));
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     loadTracks();
@@ -49,15 +59,15 @@ export default function DebriefCoach({ onCompare }: { onCompare?: (base: LapFile
 
     results.forEach((result, index) => {
       if (result.status === 'fulfilled') added.push(result.value);
-      else errors.push(`${files[index].name}: ${(result.reason as Error).message}`);
+      else errors.push(fmt(t.laps.fileError, { name: files[index].name, error: lapFileErrorText(result.reason, t.laps.errors) }));
     });
 
     // Select the track matching the uploaded files' track name
     if (added.length > 0) {
       const uploadedTrack = added[0].trackName;
-      const match = tracks.find((t) => sameTrackName(t.fileName, uploadedTrack));
+      const match = tracks.find((track) => sameTrackName(track.fileName, uploadedTrack));
       if (match) setTrackName(match.name);
-      else errors.push(`No track in your Track Data list is named "${uploadedTrack}".`);
+      else errors.push(fmt(t.laps.noSuchTrack, { track: uploadedTrack }));
     }
 
     setFileErrors(errors);
@@ -75,9 +85,9 @@ export default function DebriefCoach({ onCompare }: { onCompare?: (base: LapFile
       const picked = laps[0]?.trackName;
       if (!picked) return;
       setTrackName((current) => {
-        const currentTrack = tracks.find((t) => t.name === current);
+        const currentTrack = tracks.find((track) => track.name === current);
         if (currentTrack && sameTrackName(currentTrack.fileName, picked)) return current;
-        return tracks.find((t) => sameTrackName(t.fileName, picked))?.name ?? current;
+        return tracks.find((track) => sameTrackName(track.fileName, picked))?.name ?? current;
       });
     },
     [tracks]
@@ -89,7 +99,7 @@ export default function DebriefCoach({ onCompare }: { onCompare?: (base: LapFile
 
   const allLaps = [...lapFiles, ...recordedLaps];
   // The track comes from the laps picked or dropped (pickRecordedLaps, handleFiles); none without laps
-  const selectedTrack = allLaps.length > 0 ? tracks.find((t) => t.name === trackName) : undefined;
+  const selectedTrack = allLaps.length > 0 ? tracks.find((track) => track.name === trackName) : undefined;
   // Only laps from the selected track can be measured against its focus areas
   const trackLaps = selectedTrack ? allLaps.filter((lap) => sameTrackName(lap.trackName, selectedTrack.fileName)) : [];
   const otherLaps = allLaps.length - trackLaps.length;
@@ -109,11 +119,11 @@ export default function DebriefCoach({ onCompare }: { onCompare?: (base: LapFile
         body: JSON.stringify({ session }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to run the debrief');
+      if (!res.ok) throw new Error(data.error || t.debrief.failedRun);
       setDebrief(data.debrief);
       setSteps(data.steps);
     } catch (err) {
-      setRunError(err instanceof Error ? err.message : 'unknown error');
+      setRunError(err instanceof Error ? err.message : t.common.unknownError);
     } finally {
       setRunning(false);
     }
@@ -126,7 +136,7 @@ export default function DebriefCoach({ onCompare }: { onCompare?: (base: LapFile
     <div className="bg-secondary rounded-xl border border-border p-8 space-y-6">
       <div>
         <label htmlFor="debrief-track-name" className="block text-sm font-medium text-foreground mb-2">
-          Track Name
+          {t.laps.trackName}
         </label>
         {/* Set by the laps picked or dropped below, so it isn't editable */}
         <input
@@ -137,11 +147,11 @@ export default function DebriefCoach({ onCompare }: { onCompare?: (base: LapFile
           placeholder={
             tracks.length === 0
               ? error
-                ? 'Unavailable'
-                : 'Loading…'
+                ? t.laps.unavailable
+                : t.common.loading
               : allLaps.length > 0
-                ? 'Not in your Track Data list'
-                : 'Set by the laps you pick'
+                ? t.laps.notInTrackData
+                : t.laps.setByLaps
           }
           className={`${inputClass} cursor-default`}
         />
@@ -150,13 +160,13 @@ export default function DebriefCoach({ onCompare }: { onCompare?: (base: LapFile
 
       {/* Laps the RacingCoach collector uploaded */}
       <div>
-        <p className="block text-sm text-muted-foreground mb-2">Your recorded laps</p>
+        <p className="block text-sm text-muted-foreground mb-2">{t.debrief.yourRecordedLaps}</p>
         <RecordedLaps tracks={tracks} onChange={pickRecordedLaps} onTargetsSaved={loadTracks} onCompare={onCompare} />
       </div>
 
       {/* File upload */}
       <div>
-        <label className="block text-sm text-muted-foreground mb-2">Or upload the session&apos;s lap CSVs</label>
+        <label className="block text-sm text-muted-foreground mb-2">{t.debrief.orUpload}</label>
         <div
           onDragOver={(e) => {
             e.preventDefault();
@@ -173,15 +183,15 @@ export default function DebriefCoach({ onCompare }: { onCompare?: (base: LapFile
           }`}
         >
           <div className="text-sm text-muted-foreground text-center sm:text-left">
-            <p className="font-medium text-foreground">Drag and drop files here</p>
-            <p>Limit 25MB per file • CSV • At least 2 laps</p>
+            <p className="font-medium text-foreground">{t.laps.dragDrop}</p>
+            <p>{t.laps.limitsSession}</p>
           </div>
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
             className="px-4 py-2 text-sm font-semibold bg-card border border-border rounded-lg text-foreground hover:border-primary hover:text-primary transition-colors"
           >
-            Browse files
+            {t.laps.browseFiles}
           </button>
           <input
             ref={fileInputRef}
@@ -204,8 +214,7 @@ export default function DebriefCoach({ onCompare }: { onCompare?: (base: LapFile
 
         {otherLaps > 0 && (
           <div className="mt-2 px-4 py-3 rounded-lg border text-sm bg-yellow-500/10 border-yellow-500/40 text-yellow-200">
-            {otherLaps} selected {otherLaps === 1 ? 'lap is' : 'laps are'} not from {selectedTrack?.fileName} and
-            will be left out.
+            {plural(otherLaps, t.laps.otherTrackLaps, { track: selectedTrack?.fileName ?? '' })}
           </div>
         )}
 
@@ -224,7 +233,7 @@ export default function DebriefCoach({ onCompare }: { onCompare?: (base: LapFile
                 <button
                   type="button"
                   onClick={() => removeFile(lap.fileId)}
-                  aria-label={`Remove ${lap.file.name}`}
+                  aria-label={fmt(t.laps.removeFile, { name: lap.file.name })}
                   className="ml-3 text-muted-foreground hover:text-primary"
                 >
                   ✕
@@ -242,27 +251,25 @@ export default function DebriefCoach({ onCompare }: { onCompare?: (base: LapFile
           disabled={trackLaps.length < 2 || !selectedTrack?.areas.length || running}
           className="px-6 py-3 font-semibold text-white bg-gradient-to-r from-primary to-primary-strong rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {running ? 'Coach is reviewing your laps…' : 'Run Debrief'}
+          {running ? t.debrief.running : t.debrief.run}
         </button>
 
         {runError && (
           <div className="px-4 py-3 rounded-lg border text-sm bg-primary/10 border-primary/40 text-red-300">
-            Debrief failed: {runError}
+            {fmt(t.debrief.failed, { error: runError })}
           </div>
         )}
 
         {!debrief && !runError && !running && (
           <p className="text-sm text-muted-foreground">
-            {trackLaps.length < 2
-              ? 'Pick or upload at least 2 laps from the selected track, then press Run Debrief.'
-              : 'Press Run Debrief to get the things to fix next session.'}
+            {trackLaps.length < 2 ? t.debrief.needLaps : t.debrief.pressRun}
           </p>
         )}
 
         {debrief && (
           <div className="space-y-4">
             <div className="px-5 py-4 rounded-lg bg-gradient-to-r from-primary to-primary-strong text-white">
-              <p className="text-xs font-semibold uppercase tracking-wide opacity-80">Fix this first</p>
+              <p className="text-xs font-semibold uppercase tracking-wide opacity-80">{t.debrief.fixFirst}</p>
               <p className="mt-1 text-lg font-semibold">{debrief.headline}</p>
             </div>
 
@@ -274,20 +281,20 @@ export default function DebriefCoach({ onCompare }: { onCompare?: (base: LapFile
                       {i + 1}. {fix.area}
                     </h3>
                     <span className="shrink-0 text-sm font-semibold text-primary">
-                      ~{fix.timeGainSeconds.toFixed(2)}s / lap
+                      {fmt(t.debrief.perLap, { seconds: number(fix.timeGainSeconds, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) })}
                     </span>
                   </div>
                   <dl className="mt-2 space-y-1 text-sm">
                     <div>
-                      <dt className="inline font-semibold text-foreground">Problem: </dt>
+                      <dt className="inline font-semibold text-foreground">{t.debrief.problem}</dt>
                       <dd className="inline text-foreground">{fix.problem}</dd>
                     </div>
                     <div>
-                      <dt className="inline font-semibold text-foreground">Fix: </dt>
+                      <dt className="inline font-semibold text-foreground">{t.debrief.fix}</dt>
                       <dd className="inline text-foreground">{fix.fix}</dd>
                     </div>
                     <div>
-                      <dt className="inline font-semibold text-foreground">Evidence: </dt>
+                      <dt className="inline font-semibold text-foreground">{t.debrief.evidence}</dt>
                       <dd className="inline text-muted-foreground">{fix.evidence}</dd>
                     </div>
                   </dl>
@@ -297,7 +304,7 @@ export default function DebriefCoach({ onCompare }: { onCompare?: (base: LapFile
 
             {debrief.keepDoing.length > 0 && (
               <div className="px-5 py-4 bg-card border border-border rounded-lg">
-                <h3 className="font-bold text-foreground mb-2">Keep doing</h3>
+                <h3 className="font-bold text-foreground mb-2">{t.debrief.keepDoing}</h3>
                 <ul className="list-disc pl-5 space-y-1 text-sm text-foreground">
                   {debrief.keepDoing.map((item) => (
                     <li key={item}>{item}</li>
@@ -308,7 +315,7 @@ export default function DebriefCoach({ onCompare }: { onCompare?: (base: LapFile
 
             {steps.length > 0 && (
               <details className="text-sm text-muted-foreground">
-                <summary className="cursor-pointer">What the coach checked ({steps.length} steps)</summary>
+                <summary className="cursor-pointer">{plural(steps.length, t.debrief.stepsChecked)}</summary>
                 <ol className="mt-2 list-decimal pl-5 space-y-1 font-mono text-xs">
                   {steps.map((step, i) => (
                     <li key={i}>{step}</li>

@@ -1,8 +1,11 @@
 import { redirect } from 'next/navigation';
 import CancelSubscriptionButton from '@/components/CancelSubscriptionButton';
 import CollectorKeyCard from '@/components/CollectorKeyCard';
+import LanguageSelect from '@/components/LanguageSelect';
 import { getCollectorKey } from '@/lib/collectorKeys';
 import { DISCORD_INVITE_URL, getDiscordConnection } from '@/lib/discord';
+import { fmt, LANGUAGE_LOCALES } from '@/lib/i18n/languages';
+import { getDictionary } from '@/lib/i18n/server';
 import { getCurrentUser } from '@/lib/session';
 import { canBuy } from '@/lib/users';
 import { ACCOUNT_STATUS } from '@/lib/accountStatus';
@@ -21,21 +24,11 @@ function statusBadgeClass(accountStatus: string): string {
   }
 }
 
-function formatDate(iso: string | null): string {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleDateString('en-US', { dateStyle: 'long' });
-}
+// What /api/discord/* send back in ?discord= that's good news; the rest are problems
+const DISCORD_OK = new Set(['disconnected']);
 
-// What /api/discord/* send back in ?discord=, and whether it's good news
-const DISCORD_MESSAGES: Record<string, { text: string; ok: boolean }> = {
-  disconnected: { text: 'Your Discord account has been unlinked.', ok: true },
-  canceled: { text: 'Discord linking was canceled.', ok: false },
-  expired: { text: 'That Discord link request expired. Please try again.', ok: false },
-  taken: { text: 'That Discord account is already linked to another RacingCoach account.', ok: false },
-  unavailable: { text: 'Discord linking is not available right now.', ok: false },
-  blocked: { text: 'Discord is temporarily blocking our server. Please try again later.', ok: false },
-  error: { text: 'Something went wrong linking Discord. Please try again.', ok: false },
-};
+const selectClass =
+  'w-full px-4 py-3 bg-card border border-border rounded-lg text-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors';
 
 export default async function AccountPage({
   searchParams,
@@ -44,8 +37,13 @@ export default async function AccountPage({
 }) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
+  const t = getDictionary(user.preferredLanguage);
+  const locale = LANGUAGE_LOCALES[user.preferredLanguage];
+  const formatDate = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString(locale, { dateStyle: 'long' }) : '—');
+
   const { discord: discordResult } = await searchParams;
-  const discordMessage = typeof discordResult === 'string' ? DISCORD_MESSAGES[discordResult] : undefined;
+  const discordText = typeof discordResult === 'string' ? t.account.discordMessages[discordResult] : undefined;
+  const discordOk = typeof discordResult === 'string' && DISCORD_OK.has(discordResult);
   const [discord, collectorKey] = await Promise.all([getDiscordConnection(user.id), getCollectorKey(user.id)]);
   const isSubscribed = user.accountStatus === ACCOUNT_STATUS.subscribed;
   // A canceled subscription keeps its end date: the end of the last paid period
@@ -58,42 +56,42 @@ export default async function AccountPage({
     <section className="py-12 px-4 bg-gradient-to-b from-background to-background flex justify-center">
       <div className="w-full max-w-lg bg-secondary rounded-xl border border-border p-6 sm:p-8">
         <h1 className="text-3xl font-bold mb-2 bg-gradient-to-r from-primary-strong via-primary to-primary-strong bg-clip-text text-transparent">
-          My Account
+          {t.account.title}
         </h1>
-        <p className="text-muted-foreground mb-8">Your account details.</p>
+        <p className="text-muted-foreground mb-8">{t.account.intro}</p>
 
         <dl className="divide-y divide-border bg-card rounded-lg border border-border">
           <div className="flex justify-between gap-4 px-4 py-3">
-            <dt className="text-sm font-medium text-muted-foreground">Email</dt>
+            <dt className="text-sm font-medium text-muted-foreground">{t.account.email}</dt>
             <dd className="text-foreground font-medium text-right break-all">
               {user.emailAddress}
             </dd>
           </div>
           <div className="flex justify-between gap-4 px-4 py-3">
-            <dt className="text-sm font-medium text-muted-foreground">Name</dt>
+            <dt className="text-sm font-medium text-muted-foreground">{t.account.name}</dt>
             <dd className="text-foreground font-medium text-right">
               {user.userName}
             </dd>
           </div>
           <div className="flex justify-between items-center gap-4 px-4 py-3">
-            <dt className="text-sm font-medium text-muted-foreground">Account Status</dt>
+            <dt className="text-sm font-medium text-muted-foreground">{t.account.accountStatus}</dt>
             <dd>
               <span
                 className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${statusBadgeClass(user.accountStatus)}`}
               >
-                {user.accountStatus}
+                {t.account.statuses[user.accountStatus] ?? user.accountStatus}
               </span>
             </dd>
           </div>
           <div className="flex justify-between gap-4 px-4 py-3">
-            <dt className="text-sm font-medium text-muted-foreground">Signup Date</dt>
+            <dt className="text-sm font-medium text-muted-foreground">{t.account.signupDate}</dt>
             <dd className="text-foreground font-medium text-right">
               {formatDate(user.signupDate)}
             </dd>
           </div>
           {showEndDate && (
             <div className="flex justify-between gap-4 px-4 py-3">
-              <dt className="text-sm font-medium text-muted-foreground">Subscription End Date</dt>
+              <dt className="text-sm font-medium text-muted-foreground">{t.account.subscriptionEndDate}</dt>
               <dd className="text-foreground font-medium text-right">
                 {formatDate(user.subscriptionEndDate)}
               </dd>
@@ -101,16 +99,23 @@ export default async function AccountPage({
           )}
         </dl>
 
+        {/* The site's language, including what the AI features answer in */}
+        <div className="mt-6 bg-card rounded-lg border border-border px-4 py-4">
+          <h2 className="text-sm font-medium text-muted-foreground mb-3">{t.preferences.title}</h2>
+          <LanguageSelect id="preferredLanguage" className={selectClass} />
+          <p className="mt-2 text-sm text-muted-foreground">{t.preferences.languageHint}</p>
+        </div>
+
         {/* Linked Discord account */}
         <div className="mt-6 bg-card rounded-lg border border-border px-4 py-4">
-          <h2 className="text-sm font-medium text-muted-foreground mb-3">Discord</h2>
-          {discordMessage && (
+          <h2 className="text-sm font-medium text-muted-foreground mb-3">{t.account.discord}</h2>
+          {discordText && (
             <p
               className={`mb-3 p-3 rounded-lg text-sm ${
-                discordMessage.ok ? 'bg-green-500/15 text-green-400' : 'bg-primary/15 border border-primary/40 text-red-300'
+                discordOk ? 'bg-green-500/15 text-green-400' : 'bg-primary/15 border border-primary/40 text-red-300'
               }`}
             >
-              {discordMessage.text}
+              {discordText}
             </p>
           )}
           {discord ? (
@@ -123,7 +128,7 @@ export default async function AccountPage({
                 <div className="min-w-0">
                   <p className="text-foreground font-medium truncate">{discord.globalName ?? discord.username}</p>
                   <p className="text-sm text-muted-foreground truncate">
-                    @{discord.username} · linked {formatDate(discord.connectedAt)}
+                    {fmt(t.account.discordLinked, { username: discord.username, date: formatDate(discord.connectedAt) })}
                   </p>
                 </div>
               </div>
@@ -134,27 +139,27 @@ export default async function AccountPage({
                   rel="noopener noreferrer"
                   className="px-4 py-2 text-sm font-semibold rounded-lg text-white bg-[#5865F2] hover:bg-[#4752C4] transition-colors"
                 >
-                  Join Server
+                  {t.account.joinServer}
                 </a>
                 <form action="/api/discord/disconnect" method="POST">
                   <button
                     type="submit"
                     className="px-4 py-2 text-sm font-semibold rounded-lg text-foreground bg-card border border-border hover:border-primary hover:text-primary transition-colors"
                   >
-                    Disconnect
+                    {t.account.disconnect}
                   </button>
                 </form>
               </div>
             </div>
           ) : (
             <div className="flex items-center justify-between gap-4">
-              <p className="text-sm text-muted-foreground">Link your Discord account to RacingCoach.</p>
+              <p className="text-sm text-muted-foreground">{t.account.linkDiscord}</p>
               {/* A plain link: /api/discord/connect redirects to Discord, then on to the server invite */}
               <a
                 href="/api/discord/connect"
                 className="shrink-0 px-4 py-2 text-sm font-semibold rounded-lg text-white bg-[#5865F2] hover:bg-[#4752C4] transition-colors"
               >
-                Connect Discord
+                {t.account.connectDiscord}
               </a>
             </div>
           )}
@@ -170,7 +175,7 @@ export default async function AccountPage({
               value="monthly"
               className="w-full px-6 py-3 rounded-lg font-semibold text-white bg-gradient-to-r from-primary to-primary-strong hover:from-primary-strong hover:to-primary transition-colors"
             >
-              Monthly Subscription
+              {t.account.monthlySubscription}
             </button>
             <button
               type="submit"
@@ -178,7 +183,7 @@ export default async function AccountPage({
               value="annual"
               className="w-full px-6 py-3 rounded-lg font-semibold text-white bg-gradient-to-r from-primary to-primary-strong hover:from-primary-strong hover:to-primary transition-colors"
             >
-              Annual Subscription
+              {t.account.annualSubscription}
             </button>
           </form>
         )}

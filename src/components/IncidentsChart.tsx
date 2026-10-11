@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { dateTicks, formatDate, time } from '@/components/IRatingChart';
+import { useLanguage } from '@/components/LanguageProvider';
 import RaceRangePicker, { lastRaces } from '@/components/RaceRangePicker';
 import { SECTOR_COLORS, niceTicks } from '@/components/SectorChart';
 import type { IncidentPoint } from '@/lib/raceTrends';
@@ -28,6 +29,8 @@ export default function IncidentsChart({
   range: number;
   onRangeChange: (range: number) => void;
 }) {
+  const { t: dictionary, fmt, locale } = useLanguage();
+  const t = dictionary.raceCharts;
   const containerRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
@@ -62,7 +65,7 @@ export default function IncidentsChart({
   const plotHeight = HEIGHT - MARGIN.top - MARGIN.bottom;
   const x = (t: number) => MARGIN.left + (tMax === tMin ? plotWidth / 2 : ((t - tMin) / (tMax - tMin)) * plotWidth);
   const y = (value: number) => MARGIN.top + plotHeight - (value / (yMax || 1)) * plotHeight;
-  const xTicks = dateTicks(tMin, tMax, Math.floor(plotWidth / 70));
+  const xTicks = dateTicks(tMin, tMax, Math.floor(plotWidth / 70), locale);
 
   const handlePointer = (e: React.PointerEvent<SVGRectElement>) => {
     const px = e.clientX - e.currentTarget.getBoundingClientRect().left + MARGIN.left;
@@ -81,9 +84,9 @@ export default function IncidentsChart({
     <div className="bg-card border border-border rounded-lg p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2 mb-3">
         <p className="text-sm font-medium text-foreground">
-          Incidents <span className="font-normal text-muted-foreground">per race</span>
+          {t.incidentsTitle} <span className="font-normal text-muted-foreground">{t.perRace}</span>
           <span className="ml-2 font-normal text-muted-foreground" style={{ fontVariantNumeric: 'tabular-nums' }}>
-            ({(total / points.length).toFixed(1)} avg over {points.length} races)
+            {fmt(t.incidentsAvg, { avg: (total / points.length).toLocaleString(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 }), n: points.length })}
           </span>
         </p>
         <RaceRangePicker value={range} onChange={onRangeChange} />
@@ -93,11 +96,11 @@ export default function IncidentsChart({
       <ul className="flex flex-wrap gap-x-4 gap-y-1 mb-2 text-xs text-muted-foreground">
         <li className="flex items-center gap-1.5">
           <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: DOT }} />
-          One race
+          {t.oneRace}
         </li>
         <li className="flex items-center gap-1.5">
           <span className="inline-block w-3 rounded" style={{ backgroundColor: AVERAGE, height: 2 }} />
-          {span}-race average
+          {fmt(t.nRaceAverage, { n: span })}
         </li>
       </ul>
 
@@ -107,7 +110,7 @@ export default function IncidentsChart({
             width={width}
             height={HEIGHT}
             role="img"
-            aria-label={`Incidents in each of ${points.length} races over time, with a ${span}-race average`}
+            aria-label={fmt(t.incidentsAria, { n: points.length, span })}
             className="block"
             style={{ fontVariantNumeric: 'tabular-nums' }}
           >
@@ -190,15 +193,15 @@ export default function IncidentsChart({
             className="pointer-events-none absolute top-2 z-10 bg-card border border-border rounded-lg shadow-md px-3 py-2 text-xs text-foreground whitespace-nowrap"
             style={tooltipOnLeft ? { right: width - hoverX + 12 } : { left: hoverX + 12 }}
           >
-            <p className="font-semibold mb-1">{formatDate(hovered.startTime)}</p>
+            <p className="font-semibold mb-1">{formatDate(hovered.startTime, locale)}</p>
             <p className="text-muted-foreground">{hovered.series}</p>
             <p className="text-muted-foreground">{hovered.track}</p>
             <p className="mt-1" style={{ fontVariantNumeric: 'tabular-nums' }}>
               <span className="font-semibold">{hovered.incidents}x</span>{' '}
-              <span className="text-muted-foreground">in {hovered.lapsComplete} laps</span>
+              <span className="text-muted-foreground">{fmt(t.inLaps, { n: hovered.lapsComplete })}</span>
             </p>
             <p className="text-muted-foreground" style={{ fontVariantNumeric: 'tabular-nums' }}>
-              {span}-race average {averages[hoverIndex].toFixed(1)}x
+              {fmt(t.averageAt, { span, avg: averages[hoverIndex].toLocaleString(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) })}
             </p>
           </div>
         )}
@@ -210,19 +213,19 @@ export default function IncidentsChart({
         onClick={() => setShowTable(!showTable)}
         className="mt-2 text-xs font-semibold text-primary hover:underline"
       >
-        {showTable ? 'Hide values' : 'Show values'}
+        {showTable ? t.hideValues : t.showValues}
       </button>
       {showTable && (
         <div className="mt-2 max-h-96 overflow-auto border border-border rounded-lg">
           <table className="w-full text-xs text-foreground whitespace-nowrap" style={{ fontVariantNumeric: 'tabular-nums' }}>
             <thead className="sticky top-0 bg-secondary text-left text-muted-foreground">
               <tr>
-                <th className="px-3 py-2 font-medium">Date</th>
-                <th className="px-3 py-2 font-medium">Series</th>
-                <th className="px-3 py-2 font-medium">Track</th>
-                <th className="px-3 py-2 font-medium text-right">Laps</th>
-                <th className="px-3 py-2 font-medium text-right">Incidents</th>
-                <th className="px-3 py-2 font-medium text-right">{span}-race avg</th>
+                <th className="px-3 py-2 font-medium">{t.date}</th>
+                <th className="px-3 py-2 font-medium">{t.series}</th>
+                <th className="px-3 py-2 font-medium">{t.track}</th>
+                <th className="px-3 py-2 font-medium text-right">{t.laps}</th>
+                <th className="px-3 py-2 font-medium text-right">{t.incidents}</th>
+                <th className="px-3 py-2 font-medium text-right">{fmt(t.nRaceAvg, { n: span })}</th>
               </tr>
             </thead>
             <tbody>
@@ -231,12 +234,12 @@ export default function IncidentsChart({
                 .reverse()
                 .map(({ p, average }) => (
                   <tr key={p.eventId} className="border-t border-border">
-                    <td className="px-3 py-1.5">{formatDate(p.startTime)}</td>
+                    <td className="px-3 py-1.5">{formatDate(p.startTime, locale)}</td>
                     <td className="px-3 py-1.5">{p.series}</td>
                     <td className="px-3 py-1.5">{p.track}</td>
                     <td className="px-3 py-1.5 text-right">{p.lapsComplete}</td>
                     <td className="px-3 py-1.5 text-right font-semibold">{p.incidents}x</td>
-                    <td className="px-3 py-1.5 text-right">{average.toFixed(1)}x</td>
+                    <td className="px-3 py-1.5 text-right">{average.toLocaleString(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}x</td>
                   </tr>
                 ))}
             </tbody>

@@ -3,35 +3,20 @@ import { Check } from 'lucide-react';
 import { buttonVariants } from '@/components/Button';
 import type Stripe from 'stripe';
 import type { Plan } from '@/lib/accountStatus';
+import type { Dictionary } from '@/lib/i18n/dictionaries/en';
+import { fmt } from '@/lib/i18n/languages';
+import { getDictionary, getLanguage } from '@/lib/i18n/server';
 import { getCurrentUser } from '@/lib/session';
 import { annualDiscountPercent, formatPrice, getPlanPrice, getStripeConfig } from '@/lib/stripePlans';
 import { canBuy, type User } from '@/lib/users';
 
-const FEATURES = [
-  'Debrief Coach: AI review of every lap in your session',
-  'Multi-Lap, Stint and Lap Compare analysis',
-  'Reference points for every focus area',
-  'Track Data with up to 8 focus areas per track',
-  'Racecar Analysis Q&A',
-  'My Race Trends: iRating and incidents synced from iRacePlan',
-];
-
-const PLANS: { plan: Plan; name: string; period: string; blurb: string; features: string[] }[] = [
-  {
-    plan: 'monthly',
-    name: 'Monthly',
-    period: '/ month',
-    blurb: 'Full access, billed every month.',
-    features: [...FEATURES, 'Cancel anytime'],
-  },
-  {
-    plan: 'annual',
-    name: 'Annual',
-    period: '/ year',
-    blurb: 'Full access, billed once a year.',
-    features: ['Everything in Monthly', 'One payment covers the whole year', 'Cancel anytime'],
-  },
-];
+// The two plans' text, in the user's language
+function plans(t: Dictionary['pricing']): { plan: Plan; name: string; period: string; blurb: string; subscription: string; features: string[] }[] {
+  return [
+    { plan: 'monthly', ...t.monthly, features: [...t.features, t.cancelAnytime] },
+    { plan: 'annual', ...t.annual, features: [...t.annual.features, t.cancelAnytime] },
+  ];
+}
 
 // The plan's Stripe price, or null if Stripe isn't configured or can't be reached
 async function loadPrice(plan: Plan): Promise<Stripe.Price | null> {
@@ -47,15 +32,15 @@ async function loadPrice(plan: Plan): Promise<Stripe.Price | null> {
 
 const buttonClass = buttonVariants({ variant: 'racing', className: 'w-full' });
 
-function PlanAction({ plan, name, user }: { plan: Plan; name: string; user: User | null }) {
+function PlanAction({ plan, subscription, user, t }: { plan: Plan; subscription: string; user: User | null; t: Dictionary['pricing'] }) {
   if (!user) {
-    return <Link href="/signup" className={buttonClass}>Get Started</Link>;
+    return <Link href="/signup" className={buttonClass}>{t.getStarted}</Link>;
   }
   if (canBuy(user)) {
     return (
       <form action="/api/create-checkout-session" method="POST">
         <button type="submit" name="plan" value={plan} className={buttonClass}>
-          {name} Subscription
+          {subscription}
         </button>
       </form>
     );
@@ -63,7 +48,7 @@ function PlanAction({ plan, name, user }: { plan: Plan; name: string; user: User
   // Already Subscribed (Monthly or Annual)
   return (
     <button type="button" disabled className={buttonClass}>
-      Subscribed
+      {t.subscribed}
     </button>
   );
 }
@@ -74,6 +59,7 @@ export default async function PricingPage() {
     loadPrice('monthly'),
     loadPrice('annual'),
   ]);
+  const t = getDictionary(await getLanguage(user)).pricing;
   const prices: Record<Plan, Stripe.Price | null> = { monthly: monthlyPrice, annual: annualPrice };
   // Annual price compared with 12 months of Monthly
   const discount = monthlyPrice && annualPrice ? annualDiscountPercent(monthlyPrice, annualPrice) : null;
@@ -83,17 +69,17 @@ export default async function PricingPage() {
       <section className="py-16 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-background to-background border-b border-border">
         <div className="max-w-4xl mx-auto text-center">
           <h1 className="text-4xl md:text-5xl font-bold mb-4 pb-2 bg-gradient-to-r from-primary-strong via-primary to-primary-strong bg-clip-text text-transparent">
-            Pricing
+            {t.title}
           </h1>
           <p className="text-lg text-muted-foreground">
-            Every tool, either way. Pay monthly, or pay yearly{discount ? ` and save ${discount}%` : ''}.
+            {discount ? fmt(t.introDiscount, { discount }) : t.intro}
           </p>
         </div>
       </section>
 
       <section className="py-16 px-6 sm:px-10 lg:px-16 bg-card flex flex-col items-center">
         <div className="w-full max-w-4xl grid gap-6 md:grid-cols-2">
-          {PLANS.map(({ plan, name, period, blurb, features }) => {
+          {plans(t).map(({ plan, name, period, blurb, subscription, features }) => {
             const price = prices[plan];
             const showDiscount = plan === 'annual' && discount !== null;
             return (
@@ -105,7 +91,7 @@ export default async function PricingPage() {
                   <h2 className="text-2xl font-bold text-foreground">{name}</h2>
                   {showDiscount && (
                     <span className="px-3 py-1 rounded-full text-sm font-semibold bg-primary/15 text-primary">
-                      Save {discount}%
+                      {fmt(t.save, { discount: discount ?? '' })}
                     </span>
                   )}
                 </div>
@@ -116,7 +102,7 @@ export default async function PricingPage() {
                 </div>
                 {showDiscount && (
                   <p className="text-sm text-muted-foreground mb-6">
-                    {discount}% less than 12 months of Monthly
+                    {fmt(t.lessThanMonthly, { discount: discount ?? '' })}
                   </p>
                 )}
                 <ul className="space-y-3 mb-8 flex-1">
@@ -127,7 +113,7 @@ export default async function PricingPage() {
                     </li>
                   ))}
                 </ul>
-                <PlanAction plan={plan} name={name} user={user} />
+                <PlanAction plan={plan} subscription={subscription} user={user} t={t} />
               </div>
             );
           })}

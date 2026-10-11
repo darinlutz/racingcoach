@@ -1,26 +1,31 @@
+'use client';
+
+import { useLanguage } from '@/components/LanguageProvider';
 import { formatClouds, formatTempF, formatWind } from '@/lib/stintExport';
 import type { StintLap } from '@/lib/stintExport';
 import { stintConditions } from '@/lib/stintStats';
 
 // Average weather over the analyzed laps of a stint
 export default function StintConditions({ laps }: { laps: StintLap[] }) {
+  const { t } = useLanguage();
   const c = stintConditions(laps);
+  const clouds = (value: number) => formatClouds(value, t.weather.clouds);
   const tiles = [
     {
-      label: 'Avg track temp',
+      label: t.stint.avgTrackTemp,
       value: formatTempF(c.trackTempC),
       detail: `${formatTempF(c.minTrackTempC)} – ${formatTempF(c.maxTrackTempC)}`,
     },
-    { label: 'Avg air temp', value: formatTempF(c.airTempC) },
-    { label: 'Avg humidity', value: `${Math.round(c.relativeHumidity * 100)}%` },
-    { label: 'Avg wind', value: formatWind(c.windVelocity, c.windDirection) },
+    { label: t.stint.avgAirTemp, value: formatTempF(c.airTempC) },
+    { label: t.stint.avgHumidity, value: `${Math.round(c.relativeHumidity * 100)}%` },
+    { label: t.stint.avgWind, value: formatWind(c.windVelocity, c.windDirection, t.weather.compass) },
     {
-      label: 'Clouds',
-      value: c.clouds.length === 1 ? formatClouds(c.clouds[0].value) : 'Changed',
+      label: t.stint.clouds,
+      value: c.clouds.length === 1 ? clouds(c.clouds[0].value) : t.stint.changed,
       detail:
         c.clouds.length === 1
-          ? 'All laps'
-          : c.clouds.map((cloud) => `${formatClouds(cloud.value)} (${cloud.laps})`).join(', '),
+          ? t.stint.allLaps
+          : c.clouds.map((cloud) => `${clouds(cloud.value)} (${cloud.laps})`).join(', '),
     },
   ];
 

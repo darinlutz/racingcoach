@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useLanguage } from '@/components/LanguageProvider';
 import { trackFileText } from '@/lib/trackFile';
 
 // Save Data downloads the file under this name, to be saved in
@@ -9,6 +10,8 @@ const SIMHUB_FILE_NAME = 'Track_Area_Information.js';
 
 // Rebuilds Track_Area_Information.txt from the user's saved tracks so it can be copied into the file
 export default function TrackFileExport() {
+  const { t: dictionary, plural } = useLanguage();
+  const t = dictionary.trackFile;
   const [text, setText] = useState('');
   const [canSave, setCanSave] = useState(false);
   const [status, setStatus] = useState<'idle' | 'loading' | 'copied'>('idle');
@@ -20,13 +23,13 @@ export default function TrackFileExport() {
     try {
       const response = await fetch('/api/tracks');
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to load tracks');
+      if (!response.ok) throw new Error(data.error || t.failedLoad);
       setText(trackFileText(data.tracks));
       setCanSave(data.isAdmin === true);
       setStatus('idle');
     } catch (error) {
       setStatus('idle');
-      setMessage(error instanceof Error ? error.message : 'Failed to generate the text file');
+      setMessage(error instanceof Error ? error.message : t.failedGenerate);
     }
   };
 
@@ -47,7 +50,7 @@ export default function TrackFileExport() {
       setStatus('copied');
       setTimeout(() => setStatus((s) => (s === 'copied' ? 'idle' : s)), 2000);
     } catch {
-      setMessage('Could not copy to the clipboard. Select the text and copy it instead.');
+      setMessage(t.couldNotCopy);
     }
   };
 
@@ -59,7 +62,7 @@ export default function TrackFileExport() {
         disabled={status === 'loading'}
         className="px-4 py-2 text-sm font-semibold bg-card border border-border rounded-lg text-foreground hover:border-primary hover:text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {status === 'loading' ? 'Generating…' : 'Generate Text File'}
+        {status === 'loading' ? t.generating : t.generate}
       </button>
 
       {message && <div className="p-3 rounded-lg bg-primary/15 border border-primary/40 text-red-300 text-sm">{message}</div>}
@@ -69,7 +72,7 @@ export default function TrackFileExport() {
           <div className="flex items-center justify-between">
             <label htmlFor="track-file-text" className="text-sm font-medium text-foreground">
               Track_Area_Information.txt{' '}
-              <span className="font-normal text-muted-foreground">({text.split('\n').length.toLocaleString('en-US')} lines)</span>
+              <span className="font-normal text-muted-foreground">{plural(text.split('\n').length, t.lines)}</span>
             </label>
             <div className="flex shrink-0 gap-2">
               {canSave && (
@@ -78,7 +81,7 @@ export default function TrackFileExport() {
                   onClick={save}
                   className="px-4 py-2 text-sm font-semibold bg-card border border-border rounded-lg text-foreground hover:border-primary hover:text-primary transition-colors"
                 >
-                  Save Data
+                  {t.saveData}
                 </button>
               )}
               <button
@@ -86,7 +89,7 @@ export default function TrackFileExport() {
                 onClick={() => void copy()}
                 className="px-4 py-2 text-sm font-semibold bg-gradient-to-r from-primary to-primary-strong text-white rounded-lg hover:opacity-90 transition-opacity"
               >
-                {status === 'copied' ? 'Copied!' : 'Copy'}
+                {status === 'copied' ? t.copied : t.copy}
               </button>
             </div>
           </div>

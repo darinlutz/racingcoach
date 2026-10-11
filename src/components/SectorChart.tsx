@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 
+import { useLanguage } from '@/components/LanguageProvider';
 import type { StintLap } from '@/lib/stintExport';
 
 // Categorical colors in fixed order (sector 1 is always blue, sector 2 orange, ...). This order was
@@ -30,6 +31,8 @@ export function niceTicks(min: number, max: number, count = 5) {
 
 // One line per sector across the stint's laps: actual sector times, or each sector's gap to its best
 export default function SectorChart({ laps, sectorCount }: { laps: StintLap[]; sectorCount: number }) {
+  const { t: dictionary, fmt } = useLanguage();
+  const t = dictionary.sectorChart;
   const containerRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
   const [mode, setMode] = useState<Mode>('time');
@@ -48,7 +51,7 @@ export default function SectorChart({ laps, sectorCount }: { laps: StintLap[]; s
   if (sectorCount > SECTOR_COLORS.length) {
     return (
       <p className="text-sm text-muted-foreground">
-        The sector chart supports up to {SECTOR_COLORS.length} sectors; this track has {sectorCount}.
+        {fmt(t.tooMany, { max: SECTOR_COLORS.length, n: sectorCount })}
       </p>
     );
   }
@@ -100,13 +103,13 @@ export default function SectorChart({ laps, sectorCount }: { laps: StintLap[]; s
     <div className="bg-card border border-border rounded-lg p-4">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
         <p className="text-sm font-medium text-foreground">
-          Sector times <span className="font-normal text-muted-foreground">by lap</span>
+          {t.title} <span className="font-normal text-muted-foreground">{t.byLap}</span>
         </p>
         <div className="inline-flex rounded-lg border border-border overflow-hidden text-xs font-semibold" role="group">
           {(
             [
-              ['time', 'Sector time'],
-              ['gap', 'Gap to best'],
+              ['time', t.sectorTime],
+              ['gap', t.gapToBest],
             ] as const
           ).map(([value, label]) => (
             <button
@@ -129,7 +132,7 @@ export default function SectorChart({ laps, sectorCount }: { laps: StintLap[]; s
         {sectors.map((s) => (
           <li key={s.number} className="flex items-center gap-1.5">
             <span className="inline-block w-3 rounded" style={{ backgroundColor: s.color, height: 2 }} />
-            Sector {s.number}
+            {fmt(t.sector, { n: s.number })}
           </li>
         ))}
       </ul>
@@ -140,7 +143,7 @@ export default function SectorChart({ laps, sectorCount }: { laps: StintLap[]; s
             width={width}
             height={HEIGHT}
             role="img"
-            aria-label={`Line chart of ${sectorCount} sector ${mode === 'time' ? 'times' : 'gaps to best'} over laps ${firstLap} to ${lastLap}`}
+            aria-label={fmt(mode === 'time' ? t.chartLabelTimes : t.chartLabelGaps, { n: sectorCount, first: firstLap, last: lastLap })}
             className="block"
             style={{ fontVariantNumeric: 'tabular-nums' }}
           >
@@ -168,7 +171,7 @@ export default function SectorChart({ laps, sectorCount }: { laps: StintLap[]; s
               </text>
             ))}
             <text x={MARGIN.left + plotWidth / 2} y={HEIGHT - 4} textAnchor="middle" fontSize={11} fill={INK_MUTED}>
-              Lap
+              {t.lap}
             </text>
 
             {/* Crosshair */}
@@ -230,14 +233,14 @@ export default function SectorChart({ laps, sectorCount }: { laps: StintLap[]; s
             className="pointer-events-none absolute top-2 z-10 bg-card border border-border rounded-lg shadow-md px-3 py-2 text-xs text-foreground whitespace-nowrap"
             style={tooltipOnLeft ? { right: width - tooltipLeft + 12 } : { left: tooltipLeft + 12 }}
           >
-            <p className="font-semibold mb-1">Lap {hovered.lap}</p>
+            <p className="font-semibold mb-1">{fmt(t.lapN, { n: hovered.lap })}</p>
             {sectors.map((s) => (
               <p key={s.number} className="flex items-center gap-2" style={{ fontVariantNumeric: 'tabular-nums' }}>
                 <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: s.color }} />
                 <span className="text-muted-foreground">S{s.number}</span>
                 <span className="ml-auto pl-3">{s.times[hoverIndex].toFixed(3)}s</span>
                 <span className="text-muted-foreground w-14 text-right">
-                  {s.times[hoverIndex] === s.best ? 'best' : `+${(s.times[hoverIndex] - s.best).toFixed(3)}`}
+                  {s.times[hoverIndex] === s.best ? t.best : `+${(s.times[hoverIndex] - s.best).toFixed(3)}`}
                 </span>
               </p>
             ))}
@@ -251,17 +254,17 @@ export default function SectorChart({ laps, sectorCount }: { laps: StintLap[]; s
         onClick={() => setShowTable(!showTable)}
         className="mt-2 text-xs font-semibold text-primary hover:underline"
       >
-        {showTable ? 'Hide values' : 'Show values'}
+        {showTable ? t.hideValues : t.showValues}
       </button>
       {showTable && (
         <div className="mt-2 overflow-x-auto border border-border rounded-lg">
           <table className="w-full text-xs text-foreground whitespace-nowrap" style={{ fontVariantNumeric: 'tabular-nums' }}>
             <thead className="bg-secondary text-left text-muted-foreground">
               <tr>
-                <th className="px-3 py-2 font-medium">Lap</th>
+                <th className="px-3 py-2 font-medium">{t.lap}</th>
                 {sectors.map((s) => (
                   <th key={s.number} className="px-3 py-2 font-medium">
-                    Sector {s.number}
+                    {fmt(t.sector, { n: s.number })}
                   </th>
                 ))}
               </tr>

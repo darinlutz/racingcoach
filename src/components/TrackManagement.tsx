@@ -2,6 +2,9 @@
 
 import { Fragment, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useLanguage } from '@/components/LanguageProvider';
+import type { Dictionary } from '@/lib/i18n/dictionaries/en';
+import { fmt } from '@/lib/i18n/languages';
 import type { TrackInput, UserTrack } from '@/lib/tracks';
 
 // Matches MAX_FOCUS_AREAS in lib/tracks (not imported: that module is server-only)
@@ -54,41 +57,41 @@ function toDraft(track: UserTrack | null): TrackDraft {
 }
 
 // '' -> null; otherwise a number, or an error naming the field
-function parseNumber(text: string, label: string, integer: boolean): number | null {
+function parseNumber(text: string, label: string, integer: boolean, t: Dictionary['tracks']): number | null {
   const trimmed = text.trim();
   if (trimmed === '') return null;
   const value = Number(trimmed);
   if (!Number.isFinite(value) || (integer && !Number.isInteger(value))) {
-    throw new Error(`${label} must be a ${integer ? 'whole number' : 'number'}`);
+    throw new Error(fmt(integer ? t.mustBeWhole : t.mustBeNumber, { label }));
   }
   return value;
 }
 
-function toInput(draft: TrackDraft): TrackInput {
+function toInput(draft: TrackDraft, t: Dictionary['tracks']): TrackInput {
   return {
     name: draft.name,
     key: draft.key,
-    lengthFeet: parseNumber(draft.lengthFeet, 'Track length', true),
+    lengthFeet: parseNumber(draft.lengthFeet, t.trackLength, true, t),
     notes: draft.notes,
     areas: draft.areas.map((a, i) => {
-      const label = a.name.trim() || `Focus area ${i + 1}`;
-      const startPoint = parseNumber(a.startPoint, `${label}: start`, false);
-      const endPoint = parseNumber(a.endPoint, `${label}: end`, false);
-      if (startPoint === null || endPoint === null) throw new Error(`${label}: start and end are required`);
+      const label = a.name.trim() || fmt(t.focusAreaN, { n: i + 1 });
+      const startPoint = parseNumber(a.startPoint, fmt(t.fieldStart, { label }), false, t);
+      const endPoint = parseNumber(a.endPoint, fmt(t.fieldEnd, { label }), false, t);
+      if (startPoint === null || endPoint === null) throw new Error(fmt(t.startEndRequired, { label }));
       return {
         name: a.name,
         startPoint,
         endPoint,
         notes: a.notes,
-        brakePointFeet: parseNumber(a.brakePointFeet, `${label}: brake point`, true),
-        maxBrakePct: parseNumber(a.maxBrakePct, `${label}: max brake pressure`, true),
-        throttlePointFeet: parseNumber(a.throttlePointFeet, `${label}: on-throttle point`, true),
+        brakePointFeet: parseNumber(a.brakePointFeet, fmt(t.fieldBrake, { label }), true, t),
+        maxBrakePct: parseNumber(a.maxBrakePct, fmt(t.fieldMaxBrake, { label }), true, t),
+        throttlePointFeet: parseNumber(a.throttlePointFeet, fmt(t.fieldThrottle, { label }), true, t),
       };
     }),
   };
 }
 
-const target = (value: number | null, unit: string) => (value === null ? '—' : `${value.toLocaleString('en-US')}${unit}`);
+const target = (value: number | null, unit: string, locale: string) => (value === null ? '—' : `${value.toLocaleString(locale)}${unit}`);
 
 const inputClass =
   'w-full px-3 py-2 bg-card border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors';
@@ -100,6 +103,8 @@ const secondaryButton =
   'px-4 py-2 text-sm font-semibold bg-card border border-border rounded-lg text-foreground hover:border-primary hover:text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed';
 
 export default function TrackManagement() {
+  const { t: dictionary, locale, plural } = useLanguage();
+  const t = dictionary.tracks;
   const [tracks, setTracks] = useState<UserTrack[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [signedOut, setSignedOut] = useState(false);
@@ -121,17 +126,17 @@ export default function TrackManagement() {
         if (data.error) throw new Error(data.error);
         setTracks(data.tracks ?? []);
       })
-      .catch(() => setMessage('Failed to load tracks'))
+      .catch(() => setMessage(t.failedLoad))
       .finally(() => setLoaded(true));
-  }, []);
+  }, [t]);
 
   if (signedOut) {
     return (
       <div className="bg-secondary rounded-xl border border-border p-8 text-muted-foreground">
         <Link href="/login" className="font-semibold text-primary hover:underline">
-          Log in
-        </Link>{' '}
-        to see and manage your tracks.
+          {t.logIn}
+        </Link>
+        {t.signedOut}
       </div>
     );
   }
@@ -174,7 +179,7 @@ export default function TrackManagement() {
     setMessage('');
     let track: TrackInput;
     try {
-      track = toInput(draft);
+      track = toInput(draft, t);
     } catch (error) {
       setMessage((error as Error).message);
       return;
@@ -188,19 +193,19 @@ export default function TrackManagement() {
         body: JSON.stringify(draft.id === null ? { track } : { id: draft.id, track }),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to save track');
+      if (!response.ok) throw new Error(data.error || t.failedSave);
       setTracks(data.tracks);
       setExpanded(draft.id ?? data.id);
       setDraft(null);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Failed to save track');
+      setMessage(error instanceof Error ? error.message : t.failedSave);
     } finally {
       setSaving(false);
     }
   };
 
   const removeTrack = async (track: UserTrack) => {
-    if (!window.confirm(`Delete ${track.name} and its ${track.areas.length} focus areas?`)) return;
+    if (!window.confirm(plural(track.areas.length, t.deleteConfirm, { track: track.name }))) return;
     setMessage('');
     try {
       const response = await fetch('/api/tracks', {
@@ -209,11 +214,11 @@ export default function TrackManagement() {
         body: JSON.stringify({ id: track.id }),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to delete track');
-      setTracks((prev) => prev.filter((t) => t.id !== track.id));
+      if (!response.ok) throw new Error(data.error || t.failedDelete);
+      setTracks((prev) => prev.filter((candidate) => candidate.id !== track.id));
       if (draft?.id === track.id) setDraft(null);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Failed to delete track');
+      setMessage(error instanceof Error ? error.message : t.failedDelete);
     }
   };
 
@@ -226,40 +231,40 @@ export default function TrackManagement() {
       {/* Track editor */}
       {draft ? (
         <div className="bg-card border border-border rounded-lg p-6 space-y-5">
-          <h3 className="text-lg font-bold text-foreground">{draft.id === null ? 'Add Track' : `Edit ${draft.name || 'Track'}`}</h3>
+          <h3 className="text-lg font-bold text-foreground">{draft.id === null ? t.addTrack : fmt(t.editTrack, { track: draft.name || t.track })}</h3>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label htmlFor="track-name" className="block text-sm font-medium text-foreground mb-1">
-                Track Name
+                {t.trackName}
               </label>
               <input
                 id="track-name"
                 type="text"
                 value={draft.name}
                 onChange={(e) => updateDraft({ name: e.target.value })}
-                placeholder="e.g. Road Atlanta (Full Course)"
+                placeholder={t.trackNamePlaceholder}
                 className={inputClass}
               />
-              <p className="mt-1 text-xs text-muted-foreground">As it appears in your Garage 61 CSV file names.</p>
+              <p className="mt-1 text-xs text-muted-foreground">{t.trackNameHint}</p>
             </div>
             <div>
               <label htmlFor="track-key" className="block text-sm font-medium text-foreground mb-1">
-                Track Key <span className="font-normal text-muted-foreground">(optional)</span>
+                {t.trackKey} <span className="font-normal text-muted-foreground">{dictionary.common.optional}</span>
               </label>
               <input
                 id="track-key"
                 type="text"
                 value={draft.key}
                 onChange={(e) => updateDraft({ key: e.target.value })}
-                placeholder="e.g. roadatlanta full"
+                placeholder={t.trackKeyPlaceholder}
                 className={inputClass}
               />
-              <p className="mt-1 text-xs text-muted-foreground">The iRacing track key. Left blank, the track name is used.</p>
+              <p className="mt-1 text-xs text-muted-foreground">{t.trackKeyHint}</p>
             </div>
             <div>
               <label htmlFor="track-length" className="block text-sm font-medium text-foreground mb-1">
-                Track Length (feet) <span className="font-normal text-muted-foreground">(optional)</span>
+                {t.trackLengthFeet} <span className="font-normal text-muted-foreground">{dictionary.common.optional}</span>
               </label>
               <input
                 id="track-length"
@@ -267,13 +272,13 @@ export default function TrackManagement() {
                 inputMode="numeric"
                 value={draft.lengthFeet}
                 onChange={(e) => updateDraft({ lengthFeet: e.target.value })}
-                placeholder="e.g. 13411"
+                placeholder={t.lengthPlaceholder}
                 className={inputClass}
               />
             </div>
             <div>
               <label htmlFor="track-notes" className="block text-sm font-medium text-foreground mb-1">
-                Notes <span className="font-normal text-muted-foreground">(optional)</span>
+                {t.notes} <span className="font-normal text-muted-foreground">{dictionary.common.optional}</span>
               </label>
               <input
                 id="track-notes"
@@ -289,9 +294,9 @@ export default function TrackManagement() {
           <div>
             <div className="flex items-center justify-between mb-2">
               <p className="text-sm font-medium text-foreground">
-                Focus Areas{' '}
+                {t.focusAreas}{' '}
                 <span className="font-normal text-muted-foreground">
-                  ({draft.areas.length} of {MAX_FOCUS_AREAS})
+                  {fmt(t.areasOf, { n: draft.areas.length, max: MAX_FOCUS_AREAS })}
                 </span>
               </p>
               <button
@@ -300,25 +305,25 @@ export default function TrackManagement() {
                 disabled={draft.areas.length >= MAX_FOCUS_AREAS}
                 className={secondaryButton}
               >
-                + Add Focus Area
+                {t.addArea}
               </button>
             </div>
             {draft.areas.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No focus areas yet.</p>
+              <p className="text-sm text-muted-foreground">{t.noAreas}</p>
             ) : (
               <div className="overflow-x-auto border border-border rounded-lg">
                 <table className="w-full text-sm text-left">
                   <thead className="bg-secondary text-foreground">
                     <tr>
-                      <th className="px-2 py-2 font-semibold min-w-36">Name</th>
-                      <th className="px-2 py-2 font-semibold min-w-20">Start</th>
-                      <th className="px-2 py-2 font-semibold min-w-20">End</th>
-                      <th className="px-2 py-2 font-semibold min-w-24">Brake Point (ft)</th>
-                      <th className="px-2 py-2 font-semibold min-w-24">Max Brake (%)</th>
-                      <th className="px-2 py-2 font-semibold min-w-24">On Throttle (ft)</th>
-                      <th className="px-2 py-2 font-semibold min-w-40">Notes</th>
+                      <th className="px-2 py-2 font-semibold min-w-36">{t.name}</th>
+                      <th className="px-2 py-2 font-semibold min-w-20">{t.start}</th>
+                      <th className="px-2 py-2 font-semibold min-w-20">{t.end}</th>
+                      <th className="px-2 py-2 font-semibold min-w-24">{t.brakePointFt}</th>
+                      <th className="px-2 py-2 font-semibold min-w-24">{t.maxBrakePct}</th>
+                      <th className="px-2 py-2 font-semibold min-w-24">{t.onThrottleFt}</th>
+                      <th className="px-2 py-2 font-semibold min-w-40">{t.notes}</th>
                       <th className="px-2 py-2">
-                        <span className="sr-only">Delete</span>
+                        <span className="sr-only">{t.delete}</span>
                       </th>
                     </tr>
                   </thead>
@@ -327,25 +332,25 @@ export default function TrackManagement() {
                       <tr key={a.uid}>
                         <td className="px-2 py-2">
                           <input
-                            aria-label={`Focus area ${i + 1} name`}
+                            aria-label={fmt(t.areaName, { n: i + 1 })}
                             value={a.name}
                             onChange={(e) => updateArea(a.uid, { name: e.target.value })}
-                            placeholder="e.g. T 1"
+                            placeholder={t.namePlaceholder}
                             className={cellInputClass}
                           />
                         </td>
                         {(
                           [
-                            ['startPoint', 'start', '0.07', 'decimal'],
-                            ['endPoint', 'end', '0.14', 'decimal'],
-                            ['brakePointFeet', 'brake point', '', 'numeric'],
-                            ['maxBrakePct', 'max brake pressure', '', 'numeric'],
-                            ['throttlePointFeet', 'on-throttle point', '', 'numeric'],
+                            ['startPoint', '0.07', 'decimal'],
+                            ['endPoint', '0.14', 'decimal'],
+                            ['brakePointFeet', '', 'numeric'],
+                            ['maxBrakePct', '', 'numeric'],
+                            ['throttlePointFeet', '', 'numeric'],
                           ] as const
-                        ).map(([field, label, placeholder, mode]) => (
+                        ).map(([field, placeholder, mode]) => (
                           <td key={field} className="px-2 py-2">
                             <input
-                              aria-label={`Focus area ${i + 1} ${label}`}
+                              aria-label={fmt(t.areaField, { n: i + 1, field: t.fieldNames[field] })}
                               inputMode={mode}
                               value={a[field]}
                               onChange={(e) => updateArea(a.uid, { [field]: e.target.value })}
@@ -356,7 +361,7 @@ export default function TrackManagement() {
                         ))}
                         <td className="px-2 py-2">
                           <input
-                            aria-label={`Focus area ${i + 1} notes`}
+                            aria-label={fmt(t.areaNotes, { n: i + 1 })}
                             value={a.notes}
                             onChange={(e) => updateArea(a.uid, { notes: e.target.value })}
                             className={cellInputClass}
@@ -368,7 +373,7 @@ export default function TrackManagement() {
                             onClick={() => removeArea(a.uid)}
                             className="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
                           >
-                            Delete
+                            {t.delete}
                           </button>
                         </td>
                       </tr>
@@ -378,51 +383,49 @@ export default function TrackManagement() {
               </div>
             )}
             <p className="mt-2 text-xs text-muted-foreground">
-              Start and end are fractions of a lap from the start/finish line (0.07 = 7%). Brake and on-throttle
-              points are feet from the start/finish line. Leave a target blank if you don&apos;t have one. Areas are
-              put in order around the lap when you save.
+              {t.editorHelp}
             </p>
           </div>
 
           <div className="flex gap-3">
             <button type="button" onClick={() => void saveTrack()} disabled={saving || !draft.name.trim()} className={primaryButton}>
-              {saving ? 'Saving…' : 'Save Track'}
+              {saving ? dictionary.common.saving : t.saveTrack}
             </button>
             <button type="button" onClick={() => setDraft(null)} disabled={saving} className={secondaryButton}>
-              Cancel
+              {dictionary.common.cancel}
             </button>
           </div>
         </div>
       ) : (
         <button type="button" onClick={() => startEditing(null)} className={primaryButton}>
-          + Add Track
+          {t.addTrackButton}
         </button>
       )}
 
       {/* Track list */}
       {!loaded ? (
-        <p className="text-sm text-muted-foreground">Loading your tracks…</p>
+        <p className="text-sm text-muted-foreground">{t.loading}</p>
       ) : tracks.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No tracks added yet.</p>
+        <p className="text-sm text-muted-foreground">{t.none}</p>
       ) : (
         <div className="overflow-x-auto bg-card border border-border rounded-lg">
           <table className="w-full text-sm text-left">
             <thead className="bg-secondary text-foreground">
               <tr>
                 <th scope="col" className="px-4 py-3 font-semibold">
-                  Track
+                  {t.track}
                 </th>
                 <th scope="col" className="px-4 py-3 font-semibold text-right">
-                  Length (ft)
+                  {t.lengthFt}
                 </th>
                 <th scope="col" className="px-4 py-3 font-semibold text-right">
-                  Focus Areas
+                  {t.focusAreas}
                 </th>
                 <th scope="col" className="px-4 py-3 font-semibold">
-                  Notes
+                  {t.notes}
                 </th>
                 <th scope="col" className="px-4 py-3">
-                  <span className="sr-only">Actions</span>
+                  <span className="sr-only">{t.actions}</span>
                 </th>
               </tr>
             </thead>
@@ -442,7 +445,7 @@ export default function TrackManagement() {
                       </button>
                       {track.key !== track.name && <p className="ml-4 text-xs font-normal text-muted-foreground">{track.key}</p>}
                     </th>
-                    <td className="px-4 py-3 text-right tabular-nums">{target(track.lengthFeet, '')}</td>
+                    <td className="px-4 py-3 text-right tabular-nums">{target(track.lengthFeet, '', locale)}</td>
                     <td className="px-4 py-3 text-right tabular-nums">
                       {track.areas.length} / {MAX_FOCUS_AREAS}
                     </td>
@@ -454,14 +457,14 @@ export default function TrackManagement() {
                           onClick={() => startEditing(track)}
                           className="px-3 py-1 text-sm bg-card border border-border rounded text-foreground hover:border-primary hover:text-primary transition-colors"
                         >
-                          Edit
+                          {dictionary.common.edit}
                         </button>
                         <button
                           type="button"
                           onClick={() => void removeTrack(track)}
                           className="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
                         >
-                          Delete
+                          {t.delete}
                         </button>
                       </div>
                     </td>
@@ -472,18 +475,18 @@ export default function TrackManagement() {
                     <tr>
                       <td colSpan={5} className="px-4 pb-4 bg-secondary">
                         {track.areas.length === 0 ? (
-                          <p className="pt-3 text-sm text-muted-foreground">No focus areas yet. Press Edit to add some.</p>
+                          <p className="pt-3 text-sm text-muted-foreground">{t.noAreasEdit}</p>
                         ) : (
                           <table className="mt-3 w-full text-xs text-left bg-card border border-border rounded">
                             <thead className="bg-secondary text-muted-foreground">
                               <tr>
                                 <th className="px-3 py-2 font-medium">#</th>
-                                <th className="px-3 py-2 font-medium">Name</th>
-                                <th className="px-3 py-2 font-medium text-right">Start – End</th>
-                                <th className="px-3 py-2 font-medium text-right">Brake Point</th>
-                                <th className="px-3 py-2 font-medium text-right">Max Brake</th>
-                                <th className="px-3 py-2 font-medium text-right">On Throttle</th>
-                                <th className="px-3 py-2 font-medium">Notes</th>
+                                <th className="px-3 py-2 font-medium">{t.name}</th>
+                                <th className="px-3 py-2 font-medium text-right">{t.startEnd}</th>
+                                <th className="px-3 py-2 font-medium text-right">{t.brakePoint}</th>
+                                <th className="px-3 py-2 font-medium text-right">{t.maxBrake}</th>
+                                <th className="px-3 py-2 font-medium text-right">{t.onThrottle}</th>
+                                <th className="px-3 py-2 font-medium">{t.notes}</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-border" style={{ fontVariantNumeric: 'tabular-nums' }}>
@@ -494,9 +497,9 @@ export default function TrackManagement() {
                                   <td className="px-3 py-1.5 text-right">
                                     {a.startPoint} – {a.endPoint}
                                   </td>
-                                  <td className="px-3 py-1.5 text-right">{target(a.brakePointFeet, ' ft')}</td>
-                                  <td className="px-3 py-1.5 text-right">{target(a.maxBrakePct, '%')}</td>
-                                  <td className="px-3 py-1.5 text-right">{target(a.throttlePointFeet, ' ft')}</td>
+                                  <td className="px-3 py-1.5 text-right">{target(a.brakePointFeet, ' ft', locale)}</td>
+                                  <td className="px-3 py-1.5 text-right">{target(a.maxBrakePct, '%', locale)}</td>
+                                  <td className="px-3 py-1.5 text-right">{target(a.throttlePointFeet, ' ft', locale)}</td>
                                   <td className="px-3 py-1.5 text-muted-foreground">{a.notes ?? ''}</td>
                                 </tr>
                               ))}

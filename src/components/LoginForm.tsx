@@ -4,11 +4,13 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import ForgotPasswordForm from './ForgotPasswordForm';
+import { useLanguage } from './LanguageProvider';
 
 const inputClass =
   'w-full px-4 py-3 bg-card border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors';
 
 export default function LoginForm() {
+  const { t } = useLanguage();
   const router = useRouter();
   const [formData, setFormData] = useState({ emailAddress: '', password: '' });
   const [loading, setLoading] = useState(false);
@@ -32,12 +34,12 @@ export default function LoginForm() {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to log in');
+        throw new Error(data.error || t.auth.failedLogIn);
       }
       router.push('/');
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to log in');
+      setError(err instanceof Error ? err.message : t.auth.failedLogIn);
       setLoading(false);
     }
   };
@@ -50,7 +52,7 @@ export default function LoginForm() {
     <form onSubmit={handleSubmit} className="space-y-6">
       <div>
         <label htmlFor="emailAddress" className="block text-sm font-medium text-foreground mb-2">
-          Email Address
+          {t.common.emailAddress}
         </label>
         <input
           type="email"
@@ -66,7 +68,7 @@ export default function LoginForm() {
 
       <div>
         <label htmlFor="password" className="block text-sm font-medium text-foreground mb-2">
-          Password
+          {t.common.password}
         </label>
         <input
           type="password"
@@ -89,17 +91,17 @@ export default function LoginForm() {
         disabled={loading}
         className="w-full px-6 py-3 rounded-lg bg-gradient-to-r from-primary to-primary-strong text-white font-semibold hover:shadow-lg transition-all disabled:opacity-60"
       >
-        {loading ? 'Logging in...' : 'Log In'}
+        {loading ? t.auth.loggingIn : t.auth.logIn}
       </button>
 
       <p className="text-center text-sm text-muted-foreground">
-        Don&apos;t have an account?{' '}
+        {t.auth.noAccount}{' '}
         <Link href="/signup" className="text-primary hover:underline font-medium">
-          Sign up
+          {t.auth.signUp}
         </Link>
       </p>
       <p className="text-center text-sm text-muted-foreground">
-        Forgot password?{' '}
+        {t.auth.forgotPassword}{' '}
         <a
           href="#"
           onClick={(e) => {
@@ -108,7 +110,7 @@ export default function LoginForm() {
           }}
           className="text-primary hover:underline font-medium"
         >
-          Click here
+          {t.auth.clickHere}
         </a>
       </p>
     </form>

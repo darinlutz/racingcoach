@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { formatDate } from '@/components/IRatingChart';
+import { useLanguage } from '@/components/LanguageProvider';
 import RaceRangePicker, { lastRaces } from '@/components/RaceRangePicker';
 import { SECTOR_COLORS, niceTicks } from '@/components/SectorChart';
 import type { RaceEvent } from '@/lib/raceTrends';
@@ -29,6 +30,8 @@ export default function PositionsChart({
   range: number;
   onRangeChange: (range: number) => void;
 }) {
+  const { t: dictionary, fmt, locale } = useLanguage();
+  const t = dictionary.raceCharts;
   const containerRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
@@ -44,7 +47,7 @@ export default function PositionsChart({
 
   const all = events.filter((e): e is Race => e.startPosition !== null && e.finishPosition !== null);
   if (all.length === 0) {
-    return <p className="text-sm text-muted-foreground">None of these races have a start and finish position.</p>;
+    return <p className="text-sm text-muted-foreground">{t.noPositions}</p>;
   }
   const races = lastRaces(all, range);
   const avgGained = races.reduce((s, r) => s + r.startPosition - r.finishPosition, 0) / races.length;
@@ -73,9 +76,9 @@ export default function PositionsChart({
     <div className="bg-card border border-border rounded-lg p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2 mb-3">
         <p className="text-sm font-medium text-foreground">
-          Start and finish position <span className="font-normal text-muted-foreground">per race</span>
+          {t.positionsTitle} <span className="font-normal text-muted-foreground">{t.perRace}</span>
           <span className="ml-2 font-normal text-muted-foreground" style={{ fontVariantNumeric: 'tabular-nums' }}>
-            ({signed(Number(avgGained.toFixed(1)))} avg positions over {races.length} races)
+            {fmt(t.positionsAvg, { avg: signed(Number(avgGained.toFixed(1))), n: races.length })}
           </span>
         </p>
         <RaceRangePicker value={range} onChange={onRangeChange} />
@@ -85,11 +88,11 @@ export default function PositionsChart({
       <ul className="flex flex-wrap gap-x-4 gap-y-1 mb-2 text-xs text-muted-foreground">
         <li className="flex items-center gap-1.5">
           <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: START }} />
-          Start position
+          {t.startPosition}
         </li>
         <li className="flex items-center gap-1.5">
           <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: FINISH }} />
-          Finish position
+          {t.finishPosition}
         </li>
       </ul>
 
@@ -99,7 +102,7 @@ export default function PositionsChart({
             width={width}
             height={HEIGHT}
             role="img"
-            aria-label={`Start and finish position in each of ${races.length} races`}
+            aria-label={fmt(t.positionsAria, { n: races.length })}
             className="block"
             style={{ fontVariantNumeric: 'tabular-nums' }}
           >
@@ -157,7 +160,7 @@ export default function PositionsChart({
                   fontSize={11}
                   fill={INK_MUTED}
                 >
-                  {new Date(r.startTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  {new Date(r.startTime).toLocaleDateString(locale, { month: 'short', day: 'numeric' })}
                 </text>
               ) : null
             )}
@@ -182,19 +185,19 @@ export default function PositionsChart({
             className="pointer-events-none absolute top-2 z-10 bg-card border border-border rounded-lg shadow-md px-3 py-2 text-xs text-foreground whitespace-nowrap"
             style={tooltipOnLeft ? { right: width - hoverX + 12 } : { left: hoverX + 12 }}
           >
-            <p className="font-semibold mb-1">{formatDate(hovered.startTime)}</p>
+            <p className="font-semibold mb-1">{formatDate(hovered.startTime, locale)}</p>
             <p className="text-muted-foreground">{hovered.series}</p>
             <p className="text-muted-foreground">{hovered.track}</p>
             <p className="mt-1 flex items-center gap-1.5" style={{ fontVariantNumeric: 'tabular-nums' }}>
               <span className="inline-block w-2 h-2 rounded-sm" style={{ backgroundColor: START }} />
-              Started <span className="font-semibold">P{hovered.startPosition}</span>
+              {t.started}<span className="font-semibold">P{hovered.startPosition}</span>
             </p>
             <p className="flex items-center gap-1.5" style={{ fontVariantNumeric: 'tabular-nums' }}>
               <span className="inline-block w-2 h-2 rounded-sm" style={{ backgroundColor: FINISH }} />
-              Finished <span className="font-semibold">P{hovered.finishPosition}</span>
+              {t.finished}<span className="font-semibold">P{hovered.finishPosition}</span>
             </p>
             <p className="text-muted-foreground" style={{ fontVariantNumeric: 'tabular-nums' }}>
-              {signed(hovered.startPosition - hovered.finishPosition)} positions
+              {fmt(t.positions, { n: signed(hovered.startPosition - hovered.finishPosition) })}
             </p>
           </div>
         )}
@@ -206,25 +209,25 @@ export default function PositionsChart({
         onClick={() => setShowTable(!showTable)}
         className="mt-2 text-xs font-semibold text-primary hover:underline"
       >
-        {showTable ? 'Hide values' : 'Show values'}
+        {showTable ? t.hideValues : t.showValues}
       </button>
       {showTable && (
         <div className="mt-2 max-h-96 overflow-auto border border-border rounded-lg">
           <table className="w-full text-xs text-foreground whitespace-nowrap" style={{ fontVariantNumeric: 'tabular-nums' }}>
             <thead className="sticky top-0 bg-secondary text-left text-muted-foreground">
               <tr>
-                <th className="px-3 py-2 font-medium">Date</th>
-                <th className="px-3 py-2 font-medium">Series</th>
-                <th className="px-3 py-2 font-medium">Track</th>
-                <th className="px-3 py-2 font-medium text-right">Start</th>
-                <th className="px-3 py-2 font-medium text-right">Finish</th>
-                <th className="px-3 py-2 font-medium text-right">Gained/Lost</th>
+                <th className="px-3 py-2 font-medium">{t.date}</th>
+                <th className="px-3 py-2 font-medium">{t.series}</th>
+                <th className="px-3 py-2 font-medium">{t.track}</th>
+                <th className="px-3 py-2 font-medium text-right">{t.start}</th>
+                <th className="px-3 py-2 font-medium text-right">{t.finish}</th>
+                <th className="px-3 py-2 font-medium text-right">{t.gainedLost}</th>
               </tr>
             </thead>
             <tbody>
               {[...races].reverse().map((r) => (
                 <tr key={r.eventId} className="border-t border-border">
-                  <td className="px-3 py-1.5">{formatDate(r.startTime)}</td>
+                  <td className="px-3 py-1.5">{formatDate(r.startTime, locale)}</td>
                   <td className="px-3 py-1.5">{r.series}</td>
                   <td className="px-3 py-1.5">{r.track}</td>
                   <td className="px-3 py-1.5 text-right">P{r.startPosition}</td>

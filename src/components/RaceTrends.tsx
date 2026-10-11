@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 
 import IncidentsChart from '@/components/IncidentsChart';
+import { useLanguage } from '@/components/LanguageProvider';
 import IRatingChart from '@/components/IRatingChart';
 import PositionsChart from '@/components/PositionsChart';
 import { DEFAULT_RACE_RANGE } from '@/components/RaceRangePicker';
@@ -12,20 +13,18 @@ import type { IncidentPoint, IRatingSeries, RaceEvent } from '@/lib/raceTrends';
 
 type ChartTab = 'iRating' | 'incidents' | 'positions';
 
-const CHART_TABS: { value: ChartTab; label: string }[] = [
-  { value: 'iRating', label: 'iRating Trend' },
-  { value: 'incidents', label: 'Incidents' },
-  { value: 'positions', label: 'Positions Gained/Lost' },
-];
+const CHART_TABS: ChartTab[] = ['iRating', 'incidents', 'positions'];
 
 type SyncState = { running: boolean; loaded: number; total: number; error: string };
 
-const formatDateTime = (iso: string) =>
-  new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+const formatDateTime = (iso: string, locale: string) =>
+  new Date(iso).toLocaleString(locale, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
 
 // Races come from the user's iRacePlan account: they are loaded into the database the first time and
 // only new ones are fetched after that, every time the tab opens
 export default function RaceTrends() {
+  const { t: dictionary, fmt, plural, locale, number } = useLanguage();
+  const t = dictionary.raceTrends;
   const [loaded, setLoaded] = useState(false);
   const [signedOut, setSignedOut] = useState(false);
   const [loadError, setLoadError] = useState('');
@@ -53,11 +52,11 @@ export default function RaceTrends() {
       return null;
     }
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Failed to load your races');
+    if (!res.ok) throw new Error(data.error || t.failedLoad);
     setConnection(data.connection);
     setEvents(data.events);
     return data.connection as Connection | null;
-  }, []);
+  }, [t]);
 
   // Calls the sync endpoint until every completed race is loaded, showing progress as it goes
   const runSync = useCallback(async () => {
@@ -69,7 +68,7 @@ export default function RaceTrends() {
       for (;;) {
         const res = await fetch('/api/race-trends/sync', { method: 'POST' });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Failed to load your races from iRacePlan');
+        if (!res.ok) throw new Error(data.error || t.failedSync);
         setSync({ running: true, loaded: data.loaded, total: data.total, error: '' });
         // Stop when done, or when a batch made no progress (iRacePlan errors are retried next time)
         if (data.remaining === 0 || data.remaining >= previousRemaining) break;
@@ -78,11 +77,11 @@ export default function RaceTrends() {
       await loadRaces();
       setSync((s) => ({ ...s, running: false }));
     } catch (err) {
-      setSync((s) => ({ ...s, running: false, error: err instanceof Error ? err.message : 'Sync failed' }));
+      setSync((s) => ({ ...s, running: false, error: err instanceof Error ? err.message : t.syncFailed }));
     } finally {
       syncing.current = false;
     }
-  }, [loadRaces]);
+  }, [loadRaces, t]);
 
   useEffect(() => {
     loadRaces()
@@ -97,9 +96,9 @@ export default function RaceTrends() {
     return (
       <div className="bg-secondary rounded-xl border border-border p-8 text-muted-foreground">
         <Link href="/login" className="font-semibold text-primary hover:underline">
-          Log in
-        </Link>{' '}
-        to see your race trends.
+          {t.logIn}
+        </Link>
+        {t.signedOut}
       </div>
     );
   }
@@ -114,19 +113,19 @@ export default function RaceTrends() {
         body: JSON.stringify({ apiKey }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to connect iRacePlan');
+      if (!res.ok) throw new Error(data.error || t.failedConnect);
       setConnection(data.connection);
       setApiKey('');
       void runSync();
     } catch (err) {
-      setConnectError(err instanceof Error ? err.message : 'Failed to connect iRacePlan');
+      setConnectError(err instanceof Error ? err.message : t.failedConnect);
     } finally {
       setConnecting(false);
     }
   };
 
   const disconnectIRacePlan = async () => {
-    if (!window.confirm('Disconnect iRacePlan? Races already loaded stay; new races stop loading until you reconnect.')) return;
+    if (!window.confirm(t.disconnectConfirm)) return;
     const res = await fetch('/api/race-trends/connection', { method: 'DELETE' });
     if (res.ok) setConnection(null);
   };
@@ -141,13 +140,13 @@ export default function RaceTrends() {
     try {
       const res = await fetch('/api/race-trends', { method: 'POST' });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to get the race trends');
+      if (!res.ok) throw new Error(data.error || t.failedTrends);
       setTrend(data.trend);
       setIncidents(data.incidents);
       setCommentary(data.commentary);
       setSteps(data.steps);
     } catch (err) {
-      setRunError(err instanceof Error ? err.message : 'unknown error');
+      setRunError(err instanceof Error ? err.message : dictionary.common.unknownError);
     } finally {
       setRunning(false);
     }
@@ -160,7 +159,7 @@ export default function RaceTrends() {
   return (
     <div className="bg-secondary rounded-xl border border-border p-8 space-y-6">
       {!loaded ? (
-        <p className="text-sm text-muted-foreground">Loading your races…</p>
+        <p className="text-sm text-muted-foreground">{t.loading}</p>
       ) : loadError ? (
         <div className="px-4 py-3 rounded-lg border text-sm bg-primary/10 border-primary/40 text-red-300">{loadError}</div>
       ) : connection ? (
@@ -168,11 +167,11 @@ export default function RaceTrends() {
         <div className="px-4 py-3 bg-card border border-border rounded-lg text-sm space-y-2">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-foreground">
-              Connected to iRacePlan as <span className="font-semibold">{connection.iracingName}</span>
+              {t.connectedAs}<span className="font-semibold">{connection.iracingName}</span>
               <span className="text-muted-foreground">
-                {' '}
-                • {events.length.toLocaleString('en-US')} {events.length === 1 ? 'race' : 'races'}
-                {connection.syncedAt && ` • Last synced ${formatDateTime(connection.syncedAt)}`}
+                {' • '}
+                {plural(events.length, t.raceCount)}
+                {connection.syncedAt && fmt(t.lastSynced, { date: formatDateTime(connection.syncedAt, locale) })}
               </span>
             </p>
             <div className="flex gap-2">
@@ -182,7 +181,7 @@ export default function RaceTrends() {
                 disabled={sync.running}
                 className="px-3 py-1.5 text-xs font-semibold bg-card border border-border rounded-lg text-foreground hover:border-primary hover:text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {sync.running ? 'Syncing…' : 'Sync now'}
+                {sync.running ? t.syncing : t.syncNow}
               </button>
               <button
                 type="button"
@@ -190,15 +189,15 @@ export default function RaceTrends() {
                 disabled={sync.running}
                 className="px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-primary disabled:opacity-50"
               >
-                Disconnect
+                {t.disconnect}
               </button>
             </div>
           </div>
           {sync.running && (
             <p className="text-muted-foreground">
-              Loading your races from iRacePlan
-              {sync.total > 0 && `… ${sync.loaded.toLocaleString('en-US')} of ${sync.total.toLocaleString('en-US')}`}
-              {firstLoad && ' (the first load takes a few minutes; later syncs only fetch new races)'}
+              {t.loadingFromIRacePlan}
+              {sync.total > 0 && fmt(t.progress, { loaded: number(sync.loaded), total: number(sync.total) })}
+              {firstLoad && t.firstLoad}
             </p>
           )}
           {sync.error && <p className="text-red-300">{sync.error}</p>}
@@ -207,13 +206,13 @@ export default function RaceTrends() {
         /* Not connected yet */
         <div className="px-5 py-4 bg-card border border-border rounded-lg space-y-3">
           <div>
-            <h3 className="font-bold text-foreground">Connect iRacePlan</h3>
+            <h3 className="font-bold text-foreground">{t.connectTitle}</h3>
             <p className="text-sm text-muted-foreground">
-              Your races load automatically from{' '}
+              {t.connectBefore}
               <a href="https://iraceplan.com" target="_blank" rel="noreferrer" className="text-primary hover:underline">
                 iRacePlan
               </a>
-              . Create an API key under Settings &gt; API Keys there and paste it here.
+              {t.connectAfter}
             </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-3">
@@ -222,9 +221,9 @@ export default function RaceTrends() {
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && apiKey.trim() && void connectIRacePlan()}
-              placeholder="iRacePlan API key"
+              placeholder={t.apiKeyPlaceholder}
               autoComplete="off"
-              aria-label="iRacePlan API key"
+              aria-label={t.apiKeyPlaceholder}
               className={inputClass}
             />
             <button
@@ -233,13 +232,13 @@ export default function RaceTrends() {
               disabled={!apiKey.trim() || connecting}
               className="px-6 py-3 font-semibold text-white bg-gradient-to-r from-primary to-primary-strong rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
             >
-              {connecting ? 'Connecting…' : 'Connect'}
+              {connecting ? t.connecting : t.connect}
             </button>
           </div>
           {connectError && <p className="text-sm text-red-300">{connectError}</p>}
           {events.length > 0 && (
             <p className="text-sm text-muted-foreground">
-              {events.length.toLocaleString('en-US')} races from before are still here; reconnect to load new ones.
+              {plural(events.length, t.racesFromBefore)}
             </p>
           )}
         </div>
@@ -252,22 +251,18 @@ export default function RaceTrends() {
           disabled={events.length === 0 || firstLoad || running}
           className="px-6 py-3 font-semibold text-white bg-gradient-to-r from-primary to-primary-strong rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {running ? 'Analyzing your races…' : 'Get Trends'}
+          {running ? t.analyzing : t.getTrends}
         </button>
 
         {runError && (
           <div className="px-4 py-3 rounded-lg border text-sm bg-primary/10 border-primary/40 text-red-300">
-            Failed: {runError}
+            {fmt(dictionary.common.failed, { error: runError })}
           </div>
         )}
 
         {!trend && !runError && !running && loaded && (
           <p className="text-sm text-muted-foreground">
-            {events.length > 0
-              ? 'Press Get Trends to see your iRating and incidents over time.'
-              : connection
-                ? 'Your races will appear here once they have loaded.'
-                : 'Connect iRacePlan to load your races.'}
+            {events.length > 0 ? t.pressGetTrends : connection ? t.racesWillAppear : t.connectToLoad}
           </p>
         )}
 
@@ -278,18 +273,18 @@ export default function RaceTrends() {
               <div className="flex flex-wrap gap-2 border-b border-border" role="tablist">
                 {CHART_TABS.map((tab) => (
                   <button
-                    key={tab.value}
+                    key={tab}
                     type="button"
                     role="tab"
-                    aria-selected={chartTab === tab.value}
-                    onClick={() => setChartTab(tab.value)}
+                    aria-selected={chartTab === tab}
+                    onClick={() => setChartTab(tab)}
                     className={`px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition-colors ${
-                      chartTab === tab.value
+                      chartTab === tab
                         ? 'text-primary border-primary'
                         : 'text-muted-foreground border-transparent hover:text-foreground'
                     }`}
                   >
-                    {tab.label}
+                    {t.chartTabs[tab]}
                   </button>
                 ))}
               </div>
@@ -300,12 +295,10 @@ export default function RaceTrends() {
                     {trend.length > 0 ? (
                       <IRatingChart trend={trend} range={range} onRangeChange={setRange} />
                     ) : (
-                      <p className="text-sm text-muted-foreground">None of these races have an iRating.</p>
+                      <p className="text-sm text-muted-foreground">{t.noIRating}</p>
                     )}
                     <p className="text-xs text-muted-foreground">
-                      Each point is your iRating after a race. iRacing keeps a separate iRating for each license
-                      category, so each category gets its own line. Unofficial races (such as 13th week events)
-                      don&apos;t change iRating, so they show as flat steps.
+                      {t.iRatingNote}
                     </p>
                   </>
                 )}
@@ -314,8 +307,7 @@ export default function RaceTrends() {
                   <>
                     <PositionsChart events={events} range={range} onRangeChange={setRange} />
                     <p className="text-xs text-muted-foreground">
-                      Each pair of bars is one race: where you started and where you finished, in your class. A
-                      shorter orange bar than blue means you gained positions.
+                      {t.positionsNote}
                     </p>
                   </>
                 )}
@@ -324,8 +316,7 @@ export default function RaceTrends() {
                   <>
                     <IncidentsChart points={incidents} range={range} onRangeChange={setRange} />
                     <p className="text-xs text-muted-foreground">
-                      Each dot is the incident points you picked up in one race, rated or not. The line is the average
-                      of your last 10 races at that point, which shows the trend better than single races.
+                      {t.incidentsNote}
                     </p>
                   </>
                 )}
@@ -334,14 +325,14 @@ export default function RaceTrends() {
 
             {commentary && (
               <div className="px-5 py-4 bg-card border border-border rounded-lg">
-                <h3 className="font-bold text-foreground mb-2">Commentary</h3>
+                <h3 className="font-bold text-foreground mb-2">{t.commentary}</h3>
                 <p className="text-sm text-foreground whitespace-pre-wrap">{commentary}</p>
               </div>
             )}
 
             {steps.length > 0 && (
               <details className="text-sm text-muted-foreground">
-                <summary className="cursor-pointer">What the agent checked ({steps.length} steps)</summary>
+                <summary className="cursor-pointer">{plural(steps.length, t.stepsChecked)}</summary>
                 <ol className="mt-2 list-decimal pl-5 space-y-1 font-mono text-xs">
                   {steps.map((step, i) => (
                     <li key={i}>{step}</li>

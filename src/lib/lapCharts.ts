@@ -9,19 +9,22 @@ export const COMPARE_LAP_COLOR = '#ff4040';
 // Plot margins of the line charts, so their plots line up under each other
 export const CHART_MARGIN = { top: 10, right: 64, bottom: 28, left: 40 };
 
-// The horizontal axis: a focus area's start and end as lap positions, and the track length that turns
-// them into feet (null shows % of the lap instead)
+// The horizontal axis: a focus area's start and end as lap positions, the track length that turns
+// them into feet (null shows % of the lap instead), and the locale its numbers are formatted for
 export type Axis = {
   domain: [number, number];
   lengthFeet: number | null;
+  locale: string;
 };
 
 export const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
 // Lap position -> axis label: feet from the start/finish line, or % of the lap without a track length
-export function positionLabel(pct: number, lengthFeet: number | null) {
+export function positionLabel(pct: number, { lengthFeet, locale }: Axis) {
   const lapPct = ((pct % 1) + 1) % 1;
-  return lengthFeet ? `${Math.round(lapPct * lengthFeet).toLocaleString('en-US')} ft` : `${(lapPct * 100).toFixed(1)}%`;
+  return lengthFeet
+    ? `${Math.round(lapPct * lengthFeet).toLocaleString(locale)} ft`
+    : `${(lapPct * 100).toLocaleString(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
 }
 
 // Round tick positions (lap positions) across the domain: steps of 1/2/5 x 10^n feet (or % of the lap)

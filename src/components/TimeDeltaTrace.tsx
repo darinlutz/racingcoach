@@ -2,6 +2,7 @@
 
 import { type KeyboardEvent, type PointerEvent } from 'react';
 
+import { useLanguage } from '@/components/LanguageProvider';
 import type { PedalTraceLap } from '@/components/PedalTraces';
 import { CHART_MARGIN as MARGIN, clamp, nearestIndex, positionLabel, xTicks, type Axis } from '@/lib/lapCharts';
 import { timeAtPosition } from '@/lib/lapData';
@@ -14,9 +15,10 @@ const LOSS_TEXT = 'text-red-300';
 const GAIN_TEXT = 'text-green-300';
 
 // +0.123 s / -0.045 s
-function formatDelta(seconds: number) {
+function formatDelta(seconds: number, locale: string) {
   const rounded = Math.round(seconds * 1000) / 1000;
-  return `${rounded > 0 ? '+' : rounded < 0 ? '−' : '±'}${Math.abs(rounded).toFixed(3)} s`;
+  const digits = Math.abs(rounded).toLocaleString(locale, { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+  return `${rounded > 0 ? '+' : rounded < 0 ? '−' : '±'}${digits} s`;
 }
 
 // Round seconds ticks covering lo..hi and 0: steps of 1/2/5 x 10^n
@@ -52,6 +54,9 @@ export default function TimeDeltaTrace({
   hoverPct: number | null;
   onHover: (pct: number | null) => void;
 }) {
+  const { t: dictionary, fmt, locale } = useLanguage();
+  const t = dictionary.charts;
+  const delta = (seconds: number) => formatDelta(seconds, locale);
   const [d0, d1] = axis.domain;
   const span = d1 - d0;
   const innerW = Math.max(width - MARGIN.left - MARGIN.right, 50);
@@ -82,9 +87,9 @@ export default function TimeDeltaTrace({
   const most = Math.max(...deltas);
   const least = Math.min(...deltas);
   const summary = [
-    `Compare lap ends the area ${formatDelta(final)}`,
-    most > 0.0005 && `most behind ${formatDelta(most)}`,
-    least < -0.0005 && `most ahead ${formatDelta(least)}`,
+    fmt(t.endsArea, { delta: delta(final) }),
+    most > 0.0005 && fmt(t.mostBehind, { delta: delta(most) }),
+    least < -0.0005 && fmt(t.mostAhead, { delta: delta(least) }),
   ]
     .filter(Boolean)
     .join(', ');
@@ -106,13 +111,13 @@ export default function TimeDeltaTrace({
   return (
     <figure className="relative">
       <div className="flex flex-wrap items-center gap-4 mb-1 text-xs text-muted-foreground">
-        <span className="text-sm font-semibold text-foreground">Time gained/lost</span>
-        <span>Compare lap vs Base lap</span>
+        <span className="text-sm font-semibold text-foreground">{t.timeTitle}</span>
+        <span>{t.timeVs}</span>
         <span className="flex items-center gap-1.5">
-          <span className="inline-block w-3 h-2.5 rounded-sm" style={{ backgroundColor: LOSS_FILL }} /> Compare behind
+          <span className="inline-block w-3 h-2.5 rounded-sm" style={{ backgroundColor: LOSS_FILL }} /> {t.compareBehind}
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="inline-block w-3 h-2.5 rounded-sm" style={{ backgroundColor: GAIN_FILL }} /> Compare ahead
+          <span className="inline-block w-3 h-2.5 rounded-sm" style={{ backgroundColor: GAIN_FILL }} /> {t.compareAhead}
         </span>
       </div>
       <svg
@@ -120,7 +125,7 @@ export default function TimeDeltaTrace({
         height={HEIGHT}
         tabIndex={0}
         role="img"
-        aria-label={`Time gained or lost. ${summary}`}
+        aria-label={fmt(t.timeAria, { summary })}
         onKeyDown={onKeyDown}
         onFocus={() => onHover(hoverPct ?? d0)}
         onBlur={() => onHover(null)}
@@ -148,13 +153,13 @@ export default function TimeDeltaTrace({
               strokeWidth={1}
             />
             <text x={MARGIN.left - 6} y={y(tick)} dy="0.32em" textAnchor="end" fontSize={11} fill="currentColor" className="tabular-nums">
-              {tick === 0 ? '0' : `${tick > 0 ? '+' : '−'}${Number(Math.abs(tick).toPrecision(3))}`}
+              {tick === 0 ? '0' : `${tick > 0 ? '+' : '−'}${Number(Math.abs(tick).toPrecision(3)).toLocaleString(locale)}`}
             </text>
           </g>
         ))}
         {xTicks(axis).map((tick) => (
           <text key={tick} x={x(tick)} y={HEIGHT - 8} textAnchor="middle" fontSize={11} fill="currentColor" className="tabular-nums">
-            {positionLabel(tick, axis.lengthFeet)}
+            {positionLabel(tick, axis)}
           </text>
         ))}
 
@@ -170,7 +175,7 @@ export default function TimeDeltaTrace({
           fontSize={11}
           className={`tabular-nums ${final > 0 ? 'fill-red-300' : final < 0 ? 'fill-green-300' : 'fill-current'}`}
         >
-          {formatDelta(final).replace(' s', '')}
+          {delta(final).replace(' s', '')}
         </text>
 
         {hoverX !== null && (
@@ -194,20 +199,20 @@ export default function TimeDeltaTrace({
           className="pointer-events-none absolute top-8 z-10 px-3 py-2 rounded-lg border border-border bg-card shadow-lg text-xs"
           style={hoverX > width / 2 ? { right: width - hoverX + 8 } : { left: hoverX + 8 }}
         >
-          <p className="text-muted-foreground mb-1 tabular-nums">{positionLabel(hoverPct, axis.lengthFeet)}</p>
+          <p className="text-muted-foreground mb-1 tabular-nums">{positionLabel(hoverPct, axis)}</p>
           <p className="flex items-center gap-2">
             <span className={`font-semibold tabular-nums ${hoverDelta > 0 ? LOSS_TEXT : hoverDelta < 0 ? GAIN_TEXT : 'text-foreground'}`}>
-              {formatDelta(hoverDelta)}
+              {delta(hoverDelta)}
             </span>
             <span className="text-muted-foreground">
-              {Math.abs(hoverDelta) < 0.0005 ? 'level' : hoverDelta > 0 ? 'Compare behind' : 'Compare ahead'}
+              {Math.abs(hoverDelta) < 0.0005 ? t.level : hoverDelta > 0 ? t.compareBehind : t.compareAhead}
             </span>
           </p>
         </div>
       )}
 
       <figcaption className="mt-1 text-xs text-muted-foreground">
-        {summary}. Above zero the Compare lap has taken longer since the start of the area; below zero it&apos;s ahead.
+        {summary}. {t.timeCaption}
       </figcaption>
     </figure>
   );

@@ -2,11 +2,13 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import { useLanguage } from './LanguageProvider';
 
 const inputClass =
   'w-full px-4 py-3 bg-card border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors';
 
 export default function ResetPasswordForm({ token }: { token: string }) {
+  const { t, fmt } = useLanguage();
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -25,11 +27,11 @@ export default function ResetPasswordForm({ token }: { token: string }) {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to reset password');
+        throw new Error(data.error || t.auth.failedReset);
       }
       setDone(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to reset password');
+      setError(err instanceof Error ? err.message : t.auth.failedReset);
     } finally {
       setLoading(false);
     }
@@ -39,13 +41,13 @@ export default function ResetPasswordForm({ token }: { token: string }) {
     return (
       <div className="space-y-6">
         <p className="p-3 rounded-lg bg-positive/10 border border-positive/40 text-positive text-sm">
-          Your password has been reset.
+          {t.auth.resetDone}
         </p>
         <Link
           href="/login"
           className="block w-full text-center px-6 py-3 rounded-lg bg-gradient-to-r from-primary to-primary-strong text-white font-semibold hover:shadow-lg transition-all"
         >
-          Log in
+          {t.auth.logInLink}
         </Link>
       </div>
     );
@@ -55,7 +57,8 @@ export default function ResetPasswordForm({ token }: { token: string }) {
     <form onSubmit={handleSubmit} className="space-y-6">
       <div>
         <label htmlFor="password" className="block text-sm font-medium text-foreground mb-2">
-          Password * <span className="text-muted-foreground font-normal">(at least 8 characters)</span>
+          {fmt(t.common.required, { label: t.common.password })}{' '}
+          <span className="text-muted-foreground font-normal">{t.common.passwordHint}</span>
         </label>
         <input
           type="password"
@@ -79,7 +82,7 @@ export default function ResetPasswordForm({ token }: { token: string }) {
         disabled={loading}
         className="w-full px-6 py-3 rounded-lg bg-gradient-to-r from-primary to-primary-strong text-white font-semibold hover:shadow-lg transition-all disabled:opacity-60"
       >
-        {loading ? 'Resetting...' : 'Reset Password'}
+        {loading ? t.auth.resetting : t.auth.resetPassword}
       </button>
     </form>
   );

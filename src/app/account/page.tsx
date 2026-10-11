@@ -1,5 +1,7 @@
 import { redirect } from 'next/navigation';
 import CancelSubscriptionButton from '@/components/CancelSubscriptionButton';
+import CollectorKeyCard from '@/components/CollectorKeyCard';
+import { getCollectorKey } from '@/lib/collectorKeys';
 import { DISCORD_INVITE_URL, getDiscordConnection } from '@/lib/discord';
 import { getCurrentUser } from '@/lib/session';
 import { canBuy } from '@/lib/users';
@@ -44,7 +46,7 @@ export default async function AccountPage({
   if (!user) redirect('/login');
   const { discord: discordResult } = await searchParams;
   const discordMessage = typeof discordResult === 'string' ? DISCORD_MESSAGES[discordResult] : undefined;
-  const discord = await getDiscordConnection(user.id);
+  const [discord, collectorKey] = await Promise.all([getDiscordConnection(user.id), getCollectorKey(user.id)]);
   const isSubscribed = user.accountStatus === ACCOUNT_STATUS.subscribed;
   // A canceled subscription keeps its end date: the end of the last paid period
   const showEndDate =
@@ -157,6 +159,8 @@ export default async function AccountPage({
             </div>
           )}
         </div>
+
+        <CollectorKeyCard initialKey={collectorKey} />
 
         {canSubscribe && (
           <form action="/api/create-checkout-session" method="POST" className="mt-8 space-y-3">

@@ -131,7 +131,7 @@ internal sealed class LapRecorder(Action<CompletedLap> onLapCompleted, Action<st
             LapTimeSeconds: lapTime,
             Samples: samples,
             MissingSamples: _missingSamples,
-            Incidents: (last.PlayerCarMyIncidentCount ?? 0) - (first.PlayerCarMyIncidentCount ?? 0),
+            Incidents: Math.Max(0, (last.PlayerCarMyIncidentCount ?? 0) - (first.PlayerCarMyIncidentCount ?? 0)),
             OnPitRoad: samples.Any(s => s.OnPitRoad == true),
             OffTrack: samples.Any(s => s.PlayerTrackSurface == TrackLocation.OffTrack));
     }

@@ -35,17 +35,36 @@ namespace RacingCoach.Collector;
 ])]
 public class Program
 {
+    private const string Usage = """
+        Usage: RacingCoach.Collector.exe [options]
+               RacingCoach.Collector.exe <file.ibt> [speed] [options]
+
+          <file.ibt> [speed]  Play back a recorded iRacing telemetry file instead of reading live
+                              iRacing (speed: 1 = real time, the default)
+          --set-key           Enter a new upload key from your RacingCoach.app Account page
+          --no-upload         Only save laps on this PC this time
+          --upload            Also upload laps when playing back a file (off by default)
+          --site <url>        Upload to another RacingCoach.app address this time (for testing)
+        """;
+
     public static async Task<int> Main(string[] args)
     {
-        // Optional: pass a recorded .ibt file to play it back instead of reading live iRacing,
-        // and a speed multiplier (default 1 = real time, 60 samples/s).
-        IBTOptions? ibtOptions = args.Length > 0
-            ? new IBTOptions(args[0], args.Length > 1 ? int.Parse(args[1]) : 1)
-            : null;
+        if (!TryParseArgs(args, out var options))
+        {
+            Console.Error.WriteLine(Usage);
+            return 1;
+        }
+
+        // Optional: a recorded .ibt file to play back instead of reading live iRacing, and a speed multiplier.
+        IBTOptions? ibtOptions = options.IbtFile is null ? null : new IBTOptions(options.IbtFile, options.Speed);
         // Playback waits for each handler call instead of dropping samples when it runs faster than we keep up.
         var clientOptions = ibtOptions is null ? new ClientOptions() : new ClientOptions { DeliveryMode = TelemetryDeliveryMode.Synchronous };
 
         var lapsFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "RacingCoach", "Laps");
+
+        // Played-back files are usually someone else's laps, so they only upload when asked to
+        var wantUploads = !options.NoUpload && (ibtOptions is null || options.Upload);
+        using var api = wantUploads ? await UploadSetup.ConnectAsync(options.SiteUrl, options.SetKey) : null;
 
         using var loggerFactory = LoggerFactory.Create(b => b.AddConsole().SetMinimumLevel(LogLevel.Warning));
         var logger = loggerFactory.CreateLogger("RacingCoach.Collector");
@@ -58,15 +77,20 @@ public class Program
         };
 
         var display = new TelemetryDisplay();
-        await using var writer = new LapWriter(lapsFolder, message => display.WriteMessage(message));
+        var writer = new LapWriter(lapsFolder, message => display.WriteMessage(message));
+        var uploader = api is null ? null : new LapUploader(api, writer.RecordUploadResult, message => display.WriteMessage(message));
+        writer.Uploader = uploader;
+        writer.Start();
         var recorder = new LapRecorder(writer.Enqueue, message => display.WriteMessage(message));
 
         await using var client = TelemetryClient<TelemetryData>.Create(logger, ibtOptions, clientOptions);
 
         display.WriteMessage(ibtOptions is null
             ? "Waiting for iRacing... (Ctrl+C to quit)"
-            : $"Playing back {args[0]}... (Ctrl+C to quit)");
+            : $"Playing back {options.IbtFile}... (Ctrl+C to quit)");
         display.WriteMessage($"Completed laps are saved under {lapsFolder}");
+        if (!wantUploads)
+            display.WriteMessage("Uploading is off for this run.");
 
         // iRacing re-sends session info every few seconds (flags, driver list, ...);
         // only print it when the track or car changes.
@@ -137,11 +161,44 @@ public class Program
         }
         finally
         {
-            await writer.DisposeAsync(); // finish saving laps already completed
+            await writer.FlushAsync(); // finish saving laps already completed (which queues their uploads)
+            if (uploader is not null)
+                await uploader.DisposeAsync(); // give queued uploads a few seconds; the rest go next run
+            await writer.DisposeAsync(); // record the last upload results in session.json
             display.Close();
         }
 
         Console.WriteLine("Stopped.");
         return 0;
+    }
+
+    private sealed record Options(string? IbtFile, int Speed, bool SetKey, bool NoUpload, bool Upload, string? SiteUrl);
+
+    private static bool TryParseArgs(string[] args, out Options options)
+    {
+        options = new Options(null, 1, false, false, false, null);
+        var positional = new List<string>();
+        for (var i = 0; i < args.Length; i++)
+        {
+            switch (args[i])
+            {
+                case "--set-key": options = options with { SetKey = true }; break;
+                case "--no-upload": options = options with { NoUpload = true }; break;
+                case "--upload": options = options with { Upload = true }; break;
+                case "--site" when i + 1 < args.Length && Uri.TryCreate(args[i + 1], UriKind.Absolute, out _):
+                    options = options with { SiteUrl = args[++i] };
+                    break;
+                case var arg when arg.StartsWith("--", StringComparison.Ordinal): return false;
+                default: positional.Add(args[i]); break;
+            }
+        }
+
+        if (positional.Count > 2)
+            return false;
+        var speed = 1;
+        if (positional.Count == 2 && (!int.TryParse(positional[1], out speed) || speed < 1))
+            return false;
+        options = options with { IbtFile = positional.ElementAtOrDefault(0), Speed = speed };
+        return true;
     }
 }

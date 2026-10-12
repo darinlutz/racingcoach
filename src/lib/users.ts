@@ -133,6 +133,10 @@ export function ensureUserSchema(): Promise<void> {
       await client.query(
         `ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS preferred_language TEXT NOT NULL DEFAULT '${DEFAULT_LANGUAGE}'`
       );
+      // The user's own In-Car AI Coach Instructions from the Account page (empty for none)
+      await client.query(
+        `ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS in_car_coach_instructions TEXT NOT NULL DEFAULT ''`
+      );
       // Email addresses are unique regardless of case
       await client.query(
         'CREATE UNIQUE INDEX IF NOT EXISTS users_email_address_key ON racingcoach."Users" (lower(email_address))'
@@ -656,6 +660,22 @@ export async function setUserRole(userId: number, role: Role, changedBy: number)
 export async function setPreferredLanguage(userId: number, language: Language): Promise<void> {
   await ensureUserSchema();
   await query('UPDATE racingcoach."Users" SET preferred_language = $1 WHERE id = $2', [language, userId]);
+}
+
+// The longest In-Car AI Coach Instructions a user can save
+export const MAX_IN_CAR_COACH_INSTRUCTIONS = 4000;
+
+// What the user tells their In-Car AI Coach to do and not to do, e.g. "Play a sound when I cross
+// the start/finish line". Empty when they haven't written any.
+export async function getInCarCoachInstructions(userId: number): Promise<string> {
+  await ensureUserSchema();
+  const rows = await query('SELECT in_car_coach_instructions FROM racingcoach."Users" WHERE id = $1', [userId]);
+  return (rows[0]?.in_car_coach_instructions as string | undefined) ?? '';
+}
+
+export async function setInCarCoachInstructions(userId: number, instructions: string): Promise<void> {
+  await ensureUserSchema();
+  await query('UPDATE racingcoach."Users" SET in_car_coach_instructions = $1 WHERE id = $2', [instructions, userId]);
 }
 
 // Also signs the user out everywhere, since an old session may belong to

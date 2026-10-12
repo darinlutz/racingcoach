@@ -81,6 +81,10 @@
             <TextBlock x:Name="StatusText" DockPanel.Dock="Top" Foreground="#E3A82B" FontSize="12" TextWrapping="Wrap"
                        Margin="0,0,0,8" Visibility="Collapsed" />
 
+            <!-- The In-Car Coach's latest message, for a while after it's shown -->
+            <TextBlock x:Name="CoachText" DockPanel.Dock="Top" Foreground="#4ADE80" FontSize="16" FontWeight="SemiBold"
+                       TextWrapping="Wrap" Margin="0,0,0,8" Visibility="Collapsed" />
+
             <!-- One row per focus area: its name, then this lap's values; columns, headings and rows added in code -->
             <Grid x:Name="AreaGrid" VerticalAlignment="Top" />
         </DockPanel>

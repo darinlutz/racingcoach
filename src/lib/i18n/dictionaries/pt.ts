@@ -204,6 +204,17 @@ export const pt: Dictionary = {
     createKey: 'Criar chave de envio',
   },
 
+  inCarCoach: {
+    title: 'Minhas instruções do treinador IA no carro',
+    intro:
+      'Diga ao seu treinador IA no carro o que fazer e o que não fazer enquanto você pilota. Ele roda no RacingCoach Collector: pode tocar um som, falar ou mostrar uma mensagem quando você cruza a linha de largada/chegada, termina uma volta, faz uma nova melhor volta, entra ou sai de uma área de foco, entra ou sai do pit ou sofre um incidente, e treina você a partir das suas voltas conforme elas são enviadas. Elas valem só para você.',
+    placeholder: 'Por exemplo: Toque um som quando eu cruzar a linha de largada/chegada.',
+    save: 'Salvar',
+    saving: 'Salvando…',
+    saved: 'Instruções do treinador IA no carro salvas.',
+    characters: '{n} / {max} caracteres',
+  },
+
   pricing: {
     title: 'Níveis de assinatura',
     intro:
@@ -977,6 +988,9 @@ export const pt: Dictionary = {
     failedSaveSetting: 'Não foi possível salvar a configuração',
     failedSaveInstructions: 'Não foi possível salvar as instruções do treinador IA',
     instructionsTooLong: 'As instruções do treinador IA são longas demais',
+    failedSaveInCarInstructions: 'Não foi possível salvar as instruções do treinador IA no carro',
+    inCarInstructionsTooLong: 'As instruções do treinador IA no carro são longas demais',
+    logInInCarInstructions: 'Entre para salvar suas instruções do treinador IA no carro',
     notConfigured: 'Este recurso não está disponível no momento. Tente novamente mais tarde.',
     aiNotConfigured: 'O coach de IA não está disponível no momento. Tente novamente mais tarde.',
     aiOutOfCredits: 'O serviço de IA está sem créditos',

@@ -180,7 +180,8 @@ function turnDirection(area: DebriefArea): 'left' | 'right' | null {
 const LINE_DIFF_METERS = 0.5;
 const LINE_CHECKPOINTS = ['the start of the area (entry)', '25% through', 'the middle (50%)', '75% through', 'the end of the area (exit)'];
 
-function createTools(session: DebriefSession) {
+// Also used by the In-Car AI Coach (inCarCoach.ts), on the laps the collector has uploaded so far
+export function createTools(session: DebriefSession) {
   const { cutoff, incidentLaps, cleanLaps, areas } = cleanSession(session);
   const findArea = (name: string) => areas.find((a) => a.name.toLowerCase() === name.trim().toLowerCase());
   const areaNames = areas.map((a) => a.name).join(', ');

@@ -1,12 +1,11 @@
 import { NextResponse } from 'next/server';
 import type { Track } from '@/lib/lapData';
 import { getCurrentUser } from '@/lib/session';
-import { readTracks } from '@/lib/tracks';
+import { readTracks, toLapTrack } from '@/lib/tracks';
 import { apiText } from '@/lib/i18n/server';
 
 // The signed-in user's tracks and focus areas from Track Data, for the Racing tabs that measure
-// laps against focus areas. `name` is the track key and `fileName` the name Garage 61 puts in its CSV
-// file names; start/end are fractions of a lap and the targets are null when not set.
+// laps against focus areas, in the shape toLapTrack (tracks.ts) describes.
 export async function GET() {
   const t = await apiText();
   try {
@@ -14,19 +13,7 @@ export async function GET() {
     if (!user) {
       return NextResponse.json({ error: t.logInTrackNames }, { status: 401 });
     }
-    const tracks: Track[] = (await readTracks(user.id)).map((track) => ({
-      name: track.key,
-      fileName: track.name,
-      lengthFeet: track.lengthFeet,
-      areas: track.areas.map((area) => ({
-        name: area.name,
-        start: area.startPoint,
-        end: area.endPoint,
-        brakepointTarget: area.brakePointFeet,
-        maxBrakeTarget: area.maxBrakePct,
-        throttlePickupTarget: area.throttlePointFeet,
-      })),
-    }));
+    const tracks: Track[] = (await readTracks(user.id)).map(toLapTrack);
     return NextResponse.json({ tracks });
   } catch (error) {
     console.error('Failed to load tracks:', error);

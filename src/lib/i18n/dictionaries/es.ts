@@ -204,6 +204,17 @@ export const es: Dictionary = {
     createKey: 'Crear clave de carga',
   },
 
+  inCarCoach: {
+    title: 'Mis instrucciones del entrenador IA en el auto',
+    intro:
+      'Dile a tu entrenador IA en el auto qué hacer y qué no hacer mientras manejas. Funciona en el RacingCoach Collector: puede reproducir un sonido, hablar o mostrar un mensaje cuando cruzas la línea de salida/meta, terminas una vuelta, haces una nueva mejor vuelta, entras o sales de un área de enfoque, entras o sales del pit o tienes un incidente, y te entrena con tus vueltas a medida que se suben. Solo valen para ti.',
+    placeholder: 'Por ejemplo: Reproduce un sonido cuando cruce la línea de salida/meta.',
+    save: 'Guardar',
+    saving: 'Guardando…',
+    saved: 'Instrucciones del entrenador IA en el auto guardadas.',
+    characters: '{n} / {max} caracteres',
+  },
+
   pricing: {
     title: 'Niveles de membresía',
     intro:
@@ -977,6 +988,9 @@ export const es: Dictionary = {
     failedSaveSetting: 'No se pudo guardar el ajuste',
     failedSaveInstructions: 'No se pudieron guardar las instrucciones del entrenador IA',
     instructionsTooLong: 'Las instrucciones del entrenador IA son demasiado largas',
+    failedSaveInCarInstructions: 'No se pudieron guardar las instrucciones del entrenador IA en el auto',
+    inCarInstructionsTooLong: 'Las instrucciones del entrenador IA en el auto son demasiado largas',
+    logInInCarInstructions: 'Inicia sesión para guardar tus instrucciones del entrenador IA en el auto',
     notConfigured: 'Esta función no está disponible en este momento. Inténtalo más tarde.',
     aiNotConfigured: 'El coach de IA no está disponible en este momento. Inténtalo más tarde.',
     aiOutOfCredits: 'El servicio de IA se quedó sin créditos',

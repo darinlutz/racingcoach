@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { query, transaction } from './db';
-import { sameTrackName } from './lapData';
+import { sameTrackName, type Track } from './lapData';
 import { ensureUserSchema } from './users';
 
 // Each user's own tracks and focus areas in racingcoach."UsersTracks" and "UsersFocusAreas" (created by
@@ -88,6 +88,24 @@ export async function readTracks(userId: number): Promise<UserTrack[]> {
 // page (iRacing's names can differ slightly from Track Data's), or by track key
 export function findTrackByName(tracks: UserTrack[], name: string): UserTrack | undefined {
   return tracks.find((t) => sameTrackName(t.name, name)) ?? tracks.find((t) => t.key.toLowerCase() === name.toLowerCase());
+}
+
+// A Track Data track in the shape the lap measuring code (lapData.ts) takes. `name` is the track key and
+// `fileName` the name Garage 61 puts in its CSV file names; targets that aren't set are null.
+export function toLapTrack(track: UserTrack): Track {
+  return {
+    name: track.key,
+    fileName: track.name,
+    lengthFeet: track.lengthFeet,
+    areas: track.areas.map((area) => ({
+      name: area.name,
+      start: area.startPoint,
+      end: area.endPoint,
+      brakepointTarget: area.brakePointFeet,
+      maxBrakeTarget: area.maxBrakePct,
+      throttlePickupTarget: area.throttlePointFeet,
+    })),
+  };
 }
 
 type Client = Parameters<Parameters<typeof transaction>[0]>[0];

@@ -124,6 +124,11 @@ public partial class OverlayWindow : Window
             : _loadProblem ?? (_loading && snapshot.Track is null ? "Loading your focus areas…" : null);
         StatusText.Text = status ?? "";
         StatusText.Visibility = status is null ? Visibility.Collapsed : Visibility.Visible;
+
+        var coach = _engine.Coach.LatestMessage;
+        var showCoach = coach is not null && DateTime.UtcNow - coach.At < InCarCoach.MessageShownFor;
+        CoachText.Text = showCoach ? coach!.Text : "";
+        CoachText.Visibility = showCoach ? Visibility.Visible : Visibility.Collapsed;
     }
 
     // A box's text in its own color, or during a brake point alert on the alert color in plain light or dark

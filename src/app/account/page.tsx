@@ -2,13 +2,14 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import CancelSubscriptionButton from '@/components/CancelSubscriptionButton';
 import CollectorKeyCard from '@/components/CollectorKeyCard';
+import InCarCoachInstructionsCard from '@/components/InCarCoachInstructionsCard';
 import LanguageSelect from '@/components/LanguageSelect';
 import { getCollectorKey } from '@/lib/collectorKeys';
 import { DISCORD_INVITE_URL, getDiscordConnection } from '@/lib/discord';
 import { fmt, LANGUAGE_LOCALES } from '@/lib/i18n/languages';
 import { getDictionary } from '@/lib/i18n/server';
 import { getCurrentUser } from '@/lib/session';
-import { canBuyAnything } from '@/lib/users';
+import { canBuyAnything, getInCarCoachInstructions, MAX_IN_CAR_COACH_INSTRUCTIONS } from '@/lib/users';
 import { ACCOUNT_STATUS, MEMBERSHIP_LEVEL } from '@/lib/accountStatus';
 
 // Green for a current subscription, red once it's canceled or expired,
@@ -57,7 +58,11 @@ export default async function AccountPage({
   const { discord: discordResult } = await searchParams;
   const discordText = typeof discordResult === 'string' ? t.account.discordMessages[discordResult] : undefined;
   const discordOk = typeof discordResult === 'string' && DISCORD_OK.has(discordResult);
-  const [discord, collectorKey] = await Promise.all([getDiscordConnection(user.id), getCollectorKey(user.id)]);
+  const [discord, collectorKey, inCarCoachInstructions] = await Promise.all([
+    getDiscordConnection(user.id),
+    getCollectorKey(user.id),
+    getInCarCoachInstructions(user.id),
+  ]);
   const isSubscribed = user.accountStatus === ACCOUNT_STATUS.subscribed;
   // A canceled subscription keeps its end date: the end of the last paid period
   const showEndDate =
@@ -190,6 +195,8 @@ export default async function AccountPage({
         </div>
 
         <CollectorKeyCard initialKey={collectorKey} />
+
+        <InCarCoachInstructionsCard instructions={inCarCoachInstructions} maxLength={MAX_IN_CAR_COACH_INSTRUCTIONS} />
 
         {canUpgrade && (
           <Link

@@ -203,6 +203,18 @@ export const en = {
     createKey: 'Create Upload Key',
   },
 
+  // The Account page's In-Car AI Coach Instructions (src/components/InCarCoachInstructionsCard.tsx)
+  inCarCoach: {
+    title: 'My In-Car AI Coach Instructions',
+    intro:
+      'Tell your In-Car AI Coach what to do and what not to do while you drive. It runs in the RacingCoach Collector: it can play a sound, speak or show a message when you cross the start/finish line, finish a lap, set a new best lap, enter or leave a focus area, enter or leave pit road or get an incident, and it coaches you from your laps as they upload. These are yours only.',
+    placeholder: 'For example: Play a sound when I cross the start/finish line.',
+    save: 'Save',
+    saving: 'Saving…',
+    saved: 'In-Car AI Coach Instructions saved.',
+    characters: '{n} / {max} characters',
+  },
+
   pricing: {
     title: 'Membership Levels',
     intro:
@@ -986,6 +998,9 @@ export const en = {
     failedSaveSetting: 'Failed to save the setting',
     failedSaveInstructions: 'Failed to save the AI Coach Instructions',
     instructionsTooLong: 'The AI Coach Instructions are too long',
+    failedSaveInCarInstructions: 'Failed to save the In-Car AI Coach Instructions',
+    inCarInstructionsTooLong: 'The In-Car AI Coach Instructions are too long',
+    logInInCarInstructions: 'Log in to save your In-Car AI Coach Instructions',
     // General
     notConfigured: 'This feature isn’t available right now. Please try again later.',
     aiNotConfigured: 'The AI coach isn’t available right now. Please try again later.',

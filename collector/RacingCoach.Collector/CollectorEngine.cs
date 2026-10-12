@@ -48,6 +48,7 @@ internal sealed class CollectorEngine
     private readonly LapRecorder _recorder;
     private readonly IbtEnricher? _enricher;
     private readonly SessionDebrief _debrief;
+    private readonly InCarCoach _coach;
     private readonly object _sampleLock = new();
     private TelemetryData _latest;
     private bool _hasLatest;
@@ -80,6 +81,7 @@ internal sealed class CollectorEngine
         _writer = new LapWriter(LapsFolder, _enricher, message => Log(message)) { LapsChanged = lapsChanged };
         _recorder = new LapRecorder(_writer.Enqueue, message => Log(message));
         _debrief = new SessionDebrief(() => Api, message => Log(message));
+        _coach = new InCarCoach(() => Api, message => Log(message));
     }
 
     public string LapsFolder { get; }
@@ -97,6 +99,8 @@ internal sealed class CollectorEngine
     public LapUploader? Uploader => _uploader;
     /// <summary>The site connection for the upload key in use, or null without one (the overlay loads Track Data with it).</summary>
     public RacingCoachApi? Api { get; private set; }
+    /// <summary>The In-Car AI Coach: the user's instructions as rules on live telemetry, and lap feedback.</summary>
+    public InCarCoach Coach => _coach;
     /// <summary>The overlay's TelemetryEngine.js while the overlay is open; it gets every telemetry sample.</summary>
     public OverlayEngine? Overlay { get; set; }
 
@@ -120,8 +124,10 @@ internal sealed class CollectorEngine
         {
             _writer.RecordUploadResult(item, error);
             _debrief.OnUploaded(item, error);
+            _coach.OnUploaded(item, error);
         }, message => Log(message));
         _writer.SetUploader(_uploader);
+        _coach.Refresh(); // the plan comes from the account the key belongs to
         if (old is not null)
             _ = old.DisposeAsync().AsTask(); // its queued laps are queued again on the new one
     }
@@ -222,6 +228,8 @@ internal sealed class CollectorEngine
                 Session.SubSessionId,
                 sessionTypes);
 
+            _coach.SetTrack(_recorder.Session.Track);
+
             // iRacing re-sends session info every few seconds (flags, driver list, ...); only log changes
             if (previous is null || previous.Track != Session.Track || previous.TrackConfig != Session.TrackConfig || previous.Car != Session.Car)
                 Log($"Session: {_recorder.Session.Track} / {Session.Car}");
@@ -231,6 +239,7 @@ internal sealed class CollectorEngine
         {
             _recorder.OnSample(data);
             Overlay?.OnSample(data, Session);
+            _coach.OnSample(data);
             lock (_sampleLock)
             {
                 _latest = data;

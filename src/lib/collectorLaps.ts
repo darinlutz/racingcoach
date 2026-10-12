@@ -166,10 +166,30 @@ export async function readCollectorLapCsv(userId: number | null, id: number): Pr
 export async function readCollectorLapsByClientId(
   userId: number,
   clientLapIds: string[]
-): Promise<{ clientLapId: string; track: string; lapNumber: number; lapTimeSeconds: number; csv: string }[]> {
+): Promise<
+  {
+    clientLapId: string;
+    track: string;
+    car: string;
+    lapNumber: number;
+    lapTimeSeconds: number;
+    incidents: number;
+    offTrack: boolean;
+    csv: string;
+  }[]
+> {
   await ensureUserSchema();
-  const rows = await query<{ client_lap_id: string; track: string; lap_number: number; lap_time_seconds: number; csv_gzip: Buffer }>(
-    `SELECT client_lap_id, track, lap_number, lap_time_seconds, csv_gzip FROM racingcoach."CollectorLaps"
+  const rows = await query<{
+    client_lap_id: string;
+    track: string;
+    car: string;
+    lap_number: number;
+    lap_time_seconds: number;
+    incidents: number;
+    off_track: boolean;
+    csv_gzip: Buffer;
+  }>(
+    `SELECT client_lap_id, track, car, lap_number, lap_time_seconds, incidents, off_track, csv_gzip FROM racingcoach."CollectorLaps"
      WHERE user_id = $1 AND client_lap_id = ANY($2::uuid[])`,
     [userId, clientLapIds]
   );
@@ -180,8 +200,11 @@ export async function readCollectorLapsByClientId(
       {
         clientLapId: row.client_lap_id,
         track: row.track,
+        car: row.car,
         lapNumber: row.lap_number,
         lapTimeSeconds: Number(row.lap_time_seconds),
+        incidents: row.incidents,
+        offTrack: row.off_track,
         csv: gunzipSync(row.csv_gzip).toString('utf8'),
       },
     ];

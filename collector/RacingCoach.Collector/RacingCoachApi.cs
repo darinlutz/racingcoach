@@ -89,6 +89,44 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
         }
     }
 
+    /// <summary>The In-Car AI Coach's plan for a track: the user's In-Car AI Coach Instructions turned into rules
+    /// to run on live telemetry, how to deliver lap feedback, and the track's focus areas. Throws
+    /// UnauthorizedAccessException if the key isn't accepted, HttpRequestException (also for a server error,
+    /// e.g. the AI being unavailable) or TaskCanceledException if the site can't be reached.</summary>
+    public async Task<CoachPlanResponse> GetCoachPlanAsync(string trackName, CancellationToken ct)
+    {
+        using var response = await _http.GetAsync($"api/collector/in-car-coach?track={Uri.EscapeDataString(trackName)}", ct);
+        if (response.StatusCode == HttpStatusCode.Unauthorized)
+            throw new UnauthorizedAccessException("RacingCoach.app doesn't accept the upload key");
+        if (!response.IsSuccessStatusCode)
+            throw new HttpRequestException(await ErrorMessageAsync(response, ct));
+        return await response.Content.ReadFromJsonAsync<CoachPlanResponse>(JsonOptions, ct)
+            ?? throw new HttpRequestException("the site sent no plan");
+    }
+
+    /// <summary>What the In-Car AI Coach wants to tell the driver now, from the session's uploaded laps (by
+    /// clientLapId, oldest first) and what it said recently; often nothing. Error is why there's no answer.</summary>
+    public async Task<(IReadOnlyList<CoachCallout> Callouts, string? Error)> GetCoachCalloutsAsync(
+        IEnumerable<Guid> clientLapIds, IEnumerable<string> recentCallouts, CancellationToken ct)
+    {
+        try
+        {
+            using var response = await _http.PostAsJsonAsync("api/collector/in-car-coach", new { clientLapIds, recentCallouts }, JsonOptions, ct);
+            if (!response.IsSuccessStatusCode)
+                return ([], await ErrorMessageAsync(response, ct));
+            var body = await response.Content.ReadFromJsonAsync<CalloutsResponse>(JsonOptions, ct);
+            return (body?.Callouts ?? [], null);
+        }
+        catch (HttpRequestException e)
+        {
+            return ([], e.Message);
+        }
+        catch (TaskCanceledException) when (!ct.IsCancellationRequested)
+        {
+            return ([], "the request timed out");
+        }
+    }
+
     /// <summary>Uploads one lap: its details as JSON and its CSV, gzip-compressed.</summary>
     public async Task<(UploadOutcome Outcome, string Message)> UploadLapAsync(string csvPath, SessionInfo session, ManifestLap lap, CancellationToken ct)
     {
@@ -189,4 +227,21 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
     private sealed record DebriefResponse(string? Message, DebriefArea? Area);
 
     private sealed record DebriefArea(string? Name);
+
+    private sealed record CalloutsResponse(List<CoachCallout>? Callouts);
 }
+
+/// <summary>GET /api/collector/in-car-coach (src/lib/inCarCoach.ts in the website).</summary>
+internal sealed record CoachPlanResponse(string? Instructions, CoachPlan? Plan, List<CoachArea>? Areas);
+
+/// <summary>Rules to run on live telemetry, and how to deliver the lap feedback.</summary>
+internal sealed record CoachPlan(List<CoachRule>? Rules, bool Speak, bool Show, bool HoldInFocusAreas, bool LapFeedback, int FeedbackEveryLaps);
+
+/// <summary>On Event (in Area, for areaEntry/areaExit; null = any), say or show Text, or play Sound.</summary>
+internal sealed record CoachRule(string Event, string? Area, string Action, string? Text, string? Sound);
+
+/// <summary>A focus area from Track Data: where it starts and ends, as fractions of a lap.</summary>
+internal sealed record CoachArea(string Name, double Start, double End);
+
+/// <summary>Something the coach wants to tell the driver, and a sound to play first (null for none).</summary>
+internal sealed record CoachCallout(string Text, string? Sound);

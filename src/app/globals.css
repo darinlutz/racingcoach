@@ -38,7 +38,45 @@
   --deep-red: oklch(0.32 0.11 25);
   --hero-shade: oklch(0.11 0.004 260);
   --shadow-panel: 0 20px 60px oklch(0.06 0 0 / 0.2);
+  --hero-copy: oklch(0.8 0.004 260);
+  /* The SVG charts' axes, grid lines, single-race dots and the ring around hovered points */
+  --chart-grid: #252629;
+  --chart-axis: #3b3d40;
+  --chart-dot: #5c5f64;
+  --chart-halo: #151618;
   color-scheme: dark;
+}
+
+/* Light Mode: the Account page's Theme toggle puts data-theme="light" on <html> (Dark Mode is the default) */
+:root[data-theme="light"] {
+  --background: oklch(0.975 0.003 260);
+  --foreground: oklch(0.2 0.006 260);
+  --card: oklch(1 0 0);
+  --primary: oklch(0.56 0.215 25);
+  --primary-strong: oklch(0.49 0.2 25);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.945 0.004 260);
+  --muted-foreground: oklch(0.49 0.01 260);
+  --accent: oklch(0.93 0.03 25);
+  --border: oklch(0.87 0.006 260);
+  --positive: oklch(0.53 0.14 160);
+  --deep-red: oklch(0.88 0.06 25);
+  --hero-shade: oklch(0.975 0.003 260);
+  --shadow-panel: 0 20px 60px oklch(0.3 0 0 / 0.12);
+  --hero-copy: oklch(0.35 0.006 260);
+  --chart-grid: #e6e7ea;
+  --chart-axis: #c9cbd0;
+  --chart-dot: #a3a6ac;
+  --chart-halo: #ffffff;
+  /* The pale text colors made for dark backgrounds (messages, badges, chart labels), darkened to read on light ones */
+  --color-red-300: oklch(50.5% 0.213 27.518);
+  --color-yellow-200: oklch(47.6% 0.114 61.907);
+  --color-green-300: oklch(52.7% 0.154 150.069);
+  --color-green-400: oklch(52.7% 0.154 150.069);
+  --color-amber-400: oklch(55.5% 0.163 48.998);
+  --color-sky-400: oklch(50% 0.134 242.749);
+  --color-slate-300: oklch(55.4% 0.046 257.417);
+  color-scheme: light;
 }
 
 /* Centered page column shared by the header, landing page and footer */

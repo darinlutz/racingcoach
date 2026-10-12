@@ -9,9 +9,9 @@ import type { IRatingPoint, IRatingSeries } from '@/lib/raceTrends';
 
 const HEIGHT = 320;
 const MARGIN = { top: 12, right: 16, bottom: 36, left: 52 };
-const INK_MUTED = '#92959a'; // muted-foreground
-const GRID = '#252629'; // just above card
-const AXIS = '#3b3d40'; // just above border
+const INK_MUTED = 'var(--muted-foreground)'; // muted-foreground
+const GRID = 'var(--chart-grid)'; // just above card
+const AXIS = 'var(--chart-axis)'; // just above border
 
 export const time = (iso: string) => new Date(iso).getTime();
 export const formatDate = (iso: string, locale = 'en-US') =>
@@ -217,7 +217,7 @@ export default function IRatingChart({
 
             {/* Hovered race marker, ringed in white so it stands out from the line */}
             {hovered && (
-              <circle cx={hoverX} cy={y(hovered.point.iRating)} r={4} fill={hovered.color} stroke="#151618" strokeWidth={2} />
+              <circle cx={hoverX} cy={y(hovered.point.iRating)} r={4} fill={hovered.color} stroke="var(--chart-halo)" strokeWidth={2} />
             )}
 
             {/* Hit area for the pointer */}

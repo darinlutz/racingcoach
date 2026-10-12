@@ -136,6 +136,10 @@ export const en = {
     preferredLanguage: 'Preferred Language',
     languageHint: 'The language for the whole site, including what the AI coaches answer in.',
     failed: 'Couldn’t save your language. Please try again.',
+    theme: 'Theme',
+    darkMode: 'Dark Mode',
+    lightMode: 'Light Mode',
+    themeFailed: 'Couldn’t save your theme. Please try again.',
   },
 
   success: {
@@ -1025,6 +1029,8 @@ export const en = {
     aiOutOfCredits: 'The AI service is out of credits',
     unknownLanguage: 'Unknown language',
     failedSaveLanguage: 'Failed to save your language',
+    unknownTheme: 'Unknown theme',
+    failedSaveTheme: 'Failed to save your theme',
     // Accounts
     allFieldsRequired: 'All fields are required',
     nameTooLong: 'Name must be at most {max} characters',

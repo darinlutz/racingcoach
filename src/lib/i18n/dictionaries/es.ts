@@ -137,6 +137,10 @@ export const es: Dictionary = {
     preferredLanguage: 'Idioma preferido',
     languageHint: 'El idioma de todo el sitio, incluidas las respuestas de los coaches de IA.',
     failed: 'No se pudo guardar tu idioma. Inténtalo de nuevo.',
+    theme: 'Tema',
+    darkMode: 'Modo oscuro',
+    lightMode: 'Modo claro',
+    themeFailed: 'No se pudo guardar tu tema. Inténtalo de nuevo.',
   },
 
   success: {
@@ -1013,6 +1017,8 @@ export const es: Dictionary = {
     aiOutOfCredits: 'El servicio de IA se quedó sin créditos',
     unknownLanguage: 'Idioma desconocido',
     failedSaveLanguage: 'No se pudo guardar tu idioma',
+    unknownTheme: 'Tema desconocido',
+    failedSaveTheme: 'No se pudo guardar tu tema',
     allFieldsRequired: 'Todos los campos son obligatorios',
     nameTooLong: 'El nombre debe tener como máximo {max} caracteres',
     invalidEmail: 'Correo electrónico no válido',

@@ -8,6 +8,7 @@ import { getDictionary, getLanguage } from "@/lib/i18n/server";
 import { isAdmin } from "@/lib/roles";
 import { getCurrentUser } from "@/lib/session";
 import { getShowPricing } from "@/lib/siteSettings";
+import { getTheme } from "@/lib/themeServer";
 import { canBuyAnything } from "@/lib/users";
 import "./globals.css";
 
@@ -38,10 +39,13 @@ export default async function RootLayout({
   // the dictionary from LanguageProvider
   const language = await getLanguage(user);
   const t = getDictionary(language);
+  // Dark Mode or Light Mode (the Account page's Theme toggle); globals.css switches the colors on data-theme
+  const theme = await getTheme(user);
 
   return (
     <html
       lang={language}
+      data-theme={theme}
       className={`${barlow.variable} ${barlowCondensed.variable} h-full antialiased`}
       data-scroll-behavior="smooth"
     >

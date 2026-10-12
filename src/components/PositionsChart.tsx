@@ -10,9 +10,9 @@ import type { RaceEvent } from '@/lib/raceTrends';
 
 const HEIGHT = 320;
 const MARGIN = { top: 12, right: 16, bottom: 36, left: 44 };
-const INK_MUTED = '#92959a'; // muted-foreground
-const GRID = '#252629'; // just above card
-const AXIS = '#3b3d40'; // just above border
+const INK_MUTED = 'var(--muted-foreground)'; // muted-foreground
+const GRID = 'var(--chart-grid)'; // just above card
+const AXIS = 'var(--chart-axis)'; // just above border
 const START = SECTOR_COLORS[0];
 const FINISH = SECTOR_COLORS[1];
 

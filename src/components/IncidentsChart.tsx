@@ -10,10 +10,10 @@ import type { IncidentPoint } from '@/lib/raceTrends';
 
 const HEIGHT = 320;
 const MARGIN = { top: 12, right: 16, bottom: 36, left: 52 };
-const INK_MUTED = '#92959a'; // muted-foreground
-const GRID = '#252629'; // just above card
-const AXIS = '#3b3d40'; // just above border
-const DOT = '#5c5f64'; // dim gray: single races stay in the background
+const INK_MUTED = 'var(--muted-foreground)'; // muted-foreground
+const GRID = 'var(--chart-grid)'; // just above card
+const AXIS = 'var(--chart-axis)'; // just above border
+const DOT = 'var(--chart-dot)'; // dim gray: single races stay in the background
 const AVERAGE = SECTOR_COLORS[0];
 
 // Races in the rolling average; one race is too noisy to show a trend
@@ -168,8 +168,8 @@ export default function IncidentsChart({
             {/* Hovered race, ringed in white so it stands out */}
             {hovered && hoverIndex !== null && (
               <>
-                <circle cx={hoverX} cy={y(hovered.incidents)} r={4} fill={INK_MUTED} stroke="#151618" strokeWidth={2} />
-                <circle cx={hoverX} cy={y(averages[hoverIndex])} r={4} fill={AVERAGE} stroke="#151618" strokeWidth={2} />
+                <circle cx={hoverX} cy={y(hovered.incidents)} r={4} fill={INK_MUTED} stroke="var(--chart-halo)" strokeWidth={2} />
+                <circle cx={hoverX} cy={y(averages[hoverIndex])} r={4} fill={AVERAGE} stroke="var(--chart-halo)" strokeWidth={2} />
               </>
             )}
 

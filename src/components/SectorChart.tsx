@@ -11,9 +11,9 @@ export const SECTOR_COLORS = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87b
 
 const HEIGHT = 300;
 const MARGIN = { top: 12, right: 16, bottom: 36, left: 52 };
-const INK_MUTED = '#92959a'; // muted-foreground
-const GRID = '#252629'; // just above card
-const AXIS = '#3b3d40'; // just above border
+const INK_MUTED = 'var(--muted-foreground)'; // muted-foreground
+const GRID = 'var(--chart-grid)'; // just above card
+const AXIS = 'var(--chart-axis)'; // just above border
 
 type Mode = 'time' | 'gap';
 
@@ -208,7 +208,7 @@ export default function SectorChart({ laps, sectorCount }: { laps: StintLap[]; s
                   cy={y(s.values[hoverIndex])}
                   r={4}
                   fill={s.color}
-                  stroke="#151618"
+                  stroke="var(--chart-halo)"
                   strokeWidth={2}
                 />
               ))}

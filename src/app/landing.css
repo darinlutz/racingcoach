@@ -7,7 +7,7 @@
 .eyebrow::before { content: ''; width: 23px; height: 2px; background: var(--primary); }
 .hero h1 { font-family: var(--font-display); font-size: 80px; line-height: 0.99; font-weight: 700; margin: 24px 0 23px; max-width: 560px; }
 .hero h1 span { color: var(--primary); }
-.hero-copy { max-width: 380px; color: oklch(0.8 0.004 260); font-size: 16px; line-height: 1.65; }
+.hero-copy { max-width: 380px; color: var(--hero-copy); font-size: 16px; line-height: 1.65; }
 .hero-actions { margin-top: 30px; display: flex; gap: 14px; align-items: center; }
 .hero-footnote { display: flex; gap: 9px; align-items: center; color: var(--muted-foreground); font-size: 11px; margin-top: 20px; }
 .hero-footnote svg { width: 13px; }

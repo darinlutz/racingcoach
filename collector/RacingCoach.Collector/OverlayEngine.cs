@@ -241,7 +241,7 @@ internal sealed class OverlayEngine
         var crossed = _lastLapDistPct > 0.9f && lapDistPct is >= 0 and < 0.1f;
         _lastLapDistPct = lapDistPct;
         if (crossed)
-            Voice.Say("Starting new lap", interrupt: true);
+            Voice.SayPhrase("newLap", "Starting new lap", interrupt: true);
     }
 
     private void ApplyPendingTrack(SessionDetails? session)

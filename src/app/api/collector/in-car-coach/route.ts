@@ -4,7 +4,7 @@ import { aiErrorResponse } from '@/lib/aiErrors';
 import { authenticateCollector } from '@/lib/collectorKeys';
 import { readCollectorLapsByClientId } from '@/lib/collectorLaps';
 import { measureDebriefSession } from '@/lib/debriefSession';
-import { DEFAULT_LANGUAGE } from '@/lib/i18n/languages';
+import { DEFAULT_LANGUAGE, LANGUAGE_LOCALES } from '@/lib/i18n/languages';
 import { inCarCoachCallouts, inCarCoachPlan } from '@/lib/inCarCoach';
 import { lapSamplesFromText } from '@/lib/lapData';
 import { findTrackByName, readTracks, toLapTrack } from '@/lib/tracks';
@@ -25,7 +25,8 @@ async function userContext(request: Request) {
 
 // GET ?track=<iRacing track name>: at the start of a session, the user's In-Car AI Coach Instructions turned into
 // the plan the collector runs: { instructions, plan: { rules, speak, show, holdInFocusAreas, lapFeedback,
-// feedbackEveryLaps }, areas: [{ name, start, end }] } (areas from Track Data, for areaEntry/areaExit rules).
+// feedbackEveryLaps }, areas: [{ name, start, end }], locale } (areas from Track Data, for areaEntry/areaExit
+// rules; locale is the user's Preferred Language's, e.g. pt-BR).
 export async function GET(request: Request) {
   try {
     const user = await userContext(request);
@@ -43,7 +44,8 @@ export async function GET(request: Request) {
       areas.map((area) => area.name),
       user.language
     );
-    return NextResponse.json({ instructions: user.instructions, plan, areas });
+    // The locale formats the numbers the collector puts in rule texts (e.g. 1:23,456 in pt-BR) for the voice
+    return NextResponse.json({ instructions: user.instructions, plan, areas, locale: LANGUAGE_LOCALES[user.language] });
   } catch (error) {
     console.error('In-Car AI Coach plan error:', error);
     return aiErrorResponse(error, 'Failed to set up the In-Car AI Coach');

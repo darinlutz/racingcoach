@@ -1,16 +1,22 @@
 'use client';
 
 import { useState } from 'react';
+import CoachVoicePicker from '@/components/CoachVoicePicker';
 import { useLanguage } from '@/components/LanguageProvider';
 
 // The Account page's My In-Car AI Coach Instructions box: what the user's own In-Car AI Coach should do
-// and not do, saved for them only (PUT /api/account/in-car-coach-instructions) with the Save button.
+// and not do, saved for them only (PUT /api/account/in-car-coach-instructions) with the Save button; and
+// below it the voice the coach speaks with.
 export default function InCarCoachInstructionsCard({
   instructions: initial,
   maxLength,
+  voice,
+  voices,
 }: {
   instructions: string;
   maxLength: number;
+  voice: string;
+  voices: readonly string[];
 }) {
   const { t, fmt } = useLanguage();
   const c = t.inCarCoach;
@@ -84,6 +90,7 @@ export default function InCarCoachInstructionsCard({
           {message.text}
         </p>
       )}
+      <CoachVoicePicker voice={voice} voices={voices} />
     </div>
   );
 }

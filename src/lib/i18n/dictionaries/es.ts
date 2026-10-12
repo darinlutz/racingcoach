@@ -213,6 +213,17 @@ export const es: Dictionary = {
     saving: 'Guardando…',
     saved: 'Instrucciones del entrenador IA en el auto guardadas.',
     characters: '{n} / {max} caracteres',
+    voiceTitle: 'Voz del entrenador',
+    voiceHint: 'La voz con la que habla tu entrenador IA en el auto, en tu idioma preferido.',
+    listen: 'Escuchar',
+    loadingSample: 'Cargando…',
+    voiceSaved: 'Voz del entrenador guardada.',
+    sample: 'Curva 1: frena unos 20 pies más tarde, cerca de 1230 pies. Buena vuelta, dos décimas más rápida.',
+  },
+
+  coachSpeech: {
+    newLap: 'Empezando nueva vuelta',
+    areaAverage: 'El tiempo promedio en el área {n} fue de {seconds} segundos',
   },
 
   pricing: {
@@ -991,6 +1002,9 @@ export const es: Dictionary = {
     failedSaveInCarInstructions: 'No se pudieron guardar las instrucciones del entrenador IA en el auto',
     inCarInstructionsTooLong: 'Las instrucciones del entrenador IA en el auto son demasiado largas',
     logInInCarInstructions: 'Inicia sesión para guardar tus instrucciones del entrenador IA en el auto',
+    unknownCoachVoice: 'Voz del entrenador desconocida',
+    failedSaveCoachVoice: 'No se pudo guardar la voz del entrenador',
+    failedCoachVoiceSample: 'No se pudo reproducir la muestra',
     notConfigured: 'Esta función no está disponible en este momento. Inténtalo más tarde.',
     aiNotConfigured: 'El coach de IA no está disponible en este momento. Inténtalo más tarde.',
     aiOutOfCredits: 'El servicio de IA se quedó sin créditos',

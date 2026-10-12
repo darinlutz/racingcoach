@@ -213,6 +213,19 @@ export const en = {
     saving: 'Saving…',
     saved: 'In-Car AI Coach Instructions saved.',
     characters: '{n} / {max} characters',
+    voiceTitle: 'Coach voice',
+    voiceHint: 'The voice your In-Car AI Coach speaks with, in your Preferred Language.',
+    listen: 'Listen',
+    loadingSample: 'Loading…',
+    voiceSaved: 'Coach voice saved.',
+    // What the Listen button says, in the chosen voice
+    sample: 'Turn 1: brake about 20 feet later, near 1230 feet. Nice lap, two tenths quicker.',
+  },
+
+  // Fixed things the collector says out loud (POST /api/collector/speech, the in-session debrief)
+  coachSpeech: {
+    newLap: 'Starting new lap',
+    areaAverage: 'Area {n} average time was {seconds} seconds',
   },
 
   pricing: {
@@ -1001,6 +1014,9 @@ export const en = {
     failedSaveInCarInstructions: 'Failed to save the In-Car AI Coach Instructions',
     inCarInstructionsTooLong: 'The In-Car AI Coach Instructions are too long',
     logInInCarInstructions: 'Log in to save your In-Car AI Coach Instructions',
+    unknownCoachVoice: 'Unknown coach voice',
+    failedSaveCoachVoice: 'Failed to save the coach voice',
+    failedCoachVoiceSample: 'Couldn’t play the sample',
     // General
     notConfigured: 'This feature isn’t available right now. Please try again later.',
     aiNotConfigured: 'The AI coach isn’t available right now. Please try again later.',

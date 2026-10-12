@@ -2,6 +2,8 @@
 // average time through the track's first focus area and reads it out to the driver. Measured with
 // areaStats, the same as Debrief Coach measures each lap's areas (debriefSession.ts).
 
+import { en } from './i18n/dictionaries/en';
+import { fmt, LANGUAGE_LOCALES, type Language } from './i18n/languages';
 import { areaStats, lapSamplesFromText } from './lapData';
 import type { UserTrack } from './tracks';
 
@@ -18,7 +20,10 @@ export class CollectorDebriefError extends Error {}
 
 export function firstAreaDebrief(
   track: UserTrack,
-  laps: { lapNumber: number; lapTimeSeconds: number; csv: string }[]
+  laps: { lapNumber: number; lapTimeSeconds: number; csv: string }[],
+  // The message in the user's language: the dictionary's coachSpeech.areaAverage
+  language: Language = 'en',
+  template: string = en.coachSpeech.areaAverage
 ): CollectorDebrief {
   const area = [...track.areas].sort((a, b) => a.position - b.position)[0];
   if (!area) {
@@ -35,7 +40,10 @@ export function firstAreaDebrief(
 
   const averageSeconds = measured.reduce((sum, lap) => sum + lap.seconds, 0) / measured.length;
   return {
-    message: `Area ${area.position} average time was ${averageSeconds.toFixed(1)} seconds`,
+    message: fmt(template, {
+      n: area.position,
+      seconds: averageSeconds.toLocaleString(LANGUAGE_LOCALES[language], { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
+    }),
     area: { position: area.position, name: area.name },
     averageSeconds,
     laps: measured,

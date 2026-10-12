@@ -26,7 +26,8 @@ internal sealed class InCarCoach(Func<RacingCoachApi?> api, Action<string> log)
     /// <summary>How long the overlay shows a message.</summary>
     public static readonly TimeSpan MessageShownFor = TimeSpan.FromSeconds(20);
 
-    private sealed record LoadedPlan(string Track, CoachPlan Plan, IReadOnlyList<CoachRule> Rules, IReadOnlyList<CoachArea> Areas);
+    // Culture: the user's Preferred Language's, for the numbers in rule texts (e.g. 1:23,456 in pt-BR)
+    private sealed record LoadedPlan(string Track, CoachPlan Plan, IReadOnlyList<CoachRule> Rules, IReadOnlyList<CoachArea> Areas, CultureInfo Culture);
 
     private readonly object _lock = new();
 
@@ -106,7 +107,7 @@ internal sealed class InCarCoach(Func<RacingCoachApi?> api, Action<string> log)
         {
             var response = await site.GetCoachPlanAsync(track, CancellationToken.None);
             var plan = response.Plan ?? new CoachPlan([], true, true, false, true, 1);
-            var loaded = new LoadedPlan(track, plan, plan.Rules ?? [], response.Areas ?? []);
+            var loaded = new LoadedPlan(track, plan, plan.Rules ?? [], response.Areas ?? [], CultureFor(response.Locale));
             lock (_lock)
             {
                 if (_loadedTrack == track && _loadedWith == site)
@@ -141,6 +142,18 @@ internal sealed class InCarCoach(Func<RacingCoachApi?> api, Action<string> log)
 
     private static string Describe(CoachRule rule) =>
         $"{rule.Event}{(rule.Area is null ? "" : $" {rule.Area}")}: {rule.Action} {(rule.Action == "sound" ? rule.Sound : $"\"{rule.Text}\"")}";
+
+    private static CultureInfo CultureFor(string? locale)
+    {
+        try
+        {
+            return string.IsNullOrWhiteSpace(locale) ? CultureInfo.InvariantCulture : CultureInfo.GetCultureInfo(locale);
+        }
+        catch (CultureNotFoundException)
+        {
+            return CultureInfo.InvariantCulture;
+        }
+    }
 
     private static string Plural(int n, string word) => $"{n} {word}{(n == 1 ? "" : "s")}";
 
@@ -258,39 +271,39 @@ internal sealed class InCarCoach(Func<RacingCoachApi?> api, Action<string> log)
                     CoachSounds.Play(rule.Sound);
                     break;
                 case "say":
-                    Voice.Say(Fill(rule.Text, area, speech: true));
+                    Voice.Say(Fill(plan, rule.Text, area, speech: true));
                     break;
                 case "message":
-                    Show(Fill(rule.Text, area, speech: false));
+                    Show(Fill(plan, rule.Text, area, speech: false));
                     break;
             }
         }
     }
 
     // A rule's text with its {placeholders} filled in from the latest lap
-    private string Fill(string? text, CoachArea? area, bool speech)
+    private string Fill(LoadedPlan plan, string? text, CoachArea? area, bool speech)
     {
         if (string.IsNullOrEmpty(text))
             return "";
         return text
             .Replace("{lap}", _lap > 0 ? _lap.ToString(CultureInfo.InvariantCulture) : "")
-            .Replace("{lapTime}", LapTime(_lapTime, speech))
-            .Replace("{best}", LapTime(_bestLap, speech))
-            .Replace("{delta}", _delta is { } delta ? delta.ToString("+0.00;-0.00;0.00", CultureInfo.InvariantCulture) : "")
+            .Replace("{lapTime}", LapTime(_lapTime, speech, plan.Culture))
+            .Replace("{best}", LapTime(_bestLap, speech, plan.Culture))
+            .Replace("{delta}", _delta is { } delta ? delta.ToString("+0.00;-0.00;0.00", plan.Culture) : "")
             .Replace("{area}", area?.Name ?? "")
             .Replace("{incidents}", _incidents.ToString(CultureInfo.InvariantCulture));
     }
 
     // 1:23.456 on screen; "1 23.46" spoken, which the voice reads as "one twenty-three point four six"
-    private static string LapTime(double? seconds, bool speech)
+    private static string LapTime(double? seconds, bool speech, CultureInfo culture)
     {
         if (seconds is not { } s)
             return "";
         var minutes = (int)(s / 60);
         var rest = s - minutes * 60;
         return speech
-            ? minutes > 0 ? $"{minutes} {rest.ToString("00.00", CultureInfo.InvariantCulture)}" : rest.ToString("0.00", CultureInfo.InvariantCulture)
-            : $"{minutes}:{rest.ToString("00.000", CultureInfo.InvariantCulture)}";
+            ? minutes > 0 ? $"{minutes} {rest.ToString("00.00", culture)}" : rest.ToString("0.00", culture)
+            : $"{minutes}:{rest.ToString("00.000", culture)}";
     }
 
     private void Show(string text)

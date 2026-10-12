@@ -82,6 +82,7 @@ internal sealed class CollectorEngine
         _recorder = new LapRecorder(_writer.Enqueue, message => Log(message));
         _debrief = new SessionDebrief(() => Api, message => Log(message));
         _coach = new InCarCoach(() => Api, message => Log(message));
+        Voice.UseSite(() => Api, message => Log(message)); // speech in the user's coach voice
     }
 
     public string LapsFolder { get; }

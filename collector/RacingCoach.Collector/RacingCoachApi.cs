@@ -127,6 +127,18 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
         }
     }
 
+    /// <summary>Speech in the user's coach voice and Preferred Language, as a WAV file: text (already in their
+    /// language), or a fixed phrase (coachSpeech in the website's dictionaries, e.g. "newLap"). Throws
+    /// HttpRequestException (also for a refused key or a server error) or TaskCanceledException.</summary>
+    public async Task<byte[]> GetSpeechAsync(string? text, string? phrase, CancellationToken ct)
+    {
+        object body = phrase is not null ? new { phrase } : new { text };
+        using var response = await _http.PostAsJsonAsync("api/collector/speech", body, JsonOptions, ct);
+        if (!response.IsSuccessStatusCode)
+            throw new HttpRequestException(await ErrorMessageAsync(response, ct));
+        return await response.Content.ReadAsByteArrayAsync(ct);
+    }
+
     /// <summary>Uploads one lap: its details as JSON and its CSV, gzip-compressed.</summary>
     public async Task<(UploadOutcome Outcome, string Message)> UploadLapAsync(string csvPath, SessionInfo session, ManifestLap lap, CancellationToken ct)
     {
@@ -232,7 +244,7 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
 }
 
 /// <summary>GET /api/collector/in-car-coach (src/lib/inCarCoach.ts in the website).</summary>
-internal sealed record CoachPlanResponse(string? Instructions, CoachPlan? Plan, List<CoachArea>? Areas);
+internal sealed record CoachPlanResponse(string? Instructions, CoachPlan? Plan, List<CoachArea>? Areas, string? Locale);
 
 /// <summary>Rules to run on live telemetry, and how to deliver the lap feedback.</summary>
 internal sealed record CoachPlan(List<CoachRule>? Rules, bool Speak, bool Show, bool HoldInFocusAreas, bool LapFeedback, int FeedbackEveryLaps);

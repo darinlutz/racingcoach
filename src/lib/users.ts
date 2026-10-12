@@ -137,6 +137,8 @@ export function ensureUserSchema(): Promise<void> {
       await client.query(
         `ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS in_car_coach_instructions TEXT NOT NULL DEFAULT ''`
       );
+      // The OpenAI voice the In-Car AI Coach speaks with (src/lib/coachVoice.ts); empty for the default one
+      await client.query(`ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS coach_voice TEXT NOT NULL DEFAULT ''`);
       // Email addresses are unique regardless of case
       await client.query(
         'CREATE UNIQUE INDEX IF NOT EXISTS users_email_address_key ON racingcoach."Users" (lower(email_address))'

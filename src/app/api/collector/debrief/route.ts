@@ -3,7 +3,10 @@ import { z } from 'zod';
 import { CollectorDebriefError, firstAreaDebrief } from '@/lib/collectorDebrief';
 import { authenticateCollector } from '@/lib/collectorKeys';
 import { readCollectorLapsByClientId } from '@/lib/collectorLaps';
+import { DEFAULT_LANGUAGE } from '@/lib/i18n/languages';
+import { getDictionary } from '@/lib/i18n/server';
 import { findTrackByName, readTracks } from '@/lib/tracks';
+import { getUserById } from '@/lib/users';
 
 const bodySchema = z.object({ clientLapIds: z.array(z.uuid()).min(1).max(20) });
 
@@ -33,7 +36,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: `${trackName} isn't in your Track Data` }, { status: 422 });
     }
 
-    return NextResponse.json(firstAreaDebrief(track, laps.filter((lap) => lap.track === trackName)));
+    // Said in the user's Preferred Language
+    const language = (await getUserById(userId))?.preferredLanguage ?? DEFAULT_LANGUAGE;
+    return NextResponse.json(
+      firstAreaDebrief(
+        track,
+        laps.filter((lap) => lap.track === trackName),
+        language,
+        getDictionary(language).coachSpeech.areaAverage
+      )
+    );
   } catch (error) {
     if (error instanceof CollectorDebriefError) {
       return NextResponse.json({ error: error.message }, { status: 422 });

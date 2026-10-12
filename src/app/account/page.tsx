@@ -4,6 +4,7 @@ import CancelSubscriptionButton from '@/components/CancelSubscriptionButton';
 import CollectorKeyCard from '@/components/CollectorKeyCard';
 import InCarCoachInstructionsCard from '@/components/InCarCoachInstructionsCard';
 import LanguageSelect from '@/components/LanguageSelect';
+import { COACH_VOICES, getCoachVoice } from '@/lib/coachVoice';
 import { getCollectorKey } from '@/lib/collectorKeys';
 import { DISCORD_INVITE_URL, getDiscordConnection } from '@/lib/discord';
 import { fmt, LANGUAGE_LOCALES } from '@/lib/i18n/languages';
@@ -58,10 +59,11 @@ export default async function AccountPage({
   const { discord: discordResult } = await searchParams;
   const discordText = typeof discordResult === 'string' ? t.account.discordMessages[discordResult] : undefined;
   const discordOk = typeof discordResult === 'string' && DISCORD_OK.has(discordResult);
-  const [discord, collectorKey, inCarCoachInstructions] = await Promise.all([
+  const [discord, collectorKey, inCarCoachInstructions, coachVoice] = await Promise.all([
     getDiscordConnection(user.id),
     getCollectorKey(user.id),
     getInCarCoachInstructions(user.id),
+    getCoachVoice(user.id),
   ]);
   const isSubscribed = user.accountStatus === ACCOUNT_STATUS.subscribed;
   // A canceled subscription keeps its end date: the end of the last paid period
@@ -196,7 +198,12 @@ export default async function AccountPage({
 
         <CollectorKeyCard initialKey={collectorKey} />
 
-        <InCarCoachInstructionsCard instructions={inCarCoachInstructions} maxLength={MAX_IN_CAR_COACH_INSTRUCTIONS} />
+        <InCarCoachInstructionsCard
+          instructions={inCarCoachInstructions}
+          maxLength={MAX_IN_CAR_COACH_INSTRUCTIONS}
+          voice={coachVoice}
+          voices={COACH_VOICES}
+        />
 
         {canUpgrade && (
           <Link

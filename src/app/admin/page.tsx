@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import AdminTimeZone from '@/components/AdminTimeZone';
+import SiteSettingsManager from '@/components/SiteSettingsManager';
 import UserRoleManager from '@/components/UserRoleManager';
 import {
   ACTIVITY_PAGE_SIZE,
@@ -18,8 +19,9 @@ import { fmt, LANGUAGE_LOCALES } from '@/lib/i18n/languages';
 import { getDictionary } from '@/lib/i18n/server';
 import { isAdmin } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
+import { getShowPricing } from '@/lib/siteSettings';
 
-// The site owner's Admin page: User Roles (src/components/UserRoleManager.tsx), then racingcoach."ActivityLog",
+// The site owner's Admin page: Site Settings (src/components/SiteSettingsManager.tsx), User Roles (src/components/UserRoleManager.tsx), then racingcoach."ActivityLog",
 // every page view and click, filtered through the URL (so a filtered view can be bookmarked), with totals,
 // the top pages and controls, and a CSV export.
 // Only for the Admin role; anyone else gets a 404, so the page's existence isn't advertised.
@@ -42,7 +44,7 @@ export default async function AdminPage({
   const t = getDictionary(user.preferredLanguage);
   const a = t.admin;
   const locale = LANGUAGE_LOCALES[user.preferredLanguage];
-  const [report, users] = await Promise.all([readActivityReport(filters), listUsersForAdmin()]);
+  const [report, users, showPricing] = await Promise.all([readActivityReport(filters), listUsersForAdmin(), getShowPricing()]);
   const { summary, topPages, topClicks, rows } = report;
 
   const href = (changes: Partial<ActivityFilters>) => `/admin?${activityFilterParams(filters, changes)}`;
@@ -75,6 +77,8 @@ export default async function AdminPage({
         <h1 className="text-3xl font-bold bg-gradient-to-r from-primary-strong via-primary to-primary-strong bg-clip-text text-transparent">
           {a.pageTitle}
         </h1>
+
+        <SiteSettingsManager showPricing={showPricing} />
 
         <UserRoleManager users={users} currentUserId={user.id} />
 

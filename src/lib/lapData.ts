@@ -156,7 +156,7 @@ function crossingIndex(pcts: number[], target: number, from: number) {
 // lap position. Same stretch of samples areaStats measures; null if the lap doesn't cover the area.
 // domain is the area's start and end as lap positions (an end past the start/finish line is > 1).
 // times is each sample's time from the start of the lap (s), spaced like areaStats counts them.
-// steerings is the steering wheel angle at each sample (radians, positive to the left).
+// steerings is the steering wheel angle at each sample (radians, positive to the left), speeds the speed (m/s).
 // positions is the car's [lat, lon] at each sample, or null if the lap has no track positions there.
 export type AreaTrace = {
   pcts: number[];
@@ -164,6 +164,7 @@ export type AreaTrace = {
   brakes: number[];
   throttles: number[];
   steerings: number[];
+  speeds: number[];
   positions: [number, number][] | null;
   domain: [number, number];
 };
@@ -194,7 +195,7 @@ export function withoutThrottleBlips(brakes: number[], throttles: number[]): num
 }
 
 export function areaTrace(
-  { pcts, brakes, throttles, steerings, lats, lons }: LapSamples,
+  { pcts, brakes, throttles, steerings, speeds, lats, lons }: LapSamples,
   lapSeconds: number,
   start: number,
   end: number
@@ -215,6 +216,7 @@ export function areaTrace(
     brakes: areaBrakes,
     throttles: withoutThrottleBlips(areaBrakes, throttles.slice(from, to)),
     steerings: steerings.slice(from, to),
+    speeds: speeds.slice(from, to),
     positions: positions.every(([lat, lon]) => Number.isFinite(lat) && Number.isFinite(lon)) ? positions : null,
     domain: [start, domainEnd],
   };

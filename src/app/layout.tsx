@@ -7,6 +7,7 @@ import Navigation from "@/components/Navigation";
 import { getDictionary, getLanguage } from "@/lib/i18n/server";
 import { isAdmin } from "@/lib/roles";
 import { getCurrentUser } from "@/lib/session";
+import { getShowPricing } from "@/lib/siteSettings";
 import { canBuyAnything } from "@/lib/users";
 import "./globals.css";
 
@@ -32,7 +33,7 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const user = await getCurrentUser();
+  const [user, showPricing] = await Promise.all([getCurrentUser(), getShowPricing()]);
   // Every page is in the user's Preferred Language (or a visitor's chosen one); client components get
   // the dictionary from LanguageProvider
   const language = await getLanguage(user);
@@ -47,7 +48,10 @@ export default async function RootLayout({
       <body className="min-h-screen bg-background text-foreground flex flex-col">
         <LanguageProvider language={language} dictionary={t}>
           <ActivityTracker />
-          <Navigation user={user ? { userName: user.userName, canUpgrade: canBuyAnything(user), isAdmin: isAdmin(user.role) } : null} />
+          <Navigation
+            user={user ? { userName: user.userName, canUpgrade: canBuyAnything(user), isAdmin: isAdmin(user.role) } : null}
+            showPricing={showPricing}
+          />
           <main className="flex-1">
             {children}
           </main>

@@ -3,6 +3,7 @@ import { ChatOpenAI } from '@langchain/openai';
 import { createAgent, tool } from 'langchain';
 import { z } from 'zod';
 import { aiLanguageRule, DEFAULT_LANGUAGE, type Language } from './i18n/languages';
+import { coachInstructionsRule } from './siteSettings';
 
 // Reference Points tab. The browser measures every lap in every focus area (the CSVs are too big to
 // send) and posts the numbers here. The reference table is computed here from the fastest runs through
@@ -199,7 +200,7 @@ export async function runReferencePoints(
   const agent = createAgent({
     model: new ChatOpenAI({ model: 'gpt-4o', temperature: 0.2 }),
     tools,
-    systemPrompt: SYSTEM_PROMPT + aiLanguageRule(language),
+    systemPrompt: SYSTEM_PROMPT + (await coachInstructionsRule()) + aiLanguageRule(language),
     responseFormat: commentarySchema,
   });
 

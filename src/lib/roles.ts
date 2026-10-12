@@ -17,3 +17,6 @@ export const isAdmin = (role: string | null | undefined) => role === ROLES.admin
 
 // Coaches and Admins can open every driver's recorded laps; Users only their own
 export const canSeeAllLaps = (role: string | null | undefined) => role === ROLES.admin || role === ROLES.coach;
+
+// Coaches and Admins see the Coach page and write the AI Coach Instructions
+export const canCoach = (role: string | null | undefined) => role === ROLES.admin || role === ROLES.coach;

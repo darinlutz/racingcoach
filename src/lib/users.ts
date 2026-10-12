@@ -515,6 +515,13 @@ export function ensureUserSchema(): Promise<void> {
       await client.query(
         'CREATE INDEX IF NOT EXISTS activity_log_visitor_id_occurred_at_idx ON racingcoach."ActivityLog" (visitor_id, occurred_at)'
       );
+      // Site-wide settings the Admin page changes (src/lib/siteSettings.ts), one row per setting
+      await client.query(`CREATE TABLE IF NOT EXISTS racingcoach."SiteSettings" (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_by INTEGER REFERENCES racingcoach."Users"(id) ON DELETE SET NULL
+      )`);
     }).catch((error) => {
       schemaReady = null;
       throw error;
@@ -554,8 +561,9 @@ function rowToUser(row: Record<string, unknown>): User {
   };
 }
 
+// Everyone else starts as a Coach for now; admins change roles on the Admin page
 function initialRole(emailAddress: string): string {
-  return emailAddress.trim().toLowerCase() === OWNER_EMAIL ? ROLES.admin : ROLES.user;
+  return emailAddress.trim().toLowerCase() === OWNER_EMAIL ? ROLES.admin : ROLES.coach;
 }
 
 export async function createUser(input: {

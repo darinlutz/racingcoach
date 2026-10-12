@@ -3,10 +3,25 @@ import { ChatOpenAI } from '@langchain/openai';
 import { createAgent, tool } from 'langchain';
 import { z } from 'zod';
 import { aiLanguageRule, DEFAULT_LANGUAGE, type Language } from './i18n/languages';
+import { coachInstructionsRule } from './siteSettings';
 
 // Post-session debrief coach for the Debrief Coach tab. The browser measures every lap in every
 // focus area (the CSVs are too big to send) and posts the numbers here; the agent digs through
 // them with the tools below and returns the 1-3 things to fix next session.
+
+// Braking, steering and driving line detail of one run (src/lib/areaInputs.ts has what each number means).
+// Optional so sessions from before they were measured still validate.
+const brakingSchema = z.object({
+  rampSeconds: z.number().nullable(),
+  trailSeconds: z.number().nullable(),
+  releaseFeet: z.number().nullable(),
+  throttleFeet: z.number().nullable(),
+  brakeAtTurnInPct: z.number().nullable(),
+  brakeSeconds: z.number(),
+  coastSeconds: z.number(),
+});
+const steeringSchema = z.object({ maxDeg: z.number(), apexDeg: z.number(), reversals: z.number() });
+const lineSchema = z.object({ offsetsM: z.array(z.number()).length(5), maxOffsetM: z.number(), maxOffsetAtPct: z.number() });
 
 // One lap through one focus area. brakeFeet is feet from the start/finish line (null = no braking)
 const runSchema = z.object({
@@ -16,6 +31,10 @@ const runSchema = z.object({
   maxBrakePct: z.number(),
   minSpeedMph: z.number(),
   exitSpeedMph: z.number(),
+  braking: brakingSchema.optional(),
+  steering: steeringSchema.optional(),
+  // null when the lap (or every lap) has no track positions in the area
+  line: lineSchema.nullable().optional(),
 });
 
 export const debriefSessionSchema = z.object({
@@ -29,6 +48,8 @@ export const debriefSessionSchema = z.object({
         range: z.string().max(20),
         brakepointTarget: z.number().nullable(),
         maxBrakeTarget: z.number().nullable(),
+        // The lap every run's driving line is compared with: the fastest through the area with track positions
+        lineReference: z.string().max(20).nullable().optional(),
         runs: z.array(runSchema).max(100),
       })
     )
@@ -47,10 +68,12 @@ const debriefSchema = z.object({
       z.object({
         area: z.string().describe('Focus area name, exactly as in the data'),
         focus: z
-          .enum(['Braking', 'Brake pressure', 'Mid-corner speed', 'Corner exit', 'Consistency'])
+          .enum(['Braking', 'Brake pressure', 'Trail braking', 'Steering', 'Driving line', 'Mid-corner speed', 'Corner exit', 'Consistency'])
           .describe(
-            'What the fix changes: Braking for the brakepoint, Brake pressure for peak brake, Mid-corner speed for ' +
-              'minimum speed, Corner exit for exit speed, Consistency when no single input explains the time'
+            'What the fix changes: Braking for the brakepoint, Brake pressure for peak brake, Trail braking for how the ' +
+              'brake is released into the corner, Steering for wheel angle or corrections, Driving line for where the car ' +
+              'is placed on the track, Mid-corner speed for minimum speed, Corner exit for exit speed, Consistency when ' +
+              'no single input explains the time'
           ),
         timeGainSeconds: z.number().describe("Time available per lap: the area's average time lost to its best"),
         problem: z.string().describe('What you are doing wrong there, with the numbers that show it'),
@@ -78,6 +101,9 @@ function stdDev(values: number[]) {
 
 const fixed = (value: number | null, digits: number, unit = '') => (value === null ? 'n/a' : `${value.toFixed(digits)}${unit}`);
 const avgOf = (values: number[], digits: number, unit: string) => (values.length === 0 ? 'n/a' : fixed(mean(values), digits, unit));
+// Average of the laps that measured it (null or undefined = not measured on that lap)
+const avgMeasured = (values: (number | null | undefined)[], digits: number, unit: string) =>
+  avgOf(values.filter((v): v is number => typeof v === 'number'), digits, unit);
 const brakeFeetOf = (runs: DebriefRun[]) => runs.flatMap((r) => (r.brakeFeet === null ? [] : [r.brakeFeet]));
 
 function describeRun(run: DebriefRun) {
@@ -138,6 +164,21 @@ function brakeDirection(area: DebriefArea): BrakeDirection | null {
   if (Math.abs(diff) < BRAKE_DIFF_FEET) return null;
   return { direction: diff > 0 ? 'later' : 'earlier', aimFeet: Math.round(mean(fastFeet)), diffFeet: Math.round(Math.abs(diff)) };
 }
+
+// Which way the area turns, from the steering at its slowest point on most laps; null for a straight or a
+// left-right (chicane) the median doesn't settle
+const MIN_APEX_DEGREES = 5;
+function turnDirection(area: DebriefArea): 'left' | 'right' | null {
+  const apexes = area.runs.flatMap((r) => (r.steering ? [r.steering.apexDeg] : []));
+  if (apexes.length === 0) return null;
+  const middle = median(apexes);
+  if (Math.abs(middle) < MIN_APEX_DEGREES) return null;
+  return middle > 0 ? 'left' : 'right';
+}
+
+// Fast and slow runs' lines this close together are treated as the same line
+const LINE_DIFF_METERS = 0.5;
+const LINE_CHECKPOINTS = ['the start of the area (entry)', '25% through', 'the middle (50%)', '75% through', 'the end of the area (exit)'];
 
 function createTools(session: DebriefSession) {
   const { cutoff, incidentLaps, cleanLaps, areas } = cleanSession(session);
@@ -269,14 +310,201 @@ function createTools(session: DebriefSession) {
     }
   );
 
-  return [overview, areaDetail, compareLap];
+  const brakingDetail = tool(
+    async ({ area: name }: { area: string }) => {
+      const area = findArea(name);
+      if (!area) return `No focus area named "${name}". Focus areas: ${areaNames}`;
+      const { runs, k, fast, slow } = fastSlow(area);
+      if (!runs.some((r) => r.braking)) return `Braking detail was not measured for ${area.name} in this session.`;
+
+      const describe = (run: DebriefRun) => {
+        const d = run.braking;
+        if (!d) return `[${run.lap}] ${run.seconds.toFixed(3)}s: not measured`;
+        return (
+          `[${run.lap}] ${run.seconds.toFixed(3)}s: ` +
+          [
+            run.brakeFeet === null ? 'no braking' : `brake at ${run.brakeFeet} ft`,
+            `${fixed(d.rampSeconds, 2, 's')} to peak ${run.maxBrakePct.toFixed(0)}%`,
+            `${fixed(d.trailSeconds, 2, 's')} from peak to release`,
+            `released at ${fixed(d.releaseFeet, 0, ' ft')}`,
+            d.brakeAtTurnInPct === null ? 'no turn-in' : `${d.brakeAtTurnInPct}% brake at turn-in`,
+            `${d.brakeSeconds.toFixed(2)}s on the brake`,
+            `${d.coastSeconds.toFixed(2)}s coasting`,
+            `throttle back at ${fixed(d.throttleFeet, 0, ' ft')}`,
+          ].join(', ')
+        );
+      };
+      const split = (label: string, pick: (r: DebriefRun) => number | null | undefined, digits: number, unit: string) =>
+        `${label} ${avgMeasured(fast.map(pick), digits, unit)} vs ${avgMeasured(slow.map(pick), digits, unit)}`;
+
+      return [
+        `${area.name} (${area.range}) braking. Feet are from the start/finish line (more feet = later). "To peak" is ` +
+          'how long the brake took to reach its highest pressure; "peak to release" is how long it was trailed off ' +
+          'into the corner; "at turn-in" is the brake pressure when the steering reached half its largest angle; ' +
+          'coasting is off the brake with under 10% throttle.',
+        'Per lap, fastest first:',
+        ...runs.map(describe),
+        '',
+        `Fastest ${k} vs slowest ${k} runs (averages): ` +
+          [
+            split('time to peak', (r) => r.braking?.rampSeconds, 2, 's'),
+            split('peak to release', (r) => r.braking?.trailSeconds, 2, 's'),
+            split('release point', (r) => r.braking?.releaseFeet, 0, ' ft'),
+            split('brake at turn-in', (r) => r.braking?.brakeAtTurnInPct, 0, '%'),
+            split('time on the brake', (r) => r.braking?.brakeSeconds, 2, 's'),
+            split('coasting', (r) => r.braking?.coastSeconds, 2, 's'),
+            split('throttle back', (r) => r.braking?.throttleFeet, 0, ' ft'),
+          ].join('; ') +
+          '.',
+      ].join('\n');
+    },
+    {
+      name: 'get_braking_detail',
+      description:
+        'How each lap used the brake through one focus area: time to peak pressure, trail braking (peak to release), ' +
+        'release point, brake still on at turn-in, time on the brake, coasting and throttle pickup, with the fastest ' +
+        'runs against the slowest. Use it when braking looks like where the time goes.',
+      schema: z.object({ area: z.string().describe('Focus area name, exactly as in the overview') }),
+    }
+  );
+
+  const steeringDetail = tool(
+    async ({ area: name }: { area: string }) => {
+      const area = findArea(name);
+      if (!area) return `No focus area named "${name}". Focus areas: ${areaNames}`;
+      const { runs, k, fast, slow } = fastSlow(area);
+      if (!runs.some((r) => r.steering)) return `Steering was not measured for ${area.name} in this session.`;
+
+      const side = (deg: number) => (deg === 0 ? 'straight' : `${Math.abs(deg).toFixed(0)}° ${deg > 0 ? 'left' : 'right'}`);
+      const describe = (run: DebriefRun) => {
+        const d = run.steering;
+        if (!d) return `[${run.lap}] ${run.seconds.toFixed(3)}s: not measured`;
+        return (
+          `[${run.lap}] ${run.seconds.toFixed(3)}s: max wheel angle ${d.maxDeg.toFixed(0)}°, ${side(d.apexDeg)} at the ` +
+          `slowest point (${run.minSpeedMph.toFixed(1)} mph), ${d.reversals} steering reversal${d.reversals === 1 ? '' : 's'}`
+        );
+      };
+      const split = (label: string, pick: (r: DebriefRun) => number | null | undefined, digits: number, unit: string) =>
+        `${label} ${avgMeasured(fast.map(pick), digits, unit)} vs ${avgMeasured(slow.map(pick), digits, unit)}`;
+      const turn = turnDirection(area);
+
+      return [
+        `${area.name} (${area.range}) steering, in steering wheel degrees. ` +
+          (turn ? `It is a ${turn}-hand corner. ` : 'It has no single corner direction (a straight or a chicane). ') +
+          'A reversal is the wheel swinging back the other way by 4° or more: turning in then unwinding is one, so ' +
+          'more than that means corrections (sawing at the wheel or catching the car). More wheel angle at the same ' +
+          'or lower speed means the car is not turning as well (understeer) or the line is tighter.',
+        'Per lap, fastest first:',
+        ...runs.map(describe),
+        '',
+        `Fastest ${k} vs slowest ${k} runs (averages): ` +
+          [
+            split('max wheel angle', (r) => r.steering?.maxDeg, 0, '°'),
+            split('wheel angle at the slowest point', (r) => (r.steering ? Math.abs(r.steering.apexDeg) : null), 0, '°'),
+            split('steering reversals', (r) => r.steering?.reversals, 1, ''),
+            split('min speed', (r) => r.minSpeedMph, 1, ' mph'),
+          ].join('; ') +
+          '.',
+      ].join('\n');
+    },
+    {
+      name: 'get_steering_detail',
+      description:
+        'Steering wheel angle through one focus area for each lap: the largest angle, the angle at the slowest point ' +
+        'and the number of steering reversals (corrections), with the fastest runs against the slowest. Use it to ' +
+        'find understeer, too much steering or corrections that cost time.',
+      schema: z.object({ area: z.string().describe('Focus area name, exactly as in the overview') }),
+    }
+  );
+
+  const drivingLine = tool(
+    async ({ area: name }: { area: string }) => {
+      const area = findArea(name);
+      if (!area) return `No focus area named "${name}". Focus areas: ${areaNames}`;
+      const { runs, k, fast, slow } = fastSlow(area);
+      if (!runs.some((r) => r.line)) {
+        return (
+          `No track positions (Lat/Lon) for ${area.name} in these laps, so the driving line cannot be compared. ` +
+          'Do not give a driving line fix for this area.'
+        );
+      }
+
+      // Toward the inside of the corner is positive when the corner direction is known, otherwise left is
+      const turn = turnDirection(area);
+      const sign = turn === 'right' ? -1 : 1;
+      const toward = turn ? ['inside', 'outside'] : ['left', 'right'];
+      const metres = (value: number) => `${value >= 0 ? '+' : ''}${value.toFixed(1)}`;
+      const describe = (run: DebriefRun) => {
+        if (!run.line) return `[${run.lap}] ${run.seconds.toFixed(3)}s: no track positions`;
+        return (
+          `[${run.lap}] ${run.seconds.toFixed(3)}s: ${run.line.offsetsM.map((m) => metres(m * sign)).join(', ')} m; ` +
+          `largest ${metres(run.line.maxOffsetM * sign)} m at ${run.line.maxOffsetAtPct}% through the area`
+        );
+      };
+      const average = (group: DebriefRun[], i: number) => {
+        const values = group.flatMap((r) => (r.line ? [r.line.offsetsM[i] * sign] : []));
+        return values.length === 0 ? null : mean(values);
+      };
+      const fastAvg = LINE_CHECKPOINTS.map((_, i) => average(fast, i));
+      const slowAvg = LINE_CHECKPOINTS.map((_, i) => average(slow, i));
+
+      let biggest = -1;
+      LINE_CHECKPOINTS.forEach((_, i) => {
+        const diff = fastAvg[i] === null || slowAvg[i] === null ? 0 : Math.abs(slowAvg[i]! - fastAvg[i]!);
+        const best = biggest < 0 ? 0 : Math.abs(slowAvg[biggest]! - fastAvg[biggest]!);
+        if (diff > best) biggest = i;
+      });
+      const verdict =
+        biggest >= 0 && Math.abs(slowAvg[biggest]! - fastAvg[biggest]!) >= LINE_DIFF_METERS
+          ? (() => {
+              const diff = slowAvg[biggest]! - fastAvg[biggest]!;
+              return (
+                `Line verdict: the biggest difference is at ${LINE_CHECKPOINTS[biggest]}, where your slowest runs were ` +
+                `${Math.abs(diff).toFixed(1)} m further ${diff > 0 ? toward[0] : toward[1]} than your fastest. A driving ` +
+                `line fix for this area should move the car about ${Math.abs(diff).toFixed(1)} m toward the ` +
+                `${diff > 0 ? toward[1] : toward[0]} there.`
+              );
+            })()
+          : `Line verdict: your fast and slow runs take lines within ${LINE_DIFF_METERS} m of each other, so the ` +
+            'driving line does not explain the time here. Do not give a driving line fix for this area.';
+
+      return [
+        `${area.name} (${area.range}) driving line, compared with lap [${area.lineReference ?? '?'}] (the fastest ` +
+          'through the area with track positions). Each lap shows how many meters it was from that line at the start ' +
+          `of the area, 25%, 50%, 75% and the end, + toward the ${toward[0]} and - toward the ${toward[1]}` +
+          (turn ? ` of this ${turn}-hand corner.` : ' (no single corner direction here).'),
+        'Per lap, fastest first:',
+        ...runs.map(describe),
+        '',
+        `Fastest ${k} vs slowest ${k} runs (average meters at each point): ` +
+          LINE_CHECKPOINTS.map(
+            (label, i) => `${label} ${fastAvg[i] === null ? 'n/a' : metres(fastAvg[i]!)} vs ${slowAvg[i] === null ? 'n/a' : metres(slowAvg[i]!)}`
+          ).join('; ') +
+          '.',
+        verdict,
+      ].join('\n');
+    },
+    {
+      name: 'get_driving_line',
+      description:
+        "Where each lap placed the car through one focus area compared with the fastest lap's line, in meters toward " +
+        'the inside or outside of the corner at the entry, middle and exit, with the fastest runs against the slowest ' +
+        'and a line verdict. Use it to find line mistakes such as turning in early or running wide on exit.',
+      schema: z.object({ area: z.string().describe('Focus area name, exactly as in the overview') }),
+    }
+  );
+
+  return [overview, areaDetail, compareLap, brakingDetail, steeringDetail, drivingLine];
 }
 
 const SYSTEM_PROMPT =
   'You are a sim racing driving coach running a post-session debrief. Your job is to tell the driver what to ' +
   'fix next session. Start with get_session_overview. Then use get_area_detail on the focus areas that lose the ' +
   'most time (at least the top three), and use compare_lap_to_best on the slowest laps when it helps find a ' +
-  'pattern. Choose 1 to 3 fixes, ordered by time available, each one a single concrete change the driver can ' +
+  'pattern. To find why an area loses time, use get_braking_detail, get_steering_detail and get_driving_line on the ' +
+  'areas that lose the most. A driving line fix must use the line verdict from get_driving_line: the place in the ' +
+  'area and the meters to move toward the inside or outside, and never one where the verdict says the line does not ' +
+  'explain the time. Choose 1 to 3 fixes, ordered by time available, each one a single concrete change the driver can ' +
   'make in the car with a number to aim for (for example "brake about 30 ft later, near 1230 ft" or "build to ' +
   'about 90% peak pressure"). Base the number to aim for on what your fastest runs did; the targets are only a ' +
   'reference, so when your fastest runs beat the area while missing a target, tell the driver to copy the ' +
@@ -338,7 +566,7 @@ export async function runDebriefCoach(
   const agent = createAgent({
     model: new ChatOpenAI({ model: 'gpt-4o', temperature: 0.2 }),
     tools,
-    systemPrompt: SYSTEM_PROMPT + aiLanguageRule(language),
+    systemPrompt: SYSTEM_PROMPT + (await coachInstructionsRule()) + aiLanguageRule(language),
     responseFormat: debriefSchema,
   });
 

@@ -9,8 +9,11 @@ import { buttonVariants } from '@/components/Button';
 import { useLanguage } from '@/components/LanguageProvider';
 
 type NavigationProps = {
-  // isAdmin shows the Admin link (the activity log); canUpgrade is false for Gold subscribers
+  // isAdmin shows the Admin link (the activity log); canUpgrade is false for Gold subscribers.
+  // Every signed-in user sees the Coach link, and the Coach page tells anyone but Coaches and Admins it's not for them
   user: { userName: string; canUpgrade: boolean; isAdmin: boolean } | null;
+  // The Admin page's Show Pricing setting (src/lib/siteSettings.ts)
+  showPricing: boolean;
 };
 
 const links = [
@@ -21,14 +24,15 @@ const links = [
   { href: '/pricing', key: 'pricing' },
 ] as const;
 
-export default function Navigation({ user }: NavigationProps) {
+export default function Navigation({ user, showPricing }: NavigationProps) {
   const { t } = useLanguage();
   const router = useRouter();
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
-  // Gold subscribers have nothing left to buy
-  const visibleLinks = user && !user.canUpgrade ? links.filter((link) => link.href !== '/pricing') : links;
+  // Hidden when the Admin page turns Show Pricing off, and for Gold subscribers, who have nothing left to buy
+  const hidePricing = !showPricing || (user !== null && !user.canUpgrade);
+  const visibleLinks = hidePricing ? links.filter((link) => link.href !== '/pricing') : links;
 
   const toggleMenu = () => setIsOpen(!isOpen);
   const closeMenu = () => setIsOpen(false);
@@ -66,6 +70,7 @@ export default function Navigation({ user }: NavigationProps) {
         <div className="hidden md:flex items-center gap-4">
           {user ? (
             <>
+              <Link href="/coach" className={navLink('/coach')}>{t.nav.coach}</Link>
               {user.isAdmin && <Link href="/admin" className={navLink('/admin')}>{t.nav.admin}</Link>}
               <Link href="/account" className={navLink('/account')}>{t.nav.myAccount}</Link>
               <span className="font-semibold text-muted-foreground whitespace-nowrap">{t.nav.driver} <span className="text-foreground">{user.userName}</span></span>
@@ -108,6 +113,7 @@ export default function Navigation({ user }: NavigationProps) {
             <div className="border-t border-border pt-2 mt-2">
               {user ? (
                 <>
+                  <Link href="/coach" className={mobileLink('/coach')} onClick={closeMenu}>{t.nav.coach}</Link>
                   {user.isAdmin && (
                     <Link href="/admin" className={mobileLink('/admin')} onClick={closeMenu}>{t.nav.admin}</Link>
                   )}

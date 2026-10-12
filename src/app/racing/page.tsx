@@ -13,13 +13,18 @@ import DebriefCoach from '@/components/DebriefCoach';
 import ReferencePoints from '@/components/ReferencePoints';
 import type { LapFile } from '@/lib/lapData';
 
-// Space Fact Query tab is hidden for now; set to true to show it again
+// Space Fact Query, Friends and Stint Analysis tabs are hidden for now; set to true to show them again
 const SHOW_SPACE_FACTS_TAB = false;
+const SHOW_FRIENDS_TAB = false;
+const SHOW_STINT_TAB = false;
 
 type Tab = 'tracks' | 'cars' | 'friends' | 'spaceFacts' | 'racecar' | 'stint' | 'lapCompare' | 'debrief' | 'referencePoints';
 
-// Tab bar order; Get Reference Points starts the right-hand group
-const TABS: Tab[] = ['debrief', 'spaceFacts', 'stint', 'lapCompare', 'referencePoints', 'cars', 'tracks', 'racecar', 'friends'];
+// Tab bar order: the top row on the left, the bottom row on the right
+const TAB_ROWS: Tab[][] = [
+  ['debrief', 'spaceFacts', 'lapCompare', 'stint'],
+  ['friends', 'referencePoints', 'tracks', 'racecar', 'cars'],
+];
 
 export default function RacingPage() {
   const { t } = useLanguage();
@@ -45,19 +50,23 @@ export default function RacingPage() {
       <section className="py-16 px-6 sm:px-10 lg:px-16 bg-card flex flex-col items-center">
         <div className="w-full max-w-4xl">
           {/* Tab Navigation */}
-          <div className="flex flex-wrap gap-4 mb-6 border-b border-border">
-            {TABS.filter((tab) => tab !== 'spaceFacts' || SHOW_SPACE_FACTS_TAB).map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`${tab === 'referencePoints' ? 'ml-auto ' : ''}px-6 py-3 font-semibold border-b-2 transition-colors ${
-                  activeTab === tab
-                    ? 'text-primary border-primary'
-                    : 'text-muted-foreground border-transparent hover:text-foreground'
-                }`}
-              >
-                {t.racing.tabs[tab]}
-              </button>
+          <div className="flex flex-col gap-4 mb-6 border-b border-border">
+            {TAB_ROWS.map((row, i) => (
+              <div key={i} className={`flex flex-wrap gap-4 ${i > 0 ? 'justify-end' : ''}`}>
+                {row.filter((tab) => (tab !== 'spaceFacts' || SHOW_SPACE_FACTS_TAB) && (tab !== 'friends' || SHOW_FRIENDS_TAB) && (tab !== 'stint' || SHOW_STINT_TAB)).map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`px-6 py-3 font-semibold border-b-2 transition-colors ${
+                      activeTab === tab
+                        ? 'text-primary border-primary'
+                        : 'text-muted-foreground border-transparent hover:text-foreground'
+                    }`}
+                  >
+                    {t.racing.tabs[tab]}
+                  </button>
+                ))}
+              </div>
             ))}
           </div>
 

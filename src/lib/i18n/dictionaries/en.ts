@@ -48,6 +48,7 @@ export const en = {
     pricing: 'Pricing',
     myAccount: 'My Account',
     admin: 'Admin',
+    coach: 'Coach',
     driver: 'Driver:',
     logout: 'Logout',
     logIn: 'Log In',
@@ -288,7 +289,7 @@ export const en = {
       spaceFacts: 'Space Fact Query',
       stint: 'Stint Analysis',
       lapCompare: 'Lap Compare',
-      referencePoints: 'Get Reference Points',
+      referencePoints: 'Reference Points',
       cars: 'Car Data',
       tracks: 'Track Data',
       racecar: 'Racecar Analysis',
@@ -884,9 +885,25 @@ export const en = {
     gainedLost: 'Gained/Lost',
   },
 
+  // The Coach page (src/app/coach/page.tsx)
+  coach: {
+    pageTitle: 'Coach',
+    noAccess: 'Only Coaches have access to the AI Coach Training Model.',
+    instructionsTitle: 'AI Coach Instructions',
+    instructionsIntro: 'Tell the AI coach how to coach. These instructions apply to every driver’s Debrief Coach, lap and stint summaries, Reference Points, Race Trends and Discord coaching.',
+    placeholder: 'For example: Analyze the driving line first.',
+    save: 'Save AI Coach Instructions',
+    saving: 'Saving…',
+    saved: 'AI Coach Instructions saved.',
+    characters: '{n} / {max} characters',
+  },
+
   // The Admin page's activity log (src/app/admin/page.tsx)
   admin: {
     pageTitle: 'Admin',
+    settingsTitle: 'Site Settings',
+    showPricing: 'Show Pricing',
+    showPricingHint: 'Shows the Pricing link in the navigation bar for everyone.',
     rolesTitle: 'User Roles',
     rolesIntro: 'Find a user, choose their role and save.',
     findUser: 'Find a user',
@@ -966,6 +983,9 @@ export const en = {
     cannotChangeOwnRole: 'You can’t change your own role',
     lastAdmin: 'There must be at least one Admin',
     failedSaveRole: 'Failed to save the role',
+    failedSaveSetting: 'Failed to save the setting',
+    failedSaveInstructions: 'Failed to save the AI Coach Instructions',
+    instructionsTooLong: 'The AI Coach Instructions are too long',
     // General
     notConfigured: 'This feature isn’t available right now. Please try again later.',
     aiNotConfigured: 'The AI coach isn’t available right now. Please try again later.',

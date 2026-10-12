@@ -3,6 +3,7 @@ import { ChatOpenAI } from '@langchain/openai';
 import { createAgent, tool } from 'langchain';
 import { z } from 'zod';
 import { aiLanguageRule, DEFAULT_LANGUAGE, type Language } from './i18n/languages';
+import { coachInstructionsRule } from './siteSettings';
 
 // My Race Trends page. The driver's races are synced from iRacePlan into racingcoach."RaceResults"
 // (see raceHistory.ts). The iRating and incident trends are computed here so the charts' numbers are
@@ -261,7 +262,7 @@ export async function runRaceTrends(
   const agent = createAgent({
     model: new ChatOpenAI({ model: 'gpt-4o', temperature: 0.2 }),
     tools,
-    systemPrompt: SYSTEM_PROMPT + aiLanguageRule(language),
+    systemPrompt: SYSTEM_PROMPT + (await coachInstructionsRule()) + aiLanguageRule(language),
     responseFormat: commentarySchema,
   });
 
@@ -321,7 +322,7 @@ export async function runRaceCoaching(driver: string, events: RaceEvent[]): Prom
   const agent = createAgent({
     model: new ChatOpenAI({ model: 'gpt-4o', temperature: 0.2 }),
     tools: createTools(driver, events),
-    systemPrompt: COACHING_PROMPT,
+    systemPrompt: COACHING_PROMPT + (await coachInstructionsRule()),
     responseFormat: coachingSchema,
   });
 

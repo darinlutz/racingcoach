@@ -1,6 +1,7 @@
 import { ChatPromptTemplate } from '@langchain/core/prompts';
 import { ChatOpenAI } from '@langchain/openai';
 import { aiLanguageRule, DEFAULT_LANGUAGE, type Language } from './i18n/languages';
+import { coachInstructionsRule } from './siteSettings';
 
 const PROMPT_TEMPLATE = ChatPromptTemplate.fromMessages([
   [
@@ -21,7 +22,7 @@ const PROMPT_TEMPLATE = ChatPromptTemplate.fromMessages([
       'brake earlier. Both laps were driven in the same conditions, which may be wet, so do not assume a dry ' +
       'track; when the advice is more pressure, say to build it progressively to avoid locking up. ' +
       'Write plain prose in a single paragraph with no ' +
-      'headings, lists, or markdown, and do not invent data that is not in the comparison.{languageRule}',
+      'headings, lists, or markdown, and do not invent data that is not in the comparison.{rules}',
   ],
   ['user', '{comparison}'],
 ]);
@@ -34,7 +35,7 @@ export async function summarizeLapComparison(comparison: string, track: string, 
 
   const model = new ChatOpenAI({ model: 'gpt-4o', temperature: 0.3 });
   const chain = PROMPT_TEMPLATE.pipe(model);
-  const response = await chain.invoke({ comparison, track, languageRule: aiLanguageRule(language) });
+  const response = await chain.invoke({ comparison, track, rules: (await coachInstructionsRule()) + aiLanguageRule(language) });
   return typeof response.content === 'string' ? response.content.trim() : '';
 }
 
@@ -54,7 +55,7 @@ const MULTI_LAP_PROMPT_TEMPLATE = ChatPromptTemplate.fromMessages([
       'covers consistency: which focus areas have the largest variation from lap to lap (time, ' +
       'brakepoint, brake pressure or speeds), what that variation suggests the driver is doing, and ' +
       'where the driver is already consistent. Use the numbers from the data, write to the driver as ' +
-      '"you", use no headings, lists, or markdown, and do not invent data that is not in the statistics.{languageRule}',
+      '"you", use no headings, lists, or markdown, and do not invent data that is not in the statistics.{rules}',
   ],
   ['user', '{stats}'],
 ]);
@@ -67,7 +68,7 @@ export async function summarizeMultiLap(stats: string, track: string, language: 
 
   const model = new ChatOpenAI({ model: 'gpt-4o', temperature: 0.3 });
   const chain = MULTI_LAP_PROMPT_TEMPLATE.pipe(model);
-  const response = await chain.invoke({ stats, track, languageRule: aiLanguageRule(language) });
+  const response = await chain.invoke({ stats, track, rules: (await coachInstructionsRule()) + aiLanguageRule(language) });
   return typeof response.content === 'string' ? response.content.trim() : '';
 }
 
@@ -84,7 +85,7 @@ const STINT_PROMPT_TEMPLATE = ChatPromptTemplate.fromMessages([
       'weather plausibly affected pace (a correlation can also come from the driver improving over the ' +
       'stint, so say so when that is possible) and what the fuel numbers mean for stint length. Use the ' +
       'numbers from the report, write to the driver as "you", use no headings, lists, or markdown, and do ' +
-      'not invent data that is not in the report.{languageRule}',
+      'not invent data that is not in the report.{rules}',
   ],
   ['user', '{report}'],
 ]);
@@ -97,6 +98,6 @@ export async function summarizeStint(report: string, track: string, language: La
 
   const model = new ChatOpenAI({ model: 'gpt-4o', temperature: 0.3 });
   const chain = STINT_PROMPT_TEMPLATE.pipe(model);
-  const response = await chain.invoke({ report, track, languageRule: aiLanguageRule(language) });
+  const response = await chain.invoke({ report, track, rules: (await coachInstructionsRule()) + aiLanguageRule(language) });
   return typeof response.content === 'string' ? response.content.trim() : '';
 }

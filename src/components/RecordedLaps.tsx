@@ -27,8 +27,9 @@ function groupSessions(laps: CollectorLapSummary[]): Session[] {
   const sessions: Session[] = [];
   const oldestFirst = [...laps].sort((a, b) => a.recordedAt.localeCompare(b.recordedAt) || a.id - b.id);
   for (const lap of oldestFirst) {
-    // The driver keeps two drivers' laps from one session apart when All Drivers is shown
-    const sameAs = [lap.driver, lap.track, lap.car, lap.sessionId, lap.subSessionId, lap.sessionNum].join('|');
+    // The account keeps two drivers' laps from one session apart when All Drivers is shown, even when they
+    // share a name or drove on the same iRacing account
+    const sameAs = [lap.userId, lap.track, lap.car, lap.sessionId, lap.subSessionId, lap.sessionNum].join('|');
     const current = sessions.at(-1);
     const previous = current?.laps.at(-1);
     if (

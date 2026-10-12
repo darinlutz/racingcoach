@@ -82,7 +82,12 @@ export type CollectorLapSummary = {
   clientLapId: string;
   track: string;
   car: string;
+  // The RacingCoach account that uploaded the lap, and its name. That's who drove it as far as the site is
+  // concerned: iRacingDriver is the name iRacing reported, which is whoever the sim was logged in as (e.g. a
+  // friend driving on someone else's iRacing account)
+  userId: number;
   driver: string;
+  iracingDriver: string;
   sessionId: number;
   subSessionId: number;
   sessionNum: number;
@@ -108,6 +113,8 @@ export async function listCollectorLaps(userId: number | null): Promise<Collecto
     client_lap_id: string;
     track: string;
     car: string;
+    user_id: number;
+    user_name: string;
     driver: string;
     iracing_session_id: string;
     iracing_subsession_id: string;
@@ -122,10 +129,12 @@ export async function listCollectorLaps(userId: number | null): Promise<Collecto
     off_track: boolean;
     recorded_at: Date;
   }>(
-    `SELECT id, client_lap_id, track, car, driver, iracing_session_id, iracing_subsession_id, session_num, session_type,
-            lap_number, lap_time_seconds, sample_count, missing_samples, incidents, pit_road, off_track, recorded_at
-     FROM racingcoach."CollectorLaps" WHERE ($1::integer IS NULL OR user_id = $1)
-     ORDER BY recorded_at DESC, id DESC LIMIT $2`,
+    `SELECT l.id, l.client_lap_id, l.track, l.car, l.user_id, u.user_name, l.driver, l.iracing_session_id,
+            l.iracing_subsession_id, l.session_num, l.session_type, l.lap_number, l.lap_time_seconds, l.sample_count,
+            l.missing_samples, l.incidents, l.pit_road, l.off_track, l.recorded_at
+     FROM racingcoach."CollectorLaps" l JOIN racingcoach."Users" u ON u.id = l.user_id
+     WHERE ($1::integer IS NULL OR l.user_id = $1)
+     ORDER BY l.recorded_at DESC, l.id DESC LIMIT $2`,
     [userId, LIST_LIMIT]
   );
   return rows.map((row) => ({
@@ -133,7 +142,9 @@ export async function listCollectorLaps(userId: number | null): Promise<Collecto
     clientLapId: row.client_lap_id,
     track: row.track,
     car: row.car,
-    driver: row.driver,
+    userId: Number(row.user_id),
+    driver: row.user_name,
+    iracingDriver: row.driver,
     // BIGINT columns come back from pg as strings
     sessionId: Number(row.iracing_session_id),
     subSessionId: Number(row.iracing_subsession_id),

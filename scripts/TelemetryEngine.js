@@ -2662,11 +2662,11 @@ function GetBrakepointAlertColor(areaNumber)
         // THROTTLE PICKUP COLOR BANDS
         // ----------------------------------------------------
 
-        if (throttleDistanceFeet <= 100)
-            return "Green";
+    //    if (throttleDistanceFeet <= 100)
+    //        return "Green";
 
-        if (throttleDistanceFeet <= 200)
-            return "Gainsboro";
+     //   if (throttleDistanceFeet <= 200)
+    //        return "Gainsboro";
 
         return "Transparent";
     }

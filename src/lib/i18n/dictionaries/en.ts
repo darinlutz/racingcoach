@@ -447,6 +447,7 @@ export const en = {
     compareColumn: 'Compare',
     useAsTarget: 'Use lap {lap} as the target lap',
     compareLap: 'Compare lap {lap}',
+    downloadLap: 'Download lap {lap}',
     lapN: 'Lap {lap}',
     pitRoad: 'pit road',
     offTrack: 'off track',

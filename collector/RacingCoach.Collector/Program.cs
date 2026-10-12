@@ -51,6 +51,9 @@ namespace RacingCoach.Collector;
     TelemetryVar.LapBestLapTime,
     TelemetryVar.LapDeltaToBestLap,
     TelemetryVar.PlayerCarPosition,
+    // only shown in the Rotation window
+    TelemetryVar.VelocityX,
+    TelemetryVar.VelocityY,
     // read by TelemetryEngine.js in the overlay (as SimHub's GameRawData.Telemetry.SessionUniqueID)
     TelemetryVar.SessionUniqueID,
 ])]

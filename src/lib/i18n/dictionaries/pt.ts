@@ -445,6 +445,7 @@ export const pt: Dictionary = {
     compareColumn: 'Comparar',
     useAsTarget: 'Usar a volta {lap} como volta-alvo',
     compareLap: 'Comparar a volta {lap}',
+    downloadLap: 'Baixar a volta {lap}',
     lapN: 'Volta {lap}',
     pitRoad: 'pit lane',
     offTrack: 'fora da pista',

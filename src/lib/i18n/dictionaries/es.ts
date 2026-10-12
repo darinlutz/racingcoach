@@ -445,6 +445,7 @@ export const es: Dictionary = {
     compareColumn: 'Comparar',
     useAsTarget: 'Usar la vuelta {lap} como vuelta objetivo',
     compareLap: 'Comparar la vuelta {lap}',
+    downloadLap: 'Descargar la vuelta {lap}',
     lapN: 'Vuelta {lap}',
     pitRoad: 'pit lane',
     offTrack: 'fuera de pista',

@@ -49,12 +49,17 @@ function groupSessions(laps: CollectorLapSummary[]): Session[] {
 // A clean lap: no pit road, no off-track, no incidents
 const isClean = (lap: CollectorLapSummary) => !lap.pitRoad && !lap.offTrack && lap.incidents === 0;
 
+const lapFileId = (lap: CollectorLapSummary) => `rc${lap.clientLapId.replace(/-/g, '')}`;
+
+// The lap's file name, for its LapFile and its download
+const lapFileName = (lap: CollectorLapSummary) =>
+  `RacingCoach - ${lap.driver} - ${lap.car} - ${lap.track} - ${secondsToLapTime(lap.lapTimeSeconds)} - ${lapFileId(lap)}.csv`;
+
 function toLapFile(lap: CollectorLapSummary, csv: string): LapFile {
   const lapTime = secondsToLapTime(lap.lapTimeSeconds);
-  const fileId = `rc${lap.clientLapId.replace(/-/g, '')}`;
-  const name = `RacingCoach - ${lap.driver} - ${lap.car} - ${lap.track} - ${lapTime} - ${fileId}.csv`;
+  const fileId = lapFileId(lap);
   return {
-    file: new File([csv], name, { type: 'text/csv' }),
+    file: new File([csv], lapFileName(lap), { type: 'text/csv' }),
     driverName: lap.driver,
     carName: lap.car,
     trackName: lap.track,
@@ -423,6 +428,7 @@ export default function RecordedLaps({
                 )}
               </div>
               <div className="flex items-center gap-3 px-2 text-xs text-muted-foreground">
+                <span className="w-5" />
                 <span className="w-12 text-center">{t.debriefColumn}</span>
                 <span className="w-12 text-center">{t.targetColumn}</span>
                 {onCompare && <span className="w-12 text-center">{t.compareColumn}</span>}
@@ -430,6 +436,21 @@ export default function RecordedLaps({
               <ul className="space-y-1">
                 {session.laps.map((lap) => (
                   <li key={lap.id} className="flex items-center gap-3 px-2 py-1 rounded hover:bg-secondary text-sm">
+                    {/* Downloads the lap's CSV (the same route that loads it for analysis) */}
+                    <a
+                      href={`/api/collector/laps/${lap.id}`}
+                      download={lapFileName(lap)}
+                      title={fmt(t.downloadLap, { lap: lap.lapNumber })}
+                      aria-label={fmt(t.downloadLap, { lap: lap.lapNumber })}
+                      data-track="download-lap"
+                      className="w-5 flex justify-center text-muted-foreground hover:text-primary transition-colors"
+                    >
+                      <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M12 3v12" />
+                        <path d="m7 10 5 5 5-5" />
+                        <path d="M5 21h14" />
+                      </svg>
+                    </a>
                     <span className="w-12 flex justify-center">
                       <input
                         id={`debrief-lap-${lap.id}`}

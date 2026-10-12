@@ -119,7 +119,8 @@
                     <Button Style="{StaticResource Button}" Content="Open Laps Folder" Click="OpenLapsFolder_Click" Margin="0,0,8,0" />
                     <Button Style="{StaticResource Button}" Content="Upload Key" Click="ChangeKey_Click" Margin="0,0,8,0" x:Name="KeyButton" />
                     <Button Style="{StaticResource Button}" Content="RacingCoach.app" Click="OpenSite_Click" Margin="0,0,8,0" />
-                    <Button Style="{StaticResource PrimaryButton}" Content="Launch Overlay" Click="LaunchOverlay_Click" />
+                    <Button Style="{StaticResource PrimaryButton}" Content="Launch Overlay" Click="LaunchOverlay_Click" Margin="0,0,8,0" />
+                    <Button Style="{StaticResource PrimaryButton}" Content="Rotation" Click="Rotation_Click" />
                 </StackPanel>
             </Grid>
 

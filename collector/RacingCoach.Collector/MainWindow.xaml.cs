@@ -62,6 +62,7 @@ public partial class MainWindow : Window
     private bool _closing;
     private bool _closed;
     private OverlayWindow? _overlayWindow;
+    private RotationWindow? _rotationWindow;
 
     internal MainWindow(CollectorOptions options)
     {
@@ -641,6 +642,19 @@ public partial class MainWindow : Window
         _overlayWindow.Show();
     }
 
+    // Opens the Rotation window (or brings it to the front): live steering, yaw, velocities, accelerations and pedals
+    private void Rotation_Click(object sender, RoutedEventArgs e)
+    {
+        if (_rotationWindow is not null)
+        {
+            _rotationWindow.Activate();
+            return;
+        }
+        _rotationWindow = new RotationWindow(_engine);
+        _rotationWindow.Closed += (_, _) => _rotationWindow = null;
+        _rotationWindow.Show();
+    }
+
     private static void Open(string target)
     {
         try
@@ -665,6 +679,7 @@ public partial class MainWindow : Window
             return;
         _closing = true;
         _overlayWindow?.Close();
+        _rotationWindow?.Close();
         ClosingOverlay.Visibility = Visibility.Visible;
         _timer.Stop();
         _stop.Cancel();

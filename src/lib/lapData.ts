@@ -100,7 +100,12 @@ const THROTTLE_THRESHOLD = 0.1;
 // Reads the LapDistPct, Brake, Throttle, Speed, SteeringWheelAngle, Lat and Lon columns. LapDistPct is unwrapped so it keeps
 // increasing past the start/finish line (e.g. 0.999 -> 1.001 instead of 0.001).
 export async function readLapSamples(file: File): Promise<LapSamples> {
-  const lines = (await file.text()).split(/\r?\n/);
+  return lapSamplesFromText(await file.text());
+}
+
+// readLapSamples for a CSV already read into a string (e.g. a collector lap on the server)
+export function lapSamplesFromText(text: string): LapSamples {
+  const lines = text.split(/\r?\n/);
   const header = lines[0].split(',').map((c) => c.trim());
   const pctColumn = header.indexOf('LapDistPct');
   const brakeColumn = header.indexOf('Brake');

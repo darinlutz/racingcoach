@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { query, transaction } from './db';
+import { sameTrackName } from './lapData';
 import { ensureUserSchema } from './users';
 
 // Each user's own tracks and focus areas in racingcoach."UsersTracks" and "UsersFocusAreas" (created by
@@ -81,6 +82,12 @@ export async function readTracks(userId: number): Promise<UserTrack[]> {
         throttlePointFeet: a.throttle_point_feet as number | null,
       })),
   }));
+}
+
+// The track for a track name from iRacing (the collector's), matched like recorded laps are on the Racing
+// page (iRacing's names can differ slightly from Track Data's), or by track key
+export function findTrackByName(tracks: UserTrack[], name: string): UserTrack | undefined {
+  return tracks.find((t) => sameTrackName(t.name, name)) ?? tracks.find((t) => t.key.toLowerCase() === name.toLowerCase());
 }
 
 type Client = Parameters<Parameters<typeof transaction>[0]>[0];

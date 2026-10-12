@@ -23,18 +23,23 @@ internal sealed class IbtEnricher(string ibtFolder, Action<string> log)
     /// <summary>A lap that now has track positions; its session.json is already saved.</summary>
     public sealed record EnrichedLap(string Folder, SessionManifest Manifest, ManifestLap Lap);
 
+    /// <summary>What a run did: laps that now have positions, every session whose session.json changed
+    /// (including laps marked PositionMissing), whether a waiting lap's .ibt file is still being recorded,
+    /// and how many laps are still waiting.</summary>
+    public sealed record Result(List<EnrichedLap> Enriched, Dictionary<string, SessionManifest> Changed, bool StillWriting, int Waiting);
+
     private sealed record WaitingLap(string Folder, SessionManifest Manifest, ManifestLap Lap);
 
     // A lap CSV read into memory, with each row's SessionTick and SessionTime (null if a row lacks them)
     private sealed record LapCsv(string Path, List<string> Header, List<string[]> Rows, (int Tick, double Time)[]? Samples);
 
-    /// <summary>Fills in positions for every recent lap waiting for them whose .ibt file is finished.
-    /// StillWriting is true when some waiting laps' .ibt file is still being recorded.</summary>
-    public (List<EnrichedLap> Enriched, bool StillWriting) Run(string lapsRoot)
+    /// <summary>Fills in positions for every recent lap waiting for them whose .ibt file is finished.</summary>
+    public Result Run(string lapsRoot)
     {
         var enriched = new List<EnrichedLap>();
+        var changed = new Dictionary<string, SessionManifest>(); // folder -> manifest to save
         if (!Directory.Exists(ibtFolder) || !Directory.Exists(lapsRoot))
-            return (enriched, false);
+            return new Result(enriched, changed, false, 0);
 
         var since = DateTimeOffset.UtcNow - MaxLapAge;
         var waiting = new List<WaitingLap>();
@@ -48,10 +53,9 @@ internal sealed class IbtEnricher(string ibtFolder, Action<string> log)
                     waiting.Add(new WaitingLap(folder, manifest, lap));
         }
         if (waiting.Count == 0)
-            return (enriched, false);
+            return new Result(enriched, changed, false, 0);
 
         var stillWriting = false;
-        var changed = new Dictionary<string, SessionManifest>(); // folder -> manifest to save
         foreach (var path in Directory.GetFiles(ibtFolder, "*.ibt").Order(StringComparer.Ordinal))
         {
             var lastWrite = File.GetLastWriteTimeUtc(path);
@@ -114,7 +118,7 @@ internal sealed class IbtEnricher(string ibtFolder, Action<string> log)
 
         foreach (var (folder, manifest) in changed)
             manifest.Save(folder);
-        return (enriched, stillWriting);
+        return new Result(enriched, changed, stillWriting, waiting.Count);
     }
 
     private static LapCsv ReadCsv(string path)

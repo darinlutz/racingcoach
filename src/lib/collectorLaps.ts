@@ -161,6 +161,33 @@ export async function readCollectorLapCsv(userId: number | null, id: number): Pr
   return row ? gunzipSync(row.csv_gzip).toString('utf8') : null;
 }
 
+// The user's laps with these collector IDs (clientLapId), with their CSVs, in the order asked for. Laps
+// that aren't the user's or don't exist are left out.
+export async function readCollectorLapsByClientId(
+  userId: number,
+  clientLapIds: string[]
+): Promise<{ clientLapId: string; track: string; lapNumber: number; lapTimeSeconds: number; csv: string }[]> {
+  await ensureUserSchema();
+  const rows = await query<{ client_lap_id: string; track: string; lap_number: number; lap_time_seconds: number; csv_gzip: Buffer }>(
+    `SELECT client_lap_id, track, lap_number, lap_time_seconds, csv_gzip FROM racingcoach."CollectorLaps"
+     WHERE user_id = $1 AND client_lap_id = ANY($2::uuid[])`,
+    [userId, clientLapIds]
+  );
+  return clientLapIds.flatMap((id) => {
+    const row = rows.find((r) => r.client_lap_id.toLowerCase() === id.toLowerCase());
+    if (!row) return [];
+    return [
+      {
+        clientLapId: row.client_lap_id,
+        track: row.track,
+        lapNumber: row.lap_number,
+        lapTimeSeconds: Number(row.lap_time_seconds),
+        csv: gunzipSync(row.csv_gzip).toString('utf8'),
+      },
+    ];
+  });
+}
+
 // A driver whose laps a Coach or Admin can open in Debrief Coach
 export type LapOwner = { userId: number; userName: string; lapCount: number };
 

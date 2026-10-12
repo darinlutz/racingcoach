@@ -47,6 +47,7 @@ internal sealed class CollectorEngine
     private readonly LapWriter _writer;
     private readonly LapRecorder _recorder;
     private readonly IbtEnricher? _enricher;
+    private readonly SessionDebrief _debrief;
     private readonly object _sampleLock = new();
     private TelemetryData _latest;
     private bool _hasLatest;
@@ -78,6 +79,7 @@ internal sealed class CollectorEngine
             : new IbtEnricher(Path.Combine(documents, "iRacing", "telemetry"), message => Log(message));
         _writer = new LapWriter(LapsFolder, _enricher, message => Log(message)) { LapsChanged = lapsChanged };
         _recorder = new LapRecorder(_writer.Enqueue, message => Log(message));
+        _debrief = new SessionDebrief(() => Api, message => Log(message));
     }
 
     public string LapsFolder { get; }
@@ -114,7 +116,11 @@ internal sealed class CollectorEngine
     {
         var old = _uploader;
         Api = api;
-        _uploader = api is null ? null : new LapUploader(api, _writer.RecordUploadResult, message => Log(message));
+        _uploader = api is null ? null : new LapUploader(api, (item, error) =>
+        {
+            _writer.RecordUploadResult(item, error);
+            _debrief.OnUploaded(item, error);
+        }, message => Log(message));
         _writer.SetUploader(_uploader);
         if (old is not null)
             _ = old.DisposeAsync().AsTask(); // its queued laps are queued again on the new one

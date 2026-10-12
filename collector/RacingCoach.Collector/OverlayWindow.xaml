@@ -36,9 +36,10 @@
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="TextWrapping" Value="NoWrap" />
         </Style>
-        <!-- Max Brake and Min Speed: three times the size of the focus area boxes -->
+        <!-- Max Brake and Min Speed: about twice the size of the focus area boxes, the most that fits a
+             speed like 123.4 in their 100 px width -->
         <Style x:Key="BigBox" TargetType="TextBox" BasedOn="{StaticResource Box}">
-            <Setter Property="FontSize" Value="45" />
+            <Setter Property="FontSize" Value="32" />
             <Setter Property="FontWeight" Value="Bold" />
             <Setter Property="Padding" Value="6,0" />
             <Setter Property="TextAlignment" Value="Center" />
@@ -63,9 +64,9 @@
             <!-- Peak brake pressure and minimum speed of the last few seconds -->
             <Grid DockPanel.Dock="Top" HorizontalAlignment="Left" Margin="0,0,0,8">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="200" />
+                    <ColumnDefinition Width="100" />
                     <ColumnDefinition Width="10" />
-                    <ColumnDefinition Width="200" />
+                    <ColumnDefinition Width="100" />
                 </Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="0">
                     <TextBlock Style="{StaticResource Heading}" Text="Max Brake" />

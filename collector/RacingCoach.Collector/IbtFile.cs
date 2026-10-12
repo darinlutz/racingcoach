@@ -41,7 +41,10 @@ internal sealed class IbtFile
     {
         try
         {
-            using var _ = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.None);
+            // Sharing read (not write) fails only while something has the file open for writing. Programs that
+            // just read it (OneDrive syncing Documents, antivirus, other telemetry apps) don't count, so a
+            // finished file isn't mistaken for one iRacing is still recording.
+            using var _ = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete);
             return false;
         }
         catch (IOException)

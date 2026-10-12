@@ -58,7 +58,8 @@ internal sealed class LapWriter : IAsyncDisposable
     private abstract record Job;
     private sealed record SaveLap(CompletedLap Lap) : Job;
     private sealed record RecordUpload(string Folder, Guid ClientLapId, bool HadPosition, string? Error) : Job;
-    private sealed record AddPositions(int Attempt) : Job;
+    // AfterStint: a stint just ended, so its laps should find their .ibt file (logged if they don't)
+    private sealed record AddPositions(int Attempt, bool AfterStint) : Job;
     private sealed record UseUploader(LapUploader? Uploader) : Job;
     private sealed record Flush(TaskCompletionSource Done) : Job;
 
@@ -103,7 +104,7 @@ internal sealed class LapWriter : IAsyncDisposable
     public void AddPositionsFromIbt()
     {
         if (_enricher is not null)
-            _queue.Writer.TryWrite(new AddPositions(1));
+            _queue.Writer.TryWrite(new AddPositions(1, AfterStint: true));
     }
 
     /// <summary>Waits until everything queued so far is done, e.g. the last laps are saved (and handed
@@ -139,7 +140,8 @@ internal sealed class LapWriter : IAsyncDisposable
         }
 
         // Sessions driven since the last run
-        AddPositionsFromIbt();
+        if (_enricher is not null)
+            _queue.Writer.TryWrite(new AddPositions(1, AfterStint: false));
 
         await foreach (var job in _queue.Reader.ReadAllAsync())
         {
@@ -154,7 +156,7 @@ internal sealed class LapWriter : IAsyncDisposable
                         RecordUploadResult(result);
                         break;
                     case AddPositions add:
-                        AddPositionsFromIbt(add.Attempt);
+                        AddPositionsFromIbt(add);
                         break;
                     case UseUploader use:
                         _uploader = use.Uploader;
@@ -260,9 +262,9 @@ internal sealed class LapWriter : IAsyncDisposable
         Report(result.Folder, manifest, newLap: false);
     }
 
-    private void AddPositionsFromIbt(int attempt)
+    private void AddPositionsFromIbt(AddPositions add)
     {
-        var (enriched, stillWriting) = _enricher!.Run(_root);
+        var (enriched, changed, stillWriting, waiting) = _enricher!.Run(_root);
         // Upload them again (replacing the copies without positions), unless they never could be
         var toUpload = enriched.Where(e => e.Lap.UploadError != UnknownTrackError).ToList();
         foreach (var (_, _, lap) in toUpload)
@@ -271,12 +273,17 @@ internal sealed class LapWriter : IAsyncDisposable
             manifest.Save(folder);
         foreach (var (folder, manifest, lap) in toUpload)
             _uploader?.Enqueue(new UploadItem(folder, InfoOf(manifest), lap, Earlier: false, WithPositions: true));
-        foreach (var (folder, manifest) in enriched.Select(e => (e.Folder, e.Manifest)).Distinct())
+        // Including laps the .ibt didn't fully cover, so the window stops showing them as waiting
+        foreach (var (folder, manifest) in changed)
             Report(folder, manifest, newLap: false);
 
         // iRacing can take a moment to close the file after the car leaves the track
-        if (stillWriting && attempt < IbtMaxAttempts)
-            _ = Task.Delay(IbtRetryDelay).ContinueWith(_ => _queue.Writer.TryWrite(new AddPositions(attempt + 1)), TaskScheduler.Default);
+        if (stillWriting && add.Attempt < IbtMaxAttempts)
+            _ = Task.Delay(IbtRetryDelay).ContinueWith(_ => _queue.Writer.TryWrite(add with { Attempt = add.Attempt + 1 }), TaskScheduler.Default);
+        else if (stillWriting && add.AfterStint)
+            _log($"{waiting} lap(s) still waiting for track positions: iRacing's .ibt file is still open. Trying again after your next stint, or when the collector restarts.");
+        else if (waiting > 0 && add.AfterStint)
+            _log($"{waiting} lap(s) still waiting for track positions: no finished .ibt file in {_enricher.IbtFolder} covers them.");
     }
 
     // Laps from earlier runs that haven't been uploaded, oldest first. Laps RacingCoach.app refused are

@@ -67,6 +67,28 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
             : null;
     }
 
+    /// <summary>The in-session debrief for uploaded laps (by clientLapId): what to say, e.g. "Area 1 average
+    /// time was 12.3 seconds", and the focus area's name; or the reason there's none as Error.</summary>
+    public async Task<(string? Message, string? AreaName, string? Error)> GetDebriefAsync(IEnumerable<Guid> clientLapIds, CancellationToken ct)
+    {
+        try
+        {
+            using var response = await _http.PostAsJsonAsync("api/collector/debrief", new { clientLapIds }, JsonOptions, ct);
+            if (!response.IsSuccessStatusCode)
+                return (null, null, await ErrorMessageAsync(response, ct));
+            var body = await response.Content.ReadFromJsonAsync<DebriefResponse>(JsonOptions, ct);
+            return string.IsNullOrWhiteSpace(body?.Message) ? (null, null, "the site sent no debrief") : (body.Message, body.Area?.Name, null);
+        }
+        catch (HttpRequestException e)
+        {
+            return (null, null, e.Message);
+        }
+        catch (TaskCanceledException) when (!ct.IsCancellationRequested)
+        {
+            return (null, null, "the request timed out");
+        }
+    }
+
     /// <summary>Uploads one lap: its details as JSON and its CSV, gzip-compressed.</summary>
     public async Task<(UploadOutcome Outcome, string Message)> UploadLapAsync(string csvPath, SessionInfo session, ManifestLap lap, CancellationToken ct)
     {
@@ -163,4 +185,8 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
     private sealed record MeResponse(string? UserName);
 
     private sealed record ErrorResponse(string? Error);
+
+    private sealed record DebriefResponse(string? Message, DebriefArea? Area);
+
+    private sealed record DebriefArea(string? Name);
 }

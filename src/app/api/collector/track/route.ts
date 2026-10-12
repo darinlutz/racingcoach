@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { authenticateCollector } from '@/lib/collectorKeys';
-import { sameTrackName } from '@/lib/lapData';
-import { readTracks } from '@/lib/tracks';
+import { findTrackByName, readTracks } from '@/lib/tracks';
 
 // The telemetry collector's overlay: the user's Track Data track for the track they're driving, with its
 // focus areas, which the collector hands to TelemetryEngine.js as its TrackConfig. Authenticated with the
@@ -19,10 +18,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'name is required' }, { status: 400 });
     }
 
-    // Matched like recorded laps are on the Racing page (iRacing's names can differ slightly), or by track key
-    const tracks = await readTracks(userId);
-    const track =
-      tracks.find((t) => sameTrackName(t.name, name)) ?? tracks.find((t) => t.key.toLowerCase() === name.toLowerCase());
+    const track = findTrackByName(await readTracks(userId), name);
     if (!track) {
       return NextResponse.json({ track: null });
     }

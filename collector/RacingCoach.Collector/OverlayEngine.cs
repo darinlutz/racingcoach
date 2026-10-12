@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Reflection;
-using System.Speech.Synthesis;
 using Jint;
 using Jint.Native;
 using SVappsLAB.iRacingTelemetrySDK;
@@ -54,22 +53,6 @@ internal sealed class OverlayEngine
     // (60 Hz / 6 = 10 times a second, as often as the window refreshes), since the script is slow enough that
     // running all of them for 8 areas would take most of the time between samples
     private const int TextEvery = 6;
-
-    // Spoken when the car crosses the start/finish line. Created on first use and kept for the app's lifetime
-    // (null if Windows has no voice)
-    private static readonly Lazy<SpeechSynthesizer?> Voice = new(() =>
-    {
-        try
-        {
-            var voice = new SpeechSynthesizer();
-            voice.SetOutputToDefaultAudioDevice();
-            return voice;
-        }
-        catch
-        {
-            return null;
-        }
-    });
 
     private readonly Engine _js;
     private readonly Dictionary<string, JsValue> _functions = [];
@@ -257,10 +240,8 @@ internal sealed class OverlayEngine
     {
         var crossed = _lastLapDistPct > 0.9f && lapDistPct is >= 0 and < 0.1f;
         _lastLapDistPct = lapDistPct;
-        if (!crossed || Voice.Value is not { } voice)
-            return;
-        voice.SpeakAsyncCancelAll();
-        voice.SpeakAsync("Starting new lap");
+        if (crossed)
+            Voice.Say("Starting new lap", interrupt: true);
     }
 
     private void ApplyPendingTrack(SessionDetails? session)

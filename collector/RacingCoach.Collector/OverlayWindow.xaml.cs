@@ -105,21 +105,18 @@ public partial class OverlayWindow : Window
                 continue;
 
             var area = snapshot.Areas[i];
-            var nameBox = _boxes[i, 0];
-            nameBox.Text = name;
-            // The brake point alert: "Transparent" (or nothing yet) leaves the box as it is
+            // The brake point alert colors the whole row: "Transparent" (or nothing yet) leaves it as it is
             var alert = NamedBrush(area?.AlertColor);
-            var alerting = alert is not null && alert.Color.A > 0;
-            nameBox.Background = alerting ? alert : BoxBackground;
-            nameBox.Foreground = alerting && IsLight(alert!.Color) ? DarkText : LightText;
+            var alertBackground = alert is not null && alert.Color.A > 0 ? alert : null;
 
-            Show(_boxes[i, 1], area?.Brake, area?.BrakeColor);
-            Show(_boxes[i, 2], area?.Force, area?.ForceColor);
-            Show(_boxes[i, 3], area?.Gas, area?.GasColor);
-            Show(_boxes[i, 4], area?.Time, null);
-            Show(_boxes[i, 5], area?.Exit, null);
-            Show(_boxes[i, 6], area?.Coast, null);
-            Show(_boxes[i, 7], area?.Overlap, null);
+            Show(_boxes[i, 0], name, null, alertBackground);
+            Show(_boxes[i, 1], area?.Brake, area?.BrakeColor, alertBackground);
+            Show(_boxes[i, 2], area?.Force, area?.ForceColor, alertBackground);
+            Show(_boxes[i, 3], area?.Gas, area?.GasColor, alertBackground);
+            Show(_boxes[i, 4], area?.Time, null, alertBackground);
+            Show(_boxes[i, 5], area?.Exit, null, alertBackground);
+            Show(_boxes[i, 6], area?.Coast, null, alertBackground);
+            Show(_boxes[i, 7], area?.Overlap, null, alertBackground);
         }
 
         var status = snapshot.Error is not null ? $"TelemetryEngine.js: {snapshot.Error}"
@@ -129,10 +126,14 @@ public partial class OverlayWindow : Window
         StatusText.Visibility = status is null ? Visibility.Collapsed : Visibility.Visible;
     }
 
-    private static void Show(TextBox box, string? text, string? color)
+    // A box's text in its own color, or during a brake point alert on the alert color in plain light or dark
+    // text: the alert colors (Firebrick, SteelBlue, Green) are the value colors too, which would vanish on them
+    private static void Show(TextBox box, string? text, string? color, SolidColorBrush? alertBackground)
     {
         box.Text = text ?? "";
-        box.Foreground = NamedBrush(color) is { } brush && brush.Color.A > 0 ? brush : LightText;
+        box.Background = alertBackground ?? BoxBackground;
+        box.Foreground = alertBackground is not null ? (IsLight(alertBackground.Color) ? DarkText : LightText)
+            : NamedBrush(color) is { } brush && brush.Color.A > 0 ? brush : LightText;
     }
 
     private static SolidColorBrush? NamedBrush(string? name)

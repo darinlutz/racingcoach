@@ -14,20 +14,6 @@ import { getShowPricing } from '@/lib/siteSettings';
 import { canBuyAnything, getInCarCoachInstructions, MAX_IN_CAR_COACH_INSTRUCTIONS } from '@/lib/users';
 import { ACCOUNT_STATUS, MEMBERSHIP_LEVEL } from '@/lib/accountStatus';
 
-// Green for a current subscription, red once it's canceled or expired,
-// blue (the site color) otherwise
-function statusBadgeClass(accountStatus: string): string {
-  switch (accountStatus) {
-    case ACCOUNT_STATUS.subscribed:
-      return 'bg-green-500/15 text-green-400';
-    case ACCOUNT_STATUS.canceled:
-    case ACCOUNT_STATUS.expired:
-      return 'bg-primary/15 text-red-300';
-    default:
-      return 'bg-primary/15 text-primary';
-  }
-}
-
 // Each level's medal color
 function levelBadgeClass(membershipLevel: string): string {
   switch (membershipLevel) {
@@ -96,16 +82,6 @@ export default async function AccountPage({
             <dt className="text-sm font-medium text-muted-foreground">{t.account.name}</dt>
             <dd className="text-foreground font-medium text-right">
               {user.userName}
-            </dd>
-          </div>
-          <div className="flex justify-between items-center gap-4 px-4 py-3">
-            <dt className="text-sm font-medium text-muted-foreground">{t.account.accountStatus}</dt>
-            <dd>
-              <span
-                className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${statusBadgeClass(user.accountStatus)}`}
-              >
-                {t.account.statuses[user.accountStatus] ?? user.accountStatus}
-              </span>
             </dd>
           </div>
           <div className="flex justify-between items-center gap-4 px-4 py-3">

@@ -837,6 +837,8 @@ export const en = {
     syncNow: 'Sync now',
     syncing: 'Syncing…',
     disconnect: 'Disconnect',
+    changeKey: 'Change API Key',
+    changeKeyHint: 'Enter a new iRacePlan API key. A key for a different iRacing profile starts your race history over.',
     loadingFromIRacePlan: 'Loading your races from iRacePlan',
     progress: '… {loaded} of {total}',
     firstLoad: ' (the first load takes a few minutes; later syncs only fetch new races)',

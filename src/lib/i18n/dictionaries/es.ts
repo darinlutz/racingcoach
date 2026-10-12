@@ -828,6 +828,9 @@ export const es: Dictionary = {
     syncNow: 'Sincronizar ahora',
     syncing: 'Sincronizando…',
     disconnect: 'Desconectar',
+    changeKey: 'Cambiar clave de API',
+    changeKeyHint:
+      'Introduce una nueva clave de API de iRacePlan. Una clave de otro perfil de iRacing reinicia tu historial de carreras.',
     loadingFromIRacePlan: 'Cargando tus carreras desde iRacePlan',
     progress: '… {loaded} de {total}',
     firstLoad: ' (la primera carga tarda unos minutos; las siguientes sincronizaciones solo traen las carreras nuevas)',

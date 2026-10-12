@@ -603,6 +603,16 @@ export async function createUser(input: {
       const user = rowToUser(rows[0]);
       await copyDefaultCars(client, user.id);
       await copyDefaultTracks(client, user.id);
+      // New accounts start with the site owner's iRacePlan API key, so Race Trends works straight away;
+      // they can change it on the Race Trends page
+      await client.query(
+        `INSERT INTO racingcoach."IRacePlanConnections" (user_id, api_key, iracing_customer_id, iracing_name)
+         SELECT $1, c.api_key, c.iracing_customer_id, c.iracing_name
+         FROM racingcoach."IRacePlanConnections" c
+         JOIN racingcoach."Users" u ON u.id = c.user_id
+         WHERE lower(u.email_address) = $2 AND u.id <> $1`,
+        [user.id, OWNER_EMAIL]
+      );
       return user;
     });
   } catch (error) {

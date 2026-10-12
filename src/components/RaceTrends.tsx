@@ -34,6 +34,8 @@ export default function RaceTrends() {
   const [apiKey, setApiKey] = useState('');
   const [connecting, setConnecting] = useState(false);
   const [connectError, setConnectError] = useState('');
+  // Shows the key field while connected, to swap in a different iRacePlan API key
+  const [changingKey, setChangingKey] = useState(false);
   const [running, setRunning] = useState(false);
   const [trend, setTrend] = useState<IRatingSeries[] | null>(null);
   const [incidents, setIncidents] = useState<IncidentPoint[]>([]);
@@ -116,6 +118,9 @@ export default function RaceTrends() {
       if (!res.ok) throw new Error(data.error || t.failedConnect);
       setConnection(data.connection);
       setApiKey('');
+      setChangingKey(false);
+      // A key for a different iRacing profile cleared the old races on the server
+      await loadRaces();
       void runSync();
     } catch (err) {
       setConnectError(err instanceof Error ? err.message : t.failedConnect);
@@ -177,6 +182,18 @@ export default function RaceTrends() {
             <div className="flex gap-2">
               <button
                 type="button"
+                onClick={() => {
+                  setChangingKey((open) => !open);
+                  setApiKey('');
+                  setConnectError('');
+                }}
+                disabled={sync.running}
+                className="px-3 py-1.5 text-xs font-semibold bg-card border border-border rounded-lg text-foreground hover:border-primary hover:text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {t.changeKey}
+              </button>
+              <button
+                type="button"
                 onClick={() => void runSync()}
                 disabled={sync.running}
                 className="px-3 py-1.5 text-xs font-semibold bg-card border border-border rounded-lg text-foreground hover:border-primary hover:text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -201,6 +218,41 @@ export default function RaceTrends() {
             </p>
           )}
           {sync.error && <p className="text-red-300">{sync.error}</p>}
+          {changingKey && (
+            <div className="pt-2 space-y-2">
+              <p className="text-muted-foreground">{t.changeKeyHint}</p>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <input
+                  type="password"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && apiKey.trim() && !connecting && void connectIRacePlan()}
+                  placeholder={t.apiKeyPlaceholder}
+                  autoComplete="off"
+                  aria-label={t.apiKeyPlaceholder}
+                  autoFocus
+                  className={inputClass}
+                />
+                <button
+                  type="button"
+                  onClick={() => void connectIRacePlan()}
+                  disabled={!apiKey.trim() || connecting}
+                  className="px-6 py-3 font-semibold text-white bg-gradient-to-r from-primary to-primary-strong rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+                >
+                  {connecting ? dictionary.common.saving : dictionary.common.save}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setChangingKey(false)}
+                  disabled={connecting}
+                  className="px-4 py-3 font-semibold text-muted-foreground hover:text-primary disabled:opacity-50 flex-shrink-0"
+                >
+                  {dictionary.common.cancel}
+                </button>
+              </div>
+              {connectError && <p className="text-red-300">{connectError}</p>}
+            </div>
+          )}
         </div>
       ) : (
         /* Not connected yet */

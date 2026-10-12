@@ -369,7 +369,7 @@ export default function RecordedLaps({
         return (
           <details key={session.key} open={index === 0} className="bg-card border border-border rounded-lg">
             <summary className="cursor-pointer px-4 py-3 text-sm">
-              {driverId === 'all' && <span className="font-semibold text-primary">{first.driver} • </span>}
+              <span className="font-semibold text-red-500">{first.driver} • </span>
               <span className="font-semibold text-foreground">{first.track}</span>
               <span className="text-muted-foreground"> • {first.car}</span>
               <span className="block text-xs text-muted-foreground">

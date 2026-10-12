@@ -917,7 +917,7 @@ export const pt: Dictionary = {
     pageTitle: 'Administração',
     settingsTitle: 'Configurações do site',
     showPricing: 'Mostrar preços',
-    showPricingHint: 'Mostra o link de Preços na barra de navegação para todos.',
+    showPricingHint: 'Mostra o link de Preços na barra de navegação e o botão Ver planos de assinatura na página da Conta para todos.',
     rolesTitle: 'Funções dos usuários',
     rolesIntro: 'Encontre um usuário, escolha a função e salve.',
     findUser: 'Encontrar um usuário',

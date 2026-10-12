@@ -6,7 +6,8 @@ import { ensureUserSchema } from '@/lib/users';
 
 const SHOW_PRICING = 'show_pricing';
 
-// Whether the navigation bar shows the Pricing link (to everyone; Gold subscribers never see it)
+// Whether the navigation bar shows the Pricing link, and the Account page its View Membership Plans button
+// (to everyone; Gold subscribers never see them)
 export async function getShowPricing(): Promise<boolean> {
   await ensureUserSchema();
   const rows = await query<{ value: string }>('SELECT value FROM racingcoach."SiteSettings" WHERE key = $1', [SHOW_PRICING]);

@@ -123,11 +123,13 @@ export const DEFAULT_TRACKS: DefaultTrack[] = [
     lengthFeet: 12878,
     notes: null,
     areas: [
-      area('T 1', 0.11, 0.21),
-      area('T 4-5', 0.24, 0.31),
-      area('T 7', 0.48, 0.56),
-      area('T 8-10', 0.56, 0.64),
-      area('T 12-14', 0.75, 0.85),
+      targeted('T 1&2', 0.1, 0.22, null, 1699, 82, 2149),
+      targeted('T 4', 0.24, 0.29, null, 3064, 48, 3432),
+      targeted('T 7', 0.47, 0.55, null, 6280, 85, 6262),
+      targeted('T 8&9', 0.55, 0.6, null, 7329, 12, 7116),
+      targeted('T 10', 0.6, 0.65, null, 7631, 18, 7802),
+      targeted('T 12', 0.74, 0.8, null, 9557, 81, 9944),
+      targeted('T 13', 0.8, 0.86, null, 10217, 22, 10463),
     ],
   },
   {

@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { ChatOpenAI } from '@langchain/openai';
 import { createAgent } from 'langchain';
 import { z } from 'zod';
-import { createTools, type DebriefSession } from './debriefCoach';
+import { BRAKE_CHANGE_RULE, createTools, hasTrackPosition, type DebriefSession } from './debriefCoach';
 import { aiLanguageRule, DEFAULT_LANGUAGE, type Language } from './i18n/languages';
 import { coachInstructionsRule } from './siteSettings';
 
@@ -155,10 +155,12 @@ const CALLOUT_PROMPT =
   'You are an In-Car AI Coach for a sim racing driver who is driving right now. After each lap the driver\'s ' +
   'laps so far in this session are analysed, and you decide what, if anything, to tell them before the next ' +
   'lap. They are at speed: each callout is one short sentence they can take in while driving, with at most one ' +
-  'number, and points at one place on the track and one change (for example "Turn 1: brake about 20 ft later, ' +
-  'near 1230 ft"). When the Debrief Coach tools are available, start with get_session_overview, then dig into ' +
+  'number, and points at one focus area and one change (for example "Turn 1: brake about 20 ft later"). When the ' +
+  'Debrief Coach tools are available, start with get_session_overview, then dig into ' +
   'the focus areas that lose the most time with get_area_detail and the braking and steering tools; any ' +
-  'brakepoint advice must follow the brakepoint verdict. Live laps have no track positions yet, so do not give ' +
+  'brakepoint advice must follow the brakepoint verdict. ' +
+  BRAKE_CHANGE_RULE +
+  ' Live laps have no track positions yet, so do not give ' +
   'driving line advice unless get_driving_line shows a line verdict. Anything the driver\'s instructions ask to ' +
   'happen at a moment on track (a sound at the line, the lap time after each lap, a message at an area) is ' +
   'already done by the coach\'s rules, so never repeat it here: your callouts are coaching from the lap data. Only ' +
@@ -219,8 +221,9 @@ export async function inCarCoachCallouts(input: {
   ].join('\n');
 
   const result = await agent.invoke({ messages: [{ role: 'user', content }] }, { recursionLimit: 20 });
+  // A callout that still says where on the track to brake (feet from the line) is dropped; saying nothing is fine
   const callouts = (result.structuredResponse.callouts as Callout[])
-    .filter((c) => c.text.trim())
+    .filter((c) => c.text.trim() && !hasTrackPosition(c.text))
     .slice(0, MAX_CALLOUTS)
     .map((c) => ({ text: c.text.trim(), sound: c.sound ?? null }));
   const toolNames = new Set(tools.map((t) => t.name));

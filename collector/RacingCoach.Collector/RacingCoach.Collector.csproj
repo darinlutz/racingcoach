@@ -19,7 +19,7 @@
     <PackageReference Include="SVappsLAB.iRacingTelemetrySDK" Version="2.5.0" />
     <!-- Runs scripts/TelemetryEngine.js (a SimHub script) for the overlay -->
     <PackageReference Include="Jint" Version="4.17.0" />
-    <!-- The overlay's "Starting new lap" announcement -->
+    <!-- Windows' own voice, when the site can't make the coach voice (Voice.cs) -->
     <PackageReference Include="System.Speech" Version="10.0.12" />
   </ItemGroup>
 

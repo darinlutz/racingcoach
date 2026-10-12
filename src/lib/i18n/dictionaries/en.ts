@@ -928,7 +928,7 @@ export const en = {
     pageTitle: 'Admin',
     settingsTitle: 'Site Settings',
     showPricing: 'Show Pricing',
-    showPricingHint: 'Shows the Pricing link in the navigation bar for everyone.',
+    showPricingHint: 'Shows the Pricing link in the navigation bar and the View Membership Plans button on the Account page for everyone.',
     rolesTitle: 'User Roles',
     rolesIntro: 'Find a user, choose their role and save.',
     findUser: 'Find a user',

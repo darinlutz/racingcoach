@@ -10,6 +10,7 @@ import { DISCORD_INVITE_URL, getDiscordConnection } from '@/lib/discord';
 import { fmt, LANGUAGE_LOCALES } from '@/lib/i18n/languages';
 import { getDictionary } from '@/lib/i18n/server';
 import { getCurrentUser } from '@/lib/session';
+import { getShowPricing } from '@/lib/siteSettings';
 import { canBuyAnything, getInCarCoachInstructions, MAX_IN_CAR_COACH_INSTRUCTIONS } from '@/lib/users';
 import { ACCOUNT_STATUS, MEMBERSHIP_LEVEL } from '@/lib/accountStatus';
 
@@ -59,11 +60,12 @@ export default async function AccountPage({
   const { discord: discordResult } = await searchParams;
   const discordText = typeof discordResult === 'string' ? t.account.discordMessages[discordResult] : undefined;
   const discordOk = typeof discordResult === 'string' && DISCORD_OK.has(discordResult);
-  const [discord, collectorKey, inCarCoachInstructions, coachVoice] = await Promise.all([
+  const [discord, collectorKey, inCarCoachInstructions, coachVoice, showPricing] = await Promise.all([
     getDiscordConnection(user.id),
     getCollectorKey(user.id),
     getInCarCoachInstructions(user.id),
     getCoachVoice(user.id),
+    getShowPricing(),
   ]);
   const isSubscribed = user.accountStatus === ACCOUNT_STATUS.subscribed;
   // A canceled subscription keeps its end date: the end of the last paid period
@@ -72,6 +74,8 @@ export default async function AccountPage({
     (isSubscribed || user.accountStatus === ACCOUNT_STATUS.canceled);
   // Everyone but a current Gold subscriber has a plan to buy or upgrade to
   const canUpgrade = canBuyAnything(user);
+  // The Admin page's Show Pricing hides View Membership Plans too, like the nav bar's Pricing link
+  const showViewPlans = showPricing && canUpgrade;
 
   return (
     <section className="py-12 px-4 bg-gradient-to-b from-background to-background flex justify-center">
@@ -205,7 +209,7 @@ export default async function AccountPage({
           voices={COACH_VOICES}
         />
 
-        {canUpgrade && (
+        {showViewPlans && (
           <Link
             href="/pricing"
             className="mt-8 block w-full px-6 py-3 rounded-lg font-semibold text-center text-white bg-gradient-to-r from-primary to-primary-strong hover:from-primary-strong hover:to-primary transition-colors"

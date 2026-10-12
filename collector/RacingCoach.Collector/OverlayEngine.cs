@@ -64,7 +64,6 @@ internal sealed class OverlayEngine
     private string _trackName = "";
     private double _trackLengthMeters;
     private (int? UniqueId, int? Num)? _session;
-    private float? _lastLapDistPct;
     private int _sampleCount;
 
     // A track waiting to be handed to the script on the telemetry thread (set from the UI thread)
@@ -135,10 +134,8 @@ internal sealed class OverlayEngine
             if (_session != sessionKey)
             {
                 _session = sessionKey;
-                _lastLapDistPct = null;
                 ResetValues();
             }
-            AnnounceNewLap(data.LapDistPct);
             ApplyPendingTrack(session);
 
             _sample = data;
@@ -232,16 +229,6 @@ internal sealed class OverlayEngine
             _maxBrake = null;
             _minSpeed = null;
         }
-    }
-
-    /// <summary>Says "Starting new lap" when the car crosses the start/finish line (the script's own test:
-    /// from past 90% of the lap to under 10%). iRacing's LapDistPct is -1 when the car isn't on track.</summary>
-    private void AnnounceNewLap(float? lapDistPct)
-    {
-        var crossed = _lastLapDistPct > 0.9f && lapDistPct is >= 0 and < 0.1f;
-        _lastLapDistPct = lapDistPct;
-        if (crossed)
-            Voice.SayPhrase("newLap", "Starting new lap", interrupt: true);
     }
 
     private void ApplyPendingTrack(SessionDetails? session)

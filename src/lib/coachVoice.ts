@@ -9,7 +9,7 @@ import { ensureUserSchema } from './users';
 // OpenAI's built-in voices for gpt-4o-mini-tts; marin and cedar are its most natural
 export const COACH_VOICES = ['marin', 'cedar', 'alloy', 'ash', 'ballad', 'coral', 'echo', 'fable', 'nova', 'onyx', 'sage', 'shimmer', 'verse'] as const;
 export type CoachVoice = (typeof COACH_VOICES)[number];
-export const DEFAULT_COACH_VOICE: CoachVoice = 'marin';
+export const DEFAULT_COACH_VOICE: CoachVoice = 'fable';
 
 export const MAX_SPEECH_CHARS = 500;
 

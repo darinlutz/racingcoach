@@ -151,7 +151,7 @@ function fastSlow(area: DebriefArea) {
 // Fast and slow runs braking within this many feet of each other is treated as no difference
 const BRAKE_DIFF_FEET = 10;
 
-type BrakeDirection = { direction: 'later' | 'earlier'; aimFeet: number; diffFeet: number };
+type BrakeDirection = { direction: 'later' | 'earlier'; diffFeet: number };
 
 // Which way the fastest runs moved the brakepoint compared with the slowest, decided here rather than by
 // the model so "later" and "earlier" can't get flipped. null when the data doesn't show a clear difference.
@@ -162,7 +162,7 @@ function brakeDirection(area: DebriefArea): BrakeDirection | null {
   if (fastFeet.length === 0 || slowFeet.length === 0) return null;
   const diff = mean(fastFeet) - mean(slowFeet);
   if (Math.abs(diff) < BRAKE_DIFF_FEET) return null;
-  return { direction: diff > 0 ? 'later' : 'earlier', aimFeet: Math.round(mean(fastFeet)), diffFeet: Math.round(Math.abs(diff)) };
+  return { direction: diff > 0 ? 'later' : 'earlier', diffFeet: Math.round(Math.abs(diff)) };
 }
 
 // Which way the area turns, from the steering at its slowest point on most laps; null for a straight or a
@@ -248,7 +248,8 @@ export function createTools(session: DebriefSession) {
       lines.push(
         brake
           ? `Brakepoint verdict: your fastest runs braked ${brake.diffFeet} ft ${brake.direction.toUpperCase()} than your ` +
-              `slowest. Any brakepoint fix for this area must say brake ${brake.direction.toUpperCase()}, near ${brake.aimFeet} ft.`
+              `slowest. Any brakepoint fix for this area must say brake about ${brake.diffFeet} ft ` +
+              `${brake.direction.toUpperCase()}, never where on the track to brake.`
           : `Brakepoint verdict: your fast and slow runs brake within ${BRAKE_DIFF_FEET} ft of each other here, so the ` +
               'brakepoint does not explain the time. Do not give a brakepoint fix for this area.'
       );
@@ -498,6 +499,28 @@ export function createTools(session: DebriefSession) {
   return [overview, areaDetail, compareLap, brakingDetail, steeringDetail, drivingLine];
 }
 
+// Brake advice is only ever a change (how many feet earlier or later), never where on the track to brake.
+// Also used by the In-Car AI Coach.
+export const BRAKE_CHANGE_RULE =
+  'Tell the driver how much to change the brakepoint, e.g. "brake about 20 ft later" or "brake 10 ft earlier", ' +
+  'and never where on the track to brake: never write a brakepoint as a distance from the start/finish line ' +
+  '(not "brake at 6120 ft" or "near 1230 ft").';
+
+// A change in feet is followed by its direction ("30 ft later") or comes after "by" ("later by 30 ft");
+// any other number of feet is a place on the track, e.g. "brake at 6,120 ft" or "near 1230 feet"
+const FEET_RE = /\d[\d,.]*\s*(?:ft|feet|foot|pés|pies)(?!\p{L})/giu;
+const CHANGE_AFTER_RE =
+  /^[^\p{L}\p{N}]*(?:\p{L}+[^\p{L}\p{N}]+){0,2}?(?:later|earlier|sooner|deeper|mais tarde|más tarde|mais cedo|más temprano|antes|depois|después)(?!\p{L})/iu;
+const CHANGE_BEFORE_RE = /(?<!\p{L})(?:by|por|em|en)\s+(?:about\s+|around\s+|roughly\s+|cerca de\s+|unos\s+|uns\s+)?$/iu;
+
+export function hasTrackPosition(text: string): boolean {
+  return [...text.matchAll(FEET_RE)].some((m) => {
+    const before = text.slice(Math.max(0, m.index - 25), m.index);
+    const after = text.slice(m.index + m[0].length, m.index + m[0].length + 40);
+    return !CHANGE_AFTER_RE.test(after) && !CHANGE_BEFORE_RE.test(before);
+  });
+}
+
 const SYSTEM_PROMPT =
   'You are a sim racing driving coach running a post-session debrief. Your job is to tell the driver what to ' +
   'fix next session. Start with get_session_overview. Then use get_area_detail on the focus areas that lose the ' +
@@ -506,12 +529,14 @@ const SYSTEM_PROMPT =
   'areas that lose the most. A driving line fix must use the line verdict from get_driving_line: the place in the ' +
   'area and the meters to move toward the inside or outside, and never one where the verdict says the line does not ' +
   'explain the time. Choose 1 to 3 fixes, ordered by time available, each one a single concrete change the driver can ' +
-  'make in the car with a number to aim for (for example "brake about 30 ft later, near 1230 ft" or "build to ' +
+  'make in the car with a number to aim for (for example "brake about 30 ft later" or "build to ' +
   'about 90% peak pressure"). Base the number to aim for on what your fastest runs did; the targets are only a ' +
   'reference, so when your fastest runs beat the area while missing a target, tell the driver to copy the ' +
   'fastest runs, and never give a fix that contradicts its own evidence. get_area_detail gives a brakepoint ' +
   'verdict for each area: any brakepoint fix must use exactly that direction (later or earlier) and number, and ' +
-  'the problem and evidence must agree with it. Only blame braking or speed when the fast and slow runs actually differ in it; if ' +
+  'the problem and evidence must agree with it. ' +
+  BRAKE_CHANGE_RULE +
+  ' Only blame braking or speed when the fast and slow runs actually differ in it; if ' +
   'nothing in the data explains the time, say the cause is not in the data instead of guessing. Use the numbers ' +
   'from the tools, never invent data, write to the driver as "you", and use plain text with no markdown.';
 
@@ -540,10 +565,19 @@ function brakeContradictions(response: DebriefFixes, areas: DebriefArea[]) {
         fix,
         message:
           `In ${fix.area} you said to brake ${opposite}, but your fastest runs braked ${brake.diffFeet} ft ` +
-          `${brake.direction} than your slowest (aim near ${brake.aimFeet} ft).`,
+          `${brake.direction} than your slowest.`,
       },
     ];
   });
+}
+
+// Fixes that tell the driver where on the track to brake (feet from the start/finish line) instead of a change
+function trackPositions(response: DebriefFixes) {
+  return response.fixes.flatMap((fix) =>
+    [fix.fix, fix.problem, fix.evidence].some(hasTrackPosition)
+      ? [{ fix, message: `In ${fix.area} you gave a place on the track in feet instead of a change.` }]
+      : []
+  );
 }
 
 // Tool calls the agent made, e.g. "get_area_detail(T 1&2)", shown under the debrief
@@ -576,10 +610,11 @@ export async function runDebriefCoach(
     { recursionLimit: 30 }
   );
 
-  // The model can still flip "later" and "earlier", so check every fix against the data and give it one chance
-  // to correct itself before dropping any fix that still contradicts it
+  // The model can still flip "later" and "earlier" or say where to brake, so check every fix and give it one
+  // chance to correct itself before dropping any fix that still breaks the rules
   const { areas } = cleanSession(session);
-  let problems = brakeContradictions(result.structuredResponse, areas);
+  const check = (response: DebriefFixes) => [...brakeContradictions(response, areas), ...trackPositions(response)];
+  let problems = check(result.structuredResponse);
   if (problems.length > 0) {
     result = await agent.invoke(
       {
@@ -588,20 +623,21 @@ export async function runDebriefCoach(
           {
             role: 'user',
             content:
-              `Your debrief contradicts the brakepoint data: ${problems.map((p) => p.message).join(' ')} ` +
-              'Rewrite the whole debrief so every brakepoint fix, problem and evidence agrees with the brakepoint verdicts.',
+              `Your debrief breaks the brakepoint rules: ${problems.map((p) => p.message).join(' ')} ` +
+              'Rewrite the whole debrief so every brakepoint fix, problem and evidence agrees with the brakepoint ' +
+              `verdicts. ${BRAKE_CHANGE_RULE}`,
           },
         ],
       },
       { recursionLimit: 30 }
     );
-    problems = brakeContradictions(result.structuredResponse, areas);
+    problems = check(result.structuredResponse);
   }
 
   const response: DebriefFixes = result.structuredResponse;
   const fixes = response.fixes.filter((fix) => !problems.some((p) => p.fix === fix));
   if (fixes.length === 0) {
-    throw new Error('The coach gave brakepoint advice that contradicts the data');
+    throw new Error('The coach gave brakepoint advice that contradicts the data or says where on the track to brake');
   }
 
   const toolNames = new Set<string>(tools.map((t) => t.name));

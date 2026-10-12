@@ -8,6 +8,7 @@ import { DEFAULT_LANGUAGE, LANGUAGE_LOCALES } from '@/lib/i18n/languages';
 import { inCarCoachCallouts, inCarCoachPlan } from '@/lib/inCarCoach';
 import { lapSamplesFromText } from '@/lib/lapData';
 import { findTrackByName, readTracks, toLapTrack } from '@/lib/tracks';
+import { DEFAULT_UNITS } from '@/lib/units';
 import { getInCarCoachInstructions, getUserById } from '@/lib/users';
 
 // The telemetry collector's In-Car AI Coach (src/lib/inCarCoach.ts), authenticated with the upload key as a
@@ -20,7 +21,12 @@ async function userContext(request: Request) {
   const userId = await authenticateCollector(request);
   if (userId === null) return null;
   const [user, instructions] = await Promise.all([getUserById(userId), getInCarCoachInstructions(userId)]);
-  return { userId, instructions, language: user?.preferredLanguage ?? DEFAULT_LANGUAGE };
+  return {
+    userId,
+    instructions,
+    language: user?.preferredLanguage ?? DEFAULT_LANGUAGE,
+    units: user?.units ?? DEFAULT_UNITS,
+  };
 }
 
 // GET ?track=<iRacing track name>: at the start of a session, the user's In-Car AI Coach Instructions turned into
@@ -105,6 +111,7 @@ export async function POST(request: Request) {
       session,
       recentCallouts: parsed.data.recentCallouts,
       language: user.language,
+      units: user.units,
     });
     console.log(`In-Car AI Coach: user ${user.userId}, ${laps.length} laps, ${callouts.length} callouts (${steps.join(', ') || 'no tools'})`);
     return NextResponse.json({ callouts });

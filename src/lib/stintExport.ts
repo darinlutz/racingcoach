@@ -1,7 +1,7 @@
 // Reads a Garage 61 stint export ("Garage 61 - <session> - Export - <timestamp>.csv"): one row per
 // lap with its time, sectors, fuel and weather. Used by the Stint Analysis and Multi-Lap Analysis tabs.
 
-import { MPH_PER_METER_PER_SECOND } from '@/lib/lapData';
+import { formatSpeed, type Units } from '@/lib/units';
 
 export type StintLap = {
   run: number;
@@ -93,15 +93,16 @@ export function formatSeconds(seconds: number) {
   return `${Math.floor(seconds / 60)}:${(seconds % 60).toFixed(3).padStart(6, '0')}`;
 }
 
-export function formatTempF(celsius: number) {
-  return `${((celsius * 9) / 5 + 32).toFixed(1)}°F`;
-}
-
 // compass: the eight directions from N clockwise, in the user's language (dictionary weather.compass)
-export function formatWind(velocity: number, radians: number, compass: string[] = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']) {
+export function formatWind(
+  velocity: number,
+  radians: number,
+  units: Units,
+  compass: string[] = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+) {
   const points = compass;
   const degrees = ((((radians * 180) / Math.PI) % 360) + 360) % 360;
-  return `${(velocity * MPH_PER_METER_PER_SECOND).toFixed(1)} mph ${points[Math.round(degrees / 45) % 8]}`;
+  return `${formatSpeed(velocity, units)} ${points[Math.round(degrees / 45) % 8]}`;
 }
 
 // iRacing sky values: 0 clear, 1 partly cloudy, 2 mostly cloudy, 3 overcast (names: dictionary weather.clouds)
@@ -109,7 +110,7 @@ export function formatClouds(value: number, names: string[] = ['Clear', 'Partly 
   return names[value] ?? String(value);
 }
 
-// Pa -> inHg
-export function formatPressure(pascals: number) {
-  return `${(pascals / 3386.389).toFixed(2)} inHg`;
+// Pa -> inHg (Standard) or hPa (Metric)
+export function formatPressure(pascals: number, units: Units) {
+  return units === 'metric' ? `${(pascals / 100).toFixed(1)} hPa` : `${(pascals / 3386.389).toFixed(2)} inHg`;
 }

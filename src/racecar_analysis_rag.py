@@ -92,6 +92,8 @@ CAR_DATA_PATH = Path(__file__).resolve().parent.parent / "GT3_Car_Data.xlsx"
 TRACK_DATA_PATH = Path(__file__).resolve().parent.parent / "Track_Information.xlsx"
 
 FEET_PER_MILE = 5280
+METERS_PER_FOOT = 0.3048
+KPH_PER_MPH = 1.609344
 
 
 def load_cars():
@@ -117,20 +119,32 @@ def load_cars():
     return documents
 
 
-def load_tracks():
-    """Turn each track spreadsheet row into one text document describing that track."""
+def load_tracks(units="standard"):
+    """Turn each track spreadsheet row into one text document describing that track, in the user's
+    Preferred Units: feet, miles and mph (standard) or meters, km and kph (metric)."""
     df = pd.read_excel(TRACK_DATA_PATH)
     documents = []
     for _, row in df.iterrows():
         length_miles = row["Length (ft)"] / FEET_PER_MILE
-        corners_per_mile = row["Number of Corners"] / length_miles
         notes = row["Track Notes"] if pd.notna(row["Track Notes"]) else ""
+        if units == "metric":
+            length_m = row["Length (ft)"] * METERS_PER_FOOT
+            length_km = length_m / 1000
+            size = (
+                f"length {length_m:.0f} m ({length_km:.2f} km), "
+                f"{row['Number of Corners']} corners ({row['Number of Corners'] / length_km:.1f} corners per km), "
+                f"average speed {row['Average speed (mph)'] * KPH_PER_MPH:.0f} kph, "
+            )
+        else:
+            size = (
+                f"length {row['Length (ft)']} ft ({length_miles:.2f} miles), "
+                f"{row['Number of Corners']} corners ({row['Number of Corners'] / length_miles:.1f} corners per mile), "
+                f"average speed {row['Average speed (mph)']} mph, "
+            )
         documents.append(
             f"Track: {row['Track Name']} (track ID: {row['Track ID']}): "
-            f"length {row['Length (ft)']} ft ({length_miles:.2f} miles), "
-            f"{row['Number of Corners']} corners ({corners_per_mile:.1f} corners per mile), "
-            f"average speed {row['Average speed (mph)']} mph, "
-            f"typical lap time {row['Typical Lap Time, (seconds)']} seconds."
+            + size
+            + f"typical lap time {row['Typical Lap Time, (seconds)']} seconds."
             + (f" Track notes: {notes}" if notes else "")
         )
     print(f"\nLoaded {len(documents)} tracks:")
@@ -139,11 +153,11 @@ def load_tracks():
     return documents
 
 
-def load_documents():
+def load_documents(units="standard"):
     """Cars and tracks share one collection; the metadata records which is which
     so the prompt can present them as separate sections."""
     cars = load_cars()
-    tracks = load_tracks()
+    tracks = load_tracks(units)
     documents = cars + tracks
     metadatas = [{"type": "car"}] * len(cars) + [{"type": "track"}] * len(tracks)
     return documents, metadatas
@@ -235,7 +249,7 @@ def rag_pipeline(query, collection, llm_model, top_k=None):
                     "numbers with their units (a HIGHER power-to-weight ratio is better, a lower weight is lighter). Each car's Notes are provided data too: use them for its layout, handling "
                     "character, desirable and undesirable traits, driver suitability and the kinds of tracks it suits, and "
                     "match those traits to the demands of the track in question.\n"
-                    "2. The track data. Quote the relevant numbers, and use the derived figures (miles, corners per mile) to "
+                    "2. The track data. Quote the relevant numbers, and use the derived figures (miles or km, corners per mile or km) to "
                     "characterize each circuit, e.g. high average speed and few corners per mile = a power/top-speed track; "
                     "many corners per mile and a low average speed = a technical, agility/braking track. "
                     "Each track's notes are provided data too: use them for its downforce level, layout, key corners and "
@@ -271,6 +285,8 @@ def run_query(payload: dict) -> dict:
     query = payload.get("query", "")
     llm_type = payload.get("llmType", "openai")
     embedding_type = payload.get("embeddingType", "openai")
+    # The user's Preferred Units: "standard" or "metric"
+    units = payload.get("units", "standard")
 
     # load_documents/setup_chromadb/rag_pipeline print a lot of
     # human-readable progress info for the interactive CLI mode below;
@@ -279,7 +295,7 @@ def run_query(payload: dict) -> dict:
         llm_model = LLMModel(llm_type)
         embedding_model = EmbeddingModel(embedding_type)
 
-        documents, metadatas = load_documents()
+        documents, metadatas = load_documents(units)
         collection = setup_chromadb(documents, metadatas, embedding_model)
 
         response, references = rag_pipeline(query, collection, llm_model)

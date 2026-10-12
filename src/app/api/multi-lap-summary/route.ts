@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { aiErrorResponse } from '@/lib/aiErrors';
 import { summarizeMultiLap } from '@/lib/lapSummary';
+import { getUnits } from '@/lib/unitsServer';
 
 // Multi-lap statistics for one track are a few KB; anything much bigger isn't a multi-lap analysis
 const MAX_STATS_CHARS = 20000;
@@ -23,7 +24,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'OpenAI API key not configured' }, { status: 500 });
     }
 
-    const summary = await summarizeMultiLap(stats, track);
+    const summary = await summarizeMultiLap(stats, track, undefined, await getUnits());
 
     return NextResponse.json({ success: true, summary }, { status: 200 });
   } catch (error) {

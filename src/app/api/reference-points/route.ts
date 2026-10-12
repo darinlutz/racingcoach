@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { aiErrorResponse } from '@/lib/aiErrors';
 import { referenceSessionSchema, runReferencePoints } from '@/lib/referencePoints';
 import { apiText, getLanguage } from '@/lib/i18n/server';
+import { getCurrentUser } from '@/lib/session';
+import { getUnits } from '@/lib/unitsServer';
 
 // The agent makes several model calls (one per tool round), so give it more than the default
 export const maxDuration = 60;
@@ -24,7 +26,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: t.aiNotConfigured }, { status: 500 });
     }
 
-    const { rows, commentary, steps } = await runReferencePoints(parsed.data, await getLanguage());
+    const user = await getCurrentUser();
+    const { rows, commentary, steps } = await runReferencePoints(parsed.data, await getLanguage(user), await getUnits(user));
 
     return NextResponse.json({ success: true, rows, commentary, steps }, { status: 200 });
   } catch (error) {

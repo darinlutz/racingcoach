@@ -3,15 +3,19 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { useLanguage } from '@/components/LanguageProvider';
+import { useUnits } from '@/components/UnitsProvider';
 import { lapId } from '@/lib/debriefSession';
+import { distanceFromFeet } from '@/lib/units';
 import { formatLapTime, formatSize, lapFileErrorText, parseLapFile, type LapFile, type Track } from '@/lib/lapData';
 import type { ReferenceRow } from '@/lib/referencePoints';
 import { buildReferenceSession } from '@/lib/referenceSession';
 
-// A measured value with the file's target beside it
-function Measured({ value, target }: { value: number | null; target: number | null }) {
+// A measured value with the file's target beside it. Feet (distance) are shown in the user's units.
+function Measured({ value, target, distance = false }: { value: number | null; target: number | null; distance?: boolean }) {
   const { t, fmt, locale } = useLanguage();
-  const cell = (n: number | null) => (n === null ? '—' : n.toLocaleString(locale));
+  const units = useUnits();
+  const cell = (n: number | null) =>
+    n === null ? '—' : (distance ? Math.round(distanceFromFeet(n, units)) : n).toLocaleString(locale);
   return (
     <>
       <span className="font-semibold text-foreground">{cell(value)}</span>
@@ -22,7 +26,9 @@ function Measured({ value, target }: { value: number | null; target: number | nu
 
 export default function ReferencePoints() {
   const { t: dictionary, fmt, plural } = useLanguage();
+  const units = useUnits();
   const t = dictionary.referencePoints;
+  const distanceName = dictionary.preferences.distanceNames[units];
   const [tracks, setTracks] = useState<Track[]>([]);
   const [trackName, setTrackName] = useState('');
   const [error, setError] = useState('');
@@ -308,13 +314,13 @@ export default function ReferencePoints() {
                       {t.focusArea}
                     </th>
                     <th scope="col" className="px-4 py-3 font-semibold text-right">
-                      {t.brakePoint}
+                      {fmt(t.brakePoint, { units: distanceName })}
                     </th>
                     <th scope="col" className="px-4 py-3 font-semibold text-right">
                       {t.maxBrake}
                     </th>
                     <th scope="col" className="px-4 py-3 font-semibold text-right">
-                      {t.throttlePoint}
+                      {fmt(t.throttlePoint, { units: distanceName })}
                     </th>
                   </tr>
                 </thead>
@@ -325,13 +331,13 @@ export default function ReferencePoints() {
                         {row.area}
                       </th>
                       <td className="px-4 py-3 text-right tabular-nums">
-                        <Measured value={row.brakeFeet} target={row.brakeTargetFeet} />
+                        <Measured value={row.brakeFeet} target={row.brakeTargetFeet} distance />
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums">
                         <Measured value={row.maxBrakePct} target={row.maxBrakeTargetPct} />
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums">
-                        <Measured value={row.throttleFeet} target={row.throttleTargetFeet} />
+                        <Measured value={row.throttleFeet} target={row.throttleTargetFeet} distance />
                       </td>
                     </tr>
                   ))}
@@ -339,7 +345,7 @@ export default function ReferencePoints() {
               </table>
             </div>
             <p className="text-xs text-muted-foreground">
-              {t.note}
+              {fmt(t.note, { units: distanceName })}
             </p>
 
             <div className="flex flex-wrap items-center gap-3">

@@ -4,11 +4,13 @@ import ActivityTracker from "@/components/ActivityTracker";
 import Brand from "@/components/Brand";
 import LanguageProvider from "@/components/LanguageProvider";
 import Navigation from "@/components/Navigation";
+import UnitsProvider from "@/components/UnitsProvider";
 import { getDictionary, getLanguage } from "@/lib/i18n/server";
 import { isAdmin } from "@/lib/roles";
 import { getCurrentUser } from "@/lib/session";
 import { getShowPricing } from "@/lib/siteSettings";
 import { getTheme } from "@/lib/themeServer";
+import { getUnits } from "@/lib/unitsServer";
 import { canBuyAnything } from "@/lib/users";
 import "./globals.css";
 
@@ -41,6 +43,9 @@ export default async function RootLayout({
   const t = getDictionary(language);
   // Dark Mode or Light Mode (the Account page's Theme toggle); globals.css switches the colors on data-theme
   const theme = await getTheme(user);
+  // Standard (feet, mph, °F) or Metric (meters, kph, °C), the Account page's Preferred Units; client
+  // components get them from UnitsProvider
+  const units = await getUnits(user);
 
   return (
     <html
@@ -51,22 +56,24 @@ export default async function RootLayout({
     >
       <body className="min-h-screen bg-background text-foreground flex flex-col">
         <LanguageProvider language={language} dictionary={t}>
-          <ActivityTracker />
-          <Navigation
-            user={user ? { userName: user.userName, canUpgrade: canBuyAnything(user), isAdmin: isAdmin(user.role) } : null}
-            showPricing={showPricing}
-          />
-          <main className="flex-1">
-            {children}
-          </main>
-          <footer className="border-t border-border py-6">
-            <div className="site-container flex items-center justify-between gap-5">
-              <Brand />
-              <p className="text-[10px] text-muted-foreground text-right max-sm:max-w-[140px]">
-                © 2026 RacingCoach.app<br />{t.footer.tagline}
-              </p>
-            </div>
-          </footer>
+          <UnitsProvider units={units}>
+            <ActivityTracker />
+            <Navigation
+              user={user ? { userName: user.userName, canUpgrade: canBuyAnything(user), isAdmin: isAdmin(user.role) } : null}
+              showPricing={showPricing}
+            />
+            <main className="flex-1">
+              {children}
+            </main>
+            <footer className="border-t border-border py-6">
+              <div className="site-container flex items-center justify-between gap-5">
+                <Brand />
+                <p className="text-[10px] text-muted-foreground text-right max-sm:max-w-[140px]">
+                  © 2026 RacingCoach.app<br />{t.footer.tagline}
+                </p>
+              </div>
+            </footer>
+          </UnitsProvider>
         </LanguageProvider>
       </body>
     </html>

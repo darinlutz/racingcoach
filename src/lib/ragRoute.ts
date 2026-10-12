@@ -3,6 +3,7 @@ import path from 'node:path';
 import { NextResponse } from 'next/server';
 import { isAiOutOfCredits } from './aiErrors';
 import { apiText } from './i18n/server';
+import { getUnits } from './unitsServer';
 
 const LLM_TYPES = ['openai', 'ollama'];
 const EMBEDDING_TYPES = ['openai', 'chroma', 'nomic'];
@@ -99,7 +100,8 @@ export function createRagRoute(scriptFile: string, timeoutMs = 60000) {
     try {
       const result = await runPythonJson<{ response?: string; references?: string[]; error?: string }>(
         scriptFile,
-        { query, llmType, embeddingType },
+        // units: the user's Preferred Units, for scripts that show measurements (racecar_analysis_rag.py)
+        { query, llmType, embeddingType, units: await getUnits() },
         timeoutMs
       );
 

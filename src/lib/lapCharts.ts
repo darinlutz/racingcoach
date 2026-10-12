@@ -9,27 +9,29 @@ export const COMPARE_LAP_COLOR = '#ff4040';
 // Plot margins of the line charts, so their plots line up under each other
 export const CHART_MARGIN = { top: 10, right: 64, bottom: 28, left: 40 };
 
-// The horizontal axis: a focus area's start and end as lap positions, the track length that turns
-// them into feet (null shows % of the lap instead), and the locale its numbers are formatted for
+// The horizontal axis: a focus area's start and end as lap positions, the track length in the user's
+// units that turns them into feet or meters (null shows % of the lap instead), its unit ("ft" or "m"),
+// and the locale its numbers are formatted for
 export type Axis = {
   domain: [number, number];
-  lengthFeet: number | null;
+  length: number | null;
+  unit: string;
   locale: string;
 };
 
 export const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
-// Lap position -> axis label: feet from the start/finish line, or % of the lap without a track length
-export function positionLabel(pct: number, { lengthFeet, locale }: Axis) {
+// Lap position -> axis label: feet or meters from the start/finish line, or % of the lap without a track length
+export function positionLabel(pct: number, { length, unit, locale }: Axis) {
   const lapPct = ((pct % 1) + 1) % 1;
-  return lengthFeet
-    ? `${Math.round(lapPct * lengthFeet).toLocaleString(locale)} ft`
+  return length
+    ? `${Math.round(lapPct * length).toLocaleString(locale)} ${unit}`
     : `${(lapPct * 100).toLocaleString(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
 }
 
-// Round tick positions (lap positions) across the domain: steps of 1/2/5 x 10^n feet (or % of the lap)
-export function xTicks({ domain, lengthFeet }: Axis) {
-  const unit = lengthFeet ?? 100;
+// Round tick positions (lap positions) across the domain: steps of 1/2/5 x 10^n feet or meters (or % of the lap)
+export function xTicks({ domain, length }: Axis) {
+  const unit = length ?? 100;
   const [lo, hi] = [domain[0] * unit, domain[1] * unit];
   const raw = (hi - lo) / 5;
   const magnitude = 10 ** Math.floor(Math.log10(raw));

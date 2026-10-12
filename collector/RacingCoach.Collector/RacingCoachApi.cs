@@ -52,19 +52,24 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
     }
 
     /// <summary>The user's Track Data track for an iRacing track name, as the JSON TelemetryEngine.js reads from
-    /// its TrackConfig (TrackFileName, TrackLengthInFeet, Notes and areas), or null if they have no such track.
+    /// its TrackConfig (TrackFileName, TrackLengthInFeet, Notes and areas), or null if they have no such track;
+    /// and whether their Preferred Units on the Account page are Metric (meters, kph) rather than Standard
+    /// (feet, mph; also for a site from before there were units).
     /// Throws UnauthorizedAccessException if the key isn't accepted, and HttpRequestException or
     /// TaskCanceledException if the site can't be reached.</summary>
-    public async Task<string?> GetTrackJsonAsync(string trackName, CancellationToken ct)
+    public async Task<(string? Json, bool Metric)> GetTrackJsonAsync(string trackName, CancellationToken ct)
     {
         using var response = await _http.GetAsync($"api/collector/track?name={Uri.EscapeDataString(trackName)}", ct);
         if (response.StatusCode == HttpStatusCode.Unauthorized)
             throw new UnauthorizedAccessException("RacingCoach.app doesn't accept the upload key");
         response.EnsureSuccessStatusCode();
         using var body = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(ct), cancellationToken: ct);
-        return body.RootElement.TryGetProperty("track", out var track) && track.ValueKind == JsonValueKind.Object
+        var json = body.RootElement.TryGetProperty("track", out var track) && track.ValueKind == JsonValueKind.Object
             ? track.GetRawText()
             : null;
+        var metric = body.RootElement.TryGetProperty("units", out var units) && units.ValueKind == JsonValueKind.String
+            && units.GetString() == "metric";
+        return (json, metric);
     }
 
     /// <summary>The in-session debrief for uploaded laps (by clientLapId): what to say, e.g. "Area 1 average

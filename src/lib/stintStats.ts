@@ -2,7 +2,8 @@
 
 import type { Dictionary } from '@/lib/i18n/dictionaries/en';
 import { fmt } from '@/lib/i18n/languages';
-import { formatSeconds, formatTempF, type StintExport, type StintLap } from '@/lib/stintExport';
+import { formatSeconds, type StintExport, type StintLap } from '@/lib/stintExport';
+import { formatTemperature, type Units } from '@/lib/units';
 
 function mean(values: number[]) {
   return values.reduce((sum, v) => sum + v, 0) / values.length;
@@ -106,8 +107,14 @@ export function selectBestRun(stint: StintExport): StintSelection | null {
 }
 
 // Plain-text stint report: shown in the text box and sent to the AI for the summary. Written in the
-// user's language (t is the dictionary's stintReport; locale formats the start time).
-export function stintReport({ stint, run, runCount, lapsInExport }: StintSelection, t: Dictionary['stintReport'], locale: string) {
+// user's language (t is the dictionary's stintReport; locale formats the start time) and units.
+export function stintReport(
+  { stint, run, runCount, lapsInExport }: StintSelection,
+  t: Dictionary['stintReport'],
+  locale: string,
+  units: Units
+) {
+  const formatTempIn = (celsius: number) => formatTemperature(celsius, units);
   const timed = stint.laps;
   const first = timed[0];
   const seconds = (value: number | null) => (value === null ? t.na : `${value.toFixed(3)}s`);
@@ -200,14 +207,14 @@ export function stintReport({ stint, run, runCount, lapsInExport }: StintSelecti
   lines.push(
     t.conditions,
     fmt(t.trackTemp, {
-      start: formatTempF(trackTemps[0]),
-      end: formatTempF(trackTemps[trackTemps.length - 1]),
-      min: formatTempF(Math.min(...trackTemps)),
-      max: formatTempF(Math.max(...trackTemps)),
+      start: formatTempIn(trackTemps[0]),
+      end: formatTempIn(trackTemps[trackTemps.length - 1]),
+      min: formatTempIn(Math.min(...trackTemps)),
+      max: formatTempIn(Math.max(...trackTemps)),
     }),
     fmt(t.airTemp, {
-      min: formatTempF(Math.min(...timed.map((l) => l.airTempC))),
-      max: formatTempF(Math.max(...timed.map((l) => l.airTempC))),
+      min: formatTempIn(Math.min(...timed.map((l) => l.airTempC))),
+      max: formatTempIn(Math.max(...timed.map((l) => l.airTempC))),
       humMin: Math.round(Math.min(...timed.map((l) => l.relativeHumidity)) * 100),
       humMax: Math.round(Math.max(...timed.map((l) => l.relativeHumidity)) * 100),
     }),

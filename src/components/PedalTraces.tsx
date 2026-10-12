@@ -6,8 +6,10 @@ import SteeringTrace from '@/components/SteeringTrace';
 import { useLanguage } from '@/components/LanguageProvider';
 import TimeDeltaTrace from '@/components/TimeDeltaTrace';
 import TrackLineMap from '@/components/TrackLineMap';
+import { useUnits } from '@/components/UnitsProvider';
 import { CHART_MARGIN as MARGIN, clamp, nearestIndex, positionLabel, xTicks, type Axis } from '@/lib/lapCharts';
 import type { AreaTrace } from '@/lib/lapData';
+import { DISTANCE_UNIT, distanceFromFeet } from '@/lib/units';
 
 // Brake red and throttle green, checked with the dataviz palette validator against the panel surface
 // (#202124, dark): inside the lightness band, CVD separation ΔE 9.2 (deutan), contrast >= 3:1
@@ -201,9 +203,15 @@ export default function PedalTraces({
   compare: PedalTraceLap;
 }) {
   const { t, locale } = useLanguage();
+  const units = useUnits();
   const [containerRef, width] = useWidth();
   const [hoverPct, setHoverPct] = useState<number | null>(null);
-  const axis: Axis = { domain: base.trace.domain, lengthFeet, locale };
+  const axis: Axis = {
+    domain: base.trace.domain,
+    length: lengthFeet ? distanceFromFeet(lengthFeet, units) : null,
+    unit: DISTANCE_UNIT[units],
+    locale,
+  };
 
   return (
     <div ref={containerRef} className="space-y-4">

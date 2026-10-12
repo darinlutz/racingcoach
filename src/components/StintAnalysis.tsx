@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 
 import { useLanguage } from '@/components/LanguageProvider';
 import SectorChart from '@/components/SectorChart';
+import { useUnits } from '@/components/UnitsProvider';
 import type { Dictionary } from '@/lib/i18n/dictionaries/en';
 import { fmt } from '@/lib/i18n/languages';
 import StintConditions from '@/components/StintConditions';
@@ -34,6 +35,7 @@ async function fetchStintSummary(report: string, t: Dictionary) {
 
 export default function StintAnalysis() {
   const { t: dictionary, locale, plural } = useLanguage();
+  const units = useUnits();
   const t = dictionary.stint;
   const [stint, setStint] = useState<StintSelection | null>(null);
   const [fileError, setFileError] = useState('');
@@ -70,7 +72,7 @@ export default function StintAnalysis() {
     if (!stint) return;
     setAnalyzing(true);
     try {
-      const report = stintReport(stint, dictionary.stintReport, locale);
+      const report = stintReport(stint, dictionary.stintReport, locale, units);
       // Show the statistics right away, then add the coaching summary below them
       setAnalysis(`${report}\n\n${t.summaryWriting}`);
       setAnalysis(`${report}\n\n${t.summaryHeading}\n${await fetchStintSummary(report, dictionary)}`);

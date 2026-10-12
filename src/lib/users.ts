@@ -15,6 +15,7 @@ import { copyDefaultCars, seedDefaultCars } from './defaultCars';
 import { copyDefaultTracks, seedDefaultTracks } from './defaultTracks';
 import { DEFAULT_LANGUAGE, isLanguage, type Language } from './i18n/languages';
 import { DEFAULT_THEME, isTheme, type Theme } from './theme';
+import { DEFAULT_UNITS, isUnits, type Units } from './units';
 
 const scryptAsync = promisify(scrypt) as (password: string, salt: Buffer, keylen: number) => Promise<Buffer>;
 
@@ -37,10 +38,12 @@ export type User = {
   preferredLanguage: Language;
   // Dark Mode or Light Mode for the whole site
   theme: Theme;
+  // Standard (feet, mph, °F) or Metric (meters, kph, °C) for the whole site
+  units: Units;
 };
 
 const USER_COLUMNS =
-  'id, user_name, email_address, account_status, membership_level, signup_date, subscription_end_date, stripe_subscription_id, stripe_customer_id, role, preferred_language, theme';
+  'id, user_name, email_address, account_status, membership_level, signup_date, subscription_end_date, stripe_subscription_id, stripe_customer_id, role, preferred_language, theme, units';
 
 // The site owner is made Admin on sign-up; everyone else is a User
 export const OWNER_EMAIL = 'darinlutz@yahoo.com';
@@ -139,6 +142,10 @@ export function ensureUserSchema(): Promise<void> {
       // Dark Mode or Light Mode for the whole site: dark or light (src/lib/theme.ts)
       await client.query(
         `ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS theme TEXT NOT NULL DEFAULT '${DEFAULT_THEME}'`
+      );
+      // Preferred Units for the whole site: standard (feet, mph, °F) or metric (meters, kph, °C) (src/lib/units.ts)
+      await client.query(
+        `ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS units TEXT NOT NULL DEFAULT '${DEFAULT_UNITS}'`
       );
       // The user's own In-Car AI Coach Instructions from the Account page (empty for none)
       await client.query(
@@ -568,6 +575,7 @@ function rowToUser(row: Record<string, unknown>): User {
     role: row.role as string,
     preferredLanguage: isLanguage(row.preferred_language) ? row.preferred_language : DEFAULT_LANGUAGE,
     theme: isTheme(row.theme) ? row.theme : DEFAULT_THEME,
+    units: isUnits(row.units) ? row.units : DEFAULT_UNITS,
     signupDate: (row.signup_date as string | null) ?? null,
     subscriptionEndDate: (row.subscription_end_date as string | null) ?? null,
     stripeSubscriptionId: (row.stripe_subscription_id as string | null) ?? null,
@@ -685,6 +693,11 @@ export async function setPreferredLanguage(userId: number, language: Language): 
 export async function setTheme(userId: number, theme: Theme): Promise<void> {
   await ensureUserSchema();
   await query('UPDATE racingcoach."Users" SET theme = $1 WHERE id = $2', [theme, userId]);
+}
+
+export async function setUnits(userId: number, units: Units): Promise<void> {
+  await ensureUserSchema();
+  await query('UPDATE racingcoach."Users" SET units = $1 WHERE id = $2', [units, userId]);
 }
 
 // The longest In-Car AI Coach Instructions a user can save

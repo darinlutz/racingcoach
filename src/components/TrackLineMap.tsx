@@ -4,7 +4,9 @@ import { useEffect, useRef, useState, type MouseEvent, type PointerEvent } from 
 
 import { useLanguage } from '@/components/LanguageProvider';
 import type { PedalTraceLap } from '@/components/PedalTraces';
+import { useUnits } from '@/components/UnitsProvider';
 import { BASE_LAP_COLOR as BASE_COLOR, clamp, COMPARE_LAP_COLOR as COMPARE_COLOR, nearestIndex } from '@/lib/lapCharts';
+import { DISTANCE_UNIT, distanceFromMeters, type Units } from '@/lib/units';
 
 // Under each line, so it also holds up on light concrete and run-off
 const CASING_COLOR = 'rgba(0, 0, 0, 0.55)';
@@ -66,12 +68,13 @@ function project([lat, lon]: [number, number]): [number, number] {
   ];
 }
 
-// A round scale bar length (m) close to 100 px
-function scaleBar(metersPerPixel: number) {
-  const target = metersPerPixel * 100;
+// A round scale bar length in the user's units (feet or meters) close to 100 px
+function scaleBar(metersPerPixel: number, units: Units) {
+  const perPixel = distanceFromMeters(metersPerPixel, units);
+  const target = perPixel * 100;
   const magnitude = 10 ** Math.floor(Math.log10(target));
-  const meters = [1, 2, 5, 10].map((m) => m * magnitude).filter((m) => m <= target).at(-1) ?? magnitude;
-  return { meters: Number(meters.toPrecision(2)), pixels: meters / metersPerPixel };
+  const length = [1, 2, 5, 10].map((m) => m * magnitude).filter((m) => m <= target).at(-1) ?? magnitude;
+  return { length: Number(length.toPrecision(2)), pixels: length / perPixel };
 }
 
 // Keeps the center over the lines; fully zoomed out is always the fitted view
@@ -123,6 +126,7 @@ export default function TrackLineMap({
   onHover: (pct: number | null) => void;
 }) {
   const { t: dictionary, fmt, locale } = useLanguage();
+  const units = useUnits();
   const t = dictionary.charts;
   const settings = useMapSettings();
   // The zoomed or panned view, and the laps it was set for: analyzing other laps starts fitted again
@@ -221,7 +225,7 @@ export default function TrackLineMap({
   }
 
   const latitude = lines[0].positions[0][0];
-  const bar = scaleBar((METERS_PER_PIXEL_Z0 * Math.cos((latitude * Math.PI) / 180)) / scale);
+  const bar = scaleBar((METERS_PER_PIXEL_Z0 * Math.cos((latitude * Math.PI) / 180)) / scale, units);
 
   const pointerAt = (event: MouseEvent<SVGSVGElement>) => {
     const box = event.currentTarget.getBoundingClientRect();
@@ -383,7 +387,7 @@ export default function TrackLineMap({
             <line x1={0} x2={0} y1={-4} y2={0} stroke="white" strokeWidth={2} />
             <line x1={bar.pixels} x2={bar.pixels} y1={-4} y2={0} stroke="white" strokeWidth={2} />
             <text x={bar.pixels / 2} y={-5} textAnchor="middle">
-              {fmt(t.meters, { n: bar.meters.toLocaleString(locale) })}
+              {fmt(t.scaleBar, { n: bar.length.toLocaleString(locale), unit: DISTANCE_UNIT[units] })}
             </text>
           </g>
         </svg>

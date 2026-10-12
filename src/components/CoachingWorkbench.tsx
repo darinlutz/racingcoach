@@ -4,6 +4,8 @@ import { useRef, useState, type ReactNode } from 'react';
 import { ArrowRight, ChartNoAxesCombined, Flag, Gauge, GitCompareArrows, MapPin, Sparkles, Upload, X } from 'lucide-react';
 import Button from '@/components/Button';
 import { useLanguage } from '@/components/LanguageProvider';
+import { useUnits } from '@/components/UnitsProvider';
+import { DISTANCE_UNIT, distanceFromFeet, SPEED_UNIT, speedFromMph } from '@/lib/units';
 
 // Landing page preview of the Racing toolkit. Everything here is sample data;
 // nothing is sent to the real analysis APIs.
@@ -14,28 +16,35 @@ const LAP_COMPARE = 0, DEBRIEF = 1, TRENDS = 2, FOCUS_AREAS = 3, RACECAR = 4, ST
 
 const tracks = ['Mobility Resort Motegi (Grand Prix)', 'Circuit Zandvoort', 'Spa-Francorchamps'];
 
-const focusRows = [
-  ['T 1 & 2', '0.02 – 0.09', '511 ft', '79%', '1,008 ft'],
-  ['T 3 & 4', '0.16 – 0.25', '3,163 ft', '86%', '—'],
-  ['T 5', '0.31 – 0.36', '5,019 ft', '84%', '5,463 ft'],
-  ['T 7', '0.44 – 0.52', '7,190 ft', '68%', '7,621 ft'],
-  ['T 9', '0.54 – 0.58', '8,711 ft', '76%', '9,034 ft'],
-  ['T 10', '0.63 – 0.69', '10,129 ft', '86%', '10,488 ft'],
+// Focus area, start – end, brake point (feet), max brake, on throttle (feet); shown in the user's units
+type FocusRow = [string, string, number | null, string, number | null];
+const focusRows: FocusRow[] = [
+  ['T 1 & 2', '0.02 – 0.09', 511, '79%', 1008],
+  ['T 3 & 4', '0.16 – 0.25', 3163, '86%', null],
+  ['T 5', '0.31 – 0.36', 5019, '84%', 5463],
+  ['T 7', '0.44 – 0.52', 7190, '68%', 7621],
+  ['T 9', '0.54 – 0.58', 8711, '76%', 9034],
+  ['T 10', '0.63 – 0.69', 10129, '86%', 10488],
 ];
 
-// Focus area, time difference, feet braked earlier, minimum speed difference
-const comparisonRows: [string, string, number, string][] = [
-  ['T 1 & 2', '−0.016s', 58, '+2 mph'],
-  ['T 5', '+0.123s', 29, '−2 mph'],
-  ['T 9', '−0.061s', 4, '+0 mph'],
-  ['T 10', '+0.023s', 139, '+0 mph'],
+// Focus area, time difference, feet braked earlier, minimum speed difference (mph)
+const comparisonRows: [string, string, number, number][] = [
+  ['T 1 & 2', '−0.016s', 58, 2],
+  ['T 5', '+0.123s', 29, -2],
+  ['T 9', '−0.061s', 4, 0],
+  ['T 10', '+0.023s', 139, 0],
 ];
+
+// The Lap Compare chart's distance axis
+const AXIS_METERS = [0, 1000, 2000, 3000, 4000];
+const AXIS_FEET = [0, 3000, 6000, 9000, 12000];
 
 // Paired with the dictionary's workbench.sampleCars descriptions
 const sampleCars = ['Porsche 911 GT3 R', 'Ferrari 296 GT3', 'BMW M4 GT3 EVO'];
 
 function TelemetryChart({ trend = false, stint = false }: { trend?: boolean; stint?: boolean }) {
-  const { t, fmt } = useLanguage();
+  const { t, fmt, locale } = useLanguage();
+  const units = useUnits();
   const pace = '35,60 60,59 79,62 95,126 112,150 133,123 149,78 172,55 192,60 207,96 223,144 239,130 255,58 283,48 300,69 315,156 333,138 351,99 370,52 399,50 412,93 430,157 450,141 471,72 497,48 516,56 530,110 549,132 570,58';
   const ratings = '35,150 59,158 82,148 106,165 133,150 150,126 174,134 191,108 212,117 237,91 253,121 272,98 292,105 313,72 333,84 354,70 379,89 399,67 420,60 442,76 463,43 483,56 501,35 521,48 546,40 570,51';
   const label = trend ? t.workbench.chartLabelTrend : stint ? t.workbench.chartLabelStint : t.workbench.chartLabelCompare;
@@ -43,7 +52,7 @@ function TelemetryChart({ trend = false, stint = false }: { trend?: boolean; sti
     ? t.workbench.months
     : stint
       ? [2, 4, 6, 8, 10].map((n) => fmt(t.workbench.lapN, { n }))
-      : ['0 m', '1,000 m', '2,000 m', '3,000 m', '4,000 m'];
+      : (units === 'metric' ? AXIS_METERS : AXIS_FEET).map((n) => `${n.toLocaleString(locale)} ${DISTANCE_UNIT[units]}`);
 
   return (
     <div className="chart-box">
@@ -83,8 +92,16 @@ function TrackSelect({ value, onChange, label }: { value: string; onChange: (tra
 }
 
 export default function CoachingWorkbench() {
-  const { t: dictionary, fmt, plural } = useLanguage();
+  const { t: dictionary, fmt, plural, locale } = useLanguage();
+  const units = useUnits();
   const t = dictionary.workbench;
+  // Sample feet and mph in the user's units: "1,008 ft" / "307 m", "+2 mph" / "+3 kph"
+  const distance = (feet: number) => Math.round(distanceFromFeet(feet, units)).toLocaleString(locale);
+  const speed = (mph: number) => {
+    const value = Math.round(speedFromMph(mph, units));
+    return `${value < 0 ? '−' : '+'}${Math.abs(value)} ${SPEED_UNIT[units]}`;
+  };
+  const sampleSpeed = (mph: number) => `${speedFromMph(mph, units).toLocaleString(locale, { maximumFractionDigits: 1 })} ${SPEED_UNIT[units]}`;
   const [active, setActive] = useState(LAP_COMPARE);
   const [track, setTrack] = useState(tracks[0]);
   const [files, setFiles] = useState<File[]>([]);
@@ -187,7 +204,7 @@ export default function CoachingWorkbench() {
               ) : (
                 <>
                   <Insight title={active === STINT ? t.stintTitle : undefined}>
-                    {active === STINT ? t.stintCopy : t.apexCopy}
+                    {active === STINT ? t.stintCopy : fmt(t.apexCopy, { fast: sampleSpeed(42.3) })}
                   </Insight>
                   <Insight tag={t.nextUp} title={t.brakingTitle} gain={t.brakingGain}>
                     {t.brakingCopy}
@@ -231,7 +248,7 @@ export default function CoachingWorkbench() {
             </div>
             <div>
               <div className="insight-heading"><Sparkles />{reviewed ? t.sampleDebrief : t.debriefPreview}</div>
-              <Insight>{t.debriefCopy}</Insight>
+              <Insight>{fmt(t.debriefCopy, { fast: sampleSpeed(42.3), slow: sampleSpeed(39.8) })}</Insight>
               <p className="analysis-note">{t.debriefNote}</p>
             </div>
           </div>
@@ -251,7 +268,9 @@ export default function CoachingWorkbench() {
                 <tbody>
                   {areas.map((row, i) => (
                     <tr key={i}>
-                      {row.map((v, j) => <td key={j}>{v}</td>)}
+                      {row.map((v, j) => (
+                        <td key={j}>{typeof v === 'number' ? `${distance(v)} ${DISTANCE_UNIT[units]}` : v ?? '—'}</td>
+                      ))}
                       <td>
                         <Button variant="ghost" size="icon" aria-label={fmt(t.deleteArea, { name: row[0] })} onClick={() => setAreas((prev) => prev.filter((_, idx) => idx !== i))}><X /></Button>
                       </td>
@@ -264,7 +283,7 @@ export default function CoachingWorkbench() {
               className="question-form"
               onSubmit={(e) => {
                 e.preventDefault();
-                if (newArea.trim()) { setAreas((prev) => [...prev, [newArea.trim(), '—', '—', '—', '—']]); setNewArea(''); }
+                if (newArea.trim()) { setAreas((prev) => [...prev, [newArea.trim(), '—', null, '—', null]]); setNewArea(''); }
               }}
             >
               <input className="text-input" value={newArea} onChange={(e) => setNewArea(e.target.value)} placeholder={t.newAreaName} aria-label={t.newAreaName} required />
@@ -304,12 +323,12 @@ export default function CoachingWorkbench() {
             <table className="data-table">
               <thead><tr>{t.compareColumns.map((h) => <th key={h}>{h}</th>)}</tr></thead>
               <tbody>
-                {comparisonRows.map(([area, time, feet, speed]) => (
+                {comparisonRows.map(([area, time, feet, mph]) => (
                   <tr key={area}>
                     <td>{area}</td>
                     <td>{time}</td>
-                    <td>{fmt(t.feetEarlier, { n: feet })}</td>
-                    <td>{speed}</td>
+                    <td>{fmt(t.distanceEarlier, { n: distance(feet), unit: DISTANCE_UNIT[units] })}</td>
+                    <td>{speed(mph)}</td>
                   </tr>
                 ))}
               </tbody>

@@ -4,6 +4,7 @@ import { createAgent, tool } from 'langchain';
 import { z } from 'zod';
 import { aiLanguageRule, DEFAULT_LANGUAGE, type Language } from './i18n/languages';
 import { coachInstructionsRule } from './siteSettings';
+import { DEFAULT_UNITS, DISTANCE_NAME, DISTANCE_UNIT, distanceFromFeet, type Units } from './units';
 
 // Reference Points tab. The browser measures every lap in every focus area (the CSVs are too big to
 // send) and posts the numbers here. The reference table is computed here from the fastest runs through
@@ -119,16 +120,28 @@ const fixed = (value: number | null, unit = '') => (value === null ? 'n/a' : `${
 const spread = (values: number[], unit: string) =>
   values.length === 0 ? 'n/a' : `${Math.round(Math.min(...values))}-${Math.round(Math.max(...values))}${unit}`;
 
-function describeRun(run: Run) {
+// The AI is told distances in the user's units: feet (as measured) or meters
+function distanceFormat(units: Units) {
+  const unit = ` ${DISTANCE_UNIT[units]}`;
+  const convert = (feet: number) => distanceFromFeet(feet, units);
+  return {
+    distance: (feet: number | null) => fixed(feet === null ? null : convert(feet), unit),
+    distanceSpread: (feet: number[]) => spread(feet.map(convert), unit),
+  };
+}
+
+function describeRun(run: Run, units: Units) {
+  const { distance } = distanceFormat(units);
   return (
-    `[${run.lap}] ${run.seconds.toFixed(3)}s, brake ${fixed(run.brakeFeet, ' ft')}, ` +
-    `max brake ${run.maxBrakePct.toFixed(0)}%, on throttle ${fixed(run.throttleFeet, ' ft')}`
+    `[${run.lap}] ${run.seconds.toFixed(3)}s, brake ${distance(run.brakeFeet)}, ` +
+    `max brake ${run.maxBrakePct.toFixed(0)}%, on throttle ${distance(run.throttleFeet)}`
   );
 }
 
-function createTools(session: ReferenceSession) {
+function createTools(session: ReferenceSession, units: Units) {
   const { cutoff, incidentLaps, areas } = cleanSession(session);
   const table = referenceTable(session);
+  const { distance, distanceSpread } = distanceFormat(units);
 
   const overview = tool(
     async () =>
@@ -137,12 +150,12 @@ function createTools(session: ReferenceSession) {
           ? `Left out as incident laps (over ${cutoff.toFixed(3)}s): ${incidentLaps.map((l) => `[${l.id}] ${l.lapTime.toFixed(3)}s`).join(', ')}.`
           : 'No incident laps were left out.',
         `${session.track}, ${session.car}. ${session.laps.length} laps uploaded.`,
-        'Reference points (average of the fastest third of runs through each focus area; feet are from the start/finish line):',
+        `Reference points (average of the fastest third of runs through each focus area; ${DISTANCE_NAME[units]} are from the start/finish line):`,
         ...table.map(
           (r) =>
-            `- ${r.area}: brake ${fixed(r.brakeFeet, ' ft')} (target ${fixed(r.brakeTargetFeet, ' ft')}), ` +
+            `- ${r.area}: brake ${distance(r.brakeFeet)} (target ${distance(r.brakeTargetFeet)}), ` +
             `max brake ${fixed(r.maxBrakePct, '%')} (target ${fixed(r.maxBrakeTargetPct, '%')}), ` +
-            `on throttle ${fixed(r.throttleFeet, ' ft')} (target ${fixed(r.throttleTargetFeet, ' ft')}) (from ${r.lapsUsed} of ${r.lapsMeasured} runs)`
+            `on throttle ${distance(r.throttleFeet)} (target ${distance(r.throttleTargetFeet)}) (from ${r.lapsUsed} of ${r.lapsMeasured} runs)`
         ),
       ].join('\n'),
     {
@@ -160,10 +173,10 @@ function createTools(session: ReferenceSession) {
       return [
         `${area.name} (${area.range}). Reference runs: ${reference.map((r) => `[${r.lap}]`).join(', ')}.`,
         'Every run, fastest first:',
-        ...sorted.map(describeRun),
-        `Spread across all runs: brake ${spread(numbersOf(sorted.map((r) => r.brakeFeet)), ' ft')}, ` +
+        ...sorted.map((run) => describeRun(run, units)),
+        `Spread across all runs: brake ${distanceSpread(numbersOf(sorted.map((r) => r.brakeFeet)))}, ` +
           `max brake ${spread(sorted.map((r) => r.maxBrakePct), '%')}, ` +
-          `on throttle ${spread(numbersOf(sorted.map((r) => r.throttleFeet)), ' ft')}.`,
+          `on throttle ${distanceSpread(numbersOf(sorted.map((r) => r.throttleFeet)))}.`,
       ].join('\n');
     },
     {
@@ -178,9 +191,9 @@ function createTools(session: ReferenceSession) {
   return [overview, areaDetail];
 }
 
-const SYSTEM_PROMPT =
+const systemPrompt = (units: Units) =>
   'You are a sim racing coach. The driver uploaded several lap files and wants reference points for each focus area: ' +
-  'a brake point (feet from the start/finish line), a max brake pressure (%) and an on-throttle point (feet from the ' +
+  `a brake point (${DISTANCE_NAME[units]} from the start/finish line), a max brake pressure (%) and an on-throttle point (${DISTANCE_NAME[units]} from the ` +
   'start/finish line). The reference table is already computed from the fastest runs, next to the targets from the ' +
   "driver's track file (n/a = no target set); do not restate it. Start with " +
   'get_reference_points, then use get_area_detail on any area that looks odd (a wide spread between runs, no braking ' +
@@ -190,17 +203,18 @@ const SYSTEM_PROMPT =
 
 export async function runReferencePoints(
   session: ReferenceSession,
-  language: Language = DEFAULT_LANGUAGE
+  language: Language = DEFAULT_LANGUAGE,
+  units: Units = DEFAULT_UNITS
 ): Promise<{ rows: ReferenceRow[]; commentary: string; steps: string[] }> {
   if (!process.env.OPENAI_API_KEY) {
     throw new Error('OPENAI_API_KEY is not configured');
   }
 
-  const tools = createTools(session);
+  const tools = createTools(session, units);
   const agent = createAgent({
     model: new ChatOpenAI({ model: 'gpt-4o', temperature: 0.2 }),
     tools,
-    systemPrompt: SYSTEM_PROMPT + (await coachInstructionsRule()) + aiLanguageRule(language),
+    systemPrompt: systemPrompt(units) + (await coachInstructionsRule()) + aiLanguageRule(language),
     responseFormat: commentarySchema,
   });
 

@@ -1,10 +1,13 @@
 import { NextResponse } from 'next/server';
 import { isCoachVoice, synthesizeSpeech } from '@/lib/coachVoice';
 import { apiText, getDictionary } from '@/lib/i18n/server';
+import { fmt } from '@/lib/i18n/languages';
 import { getCurrentUser } from '@/lib/session';
+import { distanceFromFeet } from '@/lib/units';
 
 // The Account page's Listen button: a sample callout (the dictionary's inCarCoach.sample) in a coach voice and the
-// signed-in user's Preferred Language, as a WAV file. ?voice= one of COACH_VOICES in src/lib/coachVoice.ts.
+// signed-in user's Preferred Language and Units, as a WAV file. ?voice= one of COACH_VOICES in src/lib/coachVoice.ts
+// (the page also adds ?units=, so the browser doesn't play a cached sample in the old units).
 export async function GET(request: Request) {
   const user = await getCurrentUser();
   const t = await apiText(user);
@@ -16,7 +19,14 @@ export async function GET(request: Request) {
     if (!isCoachVoice(voice)) {
       return NextResponse.json({ error: t.unknownCoachVoice }, { status: 400 });
     }
-    const audio = await synthesizeSpeech(getDictionary(user.preferredLanguage).inCarCoach.sample, voice, user.preferredLanguage);
+    // Distances in the user's Preferred Units: about 20 feet (6 meters) later, near 1230 feet (375 meters)
+    const dictionary = getDictionary(user.preferredLanguage);
+    const sample = fmt(dictionary.inCarCoach.sample, {
+      later: Math.round(distanceFromFeet(20, user.units)),
+      near: Math.round(distanceFromFeet(1230, user.units)),
+      units: dictionary.preferences.distanceNames[user.units],
+    });
+    const audio = await synthesizeSpeech(sample, voice, user.preferredLanguage);
     return new NextResponse(new Uint8Array(audio), {
       headers: { 'Content-Type': 'audio/wav', 'Cache-Control': 'private, max-age=86400' },
     });

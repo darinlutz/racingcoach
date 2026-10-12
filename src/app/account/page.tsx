@@ -5,6 +5,7 @@ import CollectorKeyCard from '@/components/CollectorKeyCard';
 import InCarCoachInstructionsCard from '@/components/InCarCoachInstructionsCard';
 import LanguageSelect from '@/components/LanguageSelect';
 import ThemeToggle from '@/components/ThemeToggle';
+import UnitsToggle from '@/components/UnitsToggle';
 import { COACH_VOICES, getCoachVoice } from '@/lib/coachVoice';
 import { getCollectorKey } from '@/lib/collectorKeys';
 import { DISCORD_INVITE_URL, getDiscordConnection } from '@/lib/discord';
@@ -111,11 +112,14 @@ export default async function AccountPage({
           )}
         </dl>
 
-        {/* The site's language, including what the AI features answer in, and Dark Mode / Light Mode */}
+        {/* The site's language, including what the AI features answer in, Standard / Metric units, and Dark Mode / Light Mode */}
         <div className="mt-6 bg-card rounded-lg border border-border px-4 py-4">
           <h2 className="text-sm font-medium text-muted-foreground mb-3">{t.preferences.title}</h2>
           <LanguageSelect id="preferredLanguage" className={selectClass} />
           <p className="mt-2 text-sm text-muted-foreground">{t.preferences.languageHint}</p>
+          <div className="mt-5">
+            <UnitsToggle />
+          </div>
           <div className="mt-5">
             <ThemeToggle theme={user.theme} />
           </div>

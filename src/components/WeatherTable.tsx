@@ -7,10 +7,11 @@ import {
   formatClouds,
   formatPressure,
   formatSeconds,
-  formatTempF,
   formatWind,
   type StintExport,
 } from '@/lib/stintExport';
+import { formatTemperature } from '@/lib/units';
+import { useUnits } from '@/components/UnitsProvider';
 
 type WeatherTableProps = {
   stint: StintExport;
@@ -30,6 +31,8 @@ const HEADINGS = [
 // Per-lap weather from a Garage 61 stint export
 export default function WeatherTable({ stint, onRemove, note, isHighlighted, showWetness = true, summary }: WeatherTableProps) {
   const { t, fmt, locale } = useLanguage();
+  const units = useUnits();
+  const formatTempIn = (celsius: number) => formatTemperature(celsius, units);
   const headings = showWetness
     ? HEADINGS
     : HEADINGS.filter((h) => !(WETNESS_HEADINGS as readonly string[]).includes(h));
@@ -51,7 +54,7 @@ export default function WeatherTable({ stint, onRemove, note, isHighlighted, sho
         </button>
       </div>
       <p className="text-sm text-muted-foreground mb-2">
-        {fmt(t.weather.trackTempRange, { min: formatTempF(Math.min(...trackTemps)), max: formatTempF(Math.max(...trackTemps)) })}
+        {fmt(t.weather.trackTempRange, { min: formatTempIn(Math.min(...trackTemps)), max: formatTempIn(Math.max(...trackTemps)) })}
         {note && ` ${note}`}
       </p>
       {summary}
@@ -78,12 +81,12 @@ export default function WeatherTable({ stint, onRemove, note, isHighlighted, sho
                   {new Date(lap.startedAt).toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit', second: '2-digit' })}
                 </td>
                 <td className="px-3 py-2">{lap.clean ? t.common.yes : t.common.no}</td>
-                <td className="px-3 py-2">{formatTempF(lap.trackTempC)}</td>
-                <td className="px-3 py-2">{formatTempF(lap.airTempC)}</td>
+                <td className="px-3 py-2">{formatTempIn(lap.trackTempC)}</td>
+                <td className="px-3 py-2">{formatTempIn(lap.airTempC)}</td>
                 <td className="px-3 py-2">{Math.round(lap.relativeHumidity * 100)}%</td>
-                <td className="px-3 py-2">{formatWind(lap.windVelocity, lap.windDirection, t.weather.compass)}</td>
+                <td className="px-3 py-2">{formatWind(lap.windVelocity, lap.windDirection, units, t.weather.compass)}</td>
                 <td className="px-3 py-2">{formatClouds(lap.cloudCover, t.weather.clouds)}</td>
-                <td className="px-3 py-2">{formatPressure(lap.airPressure)}</td>
+                <td className="px-3 py-2">{formatPressure(lap.airPressure, units)}</td>
                 {showWetness && (
                   <>
                     <td className="px-3 py-2">{Math.round(lap.precipitation * 100)}%</td>

@@ -2,6 +2,12 @@ import { ChatPromptTemplate } from '@langchain/core/prompts';
 import { ChatOpenAI } from '@langchain/openai';
 import { aiLanguageRule, DEFAULT_LANGUAGE, type Language } from './i18n/languages';
 import { coachInstructionsRule } from './siteSettings';
+import { DEFAULT_UNITS, DISTANCE_NAME, SPEED_UNIT, type Units } from './units';
+
+// How the prompts name the user's units: the data they're sent is already in them
+function unitWords(units: Units) {
+  return { distanceName: DISTANCE_NAME[units], speedUnit: SPEED_UNIT[units] };
+}
 
 const PROMPT_TEMPLATE = ChatPromptTemplate.fromMessages([
   [
@@ -9,9 +15,9 @@ const PROMPT_TEMPLATE = ChatPromptTemplate.fromMessages([
     'You are a sim racing driving coach. The user will give you a focus-area comparison of two laps ' +
       'of {track}: a Base lap and a Compare lap. Each focus area lists the time through the area for ' +
       'both laps with the difference (Compare minus Base; negative means the Compare lap was faster), ' +
-      'where each lap first touched the brake in feet from the start/finish line (later or earlier ' +
+      'where each lap first touched the brake in {distanceName} from the start/finish line (later or earlier ' +
       'for the Compare lap), and the peak brake pressure for each lap (harder or lighter for the ' +
-      'Compare lap), the minimum speed through the area (min speed, in mph) for each lap, and the speed at the end of the area (exit speed, in mph) for each lap. Write a summary of exactly 6 or 7 sentences from the perspective of the Compare ' +
+      'Compare lap), the minimum speed through the area (min speed, in {speedUnit}) for each lap, and the speed at the end of the area (exit speed, in {speedUnit}) for each lap. Write a summary of exactly 6 or 7 sentences from the perspective of the Compare ' +
       'lap that answers: where on the track, and how, could the Compare lap be better? Name the ' +
       'specific focus areas where the Compare lap lost the most time, use the numbers from the data, ' +
       'and give concrete advice based on the brakepoint, brake pressure, min speed and exit speed differences. Briefly note ' +
@@ -28,14 +34,24 @@ const PROMPT_TEMPLATE = ChatPromptTemplate.fromMessages([
 ]);
 
 // Coaching summary of a Lap Compare result, written for the Compare lap
-export async function summarizeLapComparison(comparison: string, track: string, language: Language = DEFAULT_LANGUAGE): Promise<string> {
+export async function summarizeLapComparison(
+  comparison: string,
+  track: string,
+  language: Language = DEFAULT_LANGUAGE,
+  units: Units = DEFAULT_UNITS
+): Promise<string> {
   if (!process.env.OPENAI_API_KEY) {
     throw new Error('OPENAI_API_KEY is not configured');
   }
 
   const model = new ChatOpenAI({ model: 'gpt-4o', temperature: 0.3 });
   const chain = PROMPT_TEMPLATE.pipe(model);
-  const response = await chain.invoke({ comparison, track, rules: (await coachInstructionsRule()) + aiLanguageRule(language) });
+  const response = await chain.invoke({
+    comparison,
+    track,
+    ...unitWords(units),
+    rules: (await coachInstructionsRule()) + aiLanguageRule(language),
+  });
   return typeof response.content === 'string' ? response.content.trim() : '';
 }
 
@@ -45,10 +61,10 @@ const MULTI_LAP_PROMPT_TEMPLATE = ChatPromptTemplate.fromMessages([
     'You are a sim racing driving coach. The user will give you multi-lap statistics from several laps of ' +
       '{track} by the same driver. It lists the lap times, then each focus area with the best, average ' +
       'and worst time through the area, the average time lost to the best, and the standard deviation ' +
-      'of the time; plus the average and standard deviation of the brakepoint (feet from the start/finish ' +
-      'line, with the target when there is one; more feet than the target means braking later than the ' +
+      'of the time; plus the average and standard deviation of the brakepoint ({distanceName} from the start/finish ' +
+      'line, with the target when there is one; more {distanceName} than the target means braking later than the ' +
       'target), the peak brake pressure (with the target when there is ' +
-      'one), the minimum speed and the exit speed (mph). Focus areas are listed from most to least ' +
+      'one), the minimum speed and the exit speed ({speedUnit}). Focus areas are listed from most to least ' +
       'average time lost. Write an analysis in two short paragraphs of plain prose, 8 to 10 sentences in ' +
       'total. The first paragraph covers the biggest opportunities: which focus areas cost the most time ' +
       'on average and what to change there, comparing against the targets where given. The second ' +
@@ -61,14 +77,24 @@ const MULTI_LAP_PROMPT_TEMPLATE = ChatPromptTemplate.fromMessages([
 ]);
 
 // Opportunities and consistency analysis of a Multi-Lap Analysis result
-export async function summarizeMultiLap(stats: string, track: string, language: Language = DEFAULT_LANGUAGE): Promise<string> {
+export async function summarizeMultiLap(
+  stats: string,
+  track: string,
+  language: Language = DEFAULT_LANGUAGE,
+  units: Units = DEFAULT_UNITS
+): Promise<string> {
   if (!process.env.OPENAI_API_KEY) {
     throw new Error('OPENAI_API_KEY is not configured');
   }
 
   const model = new ChatOpenAI({ model: 'gpt-4o', temperature: 0.3 });
   const chain = MULTI_LAP_PROMPT_TEMPLATE.pipe(model);
-  const response = await chain.invoke({ stats, track, rules: (await coachInstructionsRule()) + aiLanguageRule(language) });
+  const response = await chain.invoke({
+    stats,
+    track,
+    ...unitWords(units),
+    rules: (await coachInstructionsRule()) + aiLanguageRule(language),
+  });
   return typeof response.content === 'string' ? response.content.trim() : '';
 }
 

@@ -180,13 +180,13 @@ public partial class OverlayWindow : Window
         {
             if (api is null)
             {
-                _overlay.SetTrack(track, null);
+                _overlay.SetTrack(track, null, metric: false);
                 _loadProblem = "Enter your upload key in the collector (Upload Key) to load your focus areas.";
                 _retryAt = DateTime.MaxValue; // loads again once a key is entered (the connection changes)
                 return;
             }
-            var json = await api.GetTrackJsonAsync(track, CancellationToken.None);
-            _overlay.SetTrack(track, json);
+            var (json, metric) = await api.GetTrackJsonAsync(track, CancellationToken.None);
+            _overlay.SetTrack(track, json, metric);
             _loadProblem = json is null ? $"{track} isn't in your Track Data on RacingCoach.app. Add it there with its focus areas." : null;
             // Checked again now and then, so a track added on the site shows up without reopening the overlay
             _retryAt = DateTime.UtcNow + RetryAfter;
@@ -195,7 +195,7 @@ public partial class OverlayWindow : Window
         }
         catch (UnauthorizedAccessException)
         {
-            _overlay.SetTrack(track, null);
+            _overlay.SetTrack(track, null, metric: false);
             _loadProblem = "RacingCoach.app doesn't accept your upload key. Enter your current one in the collector.";
             _retryAt = DateTime.MaxValue;
         }

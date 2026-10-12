@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { useLanguage } from '@/components/LanguageProvider';
+import { useUnits } from '@/components/UnitsProvider';
 
 const selectClass =
   'min-w-0 flex-1 px-3 py-2 bg-secondary border border-border rounded-lg text-foreground text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors';
@@ -11,6 +12,8 @@ const selectClass =
 // Language (GET /api/account/coach-voice/sample).
 export default function CoachVoicePicker({ voice: initial, voices }: { voice: string; voices: readonly string[] }) {
   const { t } = useLanguage();
+  // Only in the sample's URL, so a sample cached in the other units isn't played
+  const units = useUnits();
   const c = t.inCarCoach;
   const [voice, setVoice] = useState(initial);
   const [loading, setLoading] = useState(false);
@@ -42,7 +45,7 @@ export default function CoachVoicePicker({ voice: initial, voices }: { voice: st
 
   const listen = () => {
     audio.current?.pause();
-    const sample = new Audio(`/api/account/coach-voice/sample?voice=${encodeURIComponent(voice)}`);
+    const sample = new Audio(`/api/account/coach-voice/sample?voice=${encodeURIComponent(voice)}&units=${units}`);
     audio.current = sample;
     setLoading(true);
     setMessage(null);

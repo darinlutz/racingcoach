@@ -140,6 +140,14 @@ export const en = {
     darkMode: 'Dark Mode',
     lightMode: 'Light Mode',
     themeFailed: 'Couldn’t save your theme. Please try again.',
+    units: 'Preferred Units',
+    standard: 'Standard',
+    standardHint: 'feet, mph, °F',
+    metric: 'Metric',
+    metricHint: 'meters, kph, °C',
+    unitsFailed: 'Couldn’t save your units. Please try again.',
+    // How distances are named in text, e.g. "measured in {units} from the start/finish line"
+    distanceNames: { standard: 'feet', metric: 'meters' },
   },
 
   success: {
@@ -223,7 +231,7 @@ export const en = {
     loadingSample: 'Loading…',
     voiceSaved: 'Coach voice saved.',
     // What the Listen button says, in the chosen voice
-    sample: 'Turn 1: brake about 20 feet later, near 1230 feet. Nice lap, two tenths quicker.',
+    sample: 'Turn 1: brake about {later} {units} later, near {near} {units}. Nice lap, two tenths quicker.',
   },
 
   // Fixed things the collector says out loud (POST /api/collector/speech, the in-session debrief)
@@ -484,8 +492,8 @@ export const en = {
     compare: 'Compare',
     diff: 'Diff',
     same: 'same',
-    feetLater: '{n} ft later',
-    feetEarlier: '{n} ft earlier',
+    distanceLater: '{n} {unit} later',
+    distanceEarlier: '{n} {unit} earlier',
     pctHarder: '{n}% harder',
     pctLighter: '{n}% lighter',
     // Pedal trace captions: one lap through one area in words
@@ -493,7 +501,7 @@ export const en = {
     noBraking: 'No braking',
     throttleAt: 'back on throttle at {where}',
     noThrottle: 'no throttle pickup found',
-    feetWhere: '{n} ft',
+    distanceWhere: '{n} {unit}',
     pctOfLap: '{n}% of the lap',
     pedalTraces: 'Pedal traces',
     pedalTracesIntro: 'Brake and throttle through each focus area. The area where the Compare lap loses the most time is open.',
@@ -537,7 +545,7 @@ export const en = {
     zoomIn: 'Zoom in',
     zoomOut: 'Zoom out',
     showWholeArea: 'Show the whole focus area',
-    meters: '{n} m',
+    scaleBar: '{n} {unit}',
   },
 
   stint: {
@@ -657,12 +665,12 @@ export const en = {
     needLap: 'Upload at least 1 lap from the selected track, then press Get Reference Points.',
     pressGet: 'Press Get Reference Points to see the brake and throttle points for each focus area.',
     focusArea: 'Focus Area',
-    brakePoint: 'Brake Point (feet)',
+    brakePoint: 'Brake Point ({units})',
     maxBrake: 'Max Brake Pressure (%)',
-    throttlePoint: 'On Throttle Point (feet)',
+    throttlePoint: 'On Throttle Point ({units})',
     target: '(target {value})',
     note:
-      'Each point is the average of your fastest third of runs through the area (at least one), measured in feet from the start/finish line. Laps over 110% of the median lap time are left out as incident laps. The target is the focus area’s value in Track Data. A dash means no braking or throttle point was found in that area, or no target is set (a target of 0 counts as not set).',
+      'Each point is the average of your fastest third of runs through the area (at least one), measured in {units} from the start/finish line. Laps over 110% of the median lap time are left out as incident laps. The target is the focus area’s value in Track Data. A dash means no braking or throttle point was found in that area, or no target is set (a target of 0 counts as not set).',
     save: 'Save Reference Points',
     saving: 'Saving…',
     saveNote:
@@ -700,8 +708,8 @@ export const en = {
     trackKey: 'Track Key',
     trackKeyPlaceholder: 'e.g. roadatlanta full',
     trackKeyHint: 'The iRacing track key. Left blank, the track name is used.',
-    trackLengthFeet: 'Track Length (feet)',
-    lengthPlaceholder: 'e.g. 13411',
+    trackLengthLabel: 'Track Length ({units})',
+    lengthPlaceholder: 'e.g. {n}',
     notes: 'Notes',
     focusAreas: 'Focus Areas',
     areasOf: '({n} of {max})',
@@ -710,9 +718,9 @@ export const en = {
     name: 'Name',
     start: 'Start',
     end: 'End',
-    brakePointFt: 'Brake Point (ft)',
+    brakePointLabel: 'Brake Point ({unit})',
     maxBrakePct: 'Max Brake (%)',
-    onThrottleFt: 'On Throttle (ft)',
+    onThrottleLabel: 'On Throttle ({unit})',
     delete: 'Delete',
     areaName: 'Focus area {n} name',
     areaField: 'Focus area {n} {field}',
@@ -726,12 +734,12 @@ export const en = {
       throttlePointFeet: 'on-throttle point',
     },
     editorHelp:
-      'Start and end are fractions of a lap from the start/finish line (0.07 = 7%). Brake and on-throttle points are feet from the start/finish line. Leave a target blank if you don’t have one. Areas are put in order around the lap when you save.',
+      'Start and end are fractions of a lap from the start/finish line (0.07 = 7%). Brake and on-throttle points are {units} from the start/finish line. Leave a target blank if you don’t have one. Areas are put in order around the lap when you save.',
     saveTrack: 'Save Track',
     addTrackButton: '+ Add Track',
     loading: 'Loading your tracks…',
     none: 'No tracks added yet.',
-    lengthFt: 'Length (ft)',
+    lengthLabel: 'Length ({unit})',
     actions: 'Actions',
     noAreasEdit: 'No focus areas yet. Press Edit to add some.',
     startEnd: 'Start – End',
@@ -1031,6 +1039,8 @@ export const en = {
     failedSaveLanguage: 'Failed to save your language',
     unknownTheme: 'Unknown theme',
     failedSaveTheme: 'Failed to save your theme',
+    unknownUnits: 'Unknown units',
+    failedSaveUnits: 'Failed to save your units',
     // Accounts
     allFieldsRequired: 'All fields are required',
     nameTooLong: 'Name must be at most {max} characters',
@@ -1174,7 +1184,7 @@ export const en = {
     stintCopy:
       'The middle of this sample stint shows the largest time variation. Focus on repeatable braking and a stable minimum corner speed.',
     apexCopy:
-      'You’re losing momentum at the apex. Aim for a minimum speed of 42.3 mph, and get back to the throttle with a smoother transition.',
+      'You’re losing momentum at the apex. Aim for a minimum speed of {fast}, and get back to the throttle with a smoother transition.',
     brakingTitle: 'Fine-tune your braking at T 9',
     brakingGain: '~0.09s / lap potential',
     brakingCopy:
@@ -1196,7 +1206,7 @@ export const en = {
     sampleDebrief: 'SAMPLE DEBRIEF',
     debriefPreview: 'DEBRIEF PREVIEW',
     debriefCopy:
-      'Sample session: the faster laps maintain 42.3 mph through T 10, compared with 39.8 mph on the slower laps. Carry more speed through the apex.',
+      'Sample session: the faster laps maintain {fast} through T 10, compared with {slow} on the slower laps. Carry more speed through the apex.',
     debriefNote: 'Sample coaching findings are shown here. Uploaded files are not sent for AI analysis in this website preview.',
     focusAreaTrack: 'Focus area track',
     sampleAreas: { one: '{n} sample focus area', other: '{n} sample focus areas' },
@@ -1217,7 +1227,7 @@ export const en = {
       'Stable braking platform with predictable power delivery.',
     ],
     compareColumns: ['Focus area', 'Time difference', 'Braking', 'Minimum speed'],
-    feetEarlier: '{n} ft earlier',
+    distanceEarlier: '{n} {unit} earlier',
     footer: 'Sample data. Real insights. A feel for what’s possible.',
   },
 };

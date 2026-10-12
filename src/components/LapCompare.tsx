@@ -13,7 +13,6 @@ import {
   formatSize,
   lapFileErrorText,
   lapTimeToSeconds,
-  MPH_PER_METER_PER_SECOND,
   parseLapFile,
   readLapSamples,
   sameTrackName,
@@ -21,6 +20,8 @@ import {
   type LapFile,
   type Track,
 } from '@/lib/lapData';
+import { useUnits } from '@/components/UnitsProvider';
+import { DISTANCE_UNIT, distanceFromFeet, SPEED_UNIT, speedFromMetersPerSecond, type Units } from '@/lib/units';
 
 const inputClass =
   'w-full px-4 py-3 bg-card border border-border rounded-lg text-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors';
@@ -31,23 +32,26 @@ type Words = Dictionary['lapCompare'];
 // user's language separately, so they're always written in English
 const ENGLISH_DIFF_WORDS = {
   same: 'same',
-  feetLater: '{n} ft later',
-  feetEarlier: '{n} ft earlier',
+  distanceLater: '{n} {unit} later',
+  distanceEarlier: '{n} {unit} earlier',
   pctHarder: '{n}% harder',
   pctLighter: '{n}% lighter',
 };
 type DiffWords = typeof ENGLISH_DIFF_WORDS;
 
-// 1234.5 -> "1,235" (or "1.235" in Portuguese and Spanish)
-function formatFeet(feet: number, locale = 'en-US') {
-  return Math.round(feet).toLocaleString(locale);
+// 1234.5 -> "1,235" (or "1.235" in Portuguese and Spanish); the distance is already in the user's units
+function formatDistance(distance: number, locale = 'en-US') {
+  return Math.round(distance).toLocaleString(locale);
 }
 
 // One lap through one focus area in words, the text version of its pedal trace chart
-function pedalSummary(stats: AreaStats, lengthFeet: number | null, t: Words, locale: string) {
+function pedalSummary(stats: AreaStats, lengthFeet: number | null, t: Words, locale: string, units: Units) {
   const where = (pct: number) =>
     lengthFeet
-      ? fmt(t.feetWhere, { n: formatFeet(brakeFeet(pct, lengthFeet), locale) })
+      ? fmt(t.distanceWhere, {
+          n: formatDistance(distanceFromFeet(brakeFeet(pct, lengthFeet), units), locale),
+          unit: DISTANCE_UNIT[units],
+        })
       : fmt(t.pctOfLap, { n: ((((pct % 1) + 1) % 1) * 100).toLocaleString(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) });
   const braking =
     stats.brakePct === null ? t.noBraking : fmt(t.brakesAt, { where: where(stats.brakePct), max: Math.round(stats.maxBrake * 100) });
@@ -68,15 +72,16 @@ function brakeDiffFeet(basePct: number, comparePct: number, lengthFeet: number) 
   return diff - Math.round(diff / lengthFeet) * lengthFeet;
 }
 
-// One focus area's numbers for both laps; each diff is Compare minus Base.
+// One focus area's numbers for both laps; each diff is Compare minus Base. Brakepoints are in the
+// user's units (feet or meters) and speeds too (mph or kph).
 // Brakepoints are null when that lap didn't brake (or the track has no length).
 type AreaComparison = {
   baseSeconds: number;
   compareSeconds: number;
   secondsDiff: number;
-  baseBrakeFeet: number | null;
-  compareBrakeFeet: number | null;
-  brakeFeetDiff: number | null; // Positive = Compare brakes later
+  baseBrake: number | null;
+  compareBrake: number | null;
+  brakeDiff: number | null; // Positive = Compare brakes later
   basePressure: number;
   comparePressure: number;
   pressureDiff: number;
@@ -92,29 +97,29 @@ type AreaComparison = {
 };
 
 // Rounds everything to what's shown, so the diffs always add up
-function compareArea(base: AreaStats, compare: AreaStats, lengthFeet: number | null): AreaComparison {
-  const toFeet = (brakePct: number | null) =>
-    brakePct === null || !lengthFeet ? null : brakeFeet(brakePct, lengthFeet);
-  const toMph = (metersPerSecond: number) => Math.round(metersPerSecond * MPH_PER_METER_PER_SECOND);
+function compareArea(base: AreaStats, compare: AreaStats, lengthFeet: number | null, units: Units): AreaComparison {
+  const toDistance = (brakePct: number | null) =>
+    brakePct === null || !lengthFeet ? null : distanceFromFeet(brakeFeet(brakePct, lengthFeet), units);
+  const toSpeed = (metersPerSecond: number) => Math.round(speedFromMetersPerSecond(metersPerSecond, units));
 
   const basePressure = Math.round(base.maxBrake * 100);
   const comparePressure = Math.round(compare.maxBrake * 100);
-  const baseEntry = toMph(base.entrySpeed);
-  const compareEntry = toMph(compare.entrySpeed);
-  const baseMin = toMph(base.minSpeed);
-  const compareMin = toMph(compare.minSpeed);
-  const baseExit = toMph(base.exitSpeed);
-  const compareExit = toMph(compare.exitSpeed);
+  const baseEntry = toSpeed(base.entrySpeed);
+  const compareEntry = toSpeed(compare.entrySpeed);
+  const baseMin = toSpeed(base.minSpeed);
+  const compareMin = toSpeed(compare.minSpeed);
+  const baseExit = toSpeed(base.exitSpeed);
+  const compareExit = toSpeed(compare.exitSpeed);
 
   return {
     baseSeconds: base.seconds,
     compareSeconds: compare.seconds,
     secondsDiff: compare.seconds - base.seconds,
-    baseBrakeFeet: toFeet(base.brakePct),
-    compareBrakeFeet: toFeet(compare.brakePct),
-    brakeFeetDiff:
+    baseBrake: toDistance(base.brakePct),
+    compareBrake: toDistance(compare.brakePct),
+    brakeDiff:
       base.brakePct !== null && compare.brakePct !== null && lengthFeet
-        ? Math.round(brakeDiffFeet(base.brakePct, compare.brakePct, lengthFeet))
+        ? Math.round(distanceFromFeet(brakeDiffFeet(base.brakePct, compare.brakePct, lengthFeet), units))
         : null,
     basePressure,
     comparePressure,
@@ -131,9 +136,14 @@ function compareArea(base: AreaStats, compare: AreaStats, lengthFeet: number | n
   };
 }
 
-// 150 -> "150 ft later", 0 -> "same"
-function formatBrakeDiff(diff: number, words: DiffWords = ENGLISH_DIFF_WORDS, locale = 'en-US') {
-  return diff === 0 ? words.same : fmt(diff > 0 ? words.feetLater : words.feetEarlier, { n: formatFeet(Math.abs(diff), locale) });
+// 150 -> "150 ft later" (or "150 m later"), 0 -> "same"
+function formatBrakeDiff(diff: number, units: Units, words: DiffWords = ENGLISH_DIFF_WORDS, locale = 'en-US') {
+  return diff === 0
+    ? words.same
+    : fmt(diff > 0 ? words.distanceLater : words.distanceEarlier, {
+        n: formatDistance(Math.abs(diff), locale),
+        unit: DISTANCE_UNIT[units],
+      });
 }
 
 // 3 -> "3% harder", 0 -> "same"
@@ -148,37 +158,42 @@ function formatSignedDiff(diff: number) {
 
 // "T 7: Base 8.345 s, Compare 8.465 s (+0.120).  Base brake 4,345 ft at 65%, Compare brake
 // 4,495 ft (150 ft later) at 68% (3% harder).  Base exit 98 mph, Compare exit 101 mph (+3 mph)."
-function formatAreaLine(areaName: string, c: AreaComparison, lengthFeet: number | null) {
-  const brakeAt = (feet: number | null) => {
-    if (feet !== null) return `${formatFeet(feet)} ft`;
-    return lengthFeet ? 'no braking' : 'n/a ft (no TrackLengthInFeet)';
+// In meters and kph for Metric.
+function formatAreaLine(areaName: string, c: AreaComparison, lengthFeet: number | null, units: Units) {
+  const unit = DISTANCE_UNIT[units];
+  const speed = SPEED_UNIT[units];
+  const brakeAt = (distance: number | null) => {
+    if (distance !== null) return `${formatDistance(distance)} ${unit}`;
+    return lengthFeet ? 'no braking' : `n/a ${unit} (no TrackLengthInFeet)`;
   };
-  const brakepointDiff = c.brakeFeetDiff === null ? '' : ` (${formatBrakeDiff(c.brakeFeetDiff)})`;
+  const brakepointDiff = c.brakeDiff === null ? '' : ` (${formatBrakeDiff(c.brakeDiff, units)})`;
 
   return (
     `${areaName}: Base ${c.baseSeconds.toFixed(3)} s, Compare ${c.compareSeconds.toFixed(3)} s (${formatSecondsDiff(c.secondsDiff)}).  ` +
-    `Base brake ${brakeAt(c.baseBrakeFeet)} at ${c.basePressure}%, ` +
-    `Compare brake ${brakeAt(c.compareBrakeFeet)}${brakepointDiff} at ${c.comparePressure}% (${formatPressureDiff(c.pressureDiff)}).  ` +
-    `Base entry ${c.baseEntry} mph, Compare entry ${c.compareEntry} mph (${formatSignedDiff(c.entryDiff)} mph).  ` +
-    `Base Min speed ${c.baseMin} mph, Compare Min speed ${c.compareMin} mph (${formatSignedDiff(c.minDiff)} mph).  ` +
-    `Base exit ${c.baseExit} mph, Compare exit ${c.compareExit} mph (${formatSignedDiff(c.exitDiff)} mph).`
+    `Base brake ${brakeAt(c.baseBrake)} at ${c.basePressure}%, ` +
+    `Compare brake ${brakeAt(c.compareBrake)}${brakepointDiff} at ${c.comparePressure}% (${formatPressureDiff(c.pressureDiff)}).  ` +
+    `Base entry ${c.baseEntry} ${speed}, Compare entry ${c.compareEntry} ${speed} (${formatSignedDiff(c.entryDiff)} ${speed}).  ` +
+    `Base Min speed ${c.baseMin} ${speed}, Compare Min speed ${c.compareMin} ${speed} (${formatSignedDiff(c.minDiff)} ${speed}).  ` +
+    `Base exit ${c.baseExit} ${speed}, Compare exit ${c.compareExit} ${speed} (${formatSignedDiff(c.exitDiff)} ${speed}).`
   );
 }
 
-// Brakepoints within this many feet, or peak pressures within this many %, count as the same
-const ADVICE_BRAKE_FEET = 10;
+// Brakepoints within this many feet (3 m), or peak pressures within this many %, count as the same
+const SAME_BRAKE_FEET = 10;
 const ADVICE_PRESSURE_PCT = 3;
 
 // Which way the Compare lap should change its braking in an area, decided here rather than by the
 // model so "later"/"earlier" and "harder"/"lighter" can't get flipped. Only sent to the summary.
-function formatAreaAdvice(areaName: string, c: AreaComparison) {
+function formatAreaAdvice(areaName: string, c: AreaComparison, units: Units) {
   if (c.secondsDiff <= 0) {
     return `${areaName} advice: the Compare lap was faster here, so it should keep its braking; do not tell it to copy the Base lap.`;
   }
   const changes = [];
-  if (c.brakeFeetDiff !== null && Math.abs(c.brakeFeetDiff) >= ADVICE_BRAKE_FEET) {
+  if (c.brakeDiff !== null && Math.abs(c.brakeDiff) >= distanceFromFeet(SAME_BRAKE_FEET, units)) {
     // Compare braked earlier (negative diff) -> brake later, and vice versa
-    changes.push(`brake ${formatFeet(Math.abs(c.brakeFeetDiff))} ft ${c.brakeFeetDiff < 0 ? 'LATER' : 'EARLIER'}`);
+    changes.push(
+      `brake ${formatDistance(Math.abs(c.brakeDiff))} ${DISTANCE_UNIT[units]} ${c.brakeDiff < 0 ? 'LATER' : 'EARLIER'}`
+    );
   }
   if (Math.abs(c.pressureDiff) >= ADVICE_PRESSURE_PCT) {
     changes.push(
@@ -219,6 +234,8 @@ function brakeDiffText(diff: number | null, threshold: number) {
 // (Max Brake shows Base and Diff; everything else shows only its Diff)
 function AreaTable({ rows }: { rows: AreaRow[] }) {
   const { t: dictionary, locale } = useLanguage();
+  const units = useUnits();
+  const speed = SPEED_UNIT[units];
   const t = dictionary.lapCompare;
   const groups = [
     { label: t.groups.time, columns: ['diff'] },
@@ -287,23 +304,23 @@ function AreaTable({ rows }: { rows: AreaRow[] }) {
                     {formatSecondsDiff(c.secondsDiff, locale)} s
                   </td>
 
-                  <td className={`${cell} ${groupStart} ${brakeDiffText(c.brakeFeetDiff, 10)}`}>
-                    {c.brakeFeetDiff === null ? '—' : formatBrakeDiff(c.brakeFeetDiff, t, locale)}
+                  <td className={`${cell} ${groupStart} ${brakeDiffText(c.brakeDiff, distanceFromFeet(SAME_BRAKE_FEET, units))}`}>
+                    {c.brakeDiff === null ? '—' : formatBrakeDiff(c.brakeDiff, units, t, locale)}
                   </td>
 
                   <td className={`${cell} ${groupStart}`}>{c.basePressure}%</td>
                   <td className={`${cell} ${brakeDiffText(c.pressureDiff, 3)}`}>{formatPressureDiff(c.pressureDiff, t)}</td>
 
                   <td className={`${cell} ${groupStart} ${diffBackground(c.entryDiff, c.baseEntry, true)}`}>
-                    {formatSignedDiff(c.entryDiff)} mph
+                    {formatSignedDiff(c.entryDiff)} {speed}
                   </td>
 
                   <td className={`${cell} ${groupStart} ${diffBackground(c.minDiff, c.baseMin, true)}`}>
-                    {formatSignedDiff(c.minDiff)} mph
+                    {formatSignedDiff(c.minDiff)} {speed}
                   </td>
 
                   <td className={`${cell} ${groupStart} ${diffBackground(c.exitDiff, c.baseExit, true)}`}>
-                    {formatSignedDiff(c.exitDiff)} mph
+                    {formatSignedDiff(c.exitDiff)} {speed}
                   </td>
                 </>
               )}
@@ -421,6 +438,7 @@ function LapUploader({ id, title, prompt, lap, error, onFiles, onRemove }: LapUp
 // initialLaps: laps to start with, e.g. two recorded laps sent from Debrief Coach's Compare button
 export default function LapCompare({ initialLaps = null }: { initialLaps?: { base: LapFile; compare: LapFile } | null }) {
   const { t: dictionary, locale } = useLanguage();
+  const units = useUnits();
   const t = dictionary.lapCompare;
   const [tracks, setTracks] = useState<Track[]>([]);
   const [trackName, setTrackName] = useState('');
@@ -524,10 +542,10 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
           const base = areaStats(baseSamples, baseSeconds, area.start, area.end);
           const compare = areaStats(compareSamples, compareSeconds, area.start, area.end);
           if (base && compare) {
-            const comparison = compareArea(base, compare, selectedTrack.lengthFeet);
-            lines.push(formatAreaLine(area.name, comparison, selectedTrack.lengthFeet), '');
+            const comparison = compareArea(base, compare, selectedTrack.lengthFeet, units);
+            lines.push(formatAreaLine(area.name, comparison, selectedTrack.lengthFeet, units), '');
             rows.push({ name: area.name, comparison, note: '' });
-            advice.push(formatAreaAdvice(area.name, comparison));
+            advice.push(formatAreaAdvice(area.name, comparison, units));
             const baseTrace = areaTrace(baseSamples, baseSeconds, area.start, area.end);
             const compareTrace = areaTrace(compareSamples, compareSeconds, area.start, area.end);
             if (baseTrace && compareTrace) {
@@ -537,12 +555,12 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
                 base: {
                   title: lapTitle(t.lapTitleBase, baseLap),
                   trace: baseTrace,
-                  summary: pedalSummary(base, selectedTrack.lengthFeet, t, locale),
+                  summary: pedalSummary(base, selectedTrack.lengthFeet, t, locale, units),
                 },
                 compare: {
                   title: lapTitle(t.lapTitleCompare, compareLap),
                   trace: compareTrace,
-                  summary: pedalSummary(compare, selectedTrack.lengthFeet, t, locale),
+                  summary: pedalSummary(compare, selectedTrack.lengthFeet, t, locale, units),
                 },
               });
             }

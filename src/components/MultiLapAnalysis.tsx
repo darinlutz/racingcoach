@@ -8,7 +8,6 @@ import {
   formatLapTime,
   formatSize,
   lapTimeToSeconds,
-  MPH_PER_METER_PER_SECOND,
   parseLapFile,
   readLapSamples,
   type AreaStats,
@@ -16,13 +15,23 @@ import {
   type Track,
 } from '@/lib/lapData';
 import { isStintExport, parseStintExport, type StintExport } from '@/lib/stintExport';
+import { DISTANCE_UNIT, distanceFromFeet, SPEED_UNIT, speedFromMetersPerSecond, type Units } from '@/lib/units';
+import { useUnits } from '@/components/UnitsProvider';
 import WeatherTable from '@/components/WeatherTable';
 
-// Lap position (unwrapped LapDistPct) -> "Brakepoint at 1234 ft. (Brake target = 1200)"
-function formatBrakepoint(brakePct: number | null, lengthFeet: number | null, target: number | null) {
+// Track Data feet (a brake target, or null) -> whole feet or meters
+function distance(feet: number | null, units: Units) {
+  return feet === null ? null : Math.round(distanceFromFeet(feet, units));
+}
+
+// Lap position (unwrapped LapDistPct) -> "Brakepoint at 1234 ft. (Brake target = 1200)" (meters for Metric)
+function formatBrakepoint(brakePct: number | null, lengthFeet: number | null, target: number | null, units: Units) {
   if (brakePct === null) return 'No braking';
   if (!lengthFeet) return 'Brakepoint at n/a (no TrackLengthInFeet)';
-  return `Brakepoint at ${brakeFeet(brakePct, lengthFeet)} ft. (Brake target = ${target ?? 'n/a'})`;
+  return (
+    `Brakepoint at ${distance(brakeFeet(brakePct, lengthFeet), units)} ${DISTANCE_UNIT[units]}. ` +
+    `(Brake target = ${distance(target, units) ?? 'n/a'})`
+  );
 }
 
 // Sample standard deviation (n - 1); needs at least two values
@@ -47,26 +56,35 @@ function formatSpread(values: number[], unit: string) {
 type AreaRun = { lap: LapFile; stats: AreaStats };
 
 // One focus area's lap-to-lap statistics for the multi-lap analysis
-function formatAreaStats(name: string, runs: AreaRun[], lengthFeet: number | null, brakeTarget: number | null, pressureTarget: number | null) {
+function formatAreaStats(
+  name: string,
+  runs: AreaRun[],
+  lengthFeet: number | null,
+  brakeTarget: number | null,
+  pressureTarget: number | null,
+  units: Units
+) {
   const times = runs.map((r) => r.stats.seconds);
   const best = Math.min(...times);
   const avg = mean(times);
   const stdDev = sampleStdDev(times);
   const bestLap = runs[times.indexOf(best)].lap;
   const brakepoints = lengthFeet
-    ? runs.flatMap((r) => (r.stats.brakePct === null ? [] : [brakeFeet(r.stats.brakePct, lengthFeet)]))
+    ? runs.flatMap((r) => (r.stats.brakePct === null ? [] : [distanceFromFeet(brakeFeet(r.stats.brakePct, lengthFeet), units)]))
     : [];
   const noBrakeLaps = runs.filter((r) => r.stats.brakePct === null).length;
+  const unit = ` ${DISTANCE_UNIT[units]}`;
+  const speed = ` ${SPEED_UNIT[units]}`;
 
   return (
     `${name}: ${runs.length} laps, best ${best.toFixed(3)}s [${bestLap.fileId.slice(-4)}], avg ${avg.toFixed(3)}s ` +
     `(avg lost to best ${(avg - best).toFixed(3)}s), worst ${Math.max(...times).toFixed(3)}s, ` +
     `std dev ${stdDev === null ? 'n/a' : `${stdDev.toFixed(3)}s`}. ` +
-    `Brakepoint ${formatSpread(brakepoints, ' ft')} (target ${brakeTarget ?? 'n/a'} ft)` +
+    `Brakepoint ${formatSpread(brakepoints, unit)} (target ${distance(brakeTarget, units) ?? 'n/a'}${unit})` +
     `${noBrakeLaps > 0 ? `, no braking on ${noBrakeLaps} laps` : ''}. ` +
     `Max brake ${formatSpread(runs.map((r) => r.stats.maxBrake * 100), '%')} (target ${pressureTarget === null ? 'n/a' : `${pressureTarget}%`}). ` +
-    `Min speed ${formatSpread(runs.map((r) => r.stats.minSpeed * MPH_PER_METER_PER_SECOND), ' mph')}. ` +
-    `Exit speed ${formatSpread(runs.map((r) => r.stats.exitSpeed * MPH_PER_METER_PER_SECOND), ' mph')}.`
+    `Min speed ${formatSpread(runs.map((r) => speedFromMetersPerSecond(r.stats.minSpeed, units)), speed)}. ` +
+    `Exit speed ${formatSpread(runs.map((r) => speedFromMetersPerSecond(r.stats.exitSpeed, units)), speed)}.`
   );
 }
 
@@ -87,6 +105,7 @@ async function fetchMultiLapAnalysis(stats: string, track: string) {
 }
 
 export default function MultiLapAnalysis() {
+  const units = useUnits();
   const [tracks, setTracks] = useState<Track[]>([]);
   const [trackName, setTrackName] = useState('');
   const [error, setError] = useState('');
@@ -204,14 +223,14 @@ export default function MultiLapAnalysis() {
           const stdDev = sampleStdDev(areaTimes);
           lines.push(
             best && bestLap
-              ? `${area.name} (${range}): ${best.seconds.toFixed(3)}s, ${formatBrakepoint(best.brakePct, selectedTrack.lengthFeet, area.brakepointTarget)}, Max Brake ${Math.round(best.maxBrake * 100)}% (Max Brake Target = ${area.maxBrakeTarget === null ? 'n/a' : `${area.maxBrakeTarget}%`}) [${bestLap.fileId.slice(-4)}], Stand Dev = ${stdDev === null ? 'n/a' : `${stdDev.toFixed(3)}s`}`
+              ? `${area.name} (${range}): ${best.seconds.toFixed(3)}s, ${formatBrakepoint(best.brakePct, selectedTrack.lengthFeet, area.brakepointTarget, units)}, Max Brake ${Math.round(best.maxBrake * 100)}% (Max Brake Target = ${area.maxBrakeTarget === null ? 'n/a' : `${area.maxBrakeTarget}%`}) [${bestLap.fileId.slice(-4)}], Stand Dev = ${stdDev === null ? 'n/a' : `${stdDev.toFixed(3)}s`}`
               : `${area.name} (${range}): no data`,
             '' // Blank line between focus areas
           );
           if (best) {
             areaSummaries.push({
               lost: mean(areaTimes) - best.seconds,
-              text: formatAreaStats(`${area.name} (${range})`, runs, selectedTrack.lengthFeet, area.brakepointTarget, area.maxBrakeTarget),
+              text: formatAreaStats(`${area.name} (${range})`, runs, selectedTrack.lengthFeet, area.brakepointTarget, area.maxBrakeTarget, units),
             });
           }
         }

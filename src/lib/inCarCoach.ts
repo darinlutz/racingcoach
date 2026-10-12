@@ -2,7 +2,8 @@ import { createHash } from 'node:crypto';
 import { ChatOpenAI } from '@langchain/openai';
 import { createAgent } from 'langchain';
 import { z } from 'zod';
-import { BRAKE_CHANGE_RULE, createTools, hasTrackPosition, type DebriefSession } from './debriefCoach';
+import { brakeChangeRule, createTools, hasTrackPosition, type DebriefSession } from './debriefCoach';
+import { DEFAULT_UNITS, DISTANCE_UNIT, type Units } from './units';
 import { aiLanguageRule, DEFAULT_LANGUAGE, type Language } from './i18n/languages';
 import { coachInstructionsRule } from './siteSettings';
 
@@ -151,15 +152,16 @@ function cleanPlan(plan: InCarCoachPlan, areaNames: string[]): InCarCoachPlan {
   };
 }
 
-const CALLOUT_PROMPT =
+const calloutPrompt = (units: Units) =>
   'You are an In-Car AI Coach for a sim racing driver who is driving right now. After each lap the driver\'s ' +
   'laps so far in this session are analysed, and you decide what, if anything, to tell them before the next ' +
   'lap. They are at speed: each callout is one short sentence they can take in while driving, with at most one ' +
-  'number, and points at one focus area and one change (for example "Turn 1: brake about 20 ft later"). When the ' +
+  `number, and points at one focus area and one change (for example "Turn 1: brake about ${units === 'metric' ? 6 : 20} ` +
+  `${DISTANCE_UNIT[units]} later"). When the ` +
   'Debrief Coach tools are available, start with get_session_overview, then dig into ' +
   'the focus areas that lose the most time with get_area_detail and the braking and steering tools; any ' +
   'brakepoint advice must follow the brakepoint verdict. ' +
-  BRAKE_CHANGE_RULE +
+  brakeChangeRule(units) +
   ' Live laps have no track positions yet, so do not give ' +
   'driving line advice unless get_driving_line shows a line verdict. Anything the driver\'s instructions ask to ' +
   'happen at a moment on track (a sound at the line, the lap time after each lap, a message at an area) is ' +
@@ -181,18 +183,20 @@ export async function inCarCoachCallouts(input: {
   session: DebriefSession | null;
   recentCallouts: string[];
   language?: Language;
+  units?: Units;
 }): Promise<{ callouts: Callout[]; steps: string[] }> {
   if (!process.env.OPENAI_API_KEY) {
     throw new Error('OPENAI_API_KEY is not configured');
   }
 
+  const units = input.units ?? DEFAULT_UNITS;
   const hasAreas = !!input.session && input.session.areas.some((area) => area.runs.length > 0);
-  const tools = hasAreas ? createTools(input.session!) : [];
+  const tools = hasAreas ? createTools(input.session!, units) : [];
   const agent = createAgent({
     model: new ChatOpenAI({ model: 'gpt-4o', temperature: 0.2 }),
     tools,
     systemPrompt:
-      CALLOUT_PROMPT +
+      calloutPrompt(units) +
       (await coachInstructionsRule()) +
       driverInstructionsRule(input.instructions) +
       aiLanguageRule(input.language ?? DEFAULT_LANGUAGE),
@@ -221,7 +225,7 @@ export async function inCarCoachCallouts(input: {
   ].join('\n');
 
   const result = await agent.invoke({ messages: [{ role: 'user', content }] }, { recursionLimit: 20 });
-  // A callout that still says where on the track to brake (feet from the line) is dropped; saying nothing is fine
+  // A callout that still says where on the track to brake (feet or meters from the line) is dropped; saying nothing is fine
   const callouts = (result.structuredResponse.callouts as Callout[])
     .filter((c) => c.text.trim() && !hasTrackPosition(c.text))
     .slice(0, MAX_CALLOUTS)

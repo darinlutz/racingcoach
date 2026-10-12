@@ -6,9 +6,14 @@ import { useLanguage } from '@/components/LanguageProvider';
 import type { Dictionary } from '@/lib/i18n/dictionaries/en';
 import { fmt } from '@/lib/i18n/languages';
 import type { TrackInput, UserTrack } from '@/lib/tracks';
+import { useUnits } from '@/components/UnitsProvider';
+import { DISTANCE_UNIT, distanceFromFeet, feetFromDistance, type Units } from '@/lib/units';
 
 // Matches MAX_FOCUS_AREAS in lib/tracks (not imported: that module is server-only)
 const MAX_FOCUS_AREAS = 8;
+
+// The track length placeholder's example, shown in the user's units
+const EXAMPLE_LENGTH_FEET = 13411;
 
 // Form values are kept as typed text and converted when the track is saved
 type AreaDraft = {
@@ -35,22 +40,27 @@ let nextUid = 1;
 
 const asText = (value: number | null) => (value === null ? '' : String(value));
 
-function toDraft(track: UserTrack | null): TrackDraft {
+// Track Data's whole feet -> the editor's text in the user's units. Meters get one decimal, which is enough
+// for the saved feet to come back unchanged when the value isn't edited.
+const asDistanceText = (feet: number | null, units: Units) =>
+  feet === null ? '' : String(units === 'metric' ? Number(distanceFromFeet(feet, units).toFixed(1)) : feet);
+
+function toDraft(track: UserTrack | null, units: Units): TrackDraft {
   if (!track) return { id: null, name: '', key: '', lengthFeet: '', notes: '', areas: [] };
   return {
     id: track.id,
     name: track.name,
     key: track.key === track.name ? '' : track.key,
-    lengthFeet: asText(track.lengthFeet),
+    lengthFeet: asDistanceText(track.lengthFeet, units),
     notes: track.notes ?? '',
     areas: track.areas.map((a) => ({
       uid: nextUid++,
       name: a.name,
       startPoint: String(a.startPoint),
       endPoint: String(a.endPoint),
-      brakePointFeet: asText(a.brakePointFeet),
+      brakePointFeet: asDistanceText(a.brakePointFeet, units),
       maxBrakePct: asText(a.maxBrakePct),
-      throttlePointFeet: asText(a.throttlePointFeet),
+      throttlePointFeet: asDistanceText(a.throttlePointFeet, units),
       notes: a.notes ?? '',
     })),
   };
@@ -67,11 +77,18 @@ function parseNumber(text: string, label: string, integer: boolean, t: Dictionar
   return value;
 }
 
-function toInput(draft: TrackDraft, t: Dictionary['tracks']): TrackInput {
+// A distance typed in the user's units -> whole feet, as Track Data stores them. Feet must be whole numbers;
+// meters can have decimals.
+function parseDistance(text: string, label: string, t: Dictionary['tracks'], units: Units): number | null {
+  const value = parseNumber(text, label, units === 'standard', t);
+  return value === null ? null : Math.round(feetFromDistance(value, units));
+}
+
+function toInput(draft: TrackDraft, t: Dictionary['tracks'], units: Units): TrackInput {
   return {
     name: draft.name,
     key: draft.key,
-    lengthFeet: parseNumber(draft.lengthFeet, t.trackLength, true, t),
+    lengthFeet: parseDistance(draft.lengthFeet, t.trackLength, t, units),
     notes: draft.notes,
     areas: draft.areas.map((a, i) => {
       const label = a.name.trim() || fmt(t.focusAreaN, { n: i + 1 });
@@ -83,9 +100,9 @@ function toInput(draft: TrackDraft, t: Dictionary['tracks']): TrackInput {
         startPoint,
         endPoint,
         notes: a.notes,
-        brakePointFeet: parseNumber(a.brakePointFeet, fmt(t.fieldBrake, { label }), true, t),
+        brakePointFeet: parseDistance(a.brakePointFeet, fmt(t.fieldBrake, { label }), t, units),
         maxBrakePct: parseNumber(a.maxBrakePct, fmt(t.fieldMaxBrake, { label }), true, t),
-        throttlePointFeet: parseNumber(a.throttlePointFeet, fmt(t.fieldThrottle, { label }), true, t),
+        throttlePointFeet: parseDistance(a.throttlePointFeet, fmt(t.fieldThrottle, { label }), t, units),
       };
     }),
   };
@@ -104,7 +121,11 @@ const secondaryButton =
 
 export default function TrackManagement() {
   const { t: dictionary, locale, plural } = useLanguage();
+  const units = useUnits();
   const t = dictionary.tracks;
+  const unit = DISTANCE_UNIT[units];
+  // Whole feet or meters for the track list
+  const distance = (feet: number | null) => (feet === null ? null : Math.round(distanceFromFeet(feet, units)));
   const [tracks, setTracks] = useState<UserTrack[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [signedOut, setSignedOut] = useState(false);
@@ -171,7 +192,7 @@ export default function TrackManagement() {
 
   const startEditing = (track: UserTrack | null) => {
     setMessage('');
-    setDraft(toDraft(track));
+    setDraft(toDraft(track, units));
   };
 
   const saveTrack = async () => {
@@ -179,7 +200,7 @@ export default function TrackManagement() {
     setMessage('');
     let track: TrackInput;
     try {
-      track = toInput(draft, t);
+      track = toInput(draft, t, units);
     } catch (error) {
       setMessage((error as Error).message);
       return;
@@ -264,15 +285,16 @@ export default function TrackManagement() {
             </div>
             <div>
               <label htmlFor="track-length" className="block text-sm font-medium text-foreground mb-1">
-                {t.trackLengthFeet} <span className="font-normal text-muted-foreground">{dictionary.common.optional}</span>
+                {fmt(t.trackLengthLabel, { units: dictionary.preferences.distanceNames[units] })}{' '}
+                <span className="font-normal text-muted-foreground">{dictionary.common.optional}</span>
               </label>
               <input
                 id="track-length"
                 type="text"
-                inputMode="numeric"
+                inputMode={units === 'metric' ? 'decimal' : 'numeric'}
                 value={draft.lengthFeet}
                 onChange={(e) => updateDraft({ lengthFeet: e.target.value })}
-                placeholder={t.lengthPlaceholder}
+                placeholder={fmt(t.lengthPlaceholder, { n: distance(EXAMPLE_LENGTH_FEET) ?? '' })}
                 className={inputClass}
               />
             </div>
@@ -318,9 +340,9 @@ export default function TrackManagement() {
                       <th className="px-2 py-2 font-semibold min-w-36">{t.name}</th>
                       <th className="px-2 py-2 font-semibold min-w-20">{t.start}</th>
                       <th className="px-2 py-2 font-semibold min-w-20">{t.end}</th>
-                      <th className="px-2 py-2 font-semibold min-w-24">{t.brakePointFt}</th>
+                      <th className="px-2 py-2 font-semibold min-w-24">{fmt(t.brakePointLabel, { unit })}</th>
                       <th className="px-2 py-2 font-semibold min-w-24">{t.maxBrakePct}</th>
-                      <th className="px-2 py-2 font-semibold min-w-24">{t.onThrottleFt}</th>
+                      <th className="px-2 py-2 font-semibold min-w-24">{fmt(t.onThrottleLabel, { unit })}</th>
                       <th className="px-2 py-2 font-semibold min-w-40">{t.notes}</th>
                       <th className="px-2 py-2">
                         <span className="sr-only">{t.delete}</span>
@@ -343,9 +365,9 @@ export default function TrackManagement() {
                           [
                             ['startPoint', '0.07', 'decimal'],
                             ['endPoint', '0.14', 'decimal'],
-                            ['brakePointFeet', '', 'numeric'],
+                            ['brakePointFeet', '', units === 'metric' ? 'decimal' : 'numeric'],
                             ['maxBrakePct', '', 'numeric'],
-                            ['throttlePointFeet', '', 'numeric'],
+                            ['throttlePointFeet', '', units === 'metric' ? 'decimal' : 'numeric'],
                           ] as const
                         ).map(([field, placeholder, mode]) => (
                           <td key={field} className="px-2 py-2">
@@ -383,7 +405,7 @@ export default function TrackManagement() {
               </div>
             )}
             <p className="mt-2 text-xs text-muted-foreground">
-              {t.editorHelp}
+              {fmt(t.editorHelp, { units: dictionary.preferences.distanceNames[units] })}
             </p>
           </div>
 
@@ -416,7 +438,7 @@ export default function TrackManagement() {
                   {t.track}
                 </th>
                 <th scope="col" className="px-4 py-3 font-semibold text-right">
-                  {t.lengthFt}
+                  {fmt(t.lengthLabel, { unit })}
                 </th>
                 <th scope="col" className="px-4 py-3 font-semibold text-right">
                   {t.focusAreas}
@@ -445,7 +467,7 @@ export default function TrackManagement() {
                       </button>
                       {track.key !== track.name && <p className="ml-4 text-xs font-normal text-muted-foreground">{track.key}</p>}
                     </th>
-                    <td className="px-4 py-3 text-right tabular-nums">{target(track.lengthFeet, '', locale)}</td>
+                    <td className="px-4 py-3 text-right tabular-nums">{target(distance(track.lengthFeet), '', locale)}</td>
                     <td className="px-4 py-3 text-right tabular-nums">
                       {track.areas.length} / {MAX_FOCUS_AREAS}
                     </td>
@@ -497,9 +519,9 @@ export default function TrackManagement() {
                                   <td className="px-3 py-1.5 text-right">
                                     {a.startPoint} – {a.endPoint}
                                   </td>
-                                  <td className="px-3 py-1.5 text-right">{target(a.brakePointFeet, ' ft', locale)}</td>
+                                  <td className="px-3 py-1.5 text-right">{target(distance(a.brakePointFeet), ` ${unit}`, locale)}</td>
                                   <td className="px-3 py-1.5 text-right">{target(a.maxBrakePct, '%', locale)}</td>
-                                  <td className="px-3 py-1.5 text-right">{target(a.throttlePointFeet, ' ft', locale)}</td>
+                                  <td className="px-3 py-1.5 text-right">{target(distance(a.throttlePointFeet), ` ${unit}`, locale)}</td>
                                   <td className="px-3 py-1.5 text-muted-foreground">{a.notes ?? ''}</td>
                                 </tr>
                               ))}

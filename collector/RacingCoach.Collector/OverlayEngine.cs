@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using Jint;
 using Jint.Native;
 using SVappsLAB.iRacingTelemetrySDK;
@@ -32,12 +33,16 @@ internal sealed record OverlaySnapshot(
 /// telemetry sample is fed through all the functions the overlay shows, since the script works out area
 /// crossings from consecutive samples. root starts empty again with each new session, so nothing carries over.
 /// All script calls happen on the telemetry thread (OnSample); the UI reads Snapshot.
+/// Units follow the user's Preferred Units on RacingCoach.app: as in SimHub, SpeedLocal is mph or kph, and the
+/// script's distances (which it measures in feet, its alert colors included) are shown in meters for Metric.
 /// </summary>
-internal sealed class OverlayEngine
+internal sealed partial class OverlayEngine
 {
     public const int AreaCount = 8;
     private const string ScriptName = "TelemetryEngine.js";
     private const double MphPerMetersPerSecond = 2.2369362921;
+    private const double KphPerMetersPerSecond = 3.6;
+    private const double MetersPerFoot = 0.3048;
 
     // The script functions the overlay calls; checked when the script loads
     private static readonly string[] Functions =
@@ -67,7 +72,9 @@ internal sealed class OverlayEngine
     private int _sampleCount;
 
     // A track waiting to be handed to the script on the telemetry thread (set from the UI thread)
-    private (string Name, string? Json)? _pendingTrack;
+    private (string Name, string? Json, bool Metric)? _pendingTrack;
+    // Meters and kph rather than feet and mph (telemetry thread only)
+    private bool _metric;
     private double _trackDataLengthFeet;
     private string? _scriptTrack;
 
@@ -111,11 +118,12 @@ internal sealed class OverlayEngine
     }
 
     /// <summary>Hands the script the user's Track Data track for an iRacing track (json: as from
-    /// /api/collector/track, or null if they have none). Takes effect on the next telemetry sample.</summary>
-    public void SetTrack(string trackName, string? trackJson)
+    /// /api/collector/track, or null if they have none), and whether their Preferred Units are Metric. Takes effect
+    /// on the next telemetry sample.</summary>
+    public void SetTrack(string trackName, string? trackJson, bool metric)
     {
         lock (_lock)
-            _pendingTrack = (trackName, trackJson);
+            _pendingTrack = (trackName, trackJson, metric);
     }
 
     public OverlaySnapshot Snapshot()
@@ -140,6 +148,7 @@ internal sealed class OverlayEngine
 
             _sample = data;
             var maxBrake = Text(Call("GetMaximumBrakePressure"));
+            // A bare number in SpeedLocal's units (mph or kph)
             var minSpeed = Text(Call("GetMinimumSpeed"));
 
             var withText = _sampleCount++ % TextEvery == 0;
@@ -189,9 +198,9 @@ internal sealed class OverlayEngine
             AlertColor: Text(Call("GetBrakepointAlertColor", area)),
             Brake: "", BrakeColor: "", Force: "", ForceColor: "", Gas: "", GasColor: "", Time: "",
             // GetSpeedArea takes the track name too
-            Exit: Text(Call("GetSpeedArea", _trackName, area)),
-            Coast: Text(Call("GetCoastingDistance", area)),
-            Overlap: Text(Call("GetControlOverlapDistance", area)));
+            Exit: InUnits(Text(Call("GetSpeedArea", _trackName, area))),
+            Coast: InUnits(Text(Call("GetCoastingDistance", area))),
+            Overlap: InUnits(Text(Call("GetControlOverlapDistance", area))));
 
         if (keepText is not null)
         {
@@ -205,11 +214,11 @@ internal sealed class OverlayEngine
         }
         return measured with
         {
-            Brake = Text(Call("GetBrakepointDiffTarget", area)),
+            Brake = InUnits(Text(Call("GetBrakepointDiffTarget", area))),
             BrakeColor = Text(Call("GetBrakepointColorTarget", area)),
             Force = Text(Call("GetBrakePressureDiffTarget", area)),
             ForceColor = Text(Call("GetBrakePressureDiffTargetColor", area)),
-            Gas = Text(Call("GetThrottlePickupDiffTarget", area)),
+            Gas = InUnits(Text(Call("GetThrottlePickupDiffTarget", area))),
             GasColor = Text(Call("GetThrottlePickupColorTarget", area)),
             Time = Text(Call("GetTimeArea", _trackName, area)),
         };
@@ -218,6 +227,26 @@ internal sealed class OverlayEngine
     private JsValue Call(string function, params object[] arguments) => _js.Invoke(_functions[function], arguments);
 
     private static string Text(JsValue value) => value.IsNull() || value.IsUndefined() ? "" : value.ToString();
+
+    // "12 ft late" or "35 ft"; and "-1.2 mph" (the script labels SpeedLocal's speeds mph whatever their units)
+    [GeneratedRegex(@"(-?\d+(?:\.\d+)?)\s*ft\b")]
+    private static partial Regex FeetText();
+    [GeneratedRegex(@"\bmph\b")]
+    private static partial Regex MphText();
+
+    /// <summary>The script's text in the user's units: for Metric, "12 ft late" becomes "4 m late" and its
+    /// speeds (already kph, from SpeedLocal) are labeled kph. Unchanged for Standard.</summary>
+    private string InUnits(string text)
+    {
+        if (!_metric || text.Length == 0)
+            return text;
+        text = FeetText().Replace(text, m =>
+        {
+            var feet = double.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture);
+            return Math.Round(feet * MetersPerFoot).ToString("0", CultureInfo.InvariantCulture) + " m";
+        });
+        return MphText().Replace(text, "kph");
+    }
 
     /// <summary>Forgets everything the script has measured, and what the overlay shows from it.</summary>
     private void ResetValues()
@@ -233,7 +262,7 @@ internal sealed class OverlayEngine
 
     private void ApplyPendingTrack(SessionDetails? session)
     {
-        (string Name, string? Json)? pending;
+        (string Name, string? Json, bool Metric)? pending;
         lock (_lock)
         {
             pending = _pendingTrack;
@@ -243,6 +272,8 @@ internal sealed class OverlayEngine
         if (pending is { } track)
         {
             _trackName = track.Name;
+            // Set before the values start over, so the script never mixes mph and kph
+            _metric = track.Metric;
             var names = new string?[AreaCount];
             _trackDataLengthFeet = 0;
             ResetValues();
@@ -308,8 +339,10 @@ internal sealed class OverlayEngine
         "GameRawData.Telemetry.SessionUniqueID" => _sample.SessionUniqueID,
         // SimHub's Brake is 0-100 (iRacing's is 0-1)
         "Brake" or "DataCorePlugin.GameData.NewData.Brake" => _sample.Brake is { } brake ? brake * 100.0 : null,
-        // SimHub's SpeedLocal is in the user's units; the script labels speeds mph. iRacing's Speed is m/s
-        "SpeedLocal" or "DataCorePlugin.GameData.NewData.SpeedLocal" => _sample.Speed is { } speed ? speed * MphPerMetersPerSecond : null,
+        // SimHub's SpeedLocal is in the user's units: mph, or kph for Metric (the script labels speeds mph, which
+        // InUnits relabels). iRacing's Speed is m/s
+        "SpeedLocal" or "DataCorePlugin.GameData.NewData.SpeedLocal" =>
+            _sample.Speed is { } speed ? speed * (_metric ? KphPerMetersPerSecond : MphPerMetersPerSecond) : null,
         "TrackName" => _trackName,
         // meters, as in SimHub
         "TrackLength" => _trackLengthMeters,

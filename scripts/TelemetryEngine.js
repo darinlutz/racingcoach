@@ -2736,7 +2736,8 @@ return "NAILED";
 function GetBrakePressureDiffTarget(areaNumber)
 {
 if(GetBrakePressureTarget(areaNumber) == 0) return " ";
-if(GetAreaMaxBrake(areaNumber) == 0) return " ";
+// Nothing measured yet this lap (e.g. just after the start/finish line): show the target instead
+if(GetAreaMaxBrake(areaNumber) == 0) return "Target " + GetBrakePressureTarget(areaNumber);
 
 var diff = GetAreaMaxBrake(areaNumber) - GetBrakePressureTarget(areaNumber);
 if(diff > 0)
@@ -2756,6 +2757,9 @@ return "SAME";
 
 function GetBrakePressureDiffTargetColor(areaNumber)
 {
+// The target alone (nothing measured yet) is shown in the plain text color
+if(GetAreaMaxBrake(areaNumber) == 0) return "";
+
 var diff = GetAreaMaxBrake(areaNumber) - GetBrakePressureTarget(areaNumber);
 
 if(diff < -3)

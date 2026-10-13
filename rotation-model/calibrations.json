@@ -1,3 +1,48 @@
 {
-  "calibrations": []
+  "calibrations": [
+    {
+      "calibrationId": "fordmustanggt3-2026-10-13",
+      "calibrationVersion": "1.0.0",
+      "carId": "fordmustanggt3",
+      "carNames": [
+        "Ford Mustang GT3"
+      ],
+      "wheelbaseMeters": null,
+      "steeringRatio": null,
+      "cgToFrontAxleMeters": null,
+      "cgToRearAxleMeters": null,
+      "understeerGradient": null,
+      "effectiveSteerLength": 50.404,
+      "effectiveUndersteerTerm": 0.007285,
+      "yawReferenceModel": "identified-bicycle",
+      "yawGainMap": [
+        {
+          "speedMps": 18.6,
+          "gainPerRad": 0.3499
+        },
+        {
+          "speedMps": 21,
+          "gainPerRad": 0.3937
+        },
+        {
+          "speedMps": 53.5,
+          "gainPerRad": 0.7164
+        },
+        {
+          "speedMps": 56.3,
+          "gainPerRad": 0.7822
+        },
+        {
+          "speedMps": 61.1,
+          "gainPerRad": 0.7499
+        }
+      ],
+      "validSpeedRangeMps": [
+        13,
+        67
+      ],
+      "overrides": null,
+      "source": "rotation-calibrate.mjs: 40 laps, 2803 steady samples, 2026-10-13"
+    }
+  ]
 }

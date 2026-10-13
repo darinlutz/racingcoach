@@ -106,13 +106,13 @@ public partial class OverlayWindow : Window
                 continue;
 
             var area = snapshot.Areas[i];
-            // The brake point alert colors the whole row: "Transparent" (or nothing yet) leaves it as it is
+            // The brake point alert colors the row except Force: "Transparent" (or nothing yet) leaves it as it is
             var alert = NamedBrush(area?.AlertColor);
             var alertBackground = alert is not null && alert.Color.A > 0 ? alert : null;
 
             Show(_boxes[i, 0], name, null, alertBackground);
             Show(_boxes[i, 1], area?.Brake, area?.BrakeColor, alertBackground);
-            Show(_boxes[i, 2], area?.Force, area?.ForceColor, alertBackground);
+            Show(_boxes[i, 2], area?.Force, area?.ForceColor, null);
             Show(_boxes[i, 3], area?.Gas, area?.GasColor, alertBackground);
             Show(_boxes[i, 4], area?.Time, null, alertBackground);
             Show(_boxes[i, 5], area?.Exit, null, alertBackground);

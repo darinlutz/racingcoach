@@ -90,6 +90,11 @@
             <Setter Property="Background" Value="{StaticResource PrimaryBrush}" />
             <Setter Property="BorderBrush" Value="{StaticResource PrimaryBrush}" />
         </Style>
+        <Style x:Key="BlueButton" TargetType="Button" BasedOn="{StaticResource Button}">
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="Background" Value="{StaticResource BlueBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource BlueBrush}" />
+        </Style>
 
         <!-- A status tile in the row under the header -->
         <Style x:Key="Dot" TargetType="Ellipse">
@@ -120,7 +125,8 @@
                     <Button Style="{StaticResource Button}" Content="Upload Key" Click="ChangeKey_Click" Margin="0,0,8,0" x:Name="KeyButton" />
                     <Button Style="{StaticResource Button}" Content="RacingCoach.app" Click="OpenSite_Click" Margin="0,0,8,0" />
                     <Button Style="{StaticResource PrimaryButton}" Content="Launch Overlay" Click="LaunchOverlay_Click" Margin="0,0,8,0" />
-                    <Button Style="{StaticResource PrimaryButton}" Content="Rotation" Click="Rotation_Click" />
+                    <Button Style="{StaticResource PrimaryButton}" Content="Rotation" Click="Rotation_Click" Margin="0,0,8,0" />
+                    <Button Style="{StaticResource BlueButton}" Content="Brake Practice" Click="BrakePractice_Click" />
                 </StackPanel>
             </Grid>
 

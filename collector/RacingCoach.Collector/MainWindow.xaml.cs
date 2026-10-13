@@ -63,6 +63,7 @@ public partial class MainWindow : Window
     private bool _closed;
     private OverlayWindow? _overlayWindow;
     private RotationWindow? _rotationWindow;
+    private BrakePracticeWindow? _brakePracticeWindow;
 
     internal MainWindow(CollectorOptions options)
     {
@@ -655,6 +656,19 @@ public partial class MainWindow : Window
         _rotationWindow.Show();
     }
 
+    // Opens the Brake Practice window (or brings it to the front): the brake % graphed as the pedal is pressed
+    private void BrakePractice_Click(object sender, RoutedEventArgs e)
+    {
+        if (_brakePracticeWindow is not null)
+        {
+            _brakePracticeWindow.Activate();
+            return;
+        }
+        _brakePracticeWindow = new BrakePracticeWindow(_engine);
+        _brakePracticeWindow.Closed += (_, _) => _brakePracticeWindow = null;
+        _brakePracticeWindow.Show();
+    }
+
     private static void Open(string target)
     {
         try
@@ -680,6 +694,7 @@ public partial class MainWindow : Window
         _closing = true;
         _overlayWindow?.Close();
         _rotationWindow?.Close();
+        _brakePracticeWindow?.Close();
         ClosingOverlay.Visibility = Visibility.Visible;
         _timer.Stop();
         _stop.Cancel();

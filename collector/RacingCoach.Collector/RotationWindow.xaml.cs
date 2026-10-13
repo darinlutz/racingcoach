@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Shapes;
 using System.Windows.Threading;
 
 namespace RacingCoach.Collector;
@@ -20,7 +21,16 @@ public partial class RotationWindow : Window
     private const double RadiansToDegrees = 180 / Math.PI;
     private static readonly CultureInfo Culture = CultureInfo.InvariantCulture;
 
+    private const double BalanceBarWidth = 6;
+    private static readonly Brush NeutralBrush = Frozen(Color.FromRgb(0xF3, 0xF4, 0xF6));
+    private static readonly Brush UndersteerBrush = Frozen(Color.FromRgb(0x3B, 0x8B, 0xFF));
+    private static readonly Brush OversteerBrush = Frozen(Color.FromRgb(0xEF, 0x44, 0x44));
+    private static readonly Brush TickBrush = Frozen(Color.FromRgb(0x48, 0x4A, 0x52));
+    private static readonly Brush CenterBrush = Frozen(Color.FromRgb(0x6B, 0x6D, 0x75));
+
     private readonly CollectorEngine _engine;
+    private readonly BalanceGauge _severity;
+    private readonly BalanceGauge _confidence;
     // 20 times a second: the telemetry itself is 60 Hz, faster than anyone can read
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromMilliseconds(50) };
 
@@ -28,6 +38,8 @@ public partial class RotationWindow : Window
     {
         InitializeComponent();
         _engine = engine;
+        _severity = new BalanceGauge(SeverityGauge, SeverityText);
+        _confidence = new BalanceGauge(ConfidenceGauge, ConfidenceText);
         _timer.Tick += (_, _) => Refresh();
         _timer.Start();
         Refresh();
@@ -74,6 +86,10 @@ public partial class RotationWindow : Window
             return;
         }
 
+        // Severity is 0-100, confidence 0-1
+        _severity.Show(r.OversteerSeverity > r.UndersteerSeverity ? r.OversteerSeverity / 100 : -r.UndersteerSeverity / 100);
+        _confidence.Show(r.OversteerConfidence > r.UndersteerConfidence ? r.OversteerConfidence : -r.UndersteerConfidence);
+
         var label = r.IsValid ? r.DisplayLabel : "";
         HandlingBox.Text = label.Length > 0 ? label : r.State == Rotation.RotationState.Neutral ? "—" : "";
         HandlingBox.Foreground = label == "UNDERSTEER" ? Brush(rotation.Config.Display.UndersteerColor)
@@ -98,14 +114,73 @@ public partial class RotationWindow : Window
             + (r.OversteerType is { } type ? $" · {Rotation.RotationNames.Of(type)}" : "");
     }
 
+    // The center line and the 50% ticks each way; redrawn when the window is resized
+    private void Gauge_SizeChanged(object sender, SizeChangedEventArgs e) => ((sender as Canvas)?.Tag as BalanceGauge)?.Draw();
+
+    /// <summary>
+    /// One understeer/oversteer gauge: a bar in the middle when neutral that moves left and turns blue by the
+    /// understeer, or right and red by the oversteer, with ticks at 50% each way and the reading under it.
+    /// </summary>
+    private sealed class BalanceGauge
+    {
+        private readonly Canvas _canvas;
+        private readonly TextBlock _text;
+        private readonly Rectangle _bar = new() { Width = BalanceBarWidth, Fill = NeutralBrush, RadiusX = 2, RadiusY = 2 };
+        // -1 (full understeer) to +1 (full oversteer); 0 is neutral
+        private double _value;
+
+        public BalanceGauge(Canvas canvas, TextBlock text)
+        {
+            _canvas = canvas;
+            _text = text;
+            canvas.Tag = this;
+            Draw();
+        }
+
+        public void Show(double value)
+        {
+            _value = Math.Clamp(value, -1, 1);
+            _bar.Fill = _value > 0 ? OversteerBrush : _value < 0 ? UndersteerBrush : NeutralBrush;
+            _text.Text = _value > 0 ? $"{_value * 100:0}% oversteer" : _value < 0 ? $"{-_value * 100:0}% understeer" : "neutral";
+            Place();
+        }
+
+        public void Draw()
+        {
+            var width = _canvas.ActualWidth;
+            var height = _canvas.ActualHeight;
+            _canvas.Children.Clear();
+            foreach (var (x, brush, inset) in new[] { (width / 4, TickBrush, height * 0.25), (width * 3 / 4, TickBrush, height * 0.25), (width / 2, CenterBrush, 0.0) })
+                _canvas.Children.Add(new Line { X1 = x, X2 = x, Y1 = inset, Y2 = height - inset, Stroke = brush, StrokeThickness = 1 });
+            _canvas.Children.Add(_bar);
+            Place();
+        }
+
+        private void Place()
+        {
+            var half = _canvas.ActualWidth / 2;
+            Canvas.SetLeft(_bar, Math.Clamp(half + _value * half - BalanceBarWidth / 2, 0, Math.Max(0, _canvas.ActualWidth - BalanceBarWidth)));
+            _bar.Height = _canvas.ActualHeight;
+        }
+    }
+
     private void ClearRotationModel()
     {
+        _severity.Show(0);
+        _confidence.Show(0);
         HandlingBox.Text = "";
         HandlingStatus.Text = "";
         foreach (var box in new[] { SideslipBox, YawRatioBox, UndersteerBox, OversteerBox })
             box.Text = "—";
         foreach (var raw in new[] { SideslipRaw, YawRatioRaw, UndersteerRaw, OversteerRaw })
             raw.Text = "";
+    }
+
+    private static Brush Frozen(Color color)
+    {
+        var brush = new SolidColorBrush(color);
+        brush.Freeze();
+        return brush;
     }
 
     private static Brush Brush(string color)

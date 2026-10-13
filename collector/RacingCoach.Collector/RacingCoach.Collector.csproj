@@ -8,7 +8,7 @@
     <Nullable>enable</Nullable>
     <RootNamespace>RacingCoach.Collector</RootNamespace>
     <!-- The release workflow (.github/workflows/collector-release.yml) sets this from the collector-v* tag -->
-    <Version>1.15.0</Version>
+    <Version>1.16.0</Version>
     <Product>RacingCoach Collector</Product>
     <Company>RacingCoach.app</Company>
     <ApplicationIcon>Assets\collector.ico</ApplicationIcon>

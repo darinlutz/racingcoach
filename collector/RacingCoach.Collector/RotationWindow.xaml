@@ -77,6 +77,26 @@
                 <StackPanel Grid.Row="0" Grid.ColumnSpan="3">
                     <TextBlock Style="{StaticResource Heading}" Text="Handling" />
                     <TextBox x:Name="HandlingBox" Style="{StaticResource Box}" FontSize="28" />
+                    <!-- Balance gauges: each bar sits in the middle when neutral, moves left (blue) by the understeer and
+                         right (red) by the oversteer; ticks at 50% each way. Severity is how much, Confidence how sure -->
+                    <TextBlock Style="{StaticResource Heading}" Text="Severity (how much)" Margin="0,8,0,4" />
+                    <Border Height="26" Background="#1A1B1E" BorderBrush="#303136" BorderThickness="1">
+                        <Canvas x:Name="SeverityGauge" ClipToBounds="True" SizeChanged="Gauge_SizeChanged" />
+                    </Border>
+                    <DockPanel Margin="0,2,0,0">
+                        <TextBlock DockPanel.Dock="Left" Text="◀ UNDERSTEER" Foreground="#3B8BFF" FontSize="10" FontWeight="SemiBold" />
+                        <TextBlock DockPanel.Dock="Right" Text="OVERSTEER ▶" Foreground="#EF4444" FontSize="10" FontWeight="SemiBold" />
+                        <TextBlock x:Name="SeverityText" Text="" Foreground="#9A9CA3" FontSize="10" HorizontalAlignment="Center" />
+                    </DockPanel>
+                    <TextBlock Style="{StaticResource Heading}" Text="Confidence (how sure)" Margin="0,8,0,4" />
+                    <Border Height="26" Background="#1A1B1E" BorderBrush="#303136" BorderThickness="1">
+                        <Canvas x:Name="ConfidenceGauge" ClipToBounds="True" SizeChanged="Gauge_SizeChanged" />
+                    </Border>
+                    <DockPanel Margin="0,2,0,0">
+                        <TextBlock DockPanel.Dock="Left" Text="◀ UNDERSTEER" Foreground="#3B8BFF" FontSize="10" FontWeight="SemiBold" />
+                        <TextBlock DockPanel.Dock="Right" Text="OVERSTEER ▶" Foreground="#EF4444" FontSize="10" FontWeight="SemiBold" />
+                        <TextBlock x:Name="ConfidenceText" Text="" Foreground="#9A9CA3" FontSize="10" HorizontalAlignment="Center" />
+                    </DockPanel>
                     <TextBlock x:Name="HandlingStatus" Style="{StaticResource Raw}" TextWrapping="Wrap" TextAlignment="Center" />
                 </StackPanel>
 

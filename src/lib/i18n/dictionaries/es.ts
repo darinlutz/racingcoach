@@ -859,9 +859,10 @@ export const es: Dictionary = {
     connect: 'Conectar',
     connecting: 'Conectando…',
     racesFromBefore: {
-      one: '{n} carrera de antes sigue aquí; vuelve a conectar para cargar las nuevas.',
-      other: '{n} carreras de antes siguen aquí; vuelve a conectar para cargar las nuevas.',
+      one: '{n} carrera ya está aquí; conecta iRacePlan para cargar las demás.',
+      other: '{n} carreras ya están aquí; conecta iRacePlan para cargar las demás.',
     },
+    collectorNote: 'Las carreras que corres con el Telemetry Collector abierto se agregan automáticamente al terminar.',
     getTrends: 'Ver tendencias',
     analyzing: 'Analizando tus carreras…',
     pressGetTrends: 'Presiona Ver tendencias para ver tu iRating y tus incidentes a lo largo del tiempo.',

@@ -35,8 +35,8 @@ internal enum SimState
 
 /// <summary>
 /// Everything the collector does, without any UI: reads telemetry (live, or from a played-back .ibt file),
-/// splits it into laps (LapRecorder), saves them (LapWriter), uploads them (LapUploader) and adds track
-/// positions from iRacing's .ibt files (IbtEnricher). The window shows its state: it reads Latest, Session
+/// splits it into laps (LapRecorder), saves them (LapWriter), uploads them (LapUploader), adds track
+/// positions from iRacing's .ibt files (IbtEnricher) and saves and uploads race results (RaceResultTracker). The window shows its state: it reads Latest, Session
 /// and the other properties on a timer, and gets messages and lap changes through callbacks, which are
 /// called on background threads.
 /// </summary>
@@ -49,6 +49,7 @@ internal sealed class CollectorEngine
     private readonly IbtEnricher? _enricher;
     private readonly SessionDebrief _debrief;
     private readonly InCarCoach _coach;
+    private readonly RaceResultTracker? _races;
     private readonly object _sampleLock = new();
     private TelemetryData _latest;
     private bool _hasLatest;
@@ -82,6 +83,10 @@ internal sealed class CollectorEngine
         _recorder = new LapRecorder(_writer.Enqueue, message => Log(message));
         _debrief = new SessionDebrief(() => Api, message => Log(message));
         _coach = new InCarCoach(() => Api, message => Log(message));
+        // Played-back races are past ones, maybe not the user's, so only with --upload
+        _races = options.Playback && !options.Upload
+            ? null
+            : new RaceResultTracker(Path.Combine(documents, "RacingCoach", "Races"), message => Log(message));
         Rotation = new RotationMonitor(message => Log(message));
         Voice.UseSite(() => Api, message => Log(message)); // speech in the user's coach voice
     }
@@ -131,6 +136,7 @@ internal sealed class CollectorEngine
             _coach.OnUploaded(item, error);
         }, message => Log(message));
         _writer.SetUploader(_uploader);
+        _races?.UseApi(api);
         _coach.Refresh(); // the plan comes from the account the key belongs to
         if (old is not null)
             _ = old.DisposeAsync().AsTask(); // its queued laps are queued again on the new one
@@ -170,6 +176,11 @@ internal sealed class CollectorEngine
         {
             _client = null;
             await _writer.FlushAsync(); // finish saving laps already completed (which queues their uploads)
+            if (_races is not null)
+            {
+                _races.SaveUnfinished(); // a race still going, as it stands
+                await _races.FinishUploadsAsync(TimeSpan.FromSeconds(5));
+            }
             if (_uploader is not null)
                 await _uploader.DisposeAsync(); // give queued uploads a few seconds; the rest go next run
             await _writer.DisposeAsync(); // record the last upload results in session.json
@@ -197,6 +208,7 @@ internal sealed class CollectorEngine
                 RecordingIbt = _wasRecordingIbt = false;
                 Log("Disconnected from iRacing. Waiting for iRacing…");
                 _writer.AddPositionsFromIbt(); // iRacing closed its .ibt file
+                _races?.SaveUnfinished(); // left a race before its result was official
             }
             return Task.CompletedTask;
         },
@@ -234,6 +246,7 @@ internal sealed class CollectorEngine
                 sessionTypes);
 
             _coach.SetTrack(_recorder.Session.Track);
+            _races?.OnSessionInfo(session, _recorder.Session.Track, Session.Car);
             Rotation.SetCar(string.IsNullOrWhiteSpace(driver?.CarPath) ? null : driver.CarPath, Session.Car);
 
             // iRacing re-sends session info every few seconds (flags, driver list, ...); only log changes
@@ -246,6 +259,7 @@ internal sealed class CollectorEngine
             _recorder.OnSample(data);
             Overlay?.OnSample(data, Session);
             _coach.OnSample(data);
+            _races?.OnSample(data.SessionNum, data.SessionTime);
             Rotation.OnSample(data);
             lock (_sampleLock)
             {

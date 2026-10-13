@@ -42,15 +42,28 @@ export async function getLinkedUser(discordUserId) {
   return { id: row.id, userName: row.user_name, accountStatus: row.account_status };
 }
 
-// The user's most recent races with a result, newest first. They are synced from iRacePlan into
-// racingcoach."RaceResults" by the website's Race Trends page (src/lib/raceHistory.ts).
-// Positions are 1-based, lap times in seconds, and null means iRacePlan didn't report the value.
+// The user's most recent races with a result, newest first. They are synced from iRacePlan, or uploaded
+// by the telemetry collector, into racingcoach."RaceResults" (the website's src/lib/raceHistory.ts).
+// Read like readRaceEvents there: a collector race iRacePlan also has is left out, and collector races get
+// the next race's starting iRating as their new one. Positions are 1-based, lap times in seconds, and null
+// means the value wasn't reported.
 export async function getRecentRaces(userId, limit) {
   const rows = await query(
-    `SELECT start_time, series, track, car, start_position, finish_position, incidents,
-            old_irating, new_irating, best_lap_seconds, average_lap_seconds
-     FROM racingcoach."RaceResults"
-     WHERE user_id = $1 AND has_result
+    `WITH races AS (
+       SELECT r.* FROM racingcoach."RaceResults" r
+       WHERE r.user_id = $1 AND r.has_result AND NOT (r.source = 'collector' AND EXISTS (
+         SELECT 1 FROM racingcoach."RaceResults" p
+         WHERE p.user_id = r.user_id AND p.source = 'iraceplan' AND p.has_result
+           AND abs(extract(epoch FROM p.start_time - r.start_time)) <= 7200
+           AND (p.old_irating IS NULL OR r.old_irating IS NULL OR p.old_irating = r.old_irating)
+           AND (p.finish_position IS NULL OR r.finish_position IS NULL OR p.finish_position = r.finish_position)))
+     )
+     SELECT start_time, series, track, car, start_position, finish_position, incidents, old_irating,
+            CASE WHEN new_irating IS NOT NULL OR source <> 'collector' THEN new_irating
+                 WHEN official_race IS FALSE THEN old_irating
+                 ELSE lead(old_irating) OVER (PARTITION BY coalesce(category, '') ORDER BY start_time) END AS new_irating,
+            best_lap_seconds, average_lap_seconds
+     FROM races
      ORDER BY start_time DESC
      LIMIT $2`,
     [userId, limit],

@@ -859,9 +859,10 @@ export const pt: Dictionary = {
     connect: 'Conectar',
     connecting: 'Conectando…',
     racesFromBefore: {
-      one: '{n} corrida de antes continua aqui; reconecte para carregar as novas.',
-      other: '{n} corridas de antes continuam aqui; reconecte para carregar as novas.',
+      one: '{n} corrida já está aqui; conecte o iRacePlan para carregar as outras.',
+      other: '{n} corridas já estão aqui; conecte o iRacePlan para carregar as outras.',
     },
+    collectorNote: 'As corridas que você faz com o Telemetry Collector aberto são adicionadas automaticamente quando terminam.',
     getTrends: 'Ver tendências',
     analyzing: 'Analisando suas corridas…',
     pressGetTrends: 'Clique em Ver tendências para ver seu iRating e seus incidentes ao longo do tempo.',

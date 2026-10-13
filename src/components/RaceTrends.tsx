@@ -295,6 +295,7 @@ export default function RaceTrends() {
           )}
         </div>
       )}
+      {loaded && !loadError && <p className="text-sm text-muted-foreground">{t.collectorNote}</p>}
 
       <div className="space-y-4">
         <button

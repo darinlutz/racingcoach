@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { query } from './db';
 import {
   fetchMe,
@@ -11,10 +12,13 @@ import {
 import type { RaceEvent } from './raceTrends';
 import { ensureUserSchema } from './users';
 
-// Race Trends data. Each user connects their own iRacePlan API key; their completed races are
-// copied into racingcoach."RaceResults" so the tab loads instantly and only new races are fetched later.
-// iRacePlan's schedule lists every race in one call, but each result needs its own (slow) request, so a
-// sync fetches at most SYNC_BATCH results and the browser calls it again until nothing is left.
+// Race Trends data, in racingcoach."RaceResults" from two sources. Each user can connect their own
+// iRacePlan API key; their completed races are copied in so the tab loads instantly and only new races are
+// fetched later. iRacePlan's schedule lists every race in one call, but each result needs its own (slow)
+// request, so a sync fetches at most SYNC_BATCH results and the browser calls it again until nothing is
+// left. The telemetry collector also uploads every race it sees the end of (saveCollectorRaceResult), with
+// no third party involved; a race that came from both is only read once (iRacePlan's, as it has the
+// iRating and safety rating after the race).
 
 const SYNC_BATCH = 60;
 const CONCURRENCY = 4;
@@ -71,7 +75,7 @@ export async function saveConnection(userId: number, apiKey: string, profile: IR
     [userId]
   );
   if (previous && previous.iracing_customer_id !== profile.customer_id) {
-    await query('DELETE FROM racingcoach."RaceResults" WHERE user_id = $1', [userId]);
+    await query(`DELETE FROM racingcoach."RaceResults" WHERE user_id = $1 AND source = 'iraceplan'`, [userId]);
   }
   await query(
     `INSERT INTO racingcoach."IRacePlanConnections" (user_id, api_key, iracing_customer_id, iracing_name)
@@ -198,17 +202,129 @@ export async function syncRaceResults(userId: number): Promise<SyncProgress> {
   return { total: races.length, loaded: races.length - remaining - waiting, remaining, failed };
 }
 
-// The user's synced races that have a result for them, oldest first
+// A race result from the telemetry collector, read from iRacing's session info at the end of a race
+// session (POST /api/collector/race-result). Positions are 1-based and in the driver's class; oldIRating and
+// safetyRating are the driver's at the start of the race. resultsFinal is iRacing's ResultsOfficial: false
+// when the driver left before iRacing finalized the result, which a final one then replaces.
+export const collectorRaceResultSchema = z.object({
+  subSessionId: z.number().int().positive(),
+  sessionNum: z.number().int().min(0),
+  seriesId: z.number().int().min(0).nullish(),
+  customerId: z.number().int().positive().nullish(),
+  startedAt: z.iso.datetime({ offset: true }),
+  track: z.string().trim().min(1).max(200),
+  car: z.string().trim().min(1).max(200),
+  category: z.string().trim().max(50).nullish(),
+  officialRace: z.boolean(),
+  leagueRace: z.boolean().default(false),
+  teamRace: z.boolean().default(false),
+  resultsFinal: z.boolean(),
+  oldIRating: z.number().int().positive().nullish(),
+  safetyRating: z.number().min(0).max(5).nullish(),
+  startPosition: z.number().int().positive().nullish(),
+  finishPosition: z.number().int().positive().nullish(),
+  lapsComplete: z.number().int().min(0).nullish(),
+  lapsLed: z.number().int().min(0).nullish(),
+  incidents: z.number().int().min(0).nullish(),
+  bestLapSeconds: z.number().positive().nullish(),
+  reasonOut: z.string().trim().max(100).nullish(),
+});
+
+export type CollectorRaceResult = z.infer<typeof collectorRaceResultSchema>;
+
+// iRacing's session info names license categories without spaces (e.g. "DirtOval"); iRacePlan, the other
+// source, as "Dirt oval"
+function collectorCategory(category: string | null | undefined): string | null {
+  if (!category) return null;
+  const words = category.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+// iRacing's session info has the series' ID but not its name
+function collectorSeries(result: CollectorRaceResult): string {
+  if (result.officialRace) return 'Official race';
+  return result.leagueRace ? 'League race' : 'Hosted race';
+}
+
+// Saves a race the collector uploaded. Sending the same race again replaces it, except that a final result
+// is never replaced by one that isn't. Answers whether it was stored.
+export async function saveCollectorRaceResult(userId: number, result: CollectorRaceResult): Promise<boolean> {
+  await ensureUserSchema();
+  const rows = await query(
+    `INSERT INTO racingcoach."RaceResults" (user_id, source, subsession_id, session_num, series_id,
+       iracing_customer_id, results_final, official_race, start_time, series, category, track, car, team_race,
+       has_result, old_irating, old_safety_rating, start_position, finish_position, laps_complete, laps_led,
+       incidents, best_lap_seconds, reason_out)
+     VALUES ($1, 'collector', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, true, $14, $15, $16, $17, $18,
+       $19, $20, $21, $22)
+     ON CONFLICT (user_id, subsession_id, session_num) WHERE subsession_id IS NOT NULL DO UPDATE SET
+       series_id = EXCLUDED.series_id, iracing_customer_id = EXCLUDED.iracing_customer_id,
+       results_final = EXCLUDED.results_final, official_race = EXCLUDED.official_race,
+       start_time = EXCLUDED.start_time, series = EXCLUDED.series, category = EXCLUDED.category,
+       track = EXCLUDED.track, car = EXCLUDED.car, team_race = EXCLUDED.team_race,
+       old_irating = EXCLUDED.old_irating, old_safety_rating = EXCLUDED.old_safety_rating,
+       start_position = EXCLUDED.start_position, finish_position = EXCLUDED.finish_position,
+       laps_complete = EXCLUDED.laps_complete, laps_led = EXCLUDED.laps_led, incidents = EXCLUDED.incidents,
+       best_lap_seconds = EXCLUDED.best_lap_seconds, reason_out = EXCLUDED.reason_out, synced_at = now()
+     WHERE racingcoach."RaceResults".source = 'collector'
+       AND (EXCLUDED.results_final OR NOT racingcoach."RaceResults".results_final)
+     RETURNING id`,
+    [
+      userId,
+      result.subSessionId,
+      result.sessionNum,
+      result.seriesId ?? null,
+      result.customerId ?? null,
+      result.resultsFinal,
+      result.officialRace,
+      result.startedAt,
+      collectorSeries(result),
+      collectorCategory(result.category),
+      result.track,
+      result.car,
+      result.teamRace,
+      result.oldIRating ?? null,
+      result.safetyRating ?? null,
+      result.startPosition ?? null,
+      result.finishPosition ?? null,
+      result.lapsComplete ?? null,
+      result.lapsLed ?? null,
+      result.incidents ?? null,
+      result.bestLapSeconds ?? null,
+      result.reasonOut ?? null,
+    ]
+  );
+  return rows.length > 0;
+}
+
+// The user's races that have a result for them, oldest first. A collector race that iRacePlan also has
+// (started within two hours of it, with the same iRating and finishing position where both have them) is
+// left out. The collector only knows the iRating at the start of a race, so its races get the start of the
+// next race in the same category as their new iRating (the same as the old one for an unofficial race,
+// which doesn't change it); the latest stays without one until there's a next race. bot/db.js reads races
+// the same way.
 export async function readRaceEvents(userId: number): Promise<RaceEvent[]> {
   await ensureUserSchema();
   const rows = await query(
-    `SELECT iraceplan_planning_id, start_time, series, category, track, car, old_irating, new_irating,
+    `WITH races AS (
+       SELECT r.* FROM racingcoach."RaceResults" r
+       WHERE r.user_id = $1 AND r.has_result AND NOT (r.source = 'collector' AND EXISTS (
+         SELECT 1 FROM racingcoach."RaceResults" p
+         WHERE p.user_id = r.user_id AND p.source = 'iraceplan' AND p.has_result
+           AND abs(extract(epoch FROM p.start_time - r.start_time)) <= 7200
+           AND (p.old_irating IS NULL OR r.old_irating IS NULL OR p.old_irating = r.old_irating)
+           AND (p.finish_position IS NULL OR r.finish_position IS NULL OR p.finish_position = r.finish_position)))
+     )
+     SELECT id, start_time, series, category, track, car, old_irating,
+            CASE WHEN new_irating IS NOT NULL OR source <> 'collector' THEN new_irating
+                 WHEN official_race IS FALSE THEN old_irating
+                 ELSE lead(old_irating) OVER (PARTITION BY coalesce(category, '') ORDER BY start_time) END AS new_irating,
             old_safety_rating, new_safety_rating, start_position, finish_position, laps_complete, incidents
-     FROM racingcoach."RaceResults" WHERE user_id = $1 AND has_result ORDER BY start_time`,
+     FROM races ORDER BY start_time`,
     [userId]
   );
   return rows.map((row) => ({
-    eventId: Number(row.iraceplan_planning_id),
+    eventId: Number(row.id),
     startTime: (row.start_time as Date).toISOString(),
     series: row.series as string,
     track: row.track as string,

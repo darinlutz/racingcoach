@@ -1,6 +1,6 @@
-// Braking, steering and driving line measurements of one lap through one focus area, for Debrief Coach's
-// get_braking_detail, get_steering_detail and get_driving_line tools. Measured in the browser from an
-// areaTrace, like areaStats, since the CSVs are too big to send.
+// Braking, throttle, steering and driving line measurements of one lap through one focus area, for Debrief
+// Coach's get_braking_detail, get_throttle_detail, get_steering_detail and get_driving_line tools. Measured in
+// the browser from an areaTrace, like areaStats, since the CSVs are too big to send.
 
 import { brakeFeet, type AreaTrace } from '@/lib/lapData';
 
@@ -8,6 +8,13 @@ import { brakeFeet, type AreaTrace } from '@/lib/lapData';
 const BRAKE_ON = 0.02;
 // Throttle (0-1) at or above this counts as back on the power, as in areaStats
 const THROTTLE_ON = 0.1;
+// A lift starts when the throttle drops under this from at or above it
+const LIFT_FROM = 0.9;
+// Throttle at or above this is full throttle
+const THROTTLE_FULL = 0.98;
+// After the pickup, the throttle cut back by at least this much and then pressed again by at least this much
+// is a re-application; smaller changes are feeding the throttle in
+const REAPPLY_DROP = 0.15;
 const DEGREES_PER_RADIAN = 180 / Math.PI;
 // A steering swing back the other way of at least this many degrees counts as a reversal
 const STEER_REVERSAL_DEGREES = 4;
@@ -34,6 +41,88 @@ export type BrakingDetail = {
   brakeSeconds: number;
   coastSeconds: number;
 };
+
+export type ThrottleDetail = {
+  // Seconds from the throttle dropping under 90% to off (under 10%): how quickly it was released. null when
+  // there was no full lift in the area (already off at its start, a partial lift, or still lifting at its end)
+  liftSeconds: number | null;
+  // Lowest throttle % of a lift that went back to 90% or more without getting off the throttle; null otherwise
+  partialLiftPct: number | null;
+  // Feet from the start/finish line where the throttle went back on (10%) after being off
+  pickupFeet: number | null;
+  // Seconds from the pickup to full throttle (98%); null when it didn't get there in the area
+  pickupToFullSeconds: number | null;
+  // Times after the pickup the throttle was cut back by 15% or more and then pressed again, and the largest
+  // such cut (throttle % before and after it)
+  reapplications: number;
+  worstDrop: { fromPct: number; toPct: number } | null;
+};
+
+export function throttleDetail({ pcts, times, throttles }: AreaTrace, lengthFeet: number | null): ThrottleDetail {
+  const dt = times.length > 1 ? times[1] - times[0] : 0;
+  const pct = (value: number) => Math.round(value * 100);
+
+  // The lift: the first drop under 90%, followed until the throttle is off or back up to 90%
+  let liftSeconds: number | null = null;
+  let partialLiftPct: number | null = null;
+  const liftStart = throttles.findIndex((t, i) => i > 0 && throttles[i - 1] >= LIFT_FROM && t < LIFT_FROM);
+  if (liftStart >= 0) {
+    let lowest = throttles[liftStart];
+    for (let i = liftStart; i < throttles.length; i++) {
+      if (throttles[i] < THROTTLE_ON) {
+        liftSeconds = round((i - liftStart) * dt, 2);
+        break;
+      }
+      if (throttles[i] >= LIFT_FROM) {
+        partialLiftPct = pct(lowest);
+        break;
+      }
+      lowest = Math.min(lowest, throttles[i]);
+    }
+  }
+
+  // The pickup: the throttle back on after being off
+  const off = throttles.findIndex((t) => t < THROTTLE_ON);
+  const pickup = off < 0 ? -1 : throttles.findIndex((t, i) => i > off && t >= THROTTLE_ON);
+  let pickupToFullSeconds: number | null = null;
+  let reapplications = 0;
+  let worstDrop: ThrottleDetail['worstDrop'] = null;
+  if (pickup >= 0) {
+    const full = throttles.findIndex((t, i) => i >= pickup && t >= THROTTLE_FULL);
+    if (full >= 0) pickupToFullSeconds = round((full - pickup) * dt, 2);
+
+    // Cut back from the highest point so far, then pressed again
+    let peak = throttles[pickup];
+    let low = peak;
+    let dropping = false;
+    for (let i = pickup; i < throttles.length; i++) {
+      const t = throttles[i];
+      if (!dropping) {
+        if (t > peak) peak = t;
+        else if (peak - t >= REAPPLY_DROP) {
+          dropping = true;
+          low = t;
+        }
+      } else if (t < low) {
+        low = t;
+      } else if (t - low >= REAPPLY_DROP) {
+        reapplications++;
+        if (!worstDrop || peak - low > (worstDrop.fromPct - worstDrop.toPct) / 100) worstDrop = { fromPct: pct(peak), toPct: pct(low) };
+        dropping = false;
+        peak = t;
+      }
+    }
+  }
+
+  return {
+    liftSeconds,
+    partialLiftPct,
+    pickupFeet: pickup >= 0 && lengthFeet ? brakeFeet(pcts[pickup], lengthFeet) : null,
+    pickupToFullSeconds,
+    reapplications,
+    worstDrop,
+  };
+}
 
 export type SteeringDetail = {
   // Largest steering wheel angle in the area (degrees, either way)

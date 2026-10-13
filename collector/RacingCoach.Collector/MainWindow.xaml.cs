@@ -656,7 +656,8 @@ public partial class MainWindow : Window
         _rotationWindow.Show();
     }
 
-    // Opens the Brake Practice window (or brings it to the front): the brake % graphed as the pedal is pressed
+    // Opens the Brake Practice window (or brings it to the front): calibrates the Simucube brake pedal, then graphs
+    // the brake % as it's pressed, read straight from the pedals so iRacing needn't be running
     private void BrakePractice_Click(object sender, RoutedEventArgs e)
     {
         if (_brakePracticeWindow is not null)
@@ -664,7 +665,7 @@ public partial class MainWindow : Window
             _brakePracticeWindow.Activate();
             return;
         }
-        _brakePracticeWindow = new BrakePracticeWindow(_engine);
+        _brakePracticeWindow = new BrakePracticeWindow();
         _brakePracticeWindow.Closed += (_, _) => _brakePracticeWindow = null;
         _brakePracticeWindow.Show();
     }

@@ -89,6 +89,9 @@ export type LapSamples = {
   steerings: number[];
   lats: number[];
   lons: number[];
+  // RPM and Gear (NaN when the lap file has no such column)
+  rpms: number[];
+  gears: number[];
 };
 
 // Brake (0-1) above this counts as the driver being on the brakes
@@ -97,7 +100,7 @@ const BRAKE_THRESHOLD = 0;
 // Throttle (0-1) at or above this counts as the driver being back on the power
 const THROTTLE_THRESHOLD = 0.1;
 
-// Reads the LapDistPct, Brake, Throttle, Speed, SteeringWheelAngle, Lat and Lon columns. LapDistPct is unwrapped so it keeps
+// Reads the LapDistPct, Brake, Throttle, Speed, SteeringWheelAngle, Lat, Lon, RPM and Gear columns. LapDistPct is unwrapped so it keeps
 // increasing past the start/finish line (e.g. 0.999 -> 1.001 instead of 0.001).
 export async function readLapSamples(file: File): Promise<LapSamples> {
   return lapSamplesFromText(await file.text());
@@ -114,6 +117,8 @@ export function lapSamplesFromText(text: string): LapSamples {
   const steeringColumn = header.indexOf('SteeringWheelAngle');
   const latColumn = header.indexOf('Lat');
   const lonColumn = header.indexOf('Lon');
+  const rpmColumn = header.indexOf('RPM');
+  const gearColumn = header.indexOf('Gear');
   const pcts: number[] = [];
   const brakes: number[] = [];
   const speeds: number[] = [];
@@ -121,6 +126,8 @@ export function lapSamplesFromText(text: string): LapSamples {
   const steerings: number[] = [];
   const lats: number[] = [];
   const lons: number[] = [];
+  const rpms: number[] = [];
+  const gears: number[] = [];
   let offset = 0;
 
   for (let i = 1; i < lines.length; i++) {
@@ -137,8 +144,10 @@ export function lapSamplesFromText(text: string): LapSamples {
     // parseFloat of a missing or empty cell is NaN
     lats.push(latColumn < 0 ? NaN : parseFloat(cells[latColumn]));
     lons.push(lonColumn < 0 ? NaN : parseFloat(cells[lonColumn]));
+    rpms.push(rpmColumn < 0 ? NaN : parseFloat(cells[rpmColumn]));
+    gears.push(gearColumn < 0 ? NaN : parseFloat(cells[gearColumn]));
   }
-  return { pcts, brakes, speeds, throttles, steerings, lats, lons };
+  return { pcts, brakes, speeds, throttles, steerings, lats, lons, rpms, gears };
 }
 
 // Fractional sample index where the lap first reaches `target`, at or after `from`

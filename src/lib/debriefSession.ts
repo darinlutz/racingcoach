@@ -2,7 +2,7 @@
 // dropped or recorded lap files (buildDebriefSession); the In-Car AI Coach builds it on the server from the
 // collector's uploaded CSVs (measureDebriefSession).
 
-import { brakingDetail, lineDetail, steeringDetail } from '@/lib/areaInputs';
+import { brakingDetail, lineDetail, steeringDetail, throttleDetail } from '@/lib/areaInputs';
 import type { DebriefSession } from '@/lib/debriefCoach';
 import {
   areaStats,
@@ -15,6 +15,7 @@ import {
   type LapSamples,
   type Track,
 } from '@/lib/lapData';
+import { lapShifting } from '@/lib/shifting';
 
 // Short lap ID shown in the app and used by the agent, e.g. "ab12"
 export const lapId = (lap: LapFile) => lap.fileId.slice(-4);
@@ -54,6 +55,7 @@ export function measureDebriefSession(track: Track, car: string, laps: MeasuredL
       minSpeedMph: stats.minSpeed * MPH_PER_METER_PER_SECOND,
       exitSpeedMph: stats.exitSpeed * MPH_PER_METER_PER_SECOND,
       braking: brakingDetail(trace, track.lengthFeet),
+      throttle: throttleDetail(trace, track.lengthFeet),
       steering: steeringDetail(trace),
       line: reference ? lineDetail(trace, reference.trace) : null,
     }));
@@ -73,7 +75,7 @@ export function measureDebriefSession(track: Track, car: string, laps: MeasuredL
   return {
     track: track.fileName,
     car,
-    laps: laps.map((lap) => ({ id: lap.id, lapTime: lap.lapSeconds })),
+    laps: laps.map((lap) => ({ id: lap.id, lapTime: lap.lapSeconds, shifting: lapShifting(lap.samples, lap.lapSeconds, track.lengthFeet) })),
     areas,
   };
 }

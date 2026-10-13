@@ -159,8 +159,8 @@ const calloutPrompt = (units: Units) =>
   `number, and points at one focus area and one change (for example "Turn 1: brake about ${units === 'metric' ? 6 : 20} ` +
   `${DISTANCE_UNIT[units]} later"). When the ` +
   'Debrief Coach tools are available, start with get_session_overview, then dig into ' +
-  'the focus areas that lose the most time with get_area_detail and the braking and steering tools; any ' +
-  'brakepoint advice must follow the brakepoint verdict. ' +
+  'the focus areas that lose the most time with get_area_detail and the braking, throttle and steering tools, and get_shifting_points for the upshifts; any ' +
+  'brakepoint advice must follow the brakepoint verdict, and any throttle pickup advice the pickup verdict. ' +
   brakeChangeRule(units) +
   ' Live laps have no track positions yet, so do not give ' +
   'driving line advice unless get_driving_line shows a line verdict. Anything the driver\'s instructions ask to ' +
@@ -181,6 +181,8 @@ export async function inCarCoachCallouts(input: {
   laps: InCarLap[];
   // The laps measured in the track's focus areas, or null when the track isn't in the user's Track Data
   session: DebriefSession | null;
+  // The car's rev limit from the user's Car Data, for get_shifting_points
+  carRpmLimit?: number | null;
   recentCallouts: string[];
   language?: Language;
   units?: Units;
@@ -191,7 +193,7 @@ export async function inCarCoachCallouts(input: {
 
   const units = input.units ?? DEFAULT_UNITS;
   const hasAreas = !!input.session && input.session.areas.some((area) => area.runs.length > 0);
-  const tools = hasAreas ? createTools(input.session!, units) : [];
+  const tools = hasAreas ? createTools(input.session!, units, input.carRpmLimit ?? null) : [];
   const agent = createAgent({
     model: new ChatOpenAI({ model: 'gpt-4o', temperature: 0.2 }),
     tools,

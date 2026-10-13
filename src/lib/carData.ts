@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { query } from './db';
+import { DEFAULT_CARS } from './defaultCars';
 import { ensureUserSchema } from './users';
 
 // Each user's own cars in racingcoach."CarsUsers" (created by ensureUserSchema and copied from the
@@ -28,6 +29,20 @@ export const carInputSchema = z.object({
 
 export type CarInput = z.infer<typeof carInputSchema>;
 export type UserCar = CarInput & { id: number };
+
+// The rpm limit of a car by name, from the user's Car Data, or the default cars for someone not signed in.
+// iRacing's car names can differ a little from Car Data's, so case and punctuation are ignored and one name
+// containing the other also matches. null when no car matches or it has no rpm limit.
+export async function carRpmLimit(userId: number | null, carName: string): Promise<number | null> {
+  const key = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const wanted = key(carName);
+  if (!wanted) return null;
+  const cars: { name: string; rpmLimit: number | null }[] = userId === null ? DEFAULT_CARS : await readCars(userId);
+  const match =
+    cars.find((car) => key(car.name) === wanted) ??
+    cars.find((car) => key(car.name).length > 0 && (wanted.includes(key(car.name)) || key(car.name).includes(wanted)));
+  return match?.rpmLimit ?? null;
+}
 
 export class CarNotFoundError extends Error {
   constructor() {

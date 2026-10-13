@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { aiErrorResponse } from '@/lib/aiErrors';
+import { carRpmLimit } from '@/lib/carData';
 import { debriefSessionSchema, runDebriefCoach } from '@/lib/debriefCoach';
 import { saveDebrief } from '@/lib/debriefHistory';
 import { getCurrentUser } from '@/lib/session';
@@ -31,7 +32,9 @@ export async function POST(request: Request) {
     }
 
     const user = await getCurrentUser();
-    const { debrief, steps } = await runDebriefCoach(parsed.data, await getLanguage(user), await getUnits(user));
+    // For the shifting tool; without it the coach falls back to the RPM in the laps
+    const rpmLimit = await carRpmLimit(user?.id ?? null, parsed.data.car).catch(() => null);
+    const { debrief, steps } = await runDebriefCoach(parsed.data, await getLanguage(user), await getUnits(user), rpmLimit);
 
     // Kept for signed-in users (e.g. for the Discord bot's /coach debrief). Saving is extra, so a failure
     // is logged rather than costing them the debrief.

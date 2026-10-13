@@ -3,6 +3,7 @@ import { ChatOpenAI } from '@langchain/openai';
 import { createAgent, tool } from 'langchain';
 import { z } from 'zod';
 import { aiLanguageRule, DEFAULT_LANGUAGE, type Language } from './i18n/languages';
+import { shiftLimit, type LapShifting } from './shifting';
 import { coachInstructionsRule } from './siteSettings';
 import {
   DEFAULT_UNITS,
@@ -19,7 +20,7 @@ import {
 // focus area (the CSVs are too big to send) and posts the numbers here; the agent digs through
 // them with the tools below and returns the 1-3 things to fix next session.
 
-// Braking, steering and driving line detail of one run (src/lib/areaInputs.ts has what each number means).
+// Braking, throttle, steering and driving line detail of one run (src/lib/areaInputs.ts has what each number means).
 // Optional so sessions from before they were measured still validate.
 const brakingSchema = z.object({
   rampSeconds: z.number().nullable(),
@@ -30,8 +31,25 @@ const brakingSchema = z.object({
   brakeSeconds: z.number(),
   coastSeconds: z.number(),
 });
+const throttleSchema = z.object({
+  liftSeconds: z.number().nullable(),
+  partialLiftPct: z.number().nullable(),
+  pickupFeet: z.number().nullable(),
+  pickupToFullSeconds: z.number().nullable(),
+  reapplications: z.number(),
+  worstDrop: z.object({ fromPct: z.number(), toPct: z.number() }).nullable(),
+});
 const steeringSchema = z.object({ maxDeg: z.number(), apexDeg: z.number(), reversals: z.number() });
 const lineSchema = z.object({ offsetsM: z.array(z.number()).length(5), maxOffsetM: z.number(), maxOffsetAtPct: z.number() });
+
+// Upshifts and rev limiter hits of one whole lap (src/lib/shifting.ts has what each number means); null when
+// the lap file has no RPM or Gear column
+const shiftingSchema = z.object({
+  upshifts: z.array(z.object({ fromGear: z.number(), rpm: z.number(), feet: z.number().nullable() })).max(100),
+  partThrottleUpshifts: z.number(),
+  limiterHits: z.array(z.object({ gear: z.number(), rpm: z.number(), seconds: z.number(), beforeUpshift: z.boolean() })).max(100),
+  maxRpm: z.number(),
+});
 
 // One lap through one focus area. brakeFeet is feet from the start/finish line (null = no braking)
 const runSchema = z.object({
@@ -42,6 +60,7 @@ const runSchema = z.object({
   minSpeedMph: z.number(),
   exitSpeedMph: z.number(),
   braking: brakingSchema.optional(),
+  throttle: throttleSchema.optional(),
   steering: steeringSchema.optional(),
   // null when the lap (or every lap) has no track positions in the area
   line: lineSchema.nullable().optional(),
@@ -50,7 +69,10 @@ const runSchema = z.object({
 export const debriefSessionSchema = z.object({
   track: z.string().max(200),
   car: z.string().max(200),
-  laps: z.array(z.object({ id: z.string().max(20), lapTime: z.number() })).min(2).max(100),
+  laps: z
+    .array(z.object({ id: z.string().max(20), lapTime: z.number(), shifting: shiftingSchema.nullable().optional() }))
+    .min(2)
+    .max(100),
   areas: z
     .array(
       z.object({
@@ -78,10 +100,11 @@ const debriefSchema = z.object({
       z.object({
         area: z.string().describe('Focus area name, exactly as in the data'),
         focus: z
-          .enum(['Braking', 'Brake pressure', 'Trail braking', 'Steering', 'Driving line', 'Mid-corner speed', 'Corner exit', 'Consistency'])
+          .enum(['Braking', 'Brake pressure', 'Trail braking', 'Throttle', 'Shifting', 'Steering', 'Driving line', 'Mid-corner speed', 'Corner exit', 'Consistency'])
           .describe(
             'What the fix changes: Braking for the brakepoint, Brake pressure for peak brake, Trail braking for how the ' +
-              'brake is released into the corner, Steering for wheel angle or corrections, Driving line for where the car ' +
+              'brake is released into the corner, Throttle for how the throttle is lifted, where it goes back on ' +
+              'and committing to full throttle, Shifting for upshift RPM (with "Shifting" as the area), Steering for wheel angle or corrections, Driving line for where the car ' +
               'is placed on the track, Mid-corner speed for minimum speed, Corner exit for exit speed, Consistency when ' +
               'no single input explains the time'
           ),
@@ -207,13 +230,38 @@ function turnDirection(area: DebriefArea): 'left' | 'right' | null {
   return middle > 0 ? 'left' : 'right';
 }
 
+// Fast and slow runs picking up the throttle within this many feet (3 m) of each other is treated as no difference
+const PICKUP_DIFF_FEET = 10;
+// A lift from 90% to off slower than this is a slow release
+const SLOW_LIFT_SECONDS = 0.15;
+
+// Which way the fastest runs moved the throttle pickup compared with the slowest, decided here like
+// brakeDirection. null when the data doesn't show a clear difference.
+function pickupDirection(area: DebriefArea): { direction: 'later' | 'earlier'; diffFeet: number } | null {
+  const { fast, slow } = fastSlow(area);
+  const feetOf = (runs: DebriefRun[]) => runs.flatMap((r) => (typeof r.throttle?.pickupFeet === 'number' ? [r.throttle.pickupFeet] : []));
+  const fastFeet = feetOf(fast);
+  const slowFeet = feetOf(slow);
+  if (fastFeet.length === 0 || slowFeet.length === 0) return null;
+  const diff = mean(fastFeet) - mean(slowFeet);
+  if (Math.abs(diff) < PICKUP_DIFF_FEET) return null;
+  return { direction: diff > 0 ? 'later' : 'earlier', diffFeet: Math.round(Math.abs(diff)) };
+}
+
+// Full-throttle upshifts under this share of the rev limit are early; the ideal is just before the limit
+const EARLY_SHIFT_SHARE = 0.95;
+// Limiter hits under this share of the rev limit are top speed in top gear, not the limiter
+const LIMITER_SHARE = 0.985;
+const ordinal = (n: number) => `${n}${n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th'}`;
+
 // Fast and slow runs' lines this close together are treated as the same line
 const LINE_DIFF_METERS = 0.5;
 const LINE_CHECKPOINTS = ['the start of the area (entry)', '25% through', 'the middle (50%)', '75% through', 'the end of the area (exit)'];
 
 // Also used by the In-Car AI Coach (inCarCoach.ts), on the laps the collector has uploaded so far.
 // The tools write distances and speeds in the user's units.
-export function createTools(session: DebriefSession, units: Units = DEFAULT_UNITS) {
+// carRpmLimit is the car's rev limit from the user's Car Data (null when it isn't there), for get_shifting_points.
+export function createTools(session: DebriefSession, units: Units = DEFAULT_UNITS, carRpmLimit: number | null = null) {
   const u = unitFormat(units);
   // Feet that may not have been measured -> the user's units
   const feetIn = <T extends null | undefined>(feet: number | T): number | T => (typeof feet === 'number' ? u.feet(feet) : feet);
@@ -407,6 +455,241 @@ export function createTools(session: DebriefSession, units: Units = DEFAULT_UNIT
     }
   );
 
+  const throttleDetail = tool(
+    async ({ area: name }: { area: string }) => {
+      const area = findArea(name);
+      if (!area) return `No focus area named "${name}". Focus areas: ${areaNames}`;
+      const { runs, k, fast, slow } = fastSlow(area);
+      if (!runs.some((r) => r.throttle)) return `Throttle detail was not measured for ${area.name} in this session.`;
+
+      const describe = (run: DebriefRun) => {
+        const d = run.throttle;
+        if (!d) return `[${run.lap}] ${run.seconds.toFixed(3)}s: not measured`;
+        const lift =
+          d.liftSeconds !== null
+            ? `lifted in ${d.liftSeconds.toFixed(2)}s${d.liftSeconds > SLOW_LIFT_SECONDS ? ' (slow)' : ''}`
+            : d.partialLiftPct !== null
+              ? `partial lift to ${d.partialLiftPct}%`
+              : 'no lift measured';
+        return (
+          `[${run.lap}] ${run.seconds.toFixed(3)}s: ` +
+          [
+            lift,
+            d.pickupFeet === null ? 'no pickup in the area' : `throttle on at ${u.feet(d.pickupFeet).toFixed(0)}${u.unit}`,
+            d.pickupFeet === null ? null : d.pickupToFullSeconds === null ? 'never full throttle in the area' : `${d.pickupToFullSeconds.toFixed(2)}s to full throttle`,
+            d.reapplications === 0
+              ? d.pickupFeet === null ? null : 'committed (no re-application)'
+              : `${d.reapplications} re-application${d.reapplications === 1 ? '' : 's'}` +
+                (d.worstDrop ? ` (worst: cut from ${d.worstDrop.fromPct}% to ${d.worstDrop.toPct}%, then on again)` : ''),
+          ]
+            .filter((part) => part !== null)
+            .join(', ')
+        );
+      };
+      const split = (label: string, pick: (r: DebriefRun) => number | null | undefined, digits: number, unit: string) =>
+        `${label} ${avgMeasured(fast.map(pick), digits, unit)} vs ${avgMeasured(slow.map(pick), digits, unit)}`;
+
+      const lines = [
+        `${area.name} (${area.range}) throttle. Lift time is how long the throttle took from 90% to off (under 10%): ` +
+          `a committed lift is quick, under ${SLOW_LIFT_SECONDS.toFixed(2)}s, and a slower one is marked slow. A partial lift ` +
+          `went back to 90% without getting off the throttle. "Throttle on" is where the throttle went back on (10%) ` +
+          `after being off, in ${u.distanceName} from the start/finish line (more ${u.distanceName} = later). A re-application is the ` +
+          'throttle cut back by 15% or more after the pickup and then pressed again. The ideal: once you commit to the ' +
+          'throttle, go to 100% and do not come back off it.',
+        'Per lap, fastest first:',
+        ...runs.map(describe),
+        '',
+        `Fastest ${k} vs slowest ${k} runs (averages): ` +
+          [
+            split('lift time', (r) => r.throttle?.liftSeconds, 2, 's'),
+            split('throttle on', (r) => feetIn(r.throttle?.pickupFeet), 0, u.unit),
+            split('time to full throttle', (r) => r.throttle?.pickupToFullSeconds, 2, 's'),
+            split('re-applications', (r) => r.throttle?.reapplications, 1, ''),
+          ].join('; ') +
+          '.',
+      ];
+
+      const pickup = pickupDirection(area);
+      const pickupText = pickup ? `${Math.round(u.feet(pickup.diffFeet))}${u.unit}` : '';
+      lines.push(
+        pickup
+          ? `Throttle pickup verdict: your fastest runs put the throttle on ${pickupText} ${pickup.direction.toUpperCase()} than your ` +
+              `slowest. Any pickup fix for this area must say throttle on about ${pickupText} ${pickup.direction.toUpperCase()}, ` +
+              'never where on the track.'
+          : `Throttle pickup verdict: your fast and slow runs put the throttle on within ${u.feet(PICKUP_DIFF_FEET).toFixed(0)}${u.unit} of ` +
+              'each other here (or it was not measured), so the pickup point does not explain the time. Do not give a pickup fix for this area.'
+      );
+
+      const lifts = runs.flatMap((r) => (typeof r.throttle?.liftSeconds === 'number' ? [r.throttle.liftSeconds] : []));
+      if (lifts.length > 0) {
+        const slowLifts = lifts.filter((s) => s > SLOW_LIFT_SECONDS).length;
+        lines.push(
+          `Lift: slow (over ${SLOW_LIFT_SECONDS.toFixed(2)}s) on ${slowLifts} of ${lifts.length} laps. Only call a slow lift a problem ` +
+            'when your fastest runs lift quicker than your slowest; a gradual lift can be deliberate to settle the car in a fast corner.'
+        );
+      }
+      const measured = runs.filter((r) => r.throttle && r.throttle.pickupFeet !== null);
+      if (measured.length > 0) {
+        const reapplied = measured.filter((r) => r.throttle!.reapplications > 0);
+        lines.push(
+          `Commitment: re-applied the throttle on ${reapplied.length} of ${measured.length} laps` +
+            (reapplied.length > 0 ? ` (${reapplied.map((r) => `[${r.lap}]`).join(', ')})` : '') +
+            '. Each re-application means you got on the gas too early or too hard for the grip and had to back out; ' +
+            'a later, committed pickup that goes straight to 100% is the goal.'
+        );
+      }
+      return lines.join('\n');
+    },
+    {
+      name: 'get_throttle_detail',
+      description:
+        'How each lap used the throttle through one focus area: how quickly it was lifted (90% to off), partial ' +
+        'lifts, where it went back on, time from there to full throttle, and re-applications (getting on the gas, ' +
+        'backing out, then on again), with the fastest runs against the slowest and a pickup verdict. Use it when ' +
+        'corner entry or exit looks like where the time goes.',
+      schema: z.object({ area: z.string().describe('Focus area name, exactly as in the overview') }),
+    }
+  );
+
+  const shiftingPoints = tool(
+    async () => {
+      const laps = [...cleanLaps].sort((a, b) => a.lapTime - b.lapTime).filter((l) => l.shifting);
+      const limit = shiftLimit(
+        laps.map((l) => l.shifting),
+        carRpmLimit
+      );
+      if (laps.length === 0 || !limit) {
+        return 'RPM and gear were not recorded in these laps, so shifting cannot be analysed. Do not give a shifting fix.';
+      }
+
+      const rpm = (value: number) => `${Math.round(value).toLocaleString('en-US')} rpm`;
+      const share = (value: number) => `${Math.round((value / limit.rpm) * 100)}%`;
+      const canJudgeEarly = limit.source !== 'highest';
+      const isEarly = (value: number) => canJudgeEarly && value < limit.rpm * EARLY_SHIFT_SHARE;
+      const redlines = (shifting: LapShifting) => shifting.limiterHits.filter((hit) => hit.rpm >= limit.rpm * LIMITER_SHARE);
+      const shiftingOf = (lap: (typeof laps)[number]) => lap.shifting!;
+
+      const describe = (lap: (typeof laps)[number]) => {
+        const shifting = shiftingOf(lap);
+        const shifts = shifting.upshifts.map(
+          (shift) => `${shift.fromGear}→${shift.fromGear + 1} ${rpm(shift.rpm)} (${share(shift.rpm)}${isEarly(shift.rpm) ? ', early' : ''})`
+        );
+        const hits = redlines(shifting).map(
+          (hit) =>
+            `on the limiter ${hit.seconds.toFixed(2)}s in ${ordinal(hit.gear)} gear` +
+            (hit.beforeUpshift ? ' before shifting up' : ' (no upshift after it)')
+        );
+        return (
+          `[${lap.id}] ${lap.lapTime.toFixed(3)}s: ${shifts.length > 0 ? shifts.join(', ') : 'no full-throttle upshifts'}` +
+          (hits.length > 0 ? `; ${hits.join(', ')}` : '; never on the limiter') +
+          (shifting.partThrottleUpshifts > 0 ? `; ${shifting.partThrottleUpshifts} part-throttle upshift(s) left out` : '')
+        );
+      };
+
+      // Each gear's upshifts over every lap
+      const byGear = new Map<number, number[]>();
+      for (const lap of laps) {
+        for (const shift of shiftingOf(lap).upshifts) byGear.set(shift.fromGear, [...(byGear.get(shift.fromGear) ?? []), shift.rpm]);
+      }
+      const hits = laps.flatMap((lap) => redlines(shiftingOf(lap)));
+      const gearLines = [...byGear.entries()]
+        .sort(([a], [b]) => a - b)
+        .map(([gear, rpms]) => {
+          const limiterBefore = hits.filter((hit) => hit.beforeUpshift && hit.gear === gear).length;
+          return (
+            `- ${gear}→${gear + 1}: ${rpms.length} shifts, avg ${rpm(mean(rpms))} (${share(mean(rpms))} of the limit), ` +
+            `lowest ${rpm(Math.min(...rpms))}, highest ${rpm(Math.max(...rpms))}` +
+            (canJudgeEarly ? `, early on ${rpms.filter(isEarly).length}` : '') +
+            `, held the limiter before it ${limiterBefore} time${limiterBefore === 1 ? '' : 's'}`
+          );
+        });
+
+      const all = laps.flatMap((lap) => shiftingOf(lap).upshifts.map((shift) => shift.rpm));
+      const early = all.filter(isEarly);
+      const k = Math.max(1, Math.floor(laps.length / 3));
+      const fast = laps.slice(0, k);
+      const slow = laps.slice(-k);
+      const avgShare = (group: typeof laps) => {
+        const rpms = group.flatMap((lap) => shiftingOf(lap).upshifts.map((shift) => shift.rpm));
+        return rpms.length === 0 ? 'n/a' : share(mean(rpms));
+      };
+      const limiterSeconds = (group: typeof laps) =>
+        `${mean(group.map((lap) => redlines(shiftingOf(lap)).reduce((sum, hit) => sum + hit.seconds, 0))).toFixed(2)}s`;
+      const earlyPct = Math.round(EARLY_SHIFT_SHARE * 100);
+
+      const verdicts: string[] = [];
+      if (!canJudgeEarly) {
+        verdicts.push(
+          `Early shift verdict: the rev limit of the ${session.car} is not in your Car Data and these laps never held the ` +
+            'limiter before shifting, so the limit is only the highest RPM reached. Early shifts cannot be judged; do not ' +
+            'give an early-shift fix.'
+        );
+      } else if (early.length > 0) {
+        verdicts.push(
+          `Early shift verdict: ${early.length} of ${all.length} full-throttle upshifts were under ${earlyPct}% of the limit, ` +
+            `on average ${rpm(limit.rpm - mean(early))} short of it. Shifting early drops the engine out of its strongest ` +
+            `range: hold each gear until just before the limit, about ${rpm(Math.round((limit.rpm * 0.97) / 50) * 50)}.`
+        );
+      } else {
+        verdicts.push(`Early shift verdict: every full-throttle upshift was at ${earlyPct}% of the limit or more. Do not give an early-shift fix.`);
+      }
+      const beforeShift = hits.filter((hit) => hit.beforeUpshift);
+      const redlineLaps = laps.filter((lap) => redlines(shiftingOf(lap)).some((hit) => hit.beforeUpshift)).length;
+      verdicts.push(
+        beforeShift.length > 0
+          ? `Redline verdict: you held the rev limiter before shifting up ${beforeShift.length} time${beforeShift.length === 1 ? '' : 's'} ` +
+              `(${beforeShift.reduce((sum, hit) => sum + hit.seconds, 0).toFixed(2)}s in total, on ${redlineLaps} of ${laps.length} laps). ` +
+              'On the limiter the car stops accelerating: that is shifting too late. Shift just before the limit.'
+          : 'Redline verdict: you never held the rev limiter before shifting up. Do not give a late-shift fix.'
+      );
+      const noUpshift = hits.length - beforeShift.length;
+      if (noUpshift > 0) {
+        verdicts.push(
+          `On the limiter without shifting up after it ${noUpshift} time${noUpshift === 1 ? '' : 's'} (top gear running out, ` +
+            'or lifting while on the limiter): that is gearing, not a shift point, unless a higher gear was available.'
+        );
+      }
+
+      const source =
+        limit.source === 'limiter'
+          ? 'where these laps held the rev limiter'
+          : limit.source === 'carData'
+            ? 'the rpm limit in your Car Data'
+            : 'the highest RPM reached, as the limit is not known for this car';
+      return [
+        `Shifting in the ${session.car}, over the whole lap. Rev limit ${rpm(limit.rpm)} (${source}). The ideal upshift ` +
+          `is just before the limit, at peak RPM: under ${earlyPct}% of it is early (not using the engine's full range), ` +
+          'and holding the limiter (full throttle, RPM pinned, the car no longer gaining speed) is too late. Only ' +
+          'full-throttle upshifts are judged. Shifting is not measured by focus area: a Shifting fix uses "Shifting" as ' +
+          'the area, and for timeGainSeconds the lap time difference below only when your fastest and slowest laps shift ' +
+          'differently, otherwise 0.',
+        'Per lap, fastest first:',
+        ...laps.map(describe),
+        '',
+        'Per gear:',
+        ...gearLines,
+        '',
+        `Fastest ${k} vs slowest ${k} laps (averages): ` +
+          [
+            `lap time ${avgOf(fast.map((l) => l.lapTime), 3, 's')} vs ${avgOf(slow.map((l) => l.lapTime), 3, 's')}`,
+            `upshift ${avgShare(fast)} vs ${avgShare(slow)} of the limit`,
+            `time on the limiter ${limiterSeconds(fast)} vs ${limiterSeconds(slow)} per lap`,
+          ].join('; ') +
+          '.',
+        ...verdicts,
+      ].join('\n');
+    },
+    {
+      name: 'get_shifting_points',
+      description:
+        "Upshift RPM over the whole lap against the car's rev limit: every full-throttle upshift per lap and per gear, " +
+        "early shifts (short of the limit, not using the engine's full range) and time held on the rev limiter " +
+        '(shifting too late), with the fastest laps against the slowest and verdicts. The ideal is to shift just ' +
+        'before the limit. Call it once; it takes no area.',
+      schema: z.object({}),
+    }
+  );
+
   const steeringDetail = tool(
     async ({ area: name }: { area: string }) => {
       const area = findArea(name);
@@ -537,7 +820,7 @@ export function createTools(session: DebriefSession, units: Units = DEFAULT_UNIT
     }
   );
 
-  return [overview, areaDetail, compareLap, brakingDetail, steeringDetail, drivingLine];
+  return [overview, areaDetail, compareLap, brakingDetail, throttleDetail, shiftingPoints, steeringDetail, drivingLine];
 }
 
 // Brake advice is only ever a change (how many feet or meters earlier or later), never where on the track to brake.
@@ -572,8 +855,9 @@ const systemPrompt = (units: Units) =>
   'You are a sim racing driving coach running a post-session debrief. Your job is to tell the driver what to ' +
   'fix next session. Start with get_session_overview. Then use get_area_detail on the focus areas that lose the ' +
   'most time (at least the top three), and use compare_lap_to_best on the slowest laps when it helps find a ' +
-  'pattern. To find why an area loses time, use get_braking_detail, get_steering_detail and get_driving_line on the ' +
-  'areas that lose the most. A driving line fix must use the line verdict from get_driving_line: the place in the ' +
+  'pattern. To find why an area loses time, use get_braking_detail, get_throttle_detail, get_steering_detail and get_driving_line ' +
+  'on the areas that lose the most, and get_shifting_points once for the upshifts. A throttle pickup fix must use the pickup verdict from get_throttle_detail, ' +
+  'the same way as a brakepoint fix. A driving line fix must use the line verdict from get_driving_line: the place in the ' +
   `area and the ${DISTANCE_NAME[units]} to move toward the inside or outside, and never one where the verdict says the line does not ` +
   'explain the time. Choose 1 to 3 fixes, ordered by time available, each one a single concrete change the driver can ' +
   `make in the car with a number to aim for (for example "brake about ${units === 'metric' ? 9 : 30} ${DISTANCE_UNIT[units]} later" or "build to ` +
@@ -640,14 +924,16 @@ function toolSteps(messages: unknown[]) {
 export async function runDebriefCoach(
   session: DebriefSession,
   language: Language = DEFAULT_LANGUAGE,
-  units: Units = DEFAULT_UNITS
+  units: Units = DEFAULT_UNITS,
+  // The car's rev limit from the user's Car Data, for get_shifting_points
+  carRpmLimit: number | null = null
 ): Promise<{ debrief: Debrief; steps: string[] }> {
   if (!process.env.OPENAI_API_KEY) {
     throw new Error('OPENAI_API_KEY is not configured');
   }
 
   const u = unitFormat(units);
-  const tools = createTools(session, units);
+  const tools = createTools(session, units, carRpmLimit);
   const agent = createAgent({
     model: new ChatOpenAI({ model: 'gpt-4o', temperature: 0.2 }),
     tools,

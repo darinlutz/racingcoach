@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { aiErrorResponse } from '@/lib/aiErrors';
+import { carRpmLimit } from '@/lib/carData';
 import { authenticateCollector } from '@/lib/collectorKeys';
 import { readCollectorLapsByClientId } from '@/lib/collectorLaps';
 import { measureDebriefSession } from '@/lib/debriefSession';
@@ -109,6 +110,7 @@ export async function POST(request: Request) {
         offTrack: lap.offTrack,
       })),
       session,
+      carRpmLimit: await carRpmLimit(user.userId, laps[0].car).catch(() => null),
       recentCallouts: parsed.data.recentCallouts,
       language: user.language,
       units: user.units,

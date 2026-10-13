@@ -9,56 +9,162 @@ using System.Windows.Shapes;
 namespace RacingCoach.Collector;
 
 /// <summary>
-/// The window the Brake Practice button opens: a see-through, always-on-top window, like the overlay, that graphs
-/// the brake pedal (0-100%) over the last few seconds as the driver presses it, with lines at 20, 40, 60, 80 and
-/// 100%, and a readout of the exact percentage being applied.
+/// The window the Brake Practice button opens: a see-through, always-on-top window, like the overlay, that reads
+/// the brake straight from the Simucube pedals over USB (iRacing doesn't need to be running). First it calibrates
+/// the pedal from two full presses, then it graphs the brake (0-100%) over the last few seconds as the driver
+/// presses it, with lines at 20, 40, 60, 80 and 100%, and a readout of the exact percentage being applied.
 /// </summary>
 public partial class BrakePracticeWindow : Window
 {
     private static readonly double[] GuideLines = [20, 40, 60, 80, 100];
     private static readonly TimeSpan History = TimeSpan.FromSeconds(8);
+    private static readonly TimeSpan RescanEvery = TimeSpan.FromSeconds(2);
+    // How long "Calibration complete" shows before the graph
+    private static readonly TimeSpan CompleteFor = TimeSpan.FromSeconds(1.5);
     private const double LabelWidth = 40; // left margin for the 20%..100% labels
     private const double TopPad = 10;     // so the 100% line isn't on the edge
     private static readonly Brush TraceBrush = Frozen(Color.FromRgb(0xEF, 0x44, 0x44));
     private static readonly Brush FillBrush = Frozen(Color.FromArgb(0x40, 0xEF, 0x44, 0x44));
     private static readonly Brush GuideBrush = Frozen(Color.FromRgb(0x48, 0x4A, 0x52));
     private static readonly Brush LabelBrush = Frozen(Color.FromRgb(0x9A, 0x9C, 0xA3));
+    private static readonly Brush PillBrush = Frozen(Color.FromRgb(0x23, 0x24, 0x28));
+    private static readonly Brush DoneBrush = Frozen(Color.FromRgb(0x22, 0xC5, 0x5E));
+    private static readonly Brush DoneTextBrush = Frozen(Color.FromRgb(0x0B, 0x1F, 0x12));
 
-    private readonly CollectorEngine _engine;
     private readonly Stopwatch _clock = Stopwatch.StartNew();
     // (seconds since opening, brake %), oldest first
     private readonly Queue<(double Time, double Brake)> _samples = new();
     private readonly Polyline _trace = new() { Stroke = TraceBrush, StrokeThickness = 2, StrokeLineJoin = PenLineJoin.Round };
     private readonly Polygon _fill = new() { Fill = FillBrush };
+    private List<PedalDevice> _devices = [];
+    private PedalCalibration _calibration = new();
+    private double _rescanAt;
+    private double? _completedAt;
+    private bool _graphing;
 
-    internal BrakePracticeWindow(CollectorEngine engine)
+    public BrakePracticeWindow()
     {
         InitializeComponent();
-        _engine = engine;
-        // Every frame (about 60 times a second, as fast as the telemetry), so quick stabs on the pedal show up
+        // Every frame (about 60 times a second), so quick stabs on the pedal show up
         CompositionTarget.Rendering += OnRendering;
     }
 
     private void OnRendering(object? sender, EventArgs e)
     {
         var now = _clock.Elapsed.TotalSeconds;
-        if (_engine.TryGetLatest(out var d) && d.Brake is { } brake)
+        if (!_devices.Any(d => d.Connected) && now >= _rescanAt)
         {
-            var percent = Math.Clamp(brake, 0, 1) * 100;
+            _rescanAt = now + RescanEvery.TotalSeconds;
+            Connect();
+        }
+
+        if (_graphing)
+            UpdateGraph(now);
+        else
+            UpdateCalibration(now);
+    }
+
+    // Opens the Simucube's game controller(s), or every pedal set and wheel plugged in when there's no Simucube
+    private void Connect()
+    {
+        var hadDevices = _devices.Count > 0;
+        foreach (var device in _devices)
+            device.Dispose();
+        var found = PedalDevice.FindAll();
+        var simucube = found.Where(d => d.IsSimucube).ToList();
+        _devices = simucube.Count > 0 ? simucube : found;
+        foreach (var device in found.Except(_devices))
+            device.Dispose();
+        foreach (var device in _devices)
+            device.Start();
+
+        // Devices that came back are new axes: calibrate again
+        if (hadDevices)
+            Recalibrate();
+        if (_devices.Count == 0)
+        {
+            StatusText.Text = hadDevices ? "Pedals disconnected. Plug them back in." : "No pedals found. Plug in your Simucube pedals.";
+            return;
+        }
+        var names = string.Join(", ", _devices.Select(d => d.Name).Distinct());
+        StatusText.Text = names;
+        if (!hadDevices)
+            ActivityLog.Shared.Write($"Brake Practice: reading {names}");
+    }
+
+    private void UpdateCalibration(double now)
+    {
+        _calibration.Update(_devices.SelectMany(d => d.Axes));
+        var percent = _calibration.RawPercent;
+        PositionText.Text = percent is { } p ? Percent(p) : "—";
+        PositionBar.Width = PositionTrack.ActualWidth * Math.Clamp(percent ?? 0, 0, 100) / 100;
+        MarkPress(Press1, "Press 1", _calibration.Presses >= 1);
+        MarkPress(Press2, "Press 2", _calibration.Presses >= 2);
+
+        if (!_calibration.Complete)
+        {
+            CalibrationText.Foreground = LabelBrush;
+            CalibrationText.Text = _calibration.Axis is { } axis
+                ? $"Press the brake fully down twice. (Reading {axis.Device.Name}, {axis.Name} axis)"
+                : "Press the brake fully down twice.";
+            return;
+        }
+        if (_completedAt is null)
+        {
+            _completedAt = now;
+            CalibrationText.Foreground = DoneBrush;
+            CalibrationText.Text = "Calibration complete";
+            ActivityLog.Shared.Write($"Brake Practice: calibrated the {_calibration.Axis!.Name} axis of {_calibration.Axis.Device.Name}");
+        }
+        else if (now - _completedAt >= CompleteFor.TotalSeconds)
+        {
+            ShowGraph(true);
+        }
+    }
+
+    private void UpdateGraph(double now)
+    {
+        if (_calibration.Percent is { } percent)
+        {
             _samples.Enqueue((now, percent));
-            BrakeReadout.Text = $"{percent.ToString("0.0", CultureInfo.InvariantCulture)}%";
-            var session = _engine.Session;
-            StatusText.Text = session is null ? "Live" : session.TrackConfig is null ? session.Track : $"{session.Track} ({session.TrackConfig})";
+            BrakeReadout.Text = Percent(percent);
         }
         else
         {
             BrakeReadout.Text = "—";
-            StatusText.Text = "Waiting for iRacing…";
         }
         while (_samples.Count > 0 && _samples.Peek().Time < now - History.TotalSeconds)
             _samples.Dequeue();
         DrawTrace(now);
     }
+
+    private void ShowGraph(bool show)
+    {
+        _graphing = show;
+        _samples.Clear();
+        CalibrationPanel.Visibility = show ? Visibility.Collapsed : Visibility.Visible;
+        GraphPanel.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+        BrakeReadout.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+        RecalibrateButton.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void Recalibrate()
+    {
+        _calibration = new PedalCalibration();
+        _completedAt = null;
+        ShowGraph(false);
+    }
+
+    private void Recalibrate_Click(object sender, RoutedEventArgs e) => Recalibrate();
+
+    private static void MarkPress(TextBlock pill, string text, bool done)
+    {
+        pill.Text = done ? $"✓ {text}" : text;
+        pill.Background = done ? DoneBrush : PillBrush;
+        pill.Foreground = done ? DoneTextBrush : LabelBrush;
+    }
+
+    private static string Percent(double value) => $"{value.ToString("0.0", CultureInfo.InvariantCulture)}%";
 
     // The guide lines and their labels; redrawn when the window is resized
     private void Graph_SizeChanged(object sender, SizeChangedEventArgs e)
@@ -125,6 +231,8 @@ public partial class BrakePracticeWindow : Window
     protected override void OnClosed(EventArgs e)
     {
         CompositionTarget.Rendering -= OnRendering;
+        foreach (var device in _devices)
+            device.Dispose();
         base.OnClosed(e);
     }
 }

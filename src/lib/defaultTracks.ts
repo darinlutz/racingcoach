@@ -77,7 +77,7 @@ export const DEFAULT_TRACKS: DefaultTrack[] = [
     ],
   },
   {
-    key: 'spa 2024 gp',
+    key: 'spa 2024 up',
     name: 'Circuit de Spa-Francorchamps (Grand Prix Pits)',
     lengthFeet: 22966,
     notes: null,

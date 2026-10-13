@@ -779,6 +779,11 @@ export const pt: Dictionary = {
     wetWeight: 'Peso c/ piloto (lbs)',
     actions: 'Ações',
     noNotes: 'Nenhuma anotação ainda. Clique em Editar para adicionar.',
+    calibratedCars: 'Carros calibrados',
+    noCalibratedCars: 'Nenhum carro calibrado ainda.',
+    calibrationVersion: 'Calibração',
+    validSpeeds: 'Velocidades válidas ({unit})',
+    calibrationSource: 'Origem',
   },
 
   friends: {

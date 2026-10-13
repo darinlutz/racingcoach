@@ -1,4 +1,4 @@
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { getCurrentUser } from '../session';
 import type { User } from '../users';
 import { en, type Dictionary } from './dictionaries/en';
@@ -8,14 +8,31 @@ import { DEFAULT_LANGUAGE, isLanguage, LANGUAGE_COOKIE, type Language } from './
 
 const dictionaries: Record<Language, Dictionary> = { en, pt, es };
 
+// The browser's language: Spanish or Portuguese (any region, e.g. es-MX, pt-BR) when that's the visitor's
+// first choice in Accept-Language, otherwise English
+async function browserLanguage(): Promise<Language> {
+  const header = (await headers()).get('accept-language') ?? '';
+  const first = header
+    .split(',')
+    .map((part) => {
+      const [tag, ...params] = part.trim().split(';');
+      const q = params.map((p) => p.trim()).find((p) => p.startsWith('q='));
+      return { code: tag.trim().toLowerCase().split('-')[0], q: q ? Number(q.slice(2)) : 1 };
+    })
+    .filter((entry) => entry.code && entry.code !== '*' && entry.q > 0)
+    .sort((a, b) => b.q - a.q)[0]?.code;
+  return first === 'es' || first === 'pt' ? first : DEFAULT_LANGUAGE;
+}
+
 // The language for this request: the signed-in user's Preferred Language, otherwise the visitor's
-// cookie (set on the sign-up form, and kept after signing out), otherwise English. Pass the user when
-// the caller already has it, to skip looking it up again.
+// cookie (set on the sign-up form, and kept after signing out), otherwise the browser's language
+// (Spanish or Portuguese, else English). Pass the user when the caller already has it, to skip looking
+// it up again.
 export async function getLanguage(user?: User | null): Promise<Language> {
   const current = user === undefined ? await getCurrentUser() : user;
   if (current) return current.preferredLanguage;
   const cookie = (await cookies()).get(LANGUAGE_COOKIE)?.value;
-  return isLanguage(cookie) ? cookie : DEFAULT_LANGUAGE;
+  return isLanguage(cookie) ? cookie : browserLanguage();
 }
 
 export function getDictionary(language: Language): Dictionary {

@@ -789,6 +789,11 @@ export const en = {
     wetWeight: 'Wet Weight (lbs)',
     actions: 'Actions',
     noNotes: 'No notes yet. Press Edit to add some.',
+    calibratedCars: 'Calibrated Cars',
+    noCalibratedCars: 'No cars are calibrated yet.',
+    calibrationVersion: 'Calibration',
+    validSpeeds: 'Valid Speeds ({unit})',
+    calibrationSource: 'Source',
   },
 
   friends: {

@@ -3,9 +3,12 @@
 import { Fragment, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useLanguage } from '@/components/LanguageProvider';
+import { useUnits } from '@/components/UnitsProvider';
 import type { CarInput, UserCar } from '@/lib/carData';
 import type { Dictionary } from '@/lib/i18n/dictionaries/en';
 import { fmt } from '@/lib/i18n/languages';
+import { ROTATION_CALIBRATIONS } from '@/lib/rotationModelConfig';
+import { SPEED_UNIT, speedFromMetersPerSecond } from '@/lib/units';
 
 type NumberField = Exclude<keyof CarInput, 'name' | 'notes'>;
 
@@ -61,6 +64,7 @@ const secondaryButton =
 
 export default function CarDataManagement() {
   const { t: dictionary, locale } = useLanguage();
+  const units = useUnits();
   const t = dictionary.cars;
   const [cars, setCars] = useState<UserCar[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -153,8 +157,55 @@ export default function CarDataManagement() {
     }
   };
 
+  const speed = (metersPerSecond: number) => Math.round(speedFromMetersPerSecond(metersPerSecond, units)).toLocaleString(locale);
+
   return (
     <div className="bg-secondary rounded-xl border border-border p-8 space-y-6">
+      {/* Cars the Rotation Model has a calibration for (rotation-model/calibrations.json) */}
+      <div className="space-y-3">
+        <h3 className="text-lg font-bold text-foreground">{t.calibratedCars}</h3>
+        {ROTATION_CALIBRATIONS.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{t.noCalibratedCars}</p>
+        ) : (
+          <div className="overflow-x-auto bg-card border border-border rounded-lg">
+            <table className="w-full text-sm text-left">
+              <thead className="bg-secondary text-foreground">
+                <tr>
+                  <th scope="col" className="px-4 py-3 font-semibold">
+                    {t.car}
+                  </th>
+                  <th scope="col" className="px-4 py-3 font-semibold">
+                    {t.calibrationVersion}
+                  </th>
+                  <th scope="col" className="px-4 py-3 font-semibold text-right">
+                    {fmt(t.validSpeeds, { unit: SPEED_UNIT[units] })}
+                  </th>
+                  <th scope="col" className="px-4 py-3 font-semibold">
+                    {t.calibrationSource}
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border text-foreground">
+                {ROTATION_CALIBRATIONS.map((calibration) => (
+                  <tr key={calibration.calibrationId}>
+                    <th scope="row" className="px-4 py-3 font-semibold text-foreground">
+                      {calibration.carNames.join(', ') || calibration.carId}
+                    </th>
+                    <td className="px-4 py-3 tabular-nums">{calibration.calibrationVersion}</td>
+                    <td className="px-4 py-3 text-right tabular-nums">
+                      {calibration.validSpeedRangeMps
+                        ? `${speed(calibration.validSpeedRangeMps[0])}–${speed(calibration.validSpeedRangeMps[1])}`
+                        : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">{calibration.source ?? '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
       {message && (
         <div className="p-3 rounded-lg bg-primary/15 border border-primary/40 text-red-300 text-sm">{message}</div>
       )}

@@ -42,7 +42,7 @@ export const es: Dictionary = {
 
   nav: {
     toolkit: 'Herramientas',
-    howItWorks: 'Cómo funciona',
+    learning: 'Aprendizaje',
     coachingAnalysis: 'Coaching y análisis',
     raceTrends: 'Mis tendencias',
     pricing: 'Precios',
@@ -926,6 +926,18 @@ export const es: Dictionary = {
     saving: 'Guardando…',
     saved: 'Instrucciones del entrenador IA guardadas.',
     characters: '{n} / {max} caracteres',
+  },
+
+  learning: {
+    metaTitle: 'Aprendizaje — El arte de conducir un auto de carreras | RacingCoach.app',
+    metaDescription: 'Una guía práctica e ilustrada sobre dinámica del vehículo, trazada, frenado, trail braking, rotación y telemetría.',
+    eyebrow: 'Principiante / Intermedio',
+    contents: 'Contenido',
+    chapters: '{n} capítulos',
+    expandAll: 'Expandir todo',
+    collapseAll: 'Contraer todo',
+    figure: 'Figura {n}',
+    figureNote: 'Esquema ilustrativo, no telemetría de un vehículo específico.',
   },
 
   admin: {

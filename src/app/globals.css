@@ -110,6 +110,8 @@
 html {
   scroll-behavior: smooth;
   scroll-padding-top: 85px;
+  /* No top bar once the nav is the left sidebar (Navigation.tsx) */
+  @media (min-width: 64rem) { scroll-padding-top: 0; }
 }
 
 body {

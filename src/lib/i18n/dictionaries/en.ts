@@ -42,7 +42,7 @@ export const en = {
 
   nav: {
     toolkit: 'Toolkit',
-    howItWorks: 'How It Works',
+    learning: 'Learning',
     coachingAnalysis: 'Coaching & Analysis',
     raceTrends: 'My Race Trends',
     pricing: 'Pricing',
@@ -936,6 +936,19 @@ export const en = {
     saving: 'Saving…',
     saved: 'AI Coach Instructions saved.',
     characters: '{n} / {max} characters',
+  },
+
+  // The Learning page (src/app/learning/page.tsx). The guide itself is in src/lib/learningGuide.ts and its Es and Pt files
+  learning: {
+    metaTitle: 'Learning — The Art of Driving a Race Car | RacingCoach.app',
+    metaDescription: 'A practical, illustrated guide to vehicle dynamics, the racing line, braking, trail braking, rotation and telemetry.',
+    eyebrow: 'Beginner / Intermediate',
+    contents: 'Contents',
+    chapters: '{n} chapters',
+    expandAll: 'Expand all',
+    collapseAll: 'Collapse all',
+    figure: 'Figure {n}',
+    figureNote: 'Illustrative schematic, not vehicle-specific telemetry.',
   },
 
   // The Admin page's activity log (src/app/admin/page.tsx)

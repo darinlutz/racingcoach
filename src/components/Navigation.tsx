@@ -18,7 +18,7 @@ type NavigationProps = {
 
 const links = [
   { href: '/#toolkit', key: 'toolkit' },
-  { href: '/#how-it-works', key: 'howItWorks' },
+  { href: '/learning', key: 'learning' },
   { href: '/racing', key: 'coachingAnalysis' },
   { href: '/race-trends', key: 'raceTrends' },
   { href: '/pricing', key: 'pricing' },
@@ -55,25 +55,26 @@ export default function Navigation({ user, showPricing }: NavigationProps) {
   const mobileLink = (href: string) => `block px-3 py-2 rounded-md font-semibold hover:bg-secondary transition-colors ${linkColor(href)}`;
 
   return (
-    <nav className="sticky top-0 z-50 w-full bg-background border-b border-border">
-      <div className="site-container h-[84px] max-sm:h-[72px] flex items-center justify-between gap-[30px] max-sm:gap-3">
-        <Brand onClick={closeMenu} />
+    // A sidebar down the left side on large screens (the layout pads the page by its width), a bar across the top with a menu below that
+    <nav className="sticky top-0 z-50 w-full bg-background border-b border-border lg:fixed lg:inset-y-0 lg:left-0 lg:w-[280px] lg:border-b-0 lg:border-r lg:overflow-y-auto">
+      {/* Desktop Sidebar */}
+      <div className="hidden lg:flex flex-col h-full px-6 py-6 gap-10">
+        <Brand />
 
-        {/* Desktop Navigation */}
-        <div className="hidden md:flex items-center gap-8">
+        <div className="flex flex-col gap-5">
           {visibleLinks.map((link) => (
             <Link key={link.href} href={link.href} className={navLink(link.href)}>{t.nav[link.key]}</Link>
           ))}
         </div>
 
         {/* Desktop Account */}
-        <div className="hidden md:flex items-center gap-4">
+        <div className="mt-auto flex flex-col items-start gap-5 border-t border-border pt-6">
           {user ? (
             <>
               <Link href="/coach" className={navLink('/coach')}>{t.nav.coach}</Link>
               {user.isAdmin && <Link href="/admin" className={navLink('/admin')}>{t.nav.admin}</Link>}
               <Link href="/account" className={navLink('/account')}>{t.nav.myAccount}</Link>
-              <span className="font-semibold text-muted-foreground whitespace-nowrap">{t.nav.driver} <span className="text-foreground">{user.userName}</span></span>
+              <span className="font-semibold text-muted-foreground">{t.nav.driver} <span className="text-foreground">{user.userName}</span></span>
               <button
                 onClick={handleLogout}
                 disabled={loggingOut}
@@ -91,11 +92,16 @@ export default function Navigation({ user, showPricing }: NavigationProps) {
             </>
           )}
         </div>
+      </div>
+
+      {/* Mobile Bar */}
+      <div className="lg:hidden site-container h-[84px] max-sm:h-[72px] flex items-center justify-between gap-[30px] max-sm:gap-3">
+        <Brand onClick={closeMenu} />
 
         {/* Mobile menu button */}
         <button
           onClick={toggleMenu}
-          className="md:hidden inline-flex items-center justify-center p-2 rounded-md hover:text-primary focus:outline-none transition-colors"
+          className="inline-flex items-center justify-center p-2 rounded-md hover:text-primary focus:outline-none transition-colors"
           aria-expanded={isOpen}
           aria-label={isOpen ? t.nav.closeMenu : t.nav.openMenu}
         >
@@ -105,7 +111,7 @@ export default function Navigation({ user, showPricing }: NavigationProps) {
 
       {/* Mobile Navigation */}
       {isOpen && (
-        <div className="md:hidden bg-card border-t border-border">
+        <div className="lg:hidden bg-card border-t border-border">
           <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
             {visibleLinks.map((link) => (
               <Link key={link.href} href={link.href} className={mobileLink(link.href)} onClick={closeMenu}>{t.nav[link.key]}</Link>

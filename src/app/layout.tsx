@@ -62,17 +62,20 @@ export default async function RootLayout({
               user={user ? { userName: user.userName, canUpgrade: canBuyAnything(user), isAdmin: isAdmin(user.role) } : null}
               showPricing={showPricing}
             />
-            <main className="flex-1">
-              {children}
-            </main>
-            <footer className="border-t border-border py-6">
-              <div className="site-container flex items-center justify-between gap-5">
-                <Brand />
-                <p className="text-[10px] text-muted-foreground text-right max-sm:max-w-[140px]">
-                  © 2026 RacingCoach.app<br />{t.footer.tagline}
-                </p>
-              </div>
-            </footer>
+            {/* On large screens the nav is a fixed sidebar down the left, so the page starts after it */}
+            <div className="flex-1 flex flex-col lg:pl-[280px]">
+              <main className="flex-1">
+                {children}
+              </main>
+              <footer className="border-t border-border py-6">
+                <div className="site-container flex items-center justify-between gap-5">
+                  <Brand />
+                  <p className="text-[10px] text-muted-foreground text-right max-sm:max-w-[140px]">
+                    © 2026 RacingCoach.app<br />{t.footer.tagline}
+                  </p>
+                </div>
+              </footer>
+            </div>
           </UnitsProvider>
         </LanguageProvider>
       </body>

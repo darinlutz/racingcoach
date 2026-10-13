@@ -1,0 +1,83 @@
+{
+  "modelVersion": "1.0.0",
+  "configVersion": "1.0.0",
+  "conventions": {
+    "velocityFrame": "body",
+    "steeringSign": 1,
+    "latAccelSign": "auto"
+  },
+  "filters": {
+    "speedTau": 0.05,
+    "steeringTau": 0.04,
+    "yawRateTau": 0.05,
+    "velocityTau": 0.05,
+    "latAccelTau": 0.08,
+    "derivativeTau": 0.08,
+    "yawResponseTau": 0.12,
+    "vertBaselineTau": 1.0
+  },
+  "validity": {
+    "minSpeedMps": 12,
+    "maxSampleGapSeconds": 0.25,
+    "warmupSeconds": 0.3,
+    "minTurnYawRate": 0.06,
+    "reverseForwardVelocityMps": -0.5,
+    "velocityMagnitudeTolerance": 0.08,
+    "frameCheckMaxSideslipDeg": 10,
+    "frameCheckTau": 20,
+    "frameCheckMinScore": 0.5,
+    "bumpVertAccelMps2": 6,
+    "bumpHoldSeconds": 0.15,
+    "maxLatAccelResidualMps2": 8,
+    "latAccelSignMinEvidence": 3000,
+    "latAccelSignMinLateralMps2": 3
+  },
+  "understeer": {
+    "yawDeficitStart": 0.12,
+    "yawDeficitFull": 0.4,
+    "coreWeight": 0.6,
+    "growthStartPerSecond": 0.3,
+    "growthFullPerSecond": 1.5,
+    "latAccelPlateauStart": 0.8,
+    "latAccelPlateauFull": 0.95,
+    "latAccelPeakMinMps2": 8,
+    "latAccelPeakDecayTau": 60,
+    "frontSlipExcessStartDeg": 1,
+    "frontSlipExcessFullDeg": 4,
+    "weights": { "growth": 0.8, "plateau": 1, "frontAxle": 0.5 },
+    "steeringRateOkRadPerSec": 0.6,
+    "steeringRateMaxRadPerSec": 3,
+    "severityFull": 0.6
+  },
+  "oversteer": {
+    "yawExcessStart": 0.12,
+    "yawExcessFull": 0.45,
+    "entryAllowance": 0.1,
+    "coreWeight": 0.6,
+    "sideslipStartDeg": 3,
+    "sideslipFullDeg": 8,
+    "sideslipRateStartDegPerSec": 6,
+    "sideslipRateFullDegPerSec": 25,
+    "countersteerMinRad": 0.05,
+    "rearSlipStartDeg": 3,
+    "rearSlipFullDeg": 7,
+    "weights": { "sideslip": 1, "sideslipRate": 0.8, "countersteer": 1, "rearAxle": 0.5 },
+    "severityYawFull": 0.8,
+    "severitySideslipFullDeg": 12
+  },
+  "state": {
+    "enterConfidence": 0.75,
+    "exitConfidence": 0.45,
+    "enterSeconds": 0.15,
+    "exitSeconds": 0.25,
+    "minHoldSeconds": 0.3
+  },
+  "phase": {
+    "brakeOn": 0.05,
+    "throttleExit": 0.5
+  },
+  "display": {
+    "understeerColor": "#F59E0B",
+    "oversteerColor": "#EF4444"
+  }
+}

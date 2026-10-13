@@ -95,6 +95,7 @@ public partial class OverlayWindow : Window
         TrackText.Text = track ?? "Waiting for iRacing…";
         MaxBrakeBox.Text = snapshot.MaxBrake ?? "";
         MinSpeedBox.Text = snapshot.MinSpeed ?? "";
+        ShowHandling();
         for (var i = 0; i < OverlayEngine.AreaCount; i++)
         {
             var name = snapshot.AreaNames[i];
@@ -129,6 +130,19 @@ public partial class OverlayWindow : Window
         var showCoach = coach is not null && DateTime.UtcNow - coach.At < InCarCoach.MessageShownFor;
         CoachText.Text = showCoach ? coach!.Text : "";
         CoachText.Visibility = showCoach ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    // The Rotation Model's label: only a confirmed understeer or oversteer, never a guess (see RotationMonitor)
+    private void ShowHandling()
+    {
+        var rotation = _engine.Rotation;
+        var label = rotation.TryGetLatest(out var result) && result.IsValid ? result.DisplayLabel : "";
+        HandlingBox.Visibility = label.Length > 0 ? Visibility.Visible : Visibility.Hidden;
+        if (label.Length == 0)
+            return;
+        HandlingBox.Text = label;
+        var color = label == "UNDERSTEER" ? rotation.Config.Display.UndersteerColor : rotation.Config.Display.OversteerColor;
+        HandlingBox.Foreground = NamedBrush(color) ?? LightText;
     }
 
     // A box's text in its own color, or during a brake point alert on the alert color in plain light or dark

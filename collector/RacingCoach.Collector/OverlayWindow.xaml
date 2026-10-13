@@ -67,6 +67,8 @@
                     <ColumnDefinition Width="100" />
                     <ColumnDefinition Width="10" />
                     <ColumnDefinition Width="100" />
+                    <ColumnDefinition Width="10" />
+                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="0">
                     <TextBlock Style="{StaticResource Heading}" Text="Max Brake" />
@@ -75,6 +77,11 @@
                 <StackPanel Grid.Column="2">
                     <TextBlock Style="{StaticResource Heading}" Text="Min Speed" />
                     <TextBox x:Name="MinSpeedBox" Style="{StaticResource BigBox}" Foreground="#8AB4F8" />
+                </StackPanel>
+                <!-- UNDERSTEER or OVERSTEER from the Rotation Model while it's sure; hidden (keeping its space) otherwise -->
+                <StackPanel Grid.Column="4">
+                    <TextBlock Style="{StaticResource Heading}" Text="Handling" />
+                    <TextBox x:Name="HandlingBox" Style="{StaticResource BigBox}" MinWidth="230" Visibility="Hidden" />
                 </StackPanel>
             </Grid>
 

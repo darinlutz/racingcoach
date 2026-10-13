@@ -40,6 +40,9 @@ internal sealed class LapWriter : IAsyncDisposable
         ("VertAccel", d => F(d.VertAccel)),
         ("Yaw", d => F(d.Yaw)),
         ("YawRate", d => F(d.YawRate)),
+        // The car's velocity, forward and to the left (m/s): the Rotation Model's sideslip on the website
+        ("VelocityX", d => F(d.VelocityX)),
+        ("VelocityY", d => F(d.VelocityY)),
         ("Lap", d => I(d.Lap)),
         ("LapDist", d => F(d.LapDist)),
         ("SessionTime", d => d.SessionTime?.ToString(Inv) ?? ""),

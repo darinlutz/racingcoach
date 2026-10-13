@@ -60,6 +60,49 @@
                 </StackPanel>
             </DockPanel>
 
+            <!-- The Rotation Model (RotationMonitor): its label, and the numbers behind it -->
+            <Grid DockPanel.Dock="Top">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="10" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <StackPanel Grid.Row="0" Grid.ColumnSpan="3">
+                    <TextBlock Style="{StaticResource Heading}" Text="Handling" />
+                    <TextBox x:Name="HandlingBox" Style="{StaticResource Box}" FontSize="28" />
+                    <TextBlock x:Name="HandlingStatus" Style="{StaticResource Raw}" TextWrapping="Wrap" TextAlignment="Center" />
+                </StackPanel>
+
+                <StackPanel Grid.Row="1" Grid.Column="0">
+                    <TextBlock Style="{StaticResource Heading}" Text="Sideslip" />
+                    <TextBox x:Name="SideslipBox" Style="{StaticResource Box}" />
+                    <TextBlock x:Name="SideslipRaw" Style="{StaticResource Raw}" />
+                </StackPanel>
+                <StackPanel Grid.Row="1" Grid.Column="2">
+                    <TextBlock Style="{StaticResource Heading}" Text="Yaw Rate vs Expected" />
+                    <TextBox x:Name="YawRatioBox" Style="{StaticResource Box}" />
+                    <TextBlock x:Name="YawRatioRaw" Style="{StaticResource Raw}" />
+                </StackPanel>
+
+                <StackPanel Grid.Row="2" Grid.Column="0">
+                    <TextBlock Style="{StaticResource Heading}" Text="Understeer" />
+                    <TextBox x:Name="UndersteerBox" Style="{StaticResource Box}" />
+                    <TextBlock x:Name="UndersteerRaw" Style="{StaticResource Raw}" />
+                </StackPanel>
+                <StackPanel Grid.Row="2" Grid.Column="2">
+                    <TextBlock Style="{StaticResource Heading}" Text="Oversteer" />
+                    <TextBox x:Name="OversteerBox" Style="{StaticResource Box}" />
+                    <TextBlock x:Name="OversteerRaw" Style="{StaticResource Raw}" />
+                </StackPanel>
+            </Grid>
+
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />

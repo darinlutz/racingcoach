@@ -82,6 +82,7 @@ internal sealed class CollectorEngine
         _recorder = new LapRecorder(_writer.Enqueue, message => Log(message));
         _debrief = new SessionDebrief(() => Api, message => Log(message));
         _coach = new InCarCoach(() => Api, message => Log(message));
+        Rotation = new RotationMonitor(message => Log(message));
         Voice.UseSite(() => Api, message => Log(message)); // speech in the user's coach voice
     }
 
@@ -102,6 +103,8 @@ internal sealed class CollectorEngine
     public RacingCoachApi? Api { get; private set; }
     /// <summary>The In-Car AI Coach: the user's instructions as rules on live telemetry, and lap feedback.</summary>
     public InCarCoach Coach => _coach;
+    /// <summary>The Rotation Model on live telemetry: understeer and oversteer for the overlay and Rotation window.</summary>
+    public RotationMonitor Rotation { get; }
     /// <summary>The overlay's TelemetryEngine.js while the overlay is open; it gets every telemetry sample.</summary>
     public OverlayEngine? Overlay { get; set; }
 
@@ -180,6 +183,7 @@ internal sealed class CollectorEngine
             _askedForIbt = false;
             lock (_sampleLock)
                 _hasLatest = false;
+            Rotation.Clear();
             if (state == ConnectState.Connected)
             {
                 if (!Playback)
@@ -230,6 +234,7 @@ internal sealed class CollectorEngine
                 sessionTypes);
 
             _coach.SetTrack(_recorder.Session.Track);
+            Rotation.SetCar(string.IsNullOrWhiteSpace(driver?.CarPath) ? null : driver.CarPath, Session.Car);
 
             // iRacing re-sends session info every few seconds (flags, driver list, ...); only log changes
             if (previous is null || previous.Track != Session.Track || previous.TrackConfig != Session.TrackConfig || previous.Car != Session.Car)
@@ -241,6 +246,7 @@ internal sealed class CollectorEngine
             _recorder.OnSample(data);
             Overlay?.OnSample(data, Session);
             _coach.OnSample(data);
+            Rotation.OnSample(data);
             lock (_sampleLock)
             {
                 _latest = data;

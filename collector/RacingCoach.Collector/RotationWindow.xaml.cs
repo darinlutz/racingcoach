@@ -2,12 +2,14 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Threading;
 
 namespace RacingCoach.Collector;
 
 /// <summary>
-/// The window the Rotation button opens: a see-through, always-on-top window, like the overlay, with the live
+/// The window the Rotation button opens: a see-through, always-on-top window, like the overlay, with the
+/// Rotation Model's verdict (UNDERSTEER / OVERSTEER) and the numbers behind it, then the live
 /// telemetry that shows how the car rotates (steering, yaw, velocities, accelerations) and the pedals. Each box
 /// shows the value in readable units, with iRacing's own value and units under it.
 /// </summary>
@@ -40,6 +42,7 @@ public partial class RotationWindow : Window
                 box.Text = "—";
             foreach (var raw in new[] { SteeringRaw, SpeedRaw, YawRateRaw, YawRaw, VelocityXRaw, VelocityYRaw, LatAccelRaw, LongAccelRaw, ThrottleRaw, BrakeRaw })
                 raw.Text = "";
+            ClearRotationModel();
             return;
         }
 
@@ -58,6 +61,63 @@ public partial class RotationWindow : Window
         Show(LongAccelBox, LongAccelRaw, d.LongAccel, v => $"{v / Gravity:+0.00;−0.00;0.00} g", "m/s²");
         Show(ThrottleBox, ThrottleRaw, d.Throttle, v => $"{Math.Clamp(v, 0, 1) * 100:0}%", "");
         Show(BrakeBox, BrakeRaw, d.Brake, v => $"{Math.Clamp(v, 0, 1) * 100:0}%", "");
+        ShowRotationModel();
+    }
+
+    // The Rotation Model's verdict, and why it can't give one when it can't
+    private void ShowRotationModel()
+    {
+        var rotation = _engine.Rotation;
+        if (!rotation.TryGetLatest(out var r))
+        {
+            ClearRotationModel();
+            return;
+        }
+
+        var label = r.IsValid ? r.DisplayLabel : "";
+        HandlingBox.Text = label.Length > 0 ? label : r.State == Rotation.RotationState.Neutral ? "—" : "";
+        HandlingBox.Foreground = label == "UNDERSTEER" ? Brush(rotation.Config.Display.UndersteerColor)
+            : label == "OVERSTEER" ? Brush(rotation.Config.Display.OversteerColor)
+            : Brushes.Gray;
+        var calibration = rotation.Calibration?.CalibrationId ?? "no calibration for this car";
+        var why = r.InvalidReason is null ? Rotation.RotationNames.Of(r.State) : $"UNKNOWN: {r.InvalidReason}";
+        var phase = r.CornerPhase == Rotation.CornerPhase.Straight ? "" : $" · {Rotation.RotationNames.Of(r.CornerPhase)}";
+        HandlingStatus.Text = $"{why}{phase} · {(r.FullCapability ? "yaw + sideslip" : "yaw only")} · {calibration}\n"
+            + $"This session: {rotation.UndersteerEvents} understeer, {rotation.OversteerEvents} oversteer";
+
+        SideslipBox.Text = r.SideslipAngleDegrees is { } beta ? LeftRight(beta, "°") : "—";
+        SideslipRaw.Text = r.SideslipRateDegreesPerSecond is { } rate ? $"{rate.ToString("+0.0;−0.0;0.0", Culture)} °/s" : "";
+        YawRatioBox.Text = r.YawResponseRatio is { } ratio ? $"{ratio * 100:0}%" : "—";
+        YawRatioRaw.Text = r.YawRateExpected is { } expected && r.YawRateActual is { } actual
+            ? $"{actual * RadiansToDegrees:0.0} of {expected * RadiansToDegrees:0.0} °/s"
+            : "";
+        UndersteerBox.Text = $"{r.UndersteerConfidence * 100:0}%";
+        UndersteerRaw.Text = $"confidence · severity {r.UndersteerSeverity:0}";
+        OversteerBox.Text = $"{r.OversteerConfidence * 100:0}%";
+        OversteerRaw.Text = $"confidence · severity {r.OversteerSeverity:0}"
+            + (r.OversteerType is { } type ? $" · {Rotation.RotationNames.Of(type)}" : "");
+    }
+
+    private void ClearRotationModel()
+    {
+        HandlingBox.Text = "";
+        HandlingStatus.Text = "";
+        foreach (var box in new[] { SideslipBox, YawRatioBox, UndersteerBox, OversteerBox })
+            box.Text = "—";
+        foreach (var raw in new[] { SideslipRaw, YawRatioRaw, UndersteerRaw, OversteerRaw })
+            raw.Text = "";
+    }
+
+    private static Brush Brush(string color)
+    {
+        try
+        {
+            return new BrushConverter().ConvertFromInvariantString(color) as Brush ?? Brushes.White;
+        }
+        catch (FormatException)
+        {
+            return Brushes.White;
+        }
     }
 
     private static void Show(TextBox box, TextBlock raw, float? value, Func<double, string> format, string units)

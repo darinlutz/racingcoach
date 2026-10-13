@@ -26,6 +26,9 @@
   <ItemGroup>
     <!-- Built into the exe; Documents\RacingCoach\TelemetryEngine.js replaces it when present (OverlayEngine.cs) -->
     <EmbeddedResource Include="..\..\scripts\TelemetryEngine.js" LogicalName="TelemetryEngine.js" />
+    <!-- The Rotation Model's settings and car calibrations, shared with the website (RotationMonitor.cs) -->
+    <EmbeddedResource Include="..\..\rotation-model\config.json" LogicalName="rotation-model.config.json" />
+    <EmbeddedResource Include="..\..\rotation-model\calibrations.json" LogicalName="rotation-model.calibrations.json" />
   </ItemGroup>
 
   <ItemGroup>

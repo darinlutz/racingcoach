@@ -1,0 +1,499 @@
+{
+ "modelVersion": "1.0.0",
+ "fixtures": {
+  "01-straight-acceleration": {
+   "states": [
+    [
+     "UNKNOWN",
+     0
+    ],
+    [
+     "NEUTRAL",
+     19
+    ]
+   ],
+   "events": []
+  },
+  "02-neutral-constant-radius": {
+   "states": [
+    [
+     "UNKNOWN",
+     0
+    ],
+    [
+     "NEUTRAL",
+     19
+    ]
+   ],
+   "events": []
+  },
+  "03-understeer-push": {
+   "states": [
+    [
+     "UNKNOWN",
+     0
+    ],
+    [
+     "NEUTRAL",
+     19
+    ],
+    [
+     "UNDERSTEER",
+     175
+    ],
+    [
+     "NEUTRAL",
+     329
+    ]
+   ],
+   "events": [
+    {
+     "eventType": "UNDERSTEER",
+     "startTime": 102.783,
+     "endTime": 105.25,
+     "peakSeverity": 90.195,
+     "oversteerType": null,
+     "endReason": "recovered"
+    }
+   ]
+  },
+  "04-excessive-yaw": {
+   "states": [
+    [
+     "UNKNOWN",
+     0
+    ],
+    [
+     "NEUTRAL",
+     19
+    ],
+    [
+     "OVERSTEER",
+     175
+    ]
+   ],
+   "events": [
+    {
+     "eventType": "OVERSTEER",
+     "startTime": 102.783,
+     "endTime": 105.983,
+     "peakSeverity": 88.252,
+     "oversteerType": "MID_CORNER",
+     "endReason": "end-of-data"
+    }
+   ]
+  },
+  "05-progressive-rear-sideslip": {
+   "states": [
+    [
+     "UNKNOWN",
+     0
+    ],
+    [
+     "NEUTRAL",
+     19
+    ],
+    [
+     "OVERSTEER",
+     208
+    ]
+   ],
+   "events": [
+    {
+     "eventType": "OVERSTEER",
+     "startTime": 103.333,
+     "endTime": 105.983,
+     "peakSeverity": 100,
+     "oversteerType": "MID_CORNER",
+     "endReason": "end-of-data"
+    }
+   ]
+  },
+  "06-countersteer": {
+   "states": [
+    [
+     "UNKNOWN",
+     0
+    ],
+    [
+     "NEUTRAL",
+     19
+    ],
+    [
+     "OVERSTEER",
+     139
+    ],
+    [
+     "NEUTRAL",
+     242
+    ]
+   ],
+   "events": [
+    {
+     "eventType": "OVERSTEER",
+     "startTime": 102.167,
+     "endTime": 103.8,
+     "peakSeverity": 100,
+     "oversteerType": "MID_CORNER",
+     "endReason": "recovered"
+    }
+   ]
+  },
+  "07-trail-braking-rotation": {
+   "states": [
+    [
+     "UNKNOWN",
+     0
+    ],
+    [
+     "NEUTRAL",
+     19
+    ]
+   ],
+   "events": []
+  },
+  "08-power-on-oversteer": {
+   "states": [
+    [
+     "UNKNOWN",
+     0
+    ],
+    [
+     "NEUTRAL",
+     19
+    ],
+    [
+     "OVERSTEER",
+     171
+    ]
+   ],
+   "events": [
+    {
+     "eventType": "OVERSTEER",
+     "startTime": 102.7,
+     "endTime": 104.983,
+     "peakSeverity": 77.624,
+     "oversteerType": "POWER_ON",
+     "endReason": "end-of-data"
+    }
+   ]
+  },
+  "09-high-speed-steady": {
+   "states": [
+    [
+     "UNKNOWN",
+     0
+    ],
+    [
+     "NEUTRAL",
+     19
+    ]
+   ],
+   "events": []
+  },
+  "10-low-speed-hairpin": {
+   "states": [
+    [
+     "UNKNOWN",
+     0
+    ],
+    [
+     "NEUTRAL",
+     19
+    ]
+   ],
+   "events": []
+  },
+  "11a-right-understeer": {
+   "states": [
+    [
+     "UNKNOWN",
+     0
+    ],
+    [
+     "NEUTRAL",
+     19
+    ],
+    [
+     "UNDERSTEER",
+     175
+    ],
+    [
+     "NEUTRAL",
+     329
+    ]
+   ],
+   "events": [
+    {
+     "eventType": "UNDERSTEER",
+     "startTime": 102.783,
+     "endTime": 105.25,
+     "peakSeverity": 90.195,
+     "oversteerType": null,
+     "endReason": "recovered"
+    }
+   ]
+  },
+  "11b-right-oversteer": {
+   "states": [
+    [
+     "UNKNOWN",
+     0
+    ],
+    [
+     "NEUTRAL",
+     19
+    ],
+    [
+     "OVERSTEER",
+     175
+    ]
+   ],
+   "events": [
+    {
+     "eventType": "OVERSTEER",
+     "startTime": 102.783,
+     "endTime": 105.983,
+     "peakSeverity": 88.252,
+     "oversteerType": "MID_CORNER",
+     "endReason": "end-of-data"
+    }
+   ]
+  },
+  "12-noisy-neutral": {
+   "states": [
+    [
+     "UNKNOWN",
+     0
+    ],
+    [
+     "NEUTRAL",
+     19
+    ]
+   ],
+   "events": []
+  },
+  "13-vertical-disturbance": {
+   "states": [
+    [
+     "UNKNOWN",
+     0
+    ],
+    [
+     "NEUTRAL",
+     19
+    ],
+    [
+     "UNKNOWN",
+     96
+    ],
+    [
+     "NEUTRAL",
+     352
+    ]
+   ],
+   "events": []
+  },
+  "14a-missing-velocity-understeer": {
+   "states": [
+    [
+     "UNKNOWN",
+     0
+    ],
+    [
+     "NEUTRAL",
+     19
+    ],
+    [
+     "UNDERSTEER",
+     175
+    ],
+    [
+     "NEUTRAL",
+     329
+    ]
+   ],
+   "events": [
+    {
+     "eventType": "UNDERSTEER",
+     "startTime": 102.783,
+     "endTime": 105.25,
+     "peakSeverity": 90.195,
+     "oversteerType": null,
+     "endReason": "recovered"
+    }
+   ]
+  },
+  "14b-missing-velocity-oversteer": {
+   "states": [
+    [
+     "UNKNOWN",
+     0
+    ],
+    [
+     "NEUTRAL",
+     19
+    ]
+   ],
+   "events": []
+  },
+  "14c-missing-yaw-rate": {
+   "states": [
+    [
+     "UNKNOWN",
+     0
+    ],
+    [
+     "NEUTRAL",
+     19
+    ],
+    [
+     "UNKNOWN",
+     121
+    ],
+    [
+     "NEUTRAL",
+     199
+    ]
+   ],
+   "events": []
+  },
+  "14d-uncalibrated": {
+   "states": [
+    [
+     "UNKNOWN",
+     0
+    ]
+   ],
+   "events": []
+  },
+  "15-zero-speed": {
+   "states": [
+    [
+     "UNKNOWN",
+     0
+    ],
+    [
+     "NEUTRAL",
+     198
+    ]
+   ],
+   "events": []
+  },
+  "16-pause": {
+   "states": [
+    [
+     "UNKNOWN",
+     0
+    ],
+    [
+     "NEUTRAL",
+     19
+    ],
+    [
+     "UNKNOWN",
+     180
+    ],
+    [
+     "NEUTRAL",
+     199
+    ]
+   ],
+   "events": []
+  },
+  "17-session-reset": {
+   "states": [
+    [
+     "UNKNOWN",
+     0
+    ],
+    [
+     "NEUTRAL",
+     19
+    ],
+    [
+     "UNKNOWN",
+     150
+    ],
+    [
+     "NEUTRAL",
+     169
+    ]
+   ],
+   "events": []
+  },
+  "18-steering-reversal": {
+   "states": [
+    [
+     "UNKNOWN",
+     0
+    ],
+    [
+     "NEUTRAL",
+     19
+    ]
+   ],
+   "events": []
+  },
+  "19-spin-recovery": {
+   "states": [
+    [
+     "UNKNOWN",
+     0
+    ],
+    [
+     "NEUTRAL",
+     19
+    ],
+    [
+     "OVERSTEER",
+     137
+    ],
+    [
+     "NEUTRAL",
+     279
+    ]
+   ],
+   "events": [
+    {
+     "eventType": "OVERSTEER",
+     "startTime": 102.15,
+     "endTime": 104.417,
+     "peakSeverity": 100,
+     "oversteerType": "MID_CORNER",
+     "endReason": "recovered"
+    }
+   ]
+  },
+  "20-axle-slip-understeer": {
+   "states": [
+    [
+     "UNKNOWN",
+     0
+    ],
+    [
+     "NEUTRAL",
+     19
+    ],
+    [
+     "UNDERSTEER",
+     175
+    ],
+    [
+     "NEUTRAL",
+     329
+    ]
+   ],
+   "events": [
+    {
+     "eventType": "UNDERSTEER",
+     "startTime": 102.783,
+     "endTime": 105.25,
+     "peakSeverity": 90.183,
+     "oversteerType": null,
+     "endReason": "recovered"
+    }
+   ]
+  }
+ }
+}

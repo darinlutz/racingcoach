@@ -172,6 +172,25 @@ export async function readCollectorLapCsv(userId: number | null, id: number): Pr
   return row ? gunzipSync(row.csv_gzip).toString('utf8') : null;
 }
 
+// Laps by id with their car and CSV, in the order asked for (ids that don't exist, or aren't the user's, are
+// left out). With a userId, only that user's laps; null reads anyone's (Coaches and Admins, see canSeeAllLaps).
+export async function readCollectorLapsById(
+  userId: number | null,
+  ids: number[]
+): Promise<{ id: number; car: string; lapNumber: number; csv: string }[]> {
+  await ensureUserSchema();
+  const rows = await query<{ id: number; car: string; lap_number: number; csv_gzip: Buffer }>(
+    `SELECT id, car, lap_number, csv_gzip FROM racingcoach."CollectorLaps"
+      WHERE id = ANY($1::integer[]) AND ($2::integer IS NULL OR user_id = $2)`,
+    [ids, userId]
+  );
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  return ids.flatMap((id) => {
+    const row = byId.get(id);
+    return row ? [{ id, car: row.car, lapNumber: row.lap_number, csv: gunzipSync(row.csv_gzip).toString('utf8') }] : [];
+  });
+}
+
 // The user's laps with these collector IDs (clientLapId), with their CSVs, in the order asked for. Laps
 // that aren't the user's or don't exist are left out.
 export async function readCollectorLapsByClientId(

@@ -43,6 +43,38 @@
       ],
       "overrides": null,
       "source": "rotation-calibrate.mjs: 40 laps, 2803 steady samples, 2026-10-13"
+    },
+    {
+      "calibrationId": "chevroletcorvettez06gt3r-2026-10-13",
+      "calibrationVersion": "1.0.0",
+      "carId": "chevroletcorvettez06gt3r",
+      "carNames": [
+        "Chevrolet Corvette Z06 GT3.R"
+      ],
+      "wheelbaseMeters": null,
+      "steeringRatio": null,
+      "cgToFrontAxleMeters": null,
+      "cgToRearAxleMeters": null,
+      "understeerGradient": null,
+      "effectiveSteerLength": 150.558,
+      "effectiveUndersteerTerm": -0.031306,
+      "yawReferenceModel": "identified-bicycle",
+      "yawGainMap": [
+        {
+          "speedMps": 53.9,
+          "gainPerRad": 0.9031
+        },
+        {
+          "speedMps": 56.2,
+          "gainPerRad": 1.0889
+        }
+      ],
+      "validSpeedRangeMps": [
+        48,
+        62
+      ],
+      "overrides": null,
+      "source": "rotation-calibrate.mjs: 30 laps, 1174 steady samples, 2026-10-13"
     }
   ]
 }

@@ -10,7 +10,8 @@ namespace RacingCoach.Collector;
 /// The overlay the Launch Overlay button opens: a see-through, always-on-top window with the current
 /// track's focus areas (from the user's Track Data on RacingCoach.app) and each one's values on this lap from
 /// TelemetryEngine.js (OverlayEngine), plus the recent peak brake pressure and minimum speed. Rows for areas the
-/// track doesn't have are hidden. Loads the track again whenever it changes.
+/// track doesn't have are hidden. Above them, the Upcoming Focus Area row repeats the area the car is in, or the
+/// next one as soon as it leaves an area. Loads the track again whenever it changes.
 /// </summary>
 public partial class OverlayWindow : Window
 {
@@ -29,10 +30,12 @@ public partial class OverlayWindow : Window
     private static readonly Brush BoxBackground = Frozen(Color.FromRgb(0x1A, 0x1B, 0x1E));
     private static readonly Brush LightText = Frozen(Color.FromRgb(0xF3, 0xF4, 0xF6));
     private static readonly Brush DarkText = Frozen(Color.FromRgb(0x12, 0x13, 0x15));
+    private static readonly Brush UpcomingBorder = Frozen(Color.FromRgb(0x8A, 0xB4, 0xF8));
     // The script's color names (e.g. "Firebrick") as brushes; null for a name WPF doesn't know
     private static readonly Dictionary<string, SolidColorBrush?> NamedBrushes = [];
 
-    private readonly TextBox[,] _boxes = new TextBox[OverlayEngine.AreaCount, Columns.Length];
+    private readonly TextBox[][] _boxes = new TextBox[OverlayEngine.AreaCount][];
+    private readonly TextBox[] _upcomingBoxes;
 
     // The track (and connection) Track Data was last asked for, and how that went
     private string? _loadedTrack;
@@ -57,28 +60,40 @@ public partial class OverlayWindow : Window
             Grid.SetColumn(text, c);
             AreaGrid.Children.Add(text);
         }
+        // The Upcoming Focus Area row (outlined, with a gap under it), then one row per area
+        _upcomingBoxes = AddRow(box, 1, UpcomingBorder, 12);
         for (var i = 0; i < OverlayEngine.AreaCount; i++)
-        {
-            AreaGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            for (var c = 0; c < Columns.Length; c++)
-            {
-                var cell = new TextBox
-                {
-                    Style = box,
-                    TextAlignment = c == 0 ? TextAlignment.Left : TextAlignment.Right,
-                    Margin = new Thickness(0, 0, c == Columns.Length - 1 ? 0 : 4, 5),
-                    Visibility = Visibility.Collapsed,
-                };
-                Grid.SetRow(cell, i + 1);
-                Grid.SetColumn(cell, c);
-                AreaGrid.Children.Add(cell);
-                _boxes[i, c] = cell;
-            }
-        }
+            _boxes[i] = AddRow(box, i + 2, null, 5);
 
         _timer.Tick += (_, _) => Refresh();
         _timer.Start();
         Refresh();
+    }
+
+    private TextBox[] AddRow(Style box, int row, Brush? border, double bottomMargin)
+    {
+        AreaGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        var cells = new TextBox[Columns.Length];
+        for (var c = 0; c < Columns.Length; c++)
+        {
+            var cell = new TextBox
+            {
+                Style = box,
+                TextAlignment = c == 0 ? TextAlignment.Left : TextAlignment.Right,
+                Margin = new Thickness(0, 0, c == Columns.Length - 1 ? 0 : 4, bottomMargin),
+                Visibility = Visibility.Collapsed,
+            };
+            if (border is not null)
+            {
+                cell.BorderBrush = border;
+                cell.BorderThickness = new Thickness(2);
+            }
+            Grid.SetRow(cell, row);
+            Grid.SetColumn(cell, c);
+            AreaGrid.Children.Add(cell);
+            cells[c] = cell;
+        }
+        return cells;
     }
 
     private void Refresh()
@@ -96,29 +111,11 @@ public partial class OverlayWindow : Window
         MaxBrakeBox.Text = snapshot.MaxBrake ?? "";
         MinSpeedBox.Text = snapshot.MinSpeed ?? "";
         ShowHandling();
+        // Only the track's own areas get a row
         for (var i = 0; i < OverlayEngine.AreaCount; i++)
-        {
-            var name = snapshot.AreaNames[i];
-            // Only the track's own areas get a row
-            for (var c = 0; c < Columns.Length; c++)
-                _boxes[i, c].Visibility = name is null ? Visibility.Collapsed : Visibility.Visible;
-            if (name is null)
-                continue;
-
-            var area = snapshot.Areas[i];
-            // The brake point alert colors the row except Force: "Transparent" (or nothing yet) leaves it as it is
-            var alert = NamedBrush(area?.AlertColor);
-            var alertBackground = alert is not null && alert.Color.A > 0 ? alert : null;
-
-            Show(_boxes[i, 0], name, null, alertBackground);
-            Show(_boxes[i, 1], area?.Brake, area?.BrakeColor, alertBackground);
-            Show(_boxes[i, 2], area?.Force, area?.ForceColor, null);
-            Show(_boxes[i, 3], area?.Gas, area?.GasColor, alertBackground);
-            Show(_boxes[i, 4], area?.Time, null, alertBackground);
-            Show(_boxes[i, 5], area?.Exit, null, alertBackground);
-            Show(_boxes[i, 6], area?.Coast, null, alertBackground);
-            Show(_boxes[i, 7], area?.Overlap, null, alertBackground);
-        }
+            ShowRow(_boxes[i], snapshot.AreaNames[i], snapshot.Areas[i]);
+        var upcoming = snapshot.UpcomingArea;
+        ShowRow(_upcomingBoxes, upcoming is { } u ? snapshot.AreaNames[u] : null, upcoming is { } a ? snapshot.Areas[a] : null);
 
         var status = snapshot.Error is not null ? $"TelemetryEngine.js: {snapshot.Error}"
             : track is null ? null
@@ -130,6 +127,28 @@ public partial class OverlayWindow : Window
         var showCoach = coach is not null && DateTime.UtcNow - coach.At < InCarCoach.MessageShownFor;
         CoachText.Text = showCoach ? coach!.Text : "";
         CoachText.Visibility = showCoach ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    // One area's row: its name, then its values on this lap; hidden without a name
+    private static void ShowRow(TextBox[] cells, string? name, OverlayAreaValues? area)
+    {
+        foreach (var cell in cells)
+            cell.Visibility = name is null ? Visibility.Collapsed : Visibility.Visible;
+        if (name is null)
+            return;
+
+        // The brake point alert colors the row except Force: "Transparent" (or nothing yet) leaves it as it is
+        var alert = NamedBrush(area?.AlertColor);
+        var alertBackground = alert is not null && alert.Color.A > 0 ? alert : null;
+
+        Show(cells[0], name, null, alertBackground);
+        Show(cells[1], area?.Brake, area?.BrakeColor, alertBackground);
+        Show(cells[2], area?.Force, area?.ForceColor, null);
+        Show(cells[3], area?.Gas, area?.GasColor, alertBackground);
+        Show(cells[4], area?.Time, null, alertBackground);
+        Show(cells[5], area?.Exit, null, alertBackground);
+        Show(cells[6], area?.Coast, null, alertBackground);
+        Show(cells[7], area?.Overlap, null, alertBackground);
     }
 
     // The Rotation Model's label: only a confirmed understeer or oversteer, never a guess (see RotationMonitor)

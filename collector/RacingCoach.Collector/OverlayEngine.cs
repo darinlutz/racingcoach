@@ -16,14 +16,16 @@ internal sealed record OverlayAreaValues(
     string Gas, string GasColor,
     string Time, string Exit, string Coast, string Overlap);
 
-/// <summary>What the overlay window shows, copied out of OverlayEngine for the UI thread.</summary>
+/// <summary>What the overlay window shows, copied out of OverlayEngine for the UI thread. UpcomingArea is the
+/// index (0-based) of the focus area the car is in, or the next one ahead of it when it's between areas.</summary>
 internal sealed record OverlaySnapshot(
     string? Track,
     IReadOnlyList<string?> AreaNames,
     IReadOnlyList<OverlayAreaValues?> Areas,
     string? MaxBrake,
     string? MinSpeed,
-    string? Error);
+    string? Error,
+    int? UpcomingArea);
 
 /// <summary>
 /// Runs TelemetryEngine.js (scripts/ in the repo, a SimHub script) for the overlay. The script expects SimHub,
@@ -79,6 +81,9 @@ internal sealed partial class OverlayEngine
     private string? _scriptTrack;
 
     private readonly string?[] _areaNames = new string?[AreaCount];
+    // Each area's start and end as fractions of a lap (LapDistPct), or null without both (telemetry thread only)
+    private readonly (double Start, double End)?[] _areaRanges = new (double, double)?[AreaCount];
+    private int? _upcomingArea;
     private readonly OverlayAreaValues?[] _areas = new OverlayAreaValues?[AreaCount];
     private string? _maxBrake;
     private string? _minSpeed;
@@ -129,7 +134,7 @@ internal sealed partial class OverlayEngine
     public OverlaySnapshot Snapshot()
     {
         lock (_lock)
-            return new OverlaySnapshot(_scriptTrack, [.. _areaNames], [.. _areas], _maxBrake, _minSpeed, _error);
+            return new OverlaySnapshot(_scriptTrack, [.. _areaNames], [.. _areas], _maxBrake, _minSpeed, _error, _upcomingArea);
     }
 
     /// <summary>Runs the script for one telemetry sample (on the telemetry thread).</summary>
@@ -164,9 +169,18 @@ internal sealed partial class OverlayEngine
                         results[area - 1] = AreaValues(area, withText ? null : previous[area - 1]);
                 }
             }
+            // iRacing's LapDistPct is outside 0-1 while the car isn't on track; the last area shown stays then
+            int? upcoming;
+            lock (_lock)
+                upcoming = _upcomingArea;
+            if (_scriptTrack is null)
+                upcoming = null;
+            else if (data.LapDistPct is { } pos and >= 0 and <= 1)
+                upcoming = UpcomingArea(pos);
             lock (_lock)
             {
                 results.CopyTo(_areas, 0);
+                _upcomingArea = upcoming;
                 _maxBrake = maxBrake;
                 _minSpeed = minSpeed;
                 _error = null;
@@ -224,6 +238,32 @@ internal sealed partial class OverlayEngine
         };
     }
 
+    /// <summary>The area the car is in at <paramref name="pos"/> (LapDistPct), or else the one whose start is
+    /// next ahead of it, so an area's row follows right after the car leaves the one before. An area can run
+    /// across the start/finish line (start after end).</summary>
+    private int? UpcomingArea(double pos)
+    {
+        int? next = null;
+        var nextAhead = double.MaxValue;
+        for (var i = 0; i < AreaCount; i++)
+        {
+            if (_areaNames[i] is null || _areaRanges[i] is not var (start, end))
+                continue;
+            var inside = start <= end ? pos >= start && pos <= end : pos >= start || pos <= end;
+            if (inside)
+                return i;
+            var ahead = start - pos;
+            if (ahead < 0)
+                ahead += 1;
+            if (ahead < nextAhead)
+            {
+                nextAhead = ahead;
+                next = i;
+            }
+        }
+        return next;
+    }
+
     private JsValue Call(string function, params object[] arguments) => _js.Invoke(_functions[function], arguments);
 
     private static string Text(JsValue value) => value.IsNull() || value.IsUndefined() ? "" : value.ToString();
@@ -255,6 +295,7 @@ internal sealed partial class OverlayEngine
         lock (_lock)
         {
             Array.Clear(_areas);
+            _upcomingArea = null;
             _maxBrake = null;
             _minSpeed = null;
         }
@@ -275,6 +316,7 @@ internal sealed partial class OverlayEngine
             // Set before the values start over, so the script never mixes mph and kph
             _metric = track.Metric;
             var names = new string?[AreaCount];
+            Array.Clear(_areaRanges);
             _trackDataLengthFeet = 0;
             ResetValues();
             if (track.Json is null)
@@ -294,7 +336,13 @@ internal sealed partial class OverlayEngine
                 {
                     var array = areas.AsArray();
                     for (var i = 0; i < Math.Min(AreaCount, (int)array.Length); i++)
-                        names[i] = array[i].AsObject().Get("name").ToString();
+                    {
+                        var area = array[i].AsObject();
+                        names[i] = area.Get("name").ToString();
+                        var (start, end) = (area.Get("start"), area.Get("end"));
+                        if (start.IsNumber() && end.IsNumber())
+                            _areaRanges[i] = (start.AsNumber(), end.AsNumber());
+                    }
                 }
             }
             lock (_lock)

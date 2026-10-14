@@ -9,9 +9,9 @@ namespace RacingCoach.Collector;
 /// <summary>
 /// The overlay the Launch Overlay button opens: a see-through, always-on-top window with the current
 /// track's focus areas (from the user's Track Data on RacingCoach.app) and each one's values on this lap from
-/// TelemetryEngine.js (OverlayEngine), plus the recent peak brake pressure and minimum speed. Rows for areas the
-/// track doesn't have are hidden. Above them, the Upcoming Focus Area row repeats the area the car is in, or the
-/// next one as soon as it leaves an area. Loads the track again whenever it changes.
+/// TelemetryEngine.js (OverlayEngine), plus the recent peak brake pressure and minimum speed. Only one row of
+/// focus area values is shown, the Upcoming Focus Area: the area the car is in, or the next one as soon as it
+/// leaves an area. Loads the track again whenever it changes.
 /// </summary>
 public partial class OverlayWindow : Window
 {
@@ -34,7 +34,6 @@ public partial class OverlayWindow : Window
     // The script's color names (e.g. "Firebrick") as brushes; null for a name WPF doesn't know
     private static readonly Dictionary<string, SolidColorBrush?> NamedBrushes = [];
 
-    private readonly TextBox[][] _boxes = new TextBox[OverlayEngine.AreaCount][];
     private readonly TextBox[] _upcomingBoxes;
 
     // The track (and connection) Track Data was last asked for, and how that went
@@ -60,10 +59,8 @@ public partial class OverlayWindow : Window
             Grid.SetColumn(text, c);
             AreaGrid.Children.Add(text);
         }
-        // The Upcoming Focus Area row (outlined, with a gap under it), then one row per area
-        _upcomingBoxes = AddRow(box, 1, UpcomingBorder, 12);
-        for (var i = 0; i < OverlayEngine.AreaCount; i++)
-            _boxes[i] = AddRow(box, i + 2, null, 5);
+        // The Upcoming Focus Area row (outlined), the only row of area values
+        _upcomingBoxes = AddRow(box, 1, UpcomingBorder, 0);
 
         _timer.Tick += (_, _) => Refresh();
         _timer.Start();
@@ -111,9 +108,6 @@ public partial class OverlayWindow : Window
         MaxBrakeBox.Text = snapshot.MaxBrake ?? "";
         MinSpeedBox.Text = snapshot.MinSpeed ?? "";
         ShowHandling();
-        // Only the track's own areas get a row
-        for (var i = 0; i < OverlayEngine.AreaCount; i++)
-            ShowRow(_boxes[i], snapshot.AreaNames[i], snapshot.Areas[i]);
         var upcoming = snapshot.UpcomingArea;
         ShowRow(_upcomingBoxes, upcoming is { } u ? snapshot.AreaNames[u] : null, upcoming is { } a ? snapshot.Areas[a] : null);
 

@@ -11,8 +11,8 @@
         UseLayoutRounding="True" TextOptions.TextFormattingMode="Display"
         MouseLeftButtonDown="Window_MouseLeftButtonDown">
 
-    <!-- See-through (Opacity above) so the sim shows through. Drag anywhere to move it. The height follows the
-         number of focus areas. -->
+    <!-- See-through (Opacity above) so the sim shows through. Drag anywhere to move it. The height fits the
+         one row of focus area values. -->
     <Window.Resources>
         <Style x:Key="Heading" TargetType="TextBlock">
             <Setter Property="Foreground" Value="#9A9CA3" />
@@ -91,7 +91,7 @@
             <TextBlock x:Name="CoachText" DockPanel.Dock="Top" Foreground="#4ADE80" FontSize="16" FontWeight="SemiBold"
                        TextWrapping="Wrap" Margin="0,0,0,8" Visibility="Collapsed" />
 
-            <!-- One row per focus area: its name, then this lap's values; columns, headings and rows added in code -->
+            <!-- The Upcoming Focus Area row: its name, then this lap's values; columns, headings and the row added in code -->
             <Grid x:Name="AreaGrid" VerticalAlignment="Top" />
         </DockPanel>
     </Border>

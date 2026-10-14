@@ -7,14 +7,16 @@ using SVappsLAB.iRacingTelemetrySDK;
 
 namespace RacingCoach.Collector;
 
-/// <summary>One focus area's values on this lap, as TelemetryEngine.js's functions return them (colors are
-/// SimHub color names such as "Firebrick", or "Transparent").</summary>
+/// <summary>One focus area's values on this lap, as TelemetryEngine.js's functions return them, in the user's
+/// units and language (colors are SimHub color names such as "Firebrick", "#AARRGGBB", or "Transparent").</summary>
 internal sealed record OverlayAreaValues(
     string AlertColor,
     string Brake, string BrakeColor,
     string Force, string ForceColor,
     string Gas, string GasColor,
-    string Time, string Exit, string Coast, string Overlap);
+    string Time, string TimeColor,
+    string Exit, string ExitColor,
+    string Coast, string Overlap);
 
 /// <summary>What the overlay window shows, copied out of OverlayEngine for the UI thread. UpcomingArea is the
 /// index (0-based) of the focus area the car is in, or the next one ahead of it when it's between areas.</summary>
@@ -25,7 +27,8 @@ internal sealed record OverlaySnapshot(
     string? MaxBrake,
     string? MinSpeed,
     string? Error,
-    int? UpcomingArea);
+    int? UpcomingArea,
+    bool Metric);
 
 /// <summary>
 /// Runs TelemetryEngine.js (scripts/ in the repo, a SimHub script) for the overlay. The script expects SimHub,
@@ -37,6 +40,8 @@ internal sealed record OverlaySnapshot(
 /// All script calls happen on the telemetry thread (OnSample); the UI reads Snapshot.
 /// Units follow the user's Preferred Units on RacingCoach.app: as in SimHub, SpeedLocal is mph or kph, and the
 /// script's distances (which it measures in feet, its alert colors included) are shown in meters for Metric.
+/// The script writes English ("12 ft late", "BEST"); <see cref="Localize"/> puts its text in the user's Preferred
+/// Language (<see cref="Language"/>), numbers included.
 /// </summary>
 internal sealed partial class OverlayEngine
 {
@@ -56,6 +61,8 @@ internal sealed partial class OverlayEngine
         "GetTimeArea", "GetSpeedArea", "GetCoastingDistance", "GetControlOverlapDistance",
         "GetMaximumBrakePressure", "GetMinimumSpeed",
     ];
+    // Functions the overlay calls when the script has them (a Documents\RacingCoach copy from before them may not)
+    private static readonly string[] OptionalFunctions = ["GetTimeAreaColor", "GetSpeedAreaColor"];
     // The functions that only compare and format what the measuring ones recorded run every this many samples
     // (60 Hz / 6 = 10 times a second, as often as the window refreshes), since the script is slow enough that
     // running all of them for 8 areas would take most of the time between samples
@@ -87,6 +94,8 @@ internal sealed partial class OverlayEngine
     private readonly OverlayAreaValues?[] _areas = new OverlayAreaValues?[AreaCount];
     private string? _maxBrake;
     private string? _minSpeed;
+    // The units the values are in, for the window's headings (under _lock)
+    private bool _shownMetric;
     private string? _error;
 
     /// <summary>Loads the script. Throws if it can't be read, doesn't run or lacks a function the overlay uses.</summary>
@@ -99,7 +108,7 @@ internal sealed partial class OverlayEngine
         _js.SetValue("format", new Func<object?, string?, string>(Format));
         _js.Execute("var root = {}; var TrackConfig = {};");
         _js.Execute(script);
-        foreach (var name in Functions)
+        foreach (var name in Functions.Concat(OptionalFunctions))
             _functions[name] = _js.GetValue(name);
         var missing = Functions.Where(name => _functions[name] is not Jint.Native.Function.Function).ToList();
         if (missing.Count > 0)
@@ -108,6 +117,11 @@ internal sealed partial class OverlayEngine
 
     /// <summary>Where the script came from: the copy in Documents\RacingCoach, or the one built into the exe.</summary>
     public string ScriptSource { get; }
+
+    /// <summary>The user's Preferred Language ("en", "pt" or "es") for the script's text; set from the UI thread,
+    /// takes effect with the next text.</summary>
+    public string Language { get => _language; set => _language = Loc.Normalize(value); }
+    private volatile string _language = Loc.English;
 
     /// <summary>Documents\RacingCoach\TelemetryEngine.js when it exists (so the engine can be changed without a
     /// new collector), otherwise the copy built in from scripts/TelemetryEngine.js.</summary>
@@ -134,7 +148,7 @@ internal sealed partial class OverlayEngine
     public OverlaySnapshot Snapshot()
     {
         lock (_lock)
-            return new OverlaySnapshot(_scriptTrack, [.. _areaNames], [.. _areas], _maxBrake, _minSpeed, _error, _upcomingArea);
+            return new OverlaySnapshot(_scriptTrack, [.. _areaNames], [.. _areas], _maxBrake, _minSpeed, _error, _upcomingArea, _shownMetric);
     }
 
     /// <summary>Runs the script for one telemetry sample (on the telemetry thread).</summary>
@@ -154,7 +168,7 @@ internal sealed partial class OverlayEngine
             _sample = data;
             var maxBrake = Text(Call("GetMaximumBrakePressure"));
             // A bare number in SpeedLocal's units (mph or kph)
-            var minSpeed = Text(Call("GetMinimumSpeed"));
+            var minSpeed = Localize(Text(Call("GetMinimumSpeed")));
 
             var withText = _sampleCount++ % TextEvery == 0;
             OverlayAreaValues?[] previous;
@@ -210,11 +224,12 @@ internal sealed partial class OverlayEngine
         Call("GetThrottlePickupPoint", area);
         var measured = new OverlayAreaValues(
             AlertColor: Text(Call("GetBrakepointAlertColor", area)),
-            Brake: "", BrakeColor: "", Force: "", ForceColor: "", Gas: "", GasColor: "", Time: "",
+            Brake: "", BrakeColor: "", Force: "", ForceColor: "", Gas: "", GasColor: "", Time: "", TimeColor: "",
             // GetSpeedArea takes the track name too
-            Exit: InUnits(Text(Call("GetSpeedArea", _trackName, area))),
-            Coast: InUnits(Text(Call("GetCoastingDistance", area))),
-            Overlap: InUnits(Text(Call("GetControlOverlapDistance", area))));
+            Exit: Localize(Text(Call("GetSpeedArea", _trackName, area))),
+            ExitColor: CallOptional("GetSpeedAreaColor", _trackName, area),
+            Coast: Localize(Text(Call("GetCoastingDistance", area))),
+            Overlap: Localize(Text(Call("GetControlOverlapDistance", area))));
 
         if (keepText is not null)
         {
@@ -223,18 +238,19 @@ internal sealed partial class OverlayEngine
                 Brake = keepText.Brake, BrakeColor = keepText.BrakeColor,
                 Force = keepText.Force, ForceColor = keepText.ForceColor,
                 Gas = keepText.Gas, GasColor = keepText.GasColor,
-                Time = keepText.Time,
+                Time = keepText.Time, TimeColor = keepText.TimeColor,
             };
         }
         return measured with
         {
-            Brake = InUnits(Text(Call("GetBrakepointDiffTarget", area))),
+            Brake = Localize(Text(Call("GetBrakepointDiffTarget", area))),
             BrakeColor = Text(Call("GetBrakepointColorTarget", area)),
-            Force = Text(Call("GetBrakePressureDiffTarget", area)),
+            Force = Localize(Text(Call("GetBrakePressureDiffTarget", area))),
             ForceColor = Text(Call("GetBrakePressureDiffTargetColor", area)),
-            Gas = InUnits(Text(Call("GetThrottlePickupDiffTarget", area))),
+            Gas = Localize(Text(Call("GetThrottlePickupDiffTarget", area))),
             GasColor = Text(Call("GetThrottlePickupColorTarget", area)),
-            Time = Text(Call("GetTimeArea", _trackName, area)),
+            Time = Localize(Text(Call("GetTimeArea", _trackName, area))),
+            TimeColor = CallOptional("GetTimeAreaColor", _trackName, area),
         };
     }
 
@@ -266,6 +282,10 @@ internal sealed partial class OverlayEngine
 
     private JsValue Call(string function, params object[] arguments) => _js.Invoke(_functions[function], arguments);
 
+    // An OptionalFunctions function's text, or "" when the script has no such function
+    private string CallOptional(string function, params object[] arguments) =>
+        _functions[function] is Jint.Native.Function.Function ? Text(Call(function, arguments)) : "";
+
     private static string Text(JsValue value) => value.IsNull() || value.IsUndefined() ? "" : value.ToString();
 
     // "12 ft late" or "35 ft"; and "-1.2 mph" (the script labels SpeedLocal's speeds mph whatever their units)
@@ -273,19 +293,34 @@ internal sealed partial class OverlayEngine
     private static partial Regex FeetText();
     [GeneratedRegex(@"\bmph\b")]
     private static partial Regex MphText();
+    // A decimal point between digits, e.g. "1.25"
+    [GeneratedRegex(@"(?<=\d)\.(?=\d)")]
+    private static partial Regex DecimalPoint();
+    // The script's words (Loc's script.* texts)
+    [GeneratedRegex(@"\b(late|early|NAILED|Target|HEAVY|light|SAME|BEST|TGT)\b")]
+    private static partial Regex ScriptWords();
 
-    /// <summary>The script's text in the user's units: for Metric, "12 ft late" becomes "4 m late" and its
-    /// speeds (already kph, from SpeedLocal) are labeled kph. Unchanged for Standard.</summary>
-    private string InUnits(string text)
+    /// <summary>The script's text in the user's units and language: for Metric, "12 ft late" becomes "4 m late"
+    /// and its speeds (already kph, from SpeedLocal) are labeled km/h; then its words and decimal points are the
+    /// language's, e.g. "4 m depois" and "+0,12 s" in Portuguese.</summary>
+    private string Localize(string text)
     {
-        if (!_metric || text.Length == 0)
+        if (text.Length == 0)
             return text;
-        text = FeetText().Replace(text, m =>
+        if (_metric)
         {
-            var feet = double.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture);
-            return Math.Round(feet * MetersPerFoot).ToString("0", CultureInfo.InvariantCulture) + " m";
-        });
-        return MphText().Replace(text, "kph");
+            text = FeetText().Replace(text, m =>
+            {
+                var feet = double.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture);
+                return Math.Round(feet * MetersPerFoot).ToString("0", CultureInfo.InvariantCulture) + " m";
+            });
+            text = MphText().Replace(text, Loc.SpeedUnit(metric: true));
+        }
+        var language = _language;
+        if (language == Loc.English)
+            return text;
+        text = DecimalPoint().Replace(text, Loc.Culture(language).NumberFormat.NumberDecimalSeparator);
+        return ScriptWords().Replace(text, m => Loc.T(language, "script." + m.Value));
     }
 
     /// <summary>Forgets everything the script has measured, and what the overlay shows from it.</summary>
@@ -349,6 +384,7 @@ internal sealed partial class OverlayEngine
             {
                 _scriptTrack = track.Json is null ? null : track.Name;
                 names.CopyTo(_areaNames, 0);
+                _shownMetric = track.Metric;
             }
         }
 

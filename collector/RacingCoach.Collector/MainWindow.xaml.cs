@@ -673,7 +673,7 @@ public partial class MainWindow : Window
             _brakePracticeWindow.Activate();
             return;
         }
-        _brakePracticeWindow = new BrakePracticeWindow();
+        _brakePracticeWindow = new BrakePracticeWindow(_engine);
         _brakePracticeWindow.Closed += (_, _) => _brakePracticeWindow = null;
         _brakePracticeWindow.Show();
     }

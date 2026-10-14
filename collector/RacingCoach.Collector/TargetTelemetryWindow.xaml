@@ -1,6 +1,7 @@
 <Window x:Class="RacingCoach.Collector.TargetTelemetryWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:RacingCoach.Collector"
         Title="RacingCoach Target Telemetry"
         Width="640" Height="300" MinWidth="360" MinHeight="220"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
@@ -28,25 +29,25 @@
         <DockPanel>
             <!-- Header, the Target Lap's brake at the car, Reload and a close button -->
             <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
-                <Button DockPanel.Dock="Right" Style="{StaticResource HeaderButton}" Content="✕" Click="Close_Click" ToolTip="Close"
+                <Button DockPanel.Dock="Right" Style="{StaticResource HeaderButton}" Content="✕" Click="Close_Click" local:Loc.ToolTip="close"
                         Width="26" Padding="0" />
-                <Button DockPanel.Dock="Right" Style="{StaticResource HeaderButton}" Content="Reload" Click="Reload_Click"
-                        ToolTip="Load your Target Lap again (after changing it on the Account page)" Padding="10,0" Margin="0,0,8,0" />
+                <Button DockPanel.Dock="Right" Style="{StaticResource HeaderButton}" local:Loc.Key="reload" Click="Reload_Click"
+                        local:Loc.ToolTip="reloadTip" Padding="10,0" Margin="0,0,8,0" />
                 <StackPanel DockPanel.Dock="Right" Margin="0,0,12,0" VerticalAlignment="Center">
                     <TextBlock x:Name="BrakeReadout" HorizontalAlignment="Right" FontSize="26" FontWeight="Bold" FontFamily="Consolas"
                                Foreground="#EF4444" Text="—" />
-                    <TextBlock HorizontalAlignment="Right" Foreground="#9A9CA3" FontSize="11" Text="target brake" />
+                    <TextBlock HorizontalAlignment="Right" Foreground="#9A9CA3" FontSize="11" local:Loc.Key="target.brake" />
                 </StackPanel>
                 <StackPanel VerticalAlignment="Center">
                     <TextBlock FontWeight="Bold" FontSize="14">
-                        <Run Text="RACINGCOACH" /><Run Text=" TARGET TELEMETRY" Foreground="#3B8BFF" FontWeight="Normal" />
+                        <Run Text="RACINGCOACH" /><Run local:Loc.Key="target.telemetryTitle" Foreground="#3B8BFF" FontWeight="Normal" />
                     </TextBlock>
                     <TextBlock x:Name="StatusText" Foreground="#9A9CA3" FontSize="12" TextTrimming="CharacterEllipsis" Text="Loading your Target Lap…" />
                 </StackPanel>
             </DockPanel>
 
-            <!-- The Target Lap's brake (red) and throttle (green), 0-100%, over the next stretch of track, scrolling left
-                 as the car moves; the vertical line is the car, and the bar on it the driver's brake -->
+            <!-- The Target Lap's brake (red), 0-100%, over the next stretch of track, with its gear changes across the
+                 top, scrolling left as the car moves; the vertical line is the car, and the bar on it the driver's brake -->
             <Border Background="#1A1B1E" BorderBrush="#303136" BorderThickness="1" CornerRadius="6" Padding="0,0,8,0">
                 <Grid>
                     <Grid.ColumnDefinitions>

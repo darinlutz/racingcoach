@@ -9,9 +9,10 @@ namespace RacingCoach.Collector;
 
 /// <summary>
 /// The window the Target Telemetry button opens: a see-through, always-on-top window, like the overlay, with the
-/// brake (red) and throttle (green) traces of the user's Target Lap (Account page, from /api/collector/target-lap)
-/// over the 500 ft of track around the car. The car is the vertical line, 100 ft from the left, so the traces
-/// scroll left as the car drives and the target braking ahead comes into view. A short bar on the car's line is the
+/// brake trace (red) of the user's Target Lap (Account page, from /api/collector/target-lap) over the 500 ft of
+/// track around the car, and across the top the gear it shifted into at each gear change. The car is the vertical
+/// line, 100 ft from the left, so the trace and gear changes scroll left as the car drives: a gear reaches the car's
+/// line where the Target Lap shifted into it. A short bar on the car's line is the
 /// driver's own brake, live (hidden off the brake). Positions come from live LapDistPct and the track's length (Track
 /// Data's, or iRacing's when Track Data has none). The Target Lap loads when the window opens, when the track or
 /// the upload key changes, and with Reload.
@@ -21,36 +22,42 @@ public partial class TargetTelemetryWindow : Window
     private const double SpanFeet = 500;   // track shown, left to right
     private const double BehindFeet = 100; // of it behind the car
     private const double MarginFeet = 30;  // samples just off each edge, so the trace runs to the edge
-    private const double TopPad = 10;      // so the 100% line isn't on the edge
+    private const double GearBand = 22;    // the gear changes across the top
+    private const double TopPad = GearBand + 8; // so the 100% line is under them
     private const double FeetPerMeter = 3.280839895;
     private static readonly double[] GuideLines = [20, 40, 60, 80, 100];
     private static readonly CultureInfo Culture = CultureInfo.InvariantCulture;
     private static readonly Brush TraceBrush = Frozen(Color.FromRgb(0xEF, 0x44, 0x44));
     private static readonly Brush FillBrush = Frozen(Color.FromArgb(0x40, 0xEF, 0x44, 0x44));
-    private static readonly Brush ThrottleBrush = Frozen(Color.FromRgb(0x22, 0xC5, 0x5E));
+    private static readonly Brush UpshiftBrush = Frozen(Color.FromRgb(0x3B, 0x8B, 0xFF));
+    private static readonly Brush DownshiftBrush = Frozen(Color.FromRgb(0xF5, 0x9E, 0x0B));
     private static readonly Brush BrakeBarBrush = Frozen(Color.FromRgb(0xFA, 0xCC, 0x15));
     private static readonly Brush GuideBrush = Frozen(Color.FromRgb(0x48, 0x4A, 0x52));
     private static readonly Brush LabelBrush = Frozen(Color.FromRgb(0x9A, 0x9C, 0xA3));
     private static readonly Brush CarBrush = Frozen(Color.FromRgb(0xF3, 0xF4, 0xF6));
+    private static readonly Brush PlotBackground = Frozen(Color.FromRgb(0x1A, 0x1B, 0x1E));
     private static readonly Brush WarningBrush = Frozen(Color.FromRgb(0xF5, 0x9E, 0x0B));
 
     private readonly CollectorEngine _engine;
     private readonly Polyline _trace = new() { Stroke = TraceBrush, StrokeThickness = 2, StrokeLineJoin = PenLineJoin.Round };
     private readonly Polygon _fill = new() { Fill = FillBrush };
-    private readonly Polyline _throttle = new() { Stroke = ThrottleBrush, StrokeThickness = 2, StrokeLineJoin = PenLineJoin.Round };
+    private readonly Canvas _gears = new();
     private readonly Line _car = new() { Stroke = CarBrush, StrokeThickness = 2 };
     // The driver's brake: a short bar across the car's line, at the brake's height
     private readonly Line _brakeBar = new() { Stroke = BrakeBarBrush, StrokeThickness = 4, StrokeStartLineCap = PenLineCap.Round,
         StrokeEndLineCap = PenLineCap.Round, Visibility = Visibility.Collapsed };
     private const double BrakeBarHalfWidth = 14;
 
-    // The Target Lap as fractions of a lap (0-1, around the start/finish line), sorted, with Brake and Throttle
-    // 0-100 for each
+    // The Target Lap as fractions of a lap (0-1, around the start/finish line), sorted, with Brake 0-100 for each
     private double[] _pcts = [];
     private double[] _brakes = [];
-    private double[] _throttles = [];
+    // Its gear changes: where (0-1), the new gear, and whether that was an upshift
+    private (double Pct, int Gear, bool Up)[] _gearChanges = [];
     private TargetLapTrace? _lap;
     private readonly TargetLapSource _target;
+
+    // The user's Preferred Language the window is in
+    private string _language = "";
 
     // What's drawn, so a frame without a new position or anything else new draws nothing
     private float? _position;
@@ -73,6 +80,12 @@ public partial class TargetTelemetryWindow : Window
     private void OnRendering(object? sender, EventArgs e)
     {
         _target.Update();
+        if (_target.Language != _language)
+        {
+            _language = _target.Language;
+            Loc.Apply(this, _language);
+            DrawAxes(); // "car" on the distance axis
+        }
         var live = _engine.TryGetLatest(out var data) && data.LapDistPct is { } pct && pct >= 0;
         if (live)
             _position = data.LapDistPct;
@@ -84,7 +97,7 @@ public partial class TargetTelemetryWindow : Window
         {
             _trace.Points = [];
             _fill.Points = [];
-            _throttle.Points = [];
+            _gears.Children.Clear();
             BrakeReadout.Text = "—";
             _drawn = null;
             return;
@@ -102,13 +115,14 @@ public partial class TargetTelemetryWindow : Window
             ? []
             : lap.Pcts.Select((pct, i) => (
                     Pct: (pct % 1 + 1) % 1,
-                    Brake: Math.Clamp(lap.Brakes[i], 0, 1) * 100,
-                    Throttle: lap.Throttles is { } throttles && i < throttles.Length ? Math.Clamp(throttles[i], 0, 1) * 100 : double.NaN))
+                    Brake: Math.Clamp(lap.Brakes[i], 0, 1) * 100))
                 .OrderBy(s => s.Pct)
                 .ToArray();
         _pcts = samples.Select(s => s.Pct).ToArray();
         _brakes = samples.Select(s => s.Brake).ToArray();
-        _throttles = samples.Select(s => s.Throttle).ToArray();
+        _gearChanges = (lap?.GearChanges ?? [])
+            .Select(change => ((change.Pct % 1 + 1) % 1, change.Gear, change.Gear > change.From))
+            .ToArray();
     }
 
     private void ShowStatus(bool live)
@@ -129,14 +143,12 @@ public partial class TargetTelemetryWindow : Window
             return;
 
         // The Target Lap's samples within the window, by distance from the car (negative is behind it)
-        var points = new List<(double Feet, double Brake, double Throttle)>();
+        var points = new List<(double Feet, double Brake)>();
         for (var i = 0; i < _pcts.Length; i++)
         {
-            var ahead = _pcts[i] - position;
-            ahead -= Math.Floor(ahead + 0.5); // -0.5 to 0.5 of a lap, across the start/finish line
-            var feet = ahead * lengthFeet;
+            var feet = FeetFromCar(_pcts[i], position, lengthFeet);
             if (feet >= -BehindFeet - MarginFeet && feet <= SpanFeet - BehindFeet + MarginFeet)
-                points.Add((feet, _brakes[i], _throttles[i]));
+                points.Add((feet, _brakes[i]));
         }
         points.Sort((a, b) => a.Feet.CompareTo(b.Feet));
 
@@ -147,16 +159,14 @@ public partial class TargetTelemetryWindow : Window
             trace.Add(new Point(X(points[i].Feet), Y(points[i].Brake)));
             if (i > 0 && points[i - 1].Feet <= 0 && points[i].Feet >= 0)
             {
-                var (f0, b0, _) = points[i - 1];
-                var (f1, b1, _) = points[i];
+                var (f0, b0) = points[i - 1];
+                var (f1, b1) = points[i];
                 atCar = f1 > f0 ? b0 + (b1 - b0) * (0 - f0) / (f1 - f0) : b1;
             }
         }
         _trace.Points = trace;
-        // NaN when the site didn't send the throttle
-        _throttle.Points = new PointCollection(
-            points.Where(p => !double.IsNaN(p.Throttle)).Select(p => new Point(X(p.Feet), Y(p.Throttle))));
-        BrakeReadout.Text = atCar is { } brake ? $"{brake.ToString("0", Culture)}%" : "—";
+        DrawGears(position, lengthFeet);
+        BrakeReadout.Text = atCar is { } brake ? $"{brake.ToString("0", Loc.Culture(_language))}%" : "—";
 
         // The area under the trace, down to 0%
         var fill = new PointCollection(trace.Count + 2);
@@ -168,6 +178,42 @@ public partial class TargetTelemetryWindow : Window
             fill.Add(new Point(trace[^1].X, Y(0)));
         }
         _fill.Points = fill;
+    }
+
+    // Each gear change of the Target Lap within the window: the gear it shifted into, across the top, centered on
+    // where it shifted (blue up, amber down)
+    private void DrawGears(float position, double lengthFeet)
+    {
+        _gears.Children.Clear();
+        foreach (var (pct, gear, up) in _gearChanges)
+        {
+            var feet = FeetFromCar(pct, position, lengthFeet);
+            if (feet < -BehindFeet - MarginFeet || feet > SpanFeet - BehindFeet + MarginFeet)
+                continue;
+            var brush = up ? UpshiftBrush : DownshiftBrush;
+            var label = new Border
+            {
+                Width = 22, Height = GearBand - 4, CornerRadius = new CornerRadius(4),
+                BorderBrush = brush, BorderThickness = new Thickness(1.5), Background = PlotBackground,
+                Child = new TextBlock
+                {
+                    Text = gear.ToString(Culture), Foreground = brush, FontWeight = FontWeights.Bold, FontSize = 13,
+                    HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
+                },
+            };
+            Canvas.SetLeft(label, X(feet) - 11);
+            Canvas.SetTop(label, 2);
+            _gears.Children.Add(label);
+        }
+    }
+
+    // How far a point of the lap (0-1) is from the car, in feet: -0.5 to 0.5 of a lap, across the start/finish line
+    // (negative is behind the car)
+    private static double FeetFromCar(double pct, float position, double lengthFeet)
+    {
+        var ahead = pct - position;
+        ahead -= Math.Floor(ahead + 0.5);
+        return ahead * lengthFeet;
     }
 
     // The driver's brake (0-1) as a bar on the car's line; hidden at 0 or without live telemetry
@@ -206,7 +252,6 @@ public partial class TargetTelemetryWindow : Window
             AddLabel(YAxis, $"{level:0}%", 0, y - 8, YAxis.ActualWidth - 6, TextAlignment.Right);
         }
         Plot.Children.Add(_fill);
-        Plot.Children.Add(_throttle);
         Plot.Children.Add(_trace);
 
         _car.X1 = _car.X2 = X(0);
@@ -214,14 +259,15 @@ public partial class TargetTelemetryWindow : Window
         _car.Y2 = Plot.ActualHeight;
         Plot.Children.Add(_car);
         Plot.Children.Add(_brakeBar);
+        Plot.Children.Add(_gears); // over the car's line, so the gear at the car is readable
 
         // Distance from the car: every 100 ft, or 25 m for Metric Preferred Units
         var step = _target.Metric ? 25 * FeetPerMeter : 100;
-        var unit = _target.Metric ? "m" : "ft";
+        var unit = Loc.DistanceUnit(_target.Metric);
         for (var feet = -Math.Floor(BehindFeet / step) * step; feet <= SpanFeet - BehindFeet; feet += step)
         {
             var value = Math.Round(_target.Metric ? feet / FeetPerMeter : feet);
-            var text = value == 0 ? "car" : $"{value.ToString("+0;−0", Culture)} {unit}";
+            var text = value == 0 ? Loc.T(_language, "car") : $"{value.ToString("+0;−0", Culture)} {unit}";
             AddLabel(XAxis, text, X(feet) - 30, 2, 60, TextAlignment.Center);
         }
         _drawn = null;

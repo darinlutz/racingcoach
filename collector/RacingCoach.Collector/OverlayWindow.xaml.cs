@@ -11,7 +11,8 @@ namespace RacingCoach.Collector;
 /// track's focus areas (from the user's Track Data on RacingCoach.app) and each one's values on this lap from
 /// TelemetryEngine.js (OverlayEngine), plus the recent peak brake pressure and minimum speed. Only one row of
 /// focus area values is shown, the Upcoming Focus Area: the area the car is in, or the next one as soon as it
-/// leaves an area. Loads the track again whenever it changes.
+/// leaves an area. Loads the track again whenever it changes. Everything is in the user's Preferred Language and
+/// Units (Loc, and OverlayEngine for the script's text).
 /// </summary>
 public partial class OverlayWindow : Window
 {
@@ -21,11 +22,11 @@ public partial class OverlayWindow : Window
     private readonly CollectorEngine _engine;
     private readonly OverlayEngine _overlay;
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromMilliseconds(100) };
-    // Each column's heading and share of the width (the Focus Area name first)
+    // Each column's heading (a Loc key) and share of the width (the Focus Area name first)
     private static readonly (string Heading, double Width)[] Columns =
     [
-        ("Focus Area", 95), ("Brake", 115), ("Force", 95), ("Gas", 115),
-        ("Time", 80), ("Exit", 90), ("Coast", 80), ("Overlap", 80),
+        ("overlay.focusArea", 95), ("overlay.brakePoint", 115), ("overlay.brakePressure", 105), ("overlay.gas", 115),
+        ("overlay.time", 80), ("overlay.exit", 90), ("overlay.coast", 80), ("overlay.overlap", 80),
     ];
     private static readonly Brush BoxBackground = Frozen(Color.FromRgb(0x1A, 0x1B, 0x1E));
     private static readonly Brush LightText = Frozen(Color.FromRgb(0xF3, 0xF4, 0xF6));
@@ -35,12 +36,16 @@ public partial class OverlayWindow : Window
     private static readonly Dictionary<string, SolidColorBrush?> NamedBrushes = [];
 
     private readonly TextBox[] _upcomingBoxes;
+    private readonly TextBlock[] _headings = new TextBlock[Columns.Length];
+    // The language and units the headings are in (null before the first Refresh)
+    private (string Language, bool Metric)? _shownIn;
 
     // The track (and connection) Track Data was last asked for, and how that went
     private string? _loadedTrack;
     private RacingCoachApi? _loadedWith;
     private bool _loading;
-    private string? _loadProblem;
+    // Why the focus areas aren't showing: a Loc key, and what fills its {0}
+    private (string Key, string? Arg)? _loadProblem;
     private DateTime _retryAt;
 
     internal OverlayWindow(CollectorEngine engine, OverlayEngine overlay)
@@ -55,9 +60,10 @@ public partial class OverlayWindow : Window
         for (var c = 0; c < Columns.Length; c++)
         {
             AreaGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Columns[c].Width, GridUnitType.Star) });
-            var text = new TextBlock { Style = heading, Text = Columns[c].Heading };
+            var text = new TextBlock { Style = heading };
             Grid.SetColumn(text, c);
             AreaGrid.Children.Add(text);
+            _headings[c] = text;
         }
         // The Upcoming Focus Area row (outlined), the only row of area values
         _upcomingBoxes = AddRow(box, 1, UpcomingBorder, 0);
@@ -103,17 +109,28 @@ public partial class OverlayWindow : Window
         if (track is not null && !_loading && (track != _loadedTrack || api != _loadedWith || (_loadProblem is not null && DateTime.UtcNow >= _retryAt)))
             _ = LoadTrackAsync(track, api);
 
+        var language = _engine.Language;
+        _overlay.Language = language;
         var snapshot = _overlay.Snapshot();
-        TrackText.Text = track ?? "Waiting for iRacing…";
+        if (_shownIn != (language, snapshot.Metric))
+        {
+            _shownIn = (language, snapshot.Metric);
+            Loc.Apply(this, language);
+            for (var c = 0; c < Columns.Length; c++)
+                _headings[c].Text = Loc.T(language, Columns[c].Heading);
+            MinSpeedHeading.Text = Loc.T(language, "overlay.minSpeed", Loc.SpeedUnit(snapshot.Metric));
+        }
+        TrackText.Text = track ?? Loc.T(language, "waitingForIRacing");
         MaxBrakeBox.Text = snapshot.MaxBrake ?? "";
         MinSpeedBox.Text = snapshot.MinSpeed ?? "";
-        ShowHandling();
+        ShowHandling(language);
         var upcoming = snapshot.UpcomingArea;
         ShowRow(_upcomingBoxes, upcoming is { } u ? snapshot.AreaNames[u] : null, upcoming is { } a ? snapshot.Areas[a] : null);
 
         var status = snapshot.Error is not null ? $"TelemetryEngine.js: {snapshot.Error}"
             : track is null ? null
-            : _loadProblem ?? (_loading && snapshot.Track is null ? "Loading your focus areas…" : null);
+            : _loadProblem is { } problem ? Loc.T(language, problem.Key, problem.Arg)
+            : _loading && snapshot.Track is null ? Loc.T(language, "overlay.loading") : null;
         StatusText.Text = status ?? "";
         StatusText.Visibility = status is null ? Visibility.Collapsed : Visibility.Visible;
 
@@ -131,7 +148,7 @@ public partial class OverlayWindow : Window
         if (name is null)
             return;
 
-        // The brake point alert colors the row except Force: "Transparent" (or nothing yet) leaves it as it is
+        // The brake point alert colors the row except Brake Pressure: "Transparent" (or nothing yet) leaves it as it is
         var alert = NamedBrush(area?.AlertColor);
         var alertBackground = alert is not null && alert.Color.A > 0 ? alert : null;
 
@@ -139,21 +156,22 @@ public partial class OverlayWindow : Window
         Show(cells[1], area?.Brake, area?.BrakeColor, alertBackground);
         Show(cells[2], area?.Force, area?.ForceColor, null);
         Show(cells[3], area?.Gas, area?.GasColor, alertBackground);
-        Show(cells[4], area?.Time, null, alertBackground);
-        Show(cells[5], area?.Exit, null, alertBackground);
+        // Purple for the session's best ("BEST")
+        Show(cells[4], area?.Time, area?.TimeColor, alertBackground);
+        Show(cells[5], area?.Exit, area?.ExitColor, alertBackground);
         Show(cells[6], area?.Coast, null, alertBackground);
         Show(cells[7], area?.Overlap, null, alertBackground);
     }
 
     // The Rotation Model's label: only a confirmed understeer or oversteer, never a guess (see RotationMonitor)
-    private void ShowHandling()
+    private void ShowHandling(string language)
     {
         var rotation = _engine.Rotation;
         var label = rotation.TryGetLatest(out var result) && result.IsValid ? result.DisplayLabel : "";
         HandlingBox.Visibility = label.Length > 0 ? Visibility.Visible : Visibility.Hidden;
         if (label.Length == 0)
             return;
-        HandlingBox.Text = label;
+        HandlingBox.Text = Loc.T(language, label == "UNDERSTEER" ? "understeer" : "oversteer");
         var color = label == "UNDERSTEER" ? rotation.Config.Display.UndersteerColor : rotation.Config.Display.OversteerColor;
         HandlingBox.Foreground = NamedBrush(color) ?? LightText;
     }
@@ -208,13 +226,13 @@ public partial class OverlayWindow : Window
             if (api is null)
             {
                 _overlay.SetTrack(track, null, metric: false);
-                _loadProblem = "Enter your upload key in the collector (Upload Key) to load your focus areas.";
+                _loadProblem = ("overlay.noKey", null);
                 _retryAt = DateTime.MaxValue; // loads again once a key is entered (the connection changes)
                 return;
             }
             var (json, metric) = await api.GetTrackJsonAsync(track, CancellationToken.None);
             _overlay.SetTrack(track, json, metric);
-            _loadProblem = json is null ? $"{track} isn't in your Track Data on RacingCoach.app. Add it there with its focus areas." : null;
+            _loadProblem = json is null ? ("overlay.noTrack", track) : null;
             // Checked again now and then, so a track added on the site shows up without reopening the overlay
             _retryAt = DateTime.UtcNow + RetryAfter;
             if (json is not null)
@@ -223,12 +241,12 @@ public partial class OverlayWindow : Window
         catch (UnauthorizedAccessException)
         {
             _overlay.SetTrack(track, null, metric: false);
-            _loadProblem = "RacingCoach.app doesn't accept your upload key. Enter your current one in the collector.";
+            _loadProblem = ("overlay.keyRefused", null);
             _retryAt = DateTime.MaxValue;
         }
         catch (Exception e) when (e is HttpRequestException or TaskCanceledException)
         {
-            _loadProblem = $"Couldn't reach RacingCoach.app to load your focus areas ({e.Message}). Trying again shortly.";
+            _loadProblem = ("overlay.unreachable", e.Message);
             _retryAt = DateTime.UtcNow + RetryAfter;
         }
         finally

@@ -1,6 +1,7 @@
 <Window x:Class="RacingCoach.Collector.RotationWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:RacingCoach.Collector"
         Title="RacingCoach Rotation"
         Width="460" MinWidth="360" SizeToContent="Height"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
@@ -49,12 +50,12 @@
         <DockPanel>
             <!-- Header and a close button -->
             <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
-                <Button DockPanel.Dock="Right" Content="✕" Click="Close_Click" ToolTip="Close"
+                <Button DockPanel.Dock="Right" Content="✕" Click="Close_Click" local:Loc.ToolTip="close"
                         Width="26" Height="26" Padding="0" FontSize="12" Cursor="Hand" VerticalAlignment="Top"
                         Foreground="#F3F4F6" Background="#232428" BorderBrush="#303136" />
                 <StackPanel>
                     <TextBlock FontWeight="Bold" FontSize="14">
-                        <Run Text="RACINGCOACH" /><Run Text=" ROTATION" Foreground="#DE3341" FontWeight="Normal" />
+                        <Run Text="RACINGCOACH" /><Run local:Loc.Key="rotation.title" Foreground="#DE3341" FontWeight="Normal" />
                     </TextBlock>
                     <TextBlock x:Name="StatusText" Foreground="#9A9CA3" FontSize="12" TextTrimming="CharacterEllipsis" Text="Waiting for iRacing…" />
                 </StackPanel>
@@ -75,49 +76,49 @@
                 </Grid.RowDefinitions>
 
                 <StackPanel Grid.Row="0" Grid.ColumnSpan="3">
-                    <TextBlock Style="{StaticResource Heading}" Text="Handling" />
+                    <TextBlock Style="{StaticResource Heading}" local:Loc.Key="rotation.handling" />
                     <TextBox x:Name="HandlingBox" Style="{StaticResource Box}" FontSize="28" />
                     <!-- Balance gauges: each bar sits in the middle when neutral, moves left (blue) by the understeer and
                          right (red) by the oversteer; ticks at 50% each way. Severity is how much, Confidence how sure -->
-                    <TextBlock Style="{StaticResource Heading}" Text="Severity (how much)" Margin="0,8,0,4" />
+                    <TextBlock Style="{StaticResource Heading}" local:Loc.Key="rotation.severity" Margin="0,8,0,4" />
                     <Border Height="26" Background="#1A1B1E" BorderBrush="#303136" BorderThickness="1">
                         <Canvas x:Name="SeverityGauge" ClipToBounds="True" SizeChanged="Gauge_SizeChanged" />
                     </Border>
                     <DockPanel Margin="0,2,0,0">
-                        <TextBlock DockPanel.Dock="Left" Text="◀ UNDERSTEER" Foreground="#3B8BFF" FontSize="10" FontWeight="SemiBold" />
-                        <TextBlock DockPanel.Dock="Right" Text="OVERSTEER ▶" Foreground="#EF4444" FontSize="10" FontWeight="SemiBold" />
+                        <TextBlock DockPanel.Dock="Left" local:Loc.Key="rotation.understeerLeft" Foreground="#3B8BFF" FontSize="10" FontWeight="SemiBold" />
+                        <TextBlock DockPanel.Dock="Right" local:Loc.Key="rotation.oversteerRight" Foreground="#EF4444" FontSize="10" FontWeight="SemiBold" />
                         <TextBlock x:Name="SeverityText" Text="" Foreground="#9A9CA3" FontSize="10" HorizontalAlignment="Center" />
                     </DockPanel>
-                    <TextBlock Style="{StaticResource Heading}" Text="Confidence (how sure)" Margin="0,8,0,4" />
+                    <TextBlock Style="{StaticResource Heading}" local:Loc.Key="rotation.confidence" Margin="0,8,0,4" />
                     <Border Height="26" Background="#1A1B1E" BorderBrush="#303136" BorderThickness="1">
                         <Canvas x:Name="ConfidenceGauge" ClipToBounds="True" SizeChanged="Gauge_SizeChanged" />
                     </Border>
                     <DockPanel Margin="0,2,0,0">
-                        <TextBlock DockPanel.Dock="Left" Text="◀ UNDERSTEER" Foreground="#3B8BFF" FontSize="10" FontWeight="SemiBold" />
-                        <TextBlock DockPanel.Dock="Right" Text="OVERSTEER ▶" Foreground="#EF4444" FontSize="10" FontWeight="SemiBold" />
+                        <TextBlock DockPanel.Dock="Left" local:Loc.Key="rotation.understeerLeft" Foreground="#3B8BFF" FontSize="10" FontWeight="SemiBold" />
+                        <TextBlock DockPanel.Dock="Right" local:Loc.Key="rotation.oversteerRight" Foreground="#EF4444" FontSize="10" FontWeight="SemiBold" />
                         <TextBlock x:Name="ConfidenceText" Text="" Foreground="#9A9CA3" FontSize="10" HorizontalAlignment="Center" />
                     </DockPanel>
                     <TextBlock x:Name="HandlingStatus" Style="{StaticResource Raw}" TextWrapping="Wrap" TextAlignment="Center" />
                 </StackPanel>
 
                 <StackPanel Grid.Row="1" Grid.Column="0">
-                    <TextBlock Style="{StaticResource Heading}" Text="Sideslip" />
+                    <TextBlock Style="{StaticResource Heading}" local:Loc.Key="rotation.sideslip" />
                     <TextBox x:Name="SideslipBox" Style="{StaticResource Box}" />
                     <TextBlock x:Name="SideslipRaw" Style="{StaticResource Raw}" />
                 </StackPanel>
                 <StackPanel Grid.Row="1" Grid.Column="2">
-                    <TextBlock Style="{StaticResource Heading}" Text="Yaw Rate vs Expected" />
+                    <TextBlock Style="{StaticResource Heading}" local:Loc.Key="rotation.yawRatio" />
                     <TextBox x:Name="YawRatioBox" Style="{StaticResource Box}" />
                     <TextBlock x:Name="YawRatioRaw" Style="{StaticResource Raw}" />
                 </StackPanel>
 
                 <StackPanel Grid.Row="2" Grid.Column="0">
-                    <TextBlock Style="{StaticResource Heading}" Text="Understeer" />
+                    <TextBlock Style="{StaticResource Heading}" local:Loc.Key="rotation.understeerHeading" />
                     <TextBox x:Name="UndersteerBox" Style="{StaticResource Box}" />
                     <TextBlock x:Name="UndersteerRaw" Style="{StaticResource Raw}" />
                 </StackPanel>
                 <StackPanel Grid.Row="2" Grid.Column="2">
-                    <TextBlock Style="{StaticResource Heading}" Text="Oversteer" />
+                    <TextBlock Style="{StaticResource Heading}" local:Loc.Key="rotation.oversteerHeading" />
                     <TextBox x:Name="OversteerBox" Style="{StaticResource Box}" />
                     <TextBlock x:Name="OversteerRaw" Style="{StaticResource Raw}" />
                 </StackPanel>
@@ -138,56 +139,56 @@
                 </Grid.RowDefinitions>
 
                 <StackPanel Grid.Row="0" Grid.Column="0">
-                    <TextBlock Style="{StaticResource Heading}" Text="Steering Wheel Angle" />
+                    <TextBlock Style="{StaticResource Heading}" local:Loc.Key="rotation.steering" />
                     <TextBox x:Name="SteeringBox" Style="{StaticResource Box}" />
                     <TextBlock x:Name="SteeringRaw" Style="{StaticResource Raw}" />
                 </StackPanel>
                 <StackPanel Grid.Row="0" Grid.Column="2">
-                    <TextBlock Style="{StaticResource Heading}" Text="Speed" />
+                    <TextBlock Style="{StaticResource Heading}" local:Loc.Key="rotation.speed" />
                     <TextBox x:Name="SpeedBox" Style="{StaticResource Box}" Foreground="#8AB4F8" />
                     <TextBlock x:Name="SpeedRaw" Style="{StaticResource Raw}" />
                 </StackPanel>
 
                 <StackPanel Grid.Row="1" Grid.Column="0">
-                    <TextBlock Style="{StaticResource Heading}" Text="Yaw Rate" />
+                    <TextBlock Style="{StaticResource Heading}" local:Loc.Key="rotation.yawRate" />
                     <TextBox x:Name="YawRateBox" Style="{StaticResource Box}" />
                     <TextBlock x:Name="YawRateRaw" Style="{StaticResource Raw}" />
                 </StackPanel>
                 <StackPanel Grid.Row="1" Grid.Column="2">
-                    <TextBlock Style="{StaticResource Heading}" Text="Yaw" />
+                    <TextBlock Style="{StaticResource Heading}" local:Loc.Key="rotation.yaw" />
                     <TextBox x:Name="YawBox" Style="{StaticResource Box}" />
                     <TextBlock x:Name="YawRaw" Style="{StaticResource Raw}" />
                 </StackPanel>
 
                 <StackPanel Grid.Row="2" Grid.Column="0">
-                    <TextBlock Style="{StaticResource Heading}" Text="Velocity X (forward)" />
+                    <TextBlock Style="{StaticResource Heading}" local:Loc.Key="rotation.velocityX" />
                     <TextBox x:Name="VelocityXBox" Style="{StaticResource Box}" />
                     <TextBlock x:Name="VelocityXRaw" Style="{StaticResource Raw}" />
                 </StackPanel>
                 <StackPanel Grid.Row="2" Grid.Column="2">
-                    <TextBlock Style="{StaticResource Heading}" Text="Velocity Y (sideways)" />
+                    <TextBlock Style="{StaticResource Heading}" local:Loc.Key="rotation.velocityY" />
                     <TextBox x:Name="VelocityYBox" Style="{StaticResource Box}" />
                     <TextBlock x:Name="VelocityYRaw" Style="{StaticResource Raw}" />
                 </StackPanel>
 
                 <StackPanel Grid.Row="3" Grid.Column="0">
-                    <TextBlock Style="{StaticResource Heading}" Text="Lateral Accel" />
+                    <TextBlock Style="{StaticResource Heading}" local:Loc.Key="rotation.latAccel" />
                     <TextBox x:Name="LatAccelBox" Style="{StaticResource Box}" />
                     <TextBlock x:Name="LatAccelRaw" Style="{StaticResource Raw}" />
                 </StackPanel>
                 <StackPanel Grid.Row="3" Grid.Column="2">
-                    <TextBlock Style="{StaticResource Heading}" Text="Longitudinal Accel" />
+                    <TextBlock Style="{StaticResource Heading}" local:Loc.Key="rotation.longAccel" />
                     <TextBox x:Name="LongAccelBox" Style="{StaticResource Box}" />
                     <TextBlock x:Name="LongAccelRaw" Style="{StaticResource Raw}" />
                 </StackPanel>
 
                 <StackPanel Grid.Row="4" Grid.Column="0">
-                    <TextBlock Style="{StaticResource Heading}" Text="Throttle" />
+                    <TextBlock Style="{StaticResource Heading}" local:Loc.Key="rotation.throttle" />
                     <TextBox x:Name="ThrottleBox" Style="{StaticResource Box}" Foreground="#4ADE80" />
                     <TextBlock x:Name="ThrottleRaw" Style="{StaticResource Raw}" />
                 </StackPanel>
                 <StackPanel Grid.Row="4" Grid.Column="2">
-                    <TextBlock Style="{StaticResource Heading}" Text="Brake" />
+                    <TextBlock Style="{StaticResource Heading}" local:Loc.Key="rotation.brake" />
                     <TextBox x:Name="BrakeBox" Style="{StaticResource Box}" Foreground="#EF4444" />
                     <TextBlock x:Name="BrakeRaw" Style="{StaticResource Raw}" />
                 </StackPanel>

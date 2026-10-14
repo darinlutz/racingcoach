@@ -48,6 +48,9 @@ public partial class TargetSteeringWindow : Window
     // The driver's steering (degrees) over the stretch behind the car, oldest first
     private readonly List<(float Pct, double Steering)> _live = [];
 
+    // The user's Preferred Language the window is in
+    private string _language = "";
+
     // What's drawn, so a frame without a new position or anything else new draws nothing
     private float? _position;
     private (float Position, int Live, double? Steering, double LengthFeet, double Width, double Height)? _drawn;
@@ -69,6 +72,12 @@ public partial class TargetSteeringWindow : Window
     private void OnRendering(object? sender, EventArgs e)
     {
         _target.Update();
+        if (_target.Language != _language)
+        {
+            _language = _target.Language;
+            Loc.Apply(this, _language);
+            DrawAxes(); // "car" and left/right on the axes
+        }
         var lengthFeet = _target.LengthFeet;
         var live = _engine.TryGetLatest(out var data) && data.LapDistPct is { } pct && pct >= 0;
         if (live && data.LapDistPct is { } position && data.SteeringWheelAngle is { } angle)
@@ -139,7 +148,7 @@ public partial class TargetSteeringWindow : Window
     {
         var (status, message, warning) = _target.Status(live, _position is not null);
         if (message is null && _lap is not null && _lap.Steerings is null)
-            message = "RacingCoach.app didn't send your Target Lap's steering. Try again after the site updates.";
+            message = Loc.T(_language, "target.noSteering");
         if (StatusText.Text != status)
             StatusText.Text = status;
         StatusText.Foreground = warning ? WarningBrush : LabelBrush;
@@ -182,12 +191,12 @@ public partial class TargetSteeringWindow : Window
             _live.Select(s => new Point(X(FeetFromCar(s.Pct, position, lengthFeet)), Y(s.Steering))));
     }
 
-    // "L 45°", "R 12°" or "0°"
-    private static string Degrees(double degrees) =>
+    // "L 45°", "R 12°" or "0°" (E/D in Portuguese, I/D in Spanish)
+    private string Degrees(double degrees) =>
         Math.Round(degrees) switch
         {
-            > 0 and var left => $"L {left.ToString("0", Culture)}°",
-            < 0 and var right => $"R {(-right).ToString("0", Culture)}°",
+            > 0 and var left => $"{Loc.T(_language, "left")} {left.ToString("0", Culture)}°",
+            < 0 and var right => $"{Loc.T(_language, "right")} {(-right).ToString("0", Culture)}°",
             _ => "0°",
         };
 
@@ -222,11 +231,11 @@ public partial class TargetSteeringWindow : Window
         // Distance from the car: every 100 ft, or 25 m for Metric Preferred Units
         var metric = _target.Metric;
         var step = metric ? 25 * FeetPerMeter : 100;
-        var unit = metric ? "m" : "ft";
+        var unit = Loc.DistanceUnit(metric);
         for (var feet = -Math.Floor(BehindFeet / step) * step; feet <= SpanFeet - BehindFeet; feet += step)
         {
             var value = Math.Round(metric ? feet / FeetPerMeter : feet);
-            var text = value == 0 ? "car" : $"{value.ToString("+0;−0", Culture)} {unit}";
+            var text = value == 0 ? Loc.T(_language, "car") : $"{value.ToString("+0;−0", Culture)} {unit}";
             AddLabel(XAxis, text, X(feet) - 30, 2, 60, TextAlignment.Center);
         }
         _drawn = null;

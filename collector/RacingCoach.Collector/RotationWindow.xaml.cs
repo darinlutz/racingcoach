@@ -12,7 +12,8 @@ namespace RacingCoach.Collector;
 /// The window the Rotation button opens: a see-through, always-on-top window, like the overlay, with the
 /// Rotation Model's verdict (UNDERSTEER / OVERSTEER) and the numbers behind it, then the live
 /// telemetry that shows how the car rotates (steering, yaw, velocities, accelerations) and the pedals. Each box
-/// shows the value in readable units, with iRacing's own value and units under it.
+/// shows the value in readable units, with iRacing's own value and units under it. In the user's Preferred Language
+/// and Units.
 /// </summary>
 public partial class RotationWindow : Window
 {
@@ -20,7 +21,7 @@ public partial class RotationWindow : Window
     private const double MetersPerSecondToKph = 3.6;
     private const double Gravity = 9.80665;
     private const double RadiansToDegrees = 180 / Math.PI;
-    private static readonly CultureInfo Culture = CultureInfo.InvariantCulture;
+    private static readonly CultureInfo Invariant = CultureInfo.InvariantCulture;
 
     private const double BalanceBarWidth = 6;
     private static readonly Brush NeutralBrush = Frozen(Color.FromRgb(0xF3, 0xF4, 0xF6));
@@ -34,13 +35,16 @@ public partial class RotationWindow : Window
     private readonly BalanceGauge _confidence;
     // 20 times a second: the telemetry itself is 60 Hz, faster than anyone can read
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromMilliseconds(50) };
+    // The user's Preferred Language, and its number format
+    private string _language = "";
+    private CultureInfo _culture = Invariant;
 
     internal RotationWindow(CollectorEngine engine)
     {
         InitializeComponent();
         _engine = engine;
-        _severity = new BalanceGauge(SeverityGauge, SeverityText);
-        _confidence = new BalanceGauge(ConfidenceGauge, ConfidenceText);
+        _severity = new BalanceGauge(this, SeverityGauge, SeverityText);
+        _confidence = new BalanceGauge(this, ConfidenceGauge, ConfidenceText);
         _timer.Tick += (_, _) => Refresh();
         _timer.Start();
         Refresh();
@@ -48,9 +52,15 @@ public partial class RotationWindow : Window
 
     private void Refresh()
     {
+        if (_engine.Language != _language)
+        {
+            _language = _engine.Language;
+            _culture = Loc.Culture(_language);
+            Loc.Apply(this, _language);
+        }
         if (!_engine.TryGetLatest(out var d))
         {
-            StatusText.Text = "Waiting for iRacing…";
+            StatusText.Text = Loc.T(_language, "waitingForIRacing");
             foreach (var box in new[] { SteeringBox, SpeedBox, YawRateBox, YawBox, VelocityXBox, VelocityYBox, LatAccelBox, LongAccelBox, ThrottleBox, BrakeBox })
                 box.Text = "—";
             foreach (var raw in new[] { SteeringRaw, SpeedRaw, YawRateRaw, YawRaw, VelocityXRaw, VelocityYRaw, LatAccelRaw, LongAccelRaw, ThrottleRaw, BrakeRaw })
@@ -60,22 +70,23 @@ public partial class RotationWindow : Window
         }
 
         var session = _engine.Session;
-        StatusText.Text = session is null ? "Live" : session.TrackConfig is null ? session.Track : $"{session.Track} ({session.TrackConfig})";
+        StatusText.Text = session is null ? Loc.T(_language, "live") : session.TrackConfig is null ? session.Track : $"{session.Track} ({session.TrackConfig})";
 
         // iRacing's angles are radians, positive to the left (counterclockwise)
         Show(SteeringBox, SteeringRaw, d.SteeringWheelAngle, v => LeftRight(v * RadiansToDegrees, "°"), "rad");
-        // Speeds in the user's Preferred Units: mph, or kph for Metric
-        var (perMetersPerSecond, speedUnit) = _engine.Metric ? (MetersPerSecondToKph, "kph") : (MetersPerSecondToMph, "mph");
-        Show(SpeedBox, SpeedRaw, d.Speed, v => $"{v * perMetersPerSecond:0.0} {speedUnit}", "m/s");
+        // Speeds in the user's Preferred Units: mph, or km/h for Metric
+        var perMetersPerSecond = _engine.Metric ? MetersPerSecondToKph : MetersPerSecondToMph;
+        var speedUnit = Loc.SpeedUnit(_engine.Metric);
+        Show(SpeedBox, SpeedRaw, d.Speed, v => $"{N(v * perMetersPerSecond, "0.0")} {speedUnit}", "m/s");
         Show(YawRateBox, YawRateRaw, d.YawRate, v => LeftRight(v * RadiansToDegrees, "°/s"), "rad/s");
-        Show(YawBox, YawRaw, d.Yaw, v => $"{v * RadiansToDegrees:0.0}°", "rad");
-        Show(VelocityXBox, VelocityXRaw, d.VelocityX, v => $"{v * perMetersPerSecond:0.0} {speedUnit}", "m/s");
+        Show(YawBox, YawRaw, d.Yaw, v => $"{N(v * RadiansToDegrees, "0.0")}°", "rad");
+        Show(VelocityXBox, VelocityXRaw, d.VelocityX, v => $"{N(v * perMetersPerSecond, "0.0")} {speedUnit}", "m/s");
         // Y is positive to the left
         Show(VelocityYBox, VelocityYRaw, d.VelocityY, v => LeftRight(v * perMetersPerSecond, $" {speedUnit}"), "m/s");
-        Show(LatAccelBox, LatAccelRaw, d.LatAccel, v => $"{v / Gravity:+0.00;−0.00;0.00} g", "m/s²");
-        Show(LongAccelBox, LongAccelRaw, d.LongAccel, v => $"{v / Gravity:+0.00;−0.00;0.00} g", "m/s²");
-        Show(ThrottleBox, ThrottleRaw, d.Throttle, v => $"{Math.Clamp(v, 0, 1) * 100:0}%", "");
-        Show(BrakeBox, BrakeRaw, d.Brake, v => $"{Math.Clamp(v, 0, 1) * 100:0}%", "");
+        Show(LatAccelBox, LatAccelRaw, d.LatAccel, v => $"{N(v / Gravity, "+0.00;−0.00;0.00")} g", "m/s²");
+        Show(LongAccelBox, LongAccelRaw, d.LongAccel, v => $"{N(v / Gravity, "+0.00;−0.00;0.00")} g", "m/s²");
+        Show(ThrottleBox, ThrottleRaw, d.Throttle, v => $"{N(Math.Clamp(v, 0, 1) * 100, "0")}%", "");
+        Show(BrakeBox, BrakeRaw, d.Brake, v => $"{N(Math.Clamp(v, 0, 1) * 100, "0")}%", "");
         ShowRotationModel();
     }
 
@@ -94,28 +105,43 @@ public partial class RotationWindow : Window
         _confidence.Show(r.OversteerConfidence > r.UndersteerConfidence ? r.OversteerConfidence : -r.UndersteerConfidence);
 
         var label = r.IsValid ? r.DisplayLabel : "";
-        HandlingBox.Text = label.Length > 0 ? label : r.State == Rotation.RotationState.Neutral ? "—" : "";
+        HandlingBox.Text = label == "UNDERSTEER" ? Loc.T(_language, "understeer")
+            : label == "OVERSTEER" ? Loc.T(_language, "oversteer")
+            : r.State == Rotation.RotationState.Neutral ? "—" : "";
         HandlingBox.Foreground = label == "UNDERSTEER" ? Brush(rotation.Config.Display.UndersteerColor)
             : label == "OVERSTEER" ? Brush(rotation.Config.Display.OversteerColor)
             : Brushes.Gray;
-        var calibration = rotation.Calibration?.CalibrationId ?? "no calibration for this car";
-        var why = r.InvalidReason is null ? Rotation.RotationNames.Of(r.State) : $"UNKNOWN: {r.InvalidReason}";
-        var phase = r.CornerPhase == Rotation.CornerPhase.Straight ? "" : $" · {Rotation.RotationNames.Of(r.CornerPhase)}";
-        HandlingStatus.Text = $"{why}{phase} · {(r.FullCapability ? "yaw + sideslip" : "yaw only")} · {calibration}\n"
-            + $"This session: {rotation.UndersteerEvents} understeer, {rotation.OversteerEvents} oversteer";
+        var calibration = rotation.Calibration?.CalibrationId ?? Loc.T(_language, "rotation.noCalibration");
+        var why = r.InvalidReason is null ? StateName(r.State) : Loc.T(_language, "rotation.unknownBecause", Loc.T(_language, $"reason.{r.InvalidReason}"));
+        var phase = r.CornerPhase == Rotation.CornerPhase.Straight ? "" : $" · {Loc.T(_language, $"phase.{Rotation.RotationNames.Of(r.CornerPhase)}")}";
+        var capability = Loc.T(_language, r.FullCapability ? "rotation.yawAndSideslip" : "rotation.yawOnly");
+        HandlingStatus.Text = $"{why}{phase} · {capability} · {calibration}\n"
+            + Loc.T(_language, "rotation.thisSession", rotation.UndersteerEvents, rotation.OversteerEvents);
 
         SideslipBox.Text = r.SideslipAngleDegrees is { } beta ? LeftRight(beta, "°") : "—";
-        SideslipRaw.Text = r.SideslipRateDegreesPerSecond is { } rate ? $"{rate.ToString("+0.0;−0.0;0.0", Culture)} °/s" : "";
-        YawRatioBox.Text = r.YawResponseRatio is { } ratio ? $"{ratio * 100:0}%" : "—";
+        SideslipRaw.Text = r.SideslipRateDegreesPerSecond is { } rate ? $"{N(rate, "+0.0;−0.0;0.0")} °/s" : "";
+        YawRatioBox.Text = r.YawResponseRatio is { } ratio ? $"{N(ratio * 100, "0")}%" : "—";
         YawRatioRaw.Text = r.YawRateExpected is { } expected && r.YawRateActual is { } actual
-            ? $"{actual * RadiansToDegrees:0.0} of {expected * RadiansToDegrees:0.0} °/s"
+            ? Loc.T(_language, "rotation.ofExpected", actual * RadiansToDegrees, expected * RadiansToDegrees)
             : "";
-        UndersteerBox.Text = $"{r.UndersteerConfidence * 100:0}%";
-        UndersteerRaw.Text = $"confidence · severity {r.UndersteerSeverity:0}";
-        OversteerBox.Text = $"{r.OversteerConfidence * 100:0}%";
-        OversteerRaw.Text = $"confidence · severity {r.OversteerSeverity:0}"
-            + (r.OversteerType is { } type ? $" · {Rotation.RotationNames.Of(type)}" : "");
+        UndersteerBox.Text = $"{N(r.UndersteerConfidence * 100, "0")}%";
+        UndersteerRaw.Text = Loc.T(_language, "rotation.confidenceSeverity", r.UndersteerSeverity);
+        OversteerBox.Text = $"{N(r.OversteerConfidence * 100, "0")}%";
+        OversteerRaw.Text = Loc.T(_language, "rotation.confidenceSeverity", r.OversteerSeverity)
+            + (r.OversteerType is { } type ? $" · {Loc.T(_language, $"phase.{Rotation.RotationNames.Of(type)}")}" : "");
     }
+
+    // NEUTRAL, UNDERSTEER, OVERSTEER or UNKNOWN in the user's language
+    private string StateName(Rotation.RotationState state) => state switch
+    {
+        Rotation.RotationState.Neutral => Loc.T(_language, "neutral"),
+        Rotation.RotationState.Understeer => Loc.T(_language, "understeer"),
+        Rotation.RotationState.Oversteer => Loc.T(_language, "oversteer"),
+        _ => Loc.T(_language, "unknown"),
+    };
+
+    // A number in the user's language's format, e.g. 12,3 in Portuguese
+    private string N(double value, string format) => value.ToString(format, _culture);
 
     // The center line and the 50% ticks each way; redrawn when the window is resized
     private void Gauge_SizeChanged(object sender, SizeChangedEventArgs e) => ((sender as Canvas)?.Tag as BalanceGauge)?.Draw();
@@ -126,14 +152,16 @@ public partial class RotationWindow : Window
     /// </summary>
     private sealed class BalanceGauge
     {
+        private readonly RotationWindow _window;
         private readonly Canvas _canvas;
         private readonly TextBlock _text;
         private readonly Rectangle _bar = new() { Width = BalanceBarWidth, Fill = NeutralBrush, RadiusX = 2, RadiusY = 2 };
         // -1 (full understeer) to +1 (full oversteer); 0 is neutral
         private double _value;
 
-        public BalanceGauge(Canvas canvas, TextBlock text)
+        public BalanceGauge(RotationWindow window, Canvas canvas, TextBlock text)
         {
+            _window = window;
             _canvas = canvas;
             _text = text;
             canvas.Tag = this;
@@ -144,7 +172,10 @@ public partial class RotationWindow : Window
         {
             _value = Math.Clamp(value, -1, 1);
             _bar.Fill = _value > 0 ? OversteerBrush : _value < 0 ? UndersteerBrush : NeutralBrush;
-            _text.Text = _value > 0 ? $"{_value * 100:0}% oversteer" : _value < 0 ? $"{-_value * 100:0}% understeer" : "neutral";
+            var language = _window._language;
+            _text.Text = _value > 0 ? Loc.T(language, "rotation.percentOversteer", _value * 100)
+                : _value < 0 ? Loc.T(language, "rotation.percentUndersteer", -_value * 100)
+                : Loc.T(language, "rotation.neutral");
             Place();
         }
 
@@ -201,12 +232,14 @@ public partial class RotationWindow : Window
     private static void Show(TextBox box, TextBlock raw, float? value, Func<double, string> format, string units)
     {
         box.Text = value is { } v ? format(v) : "—";
-        raw.Text = value is { } r ? $"{r.ToString("0.0000", Culture)} {units}".TrimEnd() : "";
+        // iRacing's own value, as iRacing writes it
+        raw.Text = value is { } r ? $"{r.ToString("0.0000", Invariant)} {units}".TrimEnd() : "";
     }
 
-    // 12.3 -> "12.3°L", -12.3 -> "12.3°R"
-    private static string LeftRight(double value, string units) =>
-        Math.Abs(value) < 0.05 ? $"0.0{units}" : $"{Math.Abs(value).ToString("0.0", Culture)}{units} {(value > 0 ? "L" : "R")}";
+    // 12.3 -> "12.3° L", -12.3 -> "12.3° R" (E/D in Portuguese, I/D in Spanish)
+    private string LeftRight(double value, string units) =>
+        Math.Abs(value) < 0.05 ? $"{N(0, "0.0")}{units}"
+        : $"{N(Math.Abs(value), "0.0")}{units} {Loc.T(_language, value > 0 ? "left" : "right")}";
 
     private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {

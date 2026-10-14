@@ -1224,7 +1224,8 @@ if (root[bestKey]==0 || root[speedKey]==0) return " ";
         root[speedKey] -
         root[bestKey];
 
-if (delta==0) return " ";
+// This lap's exit speed is the session best (GetSpeedAreaColor shows it in purple)
+if (delta==0) return "BEST";
 
     // --------------------------------------------------------
     // Output
@@ -2285,11 +2286,17 @@ function GetTimeArea(
         state.bestTime;
 
 
+    // No time through the area yet this session
+    if (!(currentTime > 0) || !(bestTime > 0))
+        return "";
+
+
     var delta =
         currentTime -
         bestTime;
 
-if (delta == 0) return "";
+// This lap's time through the area is the session best (GetTimeAreaColor shows it in purple)
+if (delta == 0) return "BEST";
 
     return (delta >= 0 ? "+" : "") +
         format(
@@ -2297,6 +2304,18 @@ if (delta == 0) return "";
             "0.00"
         ) +
         " s";
+}
+
+
+// The color of a session best, e.g. GetTimeArea's or GetSpeedArea's "BEST"
+var BEST_COLOR = "#FFA855F7";
+
+function GetTimeAreaColor(
+    trackName,
+    areaNumber
+)
+{
+    return GetTimeArea(trackName, areaNumber) == "BEST" ? BEST_COLOR : "";
 }
 
 
@@ -2326,6 +2345,15 @@ function GetSpeedArea(
         area.name,
         area.end
     );
+}
+
+
+function GetSpeedAreaColor(
+    trackName,
+    areaNumber
+)
+{
+    return GetSpeedArea(trackName, areaNumber) == "BEST" ? BEST_COLOR : "";
 }
 
 

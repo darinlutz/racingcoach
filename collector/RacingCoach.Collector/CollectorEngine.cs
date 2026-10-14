@@ -116,6 +116,9 @@ internal sealed class CollectorEngine
     /// Standard (feet, mph, °F, gallons). Loaded with the upload key, and again at each new track or car so a
     /// change on the Account page shows from the next session; Standard without a key.</summary>
     public bool Metric { get; private set; }
+    /// <summary>The user's Preferred Language on the Account page ("en", "pt" or "es"), which the overlays are in.
+    /// Loaded with the units; English without a key.</summary>
+    public string Language { get; private set; } = Loc.English;
     /// <summary>The overlay's TelemetryEngine.js while the overlay is open; it gets every telemetry sample.</summary>
     public OverlayEngine? Overlay { get; set; }
 
@@ -145,26 +148,31 @@ internal sealed class CollectorEngine
         _races?.UseApi(api);
         _coach.Refresh(); // the plan comes from the account the key belongs to
         _brakeBeeps.Refresh(); // and so do the brakepoints and the beeps setting
-        RefreshUnits(); // and the units
+        RefreshUnits(); // and the units and language
         if (old is not null)
             _ = old.DisposeAsync().AsTask(); // its queued laps are queued again on the new one
     }
 
-    // Loads the user's Preferred Units in the background; until then (or if the site can't be reached) the last ones stay
+    // Loads the user's Preferred Units and Language in the background; until then (or if the site can't be reached)
+    // the last ones stay
     private void RefreshUnits()
     {
         if (Api is not { } api)
         {
             Metric = false;
+            Language = Loc.English;
             return;
         }
         _ = Task.Run(async () =>
         {
             try
             {
-                var metric = await api.GetMetricAsync(CancellationToken.None);
+                var (metric, language) = await api.GetPreferencesAsync(CancellationToken.None);
                 if (Api == api)
+                {
                     Metric = metric;
+                    Language = language;
+                }
             }
             catch (Exception e) when (e is HttpRequestException or TaskCanceledException or UnauthorizedAccessException or System.Text.Json.JsonException)
             {

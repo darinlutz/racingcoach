@@ -52,16 +52,16 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
     }
 
     /// <summary>Whether the user's Preferred Units on the Account page are Metric (meters, kph, °C, liters) rather
-    /// than Standard (feet, mph, °F, gallons; also for a site from before there were units). Throws like
-    /// GetTrackJsonAsync.</summary>
-    public async Task<bool> GetMetricAsync(CancellationToken ct)
+    /// than Standard (feet, mph, °F, gallons; also for a site from before there were units), and their Preferred
+    /// Language ("en", "pt" or "es"; "en" from a site from before it was sent). Throws like GetTrackJsonAsync.</summary>
+    public async Task<(bool Metric, string Language)> GetPreferencesAsync(CancellationToken ct)
     {
         using var response = await _http.GetAsync("api/collector/me", ct);
         if (response.StatusCode == HttpStatusCode.Unauthorized)
             throw new UnauthorizedAccessException("RacingCoach.app doesn't accept the upload key");
         response.EnsureSuccessStatusCode();
         var body = await response.Content.ReadFromJsonAsync<MeResponse>(JsonOptions, ct);
-        return body?.Units == "metric";
+        return (body?.Units == "metric", Loc.Normalize(body?.Language));
     }
 
     /// <summary>The user's Track Data track for an iRacing track name, as the JSON TelemetryEngine.js reads from
@@ -309,7 +309,7 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
 
     public void Dispose() => _http.Dispose();
 
-    private sealed record MeResponse(string? UserName, string? Units);
+    private sealed record MeResponse(string? UserName, string? Units, string? Language);
 
     private sealed record ErrorResponse(string? Error);
 
@@ -344,9 +344,13 @@ internal sealed record TargetLapResponse(TargetLapTrace? TargetLap, double Track
 /// <summary>The Target Lap's file name, the track its file name names (null if it doesn't say), whether that's
 /// the track being driven (null when unknown), and per sample its LapDistPct (unwrapped: it keeps increasing past
 /// the start/finish line), Brake and Throttle (0-1) and SteeringWheelAngle (radians, positive to the left);
-/// Throttles and Steerings are null from sites before they were added.</summary>
+/// Throttles and Steerings are null from sites before they were added; and where it changed gear (null from sites
+/// before that was added).</summary>
 internal sealed record TargetLapTrace(string FileName, string? Track, bool? SameTrack, double[] Pcts, double[] Brakes,
-    double[]? Throttles, double[]? Steerings);
+    double[]? Throttles, double[]? Steerings, TargetGearChange[]? GearChanges);
+
+/// <summary>Where the Target Lap went into another forward gear: LapDistPct (unwrapped like Pcts), the gear it was in and the new gear.</summary>
+internal sealed record TargetGearChange(double Pct, int From, int Gear);
 
 /// <summary>A focus area's brakepoint: where the Target Lap first brakes in it, as a fraction of a lap (0-1), or
 /// without a Target Lap, its target brakepoint from Track Data, in feet from the start/finish line.</summary>

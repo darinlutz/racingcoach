@@ -12,7 +12,8 @@ namespace RacingCoach.Collector;
 /// The window the Brake Practice button opens: a see-through, always-on-top window, like the overlay, that reads
 /// the brake straight from the Simucube pedals over USB (iRacing doesn't need to be running). First it calibrates
 /// the pedal from two full presses, then it graphs the brake (0-100%) over the last few seconds as the driver
-/// presses it, with lines at 20, 40, 60, 80 and 100%, and a readout of the exact percentage being applied.
+/// presses it, with lines at 20, 40, 60, 80 and 100%, and a readout of the exact percentage being applied. In the
+/// user's Preferred Language.
 /// </summary>
 public partial class BrakePracticeWindow : Window
 {
@@ -41,10 +42,16 @@ public partial class BrakePracticeWindow : Window
     private double _rescanAt;
     private double? _completedAt;
     private bool _graphing;
+    private readonly CollectorEngine _engine;
+    // The user's Preferred Language, and the status line: a Loc key, or the pedals' names when it's null
+    private string _language = "";
+    private string? _statusKey = "brake.looking";
+    private string _deviceNames = "";
 
-    public BrakePracticeWindow()
+    internal BrakePracticeWindow(CollectorEngine engine)
     {
         InitializeComponent();
+        _engine = engine;
         // Every frame (about 60 times a second), so quick stabs on the pedal show up
         CompositionTarget.Rendering += OnRendering;
     }
@@ -52,6 +59,12 @@ public partial class BrakePracticeWindow : Window
     private void OnRendering(object? sender, EventArgs e)
     {
         var now = _clock.Elapsed.TotalSeconds;
+        if (_engine.Language != _language)
+        {
+            _language = _engine.Language;
+            Loc.Apply(this, _language);
+            ShowStatus();
+        }
         if (!_devices.Any(d => d.Connected) && now >= _rescanAt)
         {
             _rescanAt = now + RescanEvery.TotalSeconds;
@@ -83,14 +96,19 @@ public partial class BrakePracticeWindow : Window
             Recalibrate();
         if (_devices.Count == 0)
         {
-            StatusText.Text = hadDevices ? "Pedals disconnected. Plug them back in." : "No pedals found. Plug in your Simucube pedals.";
+            _statusKey = hadDevices ? "brake.disconnected" : "brake.noPedals";
+            ShowStatus();
             return;
         }
         var names = string.Join(", ", _devices.Select(d => d.Name).Distinct());
-        StatusText.Text = names;
+        _statusKey = null;
+        _deviceNames = names;
+        ShowStatus();
         if (!hadDevices)
             ActivityLog.Shared.Write($"Brake Practice: reading {names}");
     }
+
+    private void ShowStatus() => StatusText.Text = _statusKey is { } key ? Loc.T(_language, key) : _deviceNames;
 
     private void UpdateCalibration(double now)
     {
@@ -98,22 +116,22 @@ public partial class BrakePracticeWindow : Window
         var percent = _calibration.RawPercent;
         PositionText.Text = percent is { } p ? Percent(p) : "—";
         PositionBar.Width = PositionTrack.ActualWidth * Math.Clamp(percent ?? 0, 0, 100) / 100;
-        MarkPress(Press1, "Press 1", _calibration.Presses >= 1);
-        MarkPress(Press2, "Press 2", _calibration.Presses >= 2);
+        MarkPress(Press1, Loc.T(_language, "brake.press1"), _calibration.Presses >= 1);
+        MarkPress(Press2, Loc.T(_language, "brake.press2"), _calibration.Presses >= 2);
 
         if (!_calibration.Complete)
         {
             CalibrationText.Foreground = LabelBrush;
             CalibrationText.Text = _calibration.Axis is { } axis
-                ? $"Press the brake fully down twice. (Reading {axis.Device.Name}, {axis.Name} axis)"
-                : "Press the brake fully down twice.";
+                ? Loc.T(_language, "brake.pressTwiceReading", axis.Device.Name, axis.Name)
+                : Loc.T(_language, "brake.pressTwice");
             return;
         }
         if (_completedAt is null)
         {
             _completedAt = now;
             CalibrationText.Foreground = DoneBrush;
-            CalibrationText.Text = "Calibration complete";
+            CalibrationText.Text = Loc.T(_language, "brake.complete");
             ActivityLog.Shared.Write($"Brake Practice: calibrated the {_calibration.Axis!.Name} axis of {_calibration.Axis.Device.Name}");
         }
         else if (now - _completedAt >= CompleteFor.TotalSeconds)
@@ -164,7 +182,7 @@ public partial class BrakePracticeWindow : Window
         pill.Foreground = done ? DoneTextBrush : LabelBrush;
     }
 
-    private static string Percent(double value) => $"{value.ToString("0.0", CultureInfo.InvariantCulture)}%";
+    private string Percent(double value) => $"{value.ToString("0.0", Loc.Culture(_language))}%";
 
     // The guide lines and their labels; redrawn when the window is resized
     private void Graph_SizeChanged(object sender, SizeChangedEventArgs e)

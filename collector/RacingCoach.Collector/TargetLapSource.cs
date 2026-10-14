@@ -50,33 +50,37 @@ internal sealed class TargetLapSource(CollectorEngine engine)
             _loadedFor = null;
     }
 
+    /// <summary>The user's Preferred Language, which the windows are in.</summary>
+    public string Language => engine.Language;
+
     /// <summary>The status line under the window's title, the message to show over the plot instead of the trace
-    /// (null to show the trace), and whether the status is a warning.</summary>
+    /// (null to show the trace), and whether the status is a warning; in the user's Preferred Language.</summary>
     public (string Status, string? Message, bool Warning) Status(bool live, bool onTrack)
     {
+        var language = Language;
         string status;
         string? message = null;
         var warning = false;
         if (_site is null)
-            message = status = "Enter an upload key (Upload Key in the main window) to load your Target Lap.";
+            message = status = Loc.T(language, "target.noKey");
         else if (Lap is null && _loadError is not null)
         {
-            status = $"Couldn't load your Target Lap ({_loadError}). Trying again shortly.";
-            message = "Couldn't load your Target Lap.";
+            status = Loc.T(language, "target.loadFailed", _loadError);
+            message = Loc.T(language, "target.loadFailedShort");
         }
         else if (Lap is null)
-            message = status = _loading ? "Loading your Target Lap…" : "No Target Lap. Set one on the Account page at RacingCoach.app.";
+            message = status = Loc.T(language, _loading ? "target.loading" : "target.none");
         else if (Lap.SameTrack == false)
         {
-            status = $"Your Target Lap is from {Lap.Track}, not {Track}.";
+            status = Loc.T(language, "target.otherTrack", Lap.Track, Track);
             warning = true;
         }
         else if (LengthFeet <= 0)
-            message = status = "Waiting for iRacing's track…";
+            message = status = Loc.T(language, "target.waitingForTrack");
         else
-            status = live ? Lap.FileName : $"Waiting for iRacing… · {Lap.FileName}";
+            status = live ? Lap.FileName : Loc.T(language, "target.waitingForIRacing", Lap.FileName);
         if (Lap is not null && !onTrack && message is null)
-            message = "Waiting for the car to be on track…";
+            message = Loc.T(language, "target.waitingForCar");
         return (status, message, warning);
     }
 

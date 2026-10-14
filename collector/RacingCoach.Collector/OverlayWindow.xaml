@@ -1,6 +1,7 @@
 <Window x:Class="RacingCoach.Collector.OverlayWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:RacingCoach.Collector"
         Title="RacingCoach Overlay"
         Width="900" MinWidth="560" SizeToContent="Height"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
@@ -50,7 +51,7 @@
         <DockPanel>
             <!-- Header: the track, and a close button -->
             <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
-                <Button DockPanel.Dock="Right" Content="✕" Click="Close_Click" ToolTip="Close the overlay"
+                <Button DockPanel.Dock="Right" Content="✕" Click="Close_Click" local:Loc.ToolTip="overlay.close"
                         Width="26" Height="26" Padding="0" FontSize="12" Cursor="Hand" VerticalAlignment="Top"
                         Foreground="#F3F4F6" Background="#232428" BorderBrush="#303136" />
                 <StackPanel>
@@ -66,16 +67,17 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="100" />
                     <ColumnDefinition Width="10" />
-                    <ColumnDefinition Width="100" />
+                    <ColumnDefinition Width="115" />
                     <ColumnDefinition Width="10" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="0">
-                    <TextBlock Style="{StaticResource Heading}" Text="Max Brake" />
+                    <TextBlock Style="{StaticResource Heading}" local:Loc.Key="overlay.maxBrake" />
                     <TextBox x:Name="MaxBrakeBox" Style="{StaticResource BigBox}" Foreground="#EF4444" />
                 </StackPanel>
                 <StackPanel Grid.Column="2">
-                    <TextBlock Style="{StaticResource Heading}" Text="Min Speed" />
+                    <!-- With the speed unit, set in code -->
+                    <TextBlock x:Name="MinSpeedHeading" Style="{StaticResource Heading}" />
                     <TextBox x:Name="MinSpeedBox" Style="{StaticResource BigBox}" Foreground="#8AB4F8" />
                 </StackPanel>
                 <!-- UNDERSTEER or OVERSTEER from the Rotation Model while it's sure; hidden (keeping its space) otherwise.

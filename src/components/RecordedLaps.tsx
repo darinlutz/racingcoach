@@ -14,6 +14,7 @@ import {
   type LapFile,
   type Track,
 } from '@/lib/lapData';
+import { uploadTargetLap } from '@/lib/targetLapUpload';
 
 // Laps more than this far apart start a new session in the list (offline sessions have no iRacing IDs)
 const SESSION_GAP_MS = 30 * 60 * 1000;
@@ -73,9 +74,10 @@ const smallButtonClass =
 
 // Lets a signed-in user pick laps the RacingCoach collector uploaded. onChange gets the picked laps
 // (once their CSVs have loaded) as LapFiles, the same as dropped lap CSVs.
-// Each lap also has a Target checkbox: Set Target measures the one ticked lap in every focus area of
-// its track and saves the brake point, max brake pressure and on-throttle point as the track's targets
-// (the Reference Points tab's /api/tracks/reference-points); onTargetsSaved then reloads Track Data.
+// Each lap also has a Target checkbox: Set Target saves the one ticked lap as the user's Target Lap
+// (/api/account/target-lap, shown on the Account page), then measures it in every focus area of its track
+// and saves the brake point, max brake pressure and on-throttle point as the track's targets (the Reference
+// Points tab's /api/tracks/reference-points); onTargetsSaved then reloads Track Data.
 // A Compare column takes up to two laps; Compare sends them to onCompare, fastest first (the Racing
 // page opens them in Lap Compare as the Base and Compare laps).
 // Coaches and Admins also get a Driver box listing every account with laps (their own first shown),
@@ -267,22 +269,27 @@ export default function RecordedLaps({
     }
   };
 
-  // Sets every focus area's targets on the session's track from the one lap ticked in its Target column
+  // Saves the one lap ticked in the session's Target column as the user's Target Lap (the Account page's Target
+  // Lap card), then sets every focus area's targets on its track from it
   const setTarget = async (session: Session) => {
     const lap = session.laps.find((l) => targetPicks.has(l.id));
     if (!lap || !window.confirm(t.setTargetConfirm)) return;
     setError('');
     setNotice('');
 
-    const track = tracks.find((candidate) => sameTrackName(candidate.fileName, lap.track));
-    if (!track) {
-      setError(fmt(t.addTrackFirst, { track: lap.track }));
-      return;
-    }
-
     setSettingTarget(session.key);
+    let savedLap = false;
     try {
       const file = await lapFile(lap);
+      await uploadTargetLap(file.file, dictionary.api.failedSaveTargetLap);
+      savedLap = true;
+
+      const track = tracks.find((candidate) => sameTrackName(candidate.fileName, lap.track));
+      if (!track) {
+        setNotice(t.targetLapSaved);
+        setError(fmt(t.addTrackFirst, { track: lap.track }));
+        return;
+      }
 
       // Measured the same way as the Reference Points tab (referenceSession.ts)
       const samples = await readLapSamples(file.file);
@@ -312,9 +319,10 @@ export default function RecordedLaps({
 
       const lapLabel = fmt(t.lapLabel, { lap: lap.lapNumber, time: formatLapTime(secondsToLapTime(lap.lapTimeSeconds)) });
       const missing = data.notFound.length > 0 ? fmt(t.notFound, { areas: data.notFound.join(', ') }) : '';
-      setNotice(plural(data.saved.length, t.targetsSet, { track: data.track, lap: lapLabel }) + missing);
+      setNotice(`${t.targetLapSaved} ${plural(data.saved.length, t.targetsSet, { track: data.track, lap: lapLabel })}${missing}`);
       onTargetsSaved?.();
     } catch (err) {
+      if (savedLap) setNotice(t.targetLapSaved);
       setError(fmt(t.setTargetFailed, { error: err instanceof Error ? err.message : dictionary.common.unknownError }));
     } finally {
       setSettingTarget(null);

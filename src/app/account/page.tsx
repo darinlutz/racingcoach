@@ -5,6 +5,7 @@ import CancelSubscriptionButton from '@/components/CancelSubscriptionButton';
 import CollectorKeyCard from '@/components/CollectorKeyCard';
 import InCarCoachInstructionsCard from '@/components/InCarCoachInstructionsCard';
 import LanguageSelect from '@/components/LanguageSelect';
+import TargetLapCard from '@/components/TargetLapCard';
 import ThemeToggle from '@/components/ThemeToggle';
 import UnitsToggle from '@/components/UnitsToggle';
 import { COACH_VOICES, getCoachVoice } from '@/lib/coachVoice';
@@ -14,6 +15,7 @@ import { fmt, LANGUAGE_LOCALES } from '@/lib/i18n/languages';
 import { getDictionary } from '@/lib/i18n/server';
 import { getCurrentUser } from '@/lib/session';
 import { getShowPricing } from '@/lib/siteSettings';
+import { getTargetLapInfo } from '@/lib/targetLap';
 import { canBuyAnything, getInCarCoachInstructions, MAX_IN_CAR_COACH_INSTRUCTIONS } from '@/lib/users';
 import { ACCOUNT_STATUS, MEMBERSHIP_LEVEL } from '@/lib/accountStatus';
 
@@ -49,12 +51,13 @@ export default async function AccountPage({
   const { discord: discordResult } = await searchParams;
   const discordText = typeof discordResult === 'string' ? t.account.discordMessages[discordResult] : undefined;
   const discordOk = typeof discordResult === 'string' && DISCORD_OK.has(discordResult);
-  const [discord, collectorKey, inCarCoachInstructions, coachVoice, showPricing] = await Promise.all([
+  const [discord, collectorKey, inCarCoachInstructions, coachVoice, showPricing, targetLap] = await Promise.all([
     getDiscordConnection(user.id),
     getCollectorKey(user.id),
     getInCarCoachInstructions(user.id),
     getCoachVoice(user.id),
     getShowPricing(),
+    getTargetLapInfo(user.id),
   ]);
   const isSubscribed = user.accountStatus === ACCOUNT_STATUS.subscribed;
   // A canceled subscription keeps its end date: the end of the last paid period
@@ -195,6 +198,8 @@ export default async function AccountPage({
         </div>
 
         <CollectorKeyCard initialKey={collectorKey} />
+
+        <TargetLapCard targetLap={targetLap} />
 
         <InCarCoachInstructionsCard
           instructions={inCarCoachInstructions}

@@ -438,7 +438,7 @@ export default function RecordedLaps({
                   <li key={lap.id} className="flex items-center gap-3 px-2 py-1 rounded hover:bg-secondary text-sm">
                     {/* Downloads the lap's CSV (the same route that loads it for analysis) */}
                     <a
-                      href={`/api/collector/laps/${lap.id}`}
+                      href={`/api/collector/laps/${lap.id}?download=${encodeURIComponent(lapFileName(lap))}`}
                       download={lapFileName(lap)}
                       title={fmt(t.downloadLap, { lap: lap.lapNumber })}
                       aria-label={fmt(t.downloadLap, { lap: lap.lapNumber })}

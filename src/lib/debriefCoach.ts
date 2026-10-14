@@ -751,24 +751,23 @@ export function createTools(session: DebriefSession, units: Units = DEFAULT_UNIT
         );
       }
 
-      // Toward the inside of the corner is positive when the corner direction is known, otherwise left is
+      // Left of the reference line is positive. Always left or right, never inside or outside of the corner.
       const turn = turnDirection(area);
-      const sign = turn === 'right' ? -1 : 1;
-      const toward = turn ? ['inside', 'outside'] : ['left', 'right'];
-      // Meters from the reference line -> "+1.2" in the user's units
+      const side = (meters: number) => (meters >= 0 ? 'left' : 'right');
+      // Meters from the reference line -> "1.2 ft left" in the user's units, "on the line" when it rounds to 0
       const offset = (meters: number) => {
         const value = u.meters(meters);
-        return `${value >= 0 ? '+' : ''}${value.toFixed(1)}`;
+        return Math.abs(value) < 0.05 ? 'on the line' : `${Math.abs(value).toFixed(1)}${u.unit} ${side(meters)}`;
       };
       const describe = (run: DebriefRun) => {
         if (!run.line) return `[${run.lap}] ${run.seconds.toFixed(3)}s: no track positions`;
         return (
-          `[${run.lap}] ${run.seconds.toFixed(3)}s: ${run.line.offsetsM.map((m) => offset(m * sign)).join(', ')}${u.unit}; ` +
-          `largest ${offset(run.line.maxOffsetM * sign)}${u.unit} at ${run.line.maxOffsetAtPct}% through the area`
+          `[${run.lap}] ${run.seconds.toFixed(3)}s: ${run.line.offsetsM.map(offset).join(', ')}; ` +
+          `largest ${offset(run.line.maxOffsetM)} at ${run.line.maxOffsetAtPct}% through the area`
         );
       };
       const average = (group: DebriefRun[], i: number) => {
-        const values = group.flatMap((r) => (r.line ? [r.line.offsetsM[i] * sign] : []));
+        const values = group.flatMap((r) => (r.line ? [r.line.offsetsM[i]] : []));
         return values.length === 0 ? null : mean(values);
       };
       const fastAvg = LINE_CHECKPOINTS.map((_, i) => average(fast, i));
@@ -786,9 +785,9 @@ export function createTools(session: DebriefSession, units: Units = DEFAULT_UNIT
               const diff = slowAvg[biggest]! - fastAvg[biggest]!;
               return (
                 `Line verdict: the biggest difference is at ${LINE_CHECKPOINTS[biggest]}, where your slowest runs were ` +
-                `${u.meters(Math.abs(diff)).toFixed(1)}${u.unit} further ${diff > 0 ? toward[0] : toward[1]} than your fastest. A driving ` +
-                `line fix for this area should move the car about ${u.meters(Math.abs(diff)).toFixed(1)}${u.unit} toward the ` +
-                `${diff > 0 ? toward[1] : toward[0]} there.`
+                `${u.meters(Math.abs(diff)).toFixed(1)}${u.unit} further ${side(diff)} than your fastest. A driving ` +
+                `line fix for this area should move the car about ${u.meters(Math.abs(diff)).toFixed(1)}${u.unit} to the ` +
+                `${side(-diff)} there, in those words: left or right, never inside or outside.`
               );
             })()
           : `Line verdict: your fast and slow runs take lines within ${u.meters(LINE_DIFF_METERS).toFixed(1)}${u.unit} of each other, so the ` +
@@ -797,8 +796,9 @@ export function createTools(session: DebriefSession, units: Units = DEFAULT_UNIT
       return [
         `${area.name} (${area.range}) driving line, compared with lap [${area.lineReference ?? '?'}] (the fastest ` +
           `through the area with track positions). Each lap shows how many ${u.distanceName} it was from that line at the start ` +
-          `of the area, 25%, 50%, 75% and the end, + toward the ${toward[0]} and - toward the ${toward[1]}` +
-          (turn ? ` of this ${turn}-hand corner.` : ' (no single corner direction here).'),
+          "of the area, 25%, 50%, 75% and the end, to the left or right as seen from the driver's seat facing the " +
+          'direction of travel' +
+          (turn ? ` (this is a ${turn}-hand corner).` : ' (no single corner direction here).'),
         'Per lap, fastest first:',
         ...runs.map(describe),
         '',
@@ -813,8 +813,8 @@ export function createTools(session: DebriefSession, units: Units = DEFAULT_UNIT
     {
       name: 'get_driving_line',
       description:
-        `Where each lap placed the car through one focus area compared with the fastest lap's line, in ${u.distanceName} toward ` +
-        'the inside or outside of the corner at the entry, middle and exit, with the fastest runs against the slowest ' +
+        `Where each lap placed the car through one focus area compared with the fastest lap's line, in ${u.distanceName} to ` +
+        'the left or right at the entry, middle and exit, with the fastest runs against the slowest ' +
         'and a line verdict. Use it to find line mistakes such as turning in early or running wide on exit.',
       schema: z.object({ area: z.string().describe('Focus area name, exactly as in the overview') }),
     }
@@ -837,10 +837,10 @@ export function brakeChangeRule(units: Units = DEFAULT_UNITS): string {
 
 // A change in feet or meters is followed by its direction ("30 ft later") or comes after "by" ("later by 30 ft");
 // any other number of feet or meters is a place on the track, e.g. "brake at 6,120 ft" or "near 375 meters".
-// Driving line moves ("1.5 m toward the inside") are changes too.
+// Driving line moves ("1.5 m to the left") are changes too.
 const DISTANCE_RE = /\d[\d,.]*\s*(?:ft|feet|foot|pés|pies|m|meters?|metres?|metros?)(?!\p{L})/giu;
 const CHANGE_AFTER_RE =
-  /^[^\p{L}\p{N}]*(?:\p{L}+[^\p{L}\p{N}]+){0,2}?(?:later|earlier|sooner|deeper|mais tarde|más tarde|mais cedo|más temprano|antes|depois|después|toward|towards|further|farther|wider|tighter|para|hacia|em direção|en dirección)(?!\p{L})/iu;
+  /^[^\p{L}\p{N}]*(?:\p{L}+[^\p{L}\p{N}]+){0,2}?(?:later|earlier|sooner|deeper|mais tarde|más tarde|mais cedo|más temprano|antes|depois|después|toward|towards|further|farther|wider|tighter|para|hacia|em direção|en dirección|left|right|esquerda|direita|izquierda|derecha)(?!\p{L})/iu;
 const CHANGE_BEFORE_RE = /(?<!\p{L})(?:by|por|em|en)\s+(?:about\s+|around\s+|roughly\s+|cerca de\s+|unos\s+|uns\s+)?$/iu;
 
 export function hasTrackPosition(text: string): boolean {
@@ -858,7 +858,7 @@ const systemPrompt = (units: Units) =>
   'pattern. To find why an area loses time, use get_braking_detail, get_throttle_detail, get_steering_detail and get_driving_line ' +
   'on the areas that lose the most, and get_shifting_points once for the upshifts. A throttle pickup fix must use the pickup verdict from get_throttle_detail, ' +
   'the same way as a brakepoint fix. A driving line fix must use the line verdict from get_driving_line: the place in the ' +
-  `area and the ${DISTANCE_NAME[units]} to move toward the inside or outside, and never one where the verdict says the line does not ` +
+  `area and the ${DISTANCE_NAME[units]} to move to the left or right (never inside or outside), and never one where the verdict says the line does not ` +
   'explain the time. Choose 1 to 3 fixes, ordered by time available, each one a single concrete change the driver can ' +
   `make in the car with a number to aim for (for example "brake about ${units === 'metric' ? 9 : 30} ${DISTANCE_UNIT[units]} later" or "build to ` +
   'about 90% peak pressure"). Base the number to aim for on what your fastest runs did; the targets are only a ' +

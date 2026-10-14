@@ -25,8 +25,8 @@ function partOfArea(pct: number) {
 }
 
 // The Racing Coach's analyze_driving_line tool: how far, and which way, the Compare lap's line was from the
-// Base lap's through one focus area, with a verdict worked out here so left/right and inside/outside can't
-// get flipped. Distances are in the user's units.
+// Base lap's through one focus area, with a verdict worked out here so left and right can't get flipped.
+// Directions are always left or right, never inside or outside. Distances are in the user's units.
 function analyzeDrivingLineTool(lines: LapDrivingLine[], areaNames: string[], units: Units) {
   const unit = DISTANCE_UNIT[units];
   const distance = (meters: number) => `${distanceFromMeters(Math.abs(meters), units).toFixed(1)} ${unit}`;
@@ -45,14 +45,11 @@ function analyzeDrivingLineTool(lines: LapDrivingLine[], areaNames: string[], un
         );
       }
 
-      // Toward the inside of the corner is positive when the corner direction is known, otherwise left is
-      const sign = line.turn === 'right' ? -1 : 1;
-      const [plus, minus] = line.turn ? ['inside', 'outside'] : ['left', 'right'];
-      const side = (meters: number) => (meters * sign >= 0 ? plus : minus);
-      const signed = (meters: number) => {
-        const value = distanceFromMeters(meters * sign, units);
-        return `${value >= 0 ? '+' : ''}${value.toFixed(1)} ${unit}`;
-      };
+      // Left of the Base line is positive. Always left or right, never inside or outside of the corner.
+      const side = (meters: number) => (meters >= 0 ? 'left' : 'right');
+      // 0.37 -> "1.2 ft left", -0.37 -> "1.2 ft right", under 0.05 -> "on the Base line"
+      const offset = (meters: number) =>
+        Math.abs(distanceFromMeters(meters, units)) < 0.05 ? 'on the Base line' : `${distance(meters)} ${side(meters)}`;
       const time = `${line.secondsDiff >= 0 ? '+' : '-'}${Math.abs(line.secondsDiff).toFixed(3)}s`;
       const where = `${partOfArea(line.maxOffsetAtPct)} (${line.maxOffsetAtPct}% through the area)`;
 
@@ -69,18 +66,18 @@ function analyzeDrivingLineTool(lines: LapDrivingLine[], areaNames: string[], un
         verdict =
           `Line verdict: the Compare lap was ${distance(line.maxOffsetM)} further ${side(line.maxOffsetM)} than the faster ` +
           `Base lap at ${where}. Any driving line advice for this area must say to move the car about ` +
-          `${distance(line.maxOffsetM)} toward the ${side(-line.maxOffsetM)} there.`;
+          `${distance(line.maxOffsetM)} to the ${side(-line.maxOffsetM)} there, in those words: left or right, never ` +
+          'inside or outside.';
       }
 
       return [
         `${line.area} driving line: the Compare lap against the Base lap's line (the Compare lap was ${time} here). ` +
-          (line.turn
-            ? `It is a ${line.turn}-hand corner, so + is toward the inside and - toward the outside.`
-            : '+ is to the left and - to the right (no single corner direction here).'),
+          "Left and right are as seen from the driver's seat, facing the direction of travel" +
+          (line.turn ? ` (it is a ${line.turn}-hand corner).` : '.'),
         "Compare lap's distance from the Base line every 10% through the area: " +
-          line.offsetsM.map((m, i) => `${i * 10}% ${signed(m)}`).join(', ') +
+          line.offsetsM.map((m, i) => `${i * 10}% ${offset(m)}`).join(', ') +
           '.',
-        `Largest difference: ${signed(line.maxOffsetM)} at ${where}.`,
+        `Largest difference: ${offset(line.maxOffsetM)} at ${where}.`,
         verdict,
       ].join('\n');
     },
@@ -88,7 +85,7 @@ function analyzeDrivingLineTool(lines: LapDrivingLine[], areaNames: string[], un
       name: 'analyze_driving_line',
       description:
         "Compares the Compare lap's driving line with the Base lap's through one focus area: how many " +
-        `${DISTANCE_NAME[units]} the Compare lap was toward the inside or outside of the Base line every 10% through ` +
+        `${DISTANCE_NAME[units]} the Compare lap was to the left or right of the Base line every 10% through ` +
         'the area, the largest difference and a line verdict. ' +
         (lines.length > 0
           ? `Both laps have track positions in: ${lines.map((l) => l.area).join(', ')}.`
@@ -120,7 +117,8 @@ const lapSummaryPrompt = (track: string, units: Units) =>
   'that direction (later or earlier, more or less pressure) and never the opposite. A Compare lap that braked ' +
   'lighter must never be told to reduce brake pressure, and one that braked earlier must never be told to brake ' +
   'earlier. Any driving line advice must follow the line verdict from analyze_driving_line exactly (which way, ' +
-  `how many ${DISTANCE_NAME[units]} and where in the area), and never be given where the verdict says not to. Both ` +
+  `how many ${DISTANCE_NAME[units]} and where in the area), and never be given where the verdict says not to. Say ` +
+  'which way to move the car as left or right, never inside or outside. Both ' +
   'laps were driven in the same conditions, which may be wet, so do not assume a dry track; when the advice is ' +
   'more pressure, say to build it progressively to avoid locking up. Write plain prose in a single paragraph with ' +
   'no headings, lists, or markdown, and do not invent data that is not in the comparison or the tool results.';

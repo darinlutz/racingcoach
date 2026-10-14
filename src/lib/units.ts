@@ -52,6 +52,21 @@ export function speedFromMph(mph: number, units: Units): number {
   return speedFromMetersPerSecond(mph / MPH_PER_METER_PER_SECOND, units);
 }
 
+const NEWTON_METERS_PER_LB_FT = 1.3558179483;
+
+// Car Data's torque: stored in lb-ft, shown in lb-ft or Nm
+export const TORQUE_UNIT: Record<Units, string> = { standard: 'lb-ft', metric: 'Nm' };
+
+// lb-ft (Car Data) -> lb-ft or Nm
+export function torqueFromLbFt(lbFt: number, units: Units): number {
+  return units === 'metric' ? lbFt * NEWTON_METERS_PER_LB_FT : lbFt;
+}
+
+// lb-ft or Nm typed by the user -> lb-ft, as Car Data stores it
+export function lbFtFromTorque(value: number, units: Units): number {
+  return units === 'metric' ? value / NEWTON_METERS_PER_LB_FT : value;
+}
+
 // °C (iRacing's temperatures) -> °F or °C
 export function temperatureFromCelsius(celsius: number, units: Units): number {
   return units === 'metric' ? celsius : (celsius * 9) / 5 + 32;

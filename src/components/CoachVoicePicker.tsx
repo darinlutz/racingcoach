@@ -7,45 +7,69 @@ import { useUnits } from '@/components/UnitsProvider';
 const selectClass =
   'min-w-0 flex-1 px-3 py-2 bg-secondary border border-border rounded-lg text-foreground text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors';
 
-// The Account page's Coach voice: the OpenAI voice the In-Car AI Coach speaks with, saved as soon as it's picked
-// (PUT /api/account/coach-voice). Listen plays a sample callout in the picked voice and the user's Preferred
-// Language (GET /api/account/coach-voice/sample).
-export default function CoachVoicePicker({ voice: initial, voices }: { voice: string; voices: readonly string[] }) {
-  const { t } = useLanguage();
+// The Account page's Coach voice: the OpenAI voice the In-Car AI Coach speaks with, and for Spanish its accent (Latin
+// American or Spain), each saved as soon as it's picked (PUT /api/account/coach-voice). Listen plays a sample callout
+// in the picked voice and accent and the user's Preferred Language (GET /api/account/coach-voice/sample).
+export default function CoachVoicePicker({
+  voice: initial,
+  voices,
+  spanishAccent: initialAccent,
+  spanishAccents,
+}: {
+  voice: string;
+  voices: readonly string[];
+  spanishAccent: string;
+  spanishAccents: readonly string[];
+}) {
+  const { t, language } = useLanguage();
   // Only in the sample's URL, so a sample cached in the other units isn't played
   const units = useUnits();
   const c = t.inCarCoach;
   const [voice, setVoice] = useState(initial);
+  const [accent, setAccent] = useState(initialAccent);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const audio = useRef<HTMLAudioElement | null>(null);
 
-  const choose = async (next: string) => {
-    const previous = voice;
-    setVoice(next);
+  // Saves one choice; a failed save puts the old one back
+  const save = async (body: { voice: string } | { spanishAccent: string }, saved: string, undo: () => void) => {
     setMessage(null);
     try {
       const res = await fetch('/api/account/coach-voice', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ voice: next }),
+        body: JSON.stringify(body),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setVoice(previous);
+        undo();
         setMessage({ ok: false, text: data.error ?? t.api.failedSaveCoachVoice });
         return;
       }
-      setMessage({ ok: true, text: c.voiceSaved });
+      setMessage({ ok: true, text: saved });
     } catch {
-      setVoice(previous);
+      undo();
       setMessage({ ok: false, text: t.api.failedSaveCoachVoice });
     }
   };
 
+  const chooseVoice = (next: string) => {
+    const previous = voice;
+    setVoice(next);
+    save({ voice: next }, c.voiceSaved, () => setVoice(previous));
+  };
+
+  const chooseAccent = (next: string) => {
+    const previous = accent;
+    setAccent(next);
+    save({ spanishAccent: next }, c.accentSaved, () => setAccent(previous));
+  };
+
   const listen = () => {
     audio.current?.pause();
-    const sample = new Audio(`/api/account/coach-voice/sample?voice=${encodeURIComponent(voice)}&units=${units}`);
+    const sample = new Audio(
+      `/api/account/coach-voice/sample?voice=${encodeURIComponent(voice)}&accent=${encodeURIComponent(accent)}&units=${units}`
+    );
     audio.current = sample;
     setLoading(true);
     setMessage(null);
@@ -64,7 +88,7 @@ export default function CoachVoicePicker({ voice: initial, voices }: { voice: st
       </label>
       <p className="text-sm text-muted-foreground mb-3">{c.voiceHint}</p>
       <div className="flex items-center gap-2">
-        <select id="coach-voice" value={voice} onChange={(e) => choose(e.target.value)} className={selectClass}>
+        <select id="coach-voice" value={voice} onChange={(e) => chooseVoice(e.target.value)} className={selectClass}>
           {voices.map((v) => (
             <option key={v} value={v}>
               {v[0].toUpperCase() + v.slice(1)}
@@ -80,6 +104,23 @@ export default function CoachVoicePicker({ voice: initial, voices }: { voice: st
           {loading ? c.loadingSample : c.listen}
         </button>
       </div>
+      {/* Only Spanish has a choice of accent */}
+      {language === 'es' && (
+        <div className="mt-4">
+          <label htmlFor="coach-accent" className="block text-sm font-medium text-muted-foreground mb-1">
+            {c.accentTitle}
+          </label>
+          <div className="flex">
+            <select id="coach-accent" value={accent} onChange={(e) => chooseAccent(e.target.value)} className={selectClass}>
+              {spanishAccents.map((a) => (
+                <option key={a} value={a}>
+                  {c.accents[a as keyof typeof c.accents] ?? a}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
       {message && (
         <p
           role="status"

@@ -8,7 +8,7 @@ import type { CarInput, UserCar } from '@/lib/carData';
 import type { Dictionary } from '@/lib/i18n/dictionaries/en';
 import { fmt } from '@/lib/i18n/languages';
 import { ROTATION_CALIBRATIONS } from '@/lib/rotationModelConfig';
-import { SPEED_UNIT, speedFromMetersPerSecond } from '@/lib/units';
+import { lbFtFromTorque, SPEED_UNIT, speedFromMetersPerSecond, TORQUE_UNIT, torqueFromLbFt, type Units } from '@/lib/units';
 
 type NumberField = Exclude<keyof CarInput, 'name' | 'notes'>;
 
@@ -30,9 +30,18 @@ const NUMBER_FIELDS: { field: NumberField; unit: string; integer: boolean; place
 
 const asText = (value: number | null) => (value === null ? '' : String(value));
 
-function toDraft(car: UserCar | null): CarDraft {
+// Torque is stored in lb-ft and shown in the user's units: lb-ft, or whole Nm for Metric (a whole Nm is smaller than
+// a lb-ft, so a value that isn't edited saves back unchanged)
+const torqueText = (lbFt: number | null, units: Units) => (lbFt === null ? null : Math.round(torqueFromLbFt(lbFt, units)));
+const fieldUnit = (field: NumberField, unit: string, units: Units) => (field === 'torqueLbFt' ? TORQUE_UNIT[units] : unit);
+const fieldPlaceholder = (field: NumberField, placeholder: string, units: Units) =>
+  field === 'torqueLbFt' ? String(torqueText(Number(placeholder), units)) : placeholder;
+
+function toDraft(car: UserCar | null, units: Units): CarDraft {
   const draft = { id: car?.id ?? null, name: car?.name ?? '', notes: car?.notes ?? '' } as CarDraft;
-  for (const { field } of NUMBER_FIELDS) draft[field] = car ? asText(car[field]) : '';
+  for (const { field } of NUMBER_FIELDS) {
+    draft[field] = !car ? '' : field === 'torqueLbFt' ? asText(torqueText(car.torqueLbFt, units)) : asText(car[field]);
+  }
   return draft;
 }
 
@@ -47,9 +56,11 @@ function parseNumber(text: string, label: string, integer: boolean, t: Dictionar
   return value;
 }
 
-function toInput(draft: CarDraft, t: Dictionary['cars']): CarInput {
+function toInput(draft: CarDraft, t: Dictionary['cars'], units: Units): CarInput {
   const input = { name: draft.name, notes: draft.notes } as CarInput;
   for (const { field, integer } of NUMBER_FIELDS) input[field] = parseNumber(draft[field], t.fields[field], integer, t);
+  // Back to whole lb-ft, as Car Data stores it
+  if (input.torqueLbFt !== null) input.torqueLbFt = Math.max(1, Math.round(lbFtFromTorque(input.torqueLbFt, units)));
   return input;
 }
 
@@ -106,7 +117,7 @@ export default function CarDataManagement() {
 
   const startEditing = (car: UserCar | null) => {
     setMessage('');
-    setDraft(toDraft(car));
+    setDraft(toDraft(car, units));
   };
 
   const saveCar = async () => {
@@ -114,7 +125,7 @@ export default function CarDataManagement() {
     setMessage('');
     let car: CarInput;
     try {
-      car = toInput(draft, t);
+      car = toInput(draft, t, units);
     } catch (error) {
       setMessage((error as Error).message);
       return;
@@ -233,7 +244,7 @@ export default function CarDataManagement() {
             {NUMBER_FIELDS.map(({ field, unit, integer, placeholder }) => (
               <div key={field}>
                 <label htmlFor={`car-${field}`} className="block text-sm font-medium text-foreground mb-1">
-                  {fmt(t.fieldLabel, { label: t.fields[field], unit })}{' '}
+                  {fmt(t.fieldLabel, { label: t.fields[field], unit: fieldUnit(field, unit, units) })}{' '}
                   <span className="font-normal text-muted-foreground">{dictionary.common.optional}</span>
                 </label>
                 <input
@@ -242,7 +253,7 @@ export default function CarDataManagement() {
                   inputMode={integer ? 'numeric' : 'decimal'}
                   value={draft[field]}
                   onChange={(e) => updateDraft({ [field]: e.target.value })}
-                  placeholder={fmt(t.example, { value: placeholder })}
+                  placeholder={fmt(t.example, { value: fieldPlaceholder(field, placeholder, units) })}
                   className={`${inputClass} tabular-nums`}
                 />
               </div>
@@ -295,7 +306,7 @@ export default function CarDataManagement() {
                   {t.powerBhp}
                 </th>
                 <th scope="col" className="px-4 py-3 font-semibold text-right">
-                  {t.torqueLbFt}
+                  {fmt(t.torqueLbFt, { unit: TORQUE_UNIT[units] })}
                 </th>
                 <th scope="col" className="px-4 py-3 font-semibold text-right">
                   {t.rpmLimit}
@@ -327,7 +338,7 @@ export default function CarDataManagement() {
                       </button>
                     </th>
                     <td className="px-4 py-3 text-right tabular-nums">{stat(car.powerBhp, locale)}</td>
-                    <td className="px-4 py-3 text-right tabular-nums">{stat(car.torqueLbFt, locale)}</td>
+                    <td className="px-4 py-3 text-right tabular-nums">{stat(torqueText(car.torqueLbFt, units), locale)}</td>
                     <td className="px-4 py-3 text-right tabular-nums">{stat(car.rpmLimit, locale)}</td>
                     <td className="px-4 py-3 text-right tabular-nums">{stat(car.displacementLiters, locale)}</td>
                     <td className="px-4 py-3 text-right tabular-nums">{stat(car.wetWeightLbs, locale)}</td>

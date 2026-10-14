@@ -26,10 +26,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: `Expected { text } (at most ${MAX_SPEECH_CHARS} characters) or { phrase }` }, { status: 400 });
     }
 
-    const [user, voice] = await Promise.all([getUserById(userId), getCoachVoice(userId)]);
+    const [user, { voice, spanishAccent }] = await Promise.all([getUserById(userId), getCoachVoice(userId)]);
     const language = user?.preferredLanguage ?? DEFAULT_LANGUAGE;
     const text = 'phrase' in parsed.data ? getDictionary(language).coachSpeech[parsed.data.phrase] : parsed.data.text;
-    const audio = await synthesizeSpeech(text, voice, language);
+    const audio = await synthesizeSpeech(text, voice, language, spanishAccent);
     return new NextResponse(new Uint8Array(audio), { headers: { 'Content-Type': 'audio/wav', 'X-Coach-Voice': voice } });
   } catch (error) {
     console.error('Collector speech error:', error);

@@ -5,11 +5,13 @@ using SVappsLAB.iRacingTelemetrySDK;
 namespace RacingCoach.Collector;
 
 /// <summary>
-/// "Play beeps before braking" from the Account page: on the approach to each focus area's target brakepoint (Track
-/// Data, from /api/collector/track) a beep 300, 200 and 100 ft before it, and a higher one at the brakepoint. The
-/// overlay used to show this as row colors (GetBrakepointAlertColor in TelemetryEngine.js, now always Transparent);
-/// this runs whether the overlay is open or not. The targets load when the track or the upload key changes, and
-/// again every couple of minutes so a change on the Account page takes effect during a session. OnSample is called
+/// "Play beeps before braking" from the Account page: on the approach to where the user's Target Lap first brakes in
+/// each focus area (its first braking zone there; from /api/collector/brake-beeps), or without a Target Lap, each
+/// focus area's target brakepoint from Track Data, a beep 300, 200 and 100 ft before it, and a higher one at the
+/// brakepoint. The overlay used to show this as row colors (GetBrakepointAlertColor in
+/// TelemetryEngine.js, now always Transparent); this runs whether the overlay is open or not. The brakepoints load
+/// when the track or the upload key changes, and again every couple of minutes so a change on the Account page (the
+/// setting, or a new Target Lap) takes effect during a session. OnSample is called
 /// on the telemetry thread for every sample, so it only compares numbers; the beeps play on their own thread.
 /// </summary>
 internal sealed class BrakeBeeps(Func<RacingCoachApi?> api, Action<string> log)
@@ -96,20 +98,32 @@ internal sealed class BrakeBeeps(Func<RacingCoachApi?> api, Action<string> log)
         {
             var targets = await site.GetBrakeTargetsAsync(track, CancellationToken.None);
             var lengthFeet = targets.TrackLengthFeet > 0 ? targets.TrackLengthFeet : IRacingLengthFeet(iRacingLength);
+            // The Target Lap's come as fractions of a lap; Track Data's (without a Target Lap) in feet
             var brakepoints = lengthFeet > 0
-                ? targets.Brakepoints.Where(b => b.Feet < lengthFeet).Select(b => b.Feet / lengthFeet).ToList()
+                ? (targets.Brakepoints ?? [])
+                    .Select(b => b.Pct ?? (b.Feet is { } feet && feet < lengthFeet ? feet / lengthFeet : -1))
+                    .Where(pct => pct is >= 0 and < 1)
+                    .ToList()
                 : [];
+            var areas = $"{brakepoints.Count} focus area{(brakepoints.Count == 1 ? "" : "s")}";
 
             string status;
             Loaded? loaded = null;
             if (!targets.Enabled)
                 status = "Brake beeps are off (Play beeps before braking on the Account page).";
+            else if (targets.TargetLap is { } lap && targets.SameTrack == false)
+                status = $"Brake beeps: your Target Lap is from {lap.Track}, not {track}.";
+            else if (lengthFeet <= 0)
+                status = $"Brake beeps: no track length for {track}.";
             else if (brakepoints.Count == 0)
-                status = $"Brake beeps: no target brakepoints for {track} in your Track Data" +
-                         (lengthFeet > 0 ? "." : ", or no track length.");
+                status = targets.TargetLap is null
+                    ? $"Brake beeps: no Target Lap, and no target brakepoints for {track} in your Track Data."
+                    : $"Brake beeps: your Target Lap doesn't brake in any of {track}'s focus areas in your Track Data.";
             else
             {
-                status = $"Brake beeps on for {track}: {brakepoints.Count} target brakepoint{(brakepoints.Count == 1 ? "" : "s")}.";
+                status = targets.TargetLap is null
+                    ? $"Brake beeps on for {track}: no Target Lap, so your Track Data target brakepoints in {areas}."
+                    : $"Brake beeps on for {track}: the Target Lap's first braking in {areas}.";
                 loaded = new Loaded(lengthFeet, brakepoints);
             }
 
@@ -143,8 +157,8 @@ internal sealed class BrakeBeeps(Func<RacingCoachApi?> api, Action<string> log)
         }
     }
 
-    // iRacing gives the length as e.g. "4.0900 km"
-    private static double IRacingLengthFeet(string? length)
+    /// <summary>iRacing's track length (e.g. "4.0900 km") in feet, or 0 if it can't be read.</summary>
+    internal static double IRacingLengthFeet(string? length)
     {
         var parts = length?.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         return parts is [var number, "km"] && double.TryParse(number, NumberStyles.Float, CultureInfo.InvariantCulture, out var km)

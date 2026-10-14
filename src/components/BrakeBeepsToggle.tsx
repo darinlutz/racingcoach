@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useLanguage } from '@/components/LanguageProvider';
+import { useUnits } from '@/components/UnitsProvider';
 
 // How long "Saved" shows after a change
 const SAVED_MS = 3000;
@@ -11,6 +12,7 @@ const SAVED_MS = 3000;
 // takes up at the next track it loads; a failed save puts the old choice back.
 export default function BrakeBeepsToggle({ brakeBeeps: initial }: { brakeBeeps: boolean }) {
   const { t } = useLanguage();
+  const units = useUnits();
   const [brakeBeeps, setBrakeBeeps] = useState(initial);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -73,7 +75,7 @@ export default function BrakeBeepsToggle({ brakeBeeps: initial }: { brakeBeeps: 
           {saving ? t.common.saving : saved ? t.common.saved : ''}
         </span>
       </div>
-      <p className="mt-2 text-sm text-muted-foreground">{t.preferences.brakeBeepsHint}</p>
+      <p className="mt-2 text-sm text-muted-foreground">{t.preferences.brakeBeepsHint[units]}</p>
       {error && <p className="mt-2 text-sm text-red-300">{error}</p>}
     </fieldset>
   );

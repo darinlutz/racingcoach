@@ -13,7 +13,15 @@ export const MAX_TARGET_LAP_BYTES = 25 * 1024 * 1024;
 // A lap CSV has at least these columns (iRacing's names, as Garage 61 and the collector write them)
 const REQUIRED_COLUMNS = ['LapDistPct', 'Speed', 'Brake', 'Throttle'];
 
+// Garage 61 - {driver} - {car} - {track} - {lap time} - {id}.csv, and the collector's RacingCoach - ... the same way
+const LAP_FILE_NAME = /^(?:Garage 61|RacingCoach) - (.+?) - (.+?) - (.+) - (\d+\.\d{2}\.\d{3}) - ([A-Za-z0-9]+)\.csv$/i;
+
 export type TargetLapInfo = { fileName: string; setAt: string };
+
+// The track a Target Lap's file name names, or null when it doesn't follow the Garage 61 / RacingCoach naming
+export function targetLapTrackName(fileName: string): string | null {
+  return LAP_FILE_NAME.exec(fileName)?.[3] ?? null;
+}
 
 export class TargetLapError extends Error {
   constructor(public code: 'notCsv' | 'tooLarge' | 'missingColumns', public columns: string[] = []) {

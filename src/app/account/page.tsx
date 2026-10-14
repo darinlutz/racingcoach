@@ -8,7 +8,7 @@ import LanguageSelect from '@/components/LanguageSelect';
 import TargetLapCard from '@/components/TargetLapCard';
 import ThemeToggle from '@/components/ThemeToggle';
 import UnitsToggle from '@/components/UnitsToggle';
-import { COACH_VOICES, getCoachVoice } from '@/lib/coachVoice';
+import { COACH_VOICES, getCoachVoice, SPANISH_ACCENTS } from '@/lib/coachVoice';
 import { getCollectorKey } from '@/lib/collectorKeys';
 import { DISCORD_INVITE_URL, getDiscordConnection } from '@/lib/discord';
 import { fmt, LANGUAGE_LOCALES } from '@/lib/i18n/languages';
@@ -204,8 +204,10 @@ export default async function AccountPage({
         <InCarCoachInstructionsCard
           instructions={inCarCoachInstructions}
           maxLength={MAX_IN_CAR_COACH_INSTRUCTIONS}
-          voice={coachVoice}
+          voice={coachVoice.voice}
           voices={COACH_VOICES}
+          spanishAccent={coachVoice.spanishAccent}
+          spanishAccents={SPANISH_ACCENTS}
         />
 
         {showViewPlans && (

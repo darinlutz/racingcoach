@@ -49,7 +49,8 @@ export async function GET(request: Request) {
     const plan = await inCarCoachPlan(
       user.instructions,
       areas.map((area) => area.name),
-      user.language
+      user.language,
+      user.units
     );
     // The locale formats the numbers the collector puts in rule texts (e.g. 1:23,456 in pt-BR) for the voice
     return NextResponse.json({ instructions: user.instructions, plan, areas, locale: LANGUAGE_LOCALES[user.language] });

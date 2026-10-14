@@ -94,21 +94,26 @@ TRACK_DATA_PATH = Path(__file__).resolve().parent.parent / "Track_Information.xl
 FEET_PER_MILE = 5280
 METERS_PER_FOOT = 0.3048
 KPH_PER_MPH = 1.609344
+NM_PER_LB_FT = 1.3558179483
 
 
-def load_cars():
-    """Turn each car spreadsheet row into one text document describing that car."""
+def load_cars(units="standard"):
+    """Turn each car spreadsheet row into one text document describing that car, with its torque in the user's
+    Preferred Units: lb-ft (standard) or Nm (metric)."""
     df = pd.read_excel(CAR_DATA_PATH)
     documents = []
     for _, row in df.iterrows():
         power_to_weight = row["Power (bhp)"] / row["Wet Weight With Driver (lbs)"]
         notes = row["Notes"] if pd.notna(row["Notes"]) else ""
+        torque = (
+            f"{row['Torque (lb-ft)'] * NM_PER_LB_FT:.0f} Nm" if units == "metric" else f"{row['Torque (lb-ft)']} lb-ft"
+        )
         documents.append(
             f"Car: {row['Car']}: length {row['Length (in)']} in, width {row['Width (in)']} in, "
             f"wheelbase {row['Wheelbase (in)']} in, dry weight {row['Dry Weight (lbs)']} lbs, "
             f"wet weight with driver {row['Wet Weight With Driver (lbs)']} lbs, "
             f"engine displacement {row['Displacement (Liters)']} liters, "
-            f"RPM limit {row['RPM Limit']}, torque {row['Torque (lb-ft)']} lb-ft, "
+            f"RPM limit {row['RPM Limit']}, torque {torque}, "
             f"power {row['Power (bhp)']} bhp, "
             f"power-to-weight {power_to_weight:.3f} bhp per lb (wet weight)."
             + (f" Notes: {notes}" if notes else "")
@@ -156,7 +161,7 @@ def load_tracks(units="standard"):
 def load_documents(units="standard"):
     """Cars and tracks share one collection; the metadata records which is which
     so the prompt can present them as separate sections."""
-    cars = load_cars()
+    cars = load_cars(units)
     tracks = load_tracks(units)
     documents = cars + tracks
     metadatas = [{"type": "car"}] * len(cars) + [{"type": "track"}] * len(tracks)

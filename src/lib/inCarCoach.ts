@@ -3,7 +3,7 @@ import { ChatOpenAI } from '@langchain/openai';
 import { createAgent } from 'langchain';
 import { z } from 'zod';
 import { brakeChangeRule, createTools, hasTrackPosition, type DebriefSession } from './debriefCoach';
-import { DEFAULT_UNITS, DISTANCE_UNIT, type Units } from './units';
+import { DEFAULT_UNITS, DISTANCE_NAME, DISTANCE_UNIT, SPEED_UNIT, type Units } from './units';
 import { aiLanguageRule, DEFAULT_LANGUAGE, type Language } from './i18n/languages';
 import { coachInstructionsRule } from './siteSettings';
 
@@ -92,28 +92,33 @@ const PLAN_PROMPT =
   'same instructions). When an instruction asks for something the coach cannot detect or do, leave it out. Keep ' +
   'rule texts short and write them in the language below.';
 
-// A plan is only worked out again when the instructions, the track's focus areas or the language change
+// Rule texts are spoken and shown as they are, so any distance or speed in them is in the user's units
+const unitsRule = (units: Units) =>
+  ` Any distance or speed in a rule text is in ${DISTANCE_NAME[units]} (${DISTANCE_UNIT[units]}) and ${SPEED_UNIT[units]}.`;
+
+// A plan is only worked out again when the instructions, the track's focus areas, the language or the units change
 const planCache = new Map<string, InCarCoachPlan>();
 const PLAN_CACHE_SIZE = 500;
 
 export async function inCarCoachPlan(
   instructions: string,
   areaNames: string[],
-  language: Language = DEFAULT_LANGUAGE
+  language: Language = DEFAULT_LANGUAGE,
+  units: Units = DEFAULT_UNITS
 ): Promise<InCarCoachPlan> {
   if (!instructions.trim()) return DEFAULT_PLAN;
   if (!process.env.OPENAI_API_KEY) {
     throw new Error('OPENAI_API_KEY is not configured');
   }
 
-  const key = createHash('sha256').update(JSON.stringify([instructions.trim(), areaNames, language])).digest('hex');
+  const key = createHash('sha256').update(JSON.stringify([instructions.trim(), areaNames, language, units])).digest('hex');
   const cached = planCache.get(key);
   if (cached) return cached;
 
   const agent = createAgent({
     model: new ChatOpenAI({ model: 'gpt-4o', temperature: 0 }),
     tools: [],
-    systemPrompt: PLAN_PROMPT + aiLanguageRule(language),
+    systemPrompt: PLAN_PROMPT + unitsRule(units) + aiLanguageRule(language),
     responseFormat: planSchema,
   });
   const result = await agent.invoke({

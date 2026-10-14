@@ -3,13 +3,19 @@ import { AI_LANGUAGE_NAMES, DEFAULT_LANGUAGE, type Language } from './i18n/langu
 import { ensureUserSchema } from './users';
 
 // The In-Car AI Coach's voice: OpenAI text-to-speech in the voice the driver picks on the Account page
-// ("Users".coach_voice), with a native accent in their Preferred Language. The collector gets its speech from
+// ("Users".coach_voice), with a native accent in their Preferred Language; for Spanish, the Latin American or Spain
+// accent they pick beside it ("Users".coach_spanish_accent). The collector gets its speech from
 // POST /api/collector/speech; the Account page's Listen button from GET /api/account/coach-voice/sample.
 
 // OpenAI's built-in voices for gpt-4o-mini-tts; marin and cedar are its most natural
 export const COACH_VOICES = ['marin', 'cedar', 'alloy', 'ash', 'ballad', 'coral', 'echo', 'fable', 'nova', 'onyx', 'sage', 'shimmer', 'verse'] as const;
 export type CoachVoice = (typeof COACH_VOICES)[number];
 export const DEFAULT_COACH_VOICE: CoachVoice = 'fable';
+
+// Spanish is spoken with a Latin American accent (the default, like the site's Spanish) or Spain's
+export const SPANISH_ACCENTS = ['latinAmerica', 'spain'] as const;
+export type SpanishAccent = (typeof SPANISH_ACCENTS)[number];
+export const DEFAULT_SPANISH_ACCENT: SpanishAccent = 'latinAmerica';
 
 export const MAX_SPEECH_CHARS = 500;
 
@@ -21,11 +27,39 @@ export function isCoachVoice(value: unknown): value is CoachVoice {
   return typeof value === 'string' && (COACH_VOICES as readonly string[]).includes(value);
 }
 
-export async function getCoachVoice(userId: number): Promise<CoachVoice> {
+export function isSpanishAccent(value: unknown): value is SpanishAccent {
+  return typeof value === 'string' && (SPANISH_ACCENTS as readonly string[]).includes(value);
+}
+
+export type CoachVoiceSettings = { voice: CoachVoice; spanishAccent: SpanishAccent };
+
+export async function getCoachVoice(userId: number): Promise<CoachVoiceSettings> {
   await ensureUserSchema();
-  const rows = await query<{ coach_voice: string }>('SELECT coach_voice FROM racingcoach."Users" WHERE id = $1', [userId]);
-  const voice = rows[0]?.coach_voice;
-  return isCoachVoice(voice) ? voice : DEFAULT_COACH_VOICE;
+  const rows = await query<{ coach_voice: string; coach_spanish_accent: string }>(
+    'SELECT coach_voice, coach_spanish_accent FROM racingcoach."Users" WHERE id = $1',
+    [userId]
+  );
+  const { coach_voice: voice, coach_spanish_accent: accent } = rows[0] ?? {};
+  return {
+    voice: isCoachVoice(voice) ? voice : DEFAULT_COACH_VOICE,
+    spanishAccent: isSpanishAccent(accent) ? accent : DEFAULT_SPANISH_ACCENT,
+  };
+}
+
+export async function setSpanishAccent(userId: number, accent: SpanishAccent): Promise<void> {
+  await ensureUserSchema();
+  await query('UPDATE racingcoach."Users" SET coach_spanish_accent = $1 WHERE id = $2', [accent, userId]);
+}
+
+// Who the voice speaks as: a native speaker of the language, with Spain's accent for Spanish when picked
+function nativeSpeaker(language: Language, spanishAccent: SpanishAccent) {
+  if (language === 'es' && spanishAccent === 'spain') {
+    return (
+      'Spanish speaker from Spain, with a Castilian (Peninsular) Spanish accent: distinción (z, and c before e or i, ' +
+      'said as "th"), Spain\'s intonation and rhythm, never a Latin American accent,'
+    );
+  }
+  return `${AI_LANGUAGE_NAMES[language]} speaker,`;
 }
 
 export async function setCoachVoice(userId: number, voice: CoachVoice): Promise<void> {
@@ -37,8 +71,13 @@ export class SpeechError extends Error {}
 
 // The text spoken in the voice, as a WAV file (PCM wrapped in a WAV header, which Windows plays without any
 // codec, and so do browsers). The text is already in the driver's language; the instructions give it a native
-// accent and a race engineer's delivery.
-export async function synthesizeSpeech(text: string, voice: CoachVoice, language: Language = DEFAULT_LANGUAGE): Promise<Buffer> {
+// accent (Spain's or Latin American for Spanish) and a race engineer's delivery.
+export async function synthesizeSpeech(
+  text: string,
+  voice: CoachVoice,
+  language: Language = DEFAULT_LANGUAGE,
+  spanishAccent: SpanishAccent = DEFAULT_SPANISH_ACCENT
+): Promise<Buffer> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     throw new SpeechError('OPENAI_API_KEY is not configured');
@@ -53,7 +92,7 @@ export async function synthesizeSpeech(text: string, voice: CoachVoice, language
       input: text,
       response_format: 'pcm',
       instructions:
-        `Speak as a native ${AI_LANGUAGE_NAMES[language]} speaker, pronouncing everything the way a native speaker ` +
+        `Speak as a native ${nativeSpeaker(language, spanishAccent)} pronouncing everything the way a native speaker ` +
         'would, numbers included (keep track, corner and car names as written). You are a race engineer on the ' +
         'team radio talking to a driver at speed: calm, clear, confident and a little brisk.',
     }),

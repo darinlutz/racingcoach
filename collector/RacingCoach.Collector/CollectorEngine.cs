@@ -112,6 +112,10 @@ internal sealed class CollectorEngine
     public InCarCoach Coach => _coach;
     /// <summary>The Rotation Model on live telemetry: understeer and oversteer for the overlay and Rotation window.</summary>
     public RotationMonitor Rotation { get; }
+    /// <summary>The user's Preferred Units on the Account page are Metric (meters, kph, °C, liters) rather than
+    /// Standard (feet, mph, °F, gallons). Loaded with the upload key, and again at each new track or car so a
+    /// change on the Account page shows from the next session; Standard without a key.</summary>
+    public bool Metric { get; private set; }
     /// <summary>The overlay's TelemetryEngine.js while the overlay is open; it gets every telemetry sample.</summary>
     public OverlayEngine? Overlay { get; set; }
 
@@ -141,8 +145,32 @@ internal sealed class CollectorEngine
         _races?.UseApi(api);
         _coach.Refresh(); // the plan comes from the account the key belongs to
         _brakeBeeps.Refresh(); // and so do the brakepoints and the beeps setting
+        RefreshUnits(); // and the units
         if (old is not null)
             _ = old.DisposeAsync().AsTask(); // its queued laps are queued again on the new one
+    }
+
+    // Loads the user's Preferred Units in the background; until then (or if the site can't be reached) the last ones stay
+    private void RefreshUnits()
+    {
+        if (Api is not { } api)
+        {
+            Metric = false;
+            return;
+        }
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var metric = await api.GetMetricAsync(CancellationToken.None);
+                if (Api == api)
+                    Metric = metric;
+            }
+            catch (Exception e) when (e is HttpRequestException or TaskCanceledException or UnauthorizedAccessException or System.Text.Json.JsonException)
+            {
+                // the window asks for a new key when it's refused; otherwise the next track tries again
+            }
+        });
     }
 
     /// <summary>Runs until cancelled (or a played-back file ends), then finishes saving laps and gives queued
@@ -255,7 +283,10 @@ internal sealed class CollectorEngine
 
             // iRacing re-sends session info every few seconds (flags, driver list, ...); only log changes
             if (previous is null || previous.Track != Session.Track || previous.TrackConfig != Session.TrackConfig || previous.Car != Session.Car)
+            {
                 Log($"Session: {_recorder.Session.Track} / {Session.Car}");
+                RefreshUnits(); // a change on the Account page shows from the next session
+            }
             return Task.CompletedTask;
         },
         OnTelemetryUpdate = data =>

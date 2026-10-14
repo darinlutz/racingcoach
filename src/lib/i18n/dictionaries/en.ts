@@ -163,8 +163,13 @@ export const en = {
     brakeBeeps: 'Play beeps before braking',
     yes: 'Yes',
     no: 'No',
-    brakeBeepsHint:
-      'The RacingCoach collector beeps 300, 200 and 100 ft (91, 61 and 30 m) before each focus area’s target brakepoint, and higher at the brakepoint.',
+    // In the user's Preferred Units
+    brakeBeepsHint: {
+      standard:
+        'The RacingCoach collector beeps 300, 200 and 100 ft before your Target Lap’s first braking in each focus area (your Track Data target brakepoints when you have no Target Lap), and higher at the brakepoint.',
+      metric:
+        'The RacingCoach collector beeps 91, 61 and 30 m before your Target Lap’s first braking in each focus area (your Track Data target brakepoints when you have no Target Lap), and higher at the brakepoint.',
+    },
     brakeBeepsFailed: 'Couldn’t save your beeps setting. Please try again.',
     // How distances are named in text, e.g. "measured in {units} from the start/finish line"
     distanceNames: { standard: 'feet', metric: 'meters' },
@@ -250,6 +255,10 @@ export const en = {
     listen: 'Listen',
     loadingSample: 'Loading…',
     voiceSaved: 'Coach voice saved.',
+    // The accent the coach speaks Spanish with (only shown when the Preferred Language is Spanish)
+    accentTitle: 'Spanish accent',
+    accents: { latinAmerica: 'Latin American', spain: 'Spain' },
+    accentSaved: 'Spanish accent saved.',
     // What the Listen button says, in the chosen voice
     sample: 'Turn 1: brake about {later} {units} later, near {near} {units}. Nice lap, two tenths quicker.',
   },
@@ -813,7 +822,8 @@ export const en = {
     loading: 'Loading your cars…',
     none: 'No cars added yet.',
     powerBhp: 'Power (bhp)',
-    torqueLbFt: 'Torque (lb-ft)',
+    // {unit} is lb-ft, or Nm for Metric
+    torqueLbFt: 'Torque ({unit})',
     rpmLimit: 'RPM Limit',
     displacement: 'Disp. (L)',
     wetWeight: 'Wet Weight (lbs)',
@@ -1079,6 +1089,7 @@ export const en = {
     inCarInstructionsTooLong: 'The In-Car AI Coach Instructions are too long',
     logInInCarInstructions: 'Log in to save your In-Car AI Coach Instructions',
     unknownCoachVoice: 'Unknown coach voice',
+    unknownSpanishAccent: 'Unknown Spanish accent',
     failedSaveCoachVoice: 'Failed to save the coach voice',
     failedCoachVoiceSample: 'Couldn’t play the sample',
     // General

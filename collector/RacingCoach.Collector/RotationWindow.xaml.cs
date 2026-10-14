@@ -17,6 +17,7 @@ namespace RacingCoach.Collector;
 public partial class RotationWindow : Window
 {
     private const double MetersPerSecondToMph = 2.23694;
+    private const double MetersPerSecondToKph = 3.6;
     private const double Gravity = 9.80665;
     private const double RadiansToDegrees = 180 / Math.PI;
     private static readonly CultureInfo Culture = CultureInfo.InvariantCulture;
@@ -63,12 +64,14 @@ public partial class RotationWindow : Window
 
         // iRacing's angles are radians, positive to the left (counterclockwise)
         Show(SteeringBox, SteeringRaw, d.SteeringWheelAngle, v => LeftRight(v * RadiansToDegrees, "°"), "rad");
-        Show(SpeedBox, SpeedRaw, d.Speed, v => $"{v * MetersPerSecondToMph:0.0} mph", "m/s");
+        // Speeds in the user's Preferred Units: mph, or kph for Metric
+        var (perMetersPerSecond, speedUnit) = _engine.Metric ? (MetersPerSecondToKph, "kph") : (MetersPerSecondToMph, "mph");
+        Show(SpeedBox, SpeedRaw, d.Speed, v => $"{v * perMetersPerSecond:0.0} {speedUnit}", "m/s");
         Show(YawRateBox, YawRateRaw, d.YawRate, v => LeftRight(v * RadiansToDegrees, "°/s"), "rad/s");
         Show(YawBox, YawRaw, d.Yaw, v => $"{v * RadiansToDegrees:0.0}°", "rad");
-        Show(VelocityXBox, VelocityXRaw, d.VelocityX, v => $"{v * MetersPerSecondToMph:0.0} mph", "m/s");
+        Show(VelocityXBox, VelocityXRaw, d.VelocityX, v => $"{v * perMetersPerSecond:0.0} {speedUnit}", "m/s");
         // Y is positive to the left
-        Show(VelocityYBox, VelocityYRaw, d.VelocityY, v => LeftRight(v * MetersPerSecondToMph, " mph"), "m/s");
+        Show(VelocityYBox, VelocityYRaw, d.VelocityY, v => LeftRight(v * perMetersPerSecond, $" {speedUnit}"), "m/s");
         Show(LatAccelBox, LatAccelRaw, d.LatAccel, v => $"{v / Gravity:+0.00;−0.00;0.00} g", "m/s²");
         Show(LongAccelBox, LongAccelRaw, d.LongAccel, v => $"{v / Gravity:+0.00;−0.00;0.00} g", "m/s²");
         Show(ThrottleBox, ThrottleRaw, d.Throttle, v => $"{Math.Clamp(v, 0, 1) * 100:0}%", "");

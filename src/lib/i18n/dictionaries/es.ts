@@ -164,8 +164,12 @@ export const es: Dictionary = {
     brakeBeeps: 'Pitidos antes de frenar',
     yes: 'Sí',
     no: 'No',
-    brakeBeepsHint:
-      'El recolector de RacingCoach pita a 300, 200 y 100 pies (91, 61 y 30 m) del punto de frenada objetivo de cada zona de enfoque, y más agudo en el punto de frenada.',
+    brakeBeepsHint: {
+      standard:
+        'El recolector de RacingCoach pita a 300, 200 y 100 pies de la primera frenada de tu Vuelta Objetivo en cada zona de enfoque (tus puntos de frenada objetivo de los datos de pista si no tienes Vuelta Objetivo), y más agudo en el punto de frenada.',
+      metric:
+        'El recolector de RacingCoach pita a 91, 61 y 30 m de la primera frenada de tu Vuelta Objetivo en cada zona de enfoque (tus puntos de frenada objetivo de los datos de pista si no tienes Vuelta Objetivo), y más agudo en el punto de frenada.',
+    },
     brakeBeepsFailed: 'No se pudo guardar la configuración de los pitidos. Inténtalo de nuevo.',
     distanceNames: { standard: 'pies', metric: 'metros' },
   },
@@ -249,6 +253,9 @@ export const es: Dictionary = {
     listen: 'Escuchar',
     loadingSample: 'Cargando…',
     voiceSaved: 'Voz del entrenador guardada.',
+    accentTitle: 'Acento del español',
+    accents: { latinAmerica: 'Latinoamericano', spain: 'España' },
+    accentSaved: 'Acento guardado.',
     sample: 'Curva 1: frena unos {later} {units} más tarde, cerca de {near} {units}. Buena vuelta, dos décimas más rápida.',
   },
 
@@ -803,7 +810,8 @@ export const es: Dictionary = {
     loading: 'Cargando tus autos…',
     none: 'Todavía no agregaste autos.',
     powerBhp: 'Potencia (bhp)',
-    torqueLbFt: 'Torque (lb-ft)',
+    // {unit} is lb-ft, or Nm for Metric
+    torqueLbFt: 'Torque ({unit})',
     rpmLimit: 'Límite de RPM',
     displacement: 'Cil. (L)',
     wetWeight: 'Peso c/ piloto (lbs)',
@@ -1066,6 +1074,7 @@ export const es: Dictionary = {
     inCarInstructionsTooLong: 'Las instrucciones del entrenador IA en el auto son demasiado largas',
     logInInCarInstructions: 'Inicia sesión para guardar tus instrucciones del entrenador IA en el auto',
     unknownCoachVoice: 'Voz del entrenador desconocida',
+    unknownSpanishAccent: 'Acento desconocido',
     failedSaveCoachVoice: 'No se pudo guardar la voz del entrenador',
     failedCoachVoiceSample: 'No se pudo reproducir la muestra',
     notConfigured: 'Esta función no está disponible en este momento. Inténtalo más tarde.',

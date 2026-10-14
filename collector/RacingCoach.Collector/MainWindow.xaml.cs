@@ -19,6 +19,7 @@ namespace RacingCoach.Collector;
 public partial class MainWindow : Window
 {
     private const double MetersPerSecondToMph = 2.23694;
+    private const double MetersPerSecondToKph = 3.6;
     private const double LitersPerGallon = 3.78541;
     // How far the steering marker goes: a full lock this far either way reaches the end of its track
     private const double SteeringRangeDegrees = 270;
@@ -64,6 +65,7 @@ public partial class MainWindow : Window
     private OverlayWindow? _overlayWindow;
     private RotationWindow? _rotationWindow;
     private BrakePracticeWindow? _brakePracticeWindow;
+    private TargetTelemetryWindow? _targetTelemetryWindow;
 
     internal MainWindow(CollectorOptions options)
     {
@@ -460,7 +462,12 @@ public partial class MainWindow : Window
             return;
         }
 
-        SpeedText.Text = d.Speed is { } speed ? Math.Round(speed * MetersPerSecondToMph).ToString("0", Culture) : "—";
+        // In the user's Preferred Units (Account page): mph, or kph for Metric
+        var metric = _engine.Metric;
+        SpeedUnitText.Text = metric ? " KPH" : " MPH";
+        SpeedText.Text = d.Speed is { } speed
+            ? Math.Round(speed * (metric ? MetersPerSecondToKph : MetersPerSecondToMph)).ToString("0", Culture)
+            : "—";
         GearText.Text = d.Gear switch { null => "—", -1 => "R", 0 => "N", var g => g.Value.ToString(Culture) };
         RpmText.Text = d.RPM is { } rpm ? $"{rpm.ToString("N0", Culture)} RPM" : "— RPM";
 
@@ -498,8 +505,8 @@ public partial class MainWindow : Window
 
         if (d.FuelLevel is { } liters)
         {
-            FuelText.Text = $"{liters / LitersPerGallon:0.0} gal";
-            FuelPctText.Text = $"{liters:0.0} L" + (d.FuelLevelPct is { } fp ? $" · {fp * 100:0}%" : "");
+            FuelText.Text = metric ? $"{liters:0.0} L" : $"{liters / LitersPerGallon:0.0} gal";
+            FuelPctText.Text = d.FuelLevelPct is { } fp ? $"{fp * 100:0}%" : "";
             FuelScale.ScaleX = Math.Clamp(d.FuelLevelPct ?? 0, 0, 1);
         }
         TrackTempText.Text = Temperature(d.TrackTempCrew);
@@ -670,6 +677,20 @@ public partial class MainWindow : Window
         _brakePracticeWindow.Show();
     }
 
+    // Opens the Target Telemetry window (or brings it to the front): the Target Lap's brake trace scrolling past the
+    // car's position on track
+    private void TargetTelemetry_Click(object sender, RoutedEventArgs e)
+    {
+        if (_targetTelemetryWindow is not null)
+        {
+            _targetTelemetryWindow.Activate();
+            return;
+        }
+        _targetTelemetryWindow = new TargetTelemetryWindow(_engine);
+        _targetTelemetryWindow.Closed += (_, _) => _targetTelemetryWindow = null;
+        _targetTelemetryWindow.Show();
+    }
+
     private static void Open(string target)
     {
         try
@@ -696,6 +717,7 @@ public partial class MainWindow : Window
         _overlayWindow?.Close();
         _rotationWindow?.Close();
         _brakePracticeWindow?.Close();
+        _targetTelemetryWindow?.Close();
         ClosingOverlay.Visibility = Visibility.Visible;
         _timer.Stop();
         _stop.Cancel();
@@ -722,18 +744,18 @@ public partial class MainWindow : Window
 
     private static string LapTime(float? seconds) => LapTime((double?)seconds);
 
-    // iRacing gives the length as e.g. "4.7466 km": "2.95 mi · 4.75 km"
-    private static string? TrackLength(string? length)
+    // iRacing gives the length as e.g. "4.7466 km": "2.95 mi", or "4.75 km" for Metric
+    private string? TrackLength(string? length)
     {
         var parts = length?.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         if (parts is not [var number, "km"] || !double.TryParse(number, NumberStyles.Float, CultureInfo.InvariantCulture, out var km))
             return length;
-        return $"{km * 0.621371:0.00} mi · {km:0.00} km";
+        return _engine.Metric ? $"{km:0.00} km" : $"{km * 0.621371:0.00} mi";
     }
 
-    // iRacing temperatures are °C
-    private static string Temperature(float? celsius) =>
-        celsius is { } c ? $"{c * 9 / 5 + 32:0}°F · {c:0}°C" : "—";
+    // iRacing temperatures are °C: "77°F", or "25°C" for Metric
+    private string Temperature(float? celsius) =>
+        celsius is not { } c ? "—" : _engine.Metric ? $"{c:0}°C" : $"{c * 9 / 5 + 32:0}°F";
 
     private static SolidColorBrush Brush(string hex)
     {

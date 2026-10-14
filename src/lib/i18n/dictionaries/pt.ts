@@ -164,8 +164,12 @@ export const pt: Dictionary = {
     brakeBeeps: 'Tocar bipes antes da frenagem',
     yes: 'Sim',
     no: 'Não',
-    brakeBeepsHint:
-      'O coletor do RacingCoach bipa a 300, 200 e 100 pés (91, 61 e 30 m) do ponto de frenagem alvo de cada área de foco, e mais agudo no ponto de frenagem.',
+    brakeBeepsHint: {
+      standard:
+        'O coletor do RacingCoach bipa a 300, 200 e 100 pés da primeira frenagem da sua Volta Alvo em cada área de foco (seus pontos de frenagem alvo dos dados de pista se você não tiver Volta Alvo), e mais agudo no ponto de frenagem.',
+      metric:
+        'O coletor do RacingCoach bipa a 91, 61 e 30 m da primeira frenagem da sua Volta Alvo em cada área de foco (seus pontos de frenagem alvo dos dados de pista se você não tiver Volta Alvo), e mais agudo no ponto de frenagem.',
+    },
     brakeBeepsFailed: 'Não foi possível salvar a configuração dos bipes. Tente novamente.',
     distanceNames: { standard: 'pés', metric: 'metros' },
   },
@@ -249,6 +253,9 @@ export const pt: Dictionary = {
     listen: 'Ouvir',
     loadingSample: 'Carregando…',
     voiceSaved: 'Voz do treinador salva.',
+    accentTitle: 'Sotaque do espanhol',
+    accents: { latinAmerica: 'Latino-americano', spain: 'Espanha' },
+    accentSaved: 'Sotaque salvo.',
     sample: 'Curva 1: freie uns {later} {units} mais tarde, perto de {near} {units}. Boa volta, dois décimos mais rápida.',
   },
 
@@ -803,7 +810,8 @@ export const pt: Dictionary = {
     loading: 'Carregando seus carros…',
     none: 'Nenhum carro adicionado ainda.',
     powerBhp: 'Potência (bhp)',
-    torqueLbFt: 'Torque (lb-ft)',
+    // {unit} is lb-ft, or Nm for Metric
+    torqueLbFt: 'Torque ({unit})',
     rpmLimit: 'Limite de RPM',
     displacement: 'Cil. (L)',
     wetWeight: 'Peso c/ piloto (lbs)',
@@ -1066,6 +1074,7 @@ export const pt: Dictionary = {
     inCarInstructionsTooLong: 'As instruções do treinador IA no carro são longas demais',
     logInInCarInstructions: 'Entre para salvar suas instruções do treinador IA no carro',
     unknownCoachVoice: 'Voz do treinador desconhecida',
+    unknownSpanishAccent: 'Sotaque desconhecido',
     failedSaveCoachVoice: 'Não foi possível salvar a voz do treinador',
     failedCoachVoiceSample: 'Não foi possível tocar a amostra',
     notConfigured: 'Este recurso não está disponível no momento. Tente novamente mais tarde.',

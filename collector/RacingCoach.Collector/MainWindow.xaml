@@ -126,7 +126,8 @@
                     <Button Style="{StaticResource Button}" Content="RacingCoach.app" Click="OpenSite_Click" Margin="0,0,8,0" />
                     <Button Style="{StaticResource PrimaryButton}" Content="Launch Overlay" Click="LaunchOverlay_Click" Margin="0,0,8,0" />
                     <Button Style="{StaticResource PrimaryButton}" Content="Rotation" Click="Rotation_Click" Margin="0,0,8,0" />
-                    <Button Style="{StaticResource BlueButton}" Content="Brake Practice" Click="BrakePractice_Click" />
+                    <Button Style="{StaticResource BlueButton}" Content="Brake Practice" Click="BrakePractice_Click" Margin="0,0,8,0" />
+                    <Button Style="{StaticResource BlueButton}" Content="Target Telemetry" Click="TargetTelemetry_Click" />
                 </StackPanel>
             </Grid>
 
@@ -272,7 +273,7 @@
                             </Grid.ColumnDefinitions>
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom">
                                 <TextBlock x:Name="SpeedText" FontSize="44" FontWeight="Bold" Text="—" />
-                                <TextBlock Text=" MPH" Style="{StaticResource Muted}" VerticalAlignment="Bottom" Margin="0,0,0,10" />
+                                <TextBlock x:Name="SpeedUnitText" Text=" MPH" Style="{StaticResource Muted}" VerticalAlignment="Bottom" Margin="0,0,0,10" />
                             </StackPanel>
                             <StackPanel Grid.Column="2" HorizontalAlignment="Right">
                                 <TextBlock Style="{StaticResource Label}" Text="GEAR" HorizontalAlignment="Right" />

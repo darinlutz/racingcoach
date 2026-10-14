@@ -25,7 +25,7 @@ export function areaName(area) {
 // What the fix changes. Debriefs saved before the coach labeled it: tell it from the wording, or none.
 function fixFocus(fix) {
   if (fix.focus) return fix.focus;
-  if (/\bbrake about \d+ ft (later|earlier)/i.test(fix.fix)) return 'Braking';
+  if (/\bbrake about \d+ (?:ft|m) (later|earlier)/i.test(fix.fix)) return 'Braking';
   if (/brake pressure/i.test(fix.fix)) return 'Brake pressure';
   return null;
 }

@@ -51,6 +51,19 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
         return body?.UserName ?? "your account";
     }
 
+    /// <summary>Whether the user's Preferred Units on the Account page are Metric (meters, kph, °C, liters) rather
+    /// than Standard (feet, mph, °F, gallons; also for a site from before there were units). Throws like
+    /// GetTrackJsonAsync.</summary>
+    public async Task<bool> GetMetricAsync(CancellationToken ct)
+    {
+        using var response = await _http.GetAsync("api/collector/me", ct);
+        if (response.StatusCode == HttpStatusCode.Unauthorized)
+            throw new UnauthorizedAccessException("RacingCoach.app doesn't accept the upload key");
+        response.EnsureSuccessStatusCode();
+        var body = await response.Content.ReadFromJsonAsync<MeResponse>(JsonOptions, ct);
+        return body?.Units == "metric";
+    }
+
     /// <summary>The user's Track Data track for an iRacing track name, as the JSON TelemetryEngine.js reads from
     /// its TrackConfig (TrackFileName, TrackLengthInFeet, Notes and areas), or null if they have no such track;
     /// and whether their Preferred Units on the Account page are Metric (meters, kph) rather than Standard
@@ -72,38 +85,36 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
         return (json, metric);
     }
 
-    /// <summary>For BrakeBeeps, from the same track as GetTrackJsonAsync: whether "Play beeps before braking" is
-    /// Yes on the Account page (also for a site from before the setting), the Track Data track's length in feet
-    /// (0 when it isn't set, or there's no such track) and its focus areas' target brakepoints, in feet from the
-    /// start/finish line (areas without one left out). Throws like GetTrackJsonAsync.</summary>
+    /// <summary>For BrakeBeeps: whether "Play beeps before braking" is Yes on the Account page, the Track Data
+    /// track's length in feet (0 when it isn't set, or there's no such track), the user's Target Lap (null when
+    /// they have none) and where it first brakes in each of the track's focus areas, as fractions of a lap, or
+    /// without a Target Lap, the areas' Track Data target brakepoints in feet (empty when beeps are off, or the
+    /// Target Lap is from another track). Throws like GetTrackJsonAsync, and
+    /// HttpRequestException for a server error.</summary>
     public async Task<BrakeTargets> GetBrakeTargetsAsync(string trackName, CancellationToken ct)
     {
-        using var response = await _http.GetAsync($"api/collector/track?name={Uri.EscapeDataString(trackName)}", ct);
+        using var response = await _http.GetAsync($"api/collector/brake-beeps?track={Uri.EscapeDataString(trackName)}", ct);
         if (response.StatusCode == HttpStatusCode.Unauthorized)
             throw new UnauthorizedAccessException("RacingCoach.app doesn't accept the upload key");
-        response.EnsureSuccessStatusCode();
-        using var body = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(ct), cancellationToken: ct);
-        var root = body.RootElement;
-        var enabled = !(root.TryGetProperty("brakeBeeps", out var beeps) && beeps.ValueKind == JsonValueKind.False);
-        if (!root.TryGetProperty("track", out var track) || track.ValueKind != JsonValueKind.Object)
-            return new BrakeTargets(enabled, 0, []);
+        if (!response.IsSuccessStatusCode)
+            throw new HttpRequestException(await ErrorMessageAsync(response, ct));
+        return await response.Content.ReadFromJsonAsync<BrakeTargets>(JsonOptions, ct)
+            ?? throw new HttpRequestException("the site sent no brakepoints");
+    }
 
-        var lengthFeet = track.TryGetProperty("TrackLengthInFeet", out var length) && length.ValueKind == JsonValueKind.Number
-            ? length.GetDouble()
-            : 0;
-        var brakepoints = new List<BrakeTarget>();
-        if (track.TryGetProperty("areas", out var areas) && areas.ValueKind == JsonValueKind.Array)
-        {
-            foreach (var area in areas.EnumerateArray())
-            {
-                if (area.TryGetProperty("BrakepointTarget", out var feet) && feet.ValueKind == JsonValueKind.Number && feet.GetDouble() > 0)
-                {
-                    var name = area.TryGetProperty("name", out var n) && n.ValueKind == JsonValueKind.String ? n.GetString() ?? "" : "";
-                    brakepoints.Add(new BrakeTarget(name, feet.GetDouble()));
-                }
-            }
-        }
-        return new BrakeTargets(enabled, lengthFeet, brakepoints);
+    /// <summary>For the Target Telemetry window: the user's Target Lap's brake trace (null Lap when they have none),
+    /// the Track Data length of the track being driven (0 when it isn't set, there's no such track, or track is
+    /// null) and whether their Preferred Units are Metric. Throws like GetTrackJsonAsync.</summary>
+    public async Task<TargetLapResponse> GetTargetLapAsync(string? trackName, CancellationToken ct)
+    {
+        var query = trackName is null ? "" : $"?track={Uri.EscapeDataString(trackName)}";
+        using var response = await _http.GetAsync($"api/collector/target-lap{query}", ct);
+        if (response.StatusCode == HttpStatusCode.Unauthorized)
+            throw new UnauthorizedAccessException("RacingCoach.app doesn't accept the upload key");
+        if (!response.IsSuccessStatusCode)
+            throw new HttpRequestException(await ErrorMessageAsync(response, ct));
+        return await response.Content.ReadFromJsonAsync<TargetLapResponse>(JsonOptions, ct)
+            ?? throw new HttpRequestException("the site sent no Target Lap");
     }
 
     /// <summary>The in-session debrief for uploaded laps (by clientLapId): what to say, e.g. "Area 1 average
@@ -297,7 +308,7 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
 
     public void Dispose() => _http.Dispose();
 
-    private sealed record MeResponse(string? UserName);
+    private sealed record MeResponse(string? UserName, string? Units);
 
     private sealed record ErrorResponse(string? Error);
 
@@ -317,11 +328,26 @@ internal sealed record CoachPlan(List<CoachRule>? Rules, bool Speak, bool Show, 
 /// <summary>On Event (in Area, for areaEntry/areaExit; null = any), say or show Text, or play Sound.</summary>
 internal sealed record CoachRule(string Event, string? Area, string Action, string? Text, string? Sound);
 
-/// <summary>"Play beeps before braking" and what it beeps for on one track (see GetBrakeTargetsAsync).</summary>
-internal sealed record BrakeTargets(bool Enabled, double TrackLengthFeet, IReadOnlyList<BrakeTarget> Brakepoints);
+/// <summary>GET /api/collector/brake-beeps: "Play beeps before braking" and what it beeps for on one track (see
+/// GetBrakeTargetsAsync). SameTrack is false when the Target Lap's file name names another track, null when it
+/// doesn't say.</summary>
+internal sealed record BrakeTargets(bool Enabled, double TrackLengthFeet, TargetLapName? TargetLap, bool? SameTrack, List<BrakeTarget>? Brakepoints);
 
-/// <summary>A focus area's target brakepoint, in feet from the start/finish line.</summary>
-internal sealed record BrakeTarget(string Area, double Feet);
+/// <summary>The Target Lap's file name, and the track that names (null if it doesn't say).</summary>
+internal sealed record TargetLapName(string FileName, string? Track);
+
+/// <summary>GET /api/collector/target-lap: the Target Lap (null when the user has none), the track's Track Data
+/// length in feet (0 when unknown) and the user's Preferred Units ("standard" or "metric").</summary>
+internal sealed record TargetLapResponse(TargetLapTrace? TargetLap, double TrackLengthFeet, string? Units);
+
+/// <summary>The Target Lap's file name, the track its file name names (null if it doesn't say), whether that's
+/// the track being driven (null when unknown), and per sample its LapDistPct (unwrapped: it keeps increasing past
+/// the start/finish line) and Brake (0-1).</summary>
+internal sealed record TargetLapTrace(string FileName, string? Track, bool? SameTrack, double[] Pcts, double[] Brakes);
+
+/// <summary>A focus area's brakepoint: where the Target Lap first brakes in it, as a fraction of a lap (0-1), or
+/// without a Target Lap, its target brakepoint from Track Data, in feet from the start/finish line.</summary>
+internal sealed record BrakeTarget(string Area, double? Pct, double? Feet);
 
 /// <summary>A focus area from Track Data: where it starts and ends, as fractions of a lap.</summary>
 internal sealed record CoachArea(string Name, double Start, double End);

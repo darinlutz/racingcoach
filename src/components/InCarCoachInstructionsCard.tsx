@@ -6,17 +6,21 @@ import { useLanguage } from '@/components/LanguageProvider';
 
 // The Account page's My In-Car AI Coach Instructions box: what the user's own In-Car AI Coach should do
 // and not do, saved for them only (PUT /api/account/in-car-coach-instructions) with the Save button; and
-// below it the voice the coach speaks with.
+// below it the voice the coach speaks with (and its accent, for Spanish).
 export default function InCarCoachInstructionsCard({
   instructions: initial,
   maxLength,
   voice,
   voices,
+  spanishAccent,
+  spanishAccents,
 }: {
   instructions: string;
   maxLength: number;
   voice: string;
   voices: readonly string[];
+  spanishAccent: string;
+  spanishAccents: readonly string[];
 }) {
   const { t, fmt } = useLanguage();
   const c = t.inCarCoach;
@@ -90,7 +94,7 @@ export default function InCarCoachInstructionsCard({
           {message.text}
         </p>
       )}
-      <CoachVoicePicker voice={voice} voices={voices} />
+      <CoachVoicePicker voice={voice} voices={voices} spanishAccent={spanishAccent} spanishAccents={spanishAccents} />
     </div>
   );
 }

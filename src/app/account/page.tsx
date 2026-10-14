@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import BrakeBeepsToggle from '@/components/BrakeBeepsToggle';
 import CancelSubscriptionButton from '@/components/CancelSubscriptionButton';
 import CollectorKeyCard from '@/components/CollectorKeyCard';
 import InCarCoachInstructionsCard from '@/components/InCarCoachInstructionsCard';
@@ -128,6 +129,9 @@ export default async function AccountPage({
           </div>
           <div className="mt-5">
             <ThemeToggle theme={user.theme} />
+          </div>
+          <div className="mt-5">
+            <BrakeBeepsToggle brakeBeeps={user.brakeBeeps} />
           </div>
         </div>
 

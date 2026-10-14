@@ -147,6 +147,12 @@ export const es: Dictionary = {
     metric: 'Métrico',
     metricHint: 'metros, kph, °C',
     unitsFailed: 'No se pudieron guardar tus unidades. Inténtalo de nuevo.',
+    brakeBeeps: 'Pitidos antes de frenar',
+    yes: 'Sí',
+    no: 'No',
+    brakeBeepsHint:
+      'El recolector de RacingCoach pita a 300, 200 y 100 pies (91, 61 y 30 m) del punto de frenada objetivo de cada zona de enfoque, y más agudo en el punto de frenada.',
+    brakeBeepsFailed: 'No se pudo guardar la configuración de los pitidos. Inténtalo de nuevo.',
     distanceNames: { standard: 'pies', metric: 'metros' },
   },
 
@@ -1056,6 +1062,9 @@ export const es: Dictionary = {
     failedSaveTheme: 'No se pudo guardar tu tema',
     unknownUnits: 'Unidades desconocidas',
     failedSaveUnits: 'No se pudieron guardar tus unidades',
+    unknownBrakeBeeps: 'Pitidos antes de frenar debe ser Sí o No',
+    logInBrakeBeeps: 'Inicia sesión para cambiar Pitidos antes de frenar',
+    failedSaveBrakeBeeps: 'No se pudo guardar Pitidos antes de frenar',
     allFieldsRequired: 'Todos los campos son obligatorios',
     nameTooLong: 'El nombre debe tener como máximo {max} caracteres',
     invalidEmail: 'Correo electrónico no válido',

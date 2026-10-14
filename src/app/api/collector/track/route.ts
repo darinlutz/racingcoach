@@ -8,7 +8,8 @@ import { getUserById } from '@/lib/users';
 // upload key as a bearer token, like /api/collector/laps.
 //   ?name=  iRacing's track name as the collector writes it, e.g. "Road Atlanta (Full Course)"
 // Answers { track: null } when the user has no such track in Track Data. Either way, units is the user's
-// Preferred Units ("standard" or "metric"), which the overlay shows its distances and speeds in.
+// Preferred Units ("standard" or "metric"), which the overlay shows its distances and speeds in, and brakeBeeps
+// is "Play beeps before braking" from the Account page (the collector's BrakeBeeps.cs).
 export async function GET(request: Request) {
   try {
     const userId = await authenticateCollector(request);
@@ -23,7 +24,7 @@ export async function GET(request: Request) {
 
     const track = findTrackByName(await readTracks(userId), name);
     if (!track) {
-      return NextResponse.json({ track: null, units: user.units });
+      return NextResponse.json({ track: null, units: user.units, brakeBeeps: user.brakeBeeps });
     }
 
     // The same names and order as a track in the Track Data text file (trackFile.ts), which is what
@@ -47,6 +48,7 @@ export async function GET(request: Request) {
         areas,
       },
       units: user.units,
+      brakeBeeps: user.brakeBeeps,
     });
   } catch (error) {
     console.error('Collector track error:', error);

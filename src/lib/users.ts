@@ -41,10 +41,12 @@ export type User = {
   theme: Theme;
   // Standard (feet, mph, °F) or Metric (meters, kph, °C) for the whole site
   units: Units;
+  // "Play beeps before braking": the telemetry collector beeps on the approach to each target brakepoint
+  brakeBeeps: boolean;
 };
 
 const USER_COLUMNS =
-  'id, user_name, email_address, account_status, membership_level, signup_date, subscription_end_date, stripe_subscription_id, stripe_customer_id, role, preferred_language, theme, units';
+  'id, user_name, email_address, account_status, membership_level, signup_date, subscription_end_date, stripe_subscription_id, stripe_customer_id, role, preferred_language, theme, units, brake_beeps';
 
 // The site owner is made Admin on sign-up; everyone else is a User
 export const OWNER_EMAIL = 'darinlutz@yahoo.com';
@@ -152,6 +154,10 @@ export function ensureUserSchema(): Promise<void> {
       await client.query(
         `ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS in_car_coach_instructions TEXT NOT NULL DEFAULT ''`
       );
+      // "Play beeps before braking" from the Account page: the telemetry collector beeps 300, 200 and 100 ft
+      // before each focus area's target brakepoint and higher at it (BrakeBeeps.cs). Yes by default, which
+      // adding the column also sets for every existing user.
+      await client.query(`ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS brake_beeps BOOLEAN NOT NULL DEFAULT true`);
       // The OpenAI voice the In-Car AI Coach speaks with (src/lib/coachVoice.ts); empty for the default one
       await client.query(`ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS coach_voice TEXT NOT NULL DEFAULT ''`);
       // Email addresses are unique regardless of case
@@ -628,6 +634,7 @@ function rowToUser(row: Record<string, unknown>): User {
     preferredLanguage: isLanguage(row.preferred_language) ? row.preferred_language : DEFAULT_LANGUAGE,
     theme: isTheme(row.theme) ? row.theme : DEFAULT_THEME,
     units: isUnits(row.units) ? row.units : DEFAULT_UNITS,
+    brakeBeeps: row.brake_beeps !== false,
     signupDate: (row.signup_date as string | null) ?? null,
     subscriptionEndDate: (row.subscription_end_date as string | null) ?? null,
     stripeSubscriptionId: (row.stripe_subscription_id as string | null) ?? null,
@@ -750,6 +757,11 @@ export async function setTheme(userId: number, theme: Theme): Promise<void> {
 export async function setUnits(userId: number, units: Units): Promise<void> {
   await ensureUserSchema();
   await query('UPDATE racingcoach."Users" SET units = $1 WHERE id = $2', [units, userId]);
+}
+
+export async function setBrakeBeeps(userId: number, brakeBeeps: boolean): Promise<void> {
+  await ensureUserSchema();
+  await query('UPDATE racingcoach."Users" SET brake_beeps = $1 WHERE id = $2', [brakeBeeps, userId]);
 }
 
 // The longest In-Car AI Coach Instructions a user can save

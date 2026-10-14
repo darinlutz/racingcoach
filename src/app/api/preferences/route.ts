@@ -6,12 +6,13 @@ import { isTheme } from '@/lib/theme';
 import { setThemeCookie } from '@/lib/themeServer';
 import { isUnits } from '@/lib/units';
 import { setUnitsCookie } from '@/lib/unitsServer';
-import { setPreferredLanguage, setTheme, setUnits } from '@/lib/users';
+import { setBrakeBeeps, setPreferredLanguage, setTheme, setUnits } from '@/lib/users';
 import { apiText } from '@/lib/i18n/server';
 
 // Saves the Preferred Language, the Preferred Units (Standard / Metric) or the theme (Dark Mode / Light
 // Mode): in the signed-in user's account (racingcoach."Users".preferred_language / units / theme) and in a
-// cookie, which is all a visitor has. A new language or units reloads the page in them; a new theme is
+// cookie, which is all a visitor has. Also "Play beeps before braking" ({ brakeBeeps }, "Users".brake_beeps),
+// account only. A new language or units reloads the page in them; a new theme is
 // already showing in the browser.
 export async function PUT(request: Request) {
   const t = await apiText();
@@ -30,6 +31,26 @@ export async function PUT(request: Request) {
     } catch (error) {
       console.error('Units error:', error);
       return NextResponse.json({ error: t.failedSaveUnits }, { status: 500 });
+    }
+  }
+
+  // "Play beeps before braking" is only in the account (the collector reads it with the upload key), so it
+  // needs a signed-in user and has no cookie
+  if (typeof body === 'object' && 'brakeBeeps' in body) {
+    const brakeBeeps = body.brakeBeeps;
+    if (typeof brakeBeeps !== 'boolean') {
+      return NextResponse.json({ error: t.unknownBrakeBeeps }, { status: 400 });
+    }
+    try {
+      const user = await getCurrentUser();
+      if (!user) {
+        return NextResponse.json({ error: t.logInBrakeBeeps }, { status: 401 });
+      }
+      await setBrakeBeeps(user.id, brakeBeeps);
+      return NextResponse.json({ brakeBeeps });
+    } catch (error) {
+      console.error('Brake beeps error:', error);
+      return NextResponse.json({ error: t.failedSaveBrakeBeeps }, { status: 500 });
     }
   }
 

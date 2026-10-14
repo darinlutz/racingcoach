@@ -72,6 +72,40 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
         return (json, metric);
     }
 
+    /// <summary>For BrakeBeeps, from the same track as GetTrackJsonAsync: whether "Play beeps before braking" is
+    /// Yes on the Account page (also for a site from before the setting), the Track Data track's length in feet
+    /// (0 when it isn't set, or there's no such track) and its focus areas' target brakepoints, in feet from the
+    /// start/finish line (areas without one left out). Throws like GetTrackJsonAsync.</summary>
+    public async Task<BrakeTargets> GetBrakeTargetsAsync(string trackName, CancellationToken ct)
+    {
+        using var response = await _http.GetAsync($"api/collector/track?name={Uri.EscapeDataString(trackName)}", ct);
+        if (response.StatusCode == HttpStatusCode.Unauthorized)
+            throw new UnauthorizedAccessException("RacingCoach.app doesn't accept the upload key");
+        response.EnsureSuccessStatusCode();
+        using var body = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(ct), cancellationToken: ct);
+        var root = body.RootElement;
+        var enabled = !(root.TryGetProperty("brakeBeeps", out var beeps) && beeps.ValueKind == JsonValueKind.False);
+        if (!root.TryGetProperty("track", out var track) || track.ValueKind != JsonValueKind.Object)
+            return new BrakeTargets(enabled, 0, []);
+
+        var lengthFeet = track.TryGetProperty("TrackLengthInFeet", out var length) && length.ValueKind == JsonValueKind.Number
+            ? length.GetDouble()
+            : 0;
+        var brakepoints = new List<BrakeTarget>();
+        if (track.TryGetProperty("areas", out var areas) && areas.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var area in areas.EnumerateArray())
+            {
+                if (area.TryGetProperty("BrakepointTarget", out var feet) && feet.ValueKind == JsonValueKind.Number && feet.GetDouble() > 0)
+                {
+                    var name = area.TryGetProperty("name", out var n) && n.ValueKind == JsonValueKind.String ? n.GetString() ?? "" : "";
+                    brakepoints.Add(new BrakeTarget(name, feet.GetDouble()));
+                }
+            }
+        }
+        return new BrakeTargets(enabled, lengthFeet, brakepoints);
+    }
+
     /// <summary>The in-session debrief for uploaded laps (by clientLapId): what to say, e.g. "Area 1 average
     /// time was 12.3 seconds", and the focus area's name; or the reason there's none as Error.</summary>
     public async Task<(string? Message, string? AreaName, string? Error)> GetDebriefAsync(IEnumerable<Guid> clientLapIds, CancellationToken ct)
@@ -282,6 +316,12 @@ internal sealed record CoachPlan(List<CoachRule>? Rules, bool Speak, bool Show, 
 
 /// <summary>On Event (in Area, for areaEntry/areaExit; null = any), say or show Text, or play Sound.</summary>
 internal sealed record CoachRule(string Event, string? Area, string Action, string? Text, string? Sound);
+
+/// <summary>"Play beeps before braking" and what it beeps for on one track (see GetBrakeTargetsAsync).</summary>
+internal sealed record BrakeTargets(bool Enabled, double TrackLengthFeet, IReadOnlyList<BrakeTarget> Brakepoints);
+
+/// <summary>A focus area's target brakepoint, in feet from the start/finish line.</summary>
+internal sealed record BrakeTarget(string Area, double Feet);
 
 /// <summary>A focus area from Track Data: where it starts and ends, as fractions of a lap.</summary>
 internal sealed record CoachArea(string Name, double Start, double End);

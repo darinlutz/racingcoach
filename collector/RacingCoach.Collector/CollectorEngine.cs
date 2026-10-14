@@ -49,6 +49,7 @@ internal sealed class CollectorEngine
     private readonly IbtEnricher? _enricher;
     private readonly SessionDebrief _debrief;
     private readonly InCarCoach _coach;
+    private readonly BrakeBeeps _brakeBeeps;
     private readonly RaceResultTracker? _races;
     private readonly object _sampleLock = new();
     private TelemetryData _latest;
@@ -83,6 +84,7 @@ internal sealed class CollectorEngine
         _recorder = new LapRecorder(_writer.Enqueue, message => Log(message));
         _debrief = new SessionDebrief(() => Api, message => Log(message));
         _coach = new InCarCoach(() => Api, message => Log(message));
+        _brakeBeeps = new BrakeBeeps(() => Api, message => Log(message));
         // Played-back races are past ones, maybe not the user's, so only with --upload
         _races = options.Playback && !options.Upload
             ? null
@@ -138,6 +140,7 @@ internal sealed class CollectorEngine
         _writer.SetUploader(_uploader);
         _races?.UseApi(api);
         _coach.Refresh(); // the plan comes from the account the key belongs to
+        _brakeBeeps.Refresh(); // and so do the brakepoints and the beeps setting
         if (old is not null)
             _ = old.DisposeAsync().AsTask(); // its queued laps are queued again on the new one
     }
@@ -246,6 +249,7 @@ internal sealed class CollectorEngine
                 sessionTypes);
 
             _coach.SetTrack(_recorder.Session.Track);
+            _brakeBeeps.SetTrack(_recorder.Session.Track, Session.TrackLength);
             _races?.OnSessionInfo(session, _recorder.Session.Track, Session.Car);
             Rotation.SetCar(string.IsNullOrWhiteSpace(driver?.CarPath) ? null : driver.CarPath, Session.Car);
 
@@ -259,6 +263,8 @@ internal sealed class CollectorEngine
             _recorder.OnSample(data);
             Overlay?.OnSample(data, Session);
             _coach.OnSample(data);
+            if (!Playback)
+                _brakeBeeps.OnSample(data); // a played-back file can run far faster than real time
             _races?.OnSample(data.SessionNum, data.SessionTime);
             Rotation.OnSample(data);
             lock (_sampleLock)

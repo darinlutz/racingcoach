@@ -146,6 +146,12 @@ export const en = {
     metric: 'Metric',
     metricHint: 'meters, kph, °C',
     unitsFailed: 'Couldn’t save your units. Please try again.',
+    brakeBeeps: 'Play beeps before braking',
+    yes: 'Yes',
+    no: 'No',
+    brakeBeepsHint:
+      'The RacingCoach collector beeps 300, 200 and 100 ft (91, 61 and 30 m) before each focus area’s target brakepoint, and higher at the brakepoint.',
+    brakeBeepsFailed: 'Couldn’t save your beeps setting. Please try again.',
     // How distances are named in text, e.g. "measured in {units} from the start/finish line"
     distanceNames: { standard: 'feet', metric: 'meters' },
   },
@@ -1070,6 +1076,9 @@ export const en = {
     failedSaveTheme: 'Failed to save your theme',
     unknownUnits: 'Unknown units',
     failedSaveUnits: 'Failed to save your units',
+    unknownBrakeBeeps: 'Play beeps before braking must be Yes or No',
+    logInBrakeBeeps: 'Log in to change Play beeps before braking',
+    failedSaveBrakeBeeps: 'Failed to save Play beeps before braking',
     // Accounts
     allFieldsRequired: 'All fields are required',
     nameTooLong: 'Name must be at most {max} characters',

@@ -147,6 +147,12 @@ export const pt: Dictionary = {
     metric: 'Métrico',
     metricHint: 'metros, kph, °C',
     unitsFailed: 'Não foi possível salvar suas unidades. Tente novamente.',
+    brakeBeeps: 'Tocar bipes antes da frenagem',
+    yes: 'Sim',
+    no: 'Não',
+    brakeBeepsHint:
+      'O coletor do RacingCoach bipa a 300, 200 e 100 pés (91, 61 e 30 m) do ponto de frenagem alvo de cada área de foco, e mais agudo no ponto de frenagem.',
+    brakeBeepsFailed: 'Não foi possível salvar a configuração dos bipes. Tente novamente.',
     distanceNames: { standard: 'pés', metric: 'metros' },
   },
 
@@ -1056,6 +1062,9 @@ export const pt: Dictionary = {
     failedSaveTheme: 'Não foi possível salvar seu tema',
     unknownUnits: 'Unidades desconhecidas',
     failedSaveUnits: 'Não foi possível salvar suas unidades',
+    unknownBrakeBeeps: 'Tocar bipes antes da frenagem deve ser Sim ou Não',
+    logInBrakeBeeps: 'Entre para alterar Tocar bipes antes da frenagem',
+    failedSaveBrakeBeeps: 'Não foi possível salvar Tocar bipes antes da frenagem',
     allFieldsRequired: 'Todos os campos são obrigatórios',
     nameTooLong: 'O nome deve ter no máximo {max} caracteres',
     invalidEmail: 'Endereço de e-mail inválido',

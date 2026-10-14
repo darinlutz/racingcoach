@@ -78,11 +78,10 @@
                     <TextBlock Style="{StaticResource Heading}" Text="Min Speed" />
                     <TextBox x:Name="MinSpeedBox" Style="{StaticResource BigBox}" Foreground="#8AB4F8" />
                 </StackPanel>
-                <!-- UNDERSTEER or OVERSTEER from the Rotation Model while it's sure; hidden (keeping its space) otherwise -->
-                <StackPanel Grid.Column="4">
-                    <TextBlock Style="{StaticResource Heading}" Text="Handling" />
-                    <TextBox x:Name="HandlingBox" Style="{StaticResource BigBox}" MinWidth="230" Visibility="Hidden" />
-                </StackPanel>
+                <!-- UNDERSTEER or OVERSTEER from the Rotation Model while it's sure; hidden (keeping its space) otherwise.
+                     No heading: it sits at the bottom, level with the Max Brake and Min Speed boxes -->
+                <TextBox x:Name="HandlingBox" Grid.Column="4" Style="{StaticResource BigBox}" MinWidth="230" Visibility="Hidden"
+                         VerticalAlignment="Bottom" />
             </Grid>
 
             <TextBlock x:Name="StatusText" DockPanel.Dock="Top" Foreground="#E3A82B" FontSize="12" TextWrapping="Wrap"

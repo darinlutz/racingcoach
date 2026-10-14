@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type MouseEvent, type PointerEvent } from 'react';
+import { useEffect, useId, useRef, useState, type MouseEvent, type PointerEvent } from 'react';
 
 import { useLanguage } from '@/components/LanguageProvider';
 import type { PedalTraceLap } from '@/components/PedalTraces';
@@ -10,6 +10,11 @@ import { DISTANCE_UNIT, distanceFromMeters, type Units } from '@/lib/units';
 
 // Under each line, so it also holds up on light concrete and run-off
 const CASING_COLOR = 'rgba(0, 0, 0, 0.55)';
+
+// Sharpens the satellite tiles in the browser (no extra tiles from the provider): an unsharp mask that pushes
+// each pixel away from its 4 neighbors by this much, for crisper curbs, paint and run-off edges
+const SHARPEN = 0.35;
+const SHARPEN_KERNEL = [0, -SHARPEN, 0, -SHARPEN, 1 + 4 * SHARPEN, -SHARPEN, 0, -SHARPEN, 0].join(' ');
 
 const HEIGHT = 360;
 const PADDING = 28; // px between the lines and the map's edge
@@ -129,6 +134,8 @@ export default function TrackLineMap({
   const units = useUnits();
   const t = dictionary.charts;
   const settings = useMapSettings();
+  // For url(#...): useId's characters aren't all valid there
+  const sharpenId = `sharpen-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
   // The zoomed or panned view, and the laps it was set for: analyzing other laps starts fitted again
   const [saved, setSaved] = useState<{ view: View; trace: unknown } | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -311,19 +318,27 @@ export default function TrackLineMap({
         className="relative overflow-hidden rounded-lg border border-border bg-slate-800"
         style={{ width, height: HEIGHT }}
       >
-        {tiles.map((tile) => (
-          // Plain <img>: tiles are already sized for the view, next/image would only add a resize pass
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            key={`${tileZoom}-${tile.x}-${tile.y}`}
-            src={`/api/map-tiles/${tileZoom}/${tile.x}/${tile.y}`}
-            alt=""
-            draggable={false}
-            onError={(event) => (event.currentTarget.style.visibility = 'hidden')}
-            className="absolute max-w-none select-none pointer-events-none"
-            style={{ left: tile.left, top: tile.top, width: tileScreen + 0.5, height: tileScreen + 0.5 }}
-          />
-        ))}
+        <svg width="0" height="0" className="absolute" aria-hidden="true">
+          <filter id={sharpenId} colorInterpolationFilters="sRGB">
+            <feConvolveMatrix order="3" kernelMatrix={SHARPEN_KERNEL} edgeMode="duplicate" preserveAlpha="true" />
+          </filter>
+        </svg>
+        {/* One layer, so the filter sharpens across tile seams rather than tile by tile */}
+        <div className="absolute inset-0" style={{ filter: `url(#${sharpenId}) contrast(1.05)` }}>
+          {tiles.map((tile) => (
+            // Plain <img>: tiles are already sized for the view, next/image would only add a resize pass
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              key={`${tileZoom}-${tile.x}-${tile.y}`}
+              src={`/api/map-tiles/${tileZoom}/${tile.x}/${tile.y}`}
+              alt=""
+              draggable={false}
+              onError={(event) => (event.currentTarget.style.visibility = 'hidden')}
+              className="absolute max-w-none select-none pointer-events-none"
+              style={{ left: tile.left, top: tile.top, width: tileScreen + 0.5, height: tileScreen + 0.5 }}
+            />
+          ))}
+        </div>
 
         <svg
           ref={svgRef}

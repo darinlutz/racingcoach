@@ -66,6 +66,7 @@ public partial class MainWindow : Window
     private RotationWindow? _rotationWindow;
     private BrakePracticeWindow? _brakePracticeWindow;
     private TargetTelemetryWindow? _targetTelemetryWindow;
+    private TargetSteeringWindow? _targetSteeringWindow;
 
     internal MainWindow(CollectorOptions options)
     {
@@ -677,7 +678,7 @@ public partial class MainWindow : Window
         _brakePracticeWindow.Show();
     }
 
-    // Opens the Target Telemetry window (or brings it to the front): the Target Lap's brake trace scrolling past the
+    // Opens the Target Telemetry window (or brings it to the front): the Target Lap's brake and throttle traces scrolling past the
     // car's position on track
     private void TargetTelemetry_Click(object sender, RoutedEventArgs e)
     {
@@ -689,6 +690,20 @@ public partial class MainWindow : Window
         _targetTelemetryWindow = new TargetTelemetryWindow(_engine);
         _targetTelemetryWindow.Closed += (_, _) => _targetTelemetryWindow = null;
         _targetTelemetryWindow.Show();
+    }
+
+    // Opens the Target Steering window (or brings it to the front): the Target Lap's steering scrolling past the
+    // car's position on track, with the driver's own behind it
+    private void TargetSteering_Click(object sender, RoutedEventArgs e)
+    {
+        if (_targetSteeringWindow is not null)
+        {
+            _targetSteeringWindow.Activate();
+            return;
+        }
+        _targetSteeringWindow = new TargetSteeringWindow(_engine);
+        _targetSteeringWindow.Closed += (_, _) => _targetSteeringWindow = null;
+        _targetSteeringWindow.Show();
     }
 
     private static void Open(string target)
@@ -718,6 +733,7 @@ public partial class MainWindow : Window
         _rotationWindow?.Close();
         _brakePracticeWindow?.Close();
         _targetTelemetryWindow?.Close();
+        _targetSteeringWindow?.Close();
         ClosingOverlay.Visibility = Visibility.Visible;
         _timer.Stop();
         _stop.Cancel();

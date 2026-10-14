@@ -5,14 +5,16 @@ import { readTargetLap, targetLapTrackName } from '@/lib/targetLap';
 import { findTrackByName, readTracks } from '@/lib/tracks';
 import { getUserById } from '@/lib/users';
 
-// The telemetry collector's Target Telemetry window: the brake trace of the user's Target Lap (src/lib/targetLap.ts),
-// to scroll past as they drive. Authenticated with the upload key as a bearer token, like /api/collector/track.
+// The telemetry collector's Target Telemetry and Target Steering windows: the brake, throttle and steering traces of
+// the user's Target Lap (src/lib/targetLap.ts), to scroll past as they drive. Authenticated with the upload key as a
+// bearer token, like /api/collector/track.
 //   ?track=  iRacing's track name as the collector writes it, e.g. "Road Atlanta (Full Course)" (optional)
 // Answers { targetLap: null } when the user has no Target Lap; otherwise targetLap has its file name, the track
 // its file name names (null when it doesn't follow the Garage 61 / RacingCoach naming), whether that's the track
 // being driven (null when either is unknown), and pcts (LapDistPct, unwrapped so it keeps increasing past the
-// start/finish line) with brakes (0-1) per sample. trackLengthFeet is the Track Data track's length (0 when it
-// isn't set, or there's no such track), and units the user's Preferred Units.
+// start/finish line) with brakes and throttles (0-1) and steerings (SteeringWheelAngle in radians, positive to the
+// left) per sample. trackLengthFeet is the Track Data track's length (0 when it isn't set, or there's no such
+// track), and units the user's Preferred Units.
 
 export async function GET(request: Request) {
   try {
@@ -30,7 +32,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ targetLap: null, trackLengthFeet, units: user.units });
     }
 
-    const { pcts, brakes } = lapSamplesFromText(lap.csv);
+    const { pcts, brakes, throttles, steerings } = lapSamplesFromText(lap.csv);
     const lapTrack = targetLapTrackName(lap.fileName);
     return NextResponse.json({
       targetLap: {
@@ -40,6 +42,8 @@ export async function GET(request: Request) {
         // Rounded, as a lap is several thousand samples
         pcts: pcts.map((pct) => Math.round(pct * 1e6) / 1e6),
         brakes: brakes.map((brake) => Math.round(Math.min(Math.max(brake, 0), 1) * 1000) / 1000),
+        throttles: throttles.map((throttle) => Math.round(Math.min(Math.max(throttle, 0), 1) * 1000) / 1000),
+        steerings: steerings.map((steering) => Math.round(steering * 10000) / 10000),
       },
       trackLengthFeet,
       units: user.units,

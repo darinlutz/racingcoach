@@ -45,8 +45,8 @@
                 </StackPanel>
             </DockPanel>
 
-            <!-- The Target Lap's brake (0-100%) over the next stretch of track, scrolling left as the car moves; the
-                 vertical line is the car -->
+            <!-- The Target Lap's brake (red) and throttle (green), 0-100%, over the next stretch of track, scrolling left
+                 as the car moves; the vertical line is the car, and the bar on it the driver's brake -->
             <Border Background="#1A1B1E" BorderBrush="#303136" BorderThickness="1" CornerRadius="6" Padding="0,0,8,0">
                 <Grid>
                     <Grid.ColumnDefinitions>

@@ -102,7 +102,8 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
             ?? throw new HttpRequestException("the site sent no brakepoints");
     }
 
-    /// <summary>For the Target Telemetry window: the user's Target Lap's brake trace (null Lap when they have none),
+    /// <summary>For the Target Telemetry and Target Steering windows: the user's Target Lap's brake, throttle and
+    /// steering traces (null Lap when they have none),
     /// the Track Data length of the track being driven (0 when it isn't set, there's no such track, or track is
     /// null) and whether their Preferred Units are Metric. Throws like GetTrackJsonAsync.</summary>
     public async Task<TargetLapResponse> GetTargetLapAsync(string? trackName, CancellationToken ct)
@@ -342,8 +343,10 @@ internal sealed record TargetLapResponse(TargetLapTrace? TargetLap, double Track
 
 /// <summary>The Target Lap's file name, the track its file name names (null if it doesn't say), whether that's
 /// the track being driven (null when unknown), and per sample its LapDistPct (unwrapped: it keeps increasing past
-/// the start/finish line) and Brake (0-1).</summary>
-internal sealed record TargetLapTrace(string FileName, string? Track, bool? SameTrack, double[] Pcts, double[] Brakes);
+/// the start/finish line), Brake and Throttle (0-1) and SteeringWheelAngle (radians, positive to the left);
+/// Throttles and Steerings are null from sites before they were added.</summary>
+internal sealed record TargetLapTrace(string FileName, string? Track, bool? SameTrack, double[] Pcts, double[] Brakes,
+    double[]? Throttles, double[]? Steerings);
 
 /// <summary>A focus area's brakepoint: where the Target Lap first brakes in it, as a fraction of a lap (0-1), or
 /// without a Target Lap, its target brakepoint from Track Data, in feet from the start/finish line.</summary>

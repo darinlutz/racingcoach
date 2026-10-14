@@ -1,11 +1,11 @@
 import { createHash } from 'node:crypto';
-import { ChatOpenAI } from '@langchain/openai';
 import { createAgent } from 'langchain';
 import { z } from 'zod';
 import { brakeChangeRule, createTools, hasTrackPosition, type DebriefSession } from './debriefCoach';
 import { DEFAULT_UNITS, DISTANCE_NAME, DISTANCE_UNIT, SPEED_UNIT, type Units } from './units';
 import { aiLanguageRule, DEFAULT_LANGUAGE, type Language } from './i18n/languages';
 import { coachInstructionsRule } from './siteSettings';
+import { chatModel, getAiModel } from '@/lib/aiModels';
 
 // The In-Car AI Coach: the telemetry collector's coach while the driver is on track. Each user writes their own
 // In-Car AI Coach Instructions on the Account page ("Users".in_car_coach_instructions), on top of the head
@@ -111,12 +111,14 @@ export async function inCarCoachPlan(
     throw new Error('OPENAI_API_KEY is not configured');
   }
 
-  const key = createHash('sha256').update(JSON.stringify([instructions.trim(), areaNames, language, units])).digest('hex');
+  // Keyed by model too, so a model picked on the Admin page takes effect at once
+  const model = await getAiModel('inCarCoachPlan');
+  const key = createHash('sha256').update(JSON.stringify([instructions.trim(), areaNames, language, units, model])).digest('hex');
   const cached = planCache.get(key);
   if (cached) return cached;
 
   const agent = createAgent({
-    model: new ChatOpenAI({ model: 'gpt-4o', temperature: 0 }),
+    model: await chatModel('inCarCoachPlan', 0),
     tools: [],
     systemPrompt: PLAN_PROMPT + unitsRule(units) + aiLanguageRule(language),
     responseFormat: planSchema,
@@ -200,7 +202,7 @@ export async function inCarCoachCallouts(input: {
   const hasAreas = !!input.session && input.session.areas.some((area) => area.runs.length > 0);
   const tools = hasAreas ? createTools(input.session!, units, input.carRpmLimit ?? null) : [];
   const agent = createAgent({
-    model: new ChatOpenAI({ model: 'gpt-4o', temperature: 0.2 }),
+    model: await chatModel('inCarCoachCallouts', 0.2),
     tools,
     systemPrompt:
       calloutPrompt(units) +

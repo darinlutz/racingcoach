@@ -1,11 +1,11 @@
 import { ChatPromptTemplate } from '@langchain/core/prompts';
-import { ChatOpenAI } from '@langchain/openai';
 import { createAgent, tool } from 'langchain';
 import { z } from 'zod';
 import { aiLanguageRule, DEFAULT_LANGUAGE, type Language } from './i18n/languages';
 import type { LapDrivingLine } from './lapDrivingLine';
 import { coachInstructionsRule } from './siteSettings';
 import { DEFAULT_UNITS, DISTANCE_NAME, DISTANCE_UNIT, distanceFromMeters, SPEED_UNIT, type Units } from './units';
+import { chatModel } from '@/lib/aiModels';
 
 // How the prompts name the user's units: the data they're sent is already in them
 function unitWords(units: Units) {
@@ -138,7 +138,7 @@ export async function summarizeLapComparison(
   }
 
   const agent = createAgent({
-    model: new ChatOpenAI({ model: 'gpt-4o', temperature: 0.3 }),
+    model: await chatModel('lapSummary', 0.3),
     tools: [analyzeDrivingLineTool(lines, areaNames, units)],
     systemPrompt: lapSummaryPrompt(track, units) + (await coachInstructionsRule()) + aiLanguageRule(language),
     responseFormat: lapSummarySchema,
@@ -179,7 +179,7 @@ export async function summarizeMultiLap(
     throw new Error('OPENAI_API_KEY is not configured');
   }
 
-  const model = new ChatOpenAI({ model: 'gpt-4o', temperature: 0.3 });
+  const model = await chatModel('multiLapSummary', 0.3);
   const chain = MULTI_LAP_PROMPT_TEMPLATE.pipe(model);
   const response = await chain.invoke({
     stats,
@@ -214,7 +214,7 @@ export async function summarizeStint(report: string, track: string, language: La
     throw new Error('OPENAI_API_KEY is not configured');
   }
 
-  const model = new ChatOpenAI({ model: 'gpt-4o', temperature: 0.3 });
+  const model = await chatModel('stintSummary', 0.3);
   const chain = STINT_PROMPT_TEMPLATE.pipe(model);
   const response = await chain.invoke({ report, track, rules: (await coachInstructionsRule()) + aiLanguageRule(language) });
   return typeof response.content === 'string' ? response.content.trim() : '';

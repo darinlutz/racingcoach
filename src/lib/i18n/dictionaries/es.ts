@@ -987,6 +987,20 @@ export const es: Dictionary = {
     failed: 'No se pudo enviar tu reporte. Inténtalo de nuevo más tarde.',
   },
 
+  proDrivingLesson: {
+    pageTitle: 'Clase con piloto profesional',
+    racingStyle: 'Estilo de carreras',
+    sportsCar: 'Auto deportivo',
+    formula: 'Fórmula',
+    stockCar: 'Stock car',
+    dirt: 'Tierra',
+    offRoad: 'Todoterreno',
+    lessonGoals: 'Objetivos de la clase',
+    goalsPlaceholder: '¿Qué te gustaría lograr durante esta clase? Incluye el auto y la pista si corresponde.',
+    oneHour: '1 hora',
+    twoHours: '2 horas',
+  },
+
   learning: {
     metaTitle: 'Aprendizaje — El arte de conducir un auto de carreras | RacingCoach.app',
     metaDescription: 'Una guía práctica e ilustrada sobre dinámica del vehículo, trazada, frenado, trail braking, rotación y telemetría.',

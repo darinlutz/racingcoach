@@ -1000,6 +1000,21 @@ export const en = {
     failed: 'Your report could not be sent. Please try again later.',
   },
 
+  // The Pro Driving Lesson page (src/app/prodrivinglesson/page.tsx). Its 1 Hour and 2 Hours buttons do nothing yet
+  proDrivingLesson: {
+    pageTitle: 'Pro Driving Lesson',
+    racingStyle: 'Racing Style',
+    sportsCar: 'Sports car',
+    formula: 'Formula',
+    stockCar: 'Stock car',
+    dirt: 'Dirt',
+    offRoad: 'Off Road',
+    lessonGoals: 'Lesson Goals',
+    goalsPlaceholder: 'What would you like to accomplish during this lesson?  Include car and track if applicable.',
+    oneHour: '1 hour',
+    twoHours: '2 hours',
+  },
+
   // The Learning page (src/app/learning/page.tsx). The guide itself is in src/lib/learningGuide.ts and its Es and Pt files
   learning: {
     metaTitle: 'Learning — The Art of Driving a Race Car | RacingCoach.app',

@@ -22,8 +22,7 @@ const links = [
   { href: '/racing', key: 'coachingAnalysis' },
   { href: '/race-trends', key: 'raceTrends' },
   { href: '/pricing', key: 'pricing' },
-  // Pro Driver Lessons are sold on the Pricing page for now
-  { href: '/pricing', key: 'proDriverLesson' },
+  { href: '/prodrivinglesson', key: 'proDriverLesson' },
   { href: '/support', key: 'support' },
 ] as const;
 

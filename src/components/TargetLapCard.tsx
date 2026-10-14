@@ -1,6 +1,7 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
+import ConfirmDialog from '@/components/ConfirmDialog';
 import { useLanguage } from '@/components/LanguageProvider';
 import { formatLapTime } from '@/lib/lapData';
 import { targetLapParts, uploadTargetLap, type SavedTargetLap } from '@/lib/targetLapUpload';
@@ -14,6 +15,9 @@ export default function TargetLapCard({ targetLap: initial }: { targetLap: Saved
   const [targetLap, setTargetLap] = useState(initial);
   const [dragging, setDragging] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [confirmingRemove, setConfirmingRemove] = useState(false);
+  // Stable, so the dialog's Escape listener isn't re-added on every render
+  const closeConfirm = useCallback(() => setConfirmingRemove(false), []);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -36,7 +40,8 @@ export default function TargetLapCard({ targetLap: initial }: { targetLap: Saved
   };
 
   const remove = async () => {
-    if (busy || !window.confirm(c.removeConfirm)) return;
+    setConfirmingRemove(false);
+    if (busy) return;
     setBusy(true);
     setMessage(null);
     try {
@@ -127,7 +132,7 @@ export default function TargetLapCard({ targetLap: initial }: { targetLap: Saved
             <button
               type="button"
               disabled={busy}
-              onClick={() => void remove()}
+              onClick={() => setConfirmingRemove(true)}
               className="px-3 py-1 text-xs font-semibold bg-card border border-border rounded-lg text-foreground hover:border-primary hover:text-primary transition-colors disabled:opacity-50"
             >
               {c.remove}
@@ -137,6 +142,17 @@ export default function TargetLapCard({ targetLap: initial }: { targetLap: Saved
       ) : (
         <p className="mt-3 text-sm text-muted-foreground">{c.none}</p>
       )}
+
+      <ConfirmDialog
+        open={confirmingRemove}
+        title={c.removeConfirm}
+        confirmLabel={c.remove}
+        cancelLabel={t.common.cancel}
+        onConfirm={() => void remove()}
+        onCancel={closeConfirm}
+      >
+        {targetLap && (parts ? `${parts.driver} • ${parts.car} • ${parts.track} • ${formatLapTime(parts.lapTime)}` : targetLap.fileName)}
+      </ConfirmDialog>
 
       {message && (
         <p role="status" className={`mt-2 text-sm ${message.ok ? 'text-positive' : 'text-red-300'}`}>

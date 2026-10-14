@@ -987,6 +987,20 @@ export const pt: Dictionary = {
     failed: 'Não foi possível enviar seu relatório. Tente novamente mais tarde.',
   },
 
+  proDrivingLesson: {
+    pageTitle: 'Aula com piloto profissional',
+    racingStyle: 'Estilo de corrida',
+    sportsCar: 'Carro esportivo',
+    formula: 'Fórmula',
+    stockCar: 'Stock car',
+    dirt: 'Terra',
+    offRoad: 'Off-road',
+    lessonGoals: 'Objetivos da aula',
+    goalsPlaceholder: 'O que você gostaria de alcançar durante esta aula? Inclua o carro e a pista, se for o caso.',
+    oneHour: '1 hora',
+    twoHours: '2 horas',
+  },
+
   learning: {
     metaTitle: 'Aprendizado — A arte de pilotar um carro de corrida | RacingCoach.app',
     metaDescription: 'Um guia prático e ilustrado sobre dinâmica veicular, traçado, frenagem, trail braking, rotação e telemetria.',

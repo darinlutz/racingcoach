@@ -547,6 +547,15 @@ export const en = {
     zoomOut: 'Zoom out',
     showWholeArea: 'Show the whole focus area',
     scaleBar: '{n} {unit}',
+    lineDiffTitle: 'Driving line difference',
+    lineDiffAria: 'How far left or right of the Base lap’s line the Compare lap was. {summary}',
+    lineLeft: '{n} {unit} L',
+    lineRight: '{n} {unit} R',
+    lineOfBase: 'from the Base line',
+    lineDiffSame: 'The Compare lap stays within {n} {unit} of the Base lap’s line',
+    lineDiffLeft: 'The Compare lap is up to {n} {unit} left of the Base lap’s line, at {where}',
+    lineDiffRight: 'The Compare lap is up to {n} {unit} right of the Base lap’s line, at {where}',
+    lineDiffCaption: 'The Base lap is the flat blue line; the red line shows how far left (up) or right (down) of it the Compare lap was.',
   },
 
   stint: {
@@ -1129,6 +1138,7 @@ export const en = {
     referenceSessionInvalid: 'Missing or invalid session data (needs at least 1 lap and 1 focus area)',
     nothingMeasured: 'None of the laps could be measured in any focus area',
     missingComparison: 'Missing lap comparison to summarize',
+    invalidDrivingLines: 'Invalid driving line data',
     comparisonTooLong: 'Lap comparison is too long to summarize',
     missingStint: 'Missing stint report to analyze',
     stintTooLong: 'Stint report is too long to analyze',

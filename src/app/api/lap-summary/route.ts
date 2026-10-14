@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
 import { aiErrorResponse } from '@/lib/aiErrors';
+import { lapDrivingLinesSchema } from '@/lib/lapDrivingLine';
 import { summarizeLapComparison } from '@/lib/lapSummary';
 import { apiText, getLanguage } from '@/lib/i18n/server';
 import { getCurrentUser } from '@/lib/session';
@@ -21,6 +23,12 @@ export async function POST(request: Request) {
     if (comparison.length > MAX_COMPARISON_CHARS) {
       return NextResponse.json({ error: t.comparisonTooLong }, { status: 400 });
     }
+    // The focus areas' driving lines, for the coach's analyze_driving_line tool; every focus area's name
+    const lines = lapDrivingLinesSchema.safeParse(body.lines ?? []);
+    const areaNames = z.array(z.string().max(100)).max(50).safeParse(body.areaNames ?? []);
+    if (!lines.success || !areaNames.success) {
+      return NextResponse.json({ error: t.invalidDrivingLines }, { status: 400 });
+    }
 
     if (!process.env.OPENAI_API_KEY) {
       console.error('OPENAI_API_KEY is not configured');
@@ -28,7 +36,14 @@ export async function POST(request: Request) {
     }
 
     const user = await getCurrentUser();
-    const summary = await summarizeLapComparison(comparison, track, await getLanguage(user), await getUnits(user));
+    const summary = await summarizeLapComparison(
+      comparison,
+      track,
+      await getLanguage(user),
+      await getUnits(user),
+      lines.data,
+      areaNames.data.length > 0 ? areaNames.data : lines.data.map((l) => l.area)
+    );
 
     return NextResponse.json({ success: true, summary }, { status: 200 });
   } catch (error) {

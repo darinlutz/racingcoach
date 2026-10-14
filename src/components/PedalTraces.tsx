@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
 
+import DrivingLineDiffTrace from '@/components/DrivingLineDiffTrace';
 import SteeringTrace from '@/components/SteeringTrace';
 import { useLanguage } from '@/components/LanguageProvider';
 import TimeDeltaTrace from '@/components/TimeDeltaTrace';
@@ -188,7 +189,8 @@ function TraceChart({
 // with a crosshair that follows the pointer (or arrow keys) on all the charts at once. Below them, the
 // time the Compare lap gains or loses through the area (TimeDeltaTrace), both laps' steering angle on one
 // chart (SteeringTrace), then their driving lines on a map (TrackLineMap) with the crosshair's position
-// marked on each. id must be unique on
+// marked on each, and how far left or right of the Base lap's line the Compare lap was (DrivingLineDiffTrace).
+// id must be unique on
 // the page (the charts' clip paths are named after it). Charts only draw once the container has a width,
 // so inside a closed <details> they draw when it's opened.
 export default function PedalTraces({
@@ -230,6 +232,7 @@ export default function PedalTraces({
           <TimeDeltaTrace id={`${id}-delta`} base={base} compare={compare} axis={axis} width={width} hoverPct={hoverPct} onHover={setHoverPct} />
           <SteeringTrace id={`${id}-steering`} base={base} compare={compare} axis={axis} width={width} hoverPct={hoverPct} onHover={setHoverPct} />
           <TrackLineMap base={base} compare={compare} width={width} hoverPct={hoverPct} onHover={setHoverPct} />
+          <DrivingLineDiffTrace id={`${id}-line`} base={base} compare={compare} axis={axis} width={width} hoverPct={hoverPct} onHover={setHoverPct} />
         </>
       )}
     </div>

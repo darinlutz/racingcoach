@@ -5,6 +5,7 @@ import { useLanguage } from '@/components/LanguageProvider';
 import PedalTraces, { type PedalTraceLap } from '@/components/PedalTraces';
 import type { Dictionary } from '@/lib/i18n/dictionaries/en';
 import { fmt } from '@/lib/i18n/languages';
+import { measureDrivingLine, type LapDrivingLine } from '@/lib/lapDrivingLine';
 import {
   areaStats,
   areaTrace,
@@ -332,13 +333,14 @@ function AreaTable({ rows }: { rows: AreaRow[] }) {
   );
 }
 
-// Asks the server for a 6-7 sentence coaching summary written for the Compare lap
-async function fetchSummary(comparison: string, track: string, t: Dictionary) {
+// Asks the server for a 6-7 sentence coaching summary written for the Compare lap. lines are the focus
+// areas' driving lines for the coach's analyze_driving_line tool, and areaNames every focus area's name.
+async function fetchSummary(comparison: string, track: string, lines: LapDrivingLine[], areaNames: string[], t: Dictionary) {
   try {
     const res = await fetch('/api/lap-summary', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ comparison, track }),
+      body: JSON.stringify({ comparison, track, lines, areaNames }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || t.lapCompare.failedSummary);
@@ -530,6 +532,7 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
         const rows: AreaRow[] = [];
         const advice: string[] = [];
         const areaTraces: typeof traces = [];
+        const drivingLines: LapDrivingLine[] = [];
         const lapTitle = (title: string, lap: LapFile) => fmt(title, { time: formatLapTime(lap.lapTime) });
 
         // Each focus area gets a line (plus a blank line after it) and a table row
@@ -549,6 +552,8 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
             const baseTrace = areaTrace(baseSamples, baseSeconds, area.start, area.end);
             const compareTrace = areaTrace(compareSamples, compareSeconds, area.start, area.end);
             if (baseTrace && compareTrace) {
+              const line = measureDrivingLine(area.name, comparison.secondsDiff, baseTrace, compareTrace);
+              if (line) drivingLines.push(line);
               areaTraces.push({
                 name: area.name,
                 diff: comparison.secondsDiff,
@@ -577,6 +582,8 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
         const summary = await fetchSummary(
           [lines.join('\n').trim(), '', 'Braking advice (follow exactly):', ...advice].join('\n'),
           selectedTrack.fileName,
+          drivingLines,
+          selectedTrack.areas.map((a) => a.name),
           dictionary
         );
         setAnalysis(summary.trim());

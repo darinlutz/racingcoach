@@ -243,11 +243,11 @@ function pointAt(pcts: number[], points: [number, number][], pct: number): [numb
   return [points[lo][0] + f * (points[hi][0] - points[lo][0]), points[lo][1] + f * (points[hi][1] - points[lo][1])];
 }
 
-// How far this lap's line was from the reference lap's (the fastest through the area) at the same lap
-// positions: the distance across the reference line's direction of travel, positive to the left. LapDistPct
-// follows the track, so the same position on both laps is the same place along the track. null if either
-// lap has no track positions here.
-export function lineDetail(trace: AreaTrace, reference: AreaTrace): LineDetail | null {
+// Meters this lap's line was from the reference lap's at a fraction (0-1) of the way through the area, at
+// the same lap position: the distance across the reference line's direction of travel, positive to the
+// left. LapDistPct follows the track, so the same position on both laps is the same place along the
+// track. null if either lap has no track positions here. Also drawn by Lap Compare's DrivingLineDiffTrace.
+export function lineOffsets(trace: AreaTrace, reference: AreaTrace): ((fraction: number) => number) | null {
   if (!trace.positions || !reference.positions || reference.positions.length < 2) return null;
   const [lat0, lon0] = reference.positions[0];
   const xScale = METERS_PER_DEGREE * Math.cos((lat0 * Math.PI) / 180);
@@ -258,7 +258,7 @@ export function lineDetail(trace: AreaTrace, reference: AreaTrace): LineDetail |
   // A short step along the track either side, for the reference line's direction
   const step = (to - from) / 200;
 
-  const offsetAt = (fraction: number) => {
+  return (fraction: number) => {
     const pct = from + fraction * (to - from);
     const [ax, ay] = pointAt(reference.pcts, referencePoints, pct - step);
     const [bx, by] = pointAt(reference.pcts, referencePoints, pct + step);
@@ -268,6 +268,13 @@ export function lineDetail(trace: AreaTrace, reference: AreaTrace): LineDetail |
     const [px, py] = pointAt(trace.pcts, points, pct);
     return ((bx - ax) * (py - ry) - (by - ay) * (px - rx)) / length;
   };
+}
+
+// How far this lap's line was from the reference lap's (the fastest through the area), from lineOffsets.
+// null if either lap has no track positions here.
+export function lineDetail(trace: AreaTrace, reference: AreaTrace): LineDetail | null {
+  const offsetAt = lineOffsets(trace, reference);
+  if (!offsetAt) return null;
 
   let maxOffset = 0;
   let maxAt = 0;

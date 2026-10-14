@@ -542,6 +542,15 @@ export const pt: Dictionary = {
     zoomOut: 'Afastar',
     showWholeArea: 'Mostrar toda a área de foco',
     scaleBar: '{n} {unit}',
+    lineDiffTitle: 'Diferença de traçado',
+    lineDiffAria: 'Quanto a volta comparada ficou à esquerda ou à direita do traçado da volta base. {summary}',
+    lineLeft: '{n} {unit} E',
+    lineRight: '{n} {unit} D',
+    lineOfBase: 'do traçado base',
+    lineDiffSame: 'A volta comparada fica a menos de {n} {unit} do traçado da volta base',
+    lineDiffLeft: 'A volta comparada fica até {n} {unit} à esquerda do traçado da volta base, em {where}',
+    lineDiffRight: 'A volta comparada fica até {n} {unit} à direita do traçado da volta base, em {where}',
+    lineDiffCaption: 'A volta base é a linha azul reta; a linha vermelha mostra quanto a volta comparada ficou à esquerda (para cima) ou à direita (para baixo) dela.',
   },
 
   stint: {
@@ -1109,6 +1118,7 @@ export const pt: Dictionary = {
     referenceSessionInvalid: 'Dados da sessão ausentes ou inválidos (são necessárias pelo menos 1 volta e 1 área de foco)',
     nothingMeasured: 'Nenhuma das voltas pôde ser medida em qualquer área de foco',
     missingComparison: 'Falta a comparação de voltas para resumir',
+    invalidDrivingLines: 'Dados de traçado inválidos',
     comparisonTooLong: 'A comparação de voltas é longa demais para resumir',
     missingStint: 'Falta o relatório do stint para analisar',
     stintTooLong: 'O relatório do stint é longo demais para analisar',

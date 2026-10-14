@@ -542,6 +542,15 @@ export const es: Dictionary = {
     zoomOut: 'Alejar',
     showWholeArea: 'Mostrar toda la zona de enfoque',
     scaleBar: '{n} {unit}',
+    lineDiffTitle: 'Diferencia de trazada',
+    lineDiffAria: 'Cuánto se desvió la vuelta comparada a la izquierda o a la derecha de la trazada de la vuelta base. {summary}',
+    lineLeft: '{n} {unit} I',
+    lineRight: '{n} {unit} D',
+    lineOfBase: 'de la trazada base',
+    lineDiffSame: 'La vuelta comparada se mantiene a menos de {n} {unit} de la trazada de la vuelta base',
+    lineDiffLeft: 'La vuelta comparada va hasta {n} {unit} a la izquierda de la trazada de la vuelta base, en {where}',
+    lineDiffRight: 'La vuelta comparada va hasta {n} {unit} a la derecha de la trazada de la vuelta base, en {where}',
+    lineDiffCaption: 'La vuelta base es la línea azul plana; la línea roja muestra cuánto se desvió la vuelta comparada a la izquierda (arriba) o a la derecha (abajo).',
   },
 
   stint: {
@@ -1109,6 +1118,7 @@ export const es: Dictionary = {
     referenceSessionInvalid: 'Faltan datos de la sesión o no son válidos (se necesitan al menos 1 vuelta y 1 zona de enfoque)',
     nothingMeasured: 'No se pudo medir ninguna de las vueltas en ninguna zona de enfoque',
     missingComparison: 'Falta la comparación de vueltas para resumir',
+    invalidDrivingLines: 'Datos de trazada no válidos',
     comparisonTooLong: 'La comparación de vueltas es demasiado larga para resumirla',
     missingStint: 'Falta el informe del stint para analizar',
     stintTooLong: 'El informe del stint es demasiado largo para analizarlo',

@@ -1,58 +1,152 @@
 import { ChatPromptTemplate } from '@langchain/core/prompts';
 import { ChatOpenAI } from '@langchain/openai';
+import { createAgent, tool } from 'langchain';
+import { z } from 'zod';
 import { aiLanguageRule, DEFAULT_LANGUAGE, type Language } from './i18n/languages';
+import type { LapDrivingLine } from './lapDrivingLine';
 import { coachInstructionsRule } from './siteSettings';
-import { DEFAULT_UNITS, DISTANCE_NAME, SPEED_UNIT, type Units } from './units';
+import { DEFAULT_UNITS, DISTANCE_NAME, DISTANCE_UNIT, distanceFromMeters, SPEED_UNIT, type Units } from './units';
 
 // How the prompts name the user's units: the data they're sent is already in them
 function unitWords(units: Units) {
   return { distanceName: DISTANCE_NAME[units], speedUnit: SPEED_UNIT[units] };
 }
 
-const PROMPT_TEMPLATE = ChatPromptTemplate.fromMessages([
-  [
-    'system',
-    'You are a sim racing driving coach. The user will give you a focus-area comparison of two laps ' +
-      'of {track}: a Base lap and a Compare lap. Each focus area lists the time through the area for ' +
-      'both laps with the difference (Compare minus Base; negative means the Compare lap was faster), ' +
-      'where each lap first touched the brake in {distanceName} from the start/finish line (later or earlier ' +
-      'for the Compare lap), and the peak brake pressure for each lap (harder or lighter for the ' +
-      'Compare lap), the minimum speed through the area (min speed, in {speedUnit}) for each lap, and the speed at the end of the area (exit speed, in {speedUnit}) for each lap. Write a summary of exactly 6 or 7 sentences from the perspective of the Compare ' +
-      'lap that answers: where on the track, and how, could the Compare lap be better? Name the ' +
-      'specific focus areas where the Compare lap lost the most time, use the numbers from the data, ' +
-      'and give concrete advice based on the brakepoint, brake pressure, min speed and exit speed differences. Briefly note ' +
-      'where the Compare lap was already stronger. After the focus areas comes a "Braking advice" line for ' +
-      'each area, worked out from the data: any braking advice you give for an area must use exactly that ' +
-      'direction (later or earlier, more or less pressure) and never the opposite. A Compare lap that braked ' +
-      'lighter must never be told to reduce brake pressure, and one that braked earlier must never be told to ' +
-      'brake earlier. Both laps were driven in the same conditions, which may be wet, so do not assume a dry ' +
-      'track; when the advice is more pressure, say to build it progressively to avoid locking up. ' +
-      'Write plain prose in a single paragraph with no ' +
-      'headings, lists, or markdown, and do not invent data that is not in the comparison.{rules}',
-  ],
-  ['user', '{comparison}'],
-]);
+// Lines this close together (0.5 m, about 1.6 ft) are treated as the same line
+const SAME_LINE_METERS = 0.5;
 
-// Coaching summary of a Lap Compare result, written for the Compare lap
+// 45 -> "the middle of the area"
+function partOfArea(pct: number) {
+  if (pct <= 15) return 'the entry';
+  if (pct <= 40) return 'turn-in';
+  if (pct <= 60) return 'the middle of the area';
+  if (pct <= 85) return 'the second half of the area';
+  return 'the exit';
+}
+
+// The Racing Coach's analyze_driving_line tool: how far, and which way, the Compare lap's line was from the
+// Base lap's through one focus area, with a verdict worked out here so left/right and inside/outside can't
+// get flipped. Distances are in the user's units.
+function analyzeDrivingLineTool(lines: LapDrivingLine[], areaNames: string[], units: Units) {
+  const unit = DISTANCE_UNIT[units];
+  const distance = (meters: number) => `${distanceFromMeters(Math.abs(meters), units).toFixed(1)} ${unit}`;
+
+  return tool(
+    async ({ area: name }: { area: string }) => {
+      const wanted = name.trim().toLowerCase();
+      const line = lines.find((l) => l.area.toLowerCase() === wanted);
+      if (!line) {
+        if (!areaNames.some((a) => a.toLowerCase() === wanted)) {
+          return `No focus area named "${name}". Focus areas: ${areaNames.join(', ')}`;
+        }
+        return (
+          `One or both laps have no track positions (Lat/Lon) in ${name}, so the driving lines cannot be compared ` +
+          'there. Do not give driving line advice for this area.'
+        );
+      }
+
+      // Toward the inside of the corner is positive when the corner direction is known, otherwise left is
+      const sign = line.turn === 'right' ? -1 : 1;
+      const [plus, minus] = line.turn ? ['inside', 'outside'] : ['left', 'right'];
+      const side = (meters: number) => (meters * sign >= 0 ? plus : minus);
+      const signed = (meters: number) => {
+        const value = distanceFromMeters(meters * sign, units);
+        return `${value >= 0 ? '+' : ''}${value.toFixed(1)} ${unit}`;
+      };
+      const time = `${line.secondsDiff >= 0 ? '+' : '-'}${Math.abs(line.secondsDiff).toFixed(3)}s`;
+      const where = `${partOfArea(line.maxOffsetAtPct)} (${line.maxOffsetAtPct}% through the area)`;
+
+      let verdict: string;
+      if (Math.abs(line.maxOffsetM) < SAME_LINE_METERS) {
+        verdict =
+          `Line verdict: the two laps take lines within ${distance(SAME_LINE_METERS)} of each other here, so the driving ` +
+          'line does not explain the time. Do not give driving line advice for this area.';
+      } else if (line.secondsDiff <= 0) {
+        verdict =
+          `Line verdict: the Compare lap was faster here while running up to ${distance(line.maxOffsetM)} further ` +
+          `${side(line.maxOffsetM)} at ${where}, so it should keep its line; do not tell it to copy the Base lap's line.`;
+      } else {
+        verdict =
+          `Line verdict: the Compare lap was ${distance(line.maxOffsetM)} further ${side(line.maxOffsetM)} than the faster ` +
+          `Base lap at ${where}. Any driving line advice for this area must say to move the car about ` +
+          `${distance(line.maxOffsetM)} toward the ${side(-line.maxOffsetM)} there.`;
+      }
+
+      return [
+        `${line.area} driving line: the Compare lap against the Base lap's line (the Compare lap was ${time} here). ` +
+          (line.turn
+            ? `It is a ${line.turn}-hand corner, so + is toward the inside and - toward the outside.`
+            : '+ is to the left and - to the right (no single corner direction here).'),
+        "Compare lap's distance from the Base line every 10% through the area: " +
+          line.offsetsM.map((m, i) => `${i * 10}% ${signed(m)}`).join(', ') +
+          '.',
+        `Largest difference: ${signed(line.maxOffsetM)} at ${where}.`,
+        verdict,
+      ].join('\n');
+    },
+    {
+      name: 'analyze_driving_line',
+      description:
+        "Compares the Compare lap's driving line with the Base lap's through one focus area: how many " +
+        `${DISTANCE_NAME[units]} the Compare lap was toward the inside or outside of the Base line every 10% through ` +
+        'the area, the largest difference and a line verdict. ' +
+        (lines.length > 0
+          ? `Both laps have track positions in: ${lines.map((l) => l.area).join(', ')}.`
+          : 'Neither lap has track positions anywhere, so do not call it.'),
+      schema: z.object({ area: z.string().describe('Focus area name, exactly as in the comparison') }),
+    }
+  );
+}
+
+const lapSummarySchema = z.object({
+  summary: z.string().describe('The 6 or 7 sentence summary, in a single paragraph of plain prose'),
+});
+
+const lapSummaryPrompt = (track: string, units: Units) =>
+  'You are a sim racing driving coach. The user will give you a focus-area comparison of two laps ' +
+  `of ${track}: a Base lap and a Compare lap. Each focus area lists the time through the area for ` +
+  'both laps with the difference (Compare minus Base; negative means the Compare lap was faster), ' +
+  `where each lap first touched the brake in ${DISTANCE_NAME[units]} from the start/finish line (later or earlier ` +
+  'for the Compare lap), and the peak brake pressure for each lap (harder or lighter for the ' +
+  `Compare lap), the minimum speed through the area (min speed, in ${SPEED_UNIT[units]}) for each lap, and the ` +
+  `speed at the end of the area (exit speed, in ${SPEED_UNIT[units]}) for each lap. Before writing, call ` +
+  'analyze_driving_line on the focus areas where the Compare lap lost the most time (at least the top two that ' +
+  'have track positions) to see whether the driving line explains the time. Write a summary of exactly 6 or 7 ' +
+  'sentences from the perspective of the Compare lap that answers: where on the track, and how, could the Compare ' +
+  'lap be better? Name the specific focus areas where the Compare lap lost the most time, use the numbers from the ' +
+  'data, and give concrete advice based on the brakepoint, brake pressure, min speed, exit speed and driving line ' +
+  'differences. Briefly note where the Compare lap was already stronger. After the focus areas comes a "Braking ' +
+  'advice" line for each area, worked out from the data: any braking advice you give for an area must use exactly ' +
+  'that direction (later or earlier, more or less pressure) and never the opposite. A Compare lap that braked ' +
+  'lighter must never be told to reduce brake pressure, and one that braked earlier must never be told to brake ' +
+  'earlier. Any driving line advice must follow the line verdict from analyze_driving_line exactly (which way, ' +
+  `how many ${DISTANCE_NAME[units]} and where in the area), and never be given where the verdict says not to. Both ` +
+  'laps were driven in the same conditions, which may be wet, so do not assume a dry track; when the advice is ' +
+  'more pressure, say to build it progressively to avoid locking up. Write plain prose in a single paragraph with ' +
+  'no headings, lists, or markdown, and do not invent data that is not in the comparison or the tool results.';
+
+// Coaching summary of a Lap Compare result, written for the Compare lap. lines are the focus areas' driving
+// lines for the analyze_driving_line tool, and areaNames every focus area in the comparison.
 export async function summarizeLapComparison(
   comparison: string,
   track: string,
   language: Language = DEFAULT_LANGUAGE,
-  units: Units = DEFAULT_UNITS
+  units: Units = DEFAULT_UNITS,
+  lines: LapDrivingLine[] = [],
+  areaNames: string[] = lines.map((l) => l.area)
 ): Promise<string> {
   if (!process.env.OPENAI_API_KEY) {
     throw new Error('OPENAI_API_KEY is not configured');
   }
 
-  const model = new ChatOpenAI({ model: 'gpt-4o', temperature: 0.3 });
-  const chain = PROMPT_TEMPLATE.pipe(model);
-  const response = await chain.invoke({
-    comparison,
-    track,
-    ...unitWords(units),
-    rules: (await coachInstructionsRule()) + aiLanguageRule(language),
+  const agent = createAgent({
+    model: new ChatOpenAI({ model: 'gpt-4o', temperature: 0.3 }),
+    tools: [analyzeDrivingLineTool(lines, areaNames, units)],
+    systemPrompt: lapSummaryPrompt(track, units) + (await coachInstructionsRule()) + aiLanguageRule(language),
+    responseFormat: lapSummarySchema,
   });
-  return typeof response.content === 'string' ? response.content.trim() : '';
+  const result = await agent.invoke({ messages: [{ role: 'user', content: comparison }] }, { recursionLimit: 20 });
+  return result.structuredResponse.summary.trim();
 }
 
 const MULTI_LAP_PROMPT_TEMPLATE = ChatPromptTemplate.fromMessages([

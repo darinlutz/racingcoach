@@ -97,6 +97,12 @@ export default async function AccountPage({
             </dd>
           </div>
           <div className="flex justify-between gap-4 px-4 py-3">
+            <dt className="text-sm font-medium text-muted-foreground">{t.admin.role}</dt>
+            <dd className="text-foreground font-medium text-right">
+              {t.admin.roles[user.role] ?? user.role}
+            </dd>
+          </div>
+          <div className="flex justify-between gap-4 px-4 py-3">
             <dt className="text-sm font-medium text-muted-foreground">{t.account.signupDate}</dt>
             <dd className="text-foreground font-medium text-right">
               {formatDate(user.signupDate)}

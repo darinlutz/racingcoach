@@ -46,6 +46,8 @@ export const en = {
     coachingAnalysis: 'Coaching & Analysis',
     raceTrends: 'My Race Trends',
     pricing: 'Pricing',
+    proDriverLesson: 'Pro Driver Lesson',
+    support: 'Support',
     myAccount: 'My Account',
     admin: 'Admin',
     coach: 'Coach',
@@ -982,6 +984,20 @@ export const en = {
     saving: 'Saving…',
     saved: 'AI Coach Instructions saved.',
     characters: '{n} / {max} characters',
+  },
+
+  // The Support page (src/app/support/page.tsx): emails the user's issue to the site owner
+  support: {
+    pageTitle: 'Support',
+    intro: 'Describe your issue and we will get back to you by email.',
+    description: 'Describe your issue',
+    placeholder: 'What happened, and what were you trying to do?',
+    send: 'Send Report',
+    sending: 'Sending…',
+    sent: 'Support has been contacted. We will reply to {email}.',
+    missingFields: 'Please enter your name, a valid email address and a description of the issue.',
+    tooLong: 'The description is too long (at most {max} characters).',
+    failed: 'Your report could not be sent. Please try again later.',
   },
 
   // The Learning page (src/app/learning/page.tsx). The guide itself is in src/lib/learningGuide.ts and its Es and Pt files

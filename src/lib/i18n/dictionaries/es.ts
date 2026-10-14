@@ -46,6 +46,8 @@ export const es: Dictionary = {
     coachingAnalysis: 'Coaching y análisis',
     raceTrends: 'Mis tendencias',
     pricing: 'Precios',
+    proDriverLesson: 'Clase con piloto profesional',
+    support: 'Soporte',
     myAccount: 'Mi cuenta',
     admin: 'Admin',
     coach: 'Entrenador',
@@ -970,6 +972,19 @@ export const es: Dictionary = {
     saving: 'Guardando…',
     saved: 'Instrucciones del entrenador IA guardadas.',
     characters: '{n} / {max} caracteres',
+  },
+
+  support: {
+    pageTitle: 'Soporte',
+    intro: 'Describe tu problema y te responderemos por correo electrónico.',
+    description: 'Describe tu problema',
+    placeholder: '¿Qué pasó y qué estabas intentando hacer?',
+    send: 'Enviar reporte',
+    sending: 'Enviando…',
+    sent: 'Se ha contactado a soporte. Te responderemos a {email}.',
+    missingFields: 'Ingresa tu nombre, un correo electrónico válido y una descripción del problema.',
+    tooLong: 'La descripción es demasiado larga (máximo {max} caracteres).',
+    failed: 'No se pudo enviar tu reporte. Inténtalo de nuevo más tarde.',
   },
 
   learning: {

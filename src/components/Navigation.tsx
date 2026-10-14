@@ -22,6 +22,9 @@ const links = [
   { href: '/racing', key: 'coachingAnalysis' },
   { href: '/race-trends', key: 'raceTrends' },
   { href: '/pricing', key: 'pricing' },
+  // Pro Driver Lessons are sold on the Pricing page for now
+  { href: '/pricing', key: 'proDriverLesson' },
+  { href: '/support', key: 'support' },
 ] as const;
 
 export default function Navigation({ user, showPricing }: NavigationProps) {
@@ -32,7 +35,7 @@ export default function Navigation({ user, showPricing }: NavigationProps) {
   const [loggingOut, setLoggingOut] = useState(false);
   // Hidden when the Admin page turns Show Pricing off, and for Gold subscribers, who have nothing left to buy
   const hidePricing = !showPricing || (user !== null && !user.canUpgrade);
-  const visibleLinks = hidePricing ? links.filter((link) => link.href !== '/pricing') : links;
+  const visibleLinks = hidePricing ? links.filter((link) => link.key !== 'pricing') : links;
 
   const toggleMenu = () => setIsOpen(!isOpen);
   const closeMenu = () => setIsOpen(false);
@@ -63,7 +66,7 @@ export default function Navigation({ user, showPricing }: NavigationProps) {
 
         <div className="flex flex-col gap-5">
           {visibleLinks.map((link) => (
-            <Link key={link.href} href={link.href} className={navLink(link.href)}>{t.nav[link.key]}</Link>
+            <Link key={link.key} href={link.href} className={navLink(link.href)}>{t.nav[link.key]}</Link>
           ))}
         </div>
 
@@ -114,7 +117,7 @@ export default function Navigation({ user, showPricing }: NavigationProps) {
         <div className="lg:hidden bg-card border-t border-border">
           <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
             {visibleLinks.map((link) => (
-              <Link key={link.href} href={link.href} className={mobileLink(link.href)} onClick={closeMenu}>{t.nav[link.key]}</Link>
+              <Link key={link.key} href={link.href} className={mobileLink(link.href)} onClick={closeMenu}>{t.nav[link.key]}</Link>
             ))}
             <div className="border-t border-border pt-2 mt-2">
               {user ? (

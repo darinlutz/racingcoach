@@ -46,17 +46,16 @@ export async function readTracks(): Promise<TrackData[]> {
      FROM racingcoach."TrackFocusAreas" ORDER BY track_id, position`
   );
   const lengths = await readTrackLengths();
-  // Matched like findTrackByName: the collector's track names are iRacing's
-  const lengthFeet = (name: string, key: string) => {
-    const found =
-      lengths.find((l) => sameTrackName(name, l.track)) ?? lengths.find((l) => l.track.toLowerCase() === key.toLowerCase());
+  // By iRacing's track key, like findTrackByKey
+  const lengthFeet = (key: string) => {
+    const found = lengths.find((l) => l.trackKey?.toLowerCase() === key.toLowerCase());
     return found ? Math.round(found.lengthFeet) : null;
   };
   return tracks.map((t) => ({
     id: t.id as number,
     name: t.track_name as string,
     key: t.track_key as string,
-    lengthFeet: lengthFeet(t.track_name as string, t.track_key as string),
+    lengthFeet: lengthFeet(t.track_key as string),
     notes: t.notes as string | null,
     areas: areas
       .filter((a) => a.track_id === t.id)
@@ -74,10 +73,19 @@ export async function readTracks(): Promise<TrackData[]> {
   }));
 }
 
-// The track for a track name from iRacing (the collector's), matched like recorded laps are on the Racing
-// page (iRacing's names can differ slightly from Track Data's), or by track key
-export function findTrackByName(tracks: TrackData[], name: string): TrackData | undefined {
-  return tracks.find((t) => sameTrackName(t.name, name)) ?? tracks.find((t) => t.key.toLowerCase() === name.toLowerCase());
+// The Track Data track for a track the collector is driving or uploaded laps of, by iRacing's track key
+// (WeekendInfo.TrackName, e.g. "twinring fullrc") against "Tracks".track_key, never by name: iRacing can name a
+// layout differently from Track Data ("Mobility Resort Motegi (Full Road Course)" vs "(Grand Prix)"). Without a
+// key (collectors before 1.29.0, and their laps) there's no track.
+export function findTrackByKey(tracks: TrackData[], key: string | null | undefined): TrackData | undefined {
+  const k = key?.trim().toLowerCase();
+  return k ? tracks.find((t) => t.key.toLowerCase() === k) : undefined;
+}
+
+// Whether a lap file's track name (e.g. a Target Lap's, from Garage 61) is the track being driven: the name the
+// collector gave, or the Track Data track found for it (which can be named differently)
+export function namesSameTrack(fileTrack: string, driving: string, track: TrackData | undefined): boolean {
+  return sameTrackName(fileTrack, driving) || (!!track && sameTrackName(fileTrack, track.name));
 }
 
 // A Track Data track in the shape the lap measuring code (lapData.ts) takes. `name` is the track key and

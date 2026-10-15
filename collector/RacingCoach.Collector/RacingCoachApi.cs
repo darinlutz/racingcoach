@@ -23,6 +23,28 @@ internal enum UploadOutcome
 }
 
 /// <summary>
+/// iRacing's track key (WeekendInfo.TrackName, e.g. "twinring fullrc") for each track name the collector gives its
+/// laps (e.g. "Mobility Resort Motegi (Full Road Course)"), from session info. Sent with track requests and laps,
+/// because the site's Track Data can name the layout differently ("Mobility Resort Motegi (Grand Prix)").
+/// Laps from earlier runs whose track hasn't been driven in this run go without it, and are matched by name.
+/// </summary>
+internal static class TrackKeys
+{
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, string> Keys = new(StringComparer.OrdinalIgnoreCase);
+
+    public static void Set(string track, string? key)
+    {
+        if (!string.IsNullOrWhiteSpace(key))
+            Keys[track] = key.Trim();
+    }
+
+    public static string? For(string track) => Keys.TryGetValue(track, out var key) ? key : null;
+
+    /// <summary>"&amp;key=..." for a request's query string, or "" when the track's key isn't known.</summary>
+    public static string Param(string track) => For(track) is { } key ? $"&key={Uri.EscapeDataString(key)}" : "";
+}
+
+/// <summary>
 /// Talks to RacingCoach.app's collector API (src/app/api/collector in the website), authenticated with
 /// the user's upload key from the Account page.
 /// </summary>
@@ -72,7 +94,7 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
     /// TaskCanceledException if the site can't be reached.</summary>
     public async Task<(string? Json, bool Metric)> GetTrackJsonAsync(string trackName, CancellationToken ct)
     {
-        using var response = await _http.GetAsync($"api/collector/track?name={Uri.EscapeDataString(trackName)}", ct);
+        using var response = await _http.GetAsync($"api/collector/track?name={Uri.EscapeDataString(trackName)}{TrackKeys.Param(trackName)}", ct);
         if (response.StatusCode == HttpStatusCode.Unauthorized)
             throw new UnauthorizedAccessException("RacingCoach.app doesn't accept the upload key");
         response.EnsureSuccessStatusCode();
@@ -94,7 +116,7 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
     /// HttpRequestException for a server error.</summary>
     public async Task<BrakeTargets> GetBrakeTargetsAsync(string trackName, CancellationToken ct)
     {
-        using var response = await _http.GetAsync($"api/collector/brake-beeps?track={Uri.EscapeDataString(trackName)}", ct);
+        using var response = await _http.GetAsync($"api/collector/brake-beeps?track={Uri.EscapeDataString(trackName)}{TrackKeys.Param(trackName)}", ct);
         if (response.StatusCode == HttpStatusCode.Unauthorized)
             throw new UnauthorizedAccessException("RacingCoach.app doesn't accept the upload key");
         if (!response.IsSuccessStatusCode)
@@ -109,7 +131,7 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
     /// null) and whether their Preferred Units are Metric. Throws like GetTrackJsonAsync.</summary>
     public async Task<TargetLapResponse> GetTargetLapAsync(string? trackName, CancellationToken ct)
     {
-        var query = trackName is null ? "" : $"?track={Uri.EscapeDataString(trackName)}";
+        var query = trackName is null ? "" : $"?track={Uri.EscapeDataString(trackName)}{TrackKeys.Param(trackName)}";
         using var response = await _http.GetAsync($"api/collector/target-lap{query}", ct);
         if (response.StatusCode == HttpStatusCode.Unauthorized)
             throw new UnauthorizedAccessException("RacingCoach.app doesn't accept the upload key");
@@ -147,7 +169,7 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
     /// e.g. the AI being unavailable) or TaskCanceledException if the site can't be reached.</summary>
     public async Task<CoachPlanResponse> GetCoachPlanAsync(string trackName, CancellationToken ct)
     {
-        using var response = await _http.GetAsync($"api/collector/in-car-coach?track={Uri.EscapeDataString(trackName)}", ct);
+        using var response = await _http.GetAsync($"api/collector/in-car-coach?track={Uri.EscapeDataString(trackName)}{TrackKeys.Param(trackName)}", ct);
         if (response.StatusCode == HttpStatusCode.Unauthorized)
             throw new UnauthorizedAccessException("RacingCoach.app doesn't accept the upload key");
         if (!response.IsSuccessStatusCode)
@@ -218,6 +240,7 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
         {
             clientLapId = lap.ClientLapId,
             session.Track,
+            trackKey = TrackKeys.For(session.Track),
             session.Car,
             session.Driver,
             session.SessionId,

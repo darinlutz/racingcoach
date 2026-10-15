@@ -22,6 +22,8 @@ const REQUIRED_COLUMNS = ['Speed', 'LapDistPct', 'Brake', 'Throttle'];
 export const collectorLapSchema = z.object({
   clientLapId: z.uuid(),
   track: z.string().trim().min(1).max(200),
+  // iRacing's track key (WeekendInfo.TrackName, e.g. "twinring fullrc"); collectors before 1.29.0 don't send it
+  trackKey: z.string().trim().min(1).max(200).nullish(),
   car: z.string().trim().min(1).max(200),
   driver: z.string().trim().min(1).max(200),
   sessionId: z.number().int().min(0),
@@ -201,6 +203,7 @@ export async function readCollectorLapsByClientId(
   {
     clientLapId: string;
     track: string;
+    trackKey: string | null;
     car: string;
     lapNumber: number;
     lapTimeSeconds: number;
@@ -213,6 +216,7 @@ export async function readCollectorLapsByClientId(
   const rows = await query<{
     client_lap_id: string;
     track: string;
+    track_key: string | null;
     car: string;
     lap_number: number;
     lap_time_seconds: number;
@@ -220,7 +224,7 @@ export async function readCollectorLapsByClientId(
     off_track: boolean;
     csv_gzip: Buffer;
   }>(
-    `SELECT client_lap_id, track, car, lap_number, lap_time_seconds, incidents, off_track, csv_gzip FROM racingcoach."CollectorLaps"
+    `SELECT client_lap_id, track, track_key, car, lap_number, lap_time_seconds, incidents, off_track, csv_gzip FROM racingcoach."CollectorLaps"
      WHERE user_id = $1 AND client_lap_id = ANY($2::uuid[])`,
     [userId, clientLapIds]
   );
@@ -231,6 +235,7 @@ export async function readCollectorLapsByClientId(
       {
         clientLapId: row.client_lap_id,
         track: row.track,
+        trackKey: row.track_key,
         car: row.car,
         lapNumber: row.lap_number,
         lapTimeSeconds: Number(row.lap_time_seconds),
@@ -272,8 +277,8 @@ export async function saveCollectorLap(
       `INSERT INTO racingcoach."CollectorLaps" (
          user_id, client_lap_id, track, car, driver, iracing_session_id, iracing_subsession_id, session_num,
          session_type, lap_number, lap_time_seconds, sample_count, missing_samples, incidents, pit_road,
-         off_track, recorded_at, csv_bytes, csv_gzip, has_position)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+         off_track, recorded_at, csv_bytes, csv_gzip, has_position, track_key)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
        RETURNING id`,
       [
         userId,
@@ -296,9 +301,10 @@ export async function saveCollectorLap(
         csvBytes,
         csvGzip,
         hasPosition,
+        lap.trackKey ?? null,
       ]
     );
-    await saveTrackLength(lap.track, csvGzip);
+    await saveTrackLength(lap.trackKey ?? null, lap.track, csvGzip);
     return { id: row.id, duplicate: false, replaced: false };
   } catch (error) {
     if (!isUniqueViolation(error)) throw error;

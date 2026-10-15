@@ -1,14 +1,15 @@
 import { NextResponse } from 'next/server';
 import { authenticateCollector } from '@/lib/collectorKeys';
-import { lapSamplesFromText, sameTrackName } from '@/lib/lapData';
+import { lapSamplesFromText } from '@/lib/lapData';
 import { readTargetLap, targetLapTrackName } from '@/lib/targetLap';
-import { findTrackByName, readTracks } from '@/lib/tracks';
+import { findTrackByKey, namesSameTrack, readTracks } from '@/lib/tracks';
 import { getUserById } from '@/lib/users';
 
 // The telemetry collector's Target Telemetry window (and older collectors' Target Steering window):
 // the brake, throttle and steering traces of the user's Target Lap (src/lib/targetLap.ts), to scroll past as they drive. Authenticated with the upload key as a
 // bearer token, like /api/collector/track.
 //   ?track=  iRacing's track name as the collector writes it, e.g. "Road Atlanta (Full Course)" (optional)
+//   ?key=    iRacing's track key, e.g. "roadatlanta full" (optional), which finds the Track Data track (findTrackByKey)
 // Answers { targetLap: null } when the user has no Target Lap; otherwise targetLap has its file name, the track
 // its file name names (null when it doesn't follow the Garage 61 / RacingCoach naming), whether that's the track
 // being driven (null when either is unknown), and pcts (LapDistPct, unwrapped so it keeps increasing past the
@@ -24,9 +25,10 @@ export async function GET(request: Request) {
     if (userId === null || !user) {
       return NextResponse.json({ error: 'Missing or unknown upload key' }, { status: 401 });
     }
-    const trackName = new URL(request.url).searchParams.get('track')?.trim() || null;
+    const params = new URL(request.url).searchParams;
+    const trackName = params.get('track')?.trim() || null;
 
-    const track = trackName ? findTrackByName(await readTracks(), trackName) : undefined;
+    const track = findTrackByKey(await readTracks(), params.get('key'));
     const trackLengthFeet = track?.lengthFeet ?? 0;
     const lap = await readTargetLap(userId);
     if (!lap) {
@@ -39,7 +41,7 @@ export async function GET(request: Request) {
       targetLap: {
         fileName: lap.fileName,
         track: lapTrack,
-        sameTrack: lapTrack && trackName ? sameTrackName(lapTrack, trackName) : null,
+        sameTrack: lapTrack && trackName ? namesSameTrack(lapTrack, trackName, track) : null,
         // Rounded, as a lap is several thousand samples
         pcts: pcts.map((pct) => Math.round(pct * 1e6) / 1e6),
         brakes: brakes.map((brake) => Math.round(Math.min(Math.max(brake, 0), 1) * 1000) / 1000),

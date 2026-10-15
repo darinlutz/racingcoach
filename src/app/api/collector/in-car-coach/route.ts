@@ -8,7 +8,7 @@ import { measureDebriefSession } from '@/lib/debriefSession';
 import { DEFAULT_LANGUAGE, LANGUAGE_LOCALES } from '@/lib/i18n/languages';
 import { inCarCoachCallouts, inCarCoachPlan } from '@/lib/inCarCoach';
 import { lapSamplesFromText } from '@/lib/lapData';
-import { findTrackByName, readTracks, toLapTrack } from '@/lib/tracks';
+import { findTrackByKey, readTracks, toLapTrack } from '@/lib/tracks';
 import { DEFAULT_UNITS } from '@/lib/units';
 import { getInCarCoachInstructions, getUserById } from '@/lib/users';
 
@@ -30,7 +30,7 @@ async function userContext(request: Request) {
   };
 }
 
-// GET ?track=<iRacing track name>: at the start of a session, the user's In-Car AI Coach Instructions turned into
+// GET ?track=<iRacing track name>&key=<iRacing track key>: at the start of a session, the user's In-Car AI Coach Instructions turned into
 // the plan the collector runs: { instructions, plan: { rules, speak, show, holdInFocusAreas, lapFeedback,
 // feedbackEveryLaps }, areas: [{ name, start, end }], locale } (areas from Track Data, for areaEntry/areaExit
 // rules; locale is the user's Preferred Language's, e.g. pt-BR).
@@ -40,8 +40,7 @@ export async function GET(request: Request) {
     if (!user) {
       return NextResponse.json({ error: 'Missing or unknown upload key' }, { status: 401 });
     }
-    const trackName = new URL(request.url).searchParams.get('track')?.trim() ?? '';
-    const track = trackName ? findTrackByName(await readTracks(), trackName) : undefined;
+    const track = findTrackByKey(await readTracks(), new URL(request.url).searchParams.get('key'));
     const areas = [...(track?.areas ?? [])]
       .sort((a, b) => a.position - b.position)
       .map((area) => ({ name: area.name, start: area.startPoint, end: area.endPoint }));
@@ -90,7 +89,7 @@ export async function POST(request: Request) {
     // One session is one track; the newest lap's
     const trackName = all[all.length - 1].track;
     const laps = all.filter((lap) => lap.track === trackName).map((lap) => ({ ...lap, id: lap.clientLapId.slice(-4) }));
-    const userTrack = findTrackByName(await readTracks(), trackName);
+    const userTrack = findTrackByKey(await readTracks(), all[all.length - 1].trackKey);
     const session = userTrack
       ? measureDebriefSession(
           toLapTrack(userTrack),

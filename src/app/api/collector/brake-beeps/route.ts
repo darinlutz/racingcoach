@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { authenticateCollector } from '@/lib/collectorKeys';
-import { areaStats, lapSamplesFromText, sameTrackName } from '@/lib/lapData';
+import { areaStats, lapSamplesFromText } from '@/lib/lapData';
 import { readTargetLap, targetLapTrackName } from '@/lib/targetLap';
-import { findTrackByName, readTracks } from '@/lib/tracks';
+import { findTrackByKey, namesSameTrack, readTracks } from '@/lib/tracks';
 import { getUserById } from '@/lib/users';
 
 // The telemetry collector's "Play beeps before braking" (BrakeBeeps.cs): where the user's Target Lap first brakes
@@ -23,15 +23,16 @@ export async function GET(request: Request) {
     if (userId === null || !user) {
       return NextResponse.json({ error: 'Missing or unknown upload key' }, { status: 401 });
     }
-    const trackName = new URL(request.url).searchParams.get('track')?.trim();
+    const params = new URL(request.url).searchParams;
+    const trackName = params.get('track')?.trim();
     if (!trackName) {
       return NextResponse.json({ error: 'track is required' }, { status: 400 });
     }
 
-    const track = findTrackByName(await readTracks(), trackName);
+    const track = findTrackByKey(await readTracks(), params.get('key'));
     const lap = user.brakeBeeps ? await readTargetLap(userId) : null;
     const lapTrack = lap ? targetLapTrackName(lap.fileName) : null;
-    const sameTrack = lapTrack ? sameTrackName(lapTrack, trackName) : null;
+    const sameTrack = lapTrack ? namesSameTrack(lapTrack, trackName, track) : null;
 
     const brakepoints: { area: string; pct?: number; feet?: number }[] = [];
     if (track && user.brakeBeeps && !lap) {

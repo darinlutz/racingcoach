@@ -13,7 +13,7 @@ import {
 } from './accountStatus';
 import { copyDefaultCars, seedDefaultCars } from './defaultCars';
 import { seedDefaultTracks } from './defaultTracks';
-import { backfillTrackLengths } from './trackLengths';
+import { migrateTrackLengthsToKey } from './trackLengths';
 import { appendTrackCorners, categorizeTracks, removeLegacyTracks, seedTrackCorners } from './trackCorners';
 import { DEFAULT_LANGUAGE, isLanguage, type Language } from './i18n/languages';
 import { DEFAULT_THEME, isTheme, type Theme } from './theme';
@@ -535,16 +535,17 @@ export function ensureUserSchema(): Promise<void> {
       await client.query(
         'ALTER TABLE racingcoach."CollectorLaps" ADD COLUMN IF NOT EXISTS has_position BOOLEAN NOT NULL DEFAULT false'
       );
-      // iRacing's length of each track the collector has uploaded laps of, by its track name (src/lib/trackLengths.ts)
-      const [{ track_lengths_missing: trackLengthsMissing }] = (
-        await client.query(`SELECT to_regclass('racingcoach."TrackLengths"') IS NULL AS track_lengths_missing`)
-      ).rows;
+      // iRacing's track key (WeekendInfo.TrackName), which finds the Track Data track when the names differ
+      await client.query('ALTER TABLE racingcoach."CollectorLaps" ADD COLUMN IF NOT EXISTS track_key TEXT');
+      // iRacing's length of each track layout the collector has uploaded laps of, by iRacing's track key
+      // (src/lib/trackLengths.ts); track is the name the length was worked out from, for reference
       await client.query(`CREATE TABLE IF NOT EXISTS racingcoach."TrackLengths" (
-        track TEXT PRIMARY KEY,
+        track_key TEXT PRIMARY KEY,
+        track TEXT,
         length_feet DOUBLE PRECISION NOT NULL CHECK (length_feet > 0),
         created_at TIMESTAMPTZ NOT NULL DEFAULT now()
       )`);
-      if (trackLengthsMissing) await backfillTrackLengths(client);
+      await migrateTrackLengthsToKey(client);
       await client.query(
         'CREATE INDEX IF NOT EXISTS collector_laps_user_id_recorded_at_idx ON racingcoach."CollectorLaps" (user_id, recorded_at)'
       );

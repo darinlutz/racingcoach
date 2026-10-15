@@ -45,7 +45,6 @@ function toRows(config) {
     return {
       key,
       name: text(track.TrackFileName) ?? key,
-      lengthFeet: target(track.TrackLengthInFeet),
       notes: text(track.Notes),
       areas: areas.map((area, i) => ({
         position: i + 1,
@@ -71,13 +70,12 @@ try {
     const {
       rows: [{ id: trackId }],
     } = await client.query(
-      `INSERT INTO racingcoach."Tracks" (track_key, track_name, track_length_feet, notes)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO racingcoach."Tracks" (track_key, track_name, notes)
+       VALUES ($1, $2, $3)
        ON CONFLICT (lower(track_key)) DO UPDATE
-         SET track_name = EXCLUDED.track_name, track_length_feet = EXCLUDED.track_length_feet,
-             notes = EXCLUDED.notes, updated_at = now()
+         SET track_name = EXCLUDED.track_name, notes = EXCLUDED.notes, updated_at = now()
        RETURNING id`,
-      [track.key, track.name, track.lengthFeet, track.notes]
+      [track.key, track.name, track.notes]
     );
     await client.query('DELETE FROM racingcoach."TrackFocusAreas" WHERE track_id = $1', [trackId]);
     for (const area of track.areas) {

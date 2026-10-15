@@ -27,7 +27,7 @@ function distance(feet: number | null, units: Units) {
 // Lap position (unwrapped LapDistPct) -> "Brakepoint at 1234 ft. (Brake target = 1200)" (meters for Metric)
 function formatBrakepoint(brakePct: number | null, lengthFeet: number | null, target: number | null, units: Units) {
   if (brakePct === null) return 'No braking';
-  if (!lengthFeet) return 'Brakepoint at n/a (no TrackLengthInFeet)';
+  if (!lengthFeet) return 'Brakepoint at n/a (track length unknown)';
   return (
     `Brakepoint at ${distance(brakeFeet(brakePct, lengthFeet), units)} ${DISTANCE_UNIT[units]}. ` +
     `(Brake target = ${distance(target, units) ?? 'n/a'})`

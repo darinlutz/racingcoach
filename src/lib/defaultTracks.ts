@@ -21,7 +21,6 @@ export type DefaultFocusArea = {
 export type DefaultTrack = {
   key: string;
   name: string;
-  lengthFeet: number;
   notes: string | null;
   areas: DefaultFocusArea[];
 };
@@ -52,7 +51,6 @@ export const DEFAULT_TRACKS: DefaultTrack[] = [
   {
     key: 'monza full',
     name: 'Autodromo Nazionale Monza (Grand Prix)',
-    lengthFeet: 19006,
     notes: null,
     areas: [
       area('T 1&2', 0.12, 0.19),
@@ -65,7 +63,6 @@ export const DEFAULT_TRACKS: DefaultTrack[] = [
   {
     key: 'barber 2026',
     name: 'Barber Motorsports Park',
-    lengthFeet: 12566,
     notes: null,
     areas: [
       area('T2-T3', 0.07, 0.19),
@@ -78,14 +75,12 @@ export const DEFAULT_TRACKS: DefaultTrack[] = [
   {
     key: 'spa 2024 up',
     name: 'Circuit de Spa-Francorchamps (Grand Prix Pits)',
-    lengthFeet: 22966,
     notes: null,
     areas: [],
   },
   {
     key: 'cota gp',
     name: 'Circuit of the Americas (Grand Prix)',
-    lengthFeet: 18087,
     notes: null,
     areas: [
       targeted('T 1', 0.04, 0.08, null, 480, 84, 1048),
@@ -98,7 +93,6 @@ export const DEFAULT_TRACKS: DefaultTrack[] = [
   {
     key: 'zandvoort 2023 gp',
     name: 'Circuit Zandvoort (Grand Prix)',
-    lengthFeet: 13973,
     notes: null,
     areas: [
       targeted('T1', 0.02, 0.1, null, 692, 85, 1260),
@@ -112,14 +106,12 @@ export const DEFAULT_TRACKS: DefaultTrack[] = [
   {
     key: 'fuji gp',
     name: 'Fuji International Speedway (Grand Prix)',
-    lengthFeet: 14960,
     notes: null,
     areas: [],
   },
   {
     key: 'indianapolis 2022 road',
     name: 'Indianapolis Motor Speedway (Road Course)',
-    lengthFeet: 12878,
     notes: null,
     areas: [
       targeted('T 1&2', 0.1, 0.22, null, 1699, 82, 2149),
@@ -134,14 +126,12 @@ export const DEFAULT_TRACKS: DefaultTrack[] = [
   {
     key: 'misano gp',
     name: 'Misano World Circuit Marco Simoncelli (Grand Prix)',
-    lengthFeet: 13781,
     notes: null,
     areas: [],
   },
   {
     key: 'twinring fullrc',
     name: 'Mobility Resort Motegi (Grand Prix)',
-    lengthFeet: 15752,
     notes: null,
     areas: [
       targeted('T 1&2', 0.02, 0.09, null, 450, 81, 1011),
@@ -157,7 +147,6 @@ export const DEFAULT_TRACKS: DefaultTrack[] = [
   {
     key: 'roadatlanta full',
     name: 'Road Atlanta (Full Course)',
-    lengthFeet: 13411,
     notes: 'Focus on T4, T6 and T10. T10 exit is critical.',
     areas: [
       targeted('T 1', 0.07, 0.14, 'Entry and rotation', 984, 56, 1483),
@@ -170,7 +159,6 @@ export const DEFAULT_TRACKS: DefaultTrack[] = [
   {
     key: 'sachsenring',
     name: 'Sachsenring',
-    lengthFeet: 12046,
     notes: null,
     areas: [
       area('T1', 0.11, 0.18),
@@ -183,14 +171,12 @@ export const DEFAULT_TRACKS: DefaultTrack[] = [
   {
     key: 'sebring international',
     name: 'Sebring International Raceway (International)',
-    lengthFeet: 19754,
     notes: null,
     areas: [],
   },
   {
     key: 'thebend gt',
     name: 'Shell V-Power Motorsport Park at The Bend (GT Circuit)',
-    lengthFeet: 25492,
     notes: null,
     areas: [
       area('1-5', 0.01, 0.13),
@@ -203,7 +189,6 @@ export const DEFAULT_TRACKS: DefaultTrack[] = [
   {
     key: 'silverstone 2019 gp',
     name: 'Silverstone Circuit (Grand Prix)',
-    lengthFeet: 19325,
     notes: 'Focus on T1, T9 and the 10-14 complex.',
     areas: [
       area('3-5', 0.13, 0.21, 'Prioritize exit'),
@@ -216,7 +201,6 @@ export const DEFAULT_TRACKS: DefaultTrack[] = [
   {
     key: 'suzuka grandprix',
     name: 'Suzuka International Racing Course (Grand Prix)',
-    lengthFeet: 19050,
     notes: null,
     areas: [
       area('T1', 0.07, 0.15),
@@ -233,9 +217,9 @@ export const DEFAULT_TRACKS: DefaultTrack[] = [
 export async function seedDefaultTracks(client: PoolClient): Promise<void> {
   for (const track of DEFAULT_TRACKS) {
     const { rows } = await client.query(
-      `INSERT INTO racingcoach."Tracks" (track_key, track_name, track_length_feet, notes)
-       VALUES ($1, $2, $3, $4) RETURNING id`,
-      [track.key, track.name, track.lengthFeet, track.notes]
+      `INSERT INTO racingcoach."Tracks" (track_key, track_name, notes)
+       VALUES ($1, $2, $3) RETURNING id`,
+      [track.key, track.name, track.notes]
     );
     for (const [i, a] of track.areas.entries()) {
       await client.query(

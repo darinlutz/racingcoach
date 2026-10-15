@@ -165,7 +165,7 @@ function formatAreaLine(areaName: string, c: AreaComparison, lengthFeet: number 
   const speed = SPEED_UNIT[units];
   const brakeAt = (distance: number | null) => {
     if (distance !== null) return `${formatDistance(distance)} ${unit}`;
-    return lengthFeet ? 'no braking' : `n/a ${unit} (no TrackLengthInFeet)`;
+    return lengthFeet ? 'no braking' : `n/a ${unit} (track length unknown)`;
   };
   const brakepointDiff = c.brakeDiff === null ? '' : ` (${formatBrakeDiff(c.brakeDiff, units)})`;
 

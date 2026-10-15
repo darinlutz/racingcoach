@@ -1,6 +1,7 @@
 import { gunzipSync } from 'node:zlib';
 import { z } from 'zod';
 import { isUniqueViolation, query } from './db';
+import { saveTrackLength } from './trackLengths';
 import { ensureUserSchema } from './users';
 
 // Laps uploaded by the telemetry collector (collector/ in this repo), stored in
@@ -297,6 +298,7 @@ export async function saveCollectorLap(
         hasPosition,
       ]
     );
+    await saveTrackLength(lap.track, csvGzip);
     return { id: row.id, duplicate: false, replaced: false };
   } catch (error) {
     if (!isUniqueViolation(error)) throw error;

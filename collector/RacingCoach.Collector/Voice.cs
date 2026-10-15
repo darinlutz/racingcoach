@@ -114,6 +114,11 @@ internal static class Voice
             {
                 // a cancelled Windows voice, or a sound device that went away; carry on with the next
             }
+            catch (Exception e)
+            {
+                // anything else would end this loop, and the coach would never speak again until a restart
+                _log($"The coach couldn't say \"{item.Fallback}\" ({e.GetType().Name}: {e.Message}).");
+            }
         }
     }
 

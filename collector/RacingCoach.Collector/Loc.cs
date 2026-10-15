@@ -113,8 +113,7 @@ internal static class Loc
         ["neutral"] = ("NEUTRAL", "NEUTRO", "NEUTRO"),
         ["unknown"] = ("UNKNOWN", "DESCONHECIDO", "DESCONOCIDO"),
 
-        // Overlay (OverlayWindow)
-        ["overlay.close"] = ("Close the overlay", "Fechar o overlay", "Cerrar el overlay"),
+        // Overlay boxes (OverlayStats, OverlayAreaRow, OverlayFeed)
         ["overlay.maxBrake"] = ("Max Brake", "Freio máx.", "Freno máx."),
         ["overlay.minSpeed"] = ("Min Speed ({0})", "Vel. mínima ({0})", "Vel. mínima ({0})"),
         ["overlay.focusArea"] = ("Area", "Área", "Zona"),

@@ -62,11 +62,10 @@ public partial class MainWindow : Window
     private bool _restartForUpdate;
     private bool _closing;
     private bool _closed;
-    private OverlayWindow? _overlayWindow;
     private RotationWindow? _rotationWindow;
     private BrakePracticeWindow? _brakePracticeWindow;
     private TargetTelemetryWindow? _targetTelemetryWindow;
-    // TelemetryEngine.js for the overlay and the Target Telemetry window's copies of its boxes, while either is open
+    // TelemetryEngine.js for the Target Telemetry window's overlay boxes, while it's open
     private OverlayFeed? _overlayFeed;
 
     internal MainWindow(CollectorOptions options)
@@ -406,6 +405,11 @@ public partial class MainWindow : Window
                 break;
         }
 
+        var showPreferences = _uploadState == UploadSetupState.Active && _account is not null;
+        PreferencesText.Visibility = showPreferences ? Visibility.Visible : Visibility.Collapsed;
+        if (showPreferences)
+            PreferencesText.Text = $"Language: {LanguageName(_engine.Language)} · Units: {(_engine.Metric ? "Metric" : "Standard")}";
+
         if (_engine.IbtFolder is null)
             SetTile(IbtDot, IbtText, IbtDetail, Grey, _engine.Playback ? "From the file" : "Off",
                 _engine.Playback ? "Played-back laps have positions already" : "Turned off for this run (--no-positions)");
@@ -424,6 +428,13 @@ public partial class MainWindow : Window
         // The tiles are narrow; the full text is a hover away
         detail.ToolTip = string.IsNullOrEmpty(description) ? null : description;
     }
+
+    private static string LanguageName(string language) => language switch
+    {
+        "pt" => "Portuguese",
+        "es" => "Spanish",
+        _ => "English",
+    };
 
     private void RefreshSession()
     {
@@ -627,27 +638,8 @@ public partial class MainWindow : Window
     private void OpenSite_Click(object sender, RoutedEventArgs e) => Open(_siteUrl);
     private void OpenAccount_Click(object sender, RoutedEventArgs e) => Open($"{_siteUrl}/account");
 
-    // Opens the overlay (or brings it to the front): focus areas and brake points from TelemetryEngine.js
-    private void LaunchOverlay_Click(object sender, RoutedEventArgs e)
-    {
-        if (_overlayWindow is not null)
-        {
-            _overlayWindow.Activate();
-            return;
-        }
-        if (OpenOverlayFeed(showError: true) is not { } feed)
-            return;
-        _overlayWindow = new OverlayWindow(_engine, feed);
-        _overlayWindow.Closed += (_, _) =>
-        {
-            _overlayWindow = null;
-            CloseOverlayFeed();
-        };
-        _overlayWindow.Show();
-    }
-
     // The running TelemetryEngine.js, or a new one (null if it doesn't load)
-    private OverlayFeed? OpenOverlayFeed(bool showError)
+    private OverlayFeed? OpenOverlayFeed()
     {
         if (_overlayFeed is not null)
             return _overlayFeed;
@@ -659,8 +651,6 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             ActivityLog.Shared.Write($"Couldn't start the overlay: TelemetryEngine.js didn't load ({ex.Message}).", isError: true);
-            if (showError)
-                MessageBox.Show(this, $"TelemetryEngine.js didn't load:\n\n{ex.Message}", "RacingCoach Overlay", MessageBoxButton.OK, MessageBoxImage.Error);
             return null;
         }
         ActivityLog.Shared.Write($"Overlay opened (TelemetryEngine.js: {overlay.ScriptSource}).");
@@ -668,10 +658,10 @@ public partial class MainWindow : Window
         return _overlayFeed = new OverlayFeed(_engine, overlay);
     }
 
-    // Stops TelemetryEngine.js once neither window that shows it is open
+    // Stops TelemetryEngine.js once the Target Telemetry window has closed
     private void CloseOverlayFeed()
     {
-        if (_overlayWindow is not null || _targetTelemetryWindow is not null || _overlayFeed is null)
+        if (_targetTelemetryWindow is not null || _overlayFeed is null)
             return;
         if (_engine.Overlay == _overlayFeed.Overlay)
             _engine.Overlay = null;
@@ -715,7 +705,7 @@ public partial class MainWindow : Window
             return;
         }
         // Without the overlay's boxes if TelemetryEngine.js doesn't load (logged)
-        _targetTelemetryWindow = new TargetTelemetryWindow(_engine, OpenOverlayFeed(showError: false));
+        _targetTelemetryWindow = new TargetTelemetryWindow(_engine, OpenOverlayFeed());
         _targetTelemetryWindow.Closed += (_, _) =>
         {
             _targetTelemetryWindow = null;
@@ -747,7 +737,6 @@ public partial class MainWindow : Window
         if (_closing)
             return;
         _closing = true;
-        _overlayWindow?.Close();
         _rotationWindow?.Close();
         _brakePracticeWindow?.Close();
         _targetTelemetryWindow?.Close();

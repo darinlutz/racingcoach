@@ -42,7 +42,7 @@ public partial class TargetTelemetryWindow : Window
     private static readonly Brush WarningBrush = Frozen(Color.FromRgb(0xF5, 0x9E, 0x0B));
 
     private readonly CollectorEngine _engine;
-    // The overlay's boxes refresh as often as in the overlay
+    // The overlay boxes and the In-Car Coach's message, 10 times a second
     private readonly DispatcherTimer _overlayTimer = new() { Interval = TimeSpan.FromMilliseconds(100) };
     private readonly Polyline _trace = new() { Stroke = TraceBrush, StrokeThickness = 2, StrokeLineJoin = PenLineJoin.Round };
     private readonly Polygon _fill = new() { Fill = FillBrush };
@@ -78,12 +78,9 @@ public partial class TargetTelemetryWindow : Window
             AreaRow.Visibility = Visibility.Collapsed;
             InAreaText.Visibility = Visibility.Collapsed;
         }
-        else
-        {
-            _overlayTimer.Tick += (_, _) => RefreshOverlay(feed);
-            _overlayTimer.Start();
-            RefreshOverlay(feed);
-        }
+        _overlayTimer.Tick += (_, _) => RefreshOverlay(feed);
+        _overlayTimer.Start();
+        RefreshOverlay(feed);
         _target = new TargetLapSource(engine);
         _target.Loaded += () =>
         {
@@ -123,8 +120,15 @@ public partial class TargetTelemetryWindow : Window
             Draw(position, lengthFeet);
     }
 
-    private void RefreshOverlay(OverlayFeed feed)
+    private void RefreshOverlay(OverlayFeed? feed)
     {
+        var coach = _engine.Coach.LatestMessage;
+        var showCoach = coach is not null && DateTime.UtcNow - coach.At < InCarCoach.MessageShownFor;
+        CoachText.Text = showCoach ? coach!.Text : "";
+        CoachText.Visibility = showCoach ? Visibility.Visible : Visibility.Hidden;
+
+        if (feed is null)
+            return;
         var snapshot = feed.Refresh();
         var language = _engine.Language;
         Stats.Show(snapshot, language, _engine.Rotation);

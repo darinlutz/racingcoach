@@ -1,10 +1,9 @@
 namespace RacingCoach.Collector;
 
 /// <summary>
-/// TelemetryEngine.js (OverlayEngine) and Track Data for the current track, shared by the windows that
-/// show its values: the overlay, and the Target Telemetry window's copies of its boxes. One engine runs however
-/// many of them are open, since the script is slow (MainWindow creates it for the first and drops it after the
-/// last). Each window calls <see cref="Refresh"/> from its own timer; the track loads again whenever it changes.
+/// TelemetryEngine.js (OverlayEngine) and Track Data for the current track, for the Target Telemetry window's
+/// overlay boxes (MainWindow creates it when the window opens and drops it when it closes, as the script is slow).
+/// The window calls <see cref="Refresh"/> from its timer; the track loads again whenever it changes.
 /// </summary>
 internal sealed class OverlayFeed
 {

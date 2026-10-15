@@ -12,7 +12,7 @@
         UseLayoutRounding="True" TextOptions.TextFormattingMode="Display"
         MouseLeftButtonDown="Window_MouseLeftButtonDown">
 
-    <!-- Looks like the overlay (OverlayWindow.xaml): see-through so the sim shows through, drag anywhere to move it -->
+    <!-- Looks like Target Telemetry (TargetTelemetryWindow.xaml): see-through so the sim shows through, drag anywhere to move it -->
     <Window.Resources>
         <Style x:Key="Heading" TargetType="TextBlock">
             <Setter Property="Foreground" Value="#9A9CA3" />

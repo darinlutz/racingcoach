@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:RacingCoach.Collector"
         Title="RacingCoach Target Telemetry"
-        Width="732" Height="440" MinWidth="560" MinHeight="360"
+        Width="732" Height="490" MinWidth="560" MinHeight="410"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         Opacity="0.85" Topmost="True" ShowInTaskbar="False" ResizeMode="CanResizeWithGrip"
         WindowStartupLocation="Manual" Left="960" Top="520"
@@ -24,7 +24,7 @@
         </Style>
     </Window.Resources>
 
-    <!-- Looks like the overlay (OverlayWindow.xaml): see-through so the sim shows through, drag anywhere to move it -->
+    <!-- See-through so the sim shows through, drag anywhere to move it -->
     <Border Background="#121315" BorderBrush="#303136" BorderThickness="1" CornerRadius="10" Padding="14,10,14,14">
         <DockPanel>
             <!-- Header, the Target Lap's brake at the car, Reload and a close button -->
@@ -48,6 +48,11 @@
 
             <!-- The overlay's Max Brake, Min Speed and UNDERSTEER or OVERSTEER (collapsed if TelemetryEngine.js didn't load) -->
             <local:OverlayStats x:Name="Stats" DockPanel.Dock="Top" Margin="0,0,0,8" />
+
+            <!-- The In-Car Coach's latest message, for a while after it's shown; two lines' space is always kept for
+                 it (hidden, not collapsed) so the chart doesn't change size when one shows -->
+            <TextBlock x:Name="CoachText" DockPanel.Dock="Top" Foreground="#4ADE80" FontSize="16" FontWeight="SemiBold"
+                       TextWrapping="Wrap" TextTrimming="CharacterEllipsis" Height="44" Margin="0,0,0,6" Visibility="Hidden" />
 
             <!-- Under the chart: the overlay's Upcoming Focus Area row, above it why the focus areas aren't showing, and
                  below it "In Area" in blue (the Upcoming Focus Area's outline color) while the car is in that area; hidden,

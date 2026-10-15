@@ -119,7 +119,7 @@ internal sealed class CollectorEngine
     /// <summary>The user's Preferred Language on the Account page ("en", "pt" or "es"), which the overlays are in.
     /// Loaded with the units; English without a key.</summary>
     public string Language { get; private set; } = Loc.English;
-    /// <summary>The overlay's TelemetryEngine.js while the overlay is open; it gets every telemetry sample.</summary>
+    /// <summary>TelemetryEngine.js while the Target Telemetry window is open; it gets every telemetry sample.</summary>
     public OverlayEngine? Overlay { get; set; }
 
     /// <summary>The latest telemetry sample, if there's been one since connecting.</summary>

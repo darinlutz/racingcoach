@@ -31,7 +31,7 @@
         </Style>
     </Window.Resources>
 
-    <!-- Looks like the overlay (OverlayWindow.xaml): see-through so the sim shows through, drag anywhere to move it -->
+    <!-- Looks like Target Telemetry (TargetTelemetryWindow.xaml): see-through so the sim shows through, drag anywhere to move it -->
     <Border Background="#121315" BorderBrush="#303136" BorderThickness="1" CornerRadius="10" Padding="14,10,14,14">
         <DockPanel>
             <!-- Header and a close button -->

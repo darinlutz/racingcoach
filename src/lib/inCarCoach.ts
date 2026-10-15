@@ -67,11 +67,14 @@ const calloutsSchema = z.object({
         sound: z.enum(COACH_SOUNDS).nullable().describe('A sound to play first, only when the instructions ask for one; otherwise null'),
       })
     )
-    .describe('0 to 2 callouts, the most important first; empty when there is nothing new worth saying'),
+    .describe(
+      'Exactly 3 callouts, the most important first. The driver hears the first two every lap (one straight away, ' +
+        'one halfway round); the third is a spare in case one of them cannot be used'
+    ),
 });
 
 export type Callout = z.infer<typeof calloutsSchema>['callouts'][number];
-const MAX_CALLOUTS = 2;
+const MAX_CALLOUTS = 2; // the model gives 3, the third a spare in case one is dropped
 
 // The driver's own instructions, after the head coach's: the driver's say what this coach does in their car
 function driverInstructionsRule(instructions: string): string {
@@ -162,7 +165,8 @@ function cleanPlan(plan: InCarCoachPlan, areaNames: string[]): InCarCoachPlan {
 const calloutPrompt = (units: Units) =>
   'You are an In-Car AI Coach for a sim racing driver who is driving right now. After each lap the driver\'s ' +
   'laps so far in this session are analysed, and you decide what, if anything, to tell them before the next ' +
-  'lap. They are at speed: each callout is one short sentence they can take in while driving, with at most one ' +
+  'lap. Every lap you give exactly 3 callouts, most important first: the driver hears the first two, one as the ' +
+  'lap starts and one halfway round, and the third is a spare. They are at speed: each callout is one short sentence they can take in while driving, with at most one ' +
   `number, and points at one focus area and one change (for example "Turn 1: brake about ${units === 'metric' ? 6 : 20} ` +
   `${DISTANCE_UNIT[units]} later"). When the ` +
   'Debrief Coach tools are available, start with get_session_overview, then dig into ' +
@@ -173,9 +177,10 @@ const calloutPrompt = (units: Units) =>
   'driving line advice unless get_driving_line shows a line verdict. Anything the driver\'s instructions ask to ' +
   'happen at a moment on track (a sound at the line, the lap time after each lap, a message at an area) is ' +
   'already done by the coach\'s rules, so never repeat it here: your callouts are coaching from the lap data. Only ' +
-  'add a sound when the instructions ask for one with coaching. Never repeat advice you recently gave (the same ' +
-  'area and change, even with slightly different numbers): the driver is still working on it. Give it again only ' +
-  'when the newest lap shows it getting worse, and otherwise move on to the next thing or return no callouts. ' +
+  'add a sound when the instructions ask for one with coaching. Never return fewer than 3 callouts. Vary them from ' +
+  'lap to lap: prefer a focus area or change you have not mentioned recently, tell the driver how the newest lap ' +
+  'went on something you said before (better or worse, with its number), or give the next most useful change. ' +
+  'Only repeat earlier advice word for word when nothing else in the data is worth saying. ' +
   'Use the numbers from the data, never ' +
   'invent data, talk to the driver as "you", and use plain text with no markdown.';
 
@@ -226,11 +231,11 @@ export async function inCarCoachCallouts(input: {
       ? 'The Debrief Coach tools have every lap measured in the focus areas from my Track Data.'
       : 'This track has no focus areas in my Track Data, so only the lap times are available.',
     input.recentCallouts.length > 0
-      ? 'Already said this session, and I am working on it, so do not say any of it again, even reworded or with new ' +
-        'numbers, unless my newest lap got worse there: ' +
+      ? 'Already said recently, and I am working on it, so tell me how my newest lap went on it or move on to ' +
+        'something else, rather than saying it the same way again: ' +
         input.recentCallouts.map((c) => `"${c}"`).join(' ')
       : 'You have not said anything yet this session.',
-    'What should you tell me now, if anything new?',
+    'What are your 3 callouts for my next lap?',
   ].join('\n');
 
   const result = await agent.invoke({ messages: [{ role: 'user', content }] }, { recursionLimit: 20 });

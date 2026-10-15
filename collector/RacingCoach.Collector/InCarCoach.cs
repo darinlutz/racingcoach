@@ -19,11 +19,15 @@ internal sealed record CoachMessage(string Text, DateTime At);
 internal sealed class InCarCoach(Func<RacingCoachApi?> api, Action<string> log)
 {
     /// <summary>Laps that have to upload before the first lap feedback.</summary>
-    public const int LapsBeforeFeedback = 2;
+    public const int LapsBeforeFeedback = 1;
+    /// <summary>Where in the lap (a fraction) the second callout of each lap feedback is said.</summary>
+    private const float SecondCalloutAt = 0.5f;
+    // Lap feedback before the plan has loaded (or when it couldn't): the plan's defaults
+    private static readonly CoachPlan DefaultPlan = new([], true, true, false, true, 1);
     private const int MaxLapsSent = 30;
     private const int RecentCalloutsKept = 6;
     private static readonly TimeSpan RetryAfter = TimeSpan.FromMinutes(1);
-    /// <summary>How long the overlay shows a message.</summary>
+    /// <summary>How long the Target Telemetry window shows a message.</summary>
     public static readonly TimeSpan MessageShownFor = TimeSpan.FromSeconds(20);
 
     // Culture: the user's Preferred Language's, for the numbers in rule texts (e.g. 1:23,456 in pt-BR)
@@ -52,6 +56,7 @@ internal sealed class InCarCoach(Func<RacingCoachApi?> api, Action<string> log)
     private double? _delta;
     private int _incidents;
     private volatile bool _inArea;
+    private volatile float _livePct = -1; // -1 while not driving
 
     // Lap feedback: this run's uploaded laps per session folder, and the one request at a time
     private readonly Dictionary<string, List<Guid>> _uploaded = [];
@@ -59,8 +64,9 @@ internal sealed class InCarCoach(Func<RacingCoachApi?> api, Action<string> log)
     private string? _pendingFolder;
     private readonly Queue<string> _recent = [];
     private readonly List<string> _held = [];
+    private readonly List<string> _midLap = []; // said once the car passes SecondCalloutAt
 
-    /// <summary>The last message shown, for the overlay.</summary>
+    /// <summary>The last message shown, for the Target Telemetry window.</summary>
     public CoachMessage? LatestMessage { get; private set; }
 
     /// <summary>The track being driven (the name the collector gives its laps), from each session info update.
@@ -106,7 +112,7 @@ internal sealed class InCarCoach(Func<RacingCoachApi?> api, Action<string> log)
         try
         {
             var response = await site.GetCoachPlanAsync(track, CancellationToken.None);
-            var plan = response.Plan ?? new CoachPlan([], true, true, false, true, 1);
+            var plan = response.Plan ?? DefaultPlan;
             var loaded = new LoadedPlan(track, plan, plan.Rules ?? [], response.Areas ?? [], CultureFor(response.Locale));
             lock (_lock)
             {
@@ -171,13 +177,18 @@ internal sealed class InCarCoach(Func<RacingCoachApi?> api, Action<string> log)
             _inArea = false;
         }
         if (_plan is not { } plan)
+        {
+            _livePct = -1;
             return;
+        }
         if (data.IsReplayPlaying == true || data.IsOnTrack != true || data.LapDistPct is not { } pct || pct < 0)
         {
             _lastPct = null;
+            _livePct = -1;
             _inArea = false;
             return;
         }
+        _livePct = pct;
 
         if (data.SessionNum != _sessionNum)
         {
@@ -212,6 +223,8 @@ internal sealed class InCarCoach(Func<RacingCoachApi?> api, Action<string> log)
                     Fire(plan, "lapStart", null);
                     _awaitingLapTime = (data.LapLastLapTime, time);
                 }
+                if (Crossed(previous, pct, SecondCalloutAt))
+                    SayMidLap(plan.Plan);
                 foreach (var area in plan.Areas)
                 {
                     if (Crossed(previous, pct, area.Start))
@@ -333,7 +346,9 @@ internal sealed class InCarCoach(Func<RacingCoachApi?> api, Action<string> log)
     {
         if (error is not null || item.Earlier || item.WithPositions || item.Lap.PitRoad || item.Lap.ClientLapId is not { } id)
             return;
-        if (_plan is not { Plan.LapFeedback: true } plan)
+        // Counted even while the plan is still loading, so a slow or failed load doesn't silence the session
+        var feedback = _plan?.Plan ?? DefaultPlan;
+        if (!feedback.LapFeedback)
             return;
 
         lock (_lock)
@@ -342,7 +357,7 @@ internal sealed class InCarCoach(Func<RacingCoachApi?> api, Action<string> log)
             if (laps.Contains(id))
                 return;
             laps.Add(id);
-            var every = Math.Max(1, plan.Plan.FeedbackEveryLaps);
+            var every = Math.Max(1, feedback.FeedbackEveryLaps);
             if (laps.Count < LapsBeforeFeedback || (laps.Count - LapsBeforeFeedback) % every != 0)
                 return;
             if (_requesting)
@@ -375,8 +390,8 @@ internal sealed class InCarCoach(Func<RacingCoachApi?> api, Action<string> log)
                     log($"In-Car Coach had no feedback after {Plural(laps.Count, "lap")}: {error}.");
                 else if (callouts.Count == 0)
                     log($"In-Car Coach: nothing new to say after {Plural(laps.Count, "lap")}.");
-                foreach (var callout in callouts)
-                    Deliver(callout);
+                for (var i = 0; i < callouts.Count; i++)
+                    Deliver(callouts[i], midLap: i > 0);
             }
 
             lock (_lock)
@@ -392,30 +407,61 @@ internal sealed class InCarCoach(Func<RacingCoachApi?> api, Action<string> log)
         }
     }
 
-    private void Deliver(CoachCallout callout)
+    // The first callout is said straight away, the others halfway round the lap (straight after the first when the
+    // car is already past halfway, or not driving)
+    private void Deliver(CoachCallout callout, bool midLap)
     {
-        if (string.IsNullOrWhiteSpace(callout.Text) || _plan is not { } plan)
+        if (string.IsNullOrWhiteSpace(callout.Text))
             return;
-        if (callout.Sound is not null)
-            CoachSounds.Play(callout.Sound);
-        if (plan.Plan.Show)
-            Show(callout.Text);
-        else
-            log($"In-Car Coach said: {callout.Text}");
-
+        var plan = _plan?.Plan ?? DefaultPlan;
         lock (_lock)
         {
             _recent.Enqueue(callout.Text);
             while (_recent.Count > RecentCalloutsKept)
                 _recent.Dequeue();
-            if (plan.Plan.Speak && plan.Plan.HoldInFocusAreas && _inArea)
+            var pct = _livePct;
+            if (midLap && pct >= 0 && pct < SecondCalloutAt)
             {
-                _held.Add(callout.Text); // said once the car is out of the focus area
+                _midLap.Add(callout.Text);
                 return;
             }
         }
-        if (plan.Plan.Speak)
-            Voice.Say(callout.Text);
+        Say(plan, callout.Text, callout.Sound);
+    }
+
+    private void SayMidLap(CoachPlan plan)
+    {
+        string[] texts;
+        lock (_lock)
+        {
+            if (_midLap.Count == 0)
+                return;
+            texts = [.. _midLap];
+            _midLap.Clear();
+        }
+        foreach (var text in texts)
+            Say(plan, text, null);
+    }
+
+    private void Say(CoachPlan plan, string text, string? sound)
+    {
+        if (sound is not null)
+            CoachSounds.Play(sound);
+        if (plan.Show)
+            Show(text);
+        else
+            log($"In-Car Coach said: {text}");
+        if (!plan.Speak)
+            return;
+        lock (_lock)
+        {
+            if (plan.HoldInFocusAreas && _inArea)
+            {
+                _held.Add(text); // said once the car is out of the focus area
+                return;
+            }
+        }
+        Voice.Say(text);
     }
 }
 

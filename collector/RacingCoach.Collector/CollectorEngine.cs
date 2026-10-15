@@ -51,6 +51,7 @@ internal sealed class CollectorEngine
     private readonly InCarCoach _coach;
     private readonly BrakeBeeps _brakeBeeps;
     private readonly RaceResultTracker? _races;
+    private readonly LogUploader _logs;
     private readonly object _sampleLock = new();
     private TelemetryData _latest;
     private bool _hasLatest;
@@ -91,6 +92,7 @@ internal sealed class CollectorEngine
             : new RaceResultTracker(Path.Combine(documents, "RacingCoach", "Races"), message => Log(message));
         Rotation = new RotationMonitor(message => Log(message));
         Voice.UseSite(() => Api, message => Log(message)); // speech in the user's coach voice
+        _logs = new LogUploader(() => Api); // the activity log, to the user's account
     }
 
     public string LapsFolder { get; }
@@ -223,6 +225,7 @@ internal sealed class CollectorEngine
             if (_uploader is not null)
                 await _uploader.DisposeAsync(); // give queued uploads a few seconds; the rest go next run
             await _writer.DisposeAsync(); // record the last upload results in session.json
+            await _logs.DisposeAsync(); // the last activity log lines
         }
     }
 

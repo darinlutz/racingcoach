@@ -191,6 +191,16 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
         return await response.Content.ReadAsByteArrayAsync(ct);
     }
 
+    /// <summary>Sends activity log lines (LogUploader). Throws UnauthorizedAccessException if the key isn't accepted,
+    /// HttpRequestException (also for a server error) or TaskCanceledException.</summary>
+    public async Task UploadLogAsync(Guid runId, string version, IEnumerable<CollectorLogLine> lines, CancellationToken ct)
+    {
+        using var response = await _http.PostAsJsonAsync("api/collector/log", new { runId, version, lines }, JsonOptions, ct);
+        if (response.StatusCode == HttpStatusCode.Unauthorized)
+            throw new UnauthorizedAccessException("RacingCoach.app doesn't accept the upload key");
+        response.EnsureSuccessStatusCode();
+    }
+
     /// <summary>Uploads one lap: its details as JSON and its CSV, gzip-compressed.</summary>
     public async Task<(UploadOutcome Outcome, string Message)> UploadLapAsync(string csvPath, SessionInfo session, ManifestLap lap, CancellationToken ct)
     {

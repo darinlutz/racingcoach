@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import AdminTimeZone from '@/components/AdminTimeZone';
 import AiModelManager from '@/components/AiModelManager';
+import CollectorLogsViewer from '@/components/CollectorLogsViewer';
 import SiteSettingsManager from '@/components/SiteSettingsManager';
 import UserRoleManager from '@/components/UserRoleManager';
 import {
@@ -24,7 +25,8 @@ import { getCurrentUser } from '@/lib/session';
 import { getShowPricing } from '@/lib/siteSettings';
 
 // The site owner's Admin page: Site Settings (src/components/SiteSettingsManager.tsx), AI Model Control
-// (src/components/AiModelManager.tsx), User Roles (src/components/UserRoleManager.tsx), then racingcoach."ActivityLog",
+// (src/components/AiModelManager.tsx), User Roles (src/components/UserRoleManager.tsx), Collector Logs
+// (src/components/CollectorLogsViewer.tsx), then racingcoach."ActivityLog",
 // every page view and click, filtered through the URL (so a filtered view can be bookmarked), with totals,
 // the top pages and controls, and a CSV export.
 // Only for the Admin role; anyone else gets a 404, so the page's existence isn't advertised.
@@ -91,6 +93,13 @@ export default async function AdminPage({
         <AiModelManager models={aiModels} />
 
         <UserRoleManager users={users} currentUserId={user.id} />
+
+        <CollectorLogsViewer
+          initialUser={typeof params.logUser === 'string' ? params.logUser : null}
+          initialRun={typeof params.logRun === 'string' ? params.logRun : null}
+          timeZone={filters.timeZone}
+          locale={locale}
+        />
 
         <div className="pt-4">
           <h2 className="text-xl font-bold text-foreground mb-1">{a.title}</h2>

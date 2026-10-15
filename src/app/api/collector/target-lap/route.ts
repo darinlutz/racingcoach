@@ -5,8 +5,8 @@ import { readTargetLap, targetLapTrackName } from '@/lib/targetLap';
 import { findTrackByName, readTracks } from '@/lib/tracks';
 import { getUserById } from '@/lib/users';
 
-// The telemetry collector's Target Telemetry and Target Steering windows: the brake, throttle and steering traces of
-// the user's Target Lap (src/lib/targetLap.ts), to scroll past as they drive. Authenticated with the upload key as a
+// The telemetry collector's Target Telemetry window (and older collectors' Target Steering window):
+// the brake, throttle and steering traces of the user's Target Lap (src/lib/targetLap.ts), to scroll past as they drive. Authenticated with the upload key as a
 // bearer token, like /api/collector/track.
 //   ?track=  iRacing's track name as the collector writes it, e.g. "Road Atlanta (Full Course)" (optional)
 // Answers { targetLap: null } when the user has no Target Lap; otherwise targetLap has its file name, the track

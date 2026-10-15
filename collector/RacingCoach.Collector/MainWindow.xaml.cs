@@ -66,7 +66,8 @@ public partial class MainWindow : Window
     private RotationWindow? _rotationWindow;
     private BrakePracticeWindow? _brakePracticeWindow;
     private TargetTelemetryWindow? _targetTelemetryWindow;
-    private TargetSteeringWindow? _targetSteeringWindow;
+    // TelemetryEngine.js for the overlay and the Target Telemetry window's copies of its boxes, while either is open
+    private OverlayFeed? _overlayFeed;
 
     internal MainWindow(CollectorOptions options)
     {
@@ -634,6 +635,22 @@ public partial class MainWindow : Window
             _overlayWindow.Activate();
             return;
         }
+        if (OpenOverlayFeed(showError: true) is not { } feed)
+            return;
+        _overlayWindow = new OverlayWindow(_engine, feed);
+        _overlayWindow.Closed += (_, _) =>
+        {
+            _overlayWindow = null;
+            CloseOverlayFeed();
+        };
+        _overlayWindow.Show();
+    }
+
+    // The running TelemetryEngine.js, or a new one (null if it doesn't load)
+    private OverlayFeed? OpenOverlayFeed(bool showError)
+    {
+        if (_overlayFeed is not null)
+            return _overlayFeed;
         OverlayEngine overlay;
         try
         {
@@ -642,14 +659,23 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             ActivityLog.Shared.Write($"Couldn't start the overlay: TelemetryEngine.js didn't load ({ex.Message}).", isError: true);
-            MessageBox.Show(this, $"TelemetryEngine.js didn't load:\n\n{ex.Message}", "RacingCoach Overlay", MessageBoxButton.OK, MessageBoxImage.Error);
-            return;
+            if (showError)
+                MessageBox.Show(this, $"TelemetryEngine.js didn't load:\n\n{ex.Message}", "RacingCoach Overlay", MessageBoxButton.OK, MessageBoxImage.Error);
+            return null;
         }
         ActivityLog.Shared.Write($"Overlay opened (TelemetryEngine.js: {overlay.ScriptSource}).");
         _engine.Overlay = overlay;
-        _overlayWindow = new OverlayWindow(_engine, overlay);
-        _overlayWindow.Closed += (_, _) => _overlayWindow = null;
-        _overlayWindow.Show();
+        return _overlayFeed = new OverlayFeed(_engine, overlay);
+    }
+
+    // Stops TelemetryEngine.js once neither window that shows it is open
+    private void CloseOverlayFeed()
+    {
+        if (_overlayWindow is not null || _targetTelemetryWindow is not null || _overlayFeed is null)
+            return;
+        if (_engine.Overlay == _overlayFeed.Overlay)
+            _engine.Overlay = null;
+        _overlayFeed = null;
     }
 
     // Opens the Rotation window (or brings it to the front): live steering, yaw, velocities, accelerations and pedals
@@ -688,23 +714,14 @@ public partial class MainWindow : Window
             _targetTelemetryWindow.Activate();
             return;
         }
-        _targetTelemetryWindow = new TargetTelemetryWindow(_engine);
-        _targetTelemetryWindow.Closed += (_, _) => _targetTelemetryWindow = null;
-        _targetTelemetryWindow.Show();
-    }
-
-    // Opens the Target Steering window (or brings it to the front): the Target Lap's steering scrolling past the
-    // car's position on track, with the driver's own behind it
-    private void TargetSteering_Click(object sender, RoutedEventArgs e)
-    {
-        if (_targetSteeringWindow is not null)
+        // Without the overlay's boxes if TelemetryEngine.js doesn't load (logged)
+        _targetTelemetryWindow = new TargetTelemetryWindow(_engine, OpenOverlayFeed(showError: false));
+        _targetTelemetryWindow.Closed += (_, _) =>
         {
-            _targetSteeringWindow.Activate();
-            return;
-        }
-        _targetSteeringWindow = new TargetSteeringWindow(_engine);
-        _targetSteeringWindow.Closed += (_, _) => _targetSteeringWindow = null;
-        _targetSteeringWindow.Show();
+            _targetTelemetryWindow = null;
+            CloseOverlayFeed();
+        };
+        _targetTelemetryWindow.Show();
     }
 
     private static void Open(string target)
@@ -734,7 +751,6 @@ public partial class MainWindow : Window
         _rotationWindow?.Close();
         _brakePracticeWindow?.Close();
         _targetTelemetryWindow?.Close();
-        _targetSteeringWindow?.Close();
         ClosingOverlay.Visibility = Visibility.Visible;
         _timer.Stop();
         _stop.Cancel();

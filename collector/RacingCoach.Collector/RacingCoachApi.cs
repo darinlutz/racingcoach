@@ -85,7 +85,8 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
         return (json, metric);
     }
 
-    /// <summary>For BrakeBeeps: whether "Play beeps before braking" is Yes on the Account page, the Track Data
+    /// <summary>For BrakeBeeps: whether "Play beeps before braking" is Yes on the Account page, its volume (10-100%
+    /// of full volume; null from a site without the setting), the Track Data
     /// track's length in feet (0 when it isn't set, or there's no such track), the user's Target Lap (null when
     /// they have none) and where it first brakes in each of the track's focus areas, as fractions of a lap, or
     /// without a Target Lap, the areas' Track Data target brakepoints in feet (empty when beeps are off, or the
@@ -102,7 +103,7 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
             ?? throw new HttpRequestException("the site sent no brakepoints");
     }
 
-    /// <summary>For the Target Telemetry and Target Steering windows: the user's Target Lap's brake, throttle and
+    /// <summary>For the Target Telemetry window: the user's Target Lap's brake, throttle and
     /// steering traces (null Lap when they have none),
     /// the Track Data length of the track being driven (0 when it isn't set, there's no such track, or track is
     /// null) and whether their Preferred Units are Metric. Throws like GetTrackJsonAsync.</summary>
@@ -332,7 +333,7 @@ internal sealed record CoachRule(string Event, string? Area, string Action, stri
 /// <summary>GET /api/collector/brake-beeps: "Play beeps before braking" and what it beeps for on one track (see
 /// GetBrakeTargetsAsync). SameTrack is false when the Target Lap's file name names another track, null when it
 /// doesn't say.</summary>
-internal sealed record BrakeTargets(bool Enabled, double TrackLengthFeet, TargetLapName? TargetLap, bool? SameTrack, List<BrakeTarget>? Brakepoints);
+internal sealed record BrakeTargets(bool Enabled, int? Volume, double TrackLengthFeet, TargetLapName? TargetLap, bool? SameTrack, List<BrakeTarget>? Brakepoints);
 
 /// <summary>The Target Lap's file name, and the track that names (null if it doesn't say).</summary>
 internal sealed record TargetLapName(string FileName, string? Track);

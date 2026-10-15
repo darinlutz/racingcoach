@@ -134,7 +134,7 @@ export default async function AccountPage({
             <ThemeToggle theme={user.theme} />
           </div>
           <div className="mt-5">
-            <BrakeBeepsToggle brakeBeeps={user.brakeBeeps} />
+            <BrakeBeepsToggle brakeBeeps={user.brakeBeeps} volume={user.brakeBeepsVolume} />
           </div>
         </div>
 

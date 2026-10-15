@@ -9,7 +9,8 @@ import { getUserById } from '@/lib/users';
 // in each focus area of the track being driven, or without a Target Lap, the focus areas' target brakepoints from
 // Track Data. Authenticated with the upload key as a bearer token, like /api/collector/track.
 //   ?track=  iRacing's track name as the collector writes it, e.g. "Road Atlanta (Full Course)"
-// Answers enabled ("Play beeps before braking" on the Account page), trackLengthFeet (Track Data's, 0 when it isn't
+// Answers enabled ("Play beeps before braking" on the Account page), volume (its slider, 10-100% of full
+// volume), trackLengthFeet (Track Data's, 0 when it isn't
 // set or there's no such track), targetLap (its file name, the track that names, or null when the user has none),
 // sameTrack (false when the Target Lap's file name names another track; null when it doesn't say) and
 // brakepoints, per focus area in Track Data order: with a Target Lap, where its first braking zone in the area
@@ -51,6 +52,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       enabled: user.brakeBeeps,
+      volume: user.brakeBeepsVolume,
       trackLengthFeet: track?.lengthFeet ?? 0,
       targetLap: lap ? { fileName: lap.fileName, track: lapTrack } : null,
       sameTrack,

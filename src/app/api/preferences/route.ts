@@ -6,13 +6,14 @@ import { isTheme } from '@/lib/theme';
 import { setThemeCookie } from '@/lib/themeServer';
 import { isUnits } from '@/lib/units';
 import { setUnitsCookie } from '@/lib/unitsServer';
-import { setBrakeBeeps, setPreferredLanguage, setTheme, setUnits } from '@/lib/users';
+import { isBrakeBeepsVolume } from '@/lib/brakeBeepsVolume';
+import { setBrakeBeeps, setBrakeBeepsVolume, setPreferredLanguage, setTheme, setUnits } from '@/lib/users';
 import { apiText } from '@/lib/i18n/server';
 
 // Saves the Preferred Language, the Preferred Units (Standard / Metric) or the theme (Dark Mode / Light
 // Mode): in the signed-in user's account (racingcoach."Users".preferred_language / units / theme) and in a
-// cookie, which is all a visitor has. Also "Play beeps before braking" ({ brakeBeeps }, "Users".brake_beeps),
-// account only. A new language or units reloads the page in them; a new theme is
+// cookie, which is all a visitor has. Also "Play beeps before braking" ({ brakeBeeps }, "Users".brake_beeps)
+// and its volume ({ brakeBeepsVolume }, 10-100, "Users".brake_beeps_volume), account only. A new language or units reloads the page in them; a new theme is
 // already showing in the browser.
 export async function PUT(request: Request) {
   const t = await apiText();
@@ -50,6 +51,25 @@ export async function PUT(request: Request) {
       return NextResponse.json({ brakeBeeps });
     } catch (error) {
       console.error('Brake beeps error:', error);
+      return NextResponse.json({ error: t.failedSaveBrakeBeeps }, { status: 500 });
+    }
+  }
+
+  // The brake beeps' volume, a whole percentage of full volume; account only, like brakeBeeps
+  if (typeof body === 'object' && 'brakeBeepsVolume' in body) {
+    const volume = body.brakeBeepsVolume;
+    if (!isBrakeBeepsVolume(volume)) {
+      return NextResponse.json({ error: t.unknownBrakeBeepsVolume }, { status: 400 });
+    }
+    try {
+      const user = await getCurrentUser();
+      if (!user) {
+        return NextResponse.json({ error: t.logInBrakeBeeps }, { status: 401 });
+      }
+      await setBrakeBeepsVolume(user.id, volume);
+      return NextResponse.json({ brakeBeepsVolume: volume });
+    } catch (error) {
+      console.error('Brake beeps volume error:', error);
       return NextResponse.json({ error: t.failedSaveBrakeBeeps }, { status: 500 });
     }
   }

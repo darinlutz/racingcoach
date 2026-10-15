@@ -16,6 +16,7 @@ import { copyDefaultTracks, seedDefaultTracks } from './defaultTracks';
 import { seedTrackCorners } from './trackCorners';
 import { DEFAULT_LANGUAGE, isLanguage, type Language } from './i18n/languages';
 import { DEFAULT_THEME, isTheme, type Theme } from './theme';
+import { isBrakeBeepsVolume, MAX_BRAKE_BEEPS_VOLUME } from './brakeBeepsVolume';
 import { DEFAULT_UNITS, isUnits, type Units } from './units';
 
 const scryptAsync = promisify(scrypt) as (password: string, salt: Buffer, keylen: number) => Promise<Buffer>;
@@ -43,10 +44,12 @@ export type User = {
   units: Units;
   // "Play beeps before braking": the telemetry collector beeps on the approach to each target brakepoint
   brakeBeeps: boolean;
+  // How loud those beeps play, as a percentage of full volume (MIN_BRAKE_BEEPS_VOLUME to 100)
+  brakeBeepsVolume: number;
 };
 
 const USER_COLUMNS =
-  'id, user_name, email_address, account_status, membership_level, signup_date, subscription_end_date, stripe_subscription_id, stripe_customer_id, role, preferred_language, theme, units, brake_beeps';
+  'id, user_name, email_address, account_status, membership_level, signup_date, subscription_end_date, stripe_subscription_id, stripe_customer_id, role, preferred_language, theme, units, brake_beeps, brake_beeps_volume';
 
 // The site owner is made Admin on sign-up; everyone else is a User
 export const OWNER_EMAIL = 'darinlutz@yahoo.com';
@@ -158,6 +161,10 @@ export function ensureUserSchema(): Promise<void> {
       // before each focus area's target brakepoint and higher at it (BrakeBeeps.cs). Yes by default, which
       // adding the column also sets for every existing user.
       await client.query(`ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS brake_beeps BOOLEAN NOT NULL DEFAULT true`);
+      // Their volume, the Account page's slider under it: a percentage of full volume, 100 by default
+      await client.query(
+        `ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS brake_beeps_volume INTEGER NOT NULL DEFAULT ${MAX_BRAKE_BEEPS_VOLUME}`
+      );
       // The OpenAI voice the In-Car AI Coach speaks with (src/lib/coachVoice.ts); empty for the default one
       await client.query(`ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS coach_voice TEXT NOT NULL DEFAULT ''`);
       // Its accent for Spanish: latinAmerica or spain (src/lib/coachVoice.ts); empty for the default one
@@ -637,6 +644,7 @@ function rowToUser(row: Record<string, unknown>): User {
     theme: isTheme(row.theme) ? row.theme : DEFAULT_THEME,
     units: isUnits(row.units) ? row.units : DEFAULT_UNITS,
     brakeBeeps: row.brake_beeps !== false,
+    brakeBeepsVolume: brakeBeepsVolume(row.brake_beeps_volume),
     signupDate: (row.signup_date as string | null) ?? null,
     subscriptionEndDate: (row.subscription_end_date as string | null) ?? null,
     stripeSubscriptionId: (row.stripe_subscription_id as string | null) ?? null,
@@ -764,6 +772,16 @@ export async function setUnits(userId: number, units: Units): Promise<void> {
 export async function setBrakeBeeps(userId: number, brakeBeeps: boolean): Promise<void> {
   await ensureUserSchema();
   await query('UPDATE racingcoach."Users" SET brake_beeps = $1 WHERE id = $2', [brakeBeeps, userId]);
+}
+
+function brakeBeepsVolume(value: unknown): number {
+  const volume = Number(value);
+  return isBrakeBeepsVolume(volume) ? volume : MAX_BRAKE_BEEPS_VOLUME;
+}
+
+export async function setBrakeBeepsVolume(userId: number, volume: number): Promise<void> {
+  await ensureUserSchema();
+  await query('UPDATE racingcoach."Users" SET brake_beeps_volume = $1 WHERE id = $2', [volume, userId]);
 }
 
 // The longest In-Car AI Coach Instructions a user can save

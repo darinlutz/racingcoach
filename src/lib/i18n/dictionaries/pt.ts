@@ -172,6 +172,9 @@ export const pt: Dictionary = {
       metric:
         'O coletor do RacingCoach bipa a 91, 61 e 30 m da primeira frenagem da sua Volta Alvo em cada área de foco (seus pontos de frenagem alvo dos dados de pista se você não tiver Volta Alvo), e mais agudo no ponto de frenagem.',
     },
+    brakeBeepsVolume: 'Volume',
+    brakeBeepsTest: 'Testar',
+    brakeBeepsTestTip: 'Tocar os bipes neste volume, pelos alto-falantes deste computador',
     brakeBeepsFailed: 'Não foi possível salvar a configuração dos bipes. Tente novamente.',
     distanceNames: { standard: 'pés', metric: 'metros' },
   },
@@ -1136,6 +1139,7 @@ export const pt: Dictionary = {
     unknownUnits: 'Unidades desconhecidas',
     failedSaveUnits: 'Não foi possível salvar suas unidades',
     unknownBrakeBeeps: 'Tocar bipes antes da frenagem deve ser Sim ou Não',
+    unknownBrakeBeepsVolume: 'O volume dos bipes deve ser um número inteiro de 10 a 100',
     logInBrakeBeeps: 'Entre para alterar Tocar bipes antes da frenagem',
     failedSaveBrakeBeeps: 'Não foi possível salvar Tocar bipes antes da frenagem',
     logInTargetLap: 'Entre para definir sua Volta Alvo',

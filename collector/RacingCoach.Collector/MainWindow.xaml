@@ -127,8 +127,7 @@
                     <Button Style="{StaticResource PrimaryButton}" Content="Launch Overlay" Click="LaunchOverlay_Click" Margin="0,0,8,0" />
                     <Button Style="{StaticResource PrimaryButton}" Content="Rotation" Click="Rotation_Click" Margin="0,0,8,0" />
                     <Button Style="{StaticResource BlueButton}" Content="Brake Practice" Click="BrakePractice_Click" Margin="0,0,8,0" />
-                    <Button Style="{StaticResource BlueButton}" Content="Target Telemetry" Click="TargetTelemetry_Click" Margin="0,0,8,0" />
-                    <Button Style="{StaticResource BlueButton}" Content="Target Steering" Click="TargetSteering_Click" />
+                    <Button Style="{StaticResource BlueButton}" Content="Target Telemetry" Click="TargetTelemetry_Click" />
                 </StackPanel>
             </Grid>
 

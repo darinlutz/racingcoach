@@ -8,7 +8,7 @@ namespace RacingCoach.Collector;
 /// "Play beeps before braking" from the Account page: on the approach to where the user's Target Lap first brakes in
 /// each focus area (its first braking zone there; from /api/collector/brake-beeps), or without a Target Lap, each
 /// focus area's target brakepoint from Track Data, a beep 300, 200 and 100 ft before it, and a higher one at the
-/// brakepoint. The overlay used to show this as row colors (GetBrakepointAlertColor in
+/// brakepoint, at the volume of the slider under it (10-100%, in decibels: see Gain). The overlay used to show this as row colors (GetBrakepointAlertColor in
 /// TelemetryEngine.js, now always Transparent); this runs whether the overlay is open or not. The brakepoints load
 /// when the track or the upload key changes, and again every couple of minutes so a change on the Account page (the
 /// setting, or a new Target Lap) takes effect during a session. OnSample is called
@@ -25,10 +25,13 @@ internal sealed class BrakeBeeps(Func<RacingCoachApi?> api, Action<string> log)
     private const double FeetPerMeter = 3.280839895;
     private static readonly TimeSpan ReloadEvery = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan RetryAfter = TimeSpan.FromMinutes(1);
+    // The slider moves in decibels, as loudness is heard on a log scale: 100% is full volume, each 10 below it 4 dB
+    // quieter. The same as brakeBeepsGain in src/lib/brakeBeepsVolume.ts (the Account page's Test button)
+    private const double VolumeRangeDb = 40;
 
     // Brakepoints as fractions of a lap, for the track being driven; replaced whole, so the telemetry thread reads
     // it without a lock. Null when beeps are off or there's nothing to beep for.
-    private sealed record Loaded(double LengthFeet, IReadOnlyList<double> Brakepoints);
+    private sealed record Loaded(double LengthFeet, IReadOnlyList<double> Brakepoints, double Volume);
 
     private readonly object _lock = new();
     private volatile Loaded? _loaded;
@@ -45,7 +48,7 @@ internal sealed class BrakeBeeps(Func<RacingCoachApi?> api, Action<string> log)
     private float? _lastPct;
 
     // One beep at a time, in order, without holding up the telemetry thread
-    private readonly BlockingCollection<(int Hz, int Ms)> _beeps = [];
+    private readonly BlockingCollection<(int Hz, int Ms, double Volume)> _beeps = [];
     private Thread? _player;
 
     /// <summary>The track being driven (the name the collector gives its laps) and iRacing's length for it
@@ -121,10 +124,11 @@ internal sealed class BrakeBeeps(Func<RacingCoachApi?> api, Action<string> log)
                     : $"Brake beeps: your Target Lap doesn't brake in any of {track}'s focus areas in your Track Data.";
             else
             {
+                var volume = Math.Clamp(targets.Volume ?? 100, 10, 100);
                 status = targets.TargetLap is null
-                    ? $"Brake beeps on for {track}: no Target Lap, so your Track Data target brakepoints in {areas}."
-                    : $"Brake beeps on for {track}: the Target Lap's first braking in {areas}.";
-                loaded = new Loaded(lengthFeet, brakepoints);
+                    ? $"Brake beeps on for {track} at {volume}% volume: no Target Lap, so your Track Data target brakepoints in {areas}."
+                    : $"Brake beeps on for {track} at {volume}% volume: the Target Lap's first braking in {areas}.";
+                loaded = new Loaded(lengthFeet, brakepoints, Gain(volume));
             }
 
             lock (_lock)
@@ -156,6 +160,10 @@ internal sealed class BrakeBeeps(Func<RacingCoachApi?> api, Action<string> log)
             }
         }
     }
+
+    /// <summary>The slider's volume (10-100%) as the amplitude to play at, 0-1 of full: 50% is -20 dB, a tenth of
+    /// full amplitude, and 10% is -36 dB.</summary>
+    internal static double Gain(double volumePercent) => Math.Pow(10, (volumePercent - 100) / 100 * VolumeRangeDb / 20);
 
     /// <summary>iRacing's track length (e.g. "4.0900 km") in feet, or 0 if it can't be read.</summary>
     internal static double IRacingLengthFeet(string? length)
@@ -197,13 +205,13 @@ internal sealed class BrakeBeeps(Func<RacingCoachApi?> api, Action<string> log)
                     if (after > before)
                     {
                         // Went past it: the distance ahead jumped from nothing to almost a lap
-                        Play(BrakepointHz, BrakepointBeepMs);
+                        Play(BrakepointHz, BrakepointBeepMs, loaded.Volume);
                         continue;
                     }
                     foreach (var feet in WarningFeet)
                     {
                         if (before > feet && after <= feet)
-                            Play(WarningHz, BeepMs);
+                            Play(WarningHz, BeepMs, loaded.Volume);
                     }
                 }
             }
@@ -218,25 +226,26 @@ internal sealed class BrakeBeeps(Func<RacingCoachApi?> api, Action<string> log)
         return ahead < 0 ? ahead + 1 : ahead;
     }
 
-    private void Play(int hz, int ms)
+    private void Play(int hz, int ms, double volume)
     {
         if (_player is null)
         {
             _player = new Thread(PlayAll) { IsBackground = true, Name = "Brake beeps" };
             _player.Start();
         }
-        _beeps.Add((hz, ms));
+        _beeps.Add((hz, ms, volume));
     }
 
     private void PlayAll()
     {
-        foreach (var (hz, ms) in _beeps.GetConsumingEnumerable())
+        using var tones = new TonePlayer();
+        foreach (var (hz, ms, volume) in _beeps.GetConsumingEnumerable())
         {
             try
             {
-                Console.Beep(hz, ms);
+                tones.Play(hz, ms, volume);
             }
-            catch (Exception e) when (e is InvalidOperationException or PlatformNotSupportedException)
+            catch (Exception e) when (e is InvalidOperationException or DllNotFoundException or EntryPointNotFoundException)
             {
                 // no sound device
             }

@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:RacingCoach.Collector"
         Title="RacingCoach Target Telemetry"
-        Width="640" Height="300" MinWidth="360" MinHeight="220"
+        Width="732" Height="440" MinWidth="560" MinHeight="360"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         Opacity="0.85" Topmost="True" ShowInTaskbar="False" ResizeMode="CanResizeWithGrip"
         WindowStartupLocation="Manual" Left="960" Top="520"
@@ -40,15 +40,23 @@
                 </StackPanel>
                 <StackPanel VerticalAlignment="Center">
                     <TextBlock FontWeight="Bold" FontSize="14">
-                        <Run Text="RACINGCOACH" /><Run local:Loc.Key="target.telemetryTitle" Foreground="#3B8BFF" FontWeight="Normal" />
+                        <Run Text="RACINGCOACH" /><Run local:Loc.Key="target.telemetryTitle" Foreground="#DE3341" FontWeight="Normal" />
                     </TextBlock>
                     <TextBlock x:Name="StatusText" Foreground="#9A9CA3" FontSize="12" TextTrimming="CharacterEllipsis" Text="Loading your Target Lap…" />
                 </StackPanel>
             </DockPanel>
 
+            <!-- The overlay's Max Brake, Min Speed and UNDERSTEER or OVERSTEER (collapsed if TelemetryEngine.js didn't load) -->
+            <local:OverlayStats x:Name="Stats" DockPanel.Dock="Top" Margin="0,0,0,8" />
+
+            <!-- Under the chart: the overlay's Upcoming Focus Area row, and above it why the focus areas aren't showing -->
+            <local:OverlayAreaRow x:Name="AreaRow" DockPanel.Dock="Bottom" />
+            <TextBlock x:Name="OverlayStatusText" DockPanel.Dock="Bottom" Foreground="#E3A82B" FontSize="12" TextWrapping="Wrap"
+                       Margin="0,8,0,0" Visibility="Collapsed" />
+
             <!-- The Target Lap's brake (red), 0-100%, over the next stretch of track, with its gear changes across the
                  top, scrolling left as the car moves; the vertical line is the car, and the bar on it the driver's brake -->
-            <Border Background="#1A1B1E" BorderBrush="#303136" BorderThickness="1" CornerRadius="6" Padding="0,0,8,0">
+            <Border Background="#1A1B1E" BorderBrush="#303136" BorderThickness="1" CornerRadius="6" Padding="0,0,8,0" Margin="0,0,0,8">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="40" />

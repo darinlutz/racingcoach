@@ -1,0 +1,35 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- The overlay's headings and boxes, shared by OverlayStats and OverlayAreaRow -->
+    <Style x:Key="Heading" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="#9A9CA3" />
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="Margin" Value="0,0,0,4" />
+    </Style>
+    <!-- Read-only, and not hit-testable, so a click on a box drags the window like anywhere else -->
+    <Style x:Key="Box" TargetType="TextBox">
+        <Setter Property="IsReadOnly" Value="True" />
+        <Setter Property="IsHitTestVisible" Value="False" />
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="Background" Value="#1A1B1E" />
+        <Setter Property="Foreground" Value="#F3F4F6" />
+        <Setter Property="BorderBrush" Value="#303136" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="6,5" />
+        <Setter Property="Margin" Value="0,0,0,5" />
+        <Setter Property="FontSize" Value="15" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="TextWrapping" Value="NoWrap" />
+    </Style>
+    <!-- Max Brake and Min Speed: about twice the size of the focus area boxes, the most that fits a
+         speed like 123.4 in their 100 px width -->
+    <Style x:Key="BigBox" TargetType="TextBox" BasedOn="{StaticResource Box}">
+        <Setter Property="FontSize" Value="32" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="Padding" Value="6,0" />
+        <Setter Property="TextAlignment" Value="Center" />
+    </Style>
+</ResourceDictionary>

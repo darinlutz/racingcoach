@@ -172,6 +172,9 @@ export const es: Dictionary = {
       metric:
         'El recolector de RacingCoach pita a 91, 61 y 30 m de la primera frenada de tu Vuelta Objetivo en cada zona de enfoque (tus puntos de frenada objetivo de los datos de pista si no tienes Vuelta Objetivo), y más agudo en el punto de frenada.',
     },
+    brakeBeepsVolume: 'Volumen',
+    brakeBeepsTest: 'Probar',
+    brakeBeepsTestTip: 'Reproducir los pitidos a este volumen, por los altavoces de esta computadora',
     brakeBeepsFailed: 'No se pudo guardar la configuración de los pitidos. Inténtalo de nuevo.',
     distanceNames: { standard: 'pies', metric: 'metros' },
   },
@@ -1136,6 +1139,7 @@ export const es: Dictionary = {
     unknownUnits: 'Unidades desconocidas',
     failedSaveUnits: 'No se pudieron guardar tus unidades',
     unknownBrakeBeeps: 'Pitidos antes de frenar debe ser Sí o No',
+    unknownBrakeBeepsVolume: 'El volumen de los pitidos debe ser un número entero del 10 al 100',
     logInBrakeBeeps: 'Inicia sesión para cambiar Pitidos antes de frenar',
     failedSaveBrakeBeeps: 'No se pudo guardar Pitidos antes de frenar',
     logInTargetLap: 'Inicia sesión para definir tu Vuelta Objetivo',

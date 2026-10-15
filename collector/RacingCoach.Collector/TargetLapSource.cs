@@ -1,7 +1,7 @@
 namespace RacingCoach.Collector;
 
 /// <summary>
-/// The user's Target Lap for the Target Telemetry and Target Steering windows: loads it from
+/// The user's Target Lap for the Target Telemetry window: loads it from
 /// /api/collector/target-lap for the track being driven, again when the track or the upload key changes, 30 seconds
 /// after a failed load, and on Reload, and says what the window should show while it has no trace to draw. Call
 /// <see cref="Update"/> every frame, on the UI thread.

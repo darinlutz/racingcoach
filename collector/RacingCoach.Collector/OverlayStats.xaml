@@ -1,0 +1,32 @@
+<UserControl x:Class="RacingCoach.Collector.OverlayStats"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:RacingCoach.Collector">
+    <UserControl.Resources>
+        <ResourceDictionary Source="OverlayStyles.xaml" />
+    </UserControl.Resources>
+
+    <!-- Peak brake pressure and minimum speed of the last few seconds, and the Rotation Model's label -->
+    <Grid HorizontalAlignment="Left">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="100" />
+            <ColumnDefinition Width="10" />
+            <ColumnDefinition Width="115" />
+            <ColumnDefinition Width="10" />
+            <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <StackPanel Grid.Column="0">
+            <TextBlock Style="{StaticResource Heading}" local:Loc.Key="overlay.maxBrake" />
+            <TextBox x:Name="MaxBrakeBox" Style="{StaticResource BigBox}" Foreground="#EF4444" />
+        </StackPanel>
+        <StackPanel Grid.Column="2">
+            <!-- With the speed unit, set in code -->
+            <TextBlock x:Name="MinSpeedHeading" Style="{StaticResource Heading}" />
+            <TextBox x:Name="MinSpeedBox" Style="{StaticResource BigBox}" Foreground="#8AB4F8" />
+        </StackPanel>
+        <!-- UNDERSTEER or OVERSTEER from the Rotation Model while it's sure; hidden (keeping its space) otherwise.
+             No heading: it sits at the bottom, level with the Max Brake and Min Speed boxes -->
+        <TextBox x:Name="HandlingBox" Grid.Column="4" Style="{StaticResource BigBox}" MinWidth="230" Visibility="Hidden"
+                 VerticalAlignment="Bottom" />
+    </Grid>
+</UserControl>

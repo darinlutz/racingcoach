@@ -88,7 +88,8 @@ internal static class Loc
         }
         if (GetToolTip(root) is { } toolTip && root is FrameworkElement element)
             element.ToolTip = T(language, toolTip);
-        foreach (var child in LogicalTreeHelper.GetChildren(root).OfType<DependencyObject>())
+        // A copy: setting a Run's text rebuilds its TextBlock's inlines, which ends the enumeration otherwise
+        foreach (var child in LogicalTreeHelper.GetChildren(root).OfType<DependencyObject>().ToList())
             Apply(child, language);
     }
 
@@ -116,12 +117,11 @@ internal static class Loc
         ["overlay.close"] = ("Close the overlay", "Fechar o overlay", "Cerrar el overlay"),
         ["overlay.maxBrake"] = ("Max Brake", "Freio máx.", "Freno máx."),
         ["overlay.minSpeed"] = ("Min Speed ({0})", "Vel. mínima ({0})", "Vel. mínima ({0})"),
-        ["overlay.focusArea"] = ("Focus Area", "Área de foco", "Zona de enfoque"),
+        ["overlay.focusArea"] = ("Area", "Área", "Zona"),
         ["overlay.brakePoint"] = ("Brake Point", "Ponto de frenagem", "Punto de frenado"),
         ["overlay.brakePressure"] = ("Brake Pressure", "Pressão de freio", "Presión de freno"),
-        ["overlay.gas"] = ("Gas", "Acelerador", "Acelerador"),
-        ["overlay.time"] = ("Time", "Tempo", "Tiempo"),
-        ["overlay.exit"] = ("Exit", "Saída", "Salida"),
+        ["overlay.time"] = ("Area Time", "Tempo na área", "Tiempo en zona"),
+        ["overlay.exit"] = ("Area Exit", "Saída da área", "Salida de zona"),
         ["overlay.coast"] = ("Coast", "Inércia", "Inercia"),
         ["overlay.overlap"] = ("Overlap", "Sobreposição", "Superposición"),
         ["overlay.loading"] = ("Loading your focus areas…", "Carregando suas áreas de foco…", "Cargando tus zonas de enfoque…"),
@@ -216,9 +216,8 @@ internal static class Loc
         ["brake.press2"] = ("Press 2", "Pisada 2", "Pisada 2"),
         ["brake.complete"] = ("Calibration complete", "Calibração concluída", "Calibración completa"),
 
-        // Target Telemetry and Target Steering windows (and TargetLapSource)
+        // Target Telemetry window (and TargetLapSource)
         ["target.telemetryTitle"] = (" TARGET TELEMETRY", " TELEMETRIA ALVO", " TELEMETRÍA OBJETIVO"),
-        ["target.steeringTitle"] = (" TARGET STEERING", " DIREÇÃO ALVO", " DIRECCIÓN OBJETIVO"),
         ["target.brake"] = ("target brake", "freio alvo", "freno objetivo"),
         ["target.target"] = ("target", "alvo", "objetivo"),
         ["target.you"] = ("you", "você", "tú"),
@@ -240,8 +239,5 @@ internal static class Loc
         ["target.waitingForIRacing"] = ("Waiting for iRacing… · {0}", "Aguardando o iRacing… · {0}", "Esperando iRacing… · {0}"),
         ["target.waitingForCar"] = ("Waiting for the car to be on track…", "Aguardando o carro estar na pista…",
             "Esperando que el auto esté en pista…"),
-        ["target.noSteering"] = ("RacingCoach.app didn't send your Target Lap's steering. Try again after the site updates.",
-            "O RacingCoach.app não enviou a direção da sua Volta Alvo. Tente de novo depois que o site for atualizado.",
-            "RacingCoach.app no envió la dirección de tu Vuelta Objetivo. Intenta de nuevo después de que se actualice el sitio."),
     };
 }

@@ -172,6 +172,9 @@ export const en = {
       metric:
         'The RacingCoach collector beeps 91, 61 and 30 m before your Target Lap’s first braking in each focus area (your Track Data target brakepoints when you have no Target Lap), and higher at the brakepoint.',
     },
+    brakeBeepsVolume: 'Volume',
+    brakeBeepsTest: 'Test',
+    brakeBeepsTestTip: 'Play the beeps at this volume, through this computer’s speakers',
     brakeBeepsFailed: 'Couldn’t save your beeps setting. Please try again.',
     // How distances are named in text, e.g. "measured in {units} from the start/finish line"
     distanceNames: { standard: 'feet', metric: 'meters' },
@@ -1154,6 +1157,7 @@ export const en = {
     unknownUnits: 'Unknown units',
     failedSaveUnits: 'Failed to save your units',
     unknownBrakeBeeps: 'Play beeps before braking must be Yes or No',
+    unknownBrakeBeepsVolume: 'Beep volume must be a whole number from 10 to 100',
     logInBrakeBeeps: 'Log in to change Play beeps before braking',
     failedSaveBrakeBeeps: 'Failed to save Play beeps before braking',
     logInTargetLap: 'Log in to set your Target Lap',

@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
+using System.Windows.Threading;
 
 namespace RacingCoach.Collector;
 
@@ -15,7 +16,9 @@ namespace RacingCoach.Collector;
 /// line where the Target Lap shifted into it. A short bar on the car's line is the
 /// driver's own brake, live (hidden off the brake). Positions come from live LapDistPct and the track's length (Track
 /// Data's, or iRacing's when Track Data has none). The Target Lap loads when the window opens, when the track or
-/// the upload key changes, and with Reload.
+/// the upload key changes, and with Reload. Above the chart are copies of the overlay's Max Brake, Min Speed and
+/// handling boxes (OverlayStats), and under it its Upcoming Focus Area row (OverlayAreaRow), from the same
+/// TelemetryEngine.js as the overlay (OverlayFeed); without them if the script didn't load.
 /// </summary>
 public partial class TargetTelemetryWindow : Window
 {
@@ -39,6 +42,8 @@ public partial class TargetTelemetryWindow : Window
     private static readonly Brush WarningBrush = Frozen(Color.FromRgb(0xF5, 0x9E, 0x0B));
 
     private readonly CollectorEngine _engine;
+    // The overlay's boxes refresh as often as in the overlay
+    private readonly DispatcherTimer _overlayTimer = new() { Interval = TimeSpan.FromMilliseconds(100) };
     private readonly Polyline _trace = new() { Stroke = TraceBrush, StrokeThickness = 2, StrokeLineJoin = PenLineJoin.Round };
     private readonly Polygon _fill = new() { Fill = FillBrush };
     private readonly Canvas _gears = new();
@@ -63,10 +68,21 @@ public partial class TargetTelemetryWindow : Window
     private float? _position;
     private (float Position, double LengthFeet, double Width, double Height)? _drawn;
 
-    internal TargetTelemetryWindow(CollectorEngine engine)
+    internal TargetTelemetryWindow(CollectorEngine engine, OverlayFeed? feed)
     {
         InitializeComponent();
         _engine = engine;
+        if (feed is null)
+        {
+            Stats.Visibility = Visibility.Collapsed;
+            AreaRow.Visibility = Visibility.Collapsed;
+        }
+        else
+        {
+            _overlayTimer.Tick += (_, _) => RefreshOverlay(feed);
+            _overlayTimer.Start();
+            RefreshOverlay(feed);
+        }
         _target = new TargetLapSource(engine);
         _target.Loaded += () =>
         {
@@ -104,6 +120,17 @@ public partial class TargetTelemetryWindow : Window
         }
         if (_drawn != (position, lengthFeet, Plot.ActualWidth, Plot.ActualHeight))
             Draw(position, lengthFeet);
+    }
+
+    private void RefreshOverlay(OverlayFeed feed)
+    {
+        var snapshot = feed.Refresh();
+        var language = _engine.Language;
+        Stats.Show(snapshot, language, _engine.Rotation);
+        AreaRow.Show(snapshot, language);
+        var status = feed.Status(language, snapshot);
+        OverlayStatusText.Text = status ?? "";
+        OverlayStatusText.Visibility = status is null ? Visibility.Collapsed : Visibility.Visible;
     }
 
     // Wraps the unwrapped LapDistPct back into 0-1 and sorts the samples by it, so a stretch of track is one run
@@ -308,6 +335,7 @@ public partial class TargetTelemetryWindow : Window
     protected override void OnClosed(EventArgs e)
     {
         CompositionTarget.Rendering -= OnRendering;
+        _overlayTimer.Stop();
         base.OnClosed(e);
     }
 }

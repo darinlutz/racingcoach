@@ -2,8 +2,9 @@
 # when a collector-v* tag is pushed, e.g.
 #   git tag collector-v1.1.0
 #   git push origin collector-v1.1.0
-# The Account page's Download button links to the latest release's RacingCoach.Collector.exe, and the
-# collector itself checks this repo's latest release to tell users about new versions (UpdateCheck.cs).
+# The Account page's Download button links to the latest release's RacingCoach.Collector.Setup.exe (the
+# installer, collector/installer), and the collector itself checks this repo's latest release for new
+# versions (UpdateCheck.cs): an installed one updates with the installer, a plain exe with the exe.
 name: Collector release
 
 on:
@@ -43,15 +44,33 @@ jobs:
           -p:Version=${{ steps.version.outputs.version }}
           -o publish
 
+      # Installs the exe in Program Files with shortcuts and an uninstaller. Inno Setup comes with GitHub's
+      # Windows runners; installed here if an image ever drops it.
+      - name: Build the installer
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup --no-progress -y
+            if ($LASTEXITCODE -ne 0) { throw "Couldn't install Inno Setup" }
+          }
+          & $iscc "/DAppVersion=${{ steps.version.outputs.version }}" `
+            "/DPublishDir=$pwd\collector\RacingCoach.Collector\publish" `
+            "/O$pwd\collector\RacingCoach.Collector\publish" `
+            collector/installer/RacingCoach.Collector.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC failed" }
+
       - name: Create the release
         env:
           GH_TOKEN: ${{ github.token }}
         shell: pwsh
         run: |
           $notes = @"
-          Download **RacingCoach.Collector.exe** below and run it on the PC you race on. Nothing to install.
+          Download **RacingCoach.Collector.Setup.exe** below and run it on the PC you race on. It installs the collector in Program Files, with a Start menu shortcut. **RacingCoach.Collector.exe** is the collector on its own, to run without installing.
 
           Windows may say it protected your PC because the app isn't signed: click **More info**, then **Run anyway**.
           "@
-          gh release create '${{ github.ref_name }}' 'collector/RacingCoach.Collector/publish/RacingCoach.Collector.exe' `
+          gh release create '${{ github.ref_name }}' `
+            'collector/RacingCoach.Collector/publish/RacingCoach.Collector.Setup.exe' `
+            'collector/RacingCoach.Collector/publish/RacingCoach.Collector.exe' `
             --title 'RacingCoach Collector ${{ steps.version.outputs.version }}' --notes $notes --latest

@@ -15,8 +15,10 @@ internal static class UpdateCheck
     public const string ReleasesPage = "https://github.com/darinlutz/racingcoach/releases/latest";
     private const string LatestReleaseApi = "https://api.github.com/repos/darinlutz/racingcoach/releases/latest";
     private const string TagPrefix = "collector-v";
-    // The file the release workflow attaches to each release
+    // The files the release workflow attaches to each release: the exe, and its installer for collectors
+    // installed in Program Files (SelfUpdater.UsesInstaller)
     private const string AssetName = "RacingCoach.Collector.exe";
+    private const string SetupAssetName = "RacingCoach.Collector.Setup.exe";
 
     /// <summary>This build's version, e.g. 1.1.0.</summary>
     public static Version Current { get; } =
@@ -36,7 +38,8 @@ internal static class UpdateCheck
                 return null;
             if (latest <= Current)
                 return null;
-            var exe = release.Assets?.FirstOrDefault(a => a.Name == AssetName && a.Size > 0 && a.DownloadUrl is not null);
+            var name = SelfUpdater.UsesInstaller ? SetupAssetName : AssetName;
+            var exe = release.Assets?.FirstOrDefault(a => a.Name == name && a.Size > 0 && a.DownloadUrl is not null);
             return new AvailableUpdate(latest, release.HtmlUrl ?? ReleasesPage, exe?.DownloadUrl, exe?.Size ?? 0);
         }
         catch (Exception e) when (e is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
@@ -56,6 +59,6 @@ internal static class UpdateCheck
         [property: JsonPropertyName("browser_download_url")] string? DownloadUrl);
 }
 
-/// <summary>A newer collector on GitHub: its release page, and its exe (DownloadUrl is null if the release
-/// has none, then only the release page is offered).</summary>
+/// <summary>A newer collector on GitHub: its release page, and its exe or installer (DownloadUrl is null if
+/// the release has none, then only the release page is offered).</summary>
 internal sealed record AvailableUpdate(Version Version, string PageUrl, string? DownloadUrl, long Size);

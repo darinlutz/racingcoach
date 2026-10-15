@@ -4,8 +4,8 @@ import { useState } from 'react';
 import { useLanguage } from '@/components/LanguageProvider';
 import type { CollectorKeyInfo } from '@/lib/collectorKeys';
 
-// The newest collector .exe, published by .github/workflows/collector-release.yml for each collector-v* tag
-const DOWNLOAD_URL = 'https://github.com/darinlutz/racingcoach/releases/latest/download/RacingCoach.Collector.exe';
+// The newest collector's installer, published by .github/workflows/collector-release.yml for each collector-v* tag
+const DOWNLOAD_URL = 'https://github.com/darinlutz/racingcoach/releases/latest/download/RacingCoach.Collector.Setup.exe';
 
 const buttonClass =
   'shrink-0 px-4 py-2 text-sm font-semibold rounded-lg text-foreground bg-card border border-border hover:border-primary hover:text-primary transition-colors disabled:opacity-50';

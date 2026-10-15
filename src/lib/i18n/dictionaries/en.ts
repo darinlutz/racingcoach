@@ -223,7 +223,7 @@ export const en = {
     title: 'Telemetry Collector',
     appName: 'RacingCoach Collector for Windows',
     appBlurb:
-      'Run it on the PC you race on. It records every lap from iRacing and sends it here. Nothing to install. If Windows says it protected your PC, click More info, then Run anyway.',
+      'Run it on the PC you race on. It records every lap from iRacing and sends it here. Run the download to install it in Program Files, with a Start menu shortcut. If Windows says it protected your PC, click More info, then Run anyway.',
     download: 'Download',
     replaceConfirm: 'Replace your upload key? The collector will stop uploading until you enter the new one.',
     revokeConfirm: 'Revoke your upload key? The collector will stop uploading laps.',

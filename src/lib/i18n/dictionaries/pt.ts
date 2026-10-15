@@ -222,7 +222,7 @@ export const pt: Dictionary = {
     title: 'Coletor de telemetria',
     appName: 'RacingCoach Collector para Windows',
     appBlurb:
-      'Execute no PC em que você corre. Ele grava cada volta do iRacing e envia para cá. Não precisa instalar nada. Se o Windows disser que protegeu seu PC, clique em Mais informações e depois em Executar assim mesmo.',
+      'Execute no PC em que você corre. Ele grava cada volta do iRacing e envia para cá. Execute o download para instalá-lo em Arquivos de Programas, com um atalho no menu Iniciar. Se o Windows disser que protegeu seu PC, clique em Mais informações e depois em Executar assim mesmo.',
     download: 'Baixar',
     replaceConfirm: 'Substituir sua chave de envio? O coletor vai parar de enviar até você inserir a nova.',
     revokeConfirm: 'Revogar sua chave de envio? O coletor vai parar de enviar voltas.',

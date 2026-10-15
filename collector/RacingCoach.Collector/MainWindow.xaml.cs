@@ -147,7 +147,8 @@ public partial class MainWindow : Window
         {
             await SelfUpdater.DownloadAsync(update, progress, _stop.Token);
             ActivityLog.Shared.Write($"Downloaded RacingCoach Collector {update.Version}; it installs when you restart or close the collector.");
-            UpdateText.Text = $"RacingCoach Collector {update.Version} is ready (you have {UpdateCheck.Current}). Restart now to update, or it installs itself when you close the collector.";
+            UpdateText.Text = $"RacingCoach Collector {update.Version} is ready (you have {UpdateCheck.Current}). Restart now to update, or it installs itself when you close the collector."
+                + (SelfUpdater.UsesInstaller ? " Windows will ask you to allow it." : "");
             UpdateButton.Content = "Restart Now";
             UpdateButton.Visibility = Visibility.Visible;
         }
@@ -192,10 +193,10 @@ public partial class MainWindow : Window
             return;
         try
         {
-            SelfUpdater.Install();
-            ActivityLog.Shared.Write($"Installed RacingCoach Collector {_update?.Version}.");
-            if (_restartForUpdate)
-                SelfUpdater.StartNewVersion(Environment.GetCommandLineArgs().Skip(1));
+            SelfUpdater.Install(_restartForUpdate, Environment.GetCommandLineArgs().Skip(1));
+            ActivityLog.Shared.Write(SelfUpdater.UsesInstaller
+                ? $"Started the RacingCoach Collector {_update?.Version} installer."
+                : $"Installed RacingCoach Collector {_update?.Version}.");
         }
         catch (Exception e)
         {

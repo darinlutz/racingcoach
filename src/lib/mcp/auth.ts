@@ -1,6 +1,6 @@
 import { createPublicKey, verify } from 'node:crypto';
 
-type Claims = { iss?: string; aud?: string | string[]; sub?: string; exp?: number; nbf?: number; scope?: string; scp?: string[] };
+type Claims = { iss?: string; aud?: string | string[]; sub?: string; exp?: number; nbf?: number; scope?: string; scp?: string[]; permissions?: string[] };
 type Jwk = JsonWebKey & { kid?: string; kty?: string; alg?: string; use?: string };
 let cached: { keys: Jwk[]; until: number } | undefined;
 
@@ -44,8 +44,10 @@ export async function authorize(header: string | null, permission: 'read' | 'wri
     if (!verify('RSA-SHA256', Buffer.from(encodedHeader + '.' + encodedPayload), publicKey, Buffer.from(signature, 'base64url'))) return null;
     // Bind the identity to a specifically approved OAuth subject. Never trust an arbitrary account's scope alone.
     if (claims.sub !== required('MCP_ALLOWED_SUBJECT')) return null;
+    const requiredPermission = permission === 'write' ? 'tracks:write' : 'tracks:read';
     const scopes = new Set([...(claims.scope ?? '').split(' '), ...(claims.scp ?? [])]);
-    if (!scopes.has(permission === 'write' ? 'tracks:write' : 'tracks:read')) return null;
+    // Auth0 RBAC permissions must be granted to the user, not merely requested by a client.
+    if (!scopes.has(requiredPermission) || !Array.isArray(claims.permissions) || !claims.permissions.includes(requiredPermission)) return null;
     return claims.sub;
   } catch {
     return null;

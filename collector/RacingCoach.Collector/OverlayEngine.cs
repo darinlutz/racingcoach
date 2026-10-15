@@ -19,7 +19,8 @@ internal sealed record OverlayAreaValues(
     string Coast, string Overlap);
 
 /// <summary>What the overlay window shows, copied out of OverlayEngine for the UI thread. UpcomingArea is the
-/// index (0-based) of the focus area the car is in, or the next one ahead of it when it's between areas.</summary>
+/// index (0-based) of the focus area the car is in, or the next one ahead of it when it's between areas; InArea is
+/// true while the car is inside it (the Target Telemetry window's "In Area").</summary>
 internal sealed record OverlaySnapshot(
     string? Track,
     IReadOnlyList<string?> AreaNames,
@@ -28,6 +29,7 @@ internal sealed record OverlaySnapshot(
     string? MinSpeed,
     string? Error,
     int? UpcomingArea,
+    bool InArea,
     bool Metric);
 
 /// <summary>
@@ -91,6 +93,7 @@ internal sealed partial class OverlayEngine
     // Each area's start and end as fractions of a lap (LapDistPct), or null without both (telemetry thread only)
     private readonly (double Start, double End)?[] _areaRanges = new (double, double)?[AreaCount];
     private int? _upcomingArea;
+    private bool _inArea;
     private readonly OverlayAreaValues?[] _areas = new OverlayAreaValues?[AreaCount];
     private string? _maxBrake;
     private string? _minSpeed;
@@ -148,7 +151,7 @@ internal sealed partial class OverlayEngine
     public OverlaySnapshot Snapshot()
     {
         lock (_lock)
-            return new OverlaySnapshot(_scriptTrack, [.. _areaNames], [.. _areas], _maxBrake, _minSpeed, _error, _upcomingArea, _shownMetric);
+            return new OverlaySnapshot(_scriptTrack, [.. _areaNames], [.. _areas], _maxBrake, _minSpeed, _error, _upcomingArea, _inArea, _shownMetric);
     }
 
     /// <summary>Runs the script for one telemetry sample (on the telemetry thread).</summary>
@@ -184,17 +187,20 @@ internal sealed partial class OverlayEngine
                 }
             }
             // iRacing's LapDistPct is outside 0-1 while the car isn't on track; the last area shown stays then
+            // (but the car isn't in it)
             int? upcoming;
+            var inArea = false;
             lock (_lock)
                 upcoming = _upcomingArea;
             if (_scriptTrack is null)
                 upcoming = null;
             else if (data.LapDistPct is { } pos and >= 0 and <= 1)
-                upcoming = UpcomingArea(pos);
+                (upcoming, inArea) = UpcomingArea(pos);
             lock (_lock)
             {
                 results.CopyTo(_areas, 0);
                 _upcomingArea = upcoming;
+                _inArea = inArea;
                 _maxBrake = maxBrake;
                 _minSpeed = minSpeed;
                 _error = null;
@@ -256,8 +262,8 @@ internal sealed partial class OverlayEngine
 
     /// <summary>The area the car is in at <paramref name="pos"/> (LapDistPct), or else the one whose start is
     /// next ahead of it, so an area's row follows right after the car leaves the one before. An area can run
-    /// across the start/finish line (start after end).</summary>
-    private int? UpcomingArea(double pos)
+    /// across the start/finish line (start after end). Inside is true when the car is in it.</summary>
+    private (int? Index, bool Inside) UpcomingArea(double pos)
     {
         int? next = null;
         var nextAhead = double.MaxValue;
@@ -267,7 +273,7 @@ internal sealed partial class OverlayEngine
                 continue;
             var inside = start <= end ? pos >= start && pos <= end : pos >= start || pos <= end;
             if (inside)
-                return i;
+                return (i, true);
             var ahead = start - pos;
             if (ahead < 0)
                 ahead += 1;
@@ -277,7 +283,7 @@ internal sealed partial class OverlayEngine
                 next = i;
             }
         }
-        return next;
+        return (next, false);
     }
 
     private JsValue Call(string function, params object[] arguments) => _js.Invoke(_functions[function], arguments);
@@ -331,6 +337,7 @@ internal sealed partial class OverlayEngine
         {
             Array.Clear(_areas);
             _upcomingArea = null;
+            _inArea = false;
             _maxBrake = null;
             _minSpeed = null;
         }

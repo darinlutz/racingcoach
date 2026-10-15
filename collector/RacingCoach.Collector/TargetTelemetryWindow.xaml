@@ -49,7 +49,11 @@
             <!-- The overlay's Max Brake, Min Speed and UNDERSTEER or OVERSTEER (collapsed if TelemetryEngine.js didn't load) -->
             <local:OverlayStats x:Name="Stats" DockPanel.Dock="Top" Margin="0,0,0,8" />
 
-            <!-- Under the chart: the overlay's Upcoming Focus Area row, and above it why the focus areas aren't showing -->
+            <!-- Under the chart: the overlay's Upcoming Focus Area row, above it why the focus areas aren't showing, and
+                 below it "In Area" in blue (the Upcoming Focus Area's outline color) while the car is in that area; hidden,
+                 keeping its space so the chart doesn't move, otherwise -->
+            <TextBlock x:Name="InAreaText" DockPanel.Dock="Bottom" local:Loc.Key="target.inArea" Foreground="#8AB4F8"
+                       FontSize="14" FontWeight="Bold" Margin="0,6,0,0" Visibility="Hidden" />
             <local:OverlayAreaRow x:Name="AreaRow" DockPanel.Dock="Bottom" />
             <TextBlock x:Name="OverlayStatusText" DockPanel.Dock="Bottom" Foreground="#E3A82B" FontSize="12" TextWrapping="Wrap"
                        Margin="0,8,0,0" Visibility="Collapsed" />

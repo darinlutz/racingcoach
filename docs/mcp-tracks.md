@@ -10,6 +10,18 @@ This is a **draft** OAuth-protected, append-only MCP endpoint for ChatGPT. Do no
 - `MCP_RESOURCE_URL`: `https://racingcoach.onrender.com/api/mcp`.
 - `MCP_DATABASE_URL`: connection string for a **separate least-privilege** PostgreSQL role.
 
+## Auth0 tenant configuration
+Use these non-secret settings in Render:
+
+```env
+MCP_OAUTH_ISSUER=https://dev-r4x6zynawr1li1vv.us.auth0.com/
+MCP_JWKS_URL=https://dev-r4x6zynawr1li1vv.us.auth0.com/.well-known/jwks.json
+MCP_OAUTH_AUDIENCE=https://racingcoach.onrender.com/api/mcp
+MCP_RESOURCE_URL=https://racingcoach.onrender.com/api/mcp
+```
+
+Set `MCP_ALLOWED_SUBJECT` to the exact Auth0 User ID of the designated administrator **in Render only**, not in source control. Configure Auth0 API RBAC, enable permissions in access tokens, and assign `tracks:read` and `tracks:write` to the administrator role. Verify ChatGPT OAuth discovery and audience/resource parameter compatibility before deployment.
+
 OAuth provider must publish discovery metadata and support authorization code + PKCE, registration compatible with ChatGPT's custom MCP app setup, and request scopes `tracks:read` / `tracks:write`. Do not reuse RacingCoach login cookies or the existing general-purpose DATABASE_URL.
 
 ## Database provisioning

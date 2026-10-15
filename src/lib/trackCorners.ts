@@ -459,3 +459,29 @@ export async function seedTrackCorners(client: PoolClient): Promise<void> {
     [column('trackId'), column('track'), column('config'), column('corners')]
   );
 }
+
+// Appends every layout in racingcoach."TracksNumberOfCorners" to "Tracks", on the caller's transaction.
+// Runs once, when Tracks gets its config_name and number_of_corners columns. track_key is the layout's
+// track_id and track_name is named like Garage 61's ("Track (Layout)", or just "Track" for "Default").
+// A layout whose track_id or name is already in Tracks isn't appended; a track with the same key gets
+// its config_name and number_of_corners instead. Layouts without a track_id are left out, as Tracks
+// needs a key.
+export async function appendTrackCorners(client: PoolClient): Promise<void> {
+  await client.query(
+    `UPDATE racingcoach."Tracks" t
+     SET config_name = c.config_name, number_of_corners = c.number_of_corners, updated_at = now()
+     FROM racingcoach."TracksNumberOfCorners" c
+     WHERE lower(t.track_key) = lower(c.track_id)`
+  );
+  await client.query(
+    `INSERT INTO racingcoach."Tracks" (track_key, track_name, config_name, number_of_corners)
+     SELECT c.track_id,
+            CASE WHEN lower(c.config_name) = 'default' THEN c.track_name
+                 ELSE c.track_name || ' (' || c.config_name || ')' END,
+            c.config_name, c.number_of_corners
+     FROM racingcoach."TracksNumberOfCorners" c
+     WHERE c.track_id IS NOT NULL
+     ORDER BY c.track_name, c.config_name
+     ON CONFLICT DO NOTHING`
+  );
+}

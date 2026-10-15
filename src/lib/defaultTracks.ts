@@ -249,17 +249,19 @@ export async function seedDefaultTracks(client: PoolClient): Promise<void> {
   }
 }
 
-// Copies every track in racingcoach."Tracks" and its "TrackFocusAreas" into one user's "UsersTracks"
-// and "UsersFocusAreas", or every user's when userId is null (the one-time backfill when Tracks is first
-// seeded). A track the user already has (same key or name) is skipped along with its areas. Runs on
-// the caller's transaction.
+// Copies every track in racingcoach."Tracks" that has focus areas, and its "TrackFocusAreas", into one
+// user's "UsersTracks" and "UsersFocusAreas", or every user's when userId is null (the one-time backfill
+// when Tracks is first seeded). Tracks without focus areas (the layouts appended from
+// TracksNumberOfCorners) aren't copied. A track the user already has (same key or name) is skipped along
+// with its areas. Runs on the caller's transaction.
 export async function copyDefaultTracks(client: PoolClient, userId: number | null): Promise<void> {
   await client.query(
     `WITH copied AS (
        INSERT INTO racingcoach."UsersTracks" (user_id, track_key, track_name, track_length_feet, notes)
        SELECT u.id, t.track_key, t.track_name, t.track_length_feet, t.notes
        FROM racingcoach."Users" u CROSS JOIN racingcoach."Tracks" t
-       WHERE $1::int IS NULL OR u.id = $1
+       WHERE ($1::int IS NULL OR u.id = $1)
+         AND EXISTS (SELECT 1 FROM racingcoach."TrackFocusAreas" f WHERE f.track_id = t.id)
        ON CONFLICT DO NOTHING
        RETURNING id, track_key
      )

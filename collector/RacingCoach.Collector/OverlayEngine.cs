@@ -34,7 +34,7 @@ internal sealed record OverlaySnapshot(
 /// Runs TelemetryEngine.js (scripts/ in the repo, a SimHub script) for the overlay. The script expects SimHub,
 /// so this provides what it uses: $prop(name) answers from live iRacing telemetry in SimHub's units, format()
 /// formats a number like SimHub's, root is a plain object the script keeps its state in, and TrackConfig holds
-/// the user's Track Data track for the current track (the same shape as the Track Data text file). Every
+/// the Track Data track for the current track (the same shape as the Track Data text file). Every
 /// telemetry sample is fed through all the functions the overlay shows, since the script works out area
 /// crossings from consecutive samples. root starts empty again with each new session, so nothing carries over.
 /// All script calls happen on the telemetry thread (OnSample); the UI reads Snapshot.
@@ -136,7 +136,7 @@ internal sealed partial class OverlayEngine
         return (reader.ReadToEnd(), "built in");
     }
 
-    /// <summary>Hands the script the user's Track Data track for an iRacing track (json: as from
+    /// <summary>Hands the script the Track Data track for an iRacing track (json: as from
     /// /api/collector/track, or null if they have none), and whether their Preferred Units are Metric. Takes effect
     /// on the next telemetry sample.</summary>
     public void SetTrack(string trackName, string? trackJson, bool metric)

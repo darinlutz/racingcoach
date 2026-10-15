@@ -5,10 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLanguage } from '@/components/LanguageProvider';
 import type { CollectorLapSummary, LapOwner } from '@/lib/collectorLaps';
 import {
-  areaStats,
-  brakeFeet,
   formatLapTime,
-  readLapSamples,
   sameTrackName,
   secondsToLapTime,
   type LapFile,
@@ -75,9 +72,7 @@ const smallButtonClass =
 // Lets a signed-in user pick laps the RacingCoach collector uploaded. onChange gets the picked laps
 // (once their CSVs have loaded) as LapFiles, the same as dropped lap CSVs.
 // Each lap also has a Target checkbox: Set Target saves the one ticked lap as the user's Target Lap
-// (/api/account/target-lap, shown on the Account page), then measures it in every focus area of its track
-// and saves the brake point, max brake pressure and on-throttle point as the track's targets (the Reference
-// Points tab's /api/tracks/reference-points); onTargetsSaved then reloads Track Data.
+// (/api/account/target-lap, shown on the Account page).
 // A Compare column takes up to two laps; Compare sends them to onCompare, fastest first (the Racing
 // page opens them in Lap Compare as the Base and Compare laps).
 // Coaches and Admins also get a Driver box listing every account with laps (their own first shown),
@@ -85,12 +80,10 @@ const smallButtonClass =
 export default function RecordedLaps({
   tracks,
   onChange,
-  onTargetsSaved,
   onCompare,
 }: {
   tracks: Track[];
   onChange: (laps: LapFile[]) => void;
-  onTargetsSaved?: () => void;
   onCompare?: (base: LapFile, compare: LapFile) => void;
 }) {
   const { t: dictionary, fmt, plural, locale } = useLanguage();
@@ -270,7 +263,7 @@ export default function RecordedLaps({
   };
 
   // Saves the one lap ticked in the session's Target column as the user's Target Lap (the Account page's Target
-  // Lap card), then sets every focus area's targets on its track from it
+  // Lap card)
   const setTarget = async (session: Session) => {
     const lap = session.laps.find((l) => targetPicks.has(l.id));
     if (!lap || !window.confirm(t.setTargetConfirm)) return;
@@ -278,51 +271,11 @@ export default function RecordedLaps({
     setNotice('');
 
     setSettingTarget(session.key);
-    let savedLap = false;
     try {
       const file = await lapFile(lap);
       await uploadTargetLap(file.file, dictionary.api.failedSaveTargetLap);
-      savedLap = true;
-
-      const track = tracks.find((candidate) => sameTrackName(candidate.fileName, lap.track));
-      if (!track) {
-        setNotice(t.targetLapSaved);
-        setError(fmt(t.addTrackFirst, { track: lap.track }));
-        return;
-      }
-
-      // Measured the same way as the Reference Points tab (referenceSession.ts)
-      const samples = await readLapSamples(file.file);
-      const feet = (pct: number | null) => (pct === null || !track.lengthFeet ? null : brakeFeet(pct, track.lengthFeet));
-      const areas = track.areas.flatMap((area) => {
-        if (area.start === null || area.end === null) return [];
-        const stats = areaStats(samples, lap.lapTimeSeconds, area.start, area.end);
-        if (!stats) return [];
-        return [
-          {
-            name: area.name,
-            brakePointFeet: feet(stats.brakePct),
-            maxBrakePct: stats.maxBrake * 100,
-            throttlePointFeet: feet(stats.throttlePct),
-          },
-        ];
-      });
-      if (areas.length === 0) throw new Error(fmt(t.noAreasMeasured, { track: track.fileName }));
-
-      const res = await fetch('/api/tracks/reference-points', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ trackKey: track.name, trackName: track.fileName, areas }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || t.failedSaveTargets);
-
-      const lapLabel = fmt(t.lapLabel, { lap: lap.lapNumber, time: formatLapTime(secondsToLapTime(lap.lapTimeSeconds)) });
-      const missing = data.notFound.length > 0 ? fmt(t.notFound, { areas: data.notFound.join(', ') }) : '';
-      setNotice(`${t.targetLapSaved} ${plural(data.saved.length, t.targetsSet, { track: data.track, lap: lapLabel })}${missing}`);
-      onTargetsSaved?.();
+      setNotice(t.targetLapSaved);
     } catch (err) {
-      if (savedLap) setNotice(t.targetLapSaved);
       setError(fmt(t.setTargetFailed, { error: err instanceof Error ? err.message : dictionary.common.unknownError }));
     } finally {
       setSettingTarget(null);

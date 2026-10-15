@@ -34,8 +34,8 @@ export default function DebriefCoach({ onCompare }: { onCompare?: (base: LapFile
   const [runError, setRunError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Track Data: loaded on open, and again after Set Target changes a track's targets
-  const loadTracks = useCallback(() => {
+  // Track Data, loaded on open
+  useEffect(() => {
     fetch('/api/track-names')
       .then(async (res) => {
         const data = await res.json();
@@ -44,10 +44,6 @@ export default function DebriefCoach({ onCompare }: { onCompare?: (base: LapFile
       })
       .catch((err: Error) => setError(err.message));
   }, [t]);
-
-  useEffect(() => {
-    loadTracks();
-  }, [loadTracks]);
 
   const handleFiles = async (fileList: FileList | null | undefined) => {
     if (!fileList || fileList.length === 0) return;
@@ -161,7 +157,7 @@ export default function DebriefCoach({ onCompare }: { onCompare?: (base: LapFile
       {/* Laps the RacingCoach collector uploaded */}
       <div>
         <p className="block text-sm text-muted-foreground mb-2">{t.debrief.yourRecordedLaps}</p>
-        <RecordedLaps tracks={tracks} onChange={pickRecordedLaps} onTargetsSaved={loadTracks} onCompare={onCompare} />
+        <RecordedLaps tracks={tracks} onChange={pickRecordedLaps} onCompare={onCompare} />
       </div>
 
       {/* File upload */}

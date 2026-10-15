@@ -6,7 +6,7 @@ namespace RacingCoach.Collector;
 
 /// <summary>
 /// The overlay the Launch Overlay button opens: a see-through, always-on-top window with the current
-/// track's focus areas (from the user's Track Data on RacingCoach.app) and each one's values on this lap from
+/// track's focus areas (from Track Data on RacingCoach.app) and each one's values on this lap from
 /// TelemetryEngine.js (OverlayFeed), plus the recent peak brake pressure and minimum speed (OverlayStats). Only one
 /// row of focus area values is shown, the Upcoming Focus Area (OverlayAreaRow): the area the car is in, or the next
 /// one as soon as it leaves an area. Everything is in the user's Preferred Language and Units (Loc, and

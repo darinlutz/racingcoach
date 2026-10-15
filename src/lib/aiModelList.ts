@@ -10,7 +10,6 @@ export const AI_FEATURES = {
   lapSummary: 'gpt-4o-mini',
   multiLapSummary: 'gpt-4o-mini',
   stintSummary: 'gpt-4o-mini',
-  referencePoints: 'gpt-4o',
   raceTrends: 'gpt-4o',
   raceCoaching: 'gpt-4o',
 } as const satisfies Record<string, AiModel>;

@@ -1,19 +1,20 @@
-// Imports a Track_Area_Information.txt file into one user's racingcoach."UsersTracks" and "UsersFocusAreas".
+// Imports a Track_Area_Information.txt file into Track Data: racingcoach."Tracks" and "TrackFocusAreas",
+// which every user shares.
 //
-//   node scripts/importTracks.mjs <email> <path/to/Track_Area_Information.txt>
+//   node scripts/importTracks.mjs <path/to/Track_Area_Information.txt>
 //
-// The user must already have an account (signing up also creates the tables). Re-running is safe: each
-// track is matched on its key, its details are updated and its focus areas are replaced with the file's.
-// Targets of 0 (the file's placeholder for "not set") and missing targets are stored as NULL.
+// The site must have run once (it creates the tables). Re-running is safe: each track is matched on its
+// key, its details are updated and its focus areas are replaced with the file's. Targets of 0 (the file's
+// placeholder for "not set") and missing targets are stored as NULL.
 
 import { readFileSync } from 'node:fs';
 import pg from 'pg';
 
 const MAX_FOCUS_AREAS = 8;
 
-const [email, filePath] = process.argv.slice(2);
-if (!email || !filePath) {
-  console.error('Usage: node scripts/importTracks.mjs <email> <path/to/Track_Area_Information.txt>');
+const [filePath] = process.argv.slice(2);
+if (!filePath) {
+  console.error('Usage: node scripts/importTracks.mjs <path/to/Track_Area_Information.txt>');
   process.exit(1);
 }
 
@@ -66,29 +67,22 @@ await client.connect();
 
 try {
   await client.query('BEGIN');
-  const { rows: users } = await client.query(
-    'SELECT id FROM racingcoach."Users" WHERE lower(email_address) = lower($1)',
-    [email]
-  );
-  if (users.length === 0) throw new Error(`No account with email ${email}; sign up first`);
-  const userId = users[0].id;
-
   for (const track of tracks) {
     const {
       rows: [{ id: trackId }],
     } = await client.query(
-      `INSERT INTO racingcoach."UsersTracks" (user_id, track_key, track_name, track_length_feet, notes)
-       VALUES ($1, $2, $3, $4, $5)
-       ON CONFLICT (user_id, lower(track_key)) DO UPDATE
+      `INSERT INTO racingcoach."Tracks" (track_key, track_name, track_length_feet, notes)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (lower(track_key)) DO UPDATE
          SET track_name = EXCLUDED.track_name, track_length_feet = EXCLUDED.track_length_feet,
              notes = EXCLUDED.notes, updated_at = now()
        RETURNING id`,
-      [userId, track.key, track.name, track.lengthFeet, track.notes]
+      [track.key, track.name, track.lengthFeet, track.notes]
     );
-    await client.query('DELETE FROM racingcoach."UsersFocusAreas" WHERE track_id = $1', [trackId]);
+    await client.query('DELETE FROM racingcoach."TrackFocusAreas" WHERE track_id = $1', [trackId]);
     for (const area of track.areas) {
       await client.query(
-        `INSERT INTO racingcoach."UsersFocusAreas"
+        `INSERT INTO racingcoach."TrackFocusAreas"
            (track_id, position, name, start_point, end_point, notes, brake_point_feet, max_brake_pct, throttle_point_feet)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
         [trackId, area.position, area.name, area.start, area.end, area.notes, area.brakeFeet, area.maxBrakePct, area.throttleFeet]
@@ -98,7 +92,7 @@ try {
   }
 
   await client.query('COMMIT');
-  console.log(`Imported ${tracks.length} tracks for ${email}.`);
+  console.log(`Imported ${tracks.length} tracks.`);
 } catch (error) {
   await client.query('ROLLBACK');
   console.error(`Import failed, nothing was saved: ${error.message}`);

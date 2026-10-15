@@ -28,7 +28,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'track is required' }, { status: 400 });
     }
 
-    const track = findTrackByName(await readTracks(userId), trackName);
+    const track = findTrackByName(await readTracks(), trackName);
     const lap = user.brakeBeeps ? await readTargetLap(userId) : null;
     const lapTrack = lap ? targetLapTrackName(lap.fileName) : null;
     const sameTrack = lapTrack ? sameTrackName(lapTrack, trackName) : null;

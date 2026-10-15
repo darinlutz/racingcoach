@@ -1,8 +1,7 @@
 import type { PoolClient } from 'pg';
 
-// The tracks and focus areas every account starts with. They are seeded once into racingcoach."Tracks"
-// and "TrackFocusAreas", which belong to no user; each user gets their own copy in "UsersTracks" and
-// "UsersFocusAreas" on sign-up (copyDefaultTracks) and can edit or delete it from the Track Data tab.
+// The tracks and focus areas of Track Data. They are seeded once into racingcoach."Tracks" and
+// "TrackFocusAreas", which belong to no user and are shared by every user (read only in the Track Data tab).
 //
 // key is the iRacing track key (lowercase) and name the name Garage 61 puts in its CSV file names.
 // Areas are in order around the lap; start/end are fractions of a lap (LapDistPct). The brake and
@@ -247,31 +246,4 @@ export async function seedDefaultTracks(client: PoolClient): Promise<void> {
       );
     }
   }
-}
-
-// Copies every track in racingcoach."Tracks" that has focus areas, and its "TrackFocusAreas", into one
-// user's "UsersTracks" and "UsersFocusAreas", or every user's when userId is null (the one-time backfill
-// when Tracks is first seeded). Tracks without focus areas (the layouts appended from
-// TracksNumberOfCorners) aren't copied. A track the user already has (same key or name) is skipped along
-// with its areas. Runs on the caller's transaction.
-export async function copyDefaultTracks(client: PoolClient, userId: number | null): Promise<void> {
-  await client.query(
-    `WITH copied AS (
-       INSERT INTO racingcoach."UsersTracks" (user_id, track_key, track_name, track_length_feet, notes)
-       SELECT u.id, t.track_key, t.track_name, t.track_length_feet, t.notes
-       FROM racingcoach."Users" u CROSS JOIN racingcoach."Tracks" t
-       WHERE ($1::int IS NULL OR u.id = $1)
-         AND EXISTS (SELECT 1 FROM racingcoach."TrackFocusAreas" f WHERE f.track_id = t.id)
-       ON CONFLICT DO NOTHING
-       RETURNING id, track_key
-     )
-     INSERT INTO racingcoach."UsersFocusAreas"
-       (track_id, position, name, start_point, end_point, notes, brake_point_feet, max_brake_pct, throttle_point_feet)
-     SELECT c.id, f.position, f.name, f.start_point, f.end_point, f.notes,
-            f.brake_point_feet, f.max_brake_pct, f.throttle_point_feet
-     FROM copied c
-     JOIN racingcoach."Tracks" t ON lower(t.track_key) = lower(c.track_key)
-     JOIN racingcoach."TrackFocusAreas" f ON f.track_id = t.id`,
-    [userId]
-  );
 }

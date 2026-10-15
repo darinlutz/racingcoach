@@ -186,7 +186,7 @@ export async function inCarCoachCallouts(input: {
   track: string;
   car: string;
   laps: InCarLap[];
-  // The laps measured in the track's focus areas, or null when the track isn't in the user's Track Data
+  // The laps measured in the track's focus areas, or null when the track isn't in Track Data
   session: DebriefSession | null;
   // The car's rev limit from the user's Car Data, for get_shifting_points
   carRpmLimit?: number | null;

@@ -5,7 +5,7 @@
 import { en } from './i18n/dictionaries/en';
 import { fmt, LANGUAGE_LOCALES, type Language } from './i18n/languages';
 import { areaStats, lapSamplesFromText } from './lapData';
-import type { UserTrack } from './tracks';
+import type { TrackData } from './tracks';
 
 export type CollectorDebrief = {
   // What the collector says and logs, e.g. "Area 1 average time was 12.3 seconds"
@@ -19,7 +19,7 @@ export type CollectorDebrief = {
 export class CollectorDebriefError extends Error {}
 
 export function firstAreaDebrief(
-  track: UserTrack,
+  track: TrackData,
   laps: { lapNumber: number; lapTimeSeconds: number; csv: string }[],
   // The message in the user's language: the dictionary's coachSpeech.areaAverage
   language: Language = 'en',

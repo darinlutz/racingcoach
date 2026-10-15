@@ -1,66 +1,47 @@
-import { z } from 'zod';
-import { query, transaction } from './db';
+import { query } from './db';
 import { sameTrackName, type Track } from './lapData';
 import { ensureUserSchema } from './users';
 
-// Each user's own tracks and focus areas in racingcoach."UsersTracks" and "UsersFocusAreas" (created by
-// ensureUserSchema and copied from the default "Tracks" when the account is created). A track is saved
-// whole: its details plus its focus areas, which replace the old ones and are numbered 1-8 in order
-// around the lap (by start point).
+// Track Data: the tracks in racingcoach."Tracks" and their "TrackFocusAreas" (created by ensureUserSchema
+// and seeded from DEFAULT_TRACKS), shared by every user. Focus areas are numbered 1-8 in order around the
+// lap (by start point). Only tracks with focus areas are Track Data; the layouts appended from
+// TracksNumberOfCorners have none.
 
 export const MAX_FOCUS_AREAS = 8;
 
-const optionalText = z
-  .string()
-  .max(1000)
-  .transform((s) => s.trim() || null)
-  .nullable();
-const feet = z.number().int().min(0).max(200000).nullable();
+export type FocusArea = {
+  id: number;
+  position: number;
+  name: string;
+  startPoint: number;
+  endPoint: number;
+  notes: string | null;
+  brakePointFeet: number | null;
+  maxBrakePct: number | null;
+  throttlePointFeet: number | null;
+};
 
-export const focusAreaInputSchema = z
-  .object({
-    name: z.string().trim().min(1, 'Every focus area needs a name').max(100),
-    startPoint: z.number().min(0).max(1),
-    endPoint: z.number().min(0).max(1),
-    notes: optionalText,
-    brakePointFeet: feet,
-    maxBrakePct: z.number().int().min(0).max(100).nullable(),
-    throttlePointFeet: feet,
-  })
-  .refine((a) => a.startPoint < a.endPoint, { message: 'A focus area must start before it ends' });
+export type TrackData = {
+  id: number;
+  name: string;
+  // The iRacing track key (e.g. "monza full")
+  key: string;
+  lengthFeet: number | null;
+  notes: string | null;
+  areas: FocusArea[];
+};
 
-export const trackInputSchema = z.object({
-  name: z.string().trim().min(1, 'Track name is required').max(200),
-  // The iRacing track key (e.g. "monza full"); the name is used when it is left blank
-  key: z.string().trim().max(200),
-  lengthFeet: z.number().int().min(1).max(200000).nullable(),
-  notes: optionalText,
-  areas: z.array(focusAreaInputSchema).max(MAX_FOCUS_AREAS, `A track can have at most ${MAX_FOCUS_AREAS} focus areas`),
-});
-
-export type TrackInput = z.infer<typeof trackInputSchema>;
-export type FocusArea = z.infer<typeof focusAreaInputSchema> & { id: number; position: number };
-export type UserTrack = Omit<TrackInput, 'areas'> & { id: number; areas: FocusArea[] };
-
-export class TrackNotFoundError extends Error {
-  constructor() {
-    super('Track not found');
-  }
-}
-
-export async function readTracks(userId: number): Promise<UserTrack[]> {
+export async function readTracks(): Promise<TrackData[]> {
   await ensureUserSchema();
   const tracks = await query(
-    `SELECT id, track_key, track_name, track_length_feet, notes FROM racingcoach."UsersTracks"
-     WHERE user_id = $1 ORDER BY lower(track_name)`,
-    [userId]
+    `SELECT t.id, t.track_key, t.track_name, t.track_length_feet, t.notes FROM racingcoach."Tracks" t
+     WHERE EXISTS (SELECT 1 FROM racingcoach."TrackFocusAreas" f WHERE f.track_id = t.id)
+     ORDER BY lower(t.track_name)`
   );
   const areas = await query(
-    `SELECT f.id, f.track_id, f.position, f.name, f.start_point, f.end_point, f.notes,
-            f.brake_point_feet, f.max_brake_pct, f.throttle_point_feet
-     FROM racingcoach."UsersFocusAreas" f JOIN racingcoach."UsersTracks" t ON t.id = f.track_id
-     WHERE t.user_id = $1 ORDER BY f.track_id, f.position`,
-    [userId]
+    `SELECT id, track_id, position, name, start_point, end_point, notes,
+            brake_point_feet, max_brake_pct, throttle_point_feet
+     FROM racingcoach."TrackFocusAreas" ORDER BY track_id, position`
   );
   return tracks.map((t) => ({
     id: t.id as number,
@@ -86,13 +67,13 @@ export async function readTracks(userId: number): Promise<UserTrack[]> {
 
 // The track for a track name from iRacing (the collector's), matched like recorded laps are on the Racing
 // page (iRacing's names can differ slightly from Track Data's), or by track key
-export function findTrackByName(tracks: UserTrack[], name: string): UserTrack | undefined {
+export function findTrackByName(tracks: TrackData[], name: string): TrackData | undefined {
   return tracks.find((t) => sameTrackName(t.name, name)) ?? tracks.find((t) => t.key.toLowerCase() === name.toLowerCase());
 }
 
 // A Track Data track in the shape the lap measuring code (lapData.ts) takes. `name` is the track key and
 // `fileName` the name Garage 61 puts in its CSV file names; targets that aren't set are null.
-export function toLapTrack(track: UserTrack): Track {
+export function toLapTrack(track: TrackData): Track {
   return {
     name: track.key,
     fileName: track.name,
@@ -106,109 +87,4 @@ export function toLapTrack(track: UserTrack): Track {
       throttlePickupTarget: area.throttlePointFeet,
     })),
   };
-}
-
-type Client = Parameters<Parameters<typeof transaction>[0]>[0];
-
-async function replaceAreas(client: Client, trackId: number, areas: TrackInput['areas']) {
-  await client.query('DELETE FROM racingcoach."UsersFocusAreas" WHERE track_id = $1', [trackId]);
-  const ordered = [...areas].sort((a, b) => a.startPoint - b.startPoint);
-  for (const [i, a] of ordered.entries()) {
-    await client.query(
-      `INSERT INTO racingcoach."UsersFocusAreas"
-         (track_id, position, name, start_point, end_point, notes, brake_point_feet, max_brake_pct, throttle_point_feet)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-      [trackId, i + 1, a.name, a.startPoint, a.endPoint, a.notes, a.brakePointFeet, a.maxBrakePct, a.throttlePointFeet]
-    );
-  }
-}
-
-// Throws a unique violation (see isUniqueViolation) when the user already has a track with that name or key
-export async function addTrack(userId: number, track: TrackInput): Promise<number> {
-  await ensureUserSchema();
-  return transaction(async (client) => {
-    const { rows } = await client.query(
-      `INSERT INTO racingcoach."UsersTracks" (user_id, track_key, track_name, track_length_feet, notes)
-       VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-      [userId, track.key || track.name, track.name, track.lengthFeet, track.notes]
-    );
-    await replaceAreas(client, rows[0].id, track.areas);
-    return rows[0].id as number;
-  });
-}
-
-// Only updates the track if it belongs to this user
-export async function updateTrack(userId: number, id: number, track: TrackInput): Promise<void> {
-  await ensureUserSchema();
-  await transaction(async (client) => {
-    const { rowCount } = await client.query(
-      `UPDATE racingcoach."UsersTracks" SET track_key = $3, track_name = $4, track_length_feet = $5, notes = $6, updated_at = now()
-       WHERE id = $1 AND user_id = $2`,
-      [id, userId, track.key || track.name, track.name, track.lengthFeet, track.notes]
-    );
-    if (!rowCount) throw new TrackNotFoundError();
-    await replaceAreas(client, id, track.areas);
-  });
-}
-
-export const referencePointsInputSchema = z.object({
-  // The Reference Points tab's track: its key and name, as /api/track-names returns them
-  trackKey: z.string().trim().max(200),
-  trackName: z.string().trim().max(200),
-  areas: z
-    .array(
-      z.object({
-        name: z.string().trim().min(1).max(100),
-        brakePointFeet: z.number().nullable(),
-        maxBrakePct: z.number().nullable(),
-        throttlePointFeet: z.number().nullable(),
-      })
-    )
-    .min(1)
-    .max(50),
-});
-
-export type ReferencePointsInput = z.infer<typeof referencePointsInputSchema>;
-
-// Overwrites the brake point, max brake pressure and on-throttle point of the user's matching focus
-// areas (matched by name, ignoring case) on the track matching the key or name. A value the
-// measurement did not find (null) leaves the saved one alone.
-export async function saveReferencePoints(
-  userId: number,
-  input: ReferencePointsInput
-): Promise<{ track: string; saved: string[]; notFound: string[] }> {
-  await ensureUserSchema();
-  return transaction(async (client) => {
-    const { rows: tracks } = await client.query(
-      `SELECT id, track_name FROM racingcoach."UsersTracks"
-       WHERE user_id = $1 AND (lower(track_key) = lower($2) OR lower(track_name) = lower($3))
-       ORDER BY (lower(track_key) = lower($2)) DESC LIMIT 1`,
-      [userId, input.trackKey, input.trackName]
-    );
-    if (tracks.length === 0) throw new TrackNotFoundError();
-
-    const feet = (v: number | null) => (v === null ? null : Math.max(0, Math.round(v)));
-    const pct = (v: number | null) => (v === null ? null : Math.min(100, Math.max(0, Math.round(v))));
-    const saved: string[] = [];
-    const notFound: string[] = [];
-    for (const area of input.areas) {
-      const { rowCount } = await client.query(
-        `UPDATE racingcoach."UsersFocusAreas"
-         SET brake_point_feet = COALESCE($3, brake_point_feet),
-             max_brake_pct = COALESCE($4, max_brake_pct),
-             throttle_point_feet = COALESCE($5, throttle_point_feet)
-         WHERE track_id = $1 AND lower(name) = lower($2)`,
-        [tracks[0].id, area.name, feet(area.brakePointFeet), pct(area.maxBrakePct), feet(area.throttlePointFeet)]
-      );
-      (rowCount ? saved : notFound).push(area.name);
-    }
-    await client.query('UPDATE racingcoach."UsersTracks" SET updated_at = now() WHERE id = $1', [tracks[0].id]);
-    return { track: tracks[0].track_name as string, saved, notFound };
-  });
-}
-
-// Only deletes the track if it belongs to this user; its focus areas go with it
-export async function deleteTrack(userId: number, id: number): Promise<void> {
-  await ensureUserSchema();
-  await query('DELETE FROM racingcoach."UsersTracks" WHERE id = $1 AND user_id = $2', [id, userId]);
 }

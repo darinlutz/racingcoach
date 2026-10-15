@@ -1,17 +1,10 @@
 import { NextResponse } from 'next/server';
-import { isUniqueViolation } from '@/lib/db';
 import { isAdmin } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
-import { addTrack, deleteTrack, readTracks, TrackNotFoundError, trackInputSchema, updateTrack } from '@/lib/tracks';
+import { readTracks } from '@/lib/tracks';
 import { apiText } from '@/lib/i18n/server';
 
-// Each signed-in user manages their own tracks and focus areas.
-
-// The first validation problem, worded for the person filling in the form
-function invalid(error: { issues: { message: string }[] }) {
-  return NextResponse.json({ error: error.issues[0]?.message ?? 'Invalid track' }, { status: 400 });
-}
-
+// Track Data's tracks and focus areas, the same for every signed-in user. Read only.
 export async function GET() {
   const t = await apiText();
   try {
@@ -20,73 +13,9 @@ export async function GET() {
       return NextResponse.json({ error: t.logInTracks }, { status: 401 });
     }
     // isAdmin shows Track Data's Save Data button (the site owner's SimHub file)
-    return NextResponse.json({ tracks: await readTracks(user.id), isAdmin: isAdmin(user.role) });
+    return NextResponse.json({ tracks: await readTracks(), isAdmin: isAdmin(user.role) });
   } catch (error) {
     console.error('Read tracks error:', error);
     return NextResponse.json({ error: t.failedLoadTracks }, { status: 500 });
-  }
-}
-
-export async function POST(request: Request) {
-  const t = await apiText();
-  try {
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ error: t.logInTracks }, { status: 401 });
-    }
-    const body = await request.json().catch(() => ({}));
-    const parsed = trackInputSchema.safeParse(body.track);
-    if (!parsed.success) return invalid(parsed.error);
-
-    const id = await addTrack(user.id, parsed.data);
-    return NextResponse.json({ id, tracks: await readTracks(user.id) }, { status: 201 });
-  } catch (error) {
-    if (isUniqueViolation(error)) return NextResponse.json({ error: t.trackNameTaken }, { status: 409 });
-    console.error('Add track error:', error);
-    return NextResponse.json({ error: t.failedAddTrack }, { status: 500 });
-  }
-}
-
-export async function PUT(request: Request) {
-  const t = await apiText();
-  try {
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ error: t.logInTracks }, { status: 401 });
-    }
-    const body = await request.json().catch(() => ({}));
-    if (!Number.isInteger(body.id)) {
-      return NextResponse.json({ error: 'id is required' }, { status: 400 });
-    }
-    const parsed = trackInputSchema.safeParse(body.track);
-    if (!parsed.success) return invalid(parsed.error);
-
-    await updateTrack(user.id, body.id, parsed.data);
-    return NextResponse.json({ tracks: await readTracks(user.id) });
-  } catch (error) {
-    if (error instanceof TrackNotFoundError) return NextResponse.json({ error: error.message }, { status: 404 });
-    if (isUniqueViolation(error)) return NextResponse.json({ error: t.trackNameTaken }, { status: 409 });
-    console.error('Update track error:', error);
-    return NextResponse.json({ error: t.failedSaveTrack }, { status: 500 });
-  }
-}
-
-export async function DELETE(request: Request) {
-  const t = await apiText();
-  try {
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ error: t.logInTracks }, { status: 401 });
-    }
-    const body = await request.json().catch(() => ({}));
-    if (!Number.isInteger(body.id)) {
-      return NextResponse.json({ error: 'id is required' }, { status: 400 });
-    }
-
-    await deleteTrack(user.id, body.id);
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error('Delete track error:', error);
-    return NextResponse.json({ error: t.failedDeleteTrack }, { status: 500 });
   }
 }

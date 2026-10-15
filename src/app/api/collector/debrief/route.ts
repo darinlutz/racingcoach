@@ -13,7 +13,7 @@ const bodySchema = z.object({ clientLapIds: z.array(z.uuid()).min(1).max(20) });
 // The telemetry collector's in-session debrief: the average time through the track's first focus area over
 // laps it has uploaded (by clientLapId), which it reads out to the driver. Authenticated with the upload key
 // as a bearer token, like /api/collector/laps. Answers { message, area, averageSeconds, laps }, or 422 with
-// an error when it can't be worked out (e.g. the track isn't in the user's Track Data).
+// an error when it can't be worked out (e.g. the track isn't in Track Data).
 export async function POST(request: Request) {
   try {
     const userId = await authenticateCollector(request);
@@ -31,7 +31,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'None of those laps have been uploaded' }, { status: 404 });
     }
     const trackName = laps[0].track;
-    const track = findTrackByName(await readTracks(userId), trackName);
+    const track = findTrackByName(await readTracks(), trackName);
     if (!track) {
       return NextResponse.json({ error: `${trackName} isn't in your Track Data` }, { status: 422 });
     }

@@ -44,7 +44,7 @@ export async function setCoachInstructions(instructions: string, userId: number)
   );
 }
 
-// Appended to the AI coaching prompts (Debrief Coach, the lap and stint summaries, Reference Points, Race
+// Appended to the AI coaching prompts (Debrief Coach, the lap and stint summaries, Race
 // Trends and the Discord bot's coaching) so the coaches' instructions steer them. They can't override the
 // data rules: the model still only has the tools and data each feature gives it. A failed read only loses
 // the instructions, not the coaching.

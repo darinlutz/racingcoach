@@ -3,7 +3,7 @@ import { authenticateCollector } from '@/lib/collectorKeys';
 import { findTrackByName, readTracks } from '@/lib/tracks';
 import { getUserById } from '@/lib/users';
 
-// The telemetry collector's overlay: the user's Track Data track for the track they're driving, with its
+// The telemetry collector's overlay: the Track Data track for the track they're driving, with its
 // focus areas, which the collector hands to TelemetryEngine.js as its TrackConfig. Authenticated with the
 // upload key as a bearer token, like /api/collector/laps.
 //   ?name=  iRacing's track name as the collector writes it, e.g. "Road Atlanta (Full Course)"
@@ -22,7 +22,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'name is required' }, { status: 400 });
     }
 
-    const track = findTrackByName(await readTracks(userId), name);
+    const track = findTrackByName(await readTracks(), name);
     if (!track) {
       return NextResponse.json({ track: null, units: user.units, brakeBeeps: user.brakeBeeps });
     }

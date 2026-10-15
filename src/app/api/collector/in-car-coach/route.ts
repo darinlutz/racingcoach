@@ -41,7 +41,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Missing or unknown upload key' }, { status: 401 });
     }
     const trackName = new URL(request.url).searchParams.get('track')?.trim() ?? '';
-    const track = trackName ? findTrackByName(await readTracks(user.userId), trackName) : undefined;
+    const track = trackName ? findTrackByName(await readTracks(), trackName) : undefined;
     const areas = [...(track?.areas ?? [])]
       .sort((a, b) => a.position - b.position)
       .map((area) => ({ name: area.name, start: area.startPoint, end: area.endPoint }));
@@ -90,7 +90,7 @@ export async function POST(request: Request) {
     // One session is one track; the newest lap's
     const trackName = all[all.length - 1].track;
     const laps = all.filter((lap) => lap.track === trackName).map((lap) => ({ ...lap, id: lap.clientLapId.slice(-4) }));
-    const userTrack = findTrackByName(await readTracks(user.userId), trackName);
+    const userTrack = findTrackByName(await readTracks(), trackName);
     const session = userTrack
       ? measureDebriefSession(
           toLapTrack(userTrack),

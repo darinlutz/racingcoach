@@ -26,7 +26,7 @@ export async function GET(request: Request) {
     }
     const trackName = new URL(request.url).searchParams.get('track')?.trim() || null;
 
-    const track = trackName ? findTrackByName(await readTracks(userId), trackName) : undefined;
+    const track = trackName ? findTrackByName(await readTracks(), trackName) : undefined;
     const trackLengthFeet = track?.lengthFeet ?? 0;
     const lap = await readTargetLap(userId);
     if (!lap) {

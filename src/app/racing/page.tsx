@@ -10,7 +10,6 @@ import SpaceFactQuery from '@/components/SpaceFactQuery';
 import StintAnalysis from '@/components/StintAnalysis';
 import LapCompare from '@/components/LapCompare';
 import DebriefCoach from '@/components/DebriefCoach';
-import ReferencePoints from '@/components/ReferencePoints';
 import type { LapFile } from '@/lib/lapData';
 
 // Space Fact Query, Friends and Stint Analysis tabs are hidden for now; set to true to show them again
@@ -18,12 +17,12 @@ const SHOW_SPACE_FACTS_TAB = false;
 const SHOW_FRIENDS_TAB = false;
 const SHOW_STINT_TAB = false;
 
-type Tab = 'tracks' | 'cars' | 'friends' | 'spaceFacts' | 'racecar' | 'stint' | 'lapCompare' | 'debrief' | 'referencePoints';
+type Tab = 'tracks' | 'cars' | 'friends' | 'spaceFacts' | 'racecar' | 'stint' | 'lapCompare' | 'debrief';
 
 // Tab bar order: the top row on the left, the bottom row on the right
 const TAB_ROWS: Tab[][] = [
   ['debrief', 'spaceFacts', 'lapCompare', 'stint'],
-  ['friends', 'referencePoints', 'tracks', 'racecar', 'cars'],
+  ['friends', 'tracks', 'racecar', 'cars'],
 ];
 
 export default function RacingPage() {
@@ -93,9 +92,7 @@ export default function RacingPage() {
             )}
             {activeTab === 'stint' && <StintAnalysis />}
             {activeTab === 'lapCompare' && <LapCompare initialLaps={lapsToCompare} />}
-            {activeTab === 'debrief' && <DebriefCoach onCompare={compareLaps} />}
-            {activeTab === 'referencePoints' && <ReferencePoints />}
-          </div>
+            {activeTab === 'debrief' && <DebriefCoach onCompare={compareLaps} />}          </div>
         </div>
       </section>
     </div>

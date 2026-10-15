@@ -64,7 +64,7 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
         return (body?.Units == "metric", Loc.Normalize(body?.Language));
     }
 
-    /// <summary>The user's Track Data track for an iRacing track name, as the JSON TelemetryEngine.js reads from
+    /// <summary>The Track Data track for an iRacing track name, as the JSON TelemetryEngine.js reads from
     /// its TrackConfig (TrackFileName, TrackLengthInFeet, Notes and areas), or null if they have no such track;
     /// and whether their Preferred Units on the Account page are Metric (meters, kph) rather than Standard
     /// (feet, mph; also for a site from before there were units).

@@ -12,8 +12,8 @@ import {
   type Plan,
 } from './accountStatus';
 import { copyDefaultCars, seedDefaultCars } from './defaultCars';
-import { copyDefaultTracks, seedDefaultTracks } from './defaultTracks';
-import { appendTrackCorners, seedTrackCorners } from './trackCorners';
+import { seedDefaultTracks } from './defaultTracks';
+import { appendTrackCorners, categorizeTracks, removeLegacyTracks, seedTrackCorners } from './trackCorners';
 import { DEFAULT_LANGUAGE, isLanguage, type Language } from './i18n/languages';
 import { DEFAULT_THEME, isTheme, type Theme } from './theme';
 import { isBrakeBeepsVolume, MAX_BRAKE_BEEPS_VOLUME } from './brakeBeepsVolume';
@@ -93,8 +93,8 @@ export class EmailTakenError extends Error {
 let schemaReady: Promise<void> | null = null;
 
 // The racingcoach schema holds the site's accounts and everything tied to one:
-// Users, the default Tracks and their TrackFocusAreas, each user's own Friends, UsersTracks and their
-// UsersFocusAreas, the default Cars and each user's CarsUsers, IRacePlanConnections and RaceResults (from iRacePlan and the collector), DiscordConnections, saved
+// Users, Track Data's Tracks and their TrackFocusAreas (shared by every user), each user's own Friends,
+// the default Cars and each user's CarsUsers, IRacePlanConnections and RaceResults (from iRacePlan and the collector), DiscordConnections, saved
 // DebriefSessions, the telemetry collector's CollectorKeys and uploaded CollectorLaps, sign-in Sessions,
 // PasswordResets links, CancellationReason feedback and the ActivityLog of page views and clicks.
 export function ensureUserSchema(): Promise<void> {
@@ -205,29 +205,19 @@ export function ensureUserSchema(): Promise<void> {
       await client.query(
         'CREATE INDEX IF NOT EXISTS password_resets_user_id_idx ON racingcoach."PasswordResets" (user_id)'
       );
-      // "Tracks" used to hold each user's own tracks; that table becomes "UsersTracks" (keeping its rows
-      // and the UsersFocusAreas that point at them) and "Tracks" is recreated below for the default tracks
+      // Users used to have their own tracks and focus areas ("UsersTracks" and "UsersFocusAreas", and
+      // before that "Tracks" with a user_id and "FocusAreas"); everyone now uses Tracks and TrackFocusAreas
+      await client.query('DROP TABLE IF EXISTS racingcoach."UsersFocusAreas", racingcoach."UsersTracks", racingcoach."FocusAreas"');
       const [{ tracks_has_user_id: tracksHasUserId }] = (
         await client.query(`SELECT EXISTS (
           SELECT 1 FROM information_schema.columns
           WHERE table_schema = 'racingcoach' AND table_name = 'Tracks' AND column_name = 'user_id'
         ) AS tracks_has_user_id`)
       ).rows;
-      if (tracksHasUserId) {
-        await client.query('ALTER TABLE racingcoach."Tracks" RENAME TO "UsersTracks"');
-        await client.query('ALTER TABLE racingcoach."UsersTracks" RENAME CONSTRAINT "Tracks_pkey" TO "UsersTracks_pkey"');
-        await client.query('ALTER SEQUENCE IF EXISTS racingcoach."Tracks_id_seq" RENAME TO "UsersTracks_id_seq"');
-        await client.query(
-          'ALTER INDEX IF EXISTS racingcoach.tracks_user_id_track_key_key RENAME TO users_tracks_user_id_track_key_key'
-        );
-        await client.query(
-          'ALTER INDEX IF EXISTS racingcoach.tracks_user_id_track_name_key RENAME TO users_tracks_user_id_track_name_key'
-        );
-      }
-      // The default tracks (DEFAULT_TRACKS, seeded once) and their focus areas, not tied to any user.
-      // Each user gets their own copy in UsersTracks and UsersFocusAreas when they sign up. track_key is the
-      // iRacing track key (e.g. "monza full") and track_name the name Garage 61 puts in its CSV file
-      // names (TrackFileName); both are unique.
+      if (tracksHasUserId) await client.query('DROP TABLE racingcoach."Tracks"');
+      // Track Data: the tracks (DEFAULT_TRACKS, seeded once) and their focus areas, shared by every user and
+      // not tied to any. track_key is the iRacing track key (e.g. "monza full") and track_name the name
+      // Garage 61 puts in its CSV file names (TrackFileName); both are unique.
       const [{ tracks_missing: tracksMissing }] = (
         await client.query(`SELECT to_regclass('racingcoach."Tracks"') IS NULL AS tracks_missing`)
       ).rows;
@@ -238,6 +228,13 @@ export function ensureUserSchema(): Promise<void> {
           WHERE table_schema = 'racingcoach' AND table_name = 'Tracks' AND column_name = 'config_name'
         ) AS tracks_lack_corners`)
       ).rows;
+      // track_category is worked out from the names and number_of_corners (categorizeTracks, below)
+      const [{ tracks_lack_category: tracksLackCategory }] = (
+        await client.query(`SELECT NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_schema = 'racingcoach' AND table_name = 'Tracks' AND column_name = 'track_category'
+        ) AS tracks_lack_category`)
+      ).rows;
       await client.query(`CREATE TABLE IF NOT EXISTS racingcoach."Tracks" (
         id INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
         track_key TEXT NOT NULL,
@@ -246,6 +243,7 @@ export function ensureUserSchema(): Promise<void> {
         notes TEXT,
         config_name TEXT,
         number_of_corners INTEGER CHECK (number_of_corners > 0),
+        track_category TEXT CHECK (track_category IN ('Dirt', 'Oval', 'Road Course')),
         created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
       )`);
@@ -254,12 +252,18 @@ export function ensureUserSchema(): Promise<void> {
         'ALTER TABLE racingcoach."Tracks" ADD COLUMN IF NOT EXISTS number_of_corners INTEGER CHECK (number_of_corners > 0)'
       );
       await client.query(
+        `ALTER TABLE racingcoach."Tracks" ADD COLUMN IF NOT EXISTS track_category TEXT
+         CHECK (track_category IN ('Dirt', 'Oval', 'Road Course'))`
+      );
+      await client.query(
         'CREATE UNIQUE INDEX IF NOT EXISTS tracks_track_key_key ON racingcoach."Tracks" (lower(track_key))'
       );
       await client.query(
         'CREATE UNIQUE INDEX IF NOT EXISTS tracks_track_name_key ON racingcoach."Tracks" (lower(track_name))'
       );
-      // Same columns and rules as UsersFocusAreas below
+      // Up to 8 focus areas per track: position runs 1-8 in order around the lap and is unique per track.
+      // start_point/end_point are fractions of a lap (LapDistPct). The brake and on-throttle points are feet
+      // from the start/finish line and max_brake_pct is a percent; NULL means no target is set.
       await client.query(`CREATE TABLE IF NOT EXISTS racingcoach."TrackFocusAreas" (
         id INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
         track_id INTEGER NOT NULL REFERENCES racingcoach."Tracks"(id) ON DELETE CASCADE,
@@ -274,65 +278,8 @@ export function ensureUserSchema(): Promise<void> {
         CHECK (start_point < end_point),
         UNIQUE (track_id, position)
       )`);
-      // Each user's own tracks, copied from Tracks at sign-up and edited in the Track Data tab. Key and
-      // name are unique per user.
-      await client.query(`CREATE TABLE IF NOT EXISTS racingcoach."UsersTracks" (
-        id INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
-        user_id INTEGER NOT NULL REFERENCES racingcoach."Users"(id) ON DELETE CASCADE,
-        track_key TEXT NOT NULL,
-        track_name TEXT NOT NULL,
-        track_length_feet INTEGER CHECK (track_length_feet > 0),
-        notes TEXT,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-      )`);
-      await client.query(
-        'CREATE UNIQUE INDEX IF NOT EXISTS users_tracks_user_id_track_key_key ON racingcoach."UsersTracks" (user_id, lower(track_key))'
-      );
-      await client.query(
-        'CREATE UNIQUE INDEX IF NOT EXISTS users_tracks_user_id_track_name_key ON racingcoach."UsersTracks" (user_id, lower(track_name))'
-      );
-      // Each user's focus areas used to be in "FocusAreas"; renamed to match "UsersTracks"
-      const [{ focus_areas_exists: focusAreasExists }] = (
-        await client.query(`SELECT to_regclass('racingcoach."FocusAreas"') IS NOT NULL AS focus_areas_exists`)
-      ).rows;
-      if (focusAreasExists) {
-        await client.query('ALTER TABLE racingcoach."FocusAreas" RENAME TO "UsersFocusAreas"');
-        await client.query(
-          'ALTER TABLE racingcoach."UsersFocusAreas" RENAME CONSTRAINT "FocusAreas_pkey" TO "UsersFocusAreas_pkey"'
-        );
-        await client.query(
-          'ALTER TABLE racingcoach."UsersFocusAreas" RENAME CONSTRAINT "FocusAreas_track_id_position_key" TO "UsersFocusAreas_track_id_position_key"'
-        );
-        await client.query(
-          'ALTER TABLE racingcoach."UsersFocusAreas" RENAME CONSTRAINT "FocusAreas_track_id_fkey" TO "UsersFocusAreas_track_id_fkey"'
-        );
-        await client.query('ALTER SEQUENCE IF EXISTS racingcoach."FocusAreas_id_seq" RENAME TO "UsersFocusAreas_id_seq"');
-      }
-      // Each user's focus areas, up to 8 per track: position runs 1-8 in order around the lap and is
-      // unique per track. start_point/end_point are fractions of a lap (LapDistPct). The brake and
-      // on-throttle points are feet from the start/finish line and max_brake_pct is a percent; NULL
-      // means no target is set.
-      await client.query(`CREATE TABLE IF NOT EXISTS racingcoach."UsersFocusAreas" (
-        id INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
-        track_id INTEGER NOT NULL REFERENCES racingcoach."UsersTracks"(id) ON DELETE CASCADE,
-        position SMALLINT NOT NULL CHECK (position BETWEEN 1 AND 8),
-        name TEXT NOT NULL,
-        start_point DOUBLE PRECISION NOT NULL CHECK (start_point >= 0 AND start_point <= 1),
-        end_point DOUBLE PRECISION NOT NULL CHECK (end_point >= 0 AND end_point <= 1),
-        notes TEXT,
-        brake_point_feet INTEGER CHECK (brake_point_feet >= 0),
-        max_brake_pct SMALLINT CHECK (max_brake_pct BETWEEN 0 AND 100),
-        throttle_point_feet INTEGER CHECK (throttle_point_feet >= 0),
-        CHECK (start_point < end_point),
-        UNIQUE (track_id, position)
-      )`);
-      // The default tracks are seeded when Tracks is first created, and accounts that existed before
-      // then get their copy once, here; new accounts get theirs when they sign up (createUser)
-      if (tracksMissing) {
-        await seedDefaultTracks(client);
-        await copyDefaultTracks(client, null);
-      }
+      // The default tracks are seeded when Tracks is first created
+      if (tracksMissing) await seedDefaultTracks(client);
       // The number of corners per lap of every iRacing track layout (TRACK_CORNERS, seeded once), not
       // tied to any user. track_id is the layout's name in iRacing's session info (WeekendInfo.TrackName,
       // e.g. "monza full"), NULL when not known. config_name is iRacing's layout name ("Default" for
@@ -368,6 +315,10 @@ export function ensureUserSchema(): Promise<void> {
       if (trackIdType !== 'text') await seedTrackCorners(client);
       // Once, when Tracks gets its config_name and number_of_corners columns
       if (tracksLackCorners) await appendTrackCorners(client);
+      // Databases that got the "[Legacy]" layouts before appendTrackCorners left them out
+      await removeLegacyTracks(client);
+      // Once, when Tracks gets its track_category column (after the layouts above are appended)
+      if (tracksLackCategory) await categorizeTracks(client);
       // Each user's own iRacePlan API key (Settings > API Keys on iraceplan.com) and their iRacing
       // customer ID, read from iRacePlan when the key is saved
       await client.query(`CREATE TABLE IF NOT EXISTS racingcoach."IRacePlanConnections" (
@@ -681,8 +632,8 @@ export async function createUser(input: {
   await ensureUserSchema();
   const passwordHash = await hashPassword(input.password);
   try {
-    // The account starts at the Bronze level, with its own copy of the default cars and tracks to edit in
-    // the Car Data and Track Data tabs
+    // The account starts at the Bronze level, with its own copy of the default cars to edit in
+    // the Car Data tab
     return await transaction(async (client) => {
       const { rows } = await client.query(
         `INSERT INTO racingcoach."Users"
@@ -702,7 +653,6 @@ export async function createUser(input: {
       );
       const user = rowToUser(rows[0]);
       await copyDefaultCars(client, user.id);
-      await copyDefaultTracks(client, user.id);
       // New accounts start with the site owner's iRacePlan API key, so Race Trends works straight away;
       // they can change it on the Race Trends page
       await client.query(

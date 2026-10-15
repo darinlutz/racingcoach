@@ -465,7 +465,7 @@ export async function seedTrackCorners(client: PoolClient): Promise<void> {
 // track_id and track_name is named like Garage 61's ("Track (Layout)", or just "Track" for "Default").
 // A layout whose track_id or name is already in Tracks isn't appended; a track with the same key gets
 // its config_name and number_of_corners instead. Layouts without a track_id are left out, as Tracks
-// needs a key.
+// needs a key, and so are iRacing's retired "[Legacy]" tracks (removeLegacyTracks).
 export async function appendTrackCorners(client: PoolClient): Promise<void> {
   await client.query(
     `UPDATE racingcoach."Tracks" t
@@ -480,8 +480,30 @@ export async function appendTrackCorners(client: PoolClient): Promise<void> {
                  ELSE c.track_name || ' (' || c.config_name || ')' END,
             c.config_name, c.number_of_corners
      FROM racingcoach."TracksNumberOfCorners" c
-     WHERE c.track_id IS NOT NULL
+     WHERE c.track_id IS NOT NULL AND strpos(c.track_name, '[Legacy]') = 0
      ORDER BY c.track_name, c.config_name
      ON CONFLICT DO NOTHING`
+  );
+}
+
+// Deletes iRacing's retired "[Legacy]" tracks (e.g. "[Legacy] Phoenix Raceway - 2008 (Oval)") from
+// racingcoach."Tracks", on the caller's transaction, with their TrackFocusAreas. Tracks that were
+// appended before appendTrackCorners skipped them. They stay in TracksNumberOfCorners.
+export async function removeLegacyTracks(client: PoolClient): Promise<void> {
+  await client.query(`DELETE FROM racingcoach."Tracks" WHERE strpos(track_name, '[Legacy]') > 0`);
+}
+
+// Sets every track's track_category in racingcoach."Tracks", on the caller's transaction: "Dirt" when its
+// track_name or config_name contains "dirt" or "rally" (any case), otherwise "Oval" with 4 corners or
+// fewer, otherwise "Road Course" (including tracks whose number_of_corners isn't known). Runs once, when
+// Tracks gets its track_category column.
+export async function categorizeTracks(client: PoolClient): Promise<void> {
+  await client.query(
+    `UPDATE racingcoach."Tracks"
+     SET track_category = CASE
+           WHEN track_name ~* '(dirt|rally)' OR coalesce(config_name, '') ~* '(dirt|rally)' THEN 'Dirt'
+           WHEN number_of_corners <= 4 THEN 'Oval'
+           ELSE 'Road Course' END,
+         updated_at = now()`
   );
 }

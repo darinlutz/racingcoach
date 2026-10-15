@@ -49,18 +49,32 @@ const isClean = (lap: CollectorLapSummary) => !lap.pitRoad && !lap.offTrack && l
 
 const lapFileId = (lap: CollectorLapSummary) => `rc${lap.clientLapId.replace(/-/g, '')}`;
 
-// The lap's file name, for its LapFile and its download
-const lapFileName = (lap: CollectorLapSummary) =>
-  `RacingCoach - ${lap.driver} - ${lap.car} - ${lap.track} - ${secondsToLapTime(lap.lapTimeSeconds)} - ${lapFileId(lap)}.csv`;
+// The Track Data track of a lap: by iRacing's track key (a Track's `name`, see toLapTrack), as iRacing can name a
+// layout differently from Track Data ("Mobility Resort Motegi (Full Road Course)" is "(Grand Prix)"); by name only
+// for laps from collectors before 1.29.0, which have no key
+function lapTrack(tracks: Track[], lap: CollectorLapSummary): Track | undefined {
+  const key = lap.trackKey?.toLowerCase();
+  return key
+    ? tracks.find((track) => track.name.toLowerCase() === key)
+    : tracks.find((track) => sameTrackName(track.fileName, lap.track));
+}
 
-function toLapFile(lap: CollectorLapSummary, csv: string): LapFile {
+// The lap's track name for its LapFile and file name: Track Data's when it's found, so the Racing tabs (which
+// match lap files to Track Data by name) and the Target Lap's file name agree with it; else iRacing's
+const lapTrackName = (tracks: Track[], lap: CollectorLapSummary) => lapTrack(tracks, lap)?.fileName ?? lap.track;
+
+// The lap's file name, for its LapFile and its download
+const lapFileName = (lap: CollectorLapSummary, trackName: string) =>
+  `RacingCoach - ${lap.driver} - ${lap.car} - ${trackName} - ${secondsToLapTime(lap.lapTimeSeconds)} - ${lapFileId(lap)}.csv`;
+
+function toLapFile(lap: CollectorLapSummary, trackName: string, csv: string): LapFile {
   const lapTime = secondsToLapTime(lap.lapTimeSeconds);
   const fileId = lapFileId(lap);
   return {
-    file: new File([csv], lapFileName(lap), { type: 'text/csv' }),
+    file: new File([csv], lapFileName(lap, trackName), { type: 'text/csv' }),
     driverName: lap.driver,
     carName: lap.car,
-    trackName: lap.track,
+    trackName,
     lapTime,
     fileId,
   };
@@ -192,7 +206,7 @@ export default function RecordedLaps({
       missing.map(async (lap) => {
         const res = await fetch(`/api/collector/laps/${lap.id}`);
         if (!res.ok) throw new Error(fmt(t.lapCouldNotLoad, { lap: lap.lapNumber }));
-        return toLapFile(lap, await res.text());
+        return toLapFile(lap, lapTrackName(tracks, lap), await res.text());
       })
     );
     const loaded: Record<number, LapFile> = {};
@@ -241,7 +255,7 @@ export default function RecordedLaps({
     if (cached) return cached;
     const res = await fetch(`/api/collector/laps/${lap.id}`);
     if (!res.ok) throw new Error(fmt(t.lapCouldNotLoad, { lap: lap.lapNumber }));
-    const file = toLapFile(lap, await res.text());
+    const file = toLapFile(lap, lapTrackName(tracks, lap), await res.text());
     setFiles((prev) => ({ ...prev, [lap.id]: file }));
     return file;
   };
@@ -332,7 +346,7 @@ export default function RecordedLaps({
         const targetCount = session.laps.filter((lap) => targetPicks.has(lap.id)).length;
         // Compare can pair laps from different sessions; it's enabled in each session holding one of them
         const comparesHere = session.laps.some((lap) => comparePicks.includes(lap.id));
-        const inTrackData = tracks.length === 0 || tracks.some((track) => sameTrackName(track.fileName, first.track));
+        const inTrackData = tracks.length === 0 || lapTrack(tracks, first) !== undefined;
         return (
           <details key={session.key} open={index === 0} className="bg-card border border-border rounded-lg">
             <summary className="cursor-pointer px-4 py-3 text-sm">
@@ -399,8 +413,8 @@ export default function RecordedLaps({
                   <li key={lap.id} className="flex items-center gap-3 px-2 py-1 rounded hover:bg-secondary text-sm">
                     {/* Downloads the lap's CSV (the same route that loads it for analysis) */}
                     <a
-                      href={`/api/collector/laps/${lap.id}?download=${encodeURIComponent(lapFileName(lap))}`}
-                      download={lapFileName(lap)}
+                      href={`/api/collector/laps/${lap.id}?download=${encodeURIComponent(lapFileName(lap, lapTrackName(tracks, lap)))}`}
+                      download={lapFileName(lap, lapTrackName(tracks, lap))}
                       title={fmt(t.downloadLap, { lap: lap.lapNumber })}
                       aria-label={fmt(t.downloadLap, { lap: lap.lapNumber })}
                       data-track="download-lap"

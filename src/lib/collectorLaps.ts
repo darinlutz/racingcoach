@@ -84,6 +84,9 @@ export type CollectorLapSummary = {
   id: number;
   clientLapId: string;
   track: string;
+  // iRacing's track key (WeekendInfo.TrackName), which finds the Track Data track (its `name` on the Racing
+  // page, see toLapTrack) when iRacing names the layout differently; null for laps from collectors before 1.29.0
+  trackKey: string | null;
   car: string;
   // The RacingCoach account that uploaded the lap, and its name. That's who drove it as far as the site is
   // concerned: iRacingDriver is the name iRacing reported, which is whoever the sim was logged in as (e.g. a
@@ -115,6 +118,7 @@ export async function listCollectorLaps(userId: number | null): Promise<Collecto
     id: number;
     client_lap_id: string;
     track: string;
+    track_key: string | null;
     car: string;
     user_id: number;
     user_name: string;
@@ -132,7 +136,7 @@ export async function listCollectorLaps(userId: number | null): Promise<Collecto
     off_track: boolean;
     recorded_at: Date;
   }>(
-    `SELECT l.id, l.client_lap_id, l.track, l.car, l.user_id, u.user_name, l.driver, l.iracing_session_id,
+    `SELECT l.id, l.client_lap_id, l.track, l.track_key, l.car, l.user_id, u.user_name, l.driver, l.iracing_session_id,
             l.iracing_subsession_id, l.session_num, l.session_type, l.lap_number, l.lap_time_seconds, l.sample_count,
             l.missing_samples, l.incidents, l.pit_road, l.off_track, l.recorded_at
      FROM racingcoach."CollectorLaps" l JOIN racingcoach."Users" u ON u.id = l.user_id
@@ -144,6 +148,7 @@ export async function listCollectorLaps(userId: number | null): Promise<Collecto
     id: row.id,
     clientLapId: row.client_lap_id,
     track: row.track,
+    trackKey: row.track_key,
     car: row.car,
     userId: Number(row.user_id),
     driver: row.user_name,

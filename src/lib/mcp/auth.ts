@@ -1,7 +1,14 @@
 import { createPublicKey, verify } from 'node:crypto';
 
 type Claims = { iss?: string; aud?: string | string[]; sub?: string; exp?: number; nbf?: number; scope?: string; scp?: string[]; permissions?: string[] };
-type Jwk = JsonWebKey & { kid?: string; kty?: string; alg?: string; use?: string };
+
+type Jwk = import('node:crypto').JsonWebKey & {
+  kid?: string;
+  kty?: string;
+  alg?: string;
+  use?: string;
+};
+
 let cached: { keys: Jwk[]; until: number } | undefined;
 
 function required(name: string): string {

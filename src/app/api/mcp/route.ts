@@ -5,12 +5,19 @@ import { definitions, runTool } from '@/lib/mcp/trackTools';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+const resourceMetadataUrl = 'https://racingcoach.onrender.com/.well-known/oauth-protected-resource/api/mcp';
+function unauthorized() {
+  return new NextResponse('Unauthorized', { status: 401, headers: {
+    'WWW-Authenticate': `Bearer resource_metadata="${resourceMetadataUrl}", scope="tracks:read"`,
+    'Cache-Control': 'no-store',
+  } });
+}
 function jsonRpc(id: unknown, result?: unknown, error?: { code: number; message: string }) {
   return NextResponse.json(error ? { jsonrpc: '2.0', id, error } : { jsonrpc: '2.0', id, result }, { headers: { 'Cache-Control': 'no-store' } });
 }
 export async function POST(req: NextRequest) {
   const subject = await authorize(req.headers.get('authorization'), 'read');
-  if (!subject) return new NextResponse('Unauthorized', { status: 401, headers: { 'WWW-Authenticate': 'Bearer resource_metadata="/.well-known/oauth-protected-resource/api/mcp"' } });
+  if (!subject) return unauthorized();
   let request: { jsonrpc?: string; id?: unknown; method?: string; params?: { name?: string; arguments?: unknown } };
   try { request = await req.json(); } catch { return jsonRpc(null, undefined, { code: -32700, message: 'Parse error' }); }
   if (request.jsonrpc !== '2.0' || typeof request.method !== 'string') return jsonRpc(request.id ?? null, undefined, { code: -32600, message: 'Invalid request' });
@@ -35,6 +42,6 @@ export async function POST(req: NextRequest) {
   return jsonRpc(request.id ?? null, undefined, { code: -32601, message: 'Method not found' });
 }
 export async function GET(req: NextRequest) {
-  if (!await authorize(req.headers.get('authorization'), 'read')) return new NextResponse('Unauthorized', { status: 401 });
-  return new NextResponse('Streaming GET is not supported; use POST', { status: 405 });
+  if (!await authorize(req.headers.get('authorization'), 'read')) return unauthorized();
+  return new NextResponse('Streaming GET is not supported; use POST', { status: 405, headers: { Allow: 'POST' } });
 }

@@ -46,7 +46,13 @@ const ruleSchema = z.object({
 const planSchema = z.object({
   rules: z.array(ruleSchema).describe('One rule per thing the instructions ask to happen at a moment on track; empty when they ask for none'),
   speak: z.boolean().describe('Speak the lap feedback (true unless the instructions say not to talk or to only show messages)'),
-  show: z.boolean().describe('Show the lap feedback on screen (true unless the instructions say not to)'),
+  show: z
+    .boolean()
+    .describe(
+      'Show the lap feedback on screen. True unless the instructions explicitly ask for nothing on screen; ' +
+        'instructions about when or whether to talk (e.g. "only talk to me on the straights") are about speaking ' +
+        'and leave this true'
+    ),
   holdInFocusAreas: z.boolean().describe('Wait until the car is out of a focus area before speaking the lap feedback (true only when asked not to talk in corners or focus areas)'),
   lapFeedback: z.boolean().describe('Give coaching feedback from the laps at all (true unless the instructions say not to coach or only want the rules)'),
   feedbackEveryLaps: z.number().int().describe('How many laps between lap feedback: 1 for every lap unless the instructions ask for less often'),

@@ -446,7 +446,8 @@ public partial class MainWindow : Window
 
     private void BeepsVolume_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
-        if (BeepsVolumeText is null)
+        // XAML sets Minimum/Value inside InitializeComponent, before _engine exists
+        if (BeepsVolumeText is null || _engine is null)
             return; // still being built
         BeepsVolumeText.Text = $"{(int)BeepsVolumeSlider.Value}%";
         _beepsVolumeSave.Stop();

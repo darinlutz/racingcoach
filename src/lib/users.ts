@@ -737,6 +737,13 @@ export async function authenticateUser(emailAddress: string, password: string): 
   return ok ? rowToUser(row) : null;
 }
 
+// Whether the password is the user's current one (the Account page's Change Password checks it first).
+export async function verifyUserPassword(userId: number, password: string): Promise<boolean> {
+  await ensureUserSchema();
+  const [row] = await query('SELECT password FROM racingcoach."Users" WHERE id = $1', [userId]);
+  return row ? verifyPassword(password, row.password as string) : false;
+}
+
 export async function getUserByEmail(emailAddress: string): Promise<User | null> {
   await ensureUserSchema();
   const [row] = await query(`SELECT ${USER_COLUMNS} FROM racingcoach."Users" WHERE lower(email_address) = lower($1)`, [

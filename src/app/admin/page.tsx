@@ -4,6 +4,7 @@ import AdminTimeZone from '@/components/AdminTimeZone';
 import AiModelManager from '@/components/AiModelManager';
 import CollectorLogsViewer from '@/components/CollectorLogsViewer';
 import SiteSettingsManager from '@/components/SiteSettingsManager';
+import TrackMaintenance from '@/components/TrackMaintenance';
 import UserRoleManager from '@/components/UserRoleManager';
 import {
   ACTIVITY_PAGE_SIZE,
@@ -23,9 +24,12 @@ import { getDictionary } from '@/lib/i18n/server';
 import { isAdmin } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
 import { getShowPricing } from '@/lib/siteSettings';
+import { listTracksForMaintenance } from '@/lib/trackMaintenance';
+import { MAX_FOCUS_AREAS } from '@/lib/tracks';
 
 // The site owner's Admin page: Site Settings (src/components/SiteSettingsManager.tsx), AI Model Control
-// (src/components/AiModelManager.tsx), User Roles (src/components/UserRoleManager.tsx), Collector Logs
+// (src/components/AiModelManager.tsx), User Roles (src/components/UserRoleManager.tsx), Track and Focus Area
+// Maintenance (src/components/TrackMaintenance.tsx), Collector Logs
 // (src/components/CollectorLogsViewer.tsx), then racingcoach."ActivityLog",
 // every page view and click, filtered through the URL (so a filtered view can be bookmarked), with totals,
 // the top pages and controls, and a CSV export.
@@ -49,11 +53,12 @@ export default async function AdminPage({
   const t = getDictionary(user.preferredLanguage);
   const a = t.admin;
   const locale = LANGUAGE_LOCALES[user.preferredLanguage];
-  const [report, users, showPricing, aiModels] = await Promise.all([
+  const [report, users, showPricing, aiModels, tracks] = await Promise.all([
     readActivityReport(filters),
     listUsersForAdmin(),
     getShowPricing(),
     getAiModels(),
+    listTracksForMaintenance(),
   ]);
   const { summary, topPages, topClicks, rows } = report;
 
@@ -93,6 +98,8 @@ export default async function AdminPage({
         <AiModelManager models={aiModels} />
 
         <UserRoleManager users={users} currentUserId={user.id} />
+
+        <TrackMaintenance tracks={tracks} maxAreas={MAX_FOCUS_AREAS} />
 
         <CollectorLogsViewer
           initialUser={typeof params.logUser === 'string' ? params.logUser : null}

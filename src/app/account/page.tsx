@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import CancelSubscriptionButton from '@/components/CancelSubscriptionButton';
+import ChangePasswordButton from '@/components/ChangePasswordButton';
 import CollectorKeyCard from '@/components/CollectorKeyCard';
 import InCarCoachInstructionsCard from '@/components/InCarCoachInstructionsCard';
 import LanguageSelect from '@/components/LanguageSelect';
@@ -120,6 +121,8 @@ export default async function AccountPage({
             </div>
           )}
         </dl>
+
+        <ChangePasswordButton />
 
         {/* The site's language, including what the AI features answer in, Standard / Metric units, and Dark Mode / Light Mode */}
         <div className="mt-6 bg-card rounded-lg border border-border px-4 py-4">

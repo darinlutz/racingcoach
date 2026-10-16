@@ -22,12 +22,12 @@ const links = [
   { href: '/racing', key: 'coachingAnalysis' },
   { href: '/race-trends', key: 'raceTrends' },
   { href: '/prodrivinglesson', key: 'proDriverLesson' },
+  { href: '/learning', key: 'learning' },
   { href: '/support', key: 'support' },
 ] as const;
 
 // At the bottom, just above My Settings (or Log In)
 const bottomLinks = [
-  { href: '/learning', key: 'learning' },
   { href: '/pricing', key: 'pricing' },
 ] as const;
 

@@ -64,10 +64,10 @@ export default async function InstallingPage() {
           <p className={text}>{t.telemetryText}</p>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/assets/png/iracing-telemetry-enabled.png"
+            src="/assets/svg/iracing-telemetry-enabled.svg"
             alt={t.telemetryAlt}
-            width={808}
-            height={210}
+            width={820}
+            height={180}
             className="w-full max-w-xs h-auto rounded-lg"
           />
         </Step>

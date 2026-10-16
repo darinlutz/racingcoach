@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 180" width="820" height="180">
+  <rect x="3" y="3" width="814" height="174" rx="26" fill="#2b3346" stroke="#4a5368" stroke-width="3"/>
+  <g fill="none" stroke="#ef3b2f" stroke-width="9" stroke-linecap="round">
+    <circle cx="112" cy="92" r="7" fill="#ef3b2f" stroke="none"/>
+    <path d="M90 70 a31 31 0 0 0 0 44"/>
+    <path d="M134 70 a31 31 0 0 1 0 44"/>
+    <path d="M72 54 a55 55 0 0 0 0 76"/>
+    <path d="M152 54 a55 55 0 0 1 0 76"/>
+  </g>
+  <text x="188" y="129" fill="#f4f4f4" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-weight="700" font-size="112" letter-spacing="1">Telemetry</text>
+</svg>

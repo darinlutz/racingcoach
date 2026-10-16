@@ -46,7 +46,7 @@ export const pt: Dictionary = {
     coachingAnalysis: 'Coaching e análise',
     raceTrends: 'Minhas tendências',
     pricing: 'Preços',
-    proDriverLesson: 'Aula com piloto profissional',
+    proDriverLesson: 'Aula 1:1 com piloto profissional',
     support: 'Suporte',
     myAccount: 'Minhas configurações',
     installing: 'Instalar o RacingCoach',

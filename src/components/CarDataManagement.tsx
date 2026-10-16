@@ -2,6 +2,7 @@
 
 import { Fragment, useEffect, useState } from 'react';
 import Link from 'next/link';
+import CalibrationHelpButton from '@/components/CalibrationHelpButton';
 import { useLanguage } from '@/components/LanguageProvider';
 import { useUnits } from '@/components/UnitsProvider';
 import type { CarInput, UserCar } from '@/lib/carData';
@@ -174,7 +175,10 @@ export default function CarDataManagement() {
     <div className="bg-secondary rounded-xl border border-border p-8 space-y-6">
       {/* Cars the Rotation Model has a calibration for (rotation-model/calibrations.json) */}
       <div className="space-y-3">
-        <h3 className="text-lg font-bold text-foreground">{t.calibratedCars}</h3>
+        <div className="flex flex-wrap items-center gap-3">
+          <h3 className="text-lg font-bold text-foreground">{t.calibratedCars}</h3>
+          <CalibrationHelpButton />
+        </div>
         {ROTATION_CALIBRATIONS.length === 0 ? (
           <p className="text-sm text-muted-foreground">{t.noCalibratedCars}</p>
         ) : (

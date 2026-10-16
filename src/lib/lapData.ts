@@ -2,7 +2,8 @@
 // (used by the Multi-Lap Analysis and Lap Compare tabs).
 
 // start/end are fractions of a lap (LapDistPct); brakepointTarget and throttlePickupTarget are in
-// feet; maxBrakeTarget is a percent. Each is null if missing in the config
+// feet; maxBrakeTarget is a percent. The targets come only from the user's Target Lap (targetLapTargets.ts);
+// each is null without one of this track, or when it has none in the area
 export type Area = {
   name: string;
   start: number | null;

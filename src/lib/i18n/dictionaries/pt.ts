@@ -697,9 +697,6 @@ export const pt: Dictionary = {
     none: 'Nenhuma pista ainda.',
     lengthLabel: 'Comprimento ({unit})',
     startEnd: 'Início – Fim',
-    brakePoint: 'Ponto de frenagem',
-    maxBrake: 'Freio máx.',
-    onThrottle: 'Aceleração',
   },
 
   cars: {
@@ -748,6 +745,26 @@ export const pt: Dictionary = {
     calibrationVersion: 'Calibração',
     validSpeeds: 'Velocidades válidas ({unit})',
     calibrationSource: 'Origem',
+    calibrationHelpButton: 'Como isso é usado?',
+    calibrationHelpTitle: 'Por que os carros precisam ser calibrados',
+    calibrationHelpIntro:
+      'O Modelo de Rotação avisa quando você está saindo de frente ou de traseira, só a partir da sua telemetria. Para fazer isso em um carro, esse carro precisa ser calibrado primeiro.',
+    calibrationHelpPoints: [
+      {
+        title: 'Cada carro gira de um jeito',
+        text: 'O modelo compara o quanto o carro está realmente girando com o quanto deveria girar para a sua velocidade e o seu volante. O que “deveria” é diferente em cada carro.',
+      },
+      {
+        title: 'A calibração mede esse carro',
+        text: 'Uma calibração é obtida a partir de voltas limpas com esse carro. Velocidades válidas é a faixa de velocidades que ela cobre.',
+      },
+      {
+        title: 'Depois o Coach pode usá-la',
+        text: 'Quando um carro está calibrado, o Coach pode mostrar onde você sai de frente ou de traseira, e o overlay e a janela Rotation do collector mostram isso ao vivo.',
+      },
+    ],
+    calibrationHelpUncalibrated: 'Carros que não estão nesta lista não recebem informações de saída de frente ou de traseira.',
+    calibrationHelpClose: 'Entendi',
   },
 
   friends: {
@@ -900,7 +917,7 @@ export const pt: Dictionary = {
 
   installing: {
     pageTitle: 'Instalar o RacingCoach',
-    intro: 'Três passos e você estará gravando cada volta que fizer no iRacing.',
+    intro: 'Cinco passos e você estará gravando cada volta que fizer no iRacing.',
     step: 'Passo',
     downloadTitle: 'Baixe o RacingCoach Collector',
     downloadText: 'O collector é um pequeno aplicativo para Windows que lê sua telemetria do iRacing, salva cada volta e a envia para sua conta do RacingCoach.',
@@ -921,6 +938,17 @@ export const pt: Dictionary = {
     ],
     keyButton: 'Abrir Minhas configurações',
     keyLost: 'Perdeu sua chave? Clique em Substituir chave no mesmo cartão e cole a nova no collector.',
+    telemetryTitle: 'Verifique se a Telemetria do iRacing está ativada',
+    telemetryText: 'Você deve ver esta imagem para confirmar:',
+    telemetryAlt: 'O indicador de Telemetria do iRacing: um ícone vermelho de transmissão ao lado da palavra Telemetry',
+    targetTitle: 'Definir a Volta Alvo',
+    targetText: 'Sua Volta Alvo é a volta que você persegue. O collector a usa para mostrar onde frear e trocar de marcha, e para apitar antes de cada ponto de frenagem. Defina-a no Debrief Coach, na página Coaching e análise, de uma destas duas formas:',
+    targetWays: [
+      'Uma das suas próprias voltas: nas suas voltas gravadas, escolha a volta na coluna Alvo e clique em Definir alvo.',
+      'A volta ideal: faça um debrief e, abaixo de Volta teórica ideal (sua passagem mais rápida por cada parte da pista, unida em uma só volta), clique em Definir como alvo.',
+    ],
+    targetButton: 'Abrir o Debrief Coach',
+    targetOverlay: 'Depois clique no botão Target Telemetry do collector para abrir o overlay. O iRacing precisa estar no modo Windows borderless (janela sem bordas) para o overlay aparecer por cima dele.',
     supportTitle: 'Dúvidas ou problemas? Fale com o Suporte',
     supportText: 'Se algo não funcionar ou você não souber o que fazer em seguida, envie uma mensagem e responderemos por e-mail.',
     supportButton: 'Falar com o Suporte',
@@ -1030,11 +1058,8 @@ export const pt: Dictionary = {
     areaName: 'Nome',
     areaStart: 'Início (0-1)',
     areaEnd: 'Fim (0-1)',
-    areaBrakePoint: 'Ponto de frenagem ({unit})',
-    areaMaxBrake: 'Frenagem máx. %',
-    areaThrottlePoint: 'Ponto de aceleração ({unit})',
     areaNotes: 'Notas',
-    areaPointsHint: 'Início e fim são frações da volta a partir da linha de largada/chegada (LapDistPct). Os pontos de frenagem e aceleração são distâncias a partir da linha de largada/chegada; deixe vazios os alvos não definidos. As áreas de foco são numeradas pela ordem do início.',
+    areaPointsHint: 'Início e fim são frações da volta a partir da linha de largada/chegada (LapDistPct). As áreas de foco são numeradas pela ordem do início. Os alvos de frenagem, pressão de freio e aceleração não são definidos aqui: vêm da Volta Alvo de cada piloto.',
     saveArea: 'Salvar',
     savingArea: 'Salvando…',
     areaSaved: 'Área de foco {area} salva.',

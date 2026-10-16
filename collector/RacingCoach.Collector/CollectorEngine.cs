@@ -204,6 +204,9 @@ internal sealed class CollectorEngine
     /// <summary>The window's "Beeps before braking" checkbox (on) or volume slider (volume, 10-100): saved to the
     /// account in the background, and the beeps take it up as soon as it's saved. If it can't be saved, the account's
     /// setting is loaded back into the window.</summary>
+    /// <summary>Loads the brake beeps' brakepoints again now, e.g. after picking a new Target Lap on the site.</summary>
+    public void ReloadBrakeBeeps() => _brakeBeeps.Reload();
+
     public void SetBrakeBeeps(bool? on = null, int? volume = null)
     {
         if (Api is not { } api)

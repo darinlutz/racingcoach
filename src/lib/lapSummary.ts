@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { aiLanguageRule, DEFAULT_LANGUAGE, type Language } from './i18n/languages';
 import type { LapDrivingLine } from './lapDrivingLine';
 import { coachInstructionsRule } from './siteSettings';
-import { DEFAULT_UNITS, DISTANCE_NAME, DISTANCE_UNIT, distanceFromMeters, SPEED_UNIT, type Units } from './units';
+import { DEFAULT_UNITS, DISTANCE_NAME, DISTANCE_UNIT, distanceFromMeters, roundLineOffset, SPEED_UNIT, type Units } from './units';
 import { chatModel } from '@/lib/aiModels';
 
 // How the prompts name the user's units: the data they're sent is already in them
@@ -29,7 +29,8 @@ function partOfArea(pct: number) {
 // Directions are always left or right, never inside or outside. Distances are in the user's units.
 function analyzeDrivingLineTool(lines: LapDrivingLine[], areaNames: string[], units: Units) {
   const unit = DISTANCE_UNIT[units];
-  const distance = (meters: number) => `${distanceFromMeters(Math.abs(meters), units).toFixed(1)} ${unit}`;
+  // Whole feet (2.1 -> "2 ft"), or meters to one decimal
+  const distance = (meters: number) => `${roundLineOffset(distanceFromMeters(Math.abs(meters), units), units)} ${unit}`;
 
   return tool(
     async ({ area: name }: { area: string }) => {
@@ -47,9 +48,9 @@ function analyzeDrivingLineTool(lines: LapDrivingLine[], areaNames: string[], un
 
       // Left of the Base line is positive. Always left or right, never inside or outside of the corner.
       const side = (meters: number) => (meters >= 0 ? 'left' : 'right');
-      // 0.37 -> "1.2 ft left", -0.37 -> "1.2 ft right", under 0.05 -> "on the Base line"
+      // 0.62 -> "2 ft left", -0.62 -> "2 ft right", rounding to 0 -> "on the Base line"
       const offset = (meters: number) =>
-        Math.abs(distanceFromMeters(meters, units)) < 0.05 ? 'on the Base line' : `${distance(meters)} ${side(meters)}`;
+        Number.parseFloat(distance(meters)) === 0 ? 'on the Base line' : `${distance(meters)} ${side(meters)}`;
       const time = `${line.secondsDiff >= 0 ? '+' : '-'}${Math.abs(line.secondsDiff).toFixed(3)}s`;
       const where = `${partOfArea(line.maxOffsetAtPct)} (${line.maxOffsetAtPct}% through the area)`;
 
@@ -114,14 +115,19 @@ const lapSummaryPrompt = (track: string, units: Units) =>
   'data, and give concrete advice based on the brakepoint, brake pressure, min speed, exit speed and driving line ' +
   'differences. Briefly note where the Compare lap was already stronger. After the focus areas comes a "Braking ' +
   'advice" line for each area, worked out from the data: any braking advice you give for an area must use exactly ' +
-  'that direction (later or earlier, more or less pressure) and never the opposite. A Compare lap that braked ' +
+  'that direction (later or earlier, more or less pressure) and number, and never the opposite. A Compare lap that braked ' +
   'lighter must never be told to reduce brake pressure, and one that braked earlier must never be told to brake ' +
   'earlier. Any driving line advice must follow the line verdict from analyze_driving_line exactly (which way, ' +
   `how many ${DISTANCE_NAME[units]} and where in the area), and never be given where the verdict says not to. Say ` +
   'which way to move the car as left or right, never inside or outside. Both ' +
   'laps were driven in the same conditions, which may be wet, so do not assume a dry track; when the advice is ' +
   'more pressure, say to build it progressively to avoid locking up. Write plain prose in a single paragraph with ' +
-  'no headings, lists, or markdown, and do not invent data that is not in the comparison or the tool results.';
+  'no headings, lists, or markdown, and do not invent data that is not in the comparison or the tool results.' +
+  (units === 'metric'
+    ? ''
+    : ' Round every brakepoint change to the nearest 5 feet, so it ends in 5 or 0 (22 feet earlier is "20 feet ' +
+      'earlier", 48 feet later is "50 feet later"), and give driving line distances in whole feet with no decimals ' +
+      '(not "2.1 ft to the left" but "2 ft to the left").');
 
 // Coaching summary of a Lap Compare result, written for the Compare lap. lines are the focus areas' driving
 // lines for the analyze_driving_line tool, and areaNames every focus area in the comparison.
@@ -154,12 +160,12 @@ const MULTI_LAP_PROMPT_TEMPLATE = ChatPromptTemplate.fromMessages([
       '{track} by the same driver. It lists the lap times, then each focus area with the best, average ' +
       'and worst time through the area, the average time lost to the best, and the standard deviation ' +
       'of the time; plus the average and standard deviation of the brakepoint ({distanceName} from the start/finish ' +
-      'line, with the target when there is one; more {distanceName} than the target means braking later than the ' +
-      'target), the peak brake pressure (with the target when there is ' +
+      'line, with the driver\'s Target Lap\'s brakepoint when there is one; more {distanceName} than the Target Lap ' +
+      'means braking later than it), the peak brake pressure (with the Target Lap\'s when there is ' +
       'one), the minimum speed and the exit speed ({speedUnit}). Focus areas are listed from most to least ' +
       'average time lost. Write an analysis in two short paragraphs of plain prose, 8 to 10 sentences in ' +
       'total. The first paragraph covers the biggest opportunities: which focus areas cost the most time ' +
-      'on average and what to change there, comparing against the targets where given. The second ' +
+      'on average and what to change there, comparing against the Target Lap where given. The second ' +
       'covers consistency: which focus areas have the largest variation from lap to lap (time, ' +
       'brakepoint, brake pressure or speeds), what that variation suggests the driver is doing, and ' +
       'where the driver is already consistent. Use the numbers from the data, write to the driver as ' +

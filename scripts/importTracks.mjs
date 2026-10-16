@@ -32,7 +32,6 @@ function readTrackConfig(path) {
 }
 
 const text = (value) => (typeof value === 'string' && value.trim() !== '' ? value.trim() : null);
-const target = (value) => (typeof value === 'number' && value > 0 ? Math.round(value) : null);
 
 function toRows(config) {
   return Object.entries(config).map(([key, track]) => {
@@ -46,10 +45,9 @@ function toRows(config) {
         name: text(area.name) ?? `Area ${i + 1}`,
         start: area.start,
         end: area.end,
+        // The file's BrakepointTarget, MaxBrakeTarget and ThrottlePickupTarget aren't imported: targets come only
+        // from each driver's Target Lap
         notes: text(area.Notes),
-        brakeFeet: target(area.BrakepointTarget),
-        maxBrakePct: target(area.MaxBrakeTarget),
-        throttleFeet: target(area.ThrottlePickupTarget),
       })),
     };
   });
@@ -76,9 +74,9 @@ try {
     for (const area of track.areas) {
       await client.query(
         `INSERT INTO racingcoach."TrackFocusAreas"
-           (track_id, position, name, start_point, end_point, notes, brake_point_feet, max_brake_pct, throttle_point_feet)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-        [trackId, area.position, area.name, area.start, area.end, area.notes, area.brakeFeet, area.maxBrakePct, area.throttleFeet]
+           (track_id, position, name, start_point, end_point, notes)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [trackId, area.position, area.name, area.start, area.end, area.notes]
       );
     }
     console.log(`${track.name}: ${track.areas.length} focus areas`);

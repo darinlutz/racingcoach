@@ -112,11 +112,13 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
 
     /// <summary>The Track Data track for an iRacing track name, as the JSON TelemetryEngine.js reads from
     /// its TrackConfig (TrackFileName, TrackLengthInFeet, Notes and areas), or null if they have no such track;
-    /// and whether their Preferred Units on the Account page are Metric (meters, kph) rather than Standard
-    /// (feet, mph; also for a site from before there were units).
+    /// whether their Preferred Units on the Account page are Metric (meters, kph) rather than Standard
+    /// (feet, mph; also for a site from before there were units); and where the areas' targets came from: "set"
+    /// (the user's Target Lap), "none" (they have no Target Lap, so there are none), "otherTrack" (their Target Lap
+    /// is of another track, so there are none), or null (no such track, or a site from before it was sent).
     /// Throws UnauthorizedAccessException if the key isn't accepted, and HttpRequestException or
     /// TaskCanceledException if the site can't be reached.</summary>
-    public async Task<(string? Json, bool Metric)> GetTrackJsonAsync(string trackName, CancellationToken ct)
+    public async Task<(string? Json, bool Metric, string? TargetLap)> GetTrackJsonAsync(string trackName, CancellationToken ct)
     {
         using var response = await _http.GetAsync($"api/collector/track?name={Uri.EscapeDataString(trackName)}{TrackKeys.Param(trackName)}", ct);
         if (response.StatusCode == HttpStatusCode.Unauthorized)
@@ -128,15 +130,18 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
             : null;
         var metric = body.RootElement.TryGetProperty("units", out var units) && units.ValueKind == JsonValueKind.String
             && units.GetString() == "metric";
-        return (json, metric);
+        var targetLap = body.RootElement.TryGetProperty("targetLap", out var target) && target.ValueKind == JsonValueKind.String
+            ? target.GetString()
+            : null;
+        return (json, metric, targetLap);
     }
 
     /// <summary>For BrakeBeeps: whether "Beeps before braking" is on (the window's checkbox, saved to the account), its volume (10-100%
     /// of full volume; null from a site without the setting), the Track Data
     /// track's length in feet (0 when it isn't set, or there's no such track), the user's Target Lap (null when
-    /// they have none) and where it first brakes in each of the track's focus areas, as fractions of a lap, or
-    /// without a Target Lap, the areas' Track Data target brakepoints in feet (empty when beeps are off, or the
-    /// Target Lap is from another track). Throws like GetTrackJsonAsync, and
+    /// they have none) and where it first brakes in each of the track's focus areas, as fractions of a lap (empty
+    /// when beeps are off, there's no Target Lap, or it's from another track; older sites sent the areas' Track
+    /// Data target brakepoints in feet without a Target Lap). Throws like GetTrackJsonAsync, and
     /// HttpRequestException for a server error.</summary>
     public async Task<BrakeTargets> GetBrakeTargetsAsync(string trackName, CancellationToken ct)
     {

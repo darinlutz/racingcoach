@@ -7,16 +7,17 @@ import { DEFAULT_BRAKE_BEEPS_VOLUME, isBrakeBeepsVolume } from '@/lib/brakeBeeps
 import { getUserById, setBrakeBeeps, setBrakeBeepsVolume } from '@/lib/users';
 
 // The telemetry collector's "Play beeps before braking" (BrakeBeeps.cs): where the user's Target Lap first brakes
-// in each focus area of the track being driven, or without a Target Lap, the focus areas' target brakepoints from
-// Track Data. Authenticated with the upload key as a bearer token, like /api/collector/track.
+// in each focus area of the track being driven. Never Track Data's target brakepoints: without a Target Lap there are
+// no beeps. Authenticated with the upload key as a bearer token, like /api/collector/track.
 //   ?track=  iRacing's track name as the collector writes it, e.g. "Road Atlanta (Full Course)"
 // Answers enabled ("Beeps before braking" in the collector's window), volume (its slider, 10-100% of full
 // volume), trackLengthFeet (iRacing's length of the track, sent with collector laps of it, 0 when there are none
 // or there's no such track), targetLap (its file name, the track that names, or null when the user has none),
 // sameTrack (false when the Target Lap's file name names another track; null when it doesn't say) and
-// brakepoints, per focus area in Track Data order: with a Target Lap, where its first braking zone in the area
-// starts as pct, a fraction of a lap (areas it doesn't brake in left out); without one, the area's target
-// brakepoint from Track Data as feet from the start/finish line (areas without one left out). Brakepoints are empty when beeps are off, there's no such track, or the Target Lap is from another track.
+// brakepoints, per focus area in Track Data order: where the Target Lap's first braking zone in the area starts as
+// pct, a fraction of a lap (areas it doesn't brake in left out). (Older sites sent Track Data's targets as feet
+// without a Target Lap; BrakeBeeps.cs still reads those.) Brakepoints are empty when beeps are off, there's no such
+// track, no Target Lap, or the Target Lap is from another track.
 export async function GET(request: Request) {
   try {
     const userId = await authenticateCollector(request);
@@ -35,14 +36,8 @@ export async function GET(request: Request) {
     const lapTrack = lap ? targetLapTrackName(lap.fileName) : null;
     const sameTrack = lapTrack ? namesSameTrack(lapTrack, trackName, track) : null;
 
-    const brakepoints: { area: string; pct?: number; feet?: number }[] = [];
-    if (track && user.brakeBeeps && !lap) {
-      // No Target Lap: Track Data's targets, which the collector turns into lap fractions with the track's length
-      // (iRacing's when Track Data has none)
-      for (const area of [...track.areas].sort((a, b) => a.position - b.position)) {
-        if (area.brakePointFeet) brakepoints.push({ area: area.name, feet: area.brakePointFeet });
-      }
-    } else if (track && lap && sameTrack !== false) {
+    const brakepoints: { area: string; pct: number }[] = [];
+    if (track && lap && sameTrack !== false) {
       const samples = lapSamplesFromText(lap.csv);
       for (const area of [...track.areas].sort((a, b) => a.position - b.position)) {
         // brakePct is where Brake first goes over 0% inside the area: its first braking zone. Unwrapped, so back

@@ -18,6 +18,8 @@ internal sealed class OverlayFeed
     private bool _loading;
     // Why the focus areas aren't showing: a Loc key, and what fills its {0}
     private (string Key, string? Arg)? _loadProblem;
+    // Why the focus areas have no targets (no Target Lap, or one of another track): a Loc key, or null
+    private string? _targetProblem;
     private DateTime _retryAt;
 
     public OverlayFeed(CollectorEngine engine, OverlayEngine overlay)
@@ -51,12 +53,21 @@ internal sealed class OverlayFeed
         return Overlay.Snapshot();
     }
 
-    /// <summary>Why the focus areas aren't showing (or that they're loading), or null when they are.</summary>
+    /// <summary>Loads the track's focus areas and targets again now, e.g. after picking a Target Lap on the site.</summary>
+    public void Reload()
+    {
+        if (!_loading)
+            _loadedTrack = null;
+    }
+
+    /// <summary>Why the focus areas aren't showing (or that they're loading), why they have no targets (no Target
+    /// Lap to take them from), or null when they're showing with their targets.</summary>
     public string? Status(string language, OverlaySnapshot snapshot) =>
         snapshot.Error is not null ? $"TelemetryEngine.js: {snapshot.Error}"
         : Track is null ? null
         : _loadProblem is { } problem ? Loc.T(language, problem.Key, problem.Arg)
-        : _loading && snapshot.Track is null ? Loc.T(language, "overlay.loading") : null;
+        : _loading && snapshot.Track is null ? Loc.T(language, "overlay.loading")
+        : _targetProblem is { } target ? Loc.T(language, target) : null;
 
     private async Task LoadTrackAsync(string track, RacingCoachApi? api)
     {
@@ -72,9 +83,14 @@ internal sealed class OverlayFeed
                 _retryAt = DateTime.MaxValue; // loads again once a key is entered (the connection changes)
                 return;
             }
-            var (json, metric) = await api.GetTrackJsonAsync(track, CancellationToken.None);
+            var (json, metric, targetLap) = await api.GetTrackJsonAsync(track, CancellationToken.None);
             Overlay.SetTrack(track, json, metric);
             _loadProblem = json is null ? ("overlay.noTrack", track) : null;
+            // The targets only ever come from the Target Lap
+            _targetProblem = json is null ? null
+                : targetLap == "none" ? "overlay.noTargetLap"
+                : targetLap == "otherTrack" ? "overlay.targetLapOtherTrack"
+                : null;
             // Checked again now and then, so a track added on the site shows up without reopening the overlay
             _retryAt = DateTime.UtcNow + RetryAfter;
             if (json is not null)

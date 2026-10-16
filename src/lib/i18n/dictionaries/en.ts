@@ -708,9 +708,6 @@ export const en = {
     none: 'No tracks yet.',
     lengthLabel: 'Length ({unit})',
     startEnd: 'Start – End',
-    brakePoint: 'Brake Point',
-    maxBrake: 'Max Brake',
-    onThrottle: 'On Throttle',
   },
 
   cars: {
@@ -759,6 +756,27 @@ export const en = {
     calibrationVersion: 'Calibration',
     validSpeeds: 'Valid Speeds ({unit})',
     calibrationSource: 'Source',
+    // The "How is this used?" modal (src/components/CalibrationHelpButton.tsx)
+    calibrationHelpButton: 'How is this used?',
+    calibrationHelpTitle: 'Why cars need to be calibrated',
+    calibrationHelpIntro:
+      'The Rotation Model tells you when you’re understeering or oversteering, from your telemetry alone. Before it can do that in a car, the car has to be calibrated.',
+    calibrationHelpPoints: [
+      {
+        title: 'Every car rotates differently',
+        text: 'The model compares how much the car is actually turning with how much it should turn for your speed and steering. What “should” looks like is different for each car.',
+      },
+      {
+        title: 'Calibration measures that car',
+        text: 'A calibration is worked out from clean laps in that car. Valid Speeds is the speed range it covers.',
+      },
+      {
+        title: 'Then the Coach can use it',
+        text: 'Once a car is calibrated, the Coach can point out where you understeer or oversteer, and the collector’s overlay and Rotation window show it live.',
+      },
+    ],
+    calibrationHelpUncalibrated: 'Cars that aren’t in this list get no understeer or oversteer information.',
+    calibrationHelpClose: 'Got it',
   },
 
   friends: {
@@ -913,7 +931,7 @@ export const en = {
   // The Installing RacingCoach page (src/app/installing/page.tsx)
   installing: {
     pageTitle: 'Installing RacingCoach',
-    intro: 'Three steps and you’re recording every lap you drive in iRacing.',
+    intro: 'Five steps and you’re recording every lap you drive in iRacing.',
     step: 'Step',
     downloadTitle: 'Download the RacingCoach Collector',
     downloadText: 'The collector is a small Windows app that reads your telemetry from iRacing, saves each lap and sends it to your RacingCoach account.',
@@ -934,6 +952,17 @@ export const en = {
     ],
     keyButton: 'Open My Settings',
     keyLost: 'Lost your key? Click Replace Key on the same card and paste the new one into the collector.',
+    telemetryTitle: 'Make sure iRacing Telemetry is enabled',
+    telemetryText: 'You should see this image to confirm this:',
+    telemetryAlt: 'iRacing’s Telemetry indicator: a red broadcast icon next to the word Telemetry',
+    targetTitle: 'Setting Target Lap',
+    targetText: 'Your Target Lap is the lap you’re chasing. The collector uses it to show you where to brake and shift, and to beep before each braking point. Set it in Debrief Coach on the Coaching & Analysis page, in either of two ways:',
+    targetWays: [
+      'One of your own laps: in Your recorded laps, pick the lap in the Target column, then click Set Target.',
+      'The optimal lap: run a debrief, and under Theoretical best lap (your fastest run through every part of the track, joined into one lap) click Set as Target.',
+    ],
+    targetButton: 'Open Debrief Coach',
+    targetOverlay: 'Then click the collector’s Target Telemetry button to open the overlay. iRacing must be in Windows borderless mode for the overlay to show on top of it.',
     supportTitle: 'Questions or issues? Contact Support',
     supportText: 'If something doesn’t work or you’re not sure what to do next, send us a message and we’ll get back to you by email.',
     supportButton: 'Contact Support',
@@ -1046,11 +1075,8 @@ export const en = {
     areaName: 'Name',
     areaStart: 'Start (0-1)',
     areaEnd: 'End (0-1)',
-    areaBrakePoint: 'Brake point ({unit})',
-    areaMaxBrake: 'Max brake %',
-    areaThrottlePoint: 'Throttle point ({unit})',
     areaNotes: 'Notes',
-    areaPointsHint: 'Start and end are fractions of the lap from the start/finish line (LapDistPct). Brake and throttle points are distances from the start/finish line; leave targets empty when not set. Focus areas are numbered in order of their start.',
+    areaPointsHint: 'Start and end are fractions of the lap from the start/finish line (LapDistPct). Focus areas are numbered in order of their start. Brakepoint, brake pressure and throttle targets aren\'t set here: they come from each driver\'s Target Lap.',
     saveArea: 'Save',
     savingArea: 'Saving…',
     areaSaved: 'Focus area {area} saved.',

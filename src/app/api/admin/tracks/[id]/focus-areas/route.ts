@@ -5,7 +5,8 @@ import { getCurrentUser } from '@/lib/session';
 import { addFocusArea, maintenanceErrorReply, parseFocusAreaInput, TrackMaintenanceError } from '@/lib/trackMaintenance';
 
 // The Admin page's Track and Focus Area Maintenance section: adds a focus area to a track.
-// Body: { name, startPoint, endPoint (fractions of a lap), notes, brakePointFeet, maxBrakePct, throttlePointFeet }.
+// Body: { name, startPoint, endPoint (fractions of a lap), notes }. No brake or throttle targets: those come from
+// each driver's Target Lap.
 // Answers { areas }, the track's focus areas renumbered by start point.
 // Admin role only; anyone else gets a 404, like the Admin page.
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {

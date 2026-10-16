@@ -697,9 +697,6 @@ export const es: Dictionary = {
     none: 'Todavía no hay pistas.',
     lengthLabel: 'Longitud ({unit})',
     startEnd: 'Inicio – Fin',
-    brakePoint: 'Punto de frenado',
-    maxBrake: 'Freno máx.',
-    onThrottle: 'Aceleración',
   },
 
   cars: {
@@ -748,6 +745,26 @@ export const es: Dictionary = {
     calibrationVersion: 'Calibración',
     validSpeeds: 'Velocidades válidas ({unit})',
     calibrationSource: 'Origen',
+    calibrationHelpButton: '¿Para qué se usa?',
+    calibrationHelpTitle: 'Por qué hay que calibrar los autos',
+    calibrationHelpIntro:
+      'El Modelo de Rotación te dice cuándo estás subvirando o sobrevirando, solo a partir de tu telemetría. Para hacerlo en un auto, primero hay que calibrar ese auto.',
+    calibrationHelpPoints: [
+      {
+        title: 'Cada auto gira de forma distinta',
+        text: 'El modelo compara cuánto gira realmente el auto con cuánto debería girar para tu velocidad y tu ángulo de volante. Lo que “debería” es distinto en cada auto.',
+      },
+      {
+        title: 'La calibración mide ese auto',
+        text: 'Una calibración se obtiene de vueltas limpias con ese auto. Velocidades válidas es el rango de velocidades que cubre.',
+      },
+      {
+        title: 'Luego el Coach puede usarla',
+        text: 'Cuando un auto está calibrado, el Coach puede señalarte dónde subviras o sobreviras, y el overlay y la ventana Rotation del collector lo muestran en vivo.',
+      },
+    ],
+    calibrationHelpUncalibrated: 'Los autos que no están en esta lista no reciben información de subviraje ni sobreviraje.',
+    calibrationHelpClose: 'Entendido',
   },
 
   friends: {
@@ -900,7 +917,7 @@ export const es: Dictionary = {
 
   installing: {
     pageTitle: 'Instalar RacingCoach',
-    intro: 'Tres pasos y estarás grabando cada vuelta que manejes en iRacing.',
+    intro: 'Cinco pasos y estarás grabando cada vuelta que manejes en iRacing.',
     step: 'Paso',
     downloadTitle: 'Descarga RacingCoach Collector',
     downloadText: 'El collector es una pequeña aplicación de Windows que lee tu telemetría de iRacing, guarda cada vuelta y la envía a tu cuenta de RacingCoach.',
@@ -921,6 +938,17 @@ export const es: Dictionary = {
     ],
     keyButton: 'Abrir Mi configuración',
     keyLost: '¿Perdiste tu clave? Haz clic en Reemplazar clave en la misma tarjeta y pega la nueva en el collector.',
+    telemetryTitle: 'Asegúrate de que la Telemetría de iRacing esté activada',
+    telemetryText: 'Deberías ver esta imagen para confirmarlo:',
+    telemetryAlt: 'El indicador de Telemetría de iRacing: un ícono rojo de transmisión junto a la palabra Telemetry',
+    targetTitle: 'Definir la Vuelta Objetivo',
+    targetText: 'Tu Vuelta Objetivo es la vuelta que persigues. El collector la usa para mostrarte dónde frenar y cambiar de marcha, y para pitar antes de cada punto de frenada. Defínela en Debrief Coach, en la página Coaching y análisis, de una de estas dos formas:',
+    targetWays: [
+      'Una de tus propias vueltas: en tus vueltas grabadas, elige la vuelta en la columna Objetivo y haz clic en Definir objetivo.',
+      'La vuelta óptima: haz un debrief y, debajo de Vuelta teórica ideal (tu paso más rápido por cada parte de la pista, unido en una sola vuelta), haz clic en Definir como objetivo.',
+    ],
+    targetButton: 'Abrir Debrief Coach',
+    targetOverlay: 'Luego haz clic en el botón Target Telemetry del collector para abrir el overlay. iRacing debe estar en modo Windows borderless (ventana sin bordes) para que el overlay se vea encima.',
     supportTitle: '¿Preguntas o problemas? Contacta a Soporte',
     supportText: 'Si algo no funciona o no sabes qué hacer después, envíanos un mensaje y te responderemos por correo electrónico.',
     supportButton: 'Contactar a Soporte',
@@ -1030,11 +1058,8 @@ export const es: Dictionary = {
     areaName: 'Nombre',
     areaStart: 'Inicio (0-1)',
     areaEnd: 'Fin (0-1)',
-    areaBrakePoint: 'Punto de frenada ({unit})',
-    areaMaxBrake: 'Frenada máx. %',
-    areaThrottlePoint: 'Punto de aceleración ({unit})',
     areaNotes: 'Notas',
-    areaPointsHint: 'El inicio y el fin son fracciones de la vuelta desde la línea de salida/meta (LapDistPct). Los puntos de frenada y aceleración son distancias desde la línea de salida/meta; deja vacíos los objetivos no definidos. Las áreas de enfoque se numeran según su inicio.',
+    areaPointsHint: 'El inicio y el fin son fracciones de la vuelta desde la línea de salida/meta (LapDistPct). Las áreas de enfoque se numeran según su inicio. Los objetivos de frenada, presión de freno y aceleración no se definen aquí: salen de la Vuelta Objetivo de cada piloto.',
     saveArea: 'Guardar',
     savingArea: 'Guardando…',
     areaSaved: 'Área de enfoque {area} guardada.',

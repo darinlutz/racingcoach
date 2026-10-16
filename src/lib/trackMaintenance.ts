@@ -14,9 +14,6 @@ export type MaintenanceFocusArea = {
   startPoint: number;
   endPoint: number;
   notes: string | null;
-  brakePointFeet: number | null;
-  maxBrakePct: number | null;
-  throttlePointFeet: number | null;
 };
 
 export type MaintenanceTrack = {
@@ -27,15 +24,13 @@ export type MaintenanceTrack = {
   areas: MaintenanceFocusArea[];
 };
 
-// What the admin types for a focus area. Brake and throttle points are in feet, as stored.
+// What the admin types for a focus area. It has no brake or throttle targets: those come only from each
+// driver's Target Lap (targetLapTargets.ts).
 export type FocusAreaInput = {
   name: string;
   startPoint: number;
   endPoint: number;
   notes: string | null;
-  brakePointFeet: number | null;
-  maxBrakePct: number | null;
-  throttlePointFeet: number | null;
 };
 
 export type TrackInput = { key: string; name: string; numberOfCorners: number | null };
@@ -53,8 +48,7 @@ export async function listTracksForMaintenance(): Promise<MaintenanceTrack[]> {
   const [tracks, areas] = await Promise.all([
     query(`SELECT id, track_key, track_name, number_of_corners FROM racingcoach."Tracks" ORDER BY lower(track_name)`),
     query(
-      `SELECT id, track_id, position, name, start_point, end_point, notes,
-              brake_point_feet, max_brake_pct, throttle_point_feet
+      `SELECT id, track_id, position, name, start_point, end_point, notes
        FROM racingcoach."TrackFocusAreas" ORDER BY track_id, position`
     ),
   ]);
@@ -132,7 +126,7 @@ async function lockAreas(client: PoolClient, trackId: number): Promise<Maintenan
   const track = await client.query('SELECT id FROM racingcoach."Tracks" WHERE id = $1 FOR UPDATE', [trackId]);
   if (track.rowCount === 0) throw new TrackMaintenanceError('track-not-found');
   const { rows } = await client.query(
-    `SELECT id, position, name, start_point, end_point, notes, brake_point_feet, max_brake_pct, throttle_point_feet
+    `SELECT id, position, name, start_point, end_point, notes
      FROM racingcoach."TrackFocusAreas" WHERE track_id = $1 ORDER BY position`,
     [trackId]
   );
@@ -148,10 +142,10 @@ async function rewriteAreas(client: PoolClient, trackId: number, areas: Maintena
   for (const [i, a] of sorted.entries()) {
     const { rows } = await client.query(
       `INSERT INTO racingcoach."TrackFocusAreas"
-         (id, track_id, position, name, start_point, end_point, notes, brake_point_feet, max_brake_pct, throttle_point_feet)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-       RETURNING id, position, name, start_point, end_point, notes, brake_point_feet, max_brake_pct, throttle_point_feet`,
-      [a.id, trackId, i + 1, a.name, a.startPoint, a.endPoint, a.notes, a.brakePointFeet, a.maxBrakePct, a.throttlePointFeet]
+         (id, track_id, position, name, start_point, end_point, notes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING id, position, name, start_point, end_point, notes`,
+      [a.id, trackId, i + 1, a.name, a.startPoint, a.endPoint, a.notes]
     );
     result.push(toArea(rows[0]));
   }
@@ -167,13 +161,10 @@ function toArea(a: Record<string, unknown>): MaintenanceFocusArea {
     startPoint: a.start_point as number,
     endPoint: a.end_point as number,
     notes: a.notes as string | null,
-    brakePointFeet: a.brake_point_feet as number | null,
-    maxBrakePct: a.max_brake_pct as number | null,
-    throttlePointFeet: a.throttle_point_feet as number | null,
   };
 }
 
-// Checks a request body's focus area, or null when it isn't valid. Brake and throttle points are feet.
+// Checks a request body's focus area, or null when it isn't valid
 export function parseFocusAreaInput(body: unknown): FocusAreaInput | null {
   const b = (body ?? {}) as Record<string, unknown>;
   const name = typeof b.name === 'string' ? b.name.trim() : '';
@@ -182,17 +173,8 @@ export function parseFocusAreaInput(body: unknown): FocusAreaInput | null {
   if (!name || name.length > 100) return null;
   if (!Number.isFinite(startPoint) || !Number.isFinite(endPoint)) return null;
   if (startPoint < 0 || endPoint > 1 || startPoint >= endPoint) return null;
-  const optionalInt = (value: unknown, max: number): number | null | undefined => {
-    if (value === null || value === undefined || value === '') return null;
-    const n = Math.round(Number(value));
-    return Number.isFinite(n) && n >= 0 && n <= max ? n : undefined;
-  };
-  const brakePointFeet = optionalInt(b.brakePointFeet, 1_000_000);
-  const maxBrakePct = optionalInt(b.maxBrakePct, 100);
-  const throttlePointFeet = optionalInt(b.throttlePointFeet, 1_000_000);
-  if (brakePointFeet === undefined || maxBrakePct === undefined || throttlePointFeet === undefined) return null;
   const notes = typeof b.notes === 'string' && b.notes.trim() ? b.notes.trim().slice(0, 2000) : null;
-  return { name, startPoint, endPoint, notes, brakePointFeet, maxBrakePct, throttlePointFeet };
+  return { name, startPoint, endPoint, notes };
 }
 
 export function parseTrackInput(body: unknown): TrackInput | null {

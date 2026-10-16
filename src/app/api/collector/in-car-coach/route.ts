@@ -8,6 +8,8 @@ import { measureDebriefSession } from '@/lib/debriefSession';
 import { DEFAULT_LANGUAGE, LANGUAGE_LOCALES } from '@/lib/i18n/languages';
 import { inCarCoachCallouts, inCarCoachPlan } from '@/lib/inCarCoach';
 import { lapSamplesFromText } from '@/lib/lapData';
+import { readTargetLap } from '@/lib/targetLap';
+import { targetLapIsOf, withTargetLap } from '@/lib/targetLapTargets';
 import { findTrackByKey, readTracks, toLapTrack } from '@/lib/tracks';
 import { DEFAULT_UNITS } from '@/lib/units';
 import { getInCarCoachInstructions, getUserById } from '@/lib/users';
@@ -90,9 +92,11 @@ export async function POST(request: Request) {
     const trackName = all[all.length - 1].track;
     const laps = all.filter((lap) => lap.track === trackName).map((lap) => ({ ...lap, id: lap.clientLapId.slice(-4) }));
     const userTrack = findTrackByKey(await readTracks(), all[all.length - 1].trackKey);
+    // The areas' targets come only from the Target Lap (targetLapTargets.ts)
+    const targetLap = userTrack ? await readTargetLap(user.userId) : null;
     const session = userTrack
       ? measureDebriefSession(
-          toLapTrack(userTrack),
+          withTargetLap(toLapTrack(userTrack), targetLap && targetLapIsOf(targetLap, [trackName, userTrack.name], true) ? targetLap : null),
           laps[0].car,
           laps.map((lap) => ({ id: lap.id, lapSeconds: lap.lapTimeSeconds, samples: lapSamplesFromText(lap.csv) }))
         )

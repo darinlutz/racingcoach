@@ -114,9 +114,6 @@ export default function TrackManagement() {
                               <th className="px-3 py-2 font-medium">#</th>
                               <th className="px-3 py-2 font-medium">{t.name}</th>
                               <th className="px-3 py-2 font-medium text-right">{t.startEnd}</th>
-                              <th className="px-3 py-2 font-medium text-right">{t.brakePoint}</th>
-                              <th className="px-3 py-2 font-medium text-right">{t.maxBrake}</th>
-                              <th className="px-3 py-2 font-medium text-right">{t.onThrottle}</th>
                               <th className="px-3 py-2 font-medium">{t.notes}</th>
                             </tr>
                           </thead>
@@ -128,9 +125,6 @@ export default function TrackManagement() {
                                 <td className="px-3 py-1.5 text-right">
                                   {a.startPoint} – {a.endPoint}
                                 </td>
-                                <td className="px-3 py-1.5 text-right">{target(distance(a.brakePointFeet), ` ${unit}`, locale)}</td>
-                                <td className="px-3 py-1.5 text-right">{target(a.maxBrakePct, '%', locale)}</td>
-                                <td className="px-3 py-1.5 text-right">{target(distance(a.throttlePointFeet), ` ${unit}`, locale)}</td>
                                 <td className="px-3 py-1.5 text-muted-foreground">{a.notes ?? ''}</td>
                               </tr>
                             ))}

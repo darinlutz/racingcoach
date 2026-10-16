@@ -47,7 +47,6 @@ public partial class OverlayAreaRow : UserControl
             var cell = new TextBox
             {
                 Style = box,
-                TextAlignment = c == 0 ? TextAlignment.Left : TextAlignment.Right,
                 Margin = new Thickness(0, 0, c == Columns.Length - 1 ? 0 : 4, 0),
                 Visibility = Visibility.Collapsed,
                 BorderBrush = UpcomingBorder,

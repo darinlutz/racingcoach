@@ -25,9 +25,10 @@ function Step({ number, label, title, children }: { number: number; label: strin
   );
 }
 
-// The Installing RacingCoach page (the nav bar's Installing RacingCoach link): how to get started, in three
+// The Installing RacingCoach page (the nav bar's Installing RacingCoach link): how to get started, in five
 // steps: download the collector, copy the upload key into it (from My Settings' Telemetry Collector card),
-// and contact Support with questions
+// check that iRacing's Telemetry indicator is showing, set a Target Lap (one of their own laps or the theoretical best lap, in Debrief Coach) for the collector's
+// Target Telemetry window, and contact Support with questions
 export default async function InstallingPage() {
   const t = getDictionary(await getLanguage()).installing;
   const text = 'text-sm sm:text-base leading-relaxed text-muted-foreground';
@@ -59,7 +60,28 @@ export default async function InstallingPage() {
           <p className={text}>{t.keyLost}</p>
         </Step>
 
-        <Step number={3} label={t.step} title={t.supportTitle}>
+        <Step number={3} label={t.step} title={t.telemetryTitle}>
+          <p className={text}>{t.telemetryText}</p>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/assets/png/iracing-telemetry-enabled.png"
+            alt={t.telemetryAlt}
+            width={808}
+            height={210}
+            className="w-full max-w-xs h-auto rounded-lg"
+          />
+        </Step>
+
+        <Step number={4} label={t.step} title={t.targetTitle}>
+          <p className={text}>{t.targetText}</p>
+          <ul className={`${text} list-disc pl-5 space-y-1`}>
+            {t.targetWays.map((way) => <li key={way}>{way}</li>)}
+          </ul>
+          <Link href="/racing" className={outlineButton}>{t.targetButton}</Link>
+          <p className={text}>{t.targetOverlay}</p>
+        </Step>
+
+        <Step number={5} label={t.step} title={t.supportTitle}>
           <p className={text}>{t.supportText}</p>
           <Link href="/support" className={outlineButton}>{t.supportButton}</Link>
         </Step>

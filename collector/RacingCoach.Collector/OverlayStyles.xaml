@@ -23,6 +23,7 @@
         <Setter Property="FontSize" Value="15" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="TextWrapping" Value="NoWrap" />
+        <Setter Property="TextAlignment" Value="Center" />
     </Style>
     <!-- Max Brake and Min Speed: about twice the size of the focus area boxes, the most that fits a
          speed like 123.4 in their 100 px width -->
@@ -30,6 +31,5 @@
         <Setter Property="FontSize" Value="32" />
         <Setter Property="FontWeight" Value="Bold" />
         <Setter Property="Padding" Value="6,0" />
-        <Setter Property="TextAlignment" Value="Center" />
     </Style>
 </ResourceDictionary>

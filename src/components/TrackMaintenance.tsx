@@ -2,14 +2,12 @@
 
 import { Fragment, useMemo, useState } from 'react';
 import { useLanguage } from '@/components/LanguageProvider';
-import { useUnits } from '@/components/UnitsProvider';
 import type { MaintenanceFocusArea, MaintenanceTrack } from '@/lib/trackMaintenance';
-import { distanceFromFeet, DISTANCE_UNIT, feetFromDistance } from '@/lib/units';
 
 // The Admin page's Track and Focus Area Maintenance section: every track in racingcoach."Tracks" with its
 // key, name and number of corners, adding tracks (POST /api/admin/tracks), and each track's focus areas, which
-// can be added, edited and deleted (/api/admin/tracks/[id]/focus-areas). Brake and throttle points are stored
-// in feet and shown and typed in the user's Preferred Units.
+// can be added, edited and deleted (/api/admin/tracks/[id]/focus-areas). Focus areas have no brake or throttle
+// targets: those come from each driver's Target Lap (targetLapTargets.ts).
 
 const inputClass =
   'w-full px-3 py-2 bg-card border border-border rounded-lg text-foreground text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors';
@@ -26,19 +24,14 @@ type AreaForm = {
   name: string;
   startPoint: string;
   endPoint: string;
-  brakePoint: string;
-  maxBrakePct: string;
-  throttlePoint: string;
   notes: string;
 };
 
-const emptyAreaForm: AreaForm = { name: '', startPoint: '', endPoint: '', brakePoint: '', maxBrakePct: '', throttlePoint: '', notes: '' };
+const emptyAreaForm: AreaForm = { name: '', startPoint: '', endPoint: '', notes: '' };
 
 export default function TrackMaintenance({ tracks: initialTracks }: { tracks: MaintenanceTrack[] }) {
   const { t, fmt } = useLanguage();
   const a = t.admin;
-  const units = useUnits();
-  const unit = DISTANCE_UNIT[units];
   const [tracks, setTracks] = useState(initialTracks);
   const [search, setSearch] = useState('');
   const [onlyWithAreas, setOnlyWithAreas] = useState(true);
@@ -64,9 +57,6 @@ export default function TrackMaintenance({ tracks: initialTracks }: { tracks: Ma
         (!needle || track.name.toLowerCase().includes(needle) || track.key.toLowerCase().includes(needle))
     );
   }, [tracks, search, onlyWithAreas, openTrackId]);
-
-  const showDistance = (feet: number | null) => (feet === null ? '—' : `${Math.round(distanceFromFeet(feet, units))} ${unit}`);
-  const typedDistance = (feet: number | null) => (feet === null ? '' : String(Math.round(distanceFromFeet(feet, units))));
 
   const send = async (url: string, method: string, body?: unknown) => {
     const res = await fetch(url, {
@@ -114,9 +104,6 @@ export default function TrackMaintenance({ tracks: initialTracks }: { tracks: Ma
       name: area.name,
       startPoint: String(area.startPoint),
       endPoint: String(area.endPoint),
-      brakePoint: typedDistance(area.brakePointFeet),
-      maxBrakePct: area.maxBrakePct === null ? '' : String(area.maxBrakePct),
-      throttlePoint: typedDistance(area.throttlePointFeet),
       notes: area.notes ?? '',
     });
     setMessage(null);
@@ -127,14 +114,10 @@ export default function TrackMaintenance({ tracks: initialTracks }: { tracks: Ma
 
   const saveArea = async () => {
     if (!editing) return;
-    const feet = (value: string) => (value.trim() === '' ? null : Math.round(feetFromDistance(Number(value), units)));
     const body = {
       name: form.name,
       startPoint: Number(form.startPoint),
       endPoint: Number(form.endPoint),
-      brakePointFeet: feet(form.brakePoint),
-      maxBrakePct: form.maxBrakePct.trim() === '' ? null : Number(form.maxBrakePct),
-      throttlePointFeet: feet(form.throttlePoint),
       notes: form.notes,
     };
     setBusy(true);
@@ -192,9 +175,6 @@ export default function TrackMaintenance({ tracks: initialTracks }: { tracks: Ma
         {field('name', a.areaName, { maxLength: 100 })}
         {field('startPoint', a.areaStart, { type: 'number', step: '0.001', min: 0, max: 1 })}
         {field('endPoint', a.areaEnd, { type: 'number', step: '0.001', min: 0, max: 1 })}
-        {field('brakePoint', fmt(a.areaBrakePoint, { unit }), { type: 'number', step: '1', min: 0 })}
-        {field('maxBrakePct', a.areaMaxBrake, { type: 'number', step: '1', min: 0, max: 100 })}
-        {field('throttlePoint', fmt(a.areaThrottlePoint, { unit }), { type: 'number', step: '1', min: 0 })}
         <div className="sm:col-span-2">{field('notes', a.areaNotes, { maxLength: 2000 })}</div>
       </div>
       <p className="text-xs text-muted-foreground">{a.areaPointsHint}</p>
@@ -335,9 +315,6 @@ export default function TrackMaintenance({ tracks: initialTracks }: { tracks: Ma
                                       a.areaName,
                                       a.areaStart,
                                       a.areaEnd,
-                                      fmt(a.areaBrakePoint, { unit }),
-                                      a.areaMaxBrake,
-                                      fmt(a.areaThrottlePoint, { unit }),
                                       a.areaNotes,
                                       '',
                                     ].map((heading, i) => (
@@ -352,9 +329,6 @@ export default function TrackMaintenance({ tracks: initialTracks }: { tracks: Ma
                                       <td className="px-2 py-1.5 text-foreground">{area.name}</td>
                                       <td className="px-2 py-1.5 tabular-nums">{area.startPoint}</td>
                                       <td className="px-2 py-1.5 tabular-nums">{area.endPoint}</td>
-                                      <td className="px-2 py-1.5 tabular-nums whitespace-nowrap">{showDistance(area.brakePointFeet)}</td>
-                                      <td className="px-2 py-1.5 tabular-nums">{area.maxBrakePct === null ? '—' : `${area.maxBrakePct}%`}</td>
-                                      <td className="px-2 py-1.5 tabular-nums whitespace-nowrap">{showDistance(area.throttlePointFeet)}</td>
                                       <td className="px-2 py-1.5 max-w-[16rem] truncate text-muted-foreground" title={area.notes ?? undefined}>
                                         {area.notes ?? ''}
                                       </td>

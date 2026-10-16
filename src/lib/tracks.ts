@@ -14,9 +14,6 @@ export type FocusArea = {
   startPoint: number;
   endPoint: number;
   notes: string | null;
-  brakePointFeet: number | null;
-  maxBrakePct: number | null;
-  throttlePointFeet: number | null;
 };
 
 export type TrackData = {
@@ -38,8 +35,7 @@ export async function readTracks(): Promise<TrackData[]> {
      ORDER BY lower(t.track_name)`
   );
   const areas = await query(
-    `SELECT id, track_id, position, name, start_point, end_point, notes,
-            brake_point_feet, max_brake_pct, throttle_point_feet
+    `SELECT id, track_id, position, name, start_point, end_point, notes
      FROM racingcoach."TrackFocusAreas" ORDER BY track_id, position`
   );
   return tracks.map((t) => ({
@@ -57,9 +53,6 @@ export async function readTracks(): Promise<TrackData[]> {
         startPoint: a.start_point as number,
         endPoint: a.end_point as number,
         notes: a.notes as string | null,
-        brakePointFeet: a.brake_point_feet as number | null,
-        maxBrakePct: a.max_brake_pct as number | null,
-        throttlePointFeet: a.throttle_point_feet as number | null,
       })),
   }));
 }
@@ -80,7 +73,8 @@ export function namesSameTrack(fileTrack: string, driving: string, track: TrackD
 }
 
 // A Track Data track in the shape the lap measuring code (lapData.ts) takes. `name` is the track key and
-// `fileName` the name Garage 61 puts in its CSV file names; targets that aren't set are null.
+// `fileName` the name Garage 61 puts in its CSV file names. The targets are null: they only come from the user's
+// Target Lap, which withTargetLap (targetLapTargets.ts) adds.
 export function toLapTrack(track: TrackData): Track {
   return {
     name: track.key,
@@ -90,9 +84,9 @@ export function toLapTrack(track: TrackData): Track {
       name: area.name,
       start: area.startPoint,
       end: area.endPoint,
-      brakepointTarget: area.brakePointFeet,
-      maxBrakeTarget: area.maxBrakePct,
-      throttlePickupTarget: area.throttlePointFeet,
+      brakepointTarget: null,
+      maxBrakeTarget: null,
+      throttlePickupTarget: null,
     })),
   };
 }

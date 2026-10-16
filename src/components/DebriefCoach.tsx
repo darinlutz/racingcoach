@@ -65,7 +65,8 @@ export default function DebriefCoach({ onCompare }: { onCompare?: (base: LapFile
     if (optimal) URL.revokeObjectURL(optimal.url);
   }, [optimal]);
 
-  // Track Data, loaded on open
+  // Track Data, loaded on open and again after a new Target Lap is set (the focus areas' targets come from it)
+  const [targetLapVersion, setTargetLapVersion] = useState(0);
   useEffect(() => {
     fetch('/api/track-names')
       .then(async (res) => {
@@ -74,7 +75,7 @@ export default function DebriefCoach({ onCompare }: { onCompare?: (base: LapFile
         setTracks(data.tracks);
       })
       .catch((err: Error) => setError(err.message));
-  }, [t]);
+  }, [t, targetLapVersion]);
 
   const handleFiles = async (fileList: FileList | null | undefined) => {
     if (!fileList || fileList.length === 0) return;
@@ -177,6 +178,7 @@ export default function DebriefCoach({ onCompare }: { onCompare?: (base: LapFile
     try {
       await uploadTargetLap(optimal.file, t.api.failedSaveTargetLap);
       setTargetNotice(t.debrief.targetSaved);
+      setTargetLapVersion((v) => v + 1);
     } catch (err) {
       setTargetError(fmt(t.debrief.setTargetFailed, { error: err instanceof Error ? err.message : t.common.unknownError }));
     } finally {
@@ -216,7 +218,12 @@ export default function DebriefCoach({ onCompare }: { onCompare?: (base: LapFile
       {/* Laps the RacingCoach collector uploaded */}
       <div>
         <p className="block text-sm text-muted-foreground mb-2">{t.debrief.yourRecordedLaps}</p>
-        <RecordedLaps tracks={tracks} onChange={pickRecordedLaps} onCompare={onCompare} />
+        <RecordedLaps
+          tracks={tracks}
+          onChange={pickRecordedLaps}
+          onCompare={onCompare}
+          onTargetLapSet={() => setTargetLapVersion((v) => v + 1)}
+        />
       </div>
 
       {/* File upload */}

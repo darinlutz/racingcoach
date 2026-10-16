@@ -96,10 +96,13 @@ export default function RecordedLaps({
   tracks,
   onChange,
   onCompare,
+  onTargetLapSet,
 }: {
   tracks: Track[];
   onChange: (laps: LapFile[]) => void;
   onCompare?: (base: LapFile, compare: LapFile) => void;
+  // After Set Target saved a new Target Lap
+  onTargetLapSet?: () => void;
 }) {
   const { t: dictionary, fmt, plural, locale } = useLanguage();
   const t = dictionary.recordedLaps;
@@ -271,6 +274,7 @@ export default function RecordedLaps({
       const file = await lapFile(lap);
       await uploadTargetLap(file.file, dictionary.api.failedSaveTargetLap);
       setNotice(t.targetLapSaved);
+      onTargetLapSet?.();
     } catch (err) {
       setError(fmt(t.setTargetFailed, { error: err instanceof Error ? err.message : dictionary.common.unknownError }));
     } finally {

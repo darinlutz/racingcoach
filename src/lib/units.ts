@@ -72,6 +72,18 @@ export function temperatureFromCelsius(celsius: number, units: Units): number {
   return units === 'metric' ? celsius : (celsius * 9) / 5 + 32;
 }
 
+// A brakepoint change the coaches tell the driver, already in the user's units: feet to the nearest 5
+// (22 -> 20, 48 -> 50), meters to whole meters
+export function roundBrakeChange(distance: number, units: Units): number {
+  return units === 'metric' ? Math.round(distance) : Math.round(distance / 5) * 5;
+}
+
+// A driving line offset the coaches tell the driver, already in the user's units: whole feet (2.1 -> 2),
+// meters to one decimal as a meter is too coarse for a line
+export function roundLineOffset(distance: number, units: Units): string {
+  return units === 'metric' ? distance.toFixed(1) : Math.round(distance).toFixed(0);
+}
+
 // 1234.4 ft -> "1,234 ft" (or "376 m"), rounded to whole units
 export function formatFeet(feet: number, units: Units, locale = 'en-US'): string {
   return `${Math.round(distanceFromFeet(feet, units)).toLocaleString(locale)} ${DISTANCE_UNIT[units]}`;

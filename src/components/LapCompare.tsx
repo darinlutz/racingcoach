@@ -22,7 +22,7 @@ import {
   type Track,
 } from '@/lib/lapData';
 import { useUnits } from '@/components/UnitsProvider';
-import { DISTANCE_UNIT, distanceFromFeet, SPEED_UNIT, speedFromMetersPerSecond, type Units } from '@/lib/units';
+import { DISTANCE_UNIT, distanceFromFeet, roundBrakeChange, SPEED_UNIT, speedFromMetersPerSecond, type Units } from '@/lib/units';
 
 const inputClass =
   'w-full px-4 py-3 bg-card border border-border rounded-lg text-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors';
@@ -192,8 +192,9 @@ function formatAreaAdvice(areaName: string, c: AreaComparison, units: Units) {
   const changes = [];
   if (c.brakeDiff !== null && Math.abs(c.brakeDiff) >= distanceFromFeet(SAME_BRAKE_FEET, units)) {
     // Compare braked earlier (negative diff) -> brake later, and vice versa
+    // Rounded as the coach says it: feet to the nearest 5
     changes.push(
-      `brake ${formatDistance(Math.abs(c.brakeDiff))} ${DISTANCE_UNIT[units]} ${c.brakeDiff < 0 ? 'LATER' : 'EARLIER'}`
+      `brake ${formatDistance(roundBrakeChange(Math.abs(c.brakeDiff), units))} ${DISTANCE_UNIT[units]} ${c.brakeDiff < 0 ? 'LATER' : 'EARLIER'}`
     );
   }
   if (Math.abs(c.pressureDiff) >= ADVICE_PRESSURE_PCT) {

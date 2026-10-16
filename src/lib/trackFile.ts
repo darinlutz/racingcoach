@@ -1,6 +1,6 @@
 // Writes Track Data's tracks in the Track_Area_Information.txt format: a JavaScript object literal keyed by
-// lowercase track key, tracks sorted by TrackFileName, areas in order around the lap. Targets that are not
-// set are written as 0, the file's placeholder for "no target".
+// lowercase track key, tracks sorted by TrackFileName, areas in order around the lap. No brake or throttle
+// targets: those come only from each driver's Target Lap (the collector's /api/collector/track adds them).
 
 import type { TrackData } from '@/lib/tracks';
 
@@ -43,10 +43,7 @@ function areaBlock(area: TrackData['areas'][number]) {
     `                name: ${str(area.name)},`,
     `                start: ${pct(area.startPoint)},`,
     `                end: ${pct(area.endPoint)},`,
-    `                Notes: ${str(area.notes)},`,
-    `                BrakepointTarget: ${int(area.brakePointFeet)},`,
-    `                MaxBrakeTarget: ${int(area.maxBrakePct)},`,
-    `                ThrottlePickupTarget: ${int(area.throttlePointFeet)}`,
+    `                Notes: ${str(area.notes)}`,
     '            }',
   ].join('\n');
 }

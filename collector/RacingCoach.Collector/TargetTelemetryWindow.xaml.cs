@@ -12,7 +12,7 @@ namespace RacingCoach.Collector;
 /// The window the Target Telemetry button opens: a see-through, always-on-top window, like the overlay, with the
 /// brake trace (red) of the user's Target Lap (Account page, from /api/collector/target-lap) over the 500 ft of
 /// track around the car, and across the top the gear it shifted into at each gear change. The car is the vertical
-/// line, 100 ft from the left, so the trace and gear changes scroll left as the car drives: a gear reaches the car's
+/// line, 200 ft from the left, so the trace and gear changes scroll left as the car drives: a gear reaches the car's
 /// line where the Target Lap shifted into it. A short bar on the car's line is the
 /// driver's own brake, live (hidden off the brake). Positions come from live LapDistPct and the track's length (Track
 /// Data's, or iRacing's when Track Data has none). The Target Lap loads when the window opens, when the track or
@@ -23,7 +23,7 @@ namespace RacingCoach.Collector;
 public partial class TargetTelemetryWindow : Window
 {
     private const double SpanFeet = 500;   // track shown, left to right
-    private const double BehindFeet = 100; // of it behind the car
+    private const double BehindFeet = 200; // of it behind the car, so the recent past stays in view
     private const double MarginFeet = 30;  // samples just off each edge, so the trace runs to the edge
     private const double GearBand = 22;    // the gear changes across the top
     private const double TopPad = GearBand + 8; // so the 100% line is under them
@@ -60,6 +60,7 @@ public partial class TargetTelemetryWindow : Window
     private (double Pct, int Gear, bool Up)[] _gearChanges = [];
     private TargetLapTrace? _lap;
     private readonly TargetLapSource _target;
+    private readonly OverlayFeed? _feed;
 
     // The user's Preferred Language the window is in
     private string _language = "";
@@ -72,6 +73,7 @@ public partial class TargetTelemetryWindow : Window
     {
         InitializeComponent();
         _engine = engine;
+        _feed = feed;
         if (feed is null)
         {
             Stats.Visibility = Visibility.Collapsed;
@@ -333,8 +335,14 @@ public partial class TargetTelemetryWindow : Window
             DragMove();
     }
 
-    // Loads the Target Lap again on the next frame, e.g. after changing it on the Account page
-    private void Reload_Click(object sender, RoutedEventArgs e) => _target.Reload();
+    // Loads the Target Lap again on the next frame, e.g. after changing it on the Account page, and with it the focus
+    // areas' targets and the brake beeps' brakepoints, which come from it
+    private void Reload_Click(object sender, RoutedEventArgs e)
+    {
+        _target.Reload();
+        _feed?.Reload();
+        _engine.ReloadBrakeBeeps();
+    }
 
     private void Close_Click(object sender, RoutedEventArgs e) => Close();
 

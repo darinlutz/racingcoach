@@ -18,12 +18,17 @@ type NavigationProps = {
 
 const links = [
   { href: '/#toolkit', key: 'toolkit' },
-  { href: '/learning', key: 'learning' },
+  { href: '/installing', key: 'installing' },
   { href: '/racing', key: 'coachingAnalysis' },
   { href: '/race-trends', key: 'raceTrends' },
-  { href: '/pricing', key: 'pricing' },
   { href: '/prodrivinglesson', key: 'proDriverLesson' },
   { href: '/support', key: 'support' },
+] as const;
+
+// At the bottom, just above My Settings (or Log In)
+const bottomLinks = [
+  { href: '/learning', key: 'learning' },
+  { href: '/pricing', key: 'pricing' },
 ] as const;
 
 export default function Navigation({ user, showPricing }: NavigationProps) {
@@ -34,7 +39,7 @@ export default function Navigation({ user, showPricing }: NavigationProps) {
   const [loggingOut, setLoggingOut] = useState(false);
   // Hidden when the Admin page turns Show Pricing off, and for Gold subscribers, who have nothing left to buy
   const hidePricing = !showPricing || (user !== null && !user.canUpgrade);
-  const visibleLinks = hidePricing ? links.filter((link) => link.key !== 'pricing') : links;
+  const visibleBottomLinks = hidePricing ? bottomLinks.filter((link) => link.key !== 'pricing') : bottomLinks;
 
   const toggleMenu = () => setIsOpen(!isOpen);
   const closeMenu = () => setIsOpen(false);
@@ -64,7 +69,7 @@ export default function Navigation({ user, showPricing }: NavigationProps) {
         <Brand />
 
         <div className="flex flex-col gap-5">
-          {visibleLinks.map((link) => (
+          {links.map((link) => (
             <Link key={link.key} href={link.href} className={navLink(link.href)}>{t.nav[link.key]}</Link>
           ))}
         </div>
@@ -75,6 +80,9 @@ export default function Navigation({ user, showPricing }: NavigationProps) {
             <>
               <Link href="/coach" className={navLink('/coach')}>{t.nav.coach}</Link>
               {user.isAdmin && <Link href="/admin" className={navLink('/admin')}>{t.nav.admin}</Link>}
+              {visibleBottomLinks.map((link) => (
+                <Link key={link.key} href={link.href} className={navLink(link.href)}>{t.nav[link.key]}</Link>
+              ))}
               <Link href="/account" className={navLink('/account')}>{t.nav.myAccount}</Link>
               <span className="font-semibold text-muted-foreground">{t.nav.driver} <span className="text-foreground">{user.userName}</span></span>
               <button
@@ -87,6 +95,9 @@ export default function Navigation({ user, showPricing }: NavigationProps) {
             </>
           ) : (
             <>
+              {visibleBottomLinks.map((link) => (
+                <Link key={link.key} href={link.href} className={navLink(link.href)}>{t.nav[link.key]}</Link>
+              ))}
               <Link href="/login" className={navLink('/login')}>{t.nav.logIn}</Link>
               <Link href="/signup" className={buttonVariants({ variant: 'racing', size: 'sm' })}>
                 {t.nav.getStarted} <ArrowRight />
@@ -115,7 +126,7 @@ export default function Navigation({ user, showPricing }: NavigationProps) {
       {isOpen && (
         <div className="lg:hidden bg-card border-t border-border">
           <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-            {visibleLinks.map((link) => (
+            {links.map((link) => (
               <Link key={link.key} href={link.href} className={mobileLink(link.href)} onClick={closeMenu}>{t.nav[link.key]}</Link>
             ))}
             <div className="border-t border-border pt-2 mt-2">
@@ -125,6 +136,9 @@ export default function Navigation({ user, showPricing }: NavigationProps) {
                   {user.isAdmin && (
                     <Link href="/admin" className={mobileLink('/admin')} onClick={closeMenu}>{t.nav.admin}</Link>
                   )}
+                  {visibleBottomLinks.map((link) => (
+                    <Link key={link.key} href={link.href} className={mobileLink(link.href)} onClick={closeMenu}>{t.nav[link.key]}</Link>
+                  ))}
                   <Link href="/account" className={mobileLink('/account')} onClick={closeMenu}>{t.nav.myAccount}</Link>
                   <div className="flex items-center gap-3 px-3 py-2">
                     <button
@@ -139,6 +153,9 @@ export default function Navigation({ user, showPricing }: NavigationProps) {
                 </>
               ) : (
                 <>
+                  {visibleBottomLinks.map((link) => (
+                    <Link key={link.key} href={link.href} className={mobileLink(link.href)} onClick={closeMenu}>{t.nav[link.key]}</Link>
+                  ))}
                   <Link href="/login" className={mobileLink('/login')} onClick={closeMenu}>{t.nav.logIn}</Link>
                   <Link href="/signup" className={mobileLink('/signup')} onClick={closeMenu}>{t.nav.getStarted}</Link>
                 </>

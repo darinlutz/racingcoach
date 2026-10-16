@@ -68,6 +68,9 @@ internal sealed class ManifestLap
     /// <summary>Why RacingCoach.app refused the lap (or why it isn't uploaded). Refused laps are tried
     /// again the next time the collector starts.</summary>
     public string? UploadError { get; set; }
+    /// <summary>True once the lap's CSV has been deleted from this PC, which happens once RacingCoach.app has it
+    /// and it won't get track positions any more (LapWriter.DeleteUploadedCsvs). The entry stays for the lap list.</summary>
+    public bool CsvDeleted { get; set; }
 
     /// <summary>A copy for another thread (every property is a value or a string).</summary>
     public ManifestLap Copy() => (ManifestLap)MemberwiseClone();

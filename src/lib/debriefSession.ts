@@ -15,6 +15,7 @@ import {
   type LapSamples,
   type Track,
 } from '@/lib/lapData';
+import { lapSegmentTimes } from '@/lib/optimalLap';
 import { lapShifting } from '@/lib/shifting';
 
 // Short lap ID shown in the app and used by the agent, e.g. "ab12"
@@ -22,13 +23,11 @@ export const lapId = (lap: LapFile) => lap.fileId.slice(-4);
 
 export type MeasuredLap = { id: string; lapSeconds: number; samples: LapSamples };
 
+// Also times every lap through every part of the track (segments), for the coach's theoretical lap (optimalLap.ts)
 export async function buildDebriefSession(track: Track, laps: LapFile[]): Promise<DebriefSession> {
   const samples = await Promise.all(laps.map((lap) => readLapSamples(lap.file)));
-  return measureDebriefSession(
-    track,
-    laps[0].carName,
-    laps.map((lap, i) => ({ id: lapId(lap), lapSeconds: lapTimeToSeconds(lap.lapTime), samples: samples[i] }))
-  );
+  const measured = laps.map((lap, i) => ({ id: lapId(lap), lapSeconds: lapTimeToSeconds(lap.lapTime), samples: samples[i] }));
+  return { ...measureDebriefSession(track, laps[0].carName, measured), segments: lapSegmentTimes(track, measured) };
 }
 
 export function measureDebriefSession(track: Track, car: string, laps: MeasuredLap[]): DebriefSession {

@@ -48,7 +48,8 @@ export const pt: Dictionary = {
     pricing: 'Preços',
     proDriverLesson: 'Aula com piloto profissional',
     support: 'Suporte',
-    myAccount: 'Minha conta',
+    myAccount: 'Minhas configurações',
+    installing: 'Instalar o RacingCoach',
     admin: 'Admin',
     coach: 'Treinador',
     driver: 'Piloto:',
@@ -172,11 +173,11 @@ export const pt: Dictionary = {
     active: 'Sua assinatura está ativa.',
     receipt: ' Um recibo foi enviado para {email}.',
     couldNotConfirm: 'Não conseguimos confirmar seu pagamento. Se você foi cobrado, entre em contato conosco.',
-    backToAccount: 'Voltar para Minha conta',
+    backToAccount: 'Voltar para Minhas configurações',
   },
 
   account: {
-    title: 'Minha conta',
+    title: 'Minhas configurações',
     intro: 'Os dados da sua conta.',
     email: 'E-mail',
     name: 'Nome',
@@ -305,7 +306,7 @@ export const pt: Dictionary = {
     included: 'Incluído no seu plano',
     upgradeNote: 'Ao subir de nível, sua assinatura Prata é cancelada automaticamente. O tempo não usado vira crédito na sua renovação Ouro.',
     fineprint:
-      'As assinaturas pagas são renovadas automaticamente e podem ser canceladas quando quiser em Minha conta. Pagamento seguro pelo Stripe.',
+      'As assinaturas pagas são renovadas automaticamente e podem ser canceladas quando quiser em Minhas configurações. Pagamento seguro pelo Stripe.',
   },
 
   changePassword: {
@@ -425,6 +426,16 @@ export const pt: Dictionary = {
     evidence: 'Evidência: ',
     keepDoing: 'Continue fazendo',
     stepsChecked: { one: 'O que o coach verificou ({n} etapa)', other: 'O que o coach verificou ({n} etapas)' },
+    optimalTitle: 'Volta teórica ideal',
+    optimalFaster: '{seconds}s mais rápida que sua melhor volta, {best} [{lap}]: sua passagem mais rápida por cada parte da pista, unidas em uma só volta.',
+    optimalParts: { one: 'De onde vem ({n} parte)', other: 'De onde vem ({n} partes)' },
+    optimalBefore: 'Antes de {area}',
+    optimalDownload: 'Baixar CSV',
+    optimalFailed: 'Não foi possível montar a volta teórica: {error}',
+    setAsTarget: 'Definir como alvo',
+    settingTarget: 'Salvando alvo…',
+    targetSaved: 'Salva como sua Volta Alvo.',
+    setTargetFailed: 'Não foi possível definir como alvo: {error}',
   },
 
   recordedLaps: {
@@ -885,6 +896,34 @@ export const pt: Dictionary = {
     saving: 'Salvando…',
     saved: 'Instruções do treinador IA salvas.',
     characters: '{n} / {max} caracteres',
+  },
+
+  installing: {
+    pageTitle: 'Instalar o RacingCoach',
+    intro: 'Três passos e você estará gravando cada volta que fizer no iRacing.',
+    step: 'Passo',
+    downloadTitle: 'Baixe o RacingCoach Collector',
+    downloadText: 'O collector é um pequeno aplicativo para Windows que lê sua telemetria do iRacing, salva cada volta e a envia para sua conta do RacingCoach.',
+    downloadButton: 'Baixar o Collector',
+    downloadNotes: [
+      'Instale-o no PC com Windows em que você corre.',
+      'Execute o arquivo baixado RacingCoach.Collector.Setup.exe. Ele é instalado em Program Files com um atalho no menu Iniciar.',
+      'Se o Windows disser que protegeu seu PC, clique em Mais informações e depois em Executar assim mesmo.',
+      'Você só faz isso uma vez: o collector se atualiza sozinho quando sai uma nova versão.',
+    ],
+    keyTitle: 'Copie sua chave de envio para o Collector',
+    keyText: 'Sua chave de envio conecta o collector à sua conta, para que suas voltas apareçam aqui.',
+    keySteps: [
+      'Abra Minhas configurações e encontre o cartão Coletor de telemetria.',
+      'Clique em Criar chave de envio e depois em Copiar. A chave só é mostrada uma vez.',
+      'Abra o RacingCoach Collector. Na primeira vez que ele inicia, pede sua chave de envio: cole-a e clique em Connect. Você também pode clicar no botão Upload Key do collector a qualquer momento.',
+      'Pronto. Abra o iRacing e pilote: cada volta é gravada e enviada para sua conta, pronta para Coaching e análise.',
+    ],
+    keyButton: 'Abrir Minhas configurações',
+    keyLost: 'Perdeu sua chave? Clique em Substituir chave no mesmo cartão e cole a nova no collector.',
+    supportTitle: 'Dúvidas ou problemas? Fale com o Suporte',
+    supportText: 'Se algo não funcionar ou você não souber o que fazer em seguida, envie uma mensagem e responderemos por e-mail.',
+    supportButton: 'Falar com o Suporte',
   },
 
   support: {

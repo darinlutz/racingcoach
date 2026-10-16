@@ -64,6 +64,7 @@ internal sealed class LapWriter : IAsyncDisposable
     // AfterStint: a stint just ended, so its laps should find their .ibt file (logged if they don't)
     private sealed record AddPositions(int Attempt, bool AfterStint) : Job;
     private sealed record UseUploader(LapUploader? Uploader) : Job;
+    private sealed record DeleteUploaded : Job;
     private sealed record Flush(TaskCompletionSource Done) : Job;
 
     private readonly Channel<Job> _queue = Channel.CreateUnbounded<Job>(new UnboundedChannelOptions { SingleReader = true });
@@ -145,6 +146,8 @@ internal sealed class LapWriter : IAsyncDisposable
         // Sessions driven since the last run
         if (_enricher is not null)
             _queue.Writer.TryWrite(new AddPositions(1, AfterStint: false));
+        // CSVs of laps that finished uploading in earlier runs (or by earlier versions)
+        _queue.Writer.TryWrite(new DeleteUploaded());
 
         await foreach (var job in _queue.Reader.ReadAllAsync())
         {
@@ -166,6 +169,9 @@ internal sealed class LapWriter : IAsyncDisposable
                         if (_uploader is not null)
                             QueueEarlierLaps();
                         break;
+                    case DeleteUploaded:
+                        DeleteAllUploadedCsvs();
+                        break;
                     case Flush flush:
                         flush.Done.SetResult();
                         break;
@@ -178,6 +184,7 @@ internal sealed class LapWriter : IAsyncDisposable
                     SaveLap s => $"Could not save lap {s.Lap.LapNumber}: {e.Message}",
                     AddPositions => $"Could not add track positions from .ibt files: {e.Message}",
                     UseUploader => $"Could not check earlier laps for uploading: {e.Message}",
+                    DeleteUploaded => $"Could not delete uploaded lap files: {e.Message}",
                     _ => $"Could not record an upload in session.json: {e.Message}",
                 });
             }
@@ -261,6 +268,7 @@ internal sealed class LapWriter : IAsyncDisposable
             return;
         lap.Uploaded = result.Error is null;
         lap.UploadError = result.Error;
+        DeleteUploadedCsvs(result.Folder, manifest);
         manifest.Save(result.Folder);
         Report(result.Folder, manifest, newLap: false);
     }
@@ -278,7 +286,12 @@ internal sealed class LapWriter : IAsyncDisposable
             _uploader?.Enqueue(new UploadItem(folder, InfoOf(manifest), lap, Earlier: false, WithPositions: true));
         // Including laps the .ibt didn't fully cover, so the window stops showing them as waiting
         foreach (var (folder, manifest) in changed)
+        {
+            // Laps already uploaded that the .ibt didn't cover are finished now
+            if (DeleteUploadedCsvs(folder, manifest))
+                manifest.Save(folder);
             Report(folder, manifest, newLap: false);
+        }
 
         // iRacing can take a moment to close the file after the car leaves the track
         if (stillWriting && add.Attempt < IbtMaxAttempts)
@@ -331,6 +344,36 @@ internal sealed class LapWriter : IAsyncDisposable
         }
         if (count > 0)
             _log($"Uploading {count} earlier lap(s) that haven't been uploaded yet.");
+    }
+
+    // Deletes the CSVs of the folder's laps that RacingCoach.app has and that won't change any more: they have
+    // their track positions, the .ibt didn't cover them, or they're too old to get them. Laps that haven't
+    // uploaded (including refused ones and laps without a known track) keep theirs. The caller saves the
+    // manifest when this returns true.
+    private bool DeleteUploadedCsvs(string folder, SessionManifest manifest)
+    {
+        var tooOld = DateTimeOffset.UtcNow - IbtEnricher.MaxLapAge;
+        var deleted = 0;
+        foreach (var lap in manifest.Laps)
+        {
+            if (lap.CsvDeleted || !lap.Uploaded || !(lap.HasPosition || lap.PositionMissing || lap.RecordedAt < tooOld))
+                continue;
+            File.Delete(Path.Combine(folder, lap.File));
+            lap.CsvDeleted = true;
+            deleted++;
+        }
+        if (deleted > 0)
+            _log($"Deleted {deleted} uploaded lap file(s) from {Path.GetFileName(folder)}.");
+        return deleted > 0;
+    }
+
+    private void DeleteAllUploadedCsvs()
+    {
+        if (!Directory.Exists(_root))
+            return;
+        foreach (var folder in Directory.GetDirectories(_root))
+            if (SessionManifest.Load(folder) is { } manifest && DeleteUploadedCsvs(folder, manifest))
+                manifest.Save(folder);
     }
 
     // One folder per iRacing session (track, car and session IDs); a new one when any of them changes.

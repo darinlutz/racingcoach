@@ -151,7 +151,7 @@ export function lapSamplesFromText(text: string): LapSamples {
 }
 
 // Fractional sample index where the lap first reaches `target`, at or after `from`
-function crossingIndex(pcts: number[], target: number, from: number) {
+export function crossingIndex(pcts: number[], target: number, from: number) {
   for (let i = Math.max(1, Math.ceil(from)); i < pcts.length; i++) {
     if (pcts[i - 1] < target && pcts[i] >= target) {
       return i - 1 + (target - pcts[i - 1]) / (pcts[i] - pcts[i - 1]);

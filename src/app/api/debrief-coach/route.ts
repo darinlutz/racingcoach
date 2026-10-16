@@ -34,7 +34,7 @@ export async function POST(request: Request) {
     const user = await getCurrentUser();
     // For the shifting tool; without it the coach falls back to the RPM in the laps
     const rpmLimit = await carRpmLimit(user?.id ?? null, parsed.data.car).catch(() => null);
-    const { debrief, steps } = await runDebriefCoach(parsed.data, await getLanguage(user), await getUnits(user), rpmLimit);
+    const { debrief, steps, optimalLap } = await runDebriefCoach(parsed.data, await getLanguage(user), await getUnits(user), rpmLimit);
 
     // Kept for signed-in users (e.g. for the Discord bot's /coach debrief). Saving is extra, so a failure
     // is logged rather than costing them the debrief.
@@ -44,7 +44,8 @@ export async function POST(request: Request) {
       console.error('Save debrief error:', error);
     }
 
-    return NextResponse.json({ success: true, debrief, steps }, { status: 200 });
+    // optimalLap is the theoretical lap's plan (src/lib/optimalLap.ts), which the browser stitches from the lap CSVs
+    return NextResponse.json({ success: true, debrief, steps, optimalLap }, { status: 200 });
   } catch (error) {
     console.error('Debrief coach error:', error);
     return aiErrorResponse(error, t.failedDebrief, t.aiOutOfCredits);

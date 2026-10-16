@@ -48,7 +48,8 @@ export const es: Dictionary = {
     pricing: 'Precios',
     proDriverLesson: 'Clase con piloto profesional',
     support: 'Soporte',
-    myAccount: 'Mi cuenta',
+    myAccount: 'Mi configuración',
+    installing: 'Instalar RacingCoach',
     admin: 'Admin',
     coach: 'Entrenador',
     driver: 'Piloto:',
@@ -172,11 +173,11 @@ export const es: Dictionary = {
     active: 'Tu suscripción está activa.',
     receipt: ' Se envió un recibo a {email}.',
     couldNotConfirm: 'No pudimos confirmar tu pago. Si se te cobró, contáctanos.',
-    backToAccount: 'Volver a Mi cuenta',
+    backToAccount: 'Volver a Mi configuración',
   },
 
   account: {
-    title: 'Mi cuenta',
+    title: 'Mi configuración',
     intro: 'Los datos de tu cuenta.',
     email: 'Correo electrónico',
     name: 'Nombre',
@@ -305,7 +306,7 @@ export const es: Dictionary = {
     included: 'Incluido en tu plan',
     upgradeNote: 'Al subir de nivel, tu suscripción Plata se cancela automáticamente. El tiempo no usado se acredita a tu renovación Oro.',
     fineprint:
-      'Las membresías pagas se renuevan automáticamente y puedes cancelarlas cuando quieras desde Mi cuenta. Pago seguro con Stripe.',
+      'Las membresías pagas se renuevan automáticamente y puedes cancelarlas cuando quieras desde Mi configuración. Pago seguro con Stripe.',
   },
 
   changePassword: {
@@ -425,6 +426,16 @@ export const es: Dictionary = {
     evidence: 'Evidencia: ',
     keepDoing: 'Sigue haciendo',
     stepsChecked: { one: 'Lo que revisó el coach ({n} paso)', other: 'Lo que revisó el coach ({n} pasos)' },
+    optimalTitle: 'Vuelta teórica ideal',
+    optimalFaster: '{seconds}s más rápida que tu mejor vuelta, {best} [{lap}]: tu pasada más rápida por cada parte de la pista, unidas en una sola vuelta.',
+    optimalParts: { one: 'De dónde sale ({n} parte)', other: 'De dónde sale ({n} partes)' },
+    optimalBefore: 'Antes de {area}',
+    optimalDownload: 'Descargar CSV',
+    optimalFailed: 'No se pudo armar la vuelta teórica: {error}',
+    setAsTarget: 'Definir como objetivo',
+    settingTarget: 'Guardando objetivo…',
+    targetSaved: 'Guardada como tu Vuelta Objetivo.',
+    setTargetFailed: 'No se pudo definir como objetivo: {error}',
   },
 
   recordedLaps: {
@@ -885,6 +896,34 @@ export const es: Dictionary = {
     saving: 'Guardando…',
     saved: 'Instrucciones del entrenador IA guardadas.',
     characters: '{n} / {max} caracteres',
+  },
+
+  installing: {
+    pageTitle: 'Instalar RacingCoach',
+    intro: 'Tres pasos y estarás grabando cada vuelta que manejes en iRacing.',
+    step: 'Paso',
+    downloadTitle: 'Descarga RacingCoach Collector',
+    downloadText: 'El collector es una pequeña aplicación de Windows que lee tu telemetría de iRacing, guarda cada vuelta y la envía a tu cuenta de RacingCoach.',
+    downloadButton: 'Descargar el Collector',
+    downloadNotes: [
+      'Instálalo en la PC con Windows en la que corres.',
+      'Ejecuta el archivo descargado RacingCoach.Collector.Setup.exe. Se instala en Program Files con un acceso directo en el menú Inicio.',
+      'Si Windows dice que protegió tu PC, haz clic en Más información y luego en Ejecutar de todas formas.',
+      'Solo lo haces una vez: el collector se actualiza solo cuando sale una nueva versión.',
+    ],
+    keyTitle: 'Copia tu clave de carga en el Collector',
+    keyText: 'Tu clave de carga conecta el collector con tu cuenta, para que tus vueltas aparezcan aquí.',
+    keySteps: [
+      'Abre Mi configuración y busca la tarjeta Recolector de telemetría.',
+      'Haz clic en Crear clave de carga y luego en Copiar. La clave solo se muestra una vez.',
+      'Abre RacingCoach Collector. La primera vez que se inicia, te pide tu clave de carga: pégala y haz clic en Connect. También puedes pulsar el botón Upload Key del collector en cualquier momento.',
+      'Listo. Abre iRacing y maneja: cada vuelta se graba y se sube a tu cuenta, lista para Coaching y análisis.',
+    ],
+    keyButton: 'Abrir Mi configuración',
+    keyLost: '¿Perdiste tu clave? Haz clic en Reemplazar clave en la misma tarjeta y pega la nueva en el collector.',
+    supportTitle: '¿Preguntas o problemas? Contacta a Soporte',
+    supportText: 'Si algo no funciona o no sabes qué hacer después, envíanos un mensaje y te responderemos por correo electrónico.',
+    supportButton: 'Contactar a Soporte',
   },
 
   support: {

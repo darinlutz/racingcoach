@@ -624,6 +624,7 @@ public partial class MainWindow : Window
 
             var (upload, uploadBrush, uploadTip) = lap switch
             {
+                { Uploaded: true, CsvDeleted: true } => ("✓ Uploaded", Green, "On RacingCoach.app; the CSV was deleted from this PC"),
                 { Uploaded: true } => ("✓ Uploaded", Green, "On RacingCoach.app"),
                 { UploadError: { } error } when error.StartsWith("track and car unknown", StringComparison.Ordinal) => ("Saved only", Grey, error),
                 { UploadError: { } error } => ("Not uploaded", Red, error),
@@ -632,7 +633,7 @@ public partial class MainWindow : Window
             };
             var (positions, positionsBrush, positionsTip) = lap switch
             {
-                { HasPosition: true } => ("✓ Added", Green, "Lat/Lon/Alt are in the lap's CSV"),
+                { HasPosition: true } => ("✓ Added", Green, "Lat/Lon/Alt were added to the lap's CSV"),
                 { PositionMissing: true } => ("Not available", Grey, "iRacing's .ibt file didn't cover the whole lap"),
                 _ when positionsOn => ("After the stint", Amber, "Added from iRacing's .ibt file when you leave the car"),
                 _ => ("—", Grey, "Track positions are off for this run"),

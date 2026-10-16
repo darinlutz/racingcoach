@@ -14,7 +14,7 @@ internal sealed class IbtEnricher(string ibtFolder, Action<string> log)
     private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
     private static readonly string[] PositionColumns = ["Lat", "Lon", "Alt"];
     // Older laps are left alone; iRacing's .ibt files may be long gone
-    private static readonly TimeSpan MaxLapAge = TimeSpan.FromDays(14);
+    public static readonly TimeSpan MaxLapAge = TimeSpan.FromDays(14);
     // Slack around an .ibt file's start and last write times when deciding which laps it covers
     private static readonly TimeSpan Slack = TimeSpan.FromMinutes(1);
 

@@ -2,10 +2,8 @@
 
 import { useState } from 'react';
 import { useLanguage } from '@/components/LanguageProvider';
+import { COLLECTOR_DOWNLOAD_URL } from '@/lib/collectorDownload';
 import type { CollectorKeyInfo } from '@/lib/collectorKeys';
-
-// The newest collector's installer, published by .github/workflows/collector-release.yml for each collector-v* tag
-const DOWNLOAD_URL = 'https://github.com/darinlutz/racingcoach/releases/latest/download/RacingCoach.Collector.Setup.exe';
 
 const buttonClass =
   'shrink-0 px-4 py-2 text-sm font-semibold rounded-lg text-foreground bg-card border border-border hover:border-primary hover:text-primary transition-colors disabled:opacity-50';
@@ -79,7 +77,7 @@ export default function CollectorKeyCard({ initialKey }: { initialKey: Collector
           <p className="text-sm text-muted-foreground">{t.collectorCard.appBlurb}</p>
         </div>
         <a
-          href={DOWNLOAD_URL}
+          href={COLLECTOR_DOWNLOAD_URL}
           className="shrink-0 px-4 py-2 text-sm font-semibold rounded-lg text-white bg-gradient-to-r from-primary to-primary-strong hover:from-primary-strong hover:to-primary transition-colors"
         >
           {t.collectorCard.download}

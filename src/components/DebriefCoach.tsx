@@ -13,9 +13,29 @@ import {
   lapFileErrorText,
   parseLapFile,
   sameTrackName,
+  secondsToLapTime,
   type LapFile,
   type Track,
 } from '@/lib/lapData';
+import { assembleOptimalLapCsv, type OptimalLap } from '@/lib/optimalLap';
+import { uploadTargetLap } from '@/lib/targetLapUpload';
+
+// Stitches the theoretical lap's CSV from the laps its plan picked, named like a lap file
+// ("RacingCoach - Driver - Car - Track - 01.17.912 - Optimal.csv") so the Target Lap card and the collector read
+// its car, track and time. The driver is "Theoretical" when the parts come from more than one driver's laps.
+async function buildOptimalLap(plan: OptimalLap, laps: LapFile[], trackName: string) {
+  const picked = [...new Set(plan.segments.map((s) => s.lap))].map((id) => {
+    const lap = laps.find((l) => lapId(l) === id);
+    if (!lap) throw new Error(`lap [${id}] is not loaded`);
+    return { id, lap };
+  });
+  const csvs = new Map(await Promise.all(picked.map(async ({ id, lap }) => [id, await lap.file.text()] as const)));
+  const drivers = new Set(picked.map(({ lap }) => lap.driverName));
+  const driver = drivers.size === 1 ? [...drivers][0] : 'Theoretical';
+  const name = `RacingCoach - ${driver} - ${picked[0].lap.carName} - ${trackName} - ${secondsToLapTime(plan.lapTime)} - Optimal.csv`;
+  const file = new File([assembleOptimalLapCsv(plan, csvs)], name, { type: 'text/csv' });
+  return { plan, file, url: URL.createObjectURL(file) };
+}
 
 // onCompare: called with two recorded laps (fastest first) when the lap list's Compare button is pressed
 export default function DebriefCoach({ onCompare }: { onCompare?: (base: LapFile, compare: LapFile) => void }) {
@@ -32,7 +52,18 @@ export default function DebriefCoach({ onCompare }: { onCompare?: (base: LapFile
   const [debrief, setDebrief] = useState<Debrief | null>(null);
   const [steps, setSteps] = useState<string[]>([]);
   const [runError, setRunError] = useState('');
+  // The coach's theoretical lap (assemble_optimal_lap): its plan, the stitched CSV and a download URL for it
+  const [optimal, setOptimal] = useState<{ plan: OptimalLap; file: File; url: string } | null>(null);
+  const [optimalError, setOptimalError] = useState('');
+  const [settingTarget, setSettingTarget] = useState(false);
+  const [targetNotice, setTargetNotice] = useState('');
+  const [targetError, setTargetError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // The download URL is let go when the lap is replaced or the tab closes
+  useEffect(() => () => {
+    if (optimal) URL.revokeObjectURL(optimal.url);
+  }, [optimal]);
 
   // Track Data, loaded on open
   useEffect(() => {
@@ -107,8 +138,13 @@ export default function DebriefCoach({ onCompare }: { onCompare?: (base: LapFile
     setRunError('');
     setDebrief(null);
     setSteps([]);
+    setOptimal(null);
+    setOptimalError('');
+    setTargetNotice('');
+    setTargetError('');
     try {
-      const session = await buildDebriefSession(selectedTrack, trackLaps);
+      const laps = trackLaps;
+      const session = await buildDebriefSession(selectedTrack, laps);
       const res = await fetch('/api/debrief-coach', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -118,10 +154,33 @@ export default function DebriefCoach({ onCompare }: { onCompare?: (base: LapFile
       if (!res.ok) throw new Error(data.error || t.debrief.failedRun);
       setDebrief(data.debrief);
       setSteps(data.steps);
+      if (data.optimalLap) {
+        try {
+          setOptimal(await buildOptimalLap(data.optimalLap, laps, selectedTrack.fileName));
+        } catch (err) {
+          setOptimalError(fmt(t.debrief.optimalFailed, { error: err instanceof Error ? err.message : t.common.unknownError }));
+        }
+      }
     } catch (err) {
       setRunError(err instanceof Error ? err.message : t.common.unknownError);
     } finally {
       setRunning(false);
+    }
+  };
+
+  // Saves the theoretical lap as the user's Target Lap (the Account page's Target Lap card)
+  const setOptimalAsTarget = async () => {
+    if (!optimal) return;
+    setSettingTarget(true);
+    setTargetNotice('');
+    setTargetError('');
+    try {
+      await uploadTargetLap(optimal.file, t.api.failedSaveTargetLap);
+      setTargetNotice(t.debrief.targetSaved);
+    } catch (err) {
+      setTargetError(fmt(t.debrief.setTargetFailed, { error: err instanceof Error ? err.message : t.common.unknownError }));
+    } finally {
+      setSettingTarget(false);
     }
   };
 
@@ -306,6 +365,74 @@ export default function DebriefCoach({ onCompare }: { onCompare?: (base: LapFile
                     <li key={item}>{item}</li>
                   ))}
                 </ul>
+              </div>
+            )}
+
+            {optimalError && (
+              <div className="px-4 py-3 rounded-lg border text-sm bg-primary/10 border-primary/40 text-red-300">{optimalError}</div>
+            )}
+
+            {optimal && (
+              <div className="px-5 py-4 bg-card border border-border rounded-lg space-y-3">
+                <div className="flex items-baseline justify-between gap-3">
+                  <h3 className="font-bold text-foreground">{t.debrief.optimalTitle}</h3>
+                  <span className="shrink-0 text-lg font-semibold text-primary">
+                    {formatLapTime(secondsToLapTime(optimal.plan.lapTime))}
+                  </span>
+                </div>
+                <p className="text-sm text-foreground">
+                  {fmt(t.debrief.optimalFaster, {
+                    seconds: number(optimal.plan.bestLap.lapTime - optimal.plan.lapTime, { minimumFractionDigits: 3, maximumFractionDigits: 3 }),
+                    best: formatLapTime(secondsToLapTime(optimal.plan.bestLap.lapTime)),
+                    lap: optimal.plan.bestLap.id,
+                  })}
+                </p>
+                {debrief.optimalLap && <p className="text-sm text-muted-foreground">{debrief.optimalLap}</p>}
+
+                <details className="text-sm text-muted-foreground">
+                  <summary className="cursor-pointer">{plural(optimal.plan.segments.length, t.debrief.optimalParts)}</summary>
+                  <ol className="mt-2 space-y-1 text-xs">
+                    {optimal.plan.segments.map((segment) => (
+                      <li key={segment.start} className="flex justify-between gap-3">
+                        <span className="min-w-0 truncate">
+                          {segment.area ?? fmt(t.debrief.optimalBefore, { area: segment.next ?? '' })}{' '}
+                          <span className="opacity-70">
+                            ({number(segment.start * 100, { maximumFractionDigits: 0 })}%-{number(segment.end * 100, { maximumFractionDigits: 0 })}%)
+                          </span>
+                        </span>
+                        <span className="shrink-0 font-mono">
+                          [{segment.lap}] {number(segment.seconds, { minimumFractionDigits: 3, maximumFractionDigits: 3 })}s
+                        </span>
+                      </li>
+                    ))}
+                  </ol>
+                </details>
+
+                <div className="flex flex-wrap gap-2">
+                  <a
+                    href={optimal.url}
+                    download={optimal.file.name}
+                    data-track="download-optimal-lap"
+                    className="px-4 py-2 text-sm font-semibold bg-card border border-border rounded-lg text-foreground hover:border-primary hover:text-primary transition-colors"
+                  >
+                    {t.debrief.optimalDownload}
+                  </a>
+                  <button
+                    type="button"
+                    disabled={settingTarget}
+                    onClick={() => void setOptimalAsTarget()}
+                    data-track="set-optimal-target"
+                    className="px-4 py-2 text-sm font-semibold rounded-lg text-white bg-green-600 hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {settingTarget ? t.debrief.settingTarget : t.debrief.setAsTarget}
+                  </button>
+                </div>
+                {targetNotice && (
+                  <div className="px-4 py-3 rounded-lg border text-sm bg-green-500/10 border-green-500/40 text-green-300">{targetNotice}</div>
+                )}
+                {targetError && (
+                  <div className="px-4 py-3 rounded-lg border text-sm bg-primary/10 border-primary/40 text-red-300">{targetError}</div>
+                )}
               </div>
             )}
 

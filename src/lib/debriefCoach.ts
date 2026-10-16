@@ -2,6 +2,7 @@ import { AIMessage } from '@langchain/core/messages';
 import { createAgent, tool } from 'langchain';
 import { z } from 'zod';
 import { aiLanguageRule, DEFAULT_LANGUAGE, type Language } from './i18n/languages';
+import { planOptimalLap, segmentName, type OptimalLap } from './optimalLap';
 import { shiftLimit, type LapShifting } from './shifting';
 import { coachInstructionsRule } from './siteSettings';
 import {
@@ -87,6 +88,20 @@ export const debriefSessionSchema = z.object({
     )
     .min(1)
     .max(50),
+  // Every lap's time through every part of the track (the focus areas and the stretches between them), for
+  // assemble_optimal_lap (src/lib/optimalLap.ts). Only Debrief Coach sends them.
+  segments: z
+    .array(
+      z.object({
+        start: z.number().min(0).max(1),
+        end: z.number().min(0).max(1),
+        area: z.string().max(300).nullable(),
+        next: z.string().max(100).nullable(),
+        times: z.array(z.object({ lap: z.string().max(20), seconds: z.number() })).max(100),
+      })
+    )
+    .max(120)
+    .optional(),
 });
 
 export type DebriefSession = z.infer<typeof debriefSessionSchema>;
@@ -116,6 +131,12 @@ const debriefSchema = z.object({
     )
     .describe('1 to 3 fixes, the most time available first'),
   keepDoing: z.array(z.string()).describe('1 to 3 short things you already do well, with numbers'),
+  optimalLap: z
+    .string()
+    .describe(
+      'One or two sentences on the theoretical lap from assemble_optimal_lap: how much faster it is than your best ' +
+        'lap and where it gains the most, from which laps. Empty when it could not be assembled.'
+    ),
 });
 
 type DebriefFixes = z.infer<typeof debriefSchema>;
@@ -823,6 +844,42 @@ export function createTools(session: DebriefSession, units: Units = DEFAULT_UNIT
   return [overview, areaDetail, compareLap, brakingDetail, throttleDetail, shiftingPoints, steeringDetail, drivingLine];
 }
 
+// The theoretical lap (src/lib/optimalLap.ts): only the Debrief Coach has it, as only its sessions carry the
+// segment times. plan is worked out before the agent runs, so the browser gets the same lap the tool describes.
+function assembleOptimalLapTool(plan: OptimalLap | null, session: DebriefSession) {
+  return tool(
+    async () => {
+      if (!plan) {
+        return (session.segments ?? []).length === 0
+          ? 'Segment times were not measured for this session, so no theoretical lap can be assembled. Leave optimalLap empty.'
+          : 'No clean lap covers some part of the track, so no theoretical lap can be assembled. Leave optimalLap empty.';
+      }
+      const gain = plan.bestLap.lapTime - plan.lapTime;
+      const laps = new Set(plan.segments.map((s) => s.lap));
+      return [
+        `Theoretical lap ${plan.lapTime.toFixed(3)}s, ${gain.toFixed(3)}s faster than your best lap [${plan.bestLap.id}] ` +
+          `${plan.bestLap.lapTime.toFixed(3)}s, built from the fastest clean run through each of ${plan.segments.length} parts ` +
+          `of the track, taken from ${laps.size} lap${laps.size === 1 ? '' : 's'}. The driver can download it and set it ` +
+          'as their Target Lap.',
+        'Parts in lap order (time, lap it comes from, gain over your best lap):',
+        ...plan.segments.map(
+          (s) =>
+            `- ${segmentName(s)} (${(s.start * 100).toFixed(0)}%-${(s.end * 100).toFixed(0)}%): ${s.seconds.toFixed(3)}s from ` +
+            `[${s.lap}]${s.gain > 0.0005 ? `, ${s.gain.toFixed(3)}s faster than [${plan.bestLap.id}]` : ''}`
+        ),
+      ].join('\n');
+    },
+    {
+      name: 'assemble_optimal_lap',
+      description:
+        'Builds the theoretical lap: the fastest clean run through every part of the track (each focus area and the ' +
+        'stretch before it), from any of the laps analysed, joined into one lap. Answers its time, how much faster it ' +
+        'is than the best lap, and which lap each part comes from. Call it once, after the other tools; it takes no input.',
+      schema: z.object({}),
+    }
+  );
+}
+
 // Brake advice is only ever a change (how many feet or meters earlier or later), never where on the track to brake.
 // Also used by the In-Car AI Coach.
 export function brakeChangeRule(units: Units = DEFAULT_UNITS): string {
@@ -870,7 +927,8 @@ const systemPrompt = (units: Units) =>
   ' Only blame braking or speed when the fast and slow runs actually differ in it; if ' +
   'nothing in the data explains the time, say the cause is not in the data instead of guessing. Use the numbers ' +
   `from the tools in the units they give (${DISTANCE_NAME[units]}, ${SPEED_UNIT[units]}), never invent data, write to ` +
-  'the driver as "you", and use plain text with no markdown.';
+  'the driver as "you", and use plain text with no markdown. Once you have your fixes, call assemble_optimal_lap ' +
+  'once and sum up the theoretical lap it builds in optimalLap.';
 
 // "brake about 30 ft later", "braking earlier", "brake later" -> the direction words in a fix. Also
 // Portuguese ("freie uns 30 ft mais tarde") and Spanish ("frena más tarde"), for answers in those languages
@@ -927,13 +985,18 @@ export async function runDebriefCoach(
   units: Units = DEFAULT_UNITS,
   // The car's rev limit from the user's Car Data, for get_shifting_points
   carRpmLimit: number | null = null
-): Promise<{ debrief: Debrief; steps: string[] }> {
+): Promise<{ debrief: Debrief; steps: string[]; optimalLap: OptimalLap | null }> {
   if (!process.env.OPENAI_API_KEY) {
     throw new Error('OPENAI_API_KEY is not configured');
   }
 
   const u = unitFormat(units);
-  const tools = createTools(session, units, carRpmLimit);
+  const { areas, cleanLaps } = cleanSession(session);
+  const optimalLap = planOptimalLap(
+    session,
+    cleanLaps.map((lap) => lap.id)
+  );
+  const tools = [...createTools(session, units, carRpmLimit), assembleOptimalLapTool(optimalLap, session)];
   const agent = createAgent({
     model: await chatModel('debriefCoach', 0.2),
     tools,
@@ -943,12 +1006,11 @@ export async function runDebriefCoach(
 
   let result = await agent.invoke(
     { messages: [{ role: 'user', content: `Debrief my session at ${session.track} in the ${session.car}. What should I fix?` }] },
-    { recursionLimit: 30 }
+    { recursionLimit: 40 }
   );
 
   // The model can still flip "later" and "earlier" or say where to brake, so check every fix and give it one
   // chance to correct itself before dropping any fix that still breaks the rules
-  const { areas } = cleanSession(session);
   const check = (response: DebriefFixes) => [...brakeContradictions(response, areas, u), ...trackPositions(response, u)];
   let problems = check(result.structuredResponse);
   if (problems.length > 0) {
@@ -965,7 +1027,7 @@ export async function runDebriefCoach(
           },
         ],
       },
-      { recursionLimit: 30 }
+      { recursionLimit: 40 }
     );
     problems = check(result.structuredResponse);
   }
@@ -978,7 +1040,8 @@ export async function runDebriefCoach(
 
   const toolNames = new Set<string>(tools.map((t) => t.name));
   return {
-    debrief: { ...response, fixes, headline: `${fixes[0].area}: ${fixes[0].fix}` },
+    debrief: { ...response, fixes, headline: `${fixes[0].area}: ${fixes[0].fix}`, optimalLap: optimalLap ? response.optimalLap : '' },
     steps: toolSteps(result.messages).filter((step) => toolNames.has(step.slice(0, step.indexOf('(')))),
+    optimalLap,
   };
 }

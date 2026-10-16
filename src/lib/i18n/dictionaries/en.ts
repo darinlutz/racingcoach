@@ -48,7 +48,8 @@ export const en = {
     pricing: 'Pricing',
     proDriverLesson: 'Pro Driver Lesson',
     support: 'Support',
-    myAccount: 'My Account',
+    myAccount: 'My Settings',
+    installing: 'Installing RacingCoach',
     admin: 'Admin',
     coach: 'Coach',
     driver: 'Driver:',
@@ -172,11 +173,11 @@ export const en = {
     active: 'Your subscription is active.',
     receipt: ' A receipt has been sent to {email}.',
     couldNotConfirm: 'We couldn’t confirm your payment. If you were charged, please contact us.',
-    backToAccount: 'Back to My Account',
+    backToAccount: 'Back to My Settings',
   },
 
   account: {
-    title: 'My Account',
+    title: 'My Settings',
     intro: 'Your account details.',
     email: 'Email',
     name: 'Name',
@@ -309,7 +310,7 @@ export const en = {
     included: 'Included in Your Plan',
     upgradeNote: 'Upgrading cancels your Silver subscription automatically. Its unused time is credited to your Gold renewal.',
     fineprint:
-      'Paid memberships renew automatically and can be canceled anytime from My Account. Secure checkout by Stripe.',
+      'Paid memberships renew automatically and can be canceled anytime from My Settings. Secure checkout by Stripe.',
   },
 
   changePassword: {
@@ -433,6 +434,16 @@ export const en = {
     evidence: 'Evidence: ',
     keepDoing: 'Keep doing',
     stepsChecked: { one: 'What the coach checked ({n} step)', other: 'What the coach checked ({n} steps)' },
+    optimalTitle: 'Theoretical best lap',
+    optimalFaster: '{seconds}s faster than your best lap, {best} [{lap}]: your fastest run through every part of the track, joined into one lap.',
+    optimalParts: { one: 'Where it comes from ({n} part)', other: 'Where it comes from ({n} parts)' },
+    optimalBefore: 'Before {area}',
+    optimalDownload: 'Download CSV',
+    optimalFailed: 'The theoretical lap couldn’t be built: {error}',
+    setAsTarget: 'Set as Target',
+    settingTarget: 'Setting Target…',
+    targetSaved: 'Saved as your Target Lap.',
+    setTargetFailed: 'Set as Target failed: {error}',
   },
 
   recordedLaps: {
@@ -899,6 +910,35 @@ export const en = {
   },
 
   // The Support page (src/app/support/page.tsx): emails the user's issue to the site owner
+  // The Installing RacingCoach page (src/app/installing/page.tsx)
+  installing: {
+    pageTitle: 'Installing RacingCoach',
+    intro: 'Three steps and you’re recording every lap you drive in iRacing.',
+    step: 'Step',
+    downloadTitle: 'Download the RacingCoach Collector',
+    downloadText: 'The collector is a small Windows app that reads your telemetry from iRacing, saves each lap and sends it to your RacingCoach account.',
+    downloadButton: 'Download the Collector',
+    downloadNotes: [
+      'Install it on the Windows PC you race on.',
+      'Run the downloaded RacingCoach.Collector.Setup.exe. It installs in Program Files with a Start menu shortcut.',
+      'If Windows says it protected your PC, click More info, then Run anyway.',
+      'You only do this once: the collector updates itself when a new version comes out.',
+    ],
+    keyTitle: 'Copy your Upload Key into the Collector',
+    keyText: 'Your upload key connects the collector to your account, so your laps show up here.',
+    keySteps: [
+      'Open My Settings and find the Telemetry Collector card.',
+      'Click Create Upload Key, then Copy. The key is only shown once.',
+      'Open RacingCoach Collector. The first time it starts, it asks for your upload key: paste it in and click Connect. You can also press the collector’s Upload Key button at any time.',
+      'That’s it. Start iRacing and drive: each lap is recorded and uploaded to your account, ready for Coaching & Analysis.',
+    ],
+    keyButton: 'Open My Settings',
+    keyLost: 'Lost your key? Click Replace Key on the same card and paste the new one into the collector.',
+    supportTitle: 'Questions or issues? Contact Support',
+    supportText: 'If something doesn’t work or you’re not sure what to do next, send us a message and we’ll get back to you by email.',
+    supportButton: 'Contact Support',
+  },
+
   support: {
     pageTitle: 'Support',
     intro: 'Describe your issue and we will get back to you by email.',

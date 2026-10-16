@@ -62,6 +62,11 @@ internal sealed class CollectorEngine
     // a finished recording is the cue to add track positions to the stint's laps
     private bool _askedForIbt;
     private bool _wasRecordingIbt;
+    // Getting back in the car in the same iRacing session can leave recording turned on but not recording (no
+    // .ibt file, so the stint's laps never get positions): then it's started again, once per time in the car
+    private static readonly TimeSpan IbtStartGrace = TimeSpan.FromSeconds(5);
+    private DateTime? _inCarSince;
+    private bool _restartedIbt;
 
     // Samples per second, measured over the last second
     private int _samplesInWindow;
@@ -234,6 +239,8 @@ internal sealed class CollectorEngine
         OnConnectStateChanged = state =>
         {
             _askedForIbt = false;
+            _inCarSince = null;
+            _restartedIbt = false;
             lock (_sampleLock)
                 _hasLatest = false;
             Rotation.Clear();
@@ -335,6 +342,21 @@ internal sealed class CollectorEngine
                     Log("Turned on iRacing's telemetry recording (.ibt) for track positions.");
                 }
                 var recordingIbt = data.IsDiskLoggingActive == true;
+                if (data.IsOnTrack == true)
+                {
+                    _inCarSince ??= now;
+                    if (!_restartedIbt && !recordingIbt && data.IsDiskLoggingEnabled == true && now - _inCarSince >= IbtStartGrace)
+                    {
+                        _restartedIbt = true;
+                        _client?.SimControl.TelemetryRecording.Start();
+                        Log("iRacing's telemetry recording (.ibt) was on but not recording; started it again for track positions.");
+                    }
+                }
+                else
+                {
+                    _inCarSince = null;
+                    _restartedIbt = false;
+                }
                 if (_wasRecordingIbt && !recordingIbt)
                     _writer.AddPositionsFromIbt(); // left the car: the stint's .ibt file is done
                 RecordingIbt = _wasRecordingIbt = recordingIbt;

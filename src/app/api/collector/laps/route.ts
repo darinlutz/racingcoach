@@ -9,16 +9,16 @@ import {
   MAX_UPLOAD_BYTES,
   saveCollectorLap,
 } from '@/lib/collectorLaps';
-import { canSeeAllLaps } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
 import { apiText } from '@/lib/i18n/server';
 
 const UNAUTHORIZED = { error: 'Missing or unknown upload key' };
 
 // Uploaded laps (details only, newest first), for the Racing page. Uses the browser's sign-in, unlike POST.
-// Users get their own laps. Coaches and Admins (canSeeAllLaps) can pass ?userId= for any driver's laps
-// (their own by default) or ?userId=all for every driver's, and also get `drivers`: every account with
-// laps, for the page's Driver box.
+// ?userId= picks the drivers, comma-separated (e.g. ?userId=3,7), or ?userId=all for every driver; the signed-in
+// user's own laps by default. Coaches and Admins can see every driver's laps; Users their own and Coaches' (see
+// LapViewer in collectorLaps.ts), and other drivers' are left out. Also answers `drivers`: every account with laps
+// the user can see, for the page's Driver box.
 export async function GET(request: Request) {
   const t = await apiText();
   try {
@@ -29,23 +29,18 @@ export async function GET(request: Request) {
 
     const requested = new URL(request.url).searchParams.get('userId');
     // null = all drivers
-    const userId = requested === null ? user.id : requested === 'all' ? null : Number(requested);
-    if (userId !== null && (!Number.isInteger(userId) || userId <= 0)) {
+    const driverIds =
+      requested === null ? [user.id] : requested === 'all' ? null : [...new Set(requested.split(',').map(Number))];
+    if (driverIds && !driverIds.every((id) => Number.isInteger(id) && id > 0)) {
       return NextResponse.json({ error: t.lapNotFound }, { status: 400 });
     }
-    if (!canSeeAllLaps(user.role)) {
-      if (userId !== user.id) {
-        return NextResponse.json({ error: t.ownLapsOnly }, { status: 403 });
-      }
-      return NextResponse.json({ laps: await listCollectorLaps(user.id) });
-    }
 
-    const [laps, owners] = await Promise.all([listCollectorLaps(userId), listLapOwners()]);
-    // The coach is always in the list, so they can get back to their own laps even with none yet
+    const [laps, owners] = await Promise.all([listCollectorLaps(user, driverIds), listLapOwners(user)]);
+    // The user is always in the list, so they can get back to their own laps even with none yet
     const drivers = owners.some((owner) => owner.userId === user.id)
       ? owners
       : [{ userId: user.id, userName: user.userName, lapCount: 0 }, ...owners];
-    return NextResponse.json({ laps, drivers, userId, currentUserId: user.id });
+    return NextResponse.json({ laps, drivers, currentUserId: user.id });
   } catch (error) {
     console.error('Collector lap list error:', error);
     return NextResponse.json({ error: t.failedLoadRecordedLaps }, { status: 500 });

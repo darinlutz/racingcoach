@@ -27,18 +27,25 @@ internal enum UploadOutcome
 /// laps (e.g. "Mobility Resort Motegi (Full Road Course)"), from session info. Sent with track requests and laps,
 /// because the site's Track Data can name the layout differently ("Mobility Resort Motegi (Grand Prix)").
 /// Laps from earlier runs whose track hasn't been driven in this run go without it, and are matched by name.
+/// Also iRacing's length of the track (WeekendInfo.TrackLength), sent with laps so the site has it for Track Data.
 /// </summary>
 internal static class TrackKeys
 {
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, string> Keys = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, double> LengthsFeet = new(StringComparer.OrdinalIgnoreCase);
 
-    public static void Set(string track, string? key)
+    public static void Set(string track, string? key, string? length)
     {
         if (!string.IsNullOrWhiteSpace(key))
             Keys[track] = key.Trim();
+        if (BrakeBeeps.IRacingLengthFeet(length) is > 0 and var feet)
+            LengthsFeet[track] = feet;
     }
 
     public static string? For(string track) => Keys.TryGetValue(track, out var key) ? key : null;
+
+    /// <summary>iRacing's length of the track in feet, or null when it isn't known.</summary>
+    public static double? LengthFeet(string track) => LengthsFeet.TryGetValue(track, out var feet) ? feet : null;
 
     /// <summary>"&amp;key=..." for a request's query string, or "" when the track's key isn't known.</summary>
     public static string Param(string track) => For(track) is { } key ? $"&key={Uri.EscapeDataString(key)}" : "";
@@ -258,6 +265,7 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
             clientLapId = lap.ClientLapId,
             session.Track,
             trackKey = TrackKeys.For(session.Track),
+            trackLengthFeet = TrackKeys.LengthFeet(session.Track),
             session.Car,
             session.Driver,
             session.SessionId,

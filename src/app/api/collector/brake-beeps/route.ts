@@ -11,7 +11,7 @@ import { getUserById, setBrakeBeeps, setBrakeBeepsVolume } from '@/lib/users';
 // Track Data. Authenticated with the upload key as a bearer token, like /api/collector/track.
 //   ?track=  iRacing's track name as the collector writes it, e.g. "Road Atlanta (Full Course)"
 // Answers enabled ("Beeps before braking" in the collector's window), volume (its slider, 10-100% of full
-// volume), trackLengthFeet (the track's length from collector laps of it, 0 when there are none
+// volume), trackLengthFeet (iRacing's length of the track, sent with collector laps of it, 0 when there are none
 // or there's no such track), targetLap (its file name, the track that names, or null when the user has none),
 // sameTrack (false when the Target Lap's file name names another track; null when it doesn't say) and
 // brakepoints, per focus area in Track Data order: with a Target Lap, where its first braking zone in the area

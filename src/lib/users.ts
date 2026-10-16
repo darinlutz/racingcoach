@@ -13,7 +13,7 @@ import {
 } from './accountStatus';
 import { copyDefaultCars, seedDefaultCars } from './defaultCars';
 import { seedDefaultTracks } from './defaultTracks';
-import { migrateTrackLengthsToKey } from './trackLengths';
+import { dropTrackLengthsTable } from './trackLengths';
 import { appendTrackCorners, categorizeTracks, removeLegacyTracks, seedTrackCorners } from './trackCorners';
 import { DEFAULT_LANGUAGE, isLanguage, type Language } from './i18n/languages';
 import { DEFAULT_THEME, isTheme, type Theme } from './theme';
@@ -251,8 +251,10 @@ export function ensureUserSchema(): Promise<void> {
         created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
       )`);
-      // Track lengths are iRacing's, from the collector's laps ("TrackLengths", below)
-      await client.query('ALTER TABLE racingcoach."Tracks" DROP COLUMN IF EXISTS track_length_feet');
+      // iRacing's length of the layout (WeekendInfo.TrackLength), sent by the collector with its laps (trackLengths.ts)
+      await client.query(
+        'ALTER TABLE racingcoach."Tracks" ADD COLUMN IF NOT EXISTS track_length_feet DOUBLE PRECISION CHECK (track_length_feet > 0)'
+      );
       await client.query('ALTER TABLE racingcoach."Tracks" ADD COLUMN IF NOT EXISTS config_name TEXT');
       await client.query(
         'ALTER TABLE racingcoach."Tracks" ADD COLUMN IF NOT EXISTS number_of_corners INTEGER CHECK (number_of_corners > 0)'
@@ -541,15 +543,8 @@ export function ensureUserSchema(): Promise<void> {
       );
       // iRacing's track key (WeekendInfo.TrackName), which finds the Track Data track when the names differ
       await client.query('ALTER TABLE racingcoach."CollectorLaps" ADD COLUMN IF NOT EXISTS track_key TEXT');
-      // iRacing's length of each track layout the collector has uploaded laps of, by iRacing's track key
-      // (src/lib/trackLengths.ts); track is the name the length was worked out from, for reference
-      await client.query(`CREATE TABLE IF NOT EXISTS racingcoach."TrackLengths" (
-        track_key TEXT PRIMARY KEY,
-        track TEXT,
-        length_feet DOUBLE PRECISION NOT NULL CHECK (length_feet > 0),
-        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-      )`);
-      await migrateTrackLengthsToKey(client);
+      // Track lengths used to be in their own table; they're iRacing's, in "Tracks".track_length_feet, now
+      await dropTrackLengthsTable(client);
       await client.query(
         'CREATE INDEX IF NOT EXISTS collector_laps_user_id_recorded_at_idx ON racingcoach."CollectorLaps" (user_id, recorded_at)'
       );
@@ -670,9 +665,9 @@ function rowToUser(row: Record<string, unknown>): User {
   };
 }
 
-// Everyone else starts as a Coach for now; admins change roles on the Admin page
+// Everyone else starts as a User; admins change roles on the Admin page
 function initialRole(emailAddress: string): string {
-  return emailAddress.trim().toLowerCase() === OWNER_EMAIL ? ROLES.admin : ROLES.coach;
+  return emailAddress.trim().toLowerCase() === OWNER_EMAIL ? ROLES.admin : ROLES.user;
 }
 
 export async function createUser(input: {

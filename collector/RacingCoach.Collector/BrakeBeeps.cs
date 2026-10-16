@@ -141,7 +141,8 @@ internal sealed class BrakeBeeps(Func<RacingCoachApi?> api, Action<string> log)
         try
         {
             var targets = await site.GetBrakeTargetsAsync(track, CancellationToken.None);
-            var lengthFeet = targets.TrackLengthFeet > 0 ? targets.TrackLengthFeet : IRacingLengthFeet(iRacingLength);
+            // iRacing's length, or the site's (also iRacing's, from uploaded laps) when session info has none
+            var lengthFeet = IRacingLengthFeet(iRacingLength) is > 0 and var feet ? feet : targets.TrackLengthFeet;
             // The Target Lap's come as fractions of a lap; Track Data's (without a Target Lap) in feet
             var brakepoints = lengthFeet > 0
                 ? (targets.Brakepoints ?? [])

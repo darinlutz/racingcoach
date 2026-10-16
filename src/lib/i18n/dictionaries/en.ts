@@ -439,6 +439,7 @@ export const en = {
     driver: 'Driver',
     driverOption: '{name} · {laps}',
     allDrivers: 'All Drivers',
+    driversPicked: '{n} drivers',
     you: '{name} (you)',
     loading: 'Loading your recorded laps…',
     failedLoad: 'Failed to load your recorded laps',
@@ -1092,7 +1093,6 @@ export const en = {
 
   // Error messages the API routes send back to the site (src/lib/i18n/server.ts apiText)
   api: {
-    ownLapsOnly: 'You can only see your own laps',
     adminOnly: 'Not found',
     invalidRole: 'Unknown role',
     userNotFound: 'User not found',

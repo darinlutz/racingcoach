@@ -15,7 +15,8 @@ export const isRole = (value: unknown): value is Role => ROLE_VALUES.includes(va
 
 export const isAdmin = (role: string | null | undefined) => role === ROLES.admin;
 
-// Coaches and Admins can open every driver's recorded laps; Users only their own
+// Coaches and Admins can open every driver's recorded laps; Users only their own and Coaches' (LapViewer in
+// collectorLaps.ts)
 export const canSeeAllLaps = (role: string | null | undefined) => role === ROLES.admin || role === ROLES.coach;
 
 // Coaches and Admins see the Coach page and write the AI Coach Instructions

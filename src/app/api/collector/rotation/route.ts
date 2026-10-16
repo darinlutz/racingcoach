@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { readCollectorLapsById } from '@/lib/collectorLaps';
 import { analyzeRotationSession } from '@/lib/rotationAnalysis';
 import { calibrationForCar, ROTATION_MODEL_CONFIG } from '@/lib/rotationModelConfig';
-import { canSeeAllLaps } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
 import { apiText } from '@/lib/i18n/server';
 
@@ -11,8 +10,8 @@ const MAX_LAPS = 30;
 
 // Understeer and oversteer in uploaded laps: GET /api/collector/rotation?ids=12,13,14 runs the Rotation Model
 // (the collector's live overlay model, see rotation-model/README.md) over each lap and answers its events, a
-// summary, and the places they keep happening lap after lap. Users can only analyse their own laps (anyone
-// else's are left out, as if they didn't exist); Coaches and Admins can analyse any driver's.
+// summary, and the places they keep happening lap after lap. Users can only analyse their own and Coaches' laps
+// (anyone else's are left out, as if they didn't exist); Coaches and Admins can analyse any driver's.
 export async function GET(request: Request) {
   const t = await apiText();
   try {
@@ -26,7 +25,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: t.lapNotFound }, { status: 400 });
     }
 
-    const laps = await readCollectorLapsById(canSeeAllLaps(user.role) ? null : user.id, ids.map(Number));
+    const laps = await readCollectorLapsById(user, ids.map(Number));
     if (laps.length === 0) {
       return NextResponse.json({ error: t.lapNotFound }, { status: 404 });
     }

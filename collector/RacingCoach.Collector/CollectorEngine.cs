@@ -333,7 +333,7 @@ internal sealed class CollectorEngine
                 Session.SubSessionId,
                 sessionTypes);
 
-            TrackKeys.Set(_recorder.Session.Track, weekend?.TrackName); // before anything asks the site about the track
+            TrackKeys.Set(_recorder.Session.Track, weekend?.TrackName, weekend?.TrackLength); // before anything asks the site about the track
             _coach.SetTrack(_recorder.Session.Track);
             _brakeBeeps.SetTrack(_recorder.Session.Track, Session.TrackLength);
             _races?.OnSessionInfo(session, _recorder.Session.Track, Session.Car);

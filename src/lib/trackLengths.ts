@@ -1,12 +1,10 @@
-import { gunzipSync } from 'node:zlib';
 import type { PoolClient } from 'pg';
 import { query } from './db';
 
-// iRacing's track lengths, in racingcoach."TrackLengths": one row per track layout, by iRacing's track key
-// (WeekendInfo.TrackName, e.g. "twinring fullrc"; "CollectorLaps".track_key), worked out from the first lap of the
-// layout the collector uploads with its key. A layout's length doesn't change, so it's worked out once;
-// readTracks (tracks.ts) reads them for Track Data by "Tracks".track_key. Laps without a key (collectors before
-// 1.29.0) don't give a length, as nothing could find it.
+// iRacing's track lengths, in racingcoach."Tracks".track_length_feet: iRacing's session info length
+// (WeekendInfo.TrackLength, e.g. "5.79 km"), which the collector sends with each lap it uploads along with the
+// track key. readTracks (tracks.ts) reads it for Track Data. Laps without a key (collectors before 1.29.0) or
+// without a length (before the collector sent it) don't give a length.
 
 const FEET_PER_METER = 3.280839895;
 
@@ -31,52 +29,19 @@ export function lapCsvTrackLengthFeet(csv: string): number | null {
   return lengths[Math.floor(lengths.length / 2)] * FEET_PER_METER;
 }
 
-// Every known track length, by iRacing's track key. The caller has run ensureUserSchema.
-export async function readTrackLengths(): Promise<{ trackKey: string; lengthFeet: number }[]> {
-  const rows = await query<{ track_key: string; length_feet: number }>(
-    'SELECT track_key, length_feet FROM racingcoach."TrackLengths"'
-  );
-  return rows.map((row) => ({ trackKey: row.track_key, lengthFeet: Number(row.length_feet) }));
-}
-
-// Saves the track's length from an uploaded lap's CSV, unless the track already has one (then the CSV
-// isn't even unzipped). Nothing without a track key. The caller has run ensureUserSchema.
-export async function saveTrackLength(trackKey: string | null, track: string, csvGzip: Buffer): Promise<void> {
-  if (!trackKey) return;
-  const [known] = await query('SELECT 1 FROM racingcoach."TrackLengths" WHERE track_key = $1', [trackKey]);
-  if (known) return;
-  const lengthFeet = lapCsvTrackLengthFeet(gunzipSync(csvGzip).toString('utf8'));
-  if (lengthFeet === null) return;
+// Saves iRacing's length of the track an uploaded lap was driven on, on its "Tracks" row (by track key), when it
+// differs from the one there. Nothing without a key or length. The caller has run ensureUserSchema.
+export async function saveTrackLength(trackKey: string | null, lengthFeet: number | null): Promise<void> {
+  if (!trackKey || !lengthFeet) return;
   await query(
-    'INSERT INTO racingcoach."TrackLengths" (track_key, track, length_feet) VALUES ($1, $2, $3) ON CONFLICT (track_key) DO NOTHING',
-    [trackKey, track, lengthFeet]
+    `UPDATE racingcoach."Tracks" SET track_length_feet = $2, updated_at = now()
+     WHERE lower(track_key) = lower($1) AND track_length_feet IS DISTINCT FROM $2`,
+    [trackKey, lengthFeet]
   );
 }
 
-// Moves a "TrackLengths" from before track keys (keyed by iRacing's track name) to keying by track_key, on the
-// caller's transaction. Each row gets the key of the Track Data track with the same name; rows with no such track
-// are deleted (the next lap there with a key works the length out again), and of two names for one key the older
-// is kept. Does nothing once the table is keyed by track_key.
-export async function migrateTrackLengthsToKey(client: PoolClient): Promise<void> {
-  const { rows } = await client.query<{ column: string; constraint: string }>(
-    `SELECT a.attname AS column, c.conname AS constraint
-     FROM pg_constraint c JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = ANY (c.conkey)
-     WHERE c.conrelid = 'racingcoach."TrackLengths"'::regclass AND c.contype = 'p'`
-  );
-  if (rows[0]?.column !== 'track') return;
-
-  await client.query('ALTER TABLE racingcoach."TrackLengths" ADD COLUMN IF NOT EXISTS track_key TEXT');
-  await client.query(
-    `UPDATE racingcoach."TrackLengths" l SET track_key = t.track_key
-     FROM racingcoach."Tracks" t
-     WHERE l.track_key IS NULL AND lower(t.track_name) = lower(l.track)`
-  );
-  await client.query('DELETE FROM racingcoach."TrackLengths" WHERE track_key IS NULL');
-  await client.query(
-    `DELETE FROM racingcoach."TrackLengths" l USING racingcoach."TrackLengths" older
-     WHERE l.track_key = older.track_key AND (older.created_at, older.track) < (l.created_at, l.track)`
-  );
-  await client.query(`ALTER TABLE racingcoach."TrackLengths" DROP CONSTRAINT "${rows[0].constraint}"`);
-  await client.query('ALTER TABLE racingcoach."TrackLengths" ALTER COLUMN track DROP NOT NULL');
-  await client.query('ALTER TABLE racingcoach."TrackLengths" ADD PRIMARY KEY (track_key)');
+// Drops the old racingcoach."TrackLengths" table, whose lengths were worked out from laps' LapDist / LapDistPct
+// and aren't kept: each track gets iRacing's own with its next uploaded lap. On the caller's transaction.
+export async function dropTrackLengthsTable(client: PoolClient): Promise<void> {
+  await client.query('DROP TABLE IF EXISTS racingcoach."TrackLengths"');
 }

@@ -431,6 +431,7 @@ export const pt: Dictionary = {
     driver: 'Piloto',
     driverOption: '{name} · {laps}',
     allDrivers: 'Todos os pilotos',
+    driversPicked: '{n} pilotos',
     you: '{name} (você)',
     loading: 'Carregando suas voltas gravadas…',
     failedLoad: 'Não foi possível carregar suas voltas gravadas',
@@ -1076,7 +1077,6 @@ export const pt: Dictionary = {
   },
 
   api: {
-    ownLapsOnly: 'Você só pode ver as suas próprias voltas',
     adminOnly: 'Não encontrado',
     invalidRole: 'Função desconhecida',
     userNotFound: 'Usuário não encontrado',

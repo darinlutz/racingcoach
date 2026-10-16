@@ -1,6 +1,5 @@
 import { query } from './db';
 import { sameTrackName, type Track } from './lapData';
-import { readTrackLengths } from './trackLengths';
 import { ensureUserSchema } from './users';
 
 // Track Data: the tracks in racingcoach."Tracks" and their "TrackFocusAreas" (created by ensureUserSchema
@@ -27,7 +26,7 @@ export type TrackData = {
   name: string;
   // The iRacing track key (e.g. "monza full")
   key: string;
-  // iRacing's length, from the collector's laps of the track (trackLengths.ts); null without any
+  // iRacing's length, sent by the collector with its laps of the track (trackLengths.ts); null without any
   lengthFeet: number | null;
   notes: string | null;
   areas: FocusArea[];
@@ -36,7 +35,7 @@ export type TrackData = {
 export async function readTracks(): Promise<TrackData[]> {
   await ensureUserSchema();
   const tracks = await query(
-    `SELECT t.id, t.track_key, t.track_name, t.notes FROM racingcoach."Tracks" t
+    `SELECT t.id, t.track_key, t.track_name, t.notes, t.track_length_feet FROM racingcoach."Tracks" t
      WHERE EXISTS (SELECT 1 FROM racingcoach."TrackFocusAreas" f WHERE f.track_id = t.id)
      ORDER BY lower(t.track_name)`
   );
@@ -45,17 +44,11 @@ export async function readTracks(): Promise<TrackData[]> {
             brake_point_feet, max_brake_pct, throttle_point_feet
      FROM racingcoach."TrackFocusAreas" ORDER BY track_id, position`
   );
-  const lengths = await readTrackLengths();
-  // By iRacing's track key, like findTrackByKey
-  const lengthFeet = (key: string) => {
-    const found = lengths.find((l) => l.trackKey?.toLowerCase() === key.toLowerCase());
-    return found ? Math.round(found.lengthFeet) : null;
-  };
   return tracks.map((t) => ({
     id: t.id as number,
     name: t.track_name as string,
     key: t.track_key as string,
-    lengthFeet: lengthFeet(t.track_key as string),
+    lengthFeet: t.track_length_feet == null ? null : Math.round(Number(t.track_length_feet)),
     notes: t.notes as string | null,
     areas: areas
       .filter((a) => a.track_id === t.id)

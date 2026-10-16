@@ -41,7 +41,7 @@ export async function GET(request: Request) {
     const lapTrack = lap ? targetLapTrackName(lap.fileName) : null;
     const target = lap && (lapTrack === null || namesSameTrack(lapTrack, name, track)) ? lap : null;
     const samples = target ? lapSamplesFromText(target.csv) : null;
-    // Feet as the overlay measures them: with the track's length from collector laps, or the lap's own
+    // Feet as the overlay measures them: with iRacing's length of the track (sent with collector laps), or the lap's own
     const lengthFeet = target ? (track.lengthFeet ?? lapCsvTrackLengthFeet(target.csv)) : null;
 
     // The same names and order as a track in the Track Data text file (trackFile.ts), which is what

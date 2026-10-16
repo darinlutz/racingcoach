@@ -31,8 +31,9 @@ internal sealed class TargetLapSource(CollectorEngine engine)
     /// <summary>Raised after each load: a new Target Lap (or none) and the units.</summary>
     public event Action? Loaded;
 
-    /// <summary>The track's length: Track Data's, or iRacing's when Track Data has none (0 when neither is known).</summary>
-    public double LengthFeet => _trackDataFeet > 0 ? _trackDataFeet : BrakeBeeps.IRacingLengthFeet(engine.Session?.TrackLength);
+    /// <summary>The track's length: iRacing's from session info, or the site's (also iRacing's, from uploaded laps)
+    /// when session info has none (0 when neither is known).</summary>
+    public double LengthFeet => BrakeBeeps.IRacingLengthFeet(engine.Session?.TrackLength) is > 0 and var feet ? feet : _trackDataFeet;
 
     /// <summary>Starts a load when the track or upload key changed, or a failed load is due again.</summary>
     public void Update()

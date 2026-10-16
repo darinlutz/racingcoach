@@ -15,7 +15,7 @@ import { getUserById } from '@/lib/users';
 // being driven (null when either is unknown), and pcts (LapDistPct, unwrapped so it keeps increasing past the
 // start/finish line) with brakes and throttles (0-1) and steerings (SteeringWheelAngle in radians, positive to the
 // left) per sample, and gearChanges, where it changed gear: { pct, from, gear } (pct unwrapped like pcts; empty when the
-// lap file has no Gear column; neutral and reverse are skipped, so a shift through neutral is one change). trackLengthFeet is the track's length from collector laps of it (0 when there are none, or there's no such
+// lap file has no Gear column; neutral and reverse are skipped, so a shift through neutral is one change). trackLengthFeet is iRacing's length of the track, sent with collector laps of it (0 when there are none, or there's no such
 // track), and units the user's Preferred Units.
 
 export async function GET(request: Request) {

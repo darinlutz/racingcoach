@@ -395,8 +395,9 @@ internal sealed partial class OverlayEngine
             }
         }
 
-        // Track Data's length (feet) is more precise than iRacing's (km, two decimals); SimHub gives meters
-        _trackLengthMeters = _trackDataLengthFeet > 0 ? _trackDataLengthFeet / 3.280839895 : IRacingLengthMeters(session?.TrackLength);
+        // iRacing's length from session info, or the site's (also iRacing's, from uploaded laps) when it has none;
+        // SimHub gives meters
+        _trackLengthMeters = IRacingLengthMeters(session?.TrackLength) is > 0 and var meters ? meters : _trackDataLengthFeet / 3.280839895;
     }
 
     // iRacing gives the length as e.g. "4.0900 km"

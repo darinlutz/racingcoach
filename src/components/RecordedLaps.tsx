@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 
+import DriverMultiSelect, { type DriverPick } from '@/components/DriverMultiSelect';
 import { useLanguage } from '@/components/LanguageProvider';
 import type { CollectorLapSummary, LapOwner } from '@/lib/collectorLaps';
 import {
@@ -89,8 +90,8 @@ const smallButtonClass =
 // (/api/account/target-lap, shown on the Account page).
 // A Compare column takes up to two laps; Compare sends them to onCompare, fastest first (the Racing
 // page opens them in Lap Compare as the Base and Compare laps).
-// Coaches and Admins also get a Driver box listing every account with laps (their own first shown),
-// headed by All Drivers; Users only ever see their own laps (the API enforces it).
+// A Driver box picks whose laps are listed (their own at first), any number of drivers or All Drivers. Coaches and
+// Admins can pick every account with laps; Users only themselves and Coaches (the API enforces it).
 export default function RecordedLaps({
   tracks,
   onChange,
@@ -115,16 +116,17 @@ export default function RecordedLaps({
   // Laps ticked in the Compare column, oldest tick first (at most two), and whether Compare is loading them
   const [comparePicks, setComparePicks] = useState<number[]>([]);
   const [comparing, setComparing] = useState(false);
-  // Coaches and Admins only: the drivers they can pick, whose laps are shown, and which driver is them
+  // The drivers the user can pick, whose laps are shown, and which driver is them
   const [drivers, setDrivers] = useState<LapOwner[] | null>(null);
-  // null until a driver is picked (the coach's own laps), 'all' for All Drivers
-  const [driverId, setDriverId] = useState<number | 'all' | null>(null);
+  // null until drivers are picked (the user's own laps)
+  const [driverPick, setDriverPick] = useState<DriverPick | null>(null);
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
 
   useEffect(() => {
-    // A slower answer for a driver picked earlier mustn't replace the one picked last
+    // A slower answer for drivers picked earlier mustn't replace the ones picked last
     let current = true;
-    fetch(driverId === null ? '/api/collector/laps' : `/api/collector/laps?userId=${driverId}`)
+    const userId = driverPick === null ? null : driverPick === 'all' ? 'all' : driverPick.join(',');
+    fetch(userId === null ? '/api/collector/laps' : `/api/collector/laps?userId=${userId}`)
       .then(async (res) => {
         if (!current) return;
         if (res.status === 401) return setStatus('signed-out');
@@ -146,10 +148,10 @@ export default function RecordedLaps({
     return () => {
       current = false;
     };
-  }, [t, driverId]);
+  }, [t, driverPick]);
 
-  // Shows another driver's laps, starting over with nothing picked
-  const changeDriver = (id: number | 'all') => {
+  // Shows other drivers' laps, starting over with nothing picked
+  const changeDrivers = (pick: DriverPick) => {
     setSelected(new Set());
     setFiles({});
     setLoading(new Set());
@@ -158,32 +160,12 @@ export default function RecordedLaps({
     setError('');
     setNotice('');
     setStatus('loading');
-    setDriverId(id);
+    setDriverPick(pick);
   };
 
-  const shownDriverId = driverId ?? currentUserId;
+  const shownPick: DriverPick = driverPick ?? (currentUserId ? [currentUserId] : []);
   const driverPicker = drivers && (
-    <div className="flex items-center gap-2">
-      <label htmlFor="recorded-laps-driver" className="text-sm text-muted-foreground">
-        {t.driver}
-      </label>
-      <select
-        id="recorded-laps-driver"
-        value={shownDriverId ?? ''}
-        onChange={(e) => changeDriver(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-        className="px-3 py-1.5 bg-card border border-border rounded-lg text-sm text-foreground focus:outline-none focus:border-primary"
-      >
-        <option value="all">{t.allDrivers}</option>
-        {drivers.map((driver) => {
-          const name = driver.userId === currentUserId ? fmt(t.you, { name: driver.userName }) : driver.userName;
-          return (
-            <option key={driver.userId} value={driver.userId}>
-              {fmt(t.driverOption, { name, laps: plural(driver.lapCount, t.lapCount) })}
-            </option>
-          );
-        })}
-      </select>
-    </div>
+    <DriverMultiSelect drivers={drivers} currentUserId={currentUserId} value={shownPick} onChange={changeDrivers} />
   );
 
   const sessions = useMemo(() => groupSessions(laps), [laps]);

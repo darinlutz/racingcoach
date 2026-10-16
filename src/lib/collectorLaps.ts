@@ -1,6 +1,7 @@
 import { gunzipSync } from 'node:zlib';
 import { z } from 'zod';
 import { isUniqueViolation, query } from './db';
+import { canSeeAllLaps, ROLES } from './roles';
 import { saveTrackLength } from './trackLengths';
 import { ensureUserSchema } from './users';
 
@@ -24,6 +25,8 @@ export const collectorLapSchema = z.object({
   track: z.string().trim().min(1).max(200),
   // iRacing's track key (WeekendInfo.TrackName, e.g. "twinring fullrc"); collectors before 1.29.0 don't send it
   trackKey: z.string().trim().min(1).max(200).nullish(),
+  // iRacing's length of the track in feet (WeekendInfo.TrackLength); collectors before it was sent don't send it
+  trackLengthFeet: z.number().positive().max(1_000_000).nullish(),
   car: z.string().trim().min(1).max(200),
   driver: z.string().trim().min(1).max(200),
   sessionId: z.number().int().min(0),
@@ -111,8 +114,20 @@ export type CollectorLapSummary = {
 // How many of the user's most recent laps the Racing page lists
 const LIST_LIMIT = 1000;
 
-// The user's laps, or with a null userId every driver's (Coaches and Admins, see canSeeAllLaps)
-export async function listCollectorLaps(userId: number | null): Promise<CollectorLapSummary[]> {
+// The signed-in user looking at recorded laps. Coaches and Admins can see every driver's laps (canSeeAllLaps);
+// Users their own and Coaches' laps, never another User's (or an Admin's)
+export type LapViewer = { id: number; role: string | null | undefined };
+
+// The SQL condition for the laps the viewer can see, on "CollectorLaps" l joined to the uploader's "Users" u, with
+// lapViewerParam as parameter $n. ROLES.coach is a constant, not user input.
+const visibleTo = (n: number) => `($${n}::integer IS NULL OR l.user_id = $${n} OR u.role = '${ROLES.coach}')`;
+
+// The visibleTo parameter: null for a viewer who can see every driver's laps
+const lapViewerParam = (viewer: LapViewer) => (canSeeAllLaps(viewer.role) ? null : viewer.id);
+
+// The laps the viewer can see, newest first: with driverIds, only those drivers' (the Racing page's Driver box);
+// null for every driver the viewer can see
+export async function listCollectorLaps(viewer: LapViewer, driverIds: number[] | null): Promise<CollectorLapSummary[]> {
   await ensureUserSchema();
   const rows = await query<{
     id: number;
@@ -140,9 +155,9 @@ export async function listCollectorLaps(userId: number | null): Promise<Collecto
             l.iracing_subsession_id, l.session_num, l.session_type, l.lap_number, l.lap_time_seconds, l.sample_count,
             l.missing_samples, l.incidents, l.pit_road, l.off_track, l.recorded_at
      FROM racingcoach."CollectorLaps" l JOIN racingcoach."Users" u ON u.id = l.user_id
-     WHERE ($1::integer IS NULL OR l.user_id = $1)
-     ORDER BY l.recorded_at DESC, l.id DESC LIMIT $2`,
-    [userId, LIST_LIMIT]
+     WHERE ${visibleTo(1)} AND ($2::integer[] IS NULL OR l.user_id = ANY($2::integer[]))
+     ORDER BY l.recorded_at DESC, l.id DESC LIMIT $3`,
+    [lapViewerParam(viewer), driverIds, LIST_LIMIT]
   );
   return rows.map((row) => ({
     id: row.id,
@@ -169,28 +184,29 @@ export async function listCollectorLaps(userId: number | null): Promise<Collecto
   }));
 }
 
-// The lap's CSV, or null if there's no lap with that id. With a userId, only that user's lap is returned
-// (a User opening their own laps); null opens anyone's (Coaches and Admins, see canSeeAllLaps).
-export async function readCollectorLapCsv(userId: number | null, id: number): Promise<string | null> {
+// The lap's CSV, or null if there's no lap with that id or the viewer can't see it (see LapViewer)
+export async function readCollectorLapCsv(viewer: LapViewer, id: number): Promise<string | null> {
   await ensureUserSchema();
   const [row] = await query<{ csv_gzip: Buffer }>(
-    'SELECT csv_gzip FROM racingcoach."CollectorLaps" WHERE id = $1 AND ($2::integer IS NULL OR user_id = $2)',
-    [id, userId]
+    `SELECT l.csv_gzip FROM racingcoach."CollectorLaps" l JOIN racingcoach."Users" u ON u.id = l.user_id
+     WHERE l.id = $1 AND ${visibleTo(2)}`,
+    [id, lapViewerParam(viewer)]
   );
   return row ? gunzipSync(row.csv_gzip).toString('utf8') : null;
 }
 
-// Laps by id with their car and CSV, in the order asked for (ids that don't exist, or aren't the user's, are
-// left out). With a userId, only that user's laps; null reads anyone's (Coaches and Admins, see canSeeAllLaps).
+// Laps by id with their car and CSV, in the order asked for (ids that don't exist, or that the viewer can't see,
+// see LapViewer, are left out)
 export async function readCollectorLapsById(
-  userId: number | null,
+  viewer: LapViewer,
   ids: number[]
 ): Promise<{ id: number; car: string; lapNumber: number; csv: string }[]> {
   await ensureUserSchema();
   const rows = await query<{ id: number; car: string; lap_number: number; csv_gzip: Buffer }>(
-    `SELECT id, car, lap_number, csv_gzip FROM racingcoach."CollectorLaps"
-      WHERE id = ANY($1::integer[]) AND ($2::integer IS NULL OR user_id = $2)`,
-    [ids, userId]
+    `SELECT l.id, l.car, l.lap_number, l.csv_gzip
+     FROM racingcoach."CollectorLaps" l JOIN racingcoach."Users" u ON u.id = l.user_id
+     WHERE l.id = ANY($1::integer[]) AND ${visibleTo(2)}`,
+    [ids, lapViewerParam(viewer)]
   );
   const byId = new Map(rows.map((row) => [row.id, row]));
   return ids.flatMap((id) => {
@@ -255,13 +271,15 @@ export async function readCollectorLapsByClientId(
 // A driver whose laps a Coach or Admin can open in Debrief Coach
 export type LapOwner = { userId: number; userName: string; lapCount: number };
 
-// Every account with recorded laps, by name
-export async function listLapOwners(): Promise<LapOwner[]> {
+// Every account with recorded laps that the viewer can see (see LapViewer), by name
+export async function listLapOwners(viewer: LapViewer): Promise<LapOwner[]> {
   await ensureUserSchema();
   const rows = await query<{ id: number; user_name: string; lap_count: string }>(
     `SELECT u.id, u.user_name, count(*) AS lap_count
      FROM racingcoach."CollectorLaps" l JOIN racingcoach."Users" u ON u.id = l.user_id
-     GROUP BY u.id, u.user_name ORDER BY lower(u.user_name), u.id`
+     WHERE ${visibleTo(1)}
+     GROUP BY u.id, u.user_name ORDER BY lower(u.user_name), u.id`,
+    [lapViewerParam(viewer)]
   );
   return rows.map((row) => ({ userId: Number(row.id), userName: row.user_name, lapCount: Number(row.lap_count) }));
 }
@@ -309,7 +327,7 @@ export async function saveCollectorLap(
         lap.trackKey ?? null,
       ]
     );
-    await saveTrackLength(lap.trackKey ?? null, lap.track, csvGzip);
+    await saveTrackLength(lap.trackKey ?? null, lap.trackLengthFeet ?? null);
     return { id: row.id, duplicate: false, replaced: false };
   } catch (error) {
     if (!isUniqueViolation(error)) throw error;

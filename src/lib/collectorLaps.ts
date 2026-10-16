@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { isUniqueViolation, query } from './db';
 import { canSeeAllLaps, ROLES } from './roles';
 import { saveTrackLength } from './trackLengths';
+import { lapCsvBounds, saveTrackBounds, saveTrackLocation, trackNeedsBounds } from './trackLocations';
 import { ensureUserSchema } from './users';
 
 // Laps uploaded by the telemetry collector (collector/ in this repo), stored in
@@ -27,6 +28,9 @@ export const collectorLapSchema = z.object({
   trackKey: z.string().trim().min(1).max(200).nullish(),
   // iRacing's length of the track in feet (WeekendInfo.TrackLength); collectors before it was sent don't send it
   trackLengthFeet: z.number().positive().max(1_000_000).nullish(),
+  // iRacing's location of the track in degrees (WeekendInfo.TrackLatitude/TrackLongitude); collectors before 1.39.0 don't send it
+  trackLatitude: z.number().min(-90).max(90).nullish(),
+  trackLongitude: z.number().min(-180).max(180).nullish(),
   car: z.string().trim().min(1).max(200),
   driver: z.string().trim().min(1).max(200),
   sessionId: z.number().int().min(0),
@@ -328,6 +332,8 @@ export async function saveCollectorLap(
       ]
     );
     await saveTrackLength(lap.trackKey ?? null, lap.trackLengthFeet ?? null);
+    await saveTrackLocation(lap.trackKey ?? null, lap.trackLatitude ?? null, lap.trackLongitude ?? null);
+    if (hasPosition) await saveTrackBoundsFromLap(lap.trackKey ?? null, csvGzip);
     return { id: row.id, duplicate: false, replaced: false };
   } catch (error) {
     if (!isUniqueViolation(error)) throw error;
@@ -340,7 +346,10 @@ export async function saveCollectorLap(
          RETURNING id`,
         [userId, lap.clientLapId, csvGzip, csvBytes]
       );
-      if (replaced) return { id: replaced.id, duplicate: true, replaced: true };
+      if (replaced) {
+        await saveTrackBoundsFromLap(lap.trackKey ?? null, csvGzip);
+        return { id: replaced.id, duplicate: true, replaced: true };
+      }
     }
     const [existing] = await query<{ id: number }>(
       'SELECT id FROM racingcoach."CollectorLaps" WHERE user_id = $1 AND client_lap_id = $2',
@@ -348,4 +357,42 @@ export async function saveCollectorLap(
     );
     return { id: existing.id, duplicate: true, replaced: false };
   }
+}
+
+// Gives the lap's track its bounds (trackLocations.ts) from the lap's Lat/Lon, when it has none yet. A failure
+// is only logged: the lap is saved either way.
+async function saveTrackBoundsFromLap(trackKey: string | null, csvGzip: Buffer): Promise<void> {
+  try {
+    if (!trackKey || !(await trackNeedsBounds(trackKey))) return;
+    await saveTrackBounds(trackKey, lapCsvBounds(gunzipSync(csvGzip, { maxOutputLength: MAX_CSV_BYTES }).toString('utf8')));
+  } catch (error) {
+    console.error('Save track bounds error:', error);
+  }
+}
+
+// Gives tracks without bounds theirs from laps already stored with track positions: the latest lap of each,
+// preferring ones without pit road or off-track. Runs once per server start (Track Data's /api/tracks waits
+// for it), so tracks driven before bounds were kept get them; after that each new lap with positions does.
+let backfill: Promise<void> | null = null;
+export function backfillTrackBounds(): Promise<void> {
+  backfill ??= (async () => {
+    try {
+      await ensureUserSchema();
+      // Ids first, so the sort doesn't carry every lap's CSV
+      const laps = await query<{ id: number; track_key: string }>(
+        `SELECT DISTINCT ON (lower(l.track_key)) l.id, l.track_key
+         FROM racingcoach."CollectorLaps" l
+         JOIN racingcoach."Tracks" t ON lower(t.track_key) = lower(l.track_key)
+         WHERE l.has_position AND t.track_south IS NULL
+         ORDER BY lower(l.track_key), (l.pit_road OR l.off_track), l.recorded_at DESC`
+      );
+      for (const lap of laps) {
+        const [row] = await query<{ csv_gzip: Buffer }>('SELECT csv_gzip FROM racingcoach."CollectorLaps" WHERE id = $1', [lap.id]);
+        if (row) await saveTrackBoundsFromLap(lap.track_key, row.csv_gzip);
+      }
+    } catch (error) {
+      console.error('Backfill track bounds error:', error);
+    }
+  })();
+  return backfill;
 }

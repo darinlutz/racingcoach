@@ -686,6 +686,7 @@ export const pt: Dictionary = {
   },
 
   tracks: {
+    satellite: 'Imagem de satélite de {track}',
     failedLoad: 'Não foi possível carregar as pistas',
     logIn: 'Entre',
     signedOut: ' para ver as pistas.',

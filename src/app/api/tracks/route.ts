@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { isAdmin } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
+import { backfillTrackBounds } from '@/lib/collectorLaps';
 import { readTracks } from '@/lib/tracks';
 import { apiText } from '@/lib/i18n/server';
 
@@ -12,6 +13,8 @@ export async function GET() {
     if (!user) {
       return NextResponse.json({ error: t.logInTracks }, { status: 401 });
     }
+    // Once per server start: tracks driven before their bounds were kept get them from stored laps
+    await backfillTrackBounds();
     // isAdmin shows Track Data's Save Data button (the site owner's SimHub file)
     return NextResponse.json({ tracks: await readTracks(), isAdmin: isAdmin(user.role) });
   } catch (error) {

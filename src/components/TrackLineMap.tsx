@@ -6,23 +6,14 @@ import { useLanguage } from '@/components/LanguageProvider';
 import type { PedalTraceLap } from '@/components/PedalTraces';
 import { useUnits } from '@/components/UnitsProvider';
 import { BASE_LAP_COLOR as BASE_COLOR, clamp, COMPARE_LAP_COLOR as COMPARE_COLOR, nearestIndex } from '@/lib/lapCharts';
+import { METERS_PER_PIXEL_Z0, project, SHARPEN_KERNEL, useMapSettings, viewTiles } from '@/lib/satelliteImagery';
 import { DISTANCE_UNIT, distanceFromMeters, type Units } from '@/lib/units';
 
 // Under each line, so it also holds up on light concrete and run-off
 const CASING_COLOR = 'rgba(0, 0, 0, 0.55)';
 
-// Sharpens the satellite tiles in the browser (no extra tiles from the provider): an unsharp mask that pushes
-// each pixel away from its 4 neighbors by this much, for crisper curbs, paint and run-off edges
-const SHARPEN = 0.35;
-const SHARPEN_KERNEL = [0, -SHARPEN, 0, -SHARPEN, 1 + 4 * SHARPEN, -SHARPEN, 0, -SHARPEN, 0].join(' ');
-
 const HEIGHT = 360;
 const PADDING = 28; // px between the lines and the map's edge
-const TILE_SIZE = 256;
-// Web Mercator: meters per pixel at the equator at zoom 0 (256 px tiles)
-const METERS_PER_PIXEL_Z0 = 156543.03392;
-// Must match MAX_TILE_ZOOM in src/lib/mapTiles.ts
-const MAX_TILE_ZOOM = 19;
 // Fitting a short focus area stops at this zoom, so it doesn't open on blurry imagery
 const MAX_FIT_ZOOM = 20;
 // Zooming in stops here (a few cm per pixel); past MAX_TILE_ZOOM the imagery is enlarged, the lines stay sharp
@@ -40,38 +31,6 @@ type View = { scale: number; centerX: number; centerY: number };
 // What zooming and panning need to know: the view that fits the lines, and the lines' extent (zoom-0
 // pixels), which the center is kept inside so the lines can't be dragged out of sight
 type Frame = { fit: View; minX: number; maxX: number; minY: number; maxY: number; width: number };
-
-type MapSettings = { available: boolean; attribution: string | null };
-
-// Fetched once per page load and shared by every map
-let settingsPromise: Promise<MapSettings> | null = null;
-function loadSettings() {
-  settingsPromise ??= fetch('/api/map-tiles')
-    .then((res) => (res.ok ? (res.json() as Promise<MapSettings>) : { available: false, attribution: null }))
-    .catch(() => ({ available: false, attribution: null }));
-  return settingsPromise;
-}
-
-function useMapSettings() {
-  const [settings, setSettings] = useState<MapSettings | null>(null);
-  useEffect(() => {
-    let active = true;
-    void loadSettings().then((s) => active && setSettings(s));
-    return () => {
-      active = false;
-    };
-  }, []);
-  return settings;
-}
-
-// [lat, lon] -> Web Mercator pixels at zoom 0 (the world is 256 px across)
-function project([lat, lon]: [number, number]): [number, number] {
-  const phi = (lat * Math.PI) / 180;
-  return [
-    ((lon + 180) / 360) * TILE_SIZE,
-    ((1 - Math.log(Math.tan(phi) + 1 / Math.cos(phi)) / Math.PI) / 2) * TILE_SIZE,
-  ];
-}
 
 // A round scale bar length in the user's units (feet or meters) close to 100 px
 function scaleBar(metersPerPixel: number, units: Units) {
@@ -216,20 +175,8 @@ export default function TrackLineMap({
 
   // Tiles one zoom level sharper than the view, drawn at 50-100% size (larger past MAX_TILE_ZOOM),
   // covering the whole view
-  const tileZoom = Math.max(0, Math.min(MAX_TILE_ZOOM, Math.ceil(Math.log2(scale))));
-  const tileWorld = TILE_SIZE / 2 ** tileZoom; // one tile's size in zoom-0 pixels
-  const tileScreen = tileWorld * scale;
-  const tiles: { x: number; y: number; left: number; top: number }[] = [];
-  if (settings?.available) {
-    const [left, top] = [centerX - width / 2 / scale, centerY - HEIGHT / 2 / scale];
-    const [right, bottom] = [centerX + width / 2 / scale, centerY + HEIGHT / 2 / scale];
-    for (let tx = Math.floor(left / tileWorld); tx <= Math.floor(right / tileWorld); tx++) {
-      for (let ty = Math.floor(top / tileWorld); ty <= Math.floor(bottom / tileWorld); ty++) {
-        const [sx, sy] = toScreen([tx * tileWorld, ty * tileWorld]);
-        tiles.push({ x: tx, y: ty, left: sx, top: sy });
-      }
-    }
-  }
+  const { zoom: tileZoom, size: tileScreen, tiles: coveringTiles } = viewTiles(centerX, centerY, scale, width, HEIGHT);
+  const tiles = settings?.available ? coveringTiles : [];
 
   const latitude = lines[0].positions[0][0];
   const bar = scaleBar((METERS_PER_PIXEL_Z0 * Math.cos((latitude * Math.PI) / 180)) / scale, units);

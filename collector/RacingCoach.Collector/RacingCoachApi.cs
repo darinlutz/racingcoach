@@ -27,19 +27,37 @@ internal enum UploadOutcome
 /// laps (e.g. "Mobility Resort Motegi (Full Road Course)"), from session info. Sent with track requests and laps,
 /// because the site's Track Data can name the layout differently ("Mobility Resort Motegi (Grand Prix)").
 /// Laps from earlier runs whose track hasn't been driven in this run go without it, and are matched by name.
-/// Also iRacing's length of the track (WeekendInfo.TrackLength), sent with laps so the site has it for Track Data.
+/// Also iRacing's length of the track (WeekendInfo.TrackLength) and its location (WeekendInfo.TrackLatitude and
+/// TrackLongitude), sent with laps so the site has them for Track Data (its length and satellite picture).
 /// </summary>
 internal static class TrackKeys
 {
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, string> Keys = new(StringComparer.OrdinalIgnoreCase);
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, double> LengthsFeet = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, (double Latitude, double Longitude)> Locations = new(StringComparer.OrdinalIgnoreCase);
 
-    public static void Set(string track, string? key, string? length)
+    public static void Set(string track, string? key, string? length, string? latitude, string? longitude)
     {
         if (!string.IsNullOrWhiteSpace(key))
             Keys[track] = key.Trim();
         if (BrakeBeeps.IRacingLengthFeet(length) is > 0 and var feet)
             LengthsFeet[track] = feet;
+        if (Degrees(latitude, 90) is { } lat && Degrees(longitude, 180) is { } lon && (lat != 0 || lon != 0))
+            Locations[track] = (lat, lon);
+    }
+
+    /// <summary>iRacing's location of the track in degrees, or null when it isn't known.</summary>
+    public static (double Latitude, double Longitude)? Location(string track) =>
+        Locations.TryGetValue(track, out var location) ? location : null;
+
+    // Session info writes them with a unit that isn't one, e.g. "43.797310 m"
+    private static double? Degrees(string? value, double limit)
+    {
+        var number = value?.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+        return double.TryParse(number, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var degrees)
+            && Math.Abs(degrees) <= limit
+            ? degrees
+            : null;
     }
 
     public static string? For(string track) => Keys.TryGetValue(track, out var key) ? key : null;
@@ -271,6 +289,8 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
             session.Track,
             trackKey = TrackKeys.For(session.Track),
             trackLengthFeet = TrackKeys.LengthFeet(session.Track),
+            trackLatitude = TrackKeys.Location(session.Track)?.Latitude,
+            trackLongitude = TrackKeys.Location(session.Track)?.Longitude,
             session.Car,
             session.Driver,
             session.SessionId,

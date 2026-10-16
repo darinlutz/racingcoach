@@ -1,5 +1,6 @@
 import { query } from './db';
 import { sameTrackName, type Track } from './lapData';
+import type { TrackBounds } from './trackLocations';
 import { ensureUserSchema } from './users';
 
 // Track Data: the tracks in racingcoach."Tracks" and their "TrackFocusAreas" (created by ensureUserSchema
@@ -23,6 +24,10 @@ export type TrackData = {
   key: string;
   // iRacing's length, sent by the collector with its laps of the track (trackLengths.ts); null without any
   lengthFeet: number | null;
+  // Where the track is, for Track Data's satellite picture (trackLocations.ts): iRacing's location, and the
+  // extent of a lap's track positions; null until laps of the track give them
+  location: { latitude: number; longitude: number } | null;
+  bounds: TrackBounds | null;
   notes: string | null;
   areas: FocusArea[];
 };
@@ -30,7 +35,8 @@ export type TrackData = {
 export async function readTracks(): Promise<TrackData[]> {
   await ensureUserSchema();
   const tracks = await query(
-    `SELECT t.id, t.track_key, t.track_name, t.notes, t.track_length_feet FROM racingcoach."Tracks" t
+    `SELECT t.id, t.track_key, t.track_name, t.notes, t.track_length_feet,
+       t.track_latitude, t.track_longitude, t.track_south, t.track_west, t.track_north, t.track_east FROM racingcoach."Tracks" t
      WHERE EXISTS (SELECT 1 FROM racingcoach."TrackFocusAreas" f WHERE f.track_id = t.id)
      ORDER BY lower(t.track_name)`
   );
@@ -43,6 +49,14 @@ export async function readTracks(): Promise<TrackData[]> {
     name: t.track_name as string,
     key: t.track_key as string,
     lengthFeet: t.track_length_feet == null ? null : Math.round(Number(t.track_length_feet)),
+    location:
+      t.track_latitude == null || t.track_longitude == null
+        ? null
+        : { latitude: Number(t.track_latitude), longitude: Number(t.track_longitude) },
+    bounds:
+      t.track_south == null
+        ? null
+        : { south: Number(t.track_south), west: Number(t.track_west), north: Number(t.track_north), east: Number(t.track_east) },
     notes: t.notes as string | null,
     areas: areas
       .filter((a) => a.track_id === t.id)

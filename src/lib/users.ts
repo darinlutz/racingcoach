@@ -255,6 +255,11 @@ export function ensureUserSchema(): Promise<void> {
       await client.query(
         'ALTER TABLE racingcoach."Tracks" ADD COLUMN IF NOT EXISTS track_length_feet DOUBLE PRECISION CHECK (track_length_feet > 0)'
       );
+      // Where the layout is, for Track Data's satellite pictures (trackLocations.ts): iRacing's location
+      // (WeekendInfo.TrackLatitude/TrackLongitude), sent by the collector with its laps, and the extent of a lap's Lat/Lon
+      for (const column of ['track_latitude', 'track_longitude', 'track_south', 'track_west', 'track_north', 'track_east']) {
+        await client.query(`ALTER TABLE racingcoach."Tracks" ADD COLUMN IF NOT EXISTS ${column} DOUBLE PRECISION`);
+      }
       await client.query('ALTER TABLE racingcoach."Tracks" ADD COLUMN IF NOT EXISTS config_name TEXT');
       await client.query(
         'ALTER TABLE racingcoach."Tracks" ADD COLUMN IF NOT EXISTS number_of_corners INTEGER CHECK (number_of_corners > 0)'

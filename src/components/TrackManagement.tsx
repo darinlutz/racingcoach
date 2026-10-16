@@ -1,8 +1,9 @@
 'use client';
 
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, useEffect, useState, type FocusEvent, type MouseEvent } from 'react';
 import Link from 'next/link';
 import { useLanguage } from '@/components/LanguageProvider';
+import TrackSatellite, { SATELLITE_HEIGHT, SATELLITE_WIDTH } from '@/components/TrackSatellite';
 import { fmt } from '@/lib/i18n/languages';
 import type { TrackData } from '@/lib/tracks';
 import { useUnits } from '@/components/UnitsProvider';
@@ -23,6 +24,29 @@ export default function TrackManagement() {
   const [signedOut, setSignedOut] = useState(false);
   const [message, setMessage] = useState('');
   const [expanded, setExpanded] = useState<number | null>(null);
+  // The track whose name is hovered (or focused), and where its satellite picture goes. Fixed to the window, as
+  // the table's scroll box would clip it; scrolling hides it
+  const [picture, setPicture] = useState<{ track: TrackData; left: number; top: number } | null>(null);
+
+  useEffect(() => {
+    if (!picture) return;
+    const hide = () => setPicture(null);
+    window.addEventListener('scroll', hide, true);
+    return () => window.removeEventListener('scroll', hide, true);
+  }, [picture]);
+
+  // Under the name, or above it when there's no room below; kept inside the window
+  const showPicture = (track: TrackData) => (event: MouseEvent<HTMLElement> | FocusEvent<HTMLElement>) => {
+    if (!track.location && !track.bounds) return;
+    const box = event.currentTarget.getBoundingClientRect();
+    const below = box.bottom + 8 + SATELLITE_HEIGHT <= window.innerHeight;
+    setPicture({
+      track,
+      left: Math.max(8, Math.min(box.left, window.innerWidth - SATELLITE_WIDTH - 8)),
+      top: below ? box.bottom + 8 : Math.max(8, box.top - 8 - SATELLITE_HEIGHT),
+    });
+  };
+  const hidePicture = () => setPicture(null);
 
   useEffect(() => {
     fetch('/api/tracks')
@@ -89,6 +113,10 @@ export default function TrackManagement() {
                       <button
                         type="button"
                         onClick={() => setExpanded(expanded === track.id ? null : track.id)}
+                        onMouseEnter={showPicture(track)}
+                        onMouseLeave={hidePicture}
+                        onFocus={showPicture(track)}
+                        onBlur={hidePicture}
                         aria-expanded={expanded === track.id}
                         className="text-left hover:text-primary"
                       >
@@ -137,6 +165,12 @@ export default function TrackManagement() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {picture && (
+        <div className="fixed z-50 pointer-events-none" style={{ left: picture.left, top: picture.top }}>
+          <TrackSatellite track={picture.track} />
         </div>
       )}
     </div>

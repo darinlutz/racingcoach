@@ -697,6 +697,7 @@ export const en = {
   },
 
   tracks: {
+    satellite: 'Satellite picture of {track}',
     failedLoad: 'Failed to load tracks',
     logIn: 'Log in',
     signedOut: ' to see the tracks.',

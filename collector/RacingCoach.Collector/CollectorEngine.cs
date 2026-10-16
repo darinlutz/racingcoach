@@ -126,6 +126,13 @@ internal sealed class CollectorEngine
     /// <summary>The user's Preferred Language on the Account page ("en", "pt" or "es"), which the overlays are in.
     /// Loaded with the units; English without a key.</summary>
     public string Language { get; private set; } = Loc.English;
+    /// <summary>"Beeps before braking" and its volume (10-100%), shown and changed under the Preferred Language and
+    /// Units in the window and saved to the account (SetBrakeBeeps). Loaded with the units.</summary>
+    public bool BrakeBeepsOn { get; private set; } = true;
+    public int BrakeBeepsVolume { get; private set; } = BrakeBeeps.DefaultVolume;
+    /// <summary>Goes up each time the beeps setting is loaded from the account, so the window puts its controls back
+    /// to it.</summary>
+    public int BrakeBeepsLoaded { get; private set; }
     /// <summary>TelemetryEngine.js while the Target Telemetry window is open; it gets every telemetry sample.</summary>
     public OverlayEngine? Overlay { get; set; }
 
@@ -168,22 +175,54 @@ internal sealed class CollectorEngine
         {
             Metric = false;
             Language = Loc.English;
+            BrakeBeepsOn = true;
+            BrakeBeepsVolume = BrakeBeeps.DefaultVolume;
+            BrakeBeepsLoaded++;
             return;
         }
         _ = Task.Run(async () =>
         {
             try
             {
-                var (metric, language) = await api.GetPreferencesAsync(CancellationToken.None);
+                var preferences = await api.GetPreferencesAsync(CancellationToken.None);
                 if (Api == api)
                 {
-                    Metric = metric;
-                    Language = language;
+                    Metric = preferences.Metric;
+                    Language = preferences.Language;
+                    BrakeBeepsOn = preferences.BrakeBeeps ?? true;
+                    BrakeBeepsVolume = Math.Clamp(preferences.BrakeBeepsVolume ?? BrakeBeeps.DefaultVolume, 10, 100);
+                    BrakeBeepsLoaded++;
                 }
             }
             catch (Exception e) when (e is HttpRequestException or TaskCanceledException or UnauthorizedAccessException or System.Text.Json.JsonException)
             {
                 // the window asks for a new key when it's refused; otherwise the next track tries again
+            }
+        });
+    }
+
+    /// <summary>The window's "Beeps before braking" checkbox (on) or volume slider (volume, 10-100): saved to the
+    /// account in the background, and the beeps take it up as soon as it's saved. If it can't be saved, the account's
+    /// setting is loaded back into the window.</summary>
+    public void SetBrakeBeeps(bool? on = null, int? volume = null)
+    {
+        if (Api is not { } api)
+            return;
+        if (on is { } o)
+            BrakeBeepsOn = o;
+        if (volume is { } v)
+            BrakeBeepsVolume = v;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await api.SaveBrakeBeepsAsync(on, volume, CancellationToken.None);
+                _brakeBeeps.Reload();
+            }
+            catch (Exception e) when (e is HttpRequestException or TaskCanceledException or UnauthorizedAccessException)
+            {
+                Log($"Couldn't save the beeps setting ({e.Message}).", isError: true);
+                RefreshUnits();
             }
         });
     }

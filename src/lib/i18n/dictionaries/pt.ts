@@ -163,19 +163,6 @@ export const pt: Dictionary = {
     metric: 'Métrico',
     metricHint: 'metros, kph, °C',
     unitsFailed: 'Não foi possível salvar suas unidades. Tente novamente.',
-    brakeBeeps: 'Tocar bipes antes da frenagem',
-    yes: 'Sim',
-    no: 'Não',
-    brakeBeepsHint: {
-      standard:
-        'O coletor do RacingCoach bipa a 300, 200 e 100 pés da primeira frenagem da sua Volta Alvo em cada área de foco (os pontos de frenagem alvo dos Dados de pistas se você não tiver Volta Alvo), e mais agudo no ponto de frenagem.',
-      metric:
-        'O coletor do RacingCoach bipa a 91, 61 e 30 m da primeira frenagem da sua Volta Alvo em cada área de foco (os pontos de frenagem alvo dos Dados de pistas se você não tiver Volta Alvo), e mais agudo no ponto de frenagem.',
-    },
-    brakeBeepsVolume: 'Volume',
-    brakeBeepsTest: 'Testar',
-    brakeBeepsTestTip: 'Tocar os bipes neste volume, pelos alto-falantes deste computador',
-    brakeBeepsFailed: 'Não foi possível salvar a configuração dos bipes. Tente novamente.',
     distanceNames: { standard: 'pés', metric: 'metros' },
   },
 
@@ -1067,10 +1054,6 @@ export const pt: Dictionary = {
     failedSaveTheme: 'Não foi possível salvar seu tema',
     unknownUnits: 'Unidades desconhecidas',
     failedSaveUnits: 'Não foi possível salvar suas unidades',
-    unknownBrakeBeeps: 'Tocar bipes antes da frenagem deve ser Sim ou Não',
-    unknownBrakeBeepsVolume: 'O volume dos bipes deve ser um número inteiro de 10 a 100',
-    logInBrakeBeeps: 'Entre para alterar Tocar bipes antes da frenagem',
-    failedSaveBrakeBeeps: 'Não foi possível salvar Tocar bipes antes da frenagem',
     logInTargetLap: 'Entre para definir sua Volta Alvo',
     noTargetLap: 'Você não tem uma Volta Alvo',
     missingTargetLap: 'Escolha um CSV de volta para usar como sua Volta Alvo',

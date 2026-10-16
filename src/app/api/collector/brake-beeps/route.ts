@@ -3,13 +3,14 @@ import { authenticateCollector } from '@/lib/collectorKeys';
 import { areaStats, lapSamplesFromText } from '@/lib/lapData';
 import { readTargetLap, targetLapTrackName } from '@/lib/targetLap';
 import { findTrackByKey, namesSameTrack, readTracks } from '@/lib/tracks';
-import { getUserById } from '@/lib/users';
+import { DEFAULT_BRAKE_BEEPS_VOLUME, isBrakeBeepsVolume } from '@/lib/brakeBeepsVolume';
+import { getUserById, setBrakeBeeps, setBrakeBeepsVolume } from '@/lib/users';
 
 // The telemetry collector's "Play beeps before braking" (BrakeBeeps.cs): where the user's Target Lap first brakes
 // in each focus area of the track being driven, or without a Target Lap, the focus areas' target brakepoints from
 // Track Data. Authenticated with the upload key as a bearer token, like /api/collector/track.
 //   ?track=  iRacing's track name as the collector writes it, e.g. "Road Atlanta (Full Course)"
-// Answers enabled ("Play beeps before braking" on the Account page), volume (its slider, 10-100% of full
+// Answers enabled ("Beeps before braking" in the collector's window), volume (its slider, 10-100% of full
 // volume), trackLengthFeet (the track's length from collector laps of it, 0 when there are none
 // or there's no such track), targetLap (its file name, the track that names, or null when the user has none),
 // sameTrack (false when the Target Lap's file name names another track; null when it doesn't say) and
@@ -62,5 +63,34 @@ export async function GET(request: Request) {
   } catch (error) {
     console.error('Collector brake beeps error:', error);
     return NextResponse.json({ error: 'Failed to load the brakepoints' }, { status: 500 });
+  }
+}
+
+// PUT { enabled?, volume? }: the collector window's "Beeps before braking" checkbox (a boolean) and its volume slider
+// (a whole number, 10-100), saved to the account ("Users".brake_beeps / brake_beeps_volume). Upload key auth, like GET.
+// Answers what's saved: { enabled, volume }.
+export async function PUT(request: Request) {
+  try {
+    const userId = await authenticateCollector(request);
+    if (userId === null) {
+      return NextResponse.json({ error: 'Missing or unknown upload key' }, { status: 401 });
+    }
+    const body = await request.json().catch(() => null);
+    const enabled: unknown = body?.enabled;
+    const volume: unknown = body?.volume;
+    if ((enabled === undefined && volume === undefined) || (enabled !== undefined && typeof enabled !== 'boolean')) {
+      return NextResponse.json({ error: 'Expected { enabled: boolean } and/or { volume: 10-100 }' }, { status: 400 });
+    }
+    if (volume !== undefined && !isBrakeBeepsVolume(volume)) {
+      return NextResponse.json({ error: 'volume must be a whole number from 10 to 100' }, { status: 400 });
+    }
+
+    if (typeof enabled === 'boolean') await setBrakeBeeps(userId, enabled);
+    if (volume !== undefined) await setBrakeBeepsVolume(userId, volume as number);
+    const user = await getUserById(userId);
+    return NextResponse.json({ enabled: user?.brakeBeeps ?? true, volume: user?.brakeBeepsVolume ?? DEFAULT_BRAKE_BEEPS_VOLUME });
+  } catch (error) {
+    console.error('Collector brake beeps save error:', error);
+    return NextResponse.json({ error: 'Failed to save the beeps setting' }, { status: 500 });
   }
 }

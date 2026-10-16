@@ -17,7 +17,7 @@ import { migrateTrackLengthsToKey } from './trackLengths';
 import { appendTrackCorners, categorizeTracks, removeLegacyTracks, seedTrackCorners } from './trackCorners';
 import { DEFAULT_LANGUAGE, isLanguage, type Language } from './i18n/languages';
 import { DEFAULT_THEME, isTheme, type Theme } from './theme';
-import { isBrakeBeepsVolume, MAX_BRAKE_BEEPS_VOLUME } from './brakeBeepsVolume';
+import { DEFAULT_BRAKE_BEEPS_VOLUME, isBrakeBeepsVolume } from './brakeBeepsVolume';
 import { DEFAULT_UNITS, isUnits, type Units } from './units';
 
 const scryptAsync = promisify(scrypt) as (password: string, salt: Buffer, keylen: number) => Promise<Buffer>;
@@ -158,13 +158,17 @@ export function ensureUserSchema(): Promise<void> {
       await client.query(
         `ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS in_car_coach_instructions TEXT NOT NULL DEFAULT ''`
       );
-      // "Play beeps before braking" from the Account page: the telemetry collector beeps 300, 200 and 100 ft
+      // "Beeps before braking" in the collector's window: the telemetry collector beeps 300, 200 and 100 ft
       // before each focus area's target brakepoint and higher at it (BrakeBeeps.cs). Yes by default, which
       // adding the column also sets for every existing user.
       await client.query(`ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS brake_beeps BOOLEAN NOT NULL DEFAULT true`);
-      // Their volume, the Account page's slider under it: a percentage of full volume, 100 by default
+      // Their volume, the collector window's slider under it: a percentage of full volume, 65 for a new account
+      // (accounts from before keep theirs)
       await client.query(
-        `ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS brake_beeps_volume INTEGER NOT NULL DEFAULT ${MAX_BRAKE_BEEPS_VOLUME}`
+        `ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS brake_beeps_volume INTEGER NOT NULL DEFAULT ${DEFAULT_BRAKE_BEEPS_VOLUME}`
+      );
+      await client.query(
+        `ALTER TABLE racingcoach."Users" ALTER COLUMN brake_beeps_volume SET DEFAULT ${DEFAULT_BRAKE_BEEPS_VOLUME}`
       );
       // The OpenAI voice the In-Car AI Coach speaks with (src/lib/coachVoice.ts); empty for the default one
       await client.query(`ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS coach_voice TEXT NOT NULL DEFAULT ''`);
@@ -789,7 +793,7 @@ export async function setBrakeBeeps(userId: number, brakeBeeps: boolean): Promis
 
 function brakeBeepsVolume(value: unknown): number {
   const volume = Number(value);
-  return isBrakeBeepsVolume(volume) ? volume : MAX_BRAKE_BEEPS_VOLUME;
+  return isBrakeBeepsVolume(volume) ? volume : DEFAULT_BRAKE_BEEPS_VOLUME;
 }
 
 export async function setBrakeBeepsVolume(userId: number, volume: number): Promise<void> {

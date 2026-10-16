@@ -44,6 +44,10 @@ public partial class MainWindow : Window
     private readonly CollectorEngine _engine;
     private readonly CancellationTokenSource _stop = new();
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromMilliseconds(100) };
+    // Beeps before braking: the engine's BrakeBeepsLoaded the controls show, and the volume slider has to rest this
+    // long before its value is saved, so dragging it saves once
+    private int _beepsShown = -1;
+    private readonly DispatcherTimer _beepsVolumeSave = new() { Interval = TimeSpan.FromMilliseconds(400) };
     private readonly ObservableCollection<LapRow> _laps = [];
     private readonly ObservableCollection<ActivityRow> _activity = [];
     private Task? _run;
@@ -83,6 +87,7 @@ public partial class MainWindow : Window
             laps => Dispatcher.BeginInvoke(() => OnLapsChanged(laps)));
 
         _timer.Tick += (_, _) => Refresh();
+        _beepsVolumeSave.Tick += (_, _) => SaveBeepsVolume();
         Loaded += async (_, _) => await StartAsync();
         SourceInitialized += (_, _) => UseDarkTitleBar();
     }
@@ -409,6 +414,10 @@ public partial class MainWindow : Window
         PreferencesText.Visibility = showPreferences ? Visibility.Visible : Visibility.Collapsed;
         if (showPreferences)
             PreferencesText.Text = $"Language: {LanguageName(_engine.Language)} · Units: {(_engine.Metric ? "Metric" : "Standard")}";
+        BeepsPanel.Visibility = PreferencesText.Visibility;
+        // Put the controls back to the account's setting when it loads, unless a volume change is about to be saved
+        if (showPreferences && _beepsShown != _engine.BrakeBeepsLoaded && !_beepsVolumeSave.IsEnabled)
+            ShowBeeps();
 
         if (_engine.IbtFolder is null)
             SetTile(IbtDot, IbtText, IbtDetail, Grey, _engine.Playback ? "From the file" : "Off",
@@ -418,6 +427,42 @@ public partial class MainWindow : Window
         else
             SetTile(IbtDot, IbtText, IbtDetail, Grey, "Not recording", connected ? "Starts when you're on track" : "Starts when you get in the car");
     }
+
+    private void ShowBeeps()
+    {
+        _beepsShown = _engine.BrakeBeepsLoaded;
+        BeepsCheck.IsChecked = _engine.BrakeBeepsOn;
+        BeepsVolumeRow.Visibility = _engine.BrakeBeepsOn ? Visibility.Visible : Visibility.Collapsed;
+        BeepsVolumeSlider.Value = _engine.BrakeBeepsVolume; // ValueChanged saves nothing that's already saved
+        BeepsVolumeText.Text = $"{_engine.BrakeBeepsVolume}%";
+    }
+
+    private void BeepsCheck_Click(object sender, RoutedEventArgs e)
+    {
+        var on = BeepsCheck.IsChecked == true;
+        BeepsVolumeRow.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
+        _engine.SetBrakeBeeps(on: on);
+    }
+
+    private void BeepsVolume_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (BeepsVolumeText is null)
+            return; // still being built
+        BeepsVolumeText.Text = $"{(int)BeepsVolumeSlider.Value}%";
+        _beepsVolumeSave.Stop();
+        if ((int)BeepsVolumeSlider.Value != _engine.BrakeBeepsVolume)
+            _beepsVolumeSave.Start();
+    }
+
+    private void SaveBeepsVolume()
+    {
+        _beepsVolumeSave.Stop();
+        var volume = (int)BeepsVolumeSlider.Value;
+        if (volume != _engine.BrakeBeepsVolume)
+            _engine.SetBrakeBeeps(volume: volume);
+    }
+
+    private void TestBeeps_Click(object sender, RoutedEventArgs e) => BrakeBeeps.PlayTest((int)BeepsVolumeSlider.Value);
 
     private static void SetTile(System.Windows.Shapes.Ellipse dot, System.Windows.Controls.TextBlock text,
         System.Windows.Controls.TextBlock detail, Brush color, string value, string description)

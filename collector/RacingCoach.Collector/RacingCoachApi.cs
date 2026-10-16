@@ -74,16 +74,33 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
     }
 
     /// <summary>Whether the user's Preferred Units on the Account page are Metric (meters, kph, °C, liters) rather
-    /// than Standard (feet, mph, °F, gallons; also for a site from before there were units), and their Preferred
-    /// Language ("en", "pt" or "es"; "en" from a site from before it was sent). Throws like GetTrackJsonAsync.</summary>
-    public async Task<(bool Metric, string Language)> GetPreferencesAsync(CancellationToken ct)
+    /// than Standard (feet, mph, °F, gallons; also for a site from before there were units), their Preferred
+    /// Language ("en", "pt" or "es"; "en" from a site from before it was sent), and "Beeps before braking" and its
+    /// volume (10-100; null from a site from before they were sent). Throws like GetTrackJsonAsync.</summary>
+    public async Task<AccountPreferences> GetPreferencesAsync(CancellationToken ct)
     {
         using var response = await _http.GetAsync("api/collector/me", ct);
         if (response.StatusCode == HttpStatusCode.Unauthorized)
             throw new UnauthorizedAccessException("RacingCoach.app doesn't accept the upload key");
         response.EnsureSuccessStatusCode();
         var body = await response.Content.ReadFromJsonAsync<MeResponse>(JsonOptions, ct);
-        return (body?.Units == "metric", Loc.Normalize(body?.Language));
+        return new AccountPreferences(body?.Units == "metric", Loc.Normalize(body?.Language), body?.BrakeBeeps, body?.BrakeBeepsVolume);
+    }
+
+    /// <summary>Saves "Beeps before braking" (enabled) and/or its volume (10-100) to the account, from the window's
+    /// checkbox and slider; null leaves one as it is. Throws like GetBrakeTargetsAsync.</summary>
+    public async Task SaveBrakeBeepsAsync(bool? enabled, int? volume, CancellationToken ct)
+    {
+        var body = new Dictionary<string, object>();
+        if (enabled is { } e)
+            body["enabled"] = e;
+        if (volume is { } v)
+            body["volume"] = v;
+        using var response = await _http.PutAsJsonAsync("api/collector/brake-beeps", body, JsonOptions, ct);
+        if (response.StatusCode == HttpStatusCode.Unauthorized)
+            throw new UnauthorizedAccessException("RacingCoach.app doesn't accept the upload key");
+        if (!response.IsSuccessStatusCode)
+            throw new HttpRequestException(await ErrorMessageAsync(response, ct));
     }
 
     /// <summary>The Track Data track for an iRacing track name, as the JSON TelemetryEngine.js reads from
@@ -107,7 +124,7 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
         return (json, metric);
     }
 
-    /// <summary>For BrakeBeeps: whether "Play beeps before braking" is Yes on the Account page, its volume (10-100%
+    /// <summary>For BrakeBeeps: whether "Beeps before braking" is on (the window's checkbox, saved to the account), its volume (10-100%
     /// of full volume; null from a site without the setting), the Track Data
     /// track's length in feet (0 when it isn't set, or there's no such track), the user's Target Lap (null when
     /// they have none) and where it first brakes in each of the track's focus areas, as fractions of a lap, or
@@ -343,7 +360,7 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
 
     public void Dispose() => _http.Dispose();
 
-    private sealed record MeResponse(string? UserName, string? Units, string? Language);
+    private sealed record MeResponse(string? UserName, string? Units, string? Language, bool? BrakeBeeps, int? BrakeBeepsVolume);
 
     private sealed record ErrorResponse(string? Error);
 
@@ -353,6 +370,9 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
 
     private sealed record CalloutsResponse(List<CoachCallout>? Callouts);
 }
+
+/// <summary>The account's preferences from GET /api/collector/me.</summary>
+internal sealed record AccountPreferences(bool Metric, string Language, bool? BrakeBeeps, int? BrakeBeepsVolume);
 
 /// <summary>GET /api/collector/in-car-coach (src/lib/inCarCoach.ts in the website).</summary>
 internal sealed record CoachPlanResponse(string? Instructions, CoachPlan? Plan, List<CoachArea>? Areas, string? Locale);

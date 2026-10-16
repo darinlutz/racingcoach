@@ -5,13 +5,13 @@ using SVappsLAB.iRacingTelemetrySDK;
 namespace RacingCoach.Collector;
 
 /// <summary>
-/// "Play beeps before braking" from the Account page: on the approach to where the user's Target Lap first brakes in
+/// "Beeps before braking" from the window (saved to the account): on the approach to where the user's Target Lap first brakes in
 /// each focus area (its first braking zone there; from /api/collector/brake-beeps), or without a Target Lap, each
 /// focus area's target brakepoint from Track Data, a beep 300, 200 and 100 ft before it, and a higher one at the
 /// brakepoint, at the volume of the slider under it (10-100%, in decibels: see Gain). The overlay used to show this as row colors (GetBrakepointAlertColor in
 /// TelemetryEngine.js, now always Transparent); this runs whether the overlay is open or not. The brakepoints load
-/// when the track or the upload key changes, and again every couple of minutes so a change on the Account page (the
-/// setting, or a new Target Lap) takes effect during a session. OnSample is called
+/// when the track or the upload key changes, and again every couple of minutes so a new Target Lap (or the
+/// setting, changed on another PC) takes effect during a session. OnSample is called
 /// on the telemetry thread for every sample, so it only compares numbers; the beeps play on their own thread.
 /// </summary>
 internal sealed class BrakeBeeps(Func<RacingCoachApi?> api, Action<string> log)
@@ -26,8 +26,12 @@ internal sealed class BrakeBeeps(Func<RacingCoachApi?> api, Action<string> log)
     private static readonly TimeSpan ReloadEvery = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan RetryAfter = TimeSpan.FromMinutes(1);
     // The slider moves in decibels, as loudness is heard on a log scale: 100% is full volume, each 10 below it 4 dB
-    // quieter. The same as brakeBeepsGain in src/lib/brakeBeepsVolume.ts (the Account page's Test button)
+    // quieter. The window's Test button (PlayTest) plays at the same gain
     private const double VolumeRangeDb = 40;
+    /// <summary>A new account's volume (DEFAULT_BRAKE_BEEPS_VOLUME in src/lib/brakeBeepsVolume.ts).</summary>
+    public const int DefaultVolume = 65;
+    // The test beeps' spacing, start to start: about as far apart as 100 ft takes at 110 mph
+    private const int TestSpacingMs = 600;
 
     // Brakepoints as fractions of a lap, for the track being driven; replaced whole, so the telemetry thread reads
     // it without a lock. Null when beeps are off or there's nothing to beep for.
@@ -41,6 +45,7 @@ internal sealed class BrakeBeeps(Func<RacingCoachApi?> api, Action<string> log)
     private RacingCoachApi? _loadedWith;
     private DateTime _reloadAt = DateTime.MaxValue;
     private bool _loading;
+    private bool _reloadWhenLoaded;
     private string? _lastStatus;
 
     // Only touched on the telemetry thread
@@ -94,6 +99,42 @@ internal sealed class BrakeBeeps(Func<RacingCoachApi?> api, Action<string> log)
         _ = Task.Run(() => LoadAsync(track, iRacingLength, site));
     }
 
+    /// <summary>Loads the targets again now, e.g. after the setting or volume was changed in the window.</summary>
+    public void Reload()
+    {
+        lock (_lock)
+        {
+            if (_loading)
+            {
+                _reloadWhenLoaded = true; // the load under way may have the old setting
+                return;
+            }
+            _reloadAt = DateTime.MinValue;
+        }
+        Refresh();
+    }
+
+    /// <summary>The window's Test button: the three warning beeps and the brakepoint one, at a slider volume, on
+    /// their own thread.</summary>
+    public static void PlayTest(int volumePercent) => Task.Run(() =>
+    {
+        try
+        {
+            using var tones = new TonePlayer();
+            var volume = Gain(volumePercent);
+            for (var i = 0; i < WarningFeet.Length; i++)
+            {
+                tones.Play(WarningHz, BeepMs, volume);
+                Thread.Sleep(TestSpacingMs - BeepMs);
+            }
+            tones.Play(BrakepointHz, BrakepointBeepMs, volume);
+        }
+        catch (Exception e) when (e is InvalidOperationException or DllNotFoundException or EntryPointNotFoundException)
+        {
+            // no sound device
+        }
+    });
+
     private async Task LoadAsync(string track, string? iRacingLength, RacingCoachApi site)
     {
         var retry = ReloadEvery;
@@ -113,7 +154,7 @@ internal sealed class BrakeBeeps(Func<RacingCoachApi?> api, Action<string> log)
             string status;
             Loaded? loaded = null;
             if (!targets.Enabled)
-                status = "Brake beeps are off (Play beeps before braking on the Account page).";
+                status = "Brake beeps are off (Beeps before braking, under your Language and Units).";
             else if (targets.TargetLap is { } lap && targets.SameTrack == false)
                 status = $"Brake beeps: your Target Lap is from {lap.Track}, not {track}.";
             else if (lengthFeet <= 0)
@@ -124,7 +165,7 @@ internal sealed class BrakeBeeps(Func<RacingCoachApi?> api, Action<string> log)
                     : $"Brake beeps: your Target Lap doesn't brake in any of {track}'s focus areas in your Track Data.";
             else
             {
-                var volume = Math.Clamp(targets.Volume ?? 100, 10, 100);
+                var volume = Math.Clamp(targets.Volume ?? DefaultVolume, 10, 100);
                 status = targets.TargetLap is null
                     ? $"Brake beeps on for {track} at {volume}% volume: no Target Lap, so your Track Data target brakepoints in {areas}."
                     : $"Brake beeps on for {track} at {volume}% volume: the Target Lap's first braking in {areas}.";
@@ -153,11 +194,16 @@ internal sealed class BrakeBeeps(Func<RacingCoachApi?> api, Action<string> log)
         }
         finally
         {
+            bool again;
             lock (_lock)
             {
                 _loading = false;
-                _reloadAt = DateTime.UtcNow + retry;
+                again = _reloadWhenLoaded;
+                _reloadWhenLoaded = false;
+                _reloadAt = again ? DateTime.MinValue : DateTime.UtcNow + retry;
             }
+            if (again)
+                Refresh();
         }
     }
 

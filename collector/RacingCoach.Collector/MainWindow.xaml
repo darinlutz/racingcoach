@@ -170,6 +170,22 @@
                         </StackPanel>
                         <!-- The account's Preferred Language and Units, under its name -->
                         <TextBlock x:Name="PreferencesText" Style="{StaticResource Muted}" FontSize="11" Margin="18,1,0,0" Visibility="Collapsed" />
+                        <!-- Under them, "Beeps before braking" (BrakeBeeps.cs), saved to the account; with it on, its volume and a
+                             Test button that plays the beeps at that volume -->
+                        <StackPanel x:Name="BeepsPanel" Margin="18,6,0,0" Visibility="Collapsed">
+                            <CheckBox x:Name="BeepsCheck" Content="Beeps before braking" Foreground="{StaticResource FgBrush}" FontSize="12"
+                                      Click="BeepsCheck_Click"
+                                      ToolTip="Beeps 300, 200 and 100 ft before your Target Lap's first braking in each focus area (Track Data's target brakepoints without a Target Lap), and higher at the brakepoint" />
+                            <DockPanel x:Name="BeepsVolumeRow" Margin="0,4,0,0">
+                                <Button DockPanel.Dock="Right" Style="{StaticResource Button}" Content="Test" Padding="8,2" FontSize="11"
+                                        Margin="6,0,0,0" Click="TestBeeps_Click" ToolTip="Play the beeps at this volume" />
+                                <TextBlock x:Name="BeepsVolumeText" DockPanel.Dock="Right" Width="36" TextAlignment="Right" FontSize="12"
+                                           VerticalAlignment="Center" />
+                                <Slider x:Name="BeepsVolumeSlider" Minimum="10" Maximum="100" Value="65" SmallChange="1" LargeChange="10"
+                                        IsSnapToTickEnabled="True" TickFrequency="1" VerticalAlignment="Center"
+                                        ToolTip="Volume" ValueChanged="BeepsVolume_ValueChanged" />
+                            </DockPanel>
+                        </StackPanel>
                         <TextBlock x:Name="UploadDetail" Style="{StaticResource Muted}" Margin="18,2,0,0" />
                     </StackPanel>
                 </Border>

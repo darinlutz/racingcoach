@@ -3,11 +3,9 @@ import { sameTrackName, type Track } from './lapData';
 import { ensureUserSchema } from './users';
 
 // Track Data: the tracks in racingcoach."Tracks" and their "TrackFocusAreas" (created by ensureUserSchema
-// and seeded from DEFAULT_TRACKS), shared by every user. Focus areas are numbered 1-8 in order around the
-// lap (by start point). Only tracks with focus areas are Track Data; the layouts appended from
+// and seeded from DEFAULT_TRACKS), shared by every user. Focus areas are numbered from 1 in order around
+// the lap (by start point), as many as a track needs. Only tracks with focus areas are Track Data; the layouts appended from
 // TracksNumberOfCorners have none.
-
-export const MAX_FOCUS_AREAS = 8;
 
 export type FocusArea = {
   id: number;

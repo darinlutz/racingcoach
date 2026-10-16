@@ -1,11 +1,10 @@
 import type { PoolClient } from 'pg';
 import { isUniqueViolation, query, transaction } from './db';
-import { MAX_FOCUS_AREAS } from './tracks';
 import { ensureUserSchema } from './users';
 
 // The Admin page's Track and Focus Area Maintenance section (src/components/TrackMaintenance.tsx): every
 // track in racingcoach."Tracks" (with or without focus areas, unlike readTracks), adding tracks, and adding,
-// editing and deleting their "TrackFocusAreas". Focus areas stay numbered 1-8 in order around the lap by
+// editing and deleting their "TrackFocusAreas". Focus areas stay numbered from 1 in order around the lap by
 // start point, so positions are renumbered after every change.
 
 export type MaintenanceFocusArea = {
@@ -43,7 +42,7 @@ export type TrackInput = { key: string; name: string; numberOfCorners: number | 
 
 export class TrackMaintenanceError extends Error {
   constructor(
-    public reason: 'track-not-found' | 'area-not-found' | 'duplicate-track' | 'too-many-areas'
+    public reason: 'track-not-found' | 'area-not-found' | 'duplicate-track'
   ) {
     super(reason);
   }
@@ -105,7 +104,6 @@ export async function addFocusArea(trackId: number, input: FocusAreaInput): Prom
   await ensureUserSchema();
   return transaction(async (client) => {
     const areas = await lockAreas(client, trackId);
-    if (areas.length >= MAX_FOCUS_AREAS) throw new TrackMaintenanceError('too-many-areas');
     const [{ id }] = (await client.query('SELECT nextval(pg_get_serial_sequence(\'racingcoach."TrackFocusAreas"\', \'id\')) AS id')).rows;
     return rewriteAreas(client, trackId, [...areas, { ...input, id: Number(id), position: 0 }]);
   });
@@ -142,7 +140,7 @@ async function lockAreas(client: PoolClient, trackId: number): Promise<Maintenan
 }
 
 // Replaces the track's focus areas with `areas`, keeping their ids and numbering them 1-8 by start point.
-// Delete and re-insert, because (track_id, position) is unique and positions can't go outside 1-8 to swap.
+// Delete and re-insert, because (track_id, position) is unique and positions can't go below 1 to swap.
 async function rewriteAreas(client: PoolClient, trackId: number, areas: MaintenanceFocusArea[]): Promise<MaintenanceFocusArea[]> {
   const sorted = [...areas].sort((a, b) => a.startPoint - b.startPoint || a.endPoint - b.endPoint);
   await client.query('DELETE FROM racingcoach."TrackFocusAreas" WHERE track_id = $1', [trackId]);
@@ -217,9 +215,8 @@ export function maintenanceErrorReply(reason: TrackMaintenanceError['reason']) {
     'track-not-found': { key: 'trackNotFound', status: 404 },
     'area-not-found': { key: 'focusAreaNotFound', status: 404 },
     'duplicate-track': { key: 'duplicateTrack', status: 409 },
-    'too-many-areas': { key: 'tooManyFocusAreas', status: 400 },
   }[reason] as {
-    key: 'trackNotFound' | 'focusAreaNotFound' | 'duplicateTrack' | 'tooManyFocusAreas';
+    key: 'trackNotFound' | 'focusAreaNotFound' | 'duplicateTrack';
     status: number;
   };
 }

@@ -25,7 +25,6 @@ import { isAdmin } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
 import { getShowPricing } from '@/lib/siteSettings';
 import { listTracksForMaintenance } from '@/lib/trackMaintenance';
-import { MAX_FOCUS_AREAS } from '@/lib/tracks';
 
 // The site owner's Admin page: Site Settings (src/components/SiteSettingsManager.tsx), AI Model Control
 // (src/components/AiModelManager.tsx), User Roles (src/components/UserRoleManager.tsx), Track and Focus Area
@@ -99,7 +98,7 @@ export default async function AdminPage({
 
         <UserRoleManager users={users} currentUserId={user.id} />
 
-        <TrackMaintenance tracks={tracks} maxAreas={MAX_FOCUS_AREAS} />
+        <TrackMaintenance tracks={tracks} />
 
         <CollectorLogsViewer
           initialUser={typeof params.logUser === 'string' ? params.logUser : null}

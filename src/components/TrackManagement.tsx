@@ -8,9 +8,6 @@ import type { TrackData } from '@/lib/tracks';
 import { useUnits } from '@/components/UnitsProvider';
 import { DISTANCE_UNIT, distanceFromFeet } from '@/lib/units';
 
-// Matches MAX_FOCUS_AREAS in lib/tracks (not imported: that module is server-only)
-const MAX_FOCUS_AREAS = 8;
-
 const target = (value: number | null, unit: string, locale: string) => (value === null ? '—' : `${value.toLocaleString(locale)}${unit}`);
 
 // Track Data's tracks and focus areas, the same for every user. Read only.
@@ -102,7 +99,7 @@ export default function TrackManagement() {
                     </th>
                     <td className="px-4 py-3 text-right tabular-nums">{target(distance(track.lengthFeet), '', locale)}</td>
                     <td className="px-4 py-3 text-right tabular-nums">
-                      {track.areas.length} / {MAX_FOCUS_AREAS}
+                      {track.areas.length}
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">{track.notes ?? ''}</td>
                   </tr>

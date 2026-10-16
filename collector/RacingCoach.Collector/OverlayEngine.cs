@@ -47,7 +47,6 @@ internal sealed record OverlaySnapshot(
 /// </summary>
 internal sealed partial class OverlayEngine
 {
-    public const int AreaCount = 8;
     private const string ScriptName = "TelemetryEngine.js";
     private const double MphPerMetersPerSecond = 2.2369362921;
     private const double KphPerMetersPerSecond = 3.6;
@@ -67,7 +66,7 @@ internal sealed partial class OverlayEngine
     private static readonly string[] OptionalFunctions = ["GetTimeAreaColor", "GetSpeedAreaColor"];
     // The functions that only compare and format what the measuring ones recorded run every this many samples
     // (60 Hz / 6 = 10 times a second, as often as the window refreshes), since the script is slow enough that
-    // running all of them for 8 areas would take most of the time between samples
+    // running all of them for every area would take most of the time between samples
     private const int TextEvery = 6;
 
     private readonly Engine _js;
@@ -89,12 +88,13 @@ internal sealed partial class OverlayEngine
     private double _trackDataLengthFeet;
     private string? _scriptTrack;
 
-    private readonly string?[] _areaNames = new string?[AreaCount];
+    // One per Track Data focus area, however many the track has; replaced when the track changes
+    private string?[] _areaNames = [];
     // Each area's start and end as fractions of a lap (LapDistPct), or null without both (telemetry thread only)
-    private readonly (double Start, double End)?[] _areaRanges = new (double, double)?[AreaCount];
+    private (double Start, double End)?[] _areaRanges = [];
     private int? _upcomingArea;
     private bool _inArea;
-    private readonly OverlayAreaValues?[] _areas = new OverlayAreaValues?[AreaCount];
+    private OverlayAreaValues?[] _areas = [];
     private string? _maxBrake;
     private string? _minSpeed;
     // The units the values are in, for the window's headings (under _lock)
@@ -174,13 +174,14 @@ internal sealed partial class OverlayEngine
             var minSpeed = Localize(Text(Call("GetMinimumSpeed")));
 
             var withText = _sampleCount++ % TextEvery == 0;
+            // _areaNames and _areas only change on this thread (ApplyPendingTrack), so they're the same length here
             OverlayAreaValues?[] previous;
             lock (_lock)
                 previous = [.. _areas];
-            var results = new OverlayAreaValues?[AreaCount];
+            var results = new OverlayAreaValues?[_areaNames.Length];
             if (_scriptTrack is not null)
             {
-                for (var area = 1; area <= AreaCount; area++)
+                for (var area = 1; area <= results.Length; area++)
                 {
                     if (_areaNames[area - 1] is not null)
                         results[area - 1] = AreaValues(area, withText ? null : previous[area - 1]);
@@ -198,7 +199,7 @@ internal sealed partial class OverlayEngine
                 (upcoming, inArea) = UpcomingArea(pos);
             lock (_lock)
             {
-                results.CopyTo(_areas, 0);
+                _areas = results;
                 _upcomingArea = upcoming;
                 _inArea = inArea;
                 _maxBrake = maxBrake;
@@ -267,7 +268,7 @@ internal sealed partial class OverlayEngine
     {
         int? next = null;
         var nextAhead = double.MaxValue;
-        for (var i = 0; i < AreaCount; i++)
+        for (var i = 0; i < _areaNames.Length; i++)
         {
             if (_areaNames[i] is null || _areaRanges[i] is not var (start, end))
                 continue;
@@ -357,8 +358,8 @@ internal sealed partial class OverlayEngine
             _trackName = track.Name;
             // Set before the values start over, so the script never mixes mph and kph
             _metric = track.Metric;
-            var names = new string?[AreaCount];
-            Array.Clear(_areaRanges);
+            string?[] names = [];
+            (double Start, double End)?[] ranges = [];
             _trackDataLengthFeet = 0;
             ResetValues();
             if (track.Json is null)
@@ -377,20 +378,24 @@ internal sealed partial class OverlayEngine
                 if (areas.IsArray())
                 {
                     var array = areas.AsArray();
-                    for (var i = 0; i < Math.Min(AreaCount, (int)array.Length); i++)
+                    names = new string?[(int)array.Length];
+                    ranges = new (double, double)?[names.Length];
+                    for (var i = 0; i < names.Length; i++)
                     {
                         var area = array[i].AsObject();
                         names[i] = area.Get("name").ToString();
                         var (start, end) = (area.Get("start"), area.Get("end"));
                         if (start.IsNumber() && end.IsNumber())
-                            _areaRanges[i] = (start.AsNumber(), end.AsNumber());
+                            ranges[i] = (start.AsNumber(), end.AsNumber());
                     }
                 }
             }
             lock (_lock)
             {
                 _scriptTrack = track.Json is null ? null : track.Name;
-                names.CopyTo(_areaNames, 0);
+                _areaNames = names;
+                _areaRanges = ranges;
+                _areas = new OverlayAreaValues?[names.Length];
                 _shownMetric = track.Metric;
             }
         }

@@ -10,8 +10,6 @@
 import { readFileSync } from 'node:fs';
 import pg from 'pg';
 
-const MAX_FOCUS_AREAS = 8;
-
 const [filePath] = process.argv.slice(2);
 if (!filePath) {
   console.error('Usage: node scripts/importTracks.mjs <path/to/Track_Area_Information.txt>');
@@ -39,9 +37,6 @@ const target = (value) => (typeof value === 'number' && value > 0 ? Math.round(v
 function toRows(config) {
   return Object.entries(config).map(([key, track]) => {
     const areas = track.areas ?? [];
-    if (areas.length > MAX_FOCUS_AREAS) {
-      throw new Error(`${key} has ${areas.length} focus areas; the maximum is ${MAX_FOCUS_AREAS}`);
-    }
     return {
       key,
       name: text(track.TrackFileName) ?? key,

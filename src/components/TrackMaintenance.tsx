@@ -34,8 +34,7 @@ type AreaForm = {
 
 const emptyAreaForm: AreaForm = { name: '', startPoint: '', endPoint: '', brakePoint: '', maxBrakePct: '', throttlePoint: '', notes: '' };
 
-// maxAreas is tracks.ts's MAX_FOCUS_AREAS, passed in as that module is server only
-export default function TrackMaintenance({ tracks: initialTracks, maxAreas }: { tracks: MaintenanceTrack[]; maxAreas: number }) {
+export default function TrackMaintenance({ tracks: initialTracks }: { tracks: MaintenanceTrack[] }) {
   const { t, fmt } = useLanguage();
   const a = t.admin;
   const units = useUnits();
@@ -380,8 +379,6 @@ export default function TrackMaintenance({ tracks: initialTracks, maxAreas }: { 
                           )}
                           {editing?.trackId === track.id ? (
                             areaForm
-                          ) : track.areas.length >= maxAreas ? (
-                            <p className="text-xs text-muted-foreground">{fmt(a.maxAreas, { max: maxAreas })}</p>
                           ) : (
                             <button type="button" onClick={() => startAdd(track.id)} disabled={busy} className={primaryButton}>
                               {a.addArea}

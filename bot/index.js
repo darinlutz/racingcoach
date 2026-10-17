@@ -79,7 +79,8 @@ async function handleWhoami(interaction) {
 
 const COACH_RACE_COUNT = 5;
 
-// Summarizes the driver's most recent races, visible only to them. The reply is deferred first
+// Summarizes the driver's most recent races, visible only to them. For Admins only, like the website's
+// My Race Trends (the website's /api/bot/coach refuses anyone else too). The reply is deferred first
 // ("RacingCoach is thinking..."): Discord drops interactions not answered within 3 seconds.
 async function handleCoach(interaction) {
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
@@ -87,6 +88,10 @@ async function handleCoach(interaction) {
   const user = await getLinkedUser(interaction.user.id);
   if (!user) {
     await interaction.editReply(notLinkedMessage());
+    return;
+  }
+  if (user.role !== 'Admin') {
+    await interaction.editReply('`/coach results` is only available to RacingCoach Admins.');
     return;
   }
 

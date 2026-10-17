@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { aiErrorResponse } from '@/lib/aiErrors';
 import { readConnection, readRaceEvents } from '@/lib/raceHistory';
 import { runRaceTrends } from '@/lib/raceTrends';
+import { isAdmin } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
 import { apiText, getLanguage } from '@/lib/i18n/server';
 
@@ -15,6 +16,10 @@ export async function GET() {
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: t.logInRaceTrends }, { status: 401 });
+    }
+    // My Race Trends is for Admins only
+    if (!isAdmin(user.role)) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
     const [connection, events] = await Promise.all([readConnection(user.id), readRaceEvents(user.id)]);
     return NextResponse.json({ connection, events });
@@ -31,6 +36,10 @@ export async function POST() {
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: t.logInRaceTrends }, { status: 401 });
+    }
+    // My Race Trends is for Admins only
+    if (!isAdmin(user.role)) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
 
     if (!process.env.OPENAI_API_KEY) {

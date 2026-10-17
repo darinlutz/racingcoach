@@ -1,7 +1,13 @@
+import { notFound } from 'next/navigation';
 import RaceTrends from '@/components/RaceTrends';
 import { getDictionary, getLanguage } from '@/lib/i18n/server';
+import { isAdmin } from '@/lib/roles';
+import { getCurrentUser } from '@/lib/session';
 
+// For Admins only, like the nav bar's My Race Trends link; anyone else gets a 404
 export default async function RaceTrendsPage() {
+  const user = await getCurrentUser();
+  if (!user || !isAdmin(user.role)) notFound();
   const t = getDictionary(await getLanguage()).raceTrends;
   return (
     <div className="w-full">

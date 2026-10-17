@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Barlow, Barlow_Condensed } from "next/font/google";
+import Link from "next/link";
 import ActivityTracker from "@/components/ActivityTracker";
 import Brand from "@/components/Brand";
 import LanguageProvider from "@/components/LanguageProvider";
@@ -71,9 +72,16 @@ export default async function RootLayout({
               <footer className="border-t border-border py-6">
                 <div className="site-container flex items-center justify-between gap-5">
                   <Brand />
-                  <p className="text-[10px] text-muted-foreground text-right max-sm:max-w-[140px]">
-                    © 2026 RacingCoach.app<br />{t.footer.tagline}
-                  </p>
+                  <div className="text-[10px] text-muted-foreground text-right max-sm:max-w-[140px]">
+                    <p>© 2026 RacingCoach.app<br />{t.footer.tagline}</p>
+                    <nav aria-label={t.legal.pageTitle} className="mt-1.5 flex flex-wrap justify-end gap-x-2">
+                      <Link href="/privacy" className="hover:text-foreground hover:underline">{t.footer.privacy}</Link>
+                      <span aria-hidden>·</span>
+                      <Link href="/terms" className="hover:text-foreground hover:underline">{t.footer.terms}</Link>
+                      <span aria-hidden>·</span>
+                      <Link href="/support" className="hover:text-foreground hover:underline">{t.footer.contact}</Link>
+                    </nav>
+                  </div>
                 </div>
               </footer>
             </div>

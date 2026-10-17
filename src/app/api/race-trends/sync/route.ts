@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { IRacePlanAuthError } from '@/lib/iRacePlan';
 import { NotConnectedError, syncRaceResults } from '@/lib/raceHistory';
+import { isAdmin } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
 import { apiText } from '@/lib/i18n/server';
 
@@ -13,6 +14,10 @@ export async function POST() {
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: t.logInSync }, { status: 401 });
+    }
+    // My Race Trends is for Admins only
+    if (!isAdmin(user.role)) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
     return NextResponse.json(await syncRaceResults(user.id));
   } catch (error) {

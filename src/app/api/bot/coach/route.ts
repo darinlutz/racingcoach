@@ -4,6 +4,7 @@ import { isAiOutOfCredits } from '@/lib/aiErrors';
 import { getUserIdByDiscordId } from '@/lib/discord';
 import { readConnection, readRaceEvents } from '@/lib/raceHistory';
 import { runRaceCoaching } from '@/lib/raceTrends';
+import { isAdmin } from '@/lib/roles';
 import { getUserById } from '@/lib/users';
 
 // Coaching for the Discord bot's /coach command (bot/ in this repo). Not for browsers: the bot sends
@@ -45,6 +46,10 @@ export async function POST(request: Request) {
     const user = userId === null ? null : await getUserById(userId);
     if (!user) {
       return NextResponse.json({ error: 'not_linked' }, { status: 404 });
+    }
+    // For Admins only, like the website's My Race Trends
+    if (!isAdmin(user.role)) {
+      return NextResponse.json({ error: 'not_admin' }, { status: 403 });
     }
 
     const [connection, events] = await Promise.all([readConnection(user.id), readRaceEvents(user.id)]);

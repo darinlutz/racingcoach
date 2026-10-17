@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { DEFAULT_LANGUAGE, fmt, isLanguage } from '@/lib/i18n/languages';
 import { setLanguageCookie } from '@/lib/i18n/server';
 import { notifyOwner } from '@/lib/ownerNotifications';
+import { isCurrentPolicyVersions, POLICY_VERSIONS } from '@/lib/policyVersions';
 import { createSession } from '@/lib/session';
 import { createUser, EmailTakenError } from '@/lib/users';
 import { apiText } from '@/lib/i18n/server';
@@ -9,7 +10,8 @@ import { apiText } from '@/lib/i18n/server';
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_NAME_LENGTH = 100;
 
-// Creates an account from a name, email address, password and Preferred Language. iRacePlan is connected later, from the
+// Creates an account from a name, email address, password and Preferred Language, recording that it accepted the
+// Terms of Service and Privacy Policy versions in acceptedPolicies. iRacePlan is connected later, from the
 // My Race Trends page (/api/race-trends/connection).
 export async function POST(request: Request) {
   const t = await apiText();
@@ -33,7 +35,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: t.passwordTooShort }, { status: 400 });
     }
 
-    const user = await createUser({ userName, emailAddress, password, preferredLanguage });
+    // The form sends the policy versions it showed; a page loaded before a policy changed must be reloaded first
+    if (!isCurrentPolicyVersions(body.acceptedPolicies)) {
+      return NextResponse.json({ error: t.policiesChanged }, { status: 409 });
+    }
+
+    const user = await createUser({
+      userName,
+      emailAddress,
+      password,
+      preferredLanguage,
+      acceptedPolicies: { ...POLICY_VERSIONS },
+    });
     await createSession(user.id);
     await setLanguageCookie(preferredLanguage);
     await notifyOwner('signup', user.emailAddress);

@@ -3,13 +3,15 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { withReturnTo } from '@/lib/returnTo';
 import ForgotPasswordForm from './ForgotPasswordForm';
 import { useLanguage } from './LanguageProvider';
 
 const inputClass =
   'w-full px-4 py-3 bg-card border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors';
 
-export default function LoginForm() {
+// next: where to go once signed in (the page they were trying to reach; / by default)
+export default function LoginForm({ next = '/' }: { next?: string }) {
   const { t } = useLanguage();
   const router = useRouter();
   const [formData, setFormData] = useState({ emailAddress: '', password: '' });
@@ -36,7 +38,7 @@ export default function LoginForm() {
       if (!response.ok) {
         throw new Error(data.error || t.auth.failedLogIn);
       }
-      router.push('/');
+      router.push(next);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : t.auth.failedLogIn);
@@ -96,7 +98,7 @@ export default function LoginForm() {
 
       <p className="text-center text-sm text-muted-foreground">
         {t.auth.noAccount}{' '}
-        <Link href="/signup" className="text-primary hover:underline font-medium">
+        <Link href={withReturnTo('/signup', next)} className="text-primary hover:underline font-medium">
           {t.auth.signUp}
         </Link>
       </p>

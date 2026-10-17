@@ -61,6 +61,13 @@ export const es: Dictionary = {
     closeMenu: 'Cerrar menú',
   },
 
+  loginRequired: {
+    title: 'Inicia sesión para continuar',
+    text: 'Debes iniciar sesión para usar esta página. Inicia sesión en tu cuenta de RacingCoach o crea una gratis.',
+    createAccount: 'Crear una cuenta gratis',
+    close: 'Cerrar',
+  },
+
   brand: {
     home: 'Inicio de RacingCoach.app',
     tagline: 'TU INGENIERO DE CARRERA CON IA',
@@ -68,6 +75,21 @@ export const es: Dictionary = {
 
   footer: {
     tagline: 'Hecho para pilotos de simulación. Impulsado por datos.',
+    privacy: 'Privacidad',
+    terms: 'Términos',
+    contact: 'Contacto',
+  },
+
+  legal: {
+    pageTitle: 'Legal',
+    intro: 'Las políticas que rigen tu uso de RacingCoach.app.',
+    privacyTitle: 'Política de privacidad',
+    privacyDescription: 'Cómo recopilamos, protegemos y tratamos tu información.',
+    termsTitle: 'Términos del servicio',
+    termsDescription: 'Condiciones de suscripción, uso del software y responsabilidades.',
+    effectiveDate: 'Fecha de entrada en vigor',
+    englishOnly: 'Este documento solo está disponible en inglés.',
+    backToLegal: 'Todos los documentos legales',
   },
 
   home: {
@@ -119,6 +141,7 @@ export const es: Dictionary = {
     signUpTitle: 'Crear una cuenta',
     signUpIntro: 'Regístrate para empezar a usar RacingCoach.app.',
     createAccount: 'Crear cuenta',
+    agreeToTerms: 'Al crear una cuenta, aceptas los {terms} y reconoces la {privacy}.',
     creatingAccount: 'Creando cuenta...',
     failedCreate: 'No se pudo crear la cuenta',
     haveAccount: '¿Ya tienes una cuenta?',
@@ -990,12 +1013,12 @@ export const es: Dictionary = {
 
   support: {
     pageTitle: 'Soporte',
-    intro: 'Describe tu problema y te responderemos por correo electrónico.',
+    intro: 'Describe tu problema y te responderemos por correo electrónico. Esperamos responder cada solicitud en un plazo de 24 a 48 horas.',
     description: 'Describe tu problema',
     placeholder: '¿Qué pasó y qué estabas intentando hacer?',
     send: 'Enviar reporte',
     sending: 'Enviando…',
-    sent: 'Se ha contactado a soporte. Te responderemos a {email}.',
+    sent: 'Se ha contactado a soporte. Te responderemos a {email}, esperamos que en un plazo de 24 a 48 horas.',
     missingFields: 'Ingresa tu nombre, un correo electrónico válido y una descripción del problema.',
     tooLong: 'La descripción es demasiado larga (máximo {max} caracteres).',
     failed: 'No se pudo enviar tu reporte. Inténtalo de nuevo más tarde.',
@@ -1228,6 +1251,7 @@ export const es: Dictionary = {
     passwordTooShort: 'La contraseña debe tener al menos 8 caracteres',
     emailTaken: 'Ya existe una cuenta con ese correo electrónico',
     failedCreateAccount: 'No se pudo crear la cuenta',
+    policiesChanged: 'Nuestros Términos del servicio o nuestra Política de privacidad cambiaron desde que se cargó esta página. Vuelve a cargar la página e inténtalo de nuevo.',
     emailPasswordRequired: 'El correo electrónico y la contraseña son obligatorios',
     invalidLogin: 'Correo electrónico o contraseña incorrectos',
     failedLogIn: 'No se pudo iniciar sesión',

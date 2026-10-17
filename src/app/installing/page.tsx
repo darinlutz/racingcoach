@@ -1,7 +1,10 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { COLLECTOR_DOWNLOAD_URL } from '@/lib/collectorDownload';
 import { getDictionary, getLanguage } from '@/lib/i18n/server';
+import { withReturnTo } from '@/lib/returnTo';
+import { getCurrentUser } from '@/lib/session';
 
 const primaryButton =
   'inline-block px-5 py-2 rounded-lg text-sm font-semibold text-white bg-gradient-to-r from-primary to-primary-strong hover:from-primary-strong hover:to-primary transition-colors';
@@ -28,8 +31,9 @@ function Step({ number, label, title, children }: { number: number; label: strin
 // The Installing RacingCoach page (the nav bar's Installing RacingCoach link): how to get started, in five
 // steps: download the collector, copy the upload key into it (from My Settings' Telemetry Collector card),
 // check that iRacing's Telemetry indicator is showing, set a Target Lap (one of their own laps or the theoretical best lap, in Debrief Coach) for the collector's
-// Target Telemetry window, and contact Support with questions
+// Target Telemetry window, and contact Support with questions. Signed-in users only; anyone else logs in first and comes back here
 export default async function InstallingPage() {
+  if (!(await getCurrentUser())) redirect(withReturnTo('/login', '/installing'));
   const t = getDictionary(await getLanguage()).installing;
   const text = 'text-sm sm:text-base leading-relaxed text-muted-foreground';
 

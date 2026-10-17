@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { IRacePlanAuthError } from '@/lib/iRacePlan';
 import { connect, disconnect, NoIRacingProfileError } from '@/lib/raceHistory';
+import { isAdmin } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
 import { apiText } from '@/lib/i18n/server';
 
@@ -12,6 +13,10 @@ export async function PUT(request: Request) {
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: t.logInConnect }, { status: 401 });
+    }
+    // My Race Trends is for Admins only
+    if (!isAdmin(user.role)) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
     const body = await request.json().catch(() => ({}));
     const apiKey = typeof body.apiKey === 'string' ? body.apiKey.trim() : '';
@@ -40,6 +45,10 @@ export async function DELETE() {
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: t.logInConnect }, { status: 401 });
+    }
+    // My Race Trends is for Admins only
+    if (!isAdmin(user.role)) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
     await disconnect(user.id);
     return NextResponse.json({ success: true });

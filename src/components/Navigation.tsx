@@ -2,14 +2,15 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useCallback, useState, type MouseEvent } from 'react';
 import { ArrowRight, Menu, X } from 'lucide-react';
 import Brand from '@/components/Brand';
 import { buttonVariants } from '@/components/Button';
 import { useLanguage } from '@/components/LanguageProvider';
+import LoginRequiredDialog from '@/components/LoginRequiredDialog';
 
 type NavigationProps = {
-  // isAdmin shows the Admin link (the activity log); canUpgrade is false for Gold subscribers.
+  // isAdmin shows the Admin and My Race Trends links; canUpgrade is false for Gold subscribers.
   // Every signed-in user sees the Coach link, and the Coach page tells anyone but Coaches and Admins it's not for them
   user: { userName: string; canUpgrade: boolean; isAdmin: boolean } | null;
   // The Admin page's Show Pricing setting (src/lib/siteSettings.ts)
@@ -28,6 +29,9 @@ const links = [
   { href: '/support', key: 'support' },
 ] as const;
 
+// Signed-out visitors who click these get the Log in box instead of the page
+const loginRequiredLinks: ReadonlySet<string> = new Set(['installing', 'coachingAnalysis']);
+
 // At the bottom, just above My Settings (or Log In)
 const bottomLinks = [
   { href: '/pricing', key: 'pricing' },
@@ -44,10 +48,25 @@ export default function Navigation({ user, showPricing, showProDriverLesson }: N
   const hidePricing = !showPricing || (user !== null && !user.canUpgrade);
   // Hidden when the Admin page turns Show Pro Driver Lesson off
   const visibleLinks = showProDriverLesson ? links : links.filter((link) => link.key !== 'proDriverLesson');
-  const visibleBottomLinks = hidePricing ? bottomLinks.filter((link) => link.key !== 'pricing') : bottomLinks;
+  // My Race Trends is shown to Admins only
+  const visibleBottomLinks = bottomLinks.filter(
+    (link) => !(hidePricing && link.key === 'pricing') && (link.key !== 'raceTrends' || user?.isAdmin === true)
+  );
+
+  // The page whose link opened the Log in box; null while it's closed
+  const [loginRequiredFor, setLoginRequiredFor] = useState<string | null>(null);
+  const closeLoginRequired = useCallback(() => setLoginRequiredFor(null), []);
 
   const toggleMenu = () => setIsOpen(!isOpen);
   const closeMenu = () => setIsOpen(false);
+
+  // Opens the Log in box in place of following a link that needs an account
+  const guardLink = (key: string, href: string) => (e: MouseEvent) => {
+    closeMenu();
+    if (user || !loginRequiredLinks.has(key)) return;
+    e.preventDefault();
+    setLoginRequiredFor(href);
+  };
 
   const handleLogout = async () => {
     setLoggingOut(true);
@@ -75,7 +94,7 @@ export default function Navigation({ user, showPricing, showProDriverLesson }: N
 
         <div className="flex flex-col gap-5">
           {visibleLinks.map((link) => (
-            <Link key={link.key} href={link.href} className={navLink(link.href)}>{t.nav[link.key]}</Link>
+            <Link key={link.key} href={link.href} className={navLink(link.href)} onClick={guardLink(link.key, link.href)}>{t.nav[link.key]}</Link>
           ))}
         </div>
 
@@ -132,7 +151,7 @@ export default function Navigation({ user, showPricing, showProDriverLesson }: N
         <div className="lg:hidden bg-card border-t border-border">
           <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
             {visibleLinks.map((link) => (
-              <Link key={link.key} href={link.href} className={mobileLink(link.href)} onClick={closeMenu}>{t.nav[link.key]}</Link>
+              <Link key={link.key} href={link.href} className={mobileLink(link.href)} onClick={guardLink(link.key, link.href)}>{t.nav[link.key]}</Link>
             ))}
             <div className="border-t border-border pt-2 mt-2">
               {user ? (
@@ -169,6 +188,8 @@ export default function Navigation({ user, showPricing, showProDriverLesson }: N
           </div>
         </div>
       )}
+
+      <LoginRequiredDialog open={loginRequiredFor !== null} returnTo={loginRequiredFor ?? '/'} onClose={closeLoginRequired} />
     </nav>
   );
 }

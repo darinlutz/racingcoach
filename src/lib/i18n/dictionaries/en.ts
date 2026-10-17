@@ -61,6 +61,14 @@ export const en = {
     closeMenu: 'Close menu',
   },
 
+  // The nav bar's box for signed-out visitors who click a page that needs an account (src/components/LoginRequiredDialog.tsx)
+  loginRequired: {
+    title: 'Log in to continue',
+    text: 'You need to be logged in to use this page. Log in to your RacingCoach account, or create one for free.',
+    createAccount: 'Create a free account',
+    close: 'Close',
+  },
+
   brand: {
     home: 'RacingCoach.app home',
     tagline: 'YOUR AI RACE ENGINEER',
@@ -68,6 +76,23 @@ export const en = {
 
   footer: {
     tagline: 'Built for sim racers. Driven by data.',
+    privacy: 'Privacy',
+    terms: 'Terms',
+    contact: 'Contact',
+  },
+
+  // The Legal page and the Privacy Policy and Terms of Service pages around them; the documents
+  // themselves are in English only (src/lib/legal.ts)
+  legal: {
+    pageTitle: 'Legal',
+    intro: 'The policies that cover your use of RacingCoach.app.',
+    privacyTitle: 'Privacy Policy',
+    privacyDescription: 'How we collect, protect, and process your information.',
+    termsTitle: 'Terms of Service',
+    termsDescription: 'Subscription terms, software usage, and responsibilities.',
+    effectiveDate: 'Effective Date',
+    englishOnly: '',
+    backToLegal: 'All legal documents',
   },
 
   home: {
@@ -118,6 +143,8 @@ export const en = {
     signUpTitle: 'Create an Account',
     signUpIntro: 'Sign up to get started with RacingCoach.app.',
     createAccount: 'Create Account',
+    // {terms} and {privacy} become links to /terms and /privacy, named by legal.termsTitle and legal.privacyTitle
+    agreeToTerms: 'By creating an account, you agree to the {terms} and acknowledge the {privacy}.',
     creatingAccount: 'Creating account...',
     failedCreate: 'Failed to create account',
     haveAccount: 'Already have an account?',
@@ -1004,12 +1031,12 @@ export const en = {
 
   support: {
     pageTitle: 'Support',
-    intro: 'Describe your issue and we will get back to you by email.',
+    intro: 'Describe your issue and we will get back to you by email. We hope to answer every ticket within 24-48 hours.',
     description: 'Describe your issue',
     placeholder: 'What happened, and what were you trying to do?',
     send: 'Send Report',
     sending: 'Sending…',
-    sent: 'Support has been contacted. We will reply to {email}.',
+    sent: 'Support has been contacted. We will reply to {email}, hopefully within 24-48 hours.',
     missingFields: 'Please enter your name, a valid email address and a description of the issue.',
     tooLong: 'The description is too long (at most {max} characters).',
     failed: 'Your report could not be sent. Please try again later.',
@@ -1248,6 +1275,7 @@ export const en = {
     passwordTooShort: 'Password must be at least 8 characters',
     emailTaken: 'An account with that email address already exists',
     failedCreateAccount: 'Failed to create account',
+    policiesChanged: 'Our Terms of Service or Privacy Policy changed since this page loaded. Please reload the page and try again.',
     emailPasswordRequired: 'Email and password are required',
     invalidLogin: 'Invalid email or password',
     failedLogIn: 'Failed to log in',

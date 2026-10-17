@@ -32,14 +32,15 @@ export async function closeDb() {
 // button, or null when they haven't linked one.
 export async function getLinkedUser(discordUserId) {
   const [row] = await query(
-    `SELECT u.id, u.user_name, u.account_status
+    `SELECT u.id, u.user_name, u.account_status, u.role
      FROM racingcoach."DiscordConnections" d
      JOIN racingcoach."Users" u ON u.id = d.user_id
      WHERE d.discord_user_id = $1`,
     [discordUserId],
   );
   if (!row) return null;
-  return { id: row.id, userName: row.user_name, accountStatus: row.account_status };
+  // role is Admin, Coach or User (the website's src/lib/roles.ts)
+  return { id: row.id, userName: row.user_name, accountStatus: row.account_status, role: row.role };
 }
 
 // The user's most recent races with a result, newest first. They are synced from iRacePlan, or uploaded

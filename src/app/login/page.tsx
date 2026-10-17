@@ -1,10 +1,13 @@
 import { redirect } from 'next/navigation';
 import LoginForm from '@/components/LoginForm';
 import { getDictionary, getLanguage } from '@/lib/i18n/server';
+import { safeReturnTo } from '@/lib/returnTo';
 import { getCurrentUser } from '@/lib/session';
 
-export default async function LoginPage() {
-  if (await getCurrentUser()) redirect('/');
+// ?next= is the page to go back to afterwards (src/lib/returnTo.ts)
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string | string[] }> }) {
+  const next = safeReturnTo((await searchParams).next);
+  if (await getCurrentUser()) redirect(next);
   const t = getDictionary(await getLanguage(null)).auth;
 
   return (
@@ -14,7 +17,7 @@ export default async function LoginPage() {
           {t.logInTitle}
         </h1>
         <p className="text-muted-foreground mb-8">{t.logInIntro}</p>
-        <LoginForm />
+        <LoginForm next={next} />
       </div>
     </section>
   );

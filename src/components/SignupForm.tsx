@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { withReturnTo } from '@/lib/returnTo';
+import { POLICY_VERSIONS } from '@/lib/policyVersions';
 import ForgotPasswordForm from './ForgotPasswordForm';
 import LanguageSelect from './LanguageSelect';
 import { useLanguage } from './LanguageProvider';
@@ -10,7 +12,8 @@ import { useLanguage } from './LanguageProvider';
 const inputClass =
   'w-full px-4 py-3 bg-card border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors';
 
-export default function SignupForm() {
+// next: where to go once signed in (the page they were trying to reach; / by default)
+export default function SignupForm({ next = '/' }: { next?: string }) {
   const { t, fmt, language } = useLanguage();
   const router = useRouter();
   const [formData, setFormData] = useState({
@@ -36,13 +39,14 @@ export default function SignupForm() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         // The Preferred Language box switches the page as soon as it changes, so the page's language is the choice
-        body: JSON.stringify({ ...formData, preferredLanguage: language }),
+        // and the policy versions are the ones the agreement line under the button links to
+        body: JSON.stringify({ ...formData, preferredLanguage: language, acceptedPolicies: POLICY_VERSIONS }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
         throw new Error(data.error || t.auth.failedCreate);
       }
-      router.push('/');
+      router.push(next);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : t.auth.failedCreate);
@@ -121,9 +125,22 @@ export default function SignupForm() {
         {loading ? t.auth.creatingAccount : t.auth.createAccount}
       </button>
 
+      {/* The Terms of Service say creating an account is agreeing to them */}
+      <p className="text-center text-xs text-muted-foreground">
+        {t.auth.agreeToTerms.split(/(\{terms\}|\{privacy\})/).map((part, i) =>
+          part === '{terms}' ? (
+            <Link key={i} href="/terms" target="_blank" className="text-primary hover:underline">{t.legal.termsTitle}</Link>
+          ) : part === '{privacy}' ? (
+            <Link key={i} href="/privacy" target="_blank" className="text-primary hover:underline">{t.legal.privacyTitle}</Link>
+          ) : (
+            part
+          ),
+        )}
+      </p>
+
       <p className="text-center text-sm text-muted-foreground">
         {t.auth.haveAccount}{' '}
-        <Link href="/login" className="text-primary hover:underline font-medium">
+        <Link href={withReturnTo('/login', next)} className="text-primary hover:underline font-medium">
           {t.auth.logInLink}
         </Link>
       </p>

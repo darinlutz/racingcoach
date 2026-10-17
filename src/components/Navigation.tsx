@@ -20,7 +20,6 @@ const links = [
   { href: '/#toolkit', key: 'toolkit' },
   { href: '/installing', key: 'installing' },
   { href: '/racing', key: 'coachingAnalysis' },
-  { href: '/race-trends', key: 'raceTrends' },
   { href: '/track-data', key: 'trackData' },
   { href: '/car-data', key: 'carData' },
   { href: '/prodrivinglesson', key: 'proDriverLesson' },
@@ -31,6 +30,7 @@ const links = [
 // At the bottom, just above My Settings (or Log In)
 const bottomLinks = [
   { href: '/pricing', key: 'pricing' },
+  { href: '/race-trends', key: 'raceTrends' },
 ] as const;
 
 export default function Navigation({ user, showPricing }: NavigationProps) {

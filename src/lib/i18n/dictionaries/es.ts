@@ -92,6 +92,14 @@ export const es: Dictionary = {
     backToLegal: 'Todos los documentos legales',
   },
 
+  policyUpdate: {
+    title: 'Revisa nuestros términos actualizados',
+    body: 'Actualizamos nuestros {terms} y nuestra {privacy}. Léelos y acéptalos para que quede registro de tu acuerdo.',
+    checkbox: 'He leído y acepto los {terms} de RacingCoach.app y reconozco la {privacy}.',
+    accept: 'Aceptar',
+    saving: 'Guardando…',
+  },
+
   home: {
     heroAlt: 'Un piloto y un jefe de equipo con trajes rojos revisan la telemetría junto a un Porsche GT3 en los pits',
     eyebrow: 'Hecho para la búsqueda de ritmo',
@@ -235,7 +243,7 @@ export const es: Dictionary = {
 
   collectorCard: {
     title: 'Recolector de telemetría',
-    appName: 'RacingCoach Collector para Windows',
+    appName: 'RacingCoach.app Collector para Windows',
     appBlurb:
       'Ejecútalo en la PC con la que corres. Graba cada vuelta de iRacing y la envía aquí. Ejecuta la descarga para instalarlo en Archivos de programa, con un acceso directo en el menú Inicio. Si Windows dice que protegió tu PC, haz clic en Más información y luego en Ejecutar de todas formas.',
     download: 'Descargar',
@@ -259,7 +267,7 @@ export const es: Dictionary = {
   inCarCoach: {
     title: 'Mis instrucciones del entrenador IA en el auto',
     intro:
-      'Dile a tu entrenador IA en el auto qué hacer y qué no hacer mientras manejas. Funciona en el RacingCoach Collector: puede reproducir un sonido, hablar o mostrar un mensaje cuando cruzas la línea de salida/meta, terminas una vuelta, haces una nueva mejor vuelta, entras o sales de un área de enfoque, entras o sales del pit o tienes un incidente, y te entrena con tus vueltas a medida que se suben. Solo valen para ti.',
+      'Dile a tu entrenador IA en el auto qué hacer y qué no hacer mientras manejas. Funciona en el RacingCoach.app Collector: puede reproducir un sonido, hablar o mostrar un mensaje cuando cruzas la línea de salida/meta, terminas una vuelta, haces una nueva mejor vuelta, entras o sales de un área de enfoque, entras o sales del pit o tienes un incidente, y te entrena con tus vueltas a medida que se suben. Solo valen para ti.',
     placeholder: 'Por ejemplo: Reproduce un sonido cuando cruce la línea de salida/meta.',
     save: 'Guardar',
     saving: 'Guardando…',
@@ -976,7 +984,7 @@ export const es: Dictionary = {
     pageTitle: 'Instalar RacingCoach',
     intro: 'Cinco pasos y estarás grabando cada vuelta que manejes en iRacing.',
     step: 'Paso',
-    downloadTitle: 'Descarga RacingCoach Collector',
+    downloadTitle: 'Descarga RacingCoach.app Collector',
     downloadText: 'El collector es una pequeña aplicación de Windows que lee tu telemetría de iRacing, guarda cada vuelta y la envía a tu cuenta de RacingCoach.',
     downloadButton: 'Descargar el Collector',
     downloadNotes: [
@@ -990,7 +998,7 @@ export const es: Dictionary = {
     keySteps: [
       'Abre Mi configuración y busca la tarjeta Recolector de telemetría.',
       'Haz clic en Crear clave de carga y luego en Copiar. La clave solo se muestra una vez.',
-      'Abre RacingCoach Collector. La primera vez que se inicia, te pide tu clave de carga: pégala y haz clic en Connect. También puedes pulsar el botón Upload Key del collector en cualquier momento.',
+      'Abre RacingCoach.app Collector. La primera vez que se inicia, te pide tu clave de carga: pégala y haz clic en Connect. También puedes pulsar el botón Upload Key del collector en cualquier momento.',
       'Listo. Abre iRacing y maneja: cada vuelta se graba y se sube a tu cuenta, lista para Coaching y análisis.',
     ],
     keyButton: 'Abrir Mi configuración',
@@ -1381,6 +1389,8 @@ export const es: Dictionary = {
     emailTaken: 'Ya existe una cuenta con ese correo electrónico',
     failedCreateAccount: 'No se pudo crear la cuenta',
     policiesChanged: 'Nuestros Términos del servicio o nuestra Política de privacidad cambiaron desde que se cargó esta página. Vuelve a cargar la página e inténtalo de nuevo.',
+    logInPolicies: 'Inicia sesión para aceptar los Términos del servicio y la Política de privacidad',
+    failedSavePolicies: 'No se pudo guardar tu aceptación. Inténtalo de nuevo.',
     emailPasswordRequired: 'El correo electrónico y la contraseña son obligatorios',
     invalidLogin: 'Correo electrónico o contraseña incorrectos',
     failedLogIn: 'No se pudo iniciar sesión',

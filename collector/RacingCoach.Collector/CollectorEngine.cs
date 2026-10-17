@@ -133,6 +133,12 @@ internal sealed class CollectorEngine
     /// <summary>Goes up each time the beeps setting is loaded from the account, so the window puts its controls back
     /// to it.</summary>
     public int BrakeBeepsLoaded { get; private set; }
+    /// <summary>False when the upload key's account hasn't accepted the current Terms of Service and Privacy Policy
+    /// (the window then asks the user to review them on the website); null until known, or without a key. Loaded with
+    /// the units, after reporting the installer's acceptance (<see cref="LegalAcceptance"/>).</summary>
+    public bool? PoliciesAccepted { get; private set; }
+    // The upload key whose account the installer's acceptance was reported to (once per key and run)
+    private RacingCoachApi? _legalReportedTo;
     /// <summary>TelemetryEngine.js while the Target Telemetry window is open; it gets every telemetry sample.</summary>
     public OverlayEngine? Overlay { get; set; }
 
@@ -178,12 +184,14 @@ internal sealed class CollectorEngine
             BrakeBeepsOn = true;
             BrakeBeepsVolume = BrakeBeeps.DefaultVolume;
             BrakeBeepsLoaded++;
+            PoliciesAccepted = null;
             return;
         }
         _ = Task.Run(async () =>
         {
             try
             {
+                await ReportLegalAcceptanceAsync(api);
                 var preferences = await api.GetPreferencesAsync(CancellationToken.None);
                 if (Api == api)
                 {
@@ -192,6 +200,7 @@ internal sealed class CollectorEngine
                     BrakeBeepsOn = preferences.BrakeBeeps ?? true;
                     BrakeBeepsVolume = Math.Clamp(preferences.BrakeBeepsVolume ?? BrakeBeeps.DefaultVolume, 10, 100);
                     BrakeBeepsLoaded++;
+                    PoliciesAccepted = preferences.PoliciesAccepted;
                 }
             }
             catch (Exception e) when (e is HttpRequestException or TaskCanceledException or UnauthorizedAccessException or System.Text.Json.JsonException)
@@ -199,6 +208,24 @@ internal sealed class CollectorEngine
                 // the window asks for a new key when it's refused; otherwise the next track tries again
             }
         });
+    }
+
+    // Tells the key's account which Terms of Service and Privacy Policy versions this PC's installer accepted, once
+    // per key; tried again at the next track if the site can't be reached
+    private async Task ReportLegalAcceptanceAsync(RacingCoachApi api)
+    {
+        if (_legalReportedTo == api || LegalAcceptance.Read() is not { } acceptance)
+            return;
+        try
+        {
+            if (await api.ReportLegalAcceptanceAsync(acceptance, CancellationToken.None))
+                Log($"Recorded on your account: the Terms of Service ({acceptance.TermsVersion}) and Privacy Policy ({acceptance.PrivacyVersion}) accepted when the collector was installed.");
+            _legalReportedTo = api;
+        }
+        catch (Exception e) when (e is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
+        {
+            // the preferences still load; reported at the next track
+        }
     }
 
     /// <summary>The window's "Beeps before braking" checkbox (on) or volume slider (volume, 10-100): saved to the

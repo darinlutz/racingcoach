@@ -5,9 +5,11 @@ import ActivityTracker from "@/components/ActivityTracker";
 import Brand from "@/components/Brand";
 import LanguageProvider from "@/components/LanguageProvider";
 import Navigation from "@/components/Navigation";
+import PolicyUpdateNotice from "@/components/PolicyUpdateNotice";
 import RateLimitDialog from "@/components/RateLimitDialog";
 import UnitsProvider from "@/components/UnitsProvider";
 import { getDictionary, getLanguage } from "@/lib/i18n/server";
+import { hasAcceptedCurrentPolicies } from "@/lib/policyAcceptances";
 import { isAdmin } from "@/lib/roles";
 import { getCurrentUser } from "@/lib/session";
 import { getShowPricing, getShowProDriverLesson } from "@/lib/siteSettings";
@@ -48,6 +50,9 @@ export default async function RootLayout({
   // Standard (feet, mph, °F) or Metric (meters, kph, °C), the Account page's Preferred Units; client
   // components get them from UnitsProvider
   const units = await getUnits(user);
+  // A signed-in user who hasn't accepted the current Terms of Service and Privacy Policy is asked to, above the page
+  // (no notice if the check fails)
+  const needsPolicyAcceptance = user ? !(await hasAcceptedCurrentPolicies(user.id).catch(() => true)) : false;
 
   return (
     <html
@@ -69,6 +74,7 @@ export default async function RootLayout({
             />
             {/* On large screens the nav is a fixed sidebar down the left, so the page starts after it */}
             <div className="flex-1 flex flex-col lg:pl-[280px]">
+              {needsPolicyAcceptance && <PolicyUpdateNotice />}
               <main className="flex-1">
                 {children}
               </main>

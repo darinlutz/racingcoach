@@ -56,7 +56,8 @@ internal static class SelfUpdater
     public static bool Ready { get; private set; }
 
     /// <summary>Downloads the update next to the exe (as .new), or its installer to the temp folder. Throws
-    /// if it can't, or if the file isn't the size GitHub lists or isn't a Windows program.</summary>
+    /// if it can't, or if the file isn't the size GitHub lists, isn't a Windows program, or (when this collector is
+    /// signed) isn't signed by the same publisher (<see cref="Authenticode"/>).</summary>
     public static async Task DownloadAsync(AvailableUpdate update, IProgress<double> progress, CancellationToken ct)
     {
         if (ExePath is null || update.DownloadUrl is null)
@@ -90,6 +91,16 @@ internal static class SelfUpdater
             // Every Windows program starts with "MZ"
             if (check.ReadByte() != 'M' || check.ReadByte() != 'Z')
                 throw new InvalidDataException("the download isn't a Windows program");
+        }
+        try
+        {
+            // Signed by the same publisher as this collector (Clarivex, LLC), or it isn't run
+            Authenticode.RequireSamePublisher(partialPath);
+        }
+        catch
+        {
+            File.Delete(partialPath);
+            throw;
         }
         if (UsesInstaller)
         {

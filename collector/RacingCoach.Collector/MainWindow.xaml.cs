@@ -76,7 +76,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         _options = options;
-        Title = $"RacingCoach Collector {UpdateCheck.Current}";
+        Title = $"RacingCoach.app Collector {UpdateCheck.Current}";
         LapsList.ItemsSource = _laps;
         ActivityList.ItemsSource = _activity;
 
@@ -105,7 +105,7 @@ public partial class MainWindow : Window
 
     private async Task StartAsync()
     {
-        ActivityLog.Shared.Write($"RacingCoach Collector {UpdateCheck.Current} started. Laps are saved to {_engine.LapsFolder}");
+        ActivityLog.Shared.Write($"RacingCoach.app Collector {UpdateCheck.Current} started. Laps are saved to {_engine.LapsFolder}");
         if (_engine.Playback)
             SubtitleText.Text = $"Playing back {Path.GetFileName(_engine.PlaybackFile)} at {_options.Speed}x";
 
@@ -140,19 +140,19 @@ public partial class MainWindow : Window
         UpdateBanner.Visibility = Visibility.Visible;
         if (!SelfUpdater.CanUpdate || update.DownloadUrl is null)
         {
-            ShowManualUpdate($"RacingCoach Collector {update.Version} is available (you have {UpdateCheck.Current}). Download it, close this one and run the new one.");
+            ShowManualUpdate($"RacingCoach.app Collector {update.Version} is available (you have {UpdateCheck.Current}). Download it, close this one and run the new one.");
             return;
         }
 
         UpdateButton.Visibility = Visibility.Collapsed;
-        UpdateText.Text = $"Downloading RacingCoach Collector {update.Version}…";
+        UpdateText.Text = $"Downloading RacingCoach.app Collector {update.Version}…";
         var progress = new Progress<double>(fraction =>
-            UpdateText.Text = $"Downloading RacingCoach Collector {update.Version}… {fraction:P0}");
+            UpdateText.Text = $"Downloading RacingCoach.app Collector {update.Version}… {fraction:P0}");
         try
         {
             await SelfUpdater.DownloadAsync(update, progress, _stop.Token);
-            ActivityLog.Shared.Write($"Downloaded RacingCoach Collector {update.Version}; it installs when you restart or close the collector.");
-            UpdateText.Text = $"RacingCoach Collector {update.Version} is ready (you have {UpdateCheck.Current}). Restart now to update, or it installs itself when you close the collector."
+            ActivityLog.Shared.Write($"Downloaded RacingCoach.app Collector {update.Version}; it installs when you restart or close the collector.");
+            UpdateText.Text = $"RacingCoach.app Collector {update.Version} is ready (you have {UpdateCheck.Current}). Restart now to update, or it installs itself when you close the collector."
                 + (SelfUpdater.UsesInstaller ? " Windows will ask you to allow it." : "");
             UpdateButton.Content = "Restart Now";
             UpdateButton.Visibility = Visibility.Visible;
@@ -163,8 +163,8 @@ public partial class MainWindow : Window
         }
         catch (Exception e)
         {
-            ActivityLog.Shared.Write($"Couldn't download RacingCoach Collector {update.Version}: {e.Message}", isError: true);
-            ShowManualUpdate($"RacingCoach Collector {update.Version} is available, but downloading it failed ({e.Message}). Download it yourself, close this one and run the new one.");
+            ActivityLog.Shared.Write($"Couldn't download RacingCoach.app Collector {update.Version}: {e.Message}", isError: true);
+            ShowManualUpdate($"RacingCoach.app Collector {update.Version} is available, but downloading it failed ({e.Message}). Download it yourself, close this one and run the new one.");
         }
     }
 
@@ -185,7 +185,7 @@ public partial class MainWindow : Window
         // The lap being driven is only saved once it's complete
         if (_engine.State == SimState.Connected && MessageBox.Show(this,
                 "Restarting stops recording for a few seconds, and the lap you're on won't be saved. Restart now?",
-                "Update RacingCoach Collector", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+                "Update RacingCoach.app Collector", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
             return;
         _restartForUpdate = true;
         Close();
@@ -200,15 +200,15 @@ public partial class MainWindow : Window
         {
             SelfUpdater.Install(_restartForUpdate, Environment.GetCommandLineArgs().Skip(1));
             ActivityLog.Shared.Write(SelfUpdater.UsesInstaller
-                ? $"Started the RacingCoach Collector {_update?.Version} installer."
-                : $"Installed RacingCoach Collector {_update?.Version}.");
+                ? $"Started the RacingCoach.app Collector {_update?.Version} installer."
+                : $"Installed RacingCoach.app Collector {_update?.Version}.");
         }
         catch (Exception e)
         {
-            ActivityLog.Shared.Write($"Couldn't install RacingCoach Collector {_update?.Version}: {e.Message}", isError: true);
+            ActivityLog.Shared.Write($"Couldn't install RacingCoach.app Collector {_update?.Version}: {e.Message}", isError: true);
             if (_restartForUpdate)
                 MessageBox.Show($"The update couldn't be installed ({e.Message}). This version will keep working; download the new one from {_updateUrl ?? UpdateCheck.ReleasesPage}.",
-                    "Update RacingCoach Collector", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    "Update RacingCoach.app Collector", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
 
@@ -353,6 +353,7 @@ public partial class MainWindow : Window
 
     private void RefreshStatus()
     {
+        PoliciesBanner.Visibility = _engine.PoliciesAccepted == false ? Visibility.Visible : Visibility.Collapsed;
         var connected = _engine.State is SimState.Connected or SimState.PlayingBack;
         switch (_engine.State)
         {

@@ -95,6 +95,16 @@ export const en = {
     backToLegal: 'All legal documents',
   },
 
+  // The notice above every page for a signed-in user who hasn’t accepted the current Terms of Service and Privacy
+  // Policy (src/components/PolicyUpdateNotice.tsx); {terms} and {privacy} become links
+  policyUpdate: {
+    title: 'Please review our updated terms',
+    body: 'Our {terms} and {privacy} have been updated. Please read them and accept to keep a record of your agreement.',
+    checkbox: 'I have read and agree to the RacingCoach.app {terms} and acknowledge the {privacy}.',
+    accept: 'Accept',
+    saving: 'Saving…',
+  },
+
   home: {
     heroAlt: 'A driver and crew chief in red race suits review telemetry beside a Porsche GT3 in the pit garage',
     eyebrow: 'Built for the pursuit of pace',
@@ -239,7 +249,7 @@ export const en = {
 
   collectorCard: {
     title: 'Telemetry Collector',
-    appName: 'RacingCoach Collector for Windows',
+    appName: 'RacingCoach.app Collector for Windows',
     appBlurb:
       'Run it on the PC you race on. It records every lap from iRacing and sends it here. Run the download to install it in Program Files, with a Start menu shortcut. If Windows says it protected your PC, click More info, then Run anyway.',
     download: 'Download',
@@ -264,7 +274,7 @@ export const en = {
   inCarCoach: {
     title: 'My In-Car AI Coach Instructions',
     intro:
-      'Tell your In-Car AI Coach what to do and what not to do while you drive. It runs in the RacingCoach Collector: it can play a sound, speak or show a message when you cross the start/finish line, finish a lap, set a new best lap, enter or leave a focus area, enter or leave pit road or get an incident, and it coaches you from your laps as they upload. These are yours only.',
+      'Tell your In-Car AI Coach what to do and what not to do while you drive. It runs in the RacingCoach.app Collector: it can play a sound, speak or show a message when you cross the start/finish line, finish a lap, set a new best lap, enter or leave a focus area, enter or leave pit road or get an incident, and it coaches you from your laps as they upload. These are yours only.',
     placeholder: 'For example: Play a sound when I cross the start/finish line.',
     save: 'Save',
     saving: 'Saving…',
@@ -994,7 +1004,7 @@ export const en = {
     pageTitle: 'Installing RacingCoach',
     intro: 'Five steps and you’re recording every lap you drive in iRacing.',
     step: 'Step',
-    downloadTitle: 'Download the RacingCoach Collector',
+    downloadTitle: 'Download the RacingCoach.app Collector',
     downloadText: 'The collector is a small Windows app that reads your telemetry from iRacing, saves each lap and sends it to your RacingCoach account.',
     downloadButton: 'Download the Collector',
     downloadNotes: [
@@ -1008,7 +1018,7 @@ export const en = {
     keySteps: [
       'Open My Settings and find the Telemetry Collector card.',
       'Click Create Upload Key, then Copy. The key is only shown once.',
-      'Open RacingCoach Collector. The first time it starts, it asks for your upload key: paste it in and click Connect. You can also press the collector’s Upload Key button at any time.',
+      'Open RacingCoach.app Collector. The first time it starts, it asks for your upload key: paste it in and click Connect. You can also press the collector’s Upload Key button at any time.',
       'That’s it. Start iRacing and drive: each lap is recorded and uploaded to your account, ready for Coaching & Analysis.',
     ],
     keyButton: 'Open My Settings',
@@ -1408,6 +1418,8 @@ export const en = {
     emailTaken: 'An account with that email address already exists',
     failedCreateAccount: 'Failed to create account',
     policiesChanged: 'Our Terms of Service or Privacy Policy changed since this page loaded. Please reload the page and try again.',
+    logInPolicies: 'Log in to accept the Terms of Service and Privacy Policy',
+    failedSavePolicies: 'Failed to save your acceptance. Please try again.',
     emailPasswordRequired: 'Email and password are required',
     invalidLogin: 'Invalid email or password',
     failedLogIn: 'Failed to log in',

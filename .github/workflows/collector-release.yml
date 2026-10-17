@@ -1,10 +1,20 @@
-# Builds the RacingCoach Collector (collector/RacingCoach.Collector) and publishes it as a GitHub release
-# when a collector-v* tag is pushed, e.g.
-#   git tag collector-v1.1.0
-#   git push origin collector-v1.1.0
-# The Account page's Download button links to the latest release's RacingCoach.Collector.Setup.exe (the
-# installer, collector/installer), and the collector itself checks this repo's latest release for new
-# versions (UpdateCheck.cs): an installed one updates with the installer, a plain exe with the exe.
+# Builds the RacingCoach.app Collector (collector/RacingCoach.Collector), signs it as Clarivex, LLC with Azure Artifact
+# Signing, builds and signs its installer (collector/installer), checks every signature, and publishes both as a GitHub
+# release when a collector-v* tag is pushed, e.g.
+#   git tag collector-v1.40.0
+#   git push origin collector-v1.40.0
+# The Account page's Download button links to the latest release's RacingCoach.Collector.Setup.exe, and the collector
+# itself checks this repo's latest release for new versions (UpdateCheck.cs): an installed one updates with the
+# installer, a plain exe with the exe, and either only runs a download signed by the same publisher (Authenticode.cs).
+# Nothing is published if building, signing or checking a signature fails.
+#
+# Signing needs, in the repo's Settings > Environments > collector-release > Environment variables (none are secrets;
+# Azure trusts this environment's GitHub sign-in through a federated credential, so there's no password or key):
+#   AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_SUBSCRIPTION_ID  the app registration with the Artifact Signing Certificate
+#                                                             Profile Signer role
+#   ARTIFACT_SIGNING_ENDPOINT   the Artifact Signing account's URI, e.g. https://eus.codesigning.azure.net
+#   ARTIFACT_SIGNING_ACCOUNT    the Artifact Signing account's name
+#   ARTIFACT_SIGNING_PROFILE    its certificate profile's name
 name: Collector release
 
 on:
@@ -14,16 +24,34 @@ on:
 
 permissions:
   contents: write # create the release
+  id-token: write # sign in to Azure for Artifact Signing (OpenID Connect)
+
+env:
+  # The installer script is written for this version (collector/installer/RacingCoach.Collector.iss); 7.x changes
+  # what sign tools are given
+  INNO_SETUP_VERSION: 6.7.3
+  # Who every signature must be from
+  SIGNING_PUBLISHER: Clarivex, LLC
+  TIMESTAMP_URL: http://timestamp.acs.microsoft.com
 
 jobs:
   release:
     runs-on: windows-latest
+    environment: collector-release
     steps:
       - uses: actions/checkout@v4
 
+      # .NET 10 builds the collector; Artifact Signing's SignTool plug-in runs on .NET 8
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      # scripts/exportLegal.mjs runs src/lib/legal.ts directly (type stripping)
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
 
       - name: Read the version from the tag
         id: version
@@ -32,6 +60,20 @@ jobs:
           $version = '${{ github.ref_name }}'.Substring('collector-v'.Length)
           if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "Tag ${{ github.ref_name }} must look like collector-v1.2.3" }
           "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Check the signing settings
+        shell: pwsh
+        env:
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          ARTIFACT_SIGNING_ENDPOINT: ${{ vars.ARTIFACT_SIGNING_ENDPOINT }}
+          ARTIFACT_SIGNING_ACCOUNT: ${{ vars.ARTIFACT_SIGNING_ACCOUNT }}
+          ARTIFACT_SIGNING_PROFILE: ${{ vars.ARTIFACT_SIGNING_PROFILE }}
+        run: |
+          $missing = 'AZURE_TENANT_ID', 'AZURE_CLIENT_ID', 'AZURE_SUBSCRIPTION_ID', 'ARTIFACT_SIGNING_ENDPOINT',
+            'ARTIFACT_SIGNING_ACCOUNT', 'ARTIFACT_SIGNING_PROFILE' | Where-Object { -not [Environment]::GetEnvironmentVariable($_) }
+          if ($missing) { throw "Set these in the collector-release environment's variables: $($missing -join ', ')" }
 
       # One self-contained .exe with .NET inside, so the sim PC needs nothing installed. Compressed: about
       # 62 MB instead of 134 MB (WPF is large), for a moment longer at startup.
@@ -44,21 +86,110 @@ jobs:
           -p:Version=${{ steps.version.outputs.version }}
           -o publish
 
-      # Installs the exe in Program Files with shortcuts and an uninstaller. Inno Setup comes with GitHub's
-      # Windows runners; installed here if an image ever drops it.
-      - name: Build the installer
+      # The Terms of Service and Privacy Policy the website shows, and their versions, for the installer's legal page
+      - name: Export the legal documents
+        run: node scripts/exportLegal.mjs "${{ runner.temp }}\legal"
+
+      # Inno Setup, the version the script is written for, from its official release, checked to be signed by its
+      # publisher; portable, into the temp folder
+      - name: Get Inno Setup
         shell: pwsh
         run: |
-          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
-          if (-not (Test-Path $iscc)) {
-            choco install innosetup --no-progress -y
-            if ($LASTEXITCODE -ne 0) { throw "Couldn't install Inno Setup" }
+          $setup = "${{ runner.temp }}\innosetup-$env:INNO_SETUP_VERSION.exe"
+          $tag = 'is-' + $env:INNO_SETUP_VERSION.Replace('.', '_')
+          Invoke-WebRequest "https://github.com/jrsoftware/issrc/releases/download/$tag/innosetup-$env:INNO_SETUP_VERSION.exe" -OutFile $setup
+          $signature = Get-AuthenticodeSignature $setup
+          if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch 'O=Pyrsys B\.V\.') {
+            throw "Inno Setup's installer isn't signed by its publisher ($($signature.Status), $($signature.SignerCertificate.Subject))"
           }
-          & $iscc "/DAppVersion=${{ steps.version.outputs.version }}" `
+          $process = Start-Process $setup -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/CURRENTUSER', '/PORTABLE=1', '/NOICONS', "/DIR=${{ runner.temp }}\inno" -Wait -PassThru
+          if ($process.ExitCode -ne 0 -or -not (Test-Path "${{ runner.temp }}\inno\ISCC.exe")) { throw "Couldn't install Inno Setup" }
+
+      # SignTool and Artifact Signing's plug-in for it (the x64 builds of both), and the plug-in's settings
+      - name: Get the signing tools
+        shell: pwsh
+        env:
+          ARTIFACT_SIGNING_ENDPOINT: ${{ vars.ARTIFACT_SIGNING_ENDPOINT }}
+          ARTIFACT_SIGNING_ACCOUNT: ${{ vars.ARTIFACT_SIGNING_ACCOUNT }}
+          ARTIFACT_SIGNING_PROFILE: ${{ vars.ARTIFACT_SIGNING_PROFILE }}
+        run: |
+          $tools = "${{ runner.temp }}\signing"
+          nuget install Microsoft.Windows.SDK.BuildTools -x -OutputDirectory $tools -NonInteractive
+          if ($LASTEXITCODE -ne 0) { throw "Couldn't get SignTool" }
+          nuget install Microsoft.ArtifactSigning.Client -x -OutputDirectory $tools -NonInteractive
+          if ($LASTEXITCODE -ne 0) { throw "Couldn't get the Artifact Signing client" }
+          $signtool = Get-ChildItem "$tools\Microsoft.Windows.SDK.BuildTools" -Recurse -Filter signtool.exe | Where-Object { $_.DirectoryName -like '*\x64' } | Select-Object -First 1
+          $dlib = Get-ChildItem "$tools\Microsoft.ArtifactSigning.Client" -Recurse -Filter Azure.CodeSigning.Dlib.dll | Where-Object { $_.DirectoryName -like '*\x64' } | Select-Object -First 1
+          if (-not $signtool -or -not $dlib) { throw "SignTool or Azure.CodeSigning.Dlib.dll (x64) not found" }
+          # Signs with the Azure CLI's sign-in (azure/login below) and doesn't try the other ways first
+          $metadata = @{
+            Endpoint = $env:ARTIFACT_SIGNING_ENDPOINT
+            CodeSigningAccountName = $env:ARTIFACT_SIGNING_ACCOUNT
+            CertificateProfileName = $env:ARTIFACT_SIGNING_PROFILE
+            CorrelationId = '${{ github.ref_name }}-${{ github.run_id }}'
+            ExcludeCredentials = @('EnvironmentCredential', 'ManagedIdentityCredential', 'WorkloadIdentityCredential',
+              'SharedTokenCacheCredential', 'VisualStudioCredential', 'VisualStudioCodeCredential',
+              'AzurePowerShellCredential', 'AzureDeveloperCliCredential', 'InteractiveBrowserCredential')
+          }
+          $metadata | ConvertTo-Json | Set-Content "$tools\metadata.json" -Encoding utf8
+          "SIGNTOOL=$($signtool.FullName)" >> $env:GITHUB_ENV
+          "SIGNING_DLIB=$($dlib.FullName)" >> $env:GITHUB_ENV
+          "SIGNING_METADATA=$tools\metadata.json" >> $env:GITHUB_ENV
+          Write-Output "SignTool $($signtool.FullName)"
+          Write-Output "Plug-in  $($dlib.FullName)"
+
+      # Signed in as late as possible: GitHub's sign-in token lasts minutes, so the code signing token is fetched
+      # straight away, and SignTool's plug-in uses it from the Azure CLI's cache (it lasts about an hour)
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Get the code signing token
+        run: az account get-access-token --scope https://codesigning.azure.net/.default --output none
+
+      - name: Sign the collector
+        shell: pwsh
+        run: |
+          & $env:SIGNTOOL sign /v /fd SHA256 /tr $env:TIMESTAMP_URL /td SHA256 /dlib $env:SIGNING_DLIB /dmdf $env:SIGNING_METADATA `
+            collector\RacingCoach.Collector\publish\RacingCoach.Collector.exe
+          if ($LASTEXITCODE -ne 0) { throw "Signing RacingCoach.Collector.exe failed" }
+
+      # Installs the exe in Program Files with shortcuts and an uninstaller. ISCC signs the uninstaller and the
+      # installer with the same SignTool command ($f is the file, $q a quote), and refuses an unsigned exe (signcheck).
+      - name: Build and sign the installer
+        shell: pwsh
+        run: |
+          $sign = '$q' + $env:SIGNTOOL + '$q sign /v /fd SHA256 /tr ' + $env:TIMESTAMP_URL + ' /td SHA256 /dlib $q' +
+            $env:SIGNING_DLIB + '$q /dmdf $q' + $env:SIGNING_METADATA + '$q $f'
+          & "${{ runner.temp }}\inno\ISCC.exe" `
+            "/DAppVersion=${{ steps.version.outputs.version }}" `
             "/DPublishDir=$pwd\collector\RacingCoach.Collector\publish" `
+            "/DLegalDir=${{ runner.temp }}\legal" `
             "/O$pwd\collector\RacingCoach.Collector\publish" `
+            "/DSignTool=artifactsigning" `
+            "/Sartifactsigning=$sign" `
             collector/installer/RacingCoach.Collector.iss
           if ($LASTEXITCODE -ne 0) { throw "ISCC failed" }
+
+      # Both files must have a valid, timestamped signature from the expected publisher, as Windows and the
+      # collector's updater check it
+      - name: Check the signatures
+        shell: pwsh
+        run: |
+          foreach ($file in 'RacingCoach.Collector.exe', 'RacingCoach.Collector.Setup.exe') {
+            $path = "collector\RacingCoach.Collector\publish\$file"
+            & $env:SIGNTOOL verify /pa /v $path
+            if ($LASTEXITCODE -ne 0) { throw "$file's signature doesn't verify" }
+            $signature = Get-AuthenticodeSignature $path
+            if ($signature.Status -ne 'Valid') { throw "$file's signature is $($signature.Status)" }
+            $organization = $signature.SignerCertificate.SubjectName.EnumerateRelativeDistinguishedNames() |
+              Where-Object { $_.GetSingleElementType().Value -eq '2.5.4.10' } | ForEach-Object { $_.GetSingleElementValue() }
+            if ($organization -ne $env:SIGNING_PUBLISHER) { throw "$file is signed by '$organization', not '$env:SIGNING_PUBLISHER'" }
+            if (-not $signature.TimeStamperCertificate) { throw "$file's signature isn't timestamped" }
+            Write-Output "$file signed by $organization, timestamped by $($signature.TimeStamperCertificate.Subject)"
+          }
 
       - name: Create the release
         env:
@@ -66,11 +197,11 @@ jobs:
         shell: pwsh
         run: |
           $notes = @"
-          Download **RacingCoach.Collector.Setup.exe** below and run it on the PC you race on. It installs the collector in Program Files, with a Start menu shortcut. **RacingCoach.Collector.exe** is the collector on its own, to run without installing.
+          Download **RacingCoach.Collector.Setup.exe** below and run it on the PC you race on. It installs RacingCoach.app Collector in Program Files, with a Start menu shortcut. **RacingCoach.Collector.exe** is the collector on its own, to run without installing.
 
-          Windows may say it protected your PC because the app isn't signed: click **More info**, then **Run anyway**.
+          Both are signed by **Clarivex, LLC**, the company behind RacingCoach.app. While a new release is still building its reputation, Windows SmartScreen may show a warning: check that the publisher says Clarivex, LLC, then click **More info** and **Run anyway**.
           "@
           gh release create '${{ github.ref_name }}' `
             'collector/RacingCoach.Collector/publish/RacingCoach.Collector.Setup.exe' `
             'collector/RacingCoach.Collector/publish/RacingCoach.Collector.exe' `
-            --title 'RacingCoach Collector ${{ steps.version.outputs.version }}' --notes $notes --latest
+            --title 'RacingCoach.app Collector ${{ steps.version.outputs.version }}' --notes $notes --latest

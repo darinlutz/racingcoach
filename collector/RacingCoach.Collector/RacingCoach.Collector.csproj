@@ -11,8 +11,12 @@
     <RootNamespace>RacingCoach.Collector</RootNamespace>
     <!-- The release workflow (.github/workflows/collector-release.yml) sets this from the collector-v* tag -->
     <Version>1.39.0</Version>
-    <Product>RacingCoach Collector</Product>
-    <Company>RacingCoach.app</Company>
+    <!-- Shown in the exe's Properties; the same publisher as its signature (Clarivex, LLC, via Azure Artifact Signing
+         in the release workflow) and the installer (collector/installer) -->
+    <Product>RacingCoach.app Collector</Product>
+    <Company>Clarivex, LLC</Company>
+    <Copyright>© 2026 Clarivex, LLC</Copyright>
+    <AssemblyTitle>RacingCoach.app Collector</AssemblyTitle>
     <ApplicationIcon>Assets\collector.ico</ApplicationIcon>
   </PropertyGroup>
 

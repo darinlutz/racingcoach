@@ -109,7 +109,21 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
             throw new UnauthorizedAccessException("RacingCoach.app doesn't accept the upload key");
         response.EnsureSuccessStatusCode();
         var body = await response.Content.ReadFromJsonAsync<MeResponse>(JsonOptions, ct);
-        return new AccountPreferences(body?.Units == "metric", Loc.Normalize(body?.Language), body?.BrakeBeeps, body?.BrakeBeepsVolume);
+        return new AccountPreferences(body?.Units == "metric", Loc.Normalize(body?.Language), body?.BrakeBeeps, body?.BrakeBeepsVolume,
+            body?.PoliciesAccepted);
+    }
+
+    /// <summary>Reports the installer's acceptance of the Terms of Service and Privacy Policy to the account; true if
+    /// the site recorded it (only the current versions are). Throws like GetPreferencesAsync.</summary>
+    public async Task<bool> ReportLegalAcceptanceAsync(LegalAcceptance acceptance, CancellationToken ct)
+    {
+        using var response = await _http.PostAsJsonAsync("api/collector/policy-acceptance", acceptance, JsonOptions, ct);
+        if (response.StatusCode == HttpStatusCode.Unauthorized)
+            throw new UnauthorizedAccessException("RacingCoach.app doesn't accept the upload key");
+        if (!response.IsSuccessStatusCode)
+            throw new HttpRequestException(await ErrorMessageAsync(response, ct));
+        var body = await response.Content.ReadFromJsonAsync<RecordedResponse>(JsonOptions, ct);
+        return body?.Recorded == true;
     }
 
     /// <summary>Saves "Beeps before braking" (enabled) and/or its volume (10-100) to the account, from the window's
@@ -393,7 +407,10 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
 
     public void Dispose() => _http.Dispose();
 
-    private sealed record MeResponse(string? UserName, string? Units, string? Language, bool? BrakeBeeps, int? BrakeBeepsVolume);
+    private sealed record MeResponse(string? UserName, string? Units, string? Language, bool? BrakeBeeps, int? BrakeBeepsVolume,
+        bool? PoliciesAccepted);
+
+    private sealed record RecordedResponse(bool? Recorded);
 
     private sealed record ErrorResponse(string? Error);
 
@@ -404,8 +421,9 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
     private sealed record CalloutsResponse(List<CoachCallout>? Callouts);
 }
 
-/// <summary>The account's preferences from GET /api/collector/me.</summary>
-internal sealed record AccountPreferences(bool Metric, string Language, bool? BrakeBeeps, int? BrakeBeepsVolume);
+/// <summary>The account's preferences from GET /api/collector/me, and whether it has accepted the current Terms of
+/// Service and Privacy Policy (null from a site from before it was sent).</summary>
+internal sealed record AccountPreferences(bool Metric, string Language, bool? BrakeBeeps, int? BrakeBeepsVolume, bool? PoliciesAccepted);
 
 /// <summary>GET /api/collector/in-car-coach (src/lib/inCarCoach.ts in the website).</summary>
 internal sealed record CoachPlanResponse(string? Instructions, CoachPlan? Plan, List<CoachArea>? Areas, string? Locale);

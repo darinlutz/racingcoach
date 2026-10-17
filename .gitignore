@@ -65,3 +65,7 @@ next-env.d.ts
 # C# telemetry collector build output
 /collector/**/bin/
 /collector/**/obj/
+# The installer's legal documents for local builds (node scripts/exportLegal.mjs collector/installer/legal), and
+# where a local ISCC build puts the installer
+/collector/installer/legal/
+/collector/installer/Output/

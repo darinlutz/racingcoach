@@ -84,7 +84,7 @@ public static class Program
         args = [.. args.Where(a => a != SelfUpdater.AfterUpdateArg)];
         if (!TryParseArgs(args, out var options))
         {
-            MessageBox.Show(Usage, "RacingCoach Collector", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show(Usage, "RacingCoach.app Collector", MessageBoxButton.OK, MessageBoxImage.Information);
             return 1;
         }
 
@@ -94,8 +94,8 @@ public static class Program
         SelfUpdater.CleanUp();
         if (!firstInstance && !options.Playback)
         {
-            MessageBox.Show("The RacingCoach Collector is already running. Look for it on the taskbar.",
-                "RacingCoach Collector", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show("RacingCoach.app Collector is already running. Look for it on the taskbar.",
+                "RacingCoach.app Collector", MessageBoxButton.OK, MessageBoxImage.Information);
             return 0;
         }
 
@@ -104,7 +104,7 @@ public static class Program
         {
             ActivityLog.Shared.Write($"Unexpected error: {e.Exception}", isError: true);
             MessageBox.Show($"Something went wrong: {e.Exception.Message}\n\nDetails are in {ActivityLog.Shared.FilePath}",
-                "RacingCoach Collector", MessageBoxButton.OK, MessageBoxImage.Error);
+                "RacingCoach.app Collector", MessageBoxButton.OK, MessageBoxImage.Error);
             e.Handled = true;
         };
         return app.Run(new MainWindow(options));

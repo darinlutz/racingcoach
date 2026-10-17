@@ -1,10 +1,10 @@
 import { PLANS, type Plan } from './accountStatus';
 import { OWNER_EMAIL } from './users';
 
-// Emails the site owner when a user signs up, buys a plan, or cancels.
+// Emails the site owner when a user signs up, buys a plan, cancels, or deletes their account.
 const APP_NAME = 'RacingCoach';
 
-export type OwnerEvent = 'signup' | Plan | 'canceled';
+export type OwnerEvent = 'signup' | Plan | 'canceled' | 'deleted';
 
 function describe(event: OwnerEvent): { subject: string; action: string } {
   switch (event) {
@@ -12,6 +12,8 @@ function describe(event: OwnerEvent): { subject: string; action: string } {
       return { subject: 'New user sign up', action: 'signed up' };
     case 'canceled':
       return { subject: 'Subscription canceled', action: 'canceled their subscription' };
+    case 'deleted':
+      return { subject: 'Account deleted', action: 'deleted their account' };
     default: {
       // e.g. "Gold annual"
       const { level, period } = PLANS[event];

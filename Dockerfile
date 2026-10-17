@@ -41,7 +41,6 @@ COPY src/intro_transformer.py ./src/intro_transformer.py
 COPY src/SampleDealGPT.py ./src/SampleDealGPT.py
 COPY src/prompts.py ./src/prompts.py
 COPY src/chatbot_logging.py ./src/chatbot_logging.py
-COPY src/simple_rag.py ./src/simple_rag.py
 COPY src/racecar_analysis_rag.py ./src/racecar_analysis_rag.py
 
 EXPOSE 10000

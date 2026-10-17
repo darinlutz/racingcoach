@@ -326,6 +326,22 @@ export const en = {
     failed: 'Failed to change password',
     done: 'Your password has been changed.',
   },
+  deleteAccount: {
+    button: 'Delete Account',
+    title: 'Delete your account?',
+    intro: 'All of your data will be permanently deleted. This cannot be undone.',
+    listIntro: 'This deletes:',
+    items: [
+      'Your account details, preferences and Target Lap',
+      'Every lap you have uploaded and your Debrief Coach sessions',
+      'Your race results, Car Data, and telemetry collector key and logs',
+      'Your linked Discord account and iRacePlan connection',
+    ],
+    subscription: 'Your subscription will be canceled right away, with no refund.',
+    confirm: 'Delete My Account',
+    deleting: 'Deleting…',
+    failed: 'Failed to delete your account',
+  },
   cancelSubscription: {
     button: 'Cancel Subscription',
     canceling: 'Canceling…',
@@ -357,14 +373,12 @@ export const en = {
     intro: 'Debriefs and lap and stint analysis',
     tabs: {
       debrief: 'Debrief Coach',
-      spaceFacts: 'Space Fact Query',
       stint: 'Stint Analysis',
       lapCompare: 'Lap Compare',
       friends: 'Friends',
     },
     intros: {
       debrief: 'An AI coach reviews every lap of your session and tells you what to fix next time.',
-      spaceFacts: 'Ask a question and get an answer grounded in a small set of space facts (RAG).',
       stint: 'Analyze a Garage 61 stint export: pace, sectors, weather and fuel.',
       lapCompare: 'Compare two laps focus area by focus area.',
       friends: 'Keep track of your racing friends. Each account has its own list.',
@@ -1247,6 +1261,9 @@ export const en = {
     logInChangePassword: 'Log in to change your password',
     currentPasswordWrong: 'Your current password is incorrect',
     failedChangePassword: 'Failed to change password',
+    logInDeleteAccount: 'Log in to delete your account',
+    adminCannotDeleteAccount: 'Admin accounts can’t be deleted',
+    failedDeleteAccount: 'Failed to delete your account',
     // Subscriptions
     logInToCancel: 'Log in to cancel your subscription',
     chooseReason: 'Please choose a reason for canceling',

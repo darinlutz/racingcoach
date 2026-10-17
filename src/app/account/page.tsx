@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import CancelSubscriptionButton from '@/components/CancelSubscriptionButton';
 import ChangePasswordButton from '@/components/ChangePasswordButton';
 import CollectorKeyCard from '@/components/CollectorKeyCard';
+import DeleteAccountButton from '@/components/DeleteAccountButton';
 import InCarCoachInstructionsCard from '@/components/InCarCoachInstructionsCard';
 import LanguageSelect from '@/components/LanguageSelect';
 import TargetLapCard from '@/components/TargetLapCard';
@@ -13,6 +14,7 @@ import { getCollectorKey } from '@/lib/collectorKeys';
 import { DISCORD_INVITE_URL, getDiscordConnection } from '@/lib/discord';
 import { fmt, LANGUAGE_LOCALES } from '@/lib/i18n/languages';
 import { getDictionary } from '@/lib/i18n/server';
+import { isAdmin } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
 import { getShowPricing } from '@/lib/siteSettings';
 import { getTargetLapInfo } from '@/lib/targetLap';
@@ -219,6 +221,9 @@ export default async function AccountPage({
         )}
 
         {isSubscribed && <CancelSubscriptionButton />}
+
+        {/* Admins can't delete their account (the API refuses too) */}
+        {!isAdmin(user.role) && <DeleteAccountButton isSubscribed={isSubscribed} />}
       </div>
     </section>
   );

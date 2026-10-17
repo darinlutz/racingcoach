@@ -15,13 +15,13 @@ const EMBEDDING_OPTIONS = [
 ];
 
 interface SpaceFactQueryProps {
-  endpoint?: string;
+  endpoint: string;
   queryLabel?: string;
   placeholder?: string;
 }
 
 export default function SpaceFactQuery({
-  endpoint = '/api/space-fact-query',
+  endpoint,
   queryLabel,
   placeholder,
 }: SpaceFactQueryProps) {

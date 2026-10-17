@@ -11,6 +11,7 @@ import StintConditions from '@/components/StintConditions';
 import WeatherTable from '@/components/WeatherTable';
 import { isStintExport, parseStintExport } from '@/lib/stintExport';
 import { selectBestRun, stintReport, type StintSelection } from '@/lib/stintStats';
+import { reportRateLimit } from '@/lib/rateLimitClient';
 
 const inputClass =
   'w-full px-4 py-3 bg-card border border-border rounded-lg text-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors';
@@ -26,6 +27,7 @@ async function fetchStintSummary(report: string, t: Dictionary) {
       body: JSON.stringify({ report }),
     });
     const data = await res.json();
+    reportRateLimit(res, data);
     if (!res.ok) throw new Error(data.error || t.stint.failedAnalyze);
     return data.summary as string;
   } catch (err) {

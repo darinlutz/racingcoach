@@ -5,6 +5,7 @@ import { lapDrivingLinesSchema } from '@/lib/lapDrivingLine';
 import { summarizeLapComparison } from '@/lib/lapSummary';
 import { apiText, getLanguage } from '@/lib/i18n/server';
 import { getCurrentUser } from '@/lib/session';
+import { aiRateLimit, type AiRateLimit } from '@/lib/rateLimits';
 import { getUnits } from '@/lib/unitsServer';
 
 // Focus-area text for one track is a few KB; anything much bigger isn't a lap comparison
@@ -12,6 +13,7 @@ const MAX_COMPARISON_CHARS = 20000;
 
 export async function POST(request: Request) {
   const t = await apiText();
+  let limit: AiRateLimit | null = null;
   try {
     const body = await request.json().catch(() => ({}));
     const comparison = body.comparison;
@@ -36,6 +38,8 @@ export async function POST(request: Request) {
     }
 
     const user = await getCurrentUser();
+    limit = await aiRateLimit(request, 'lapSummary', user);
+    if (limit.response) return limit.response;
     const summary = await summarizeLapComparison(
       comparison,
       track,
@@ -48,6 +52,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, summary }, { status: 200 });
   } catch (error) {
     console.error('Lap summary error:', error);
+    await limit?.refund();
     return aiErrorResponse(error, t.failedLapSummary, t.aiOutOfCredits);
   }
 }

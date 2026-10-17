@@ -2,6 +2,8 @@ import { execFile } from 'node:child_process';
 import path from 'node:path';
 import { NextResponse } from 'next/server';
 import { isAiOutOfCredits } from './aiErrors';
+import { aiRateLimit, type RateLimitedFeature } from './rateLimits';
+import { getCurrentUser } from './session';
 import { apiText } from './i18n/server';
 import { getUnits } from './unitsServer';
 
@@ -80,8 +82,9 @@ export function runPythonJson<T extends { error?: string }>(
 }
 
 // Builds the GET/POST handlers for a RAG tab backed by a Python script in
-// src/ that accepts a JSON payload argument and prints a JSON result.
-export function createRagRoute(scriptFile: string, timeoutMs = 60000) {
+// src/ that accepts a JSON payload argument and prints a JSON result. feature is
+// what the Admin page's Rate Limiting counts its calls as.
+export function createRagRoute(scriptFile: string, feature: RateLimitedFeature, timeoutMs = 60000) {
   async function GET() {
     return ollamaAvailabilityResponse();
   }
@@ -97,20 +100,26 @@ export function createRagRoute(scriptFile: string, timeoutMs = 60000) {
     const llmType = isLlmType(body.llmType) ? body.llmType : 'openai';
     const embeddingType = isEmbeddingType(body.embeddingType) ? body.embeddingType : 'openai';
 
+    const user = await getCurrentUser();
+    const limit = await aiRateLimit(request, feature, user);
+    if (limit.response) return limit.response;
+
     try {
       const result = await runPythonJson<{ response?: string; references?: string[]; error?: string }>(
         scriptFile,
         // units: the user's Preferred Units, for scripts that show measurements (racecar_analysis_rag.py)
-        { query, llmType, embeddingType, units: await getUnits() },
+        { query, llmType, embeddingType, units: await getUnits(user) },
         timeoutMs
       );
 
       if (!result.response) {
+        await limit.refund();
         return NextResponse.json({ error: 'Script returned no response' }, { status: 500 });
       }
 
       return NextResponse.json({ response: result.response, references: result.references ?? [] });
     } catch (error) {
+      await limit.refund();
       if (isAiOutOfCredits(error)) {
         return NextResponse.json({ error: (await apiText()).aiOutOfCredits }, { status: 503 });
       }

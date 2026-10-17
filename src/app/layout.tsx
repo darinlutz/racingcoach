@@ -5,6 +5,7 @@ import ActivityTracker from "@/components/ActivityTracker";
 import Brand from "@/components/Brand";
 import LanguageProvider from "@/components/LanguageProvider";
 import Navigation from "@/components/Navigation";
+import RateLimitDialog from "@/components/RateLimitDialog";
 import UnitsProvider from "@/components/UnitsProvider";
 import { getDictionary, getLanguage } from "@/lib/i18n/server";
 import { isAdmin } from "@/lib/roles";
@@ -59,6 +60,8 @@ export default async function RootLayout({
         <LanguageProvider language={language} dictionary={t}>
           <UnitsProvider units={units}>
             <ActivityTracker />
+            {/* Pops up when an AI feature was refused because the user's AI limit is used up */}
+            <RateLimitDialog />
             <Navigation
               user={user ? { userName: user.userName, canUpgrade: canBuyAnything(user), isAdmin: isAdmin(user.role) } : null}
               showPricing={showPricing}

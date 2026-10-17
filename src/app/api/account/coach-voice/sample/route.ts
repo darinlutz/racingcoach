@@ -3,6 +3,7 @@ import { DEFAULT_SPANISH_ACCENT, isCoachVoice, isSpanishAccent, synthesizeSpeech
 import { apiText, getDictionary } from '@/lib/i18n/server';
 import { fmt } from '@/lib/i18n/languages';
 import { getCurrentUser } from '@/lib/session';
+import { aiRateLimit, type AiRateLimit } from '@/lib/rateLimits';
 import { distanceFromFeet } from '@/lib/units';
 
 // The Account page's Listen button: a sample callout (the dictionary's inCarCoach.sample) in a coach voice and the
@@ -12,6 +13,7 @@ import { distanceFromFeet } from '@/lib/units';
 export async function GET(request: Request) {
   const user = await getCurrentUser();
   const t = await apiText(user);
+  let limit: AiRateLimit | null = null;
   try {
     if (!user) {
       return NextResponse.json({ error: t.logInInCarInstructions }, { status: 401 });
@@ -21,6 +23,8 @@ export async function GET(request: Request) {
     if (!isCoachVoice(voice)) {
       return NextResponse.json({ error: t.unknownCoachVoice }, { status: 400 });
     }
+    limit = await aiRateLimit(request, 'speech', user);
+    if (limit.response) return limit.response;
     const accent = params.get('accent');
     const spanishAccent = isSpanishAccent(accent) ? accent : DEFAULT_SPANISH_ACCENT;
     // Distances in the user's Preferred Units: about 20 feet (6 meters) later, near 1230 feet (375 meters)
@@ -36,6 +40,7 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     console.error('Coach voice sample error:', error);
+    await limit?.refund();
     return NextResponse.json({ error: t.failedCoachVoiceSample }, { status: 502 });
   }
 }

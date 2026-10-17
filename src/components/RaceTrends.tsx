@@ -10,6 +10,7 @@ import PositionsChart from '@/components/PositionsChart';
 import { DEFAULT_RACE_RANGE } from '@/components/RaceRangePicker';
 import type { Connection } from '@/lib/raceHistory';
 import type { IncidentPoint, IRatingSeries, RaceEvent } from '@/lib/raceTrends';
+import { reportRateLimit } from '@/lib/rateLimitClient';
 
 type ChartTab = 'iRating' | 'incidents' | 'positions';
 
@@ -145,6 +146,7 @@ export default function RaceTrends() {
     try {
       const res = await fetch('/api/race-trends', { method: 'POST' });
       const data = await res.json();
+      reportRateLimit(res, data);
       if (!res.ok) throw new Error(data.error || t.failedTrends);
       setTrend(data.trend);
       setIncidents(data.incidents);

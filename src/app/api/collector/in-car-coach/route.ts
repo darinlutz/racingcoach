@@ -8,6 +8,7 @@ import { measureDebriefSession } from '@/lib/debriefSession';
 import { DEFAULT_LANGUAGE, LANGUAGE_LOCALES } from '@/lib/i18n/languages';
 import { inCarCoachCallouts, inCarCoachPlan } from '@/lib/inCarCoach';
 import { lapSamplesFromText } from '@/lib/lapData';
+import { aiRateLimit, type AiRateLimit } from '@/lib/rateLimits';
 import { readTargetLap } from '@/lib/targetLap';
 import { targetLapIsOf, withTargetLap } from '@/lib/targetLapTargets';
 import { findTrackByKey, readTracks, toLapTrack } from '@/lib/tracks';
@@ -26,6 +27,7 @@ async function userContext(request: Request) {
   const [user, instructions] = await Promise.all([getUserById(userId), getInCarCoachInstructions(userId)]);
   return {
     userId,
+    user,
     instructions,
     language: user?.preferredLanguage ?? DEFAULT_LANGUAGE,
     units: user?.units ?? DEFAULT_UNITS,
@@ -37,6 +39,7 @@ async function userContext(request: Request) {
 // feedbackEveryLaps }, areas: [{ name, start, end }], locale } (areas from Track Data, for areaEntry/areaExit
 // rules; locale is the user's Preferred Language's, e.g. pt-BR).
 export async function GET(request: Request) {
+  let limit: AiRateLimit | null = null;
   try {
     const user = await userContext(request);
     if (!user) {
@@ -47,6 +50,8 @@ export async function GET(request: Request) {
       .sort((a, b) => a.position - b.position)
       .map((area) => ({ name: area.name, start: area.startPoint, end: area.endPoint }));
 
+    limit = await aiRateLimit(request, 'inCarCoachPlan', user.user);
+    if (limit.response) return limit.response;
     const plan = await inCarCoachPlan(
       user.instructions,
       areas.map((area) => area.name),
@@ -57,6 +62,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ instructions: user.instructions, plan, areas, locale: LANGUAGE_LOCALES[user.language] });
   } catch (error) {
     console.error('In-Car AI Coach plan error:', error);
+    await limit?.refund();
     return aiErrorResponse(error, 'Failed to set up the In-Car AI Coach');
   }
 }
@@ -70,6 +76,7 @@ const bodySchema = z.object({
 // the coach said recently. Answers { callouts: [{ text, sound }] } (2, the first said at once and the second halfway round the lap), or
 // 404 when none of the laps have been uploaded.
 export async function POST(request: Request) {
+  let limit: AiRateLimit | null = null;
   try {
     const user = await userContext(request);
     if (!user) {
@@ -102,6 +109,8 @@ export async function POST(request: Request) {
         )
       : null;
 
+    limit = await aiRateLimit(request, 'inCarCoachCallouts', user.user);
+    if (limit.response) return limit.response;
     const { callouts, steps } = await inCarCoachCallouts({
       instructions: user.instructions,
       track: trackName,
@@ -123,6 +132,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ callouts });
   } catch (error) {
     console.error('In-Car AI Coach error:', error);
+    await limit?.refund();
     return aiErrorResponse(error, 'Failed to coach these laps');
   }
 }

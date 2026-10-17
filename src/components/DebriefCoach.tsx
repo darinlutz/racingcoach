@@ -19,6 +19,7 @@ import {
 } from '@/lib/lapData';
 import { assembleOptimalLapCsv, type OptimalLap } from '@/lib/optimalLap';
 import { uploadTargetLap } from '@/lib/targetLapUpload';
+import { reportRateLimit } from '@/lib/rateLimitClient';
 
 // Stitches the theoretical lap's CSV from the laps its plan picked, named like a lap file
 // ("RacingCoach - Driver - Car - Track - 01.17.912 - Optimal.csv") so the Target Lap card and the collector read
@@ -152,6 +153,7 @@ export default function DebriefCoach({ onCompare }: { onCompare?: (base: LapFile
         body: JSON.stringify({ session }),
       });
       const data = await res.json();
+      reportRateLimit(res, data);
       if (!res.ok) throw new Error(data.error || t.debrief.failedRun);
       setDebrief(data.debrief);
       setSteps(data.steps);

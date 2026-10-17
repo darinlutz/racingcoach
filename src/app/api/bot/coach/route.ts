@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { isAiOutOfCredits } from '@/lib/aiErrors';
 import { getUserIdByDiscordId } from '@/lib/discord';
 import { readConnection, readRaceEvents } from '@/lib/raceHistory';
+import { aiRateLimit, type AiRateLimit } from '@/lib/rateLimits';
 import { runRaceCoaching } from '@/lib/raceTrends';
 import { isAdmin } from '@/lib/roles';
 import { getUserById } from '@/lib/users';
@@ -21,6 +22,7 @@ function authorized(request: Request, secret: string): boolean {
 }
 
 export async function POST(request: Request) {
+  let limit: AiRateLimit | null = null;
   try {
     const secret = process.env.BOT_API_SECRET;
     if (!secret) {
@@ -56,11 +58,15 @@ export async function POST(request: Request) {
     if (events.length === 0) {
       return NextResponse.json({ error: 'no_races' }, { status: 404 });
     }
+    // The request comes from the bot's server, so there's no IP address of the user's to count
+    limit = await aiRateLimit(null, 'raceCoaching', user);
+    if (limit.response) return limit.response;
 
     const coaching = await runRaceCoaching(connection?.iracingName ?? user.userName, events);
     return NextResponse.json({ success: true, coaching });
   } catch (error) {
     console.error('Bot coach error:', error);
+    await limit?.refund();
     if (isAiOutOfCredits(error)) {
       return NextResponse.json({ error: 'out_of_credits' }, { status: 503 });
     }

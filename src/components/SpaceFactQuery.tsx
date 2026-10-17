@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useLanguage } from '@/components/LanguageProvider';
+import { reportRateLimit } from '@/lib/rateLimitClient';
 
 const LLM_OPTIONS = [
   { value: 'openai', label: 'OpenAI (gpt-4o-mini)', needsOllama: false },
@@ -65,6 +66,7 @@ export default function SpaceFactQuery({
       });
 
       const data = await res.json();
+      reportRateLimit(res, data);
 
       if (!res.ok) {
         throw new Error(data.error || t.failed);

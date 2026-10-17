@@ -23,6 +23,7 @@ import {
 } from '@/lib/lapData';
 import { useUnits } from '@/components/UnitsProvider';
 import { DISTANCE_UNIT, distanceFromFeet, roundBrakeChange, SPEED_UNIT, speedFromMetersPerSecond, type Units } from '@/lib/units';
+import { reportRateLimit } from '@/lib/rateLimitClient';
 
 const inputClass =
   'w-full px-4 py-3 bg-card border border-border rounded-lg text-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors';
@@ -344,6 +345,7 @@ async function fetchSummary(comparison: string, track: string, lines: LapDriving
       body: JSON.stringify({ comparison, track, lines, areaNames }),
     });
     const data = await res.json();
+    reportRateLimit(res, data);
     if (!res.ok) throw new Error(data.error || t.lapCompare.failedSummary);
     return data.summary as string;
   } catch (err) {

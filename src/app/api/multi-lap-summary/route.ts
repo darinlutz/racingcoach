@@ -1,12 +1,15 @@
 import { NextResponse } from 'next/server';
 import { aiErrorResponse } from '@/lib/aiErrors';
 import { summarizeMultiLap } from '@/lib/lapSummary';
+import { aiRateLimit, type AiRateLimit } from '@/lib/rateLimits';
+import { getCurrentUser } from '@/lib/session';
 import { getUnits } from '@/lib/unitsServer';
 
 // Multi-lap statistics for one track are a few KB; anything much bigger isn't a multi-lap analysis
 const MAX_STATS_CHARS = 20000;
 
 export async function POST(request: Request) {
+  let limit: AiRateLimit | null = null;
   try {
     const body = await request.json().catch(() => ({}));
     const stats = body.stats;
@@ -24,11 +27,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'OpenAI API key not configured' }, { status: 500 });
     }
 
-    const summary = await summarizeMultiLap(stats, track, undefined, await getUnits());
+    const user = await getCurrentUser();
+    limit = await aiRateLimit(request, 'multiLapSummary', user);
+    if (limit.response) return limit.response;
+    const summary = await summarizeMultiLap(stats, track, undefined, await getUnits(user));
 
     return NextResponse.json({ success: true, summary }, { status: 200 });
   } catch (error) {
     console.error('Multi-lap summary error:', error);
+    await limit?.refund();
     return aiErrorResponse(error, 'Failed to analyze the laps');
   }
 }

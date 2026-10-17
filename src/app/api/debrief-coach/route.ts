@@ -5,6 +5,7 @@ import { debriefSessionSchema, runDebriefCoach } from '@/lib/debriefCoach';
 import { saveDebrief } from '@/lib/debriefHistory';
 import { getCurrentUser } from '@/lib/session';
 import { apiText, getLanguage } from '@/lib/i18n/server';
+import { aiRateLimit, type AiRateLimit } from '@/lib/rateLimits';
 import { getUnits } from '@/lib/unitsServer';
 
 // The agent makes several model calls (one per tool round), so give it more than the default
@@ -12,6 +13,7 @@ export const maxDuration = 60;
 
 export async function POST(request: Request) {
   const t = await apiText();
+  let limit: AiRateLimit | null = null;
   try {
     const body = await request.json().catch(() => ({}));
     const parsed = debriefSessionSchema.safeParse(body.session);
@@ -32,6 +34,8 @@ export async function POST(request: Request) {
     }
 
     const user = await getCurrentUser();
+    limit = await aiRateLimit(request, 'debriefCoach', user);
+    if (limit.response) return limit.response;
     // For the shifting tool; without it the coach falls back to the RPM in the laps
     const rpmLimit = await carRpmLimit(user?.id ?? null, parsed.data.car).catch(() => null);
     const { debrief, steps, optimalLap } = await runDebriefCoach(parsed.data, await getLanguage(user), await getUnits(user), rpmLimit);
@@ -48,6 +52,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, debrief, steps, optimalLap }, { status: 200 });
   } catch (error) {
     console.error('Debrief coach error:', error);
+    await limit?.refund();
     return aiErrorResponse(error, t.failedDebrief, t.aiOutOfCredits);
   }
 }

@@ -18,6 +18,7 @@ import { isStintExport, parseStintExport, type StintExport } from '@/lib/stintEx
 import { DISTANCE_UNIT, distanceFromFeet, SPEED_UNIT, speedFromMetersPerSecond, type Units } from '@/lib/units';
 import { useUnits } from '@/components/UnitsProvider';
 import WeatherTable from '@/components/WeatherTable';
+import { reportRateLimit } from '@/lib/rateLimitClient';
 
 // Feet (a Target Lap brakepoint, or null) -> whole feet or meters
 function distance(feet: number | null, units: Units) {
@@ -97,6 +98,7 @@ async function fetchMultiLapAnalysis(stats: string, track: string) {
       body: JSON.stringify({ stats, track }),
     });
     const data = await res.json();
+    reportRateLimit(res, data);
     if (!res.ok) throw new Error(data.error || 'Failed to analyze the laps');
     return data.summary as string;
   } catch (err) {

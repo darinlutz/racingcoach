@@ -27,6 +27,11 @@ export const MEMBERSHIP_LEVEL = {
 
 export type MembershipLevel = (typeof MEMBERSHIP_LEVEL)[keyof typeof MEMBERSHIP_LEVEL];
 
+export const MEMBERSHIP_LEVEL_VALUES = Object.values(MEMBERSHIP_LEVEL) as MembershipLevel[];
+
+export const isMembershipLevel = (value: unknown): value is MembershipLevel =>
+  MEMBERSHIP_LEVEL_VALUES.includes(value as MembershipLevel);
+
 const LEVEL_RANK: Record<string, number> = {
   [MEMBERSHIP_LEVEL.bronze]: 0,
   [MEMBERSHIP_LEVEL.silver]: 1,

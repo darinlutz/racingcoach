@@ -23,7 +23,7 @@ import { fmt, LANGUAGE_LOCALES } from '@/lib/i18n/languages';
 import { getDictionary } from '@/lib/i18n/server';
 import { isAdmin } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
-import { getShowPricing } from '@/lib/siteSettings';
+import { getShowPricing, getShowProDriverLesson } from '@/lib/siteSettings';
 import { listTracksForMaintenance } from '@/lib/trackMaintenance';
 
 // The site owner's Admin page: Site Settings (src/components/SiteSettingsManager.tsx), AI Model Control
@@ -52,10 +52,11 @@ export default async function AdminPage({
   const t = getDictionary(user.preferredLanguage);
   const a = t.admin;
   const locale = LANGUAGE_LOCALES[user.preferredLanguage];
-  const [report, users, showPricing, aiModels, tracks] = await Promise.all([
+  const [report, users, showPricing, showProDriverLesson, aiModels, tracks] = await Promise.all([
     readActivityReport(filters),
     listUsersForAdmin(),
     getShowPricing(),
+    getShowProDriverLesson(),
     getAiModels(),
     listTracksForMaintenance(),
   ]);
@@ -92,7 +93,7 @@ export default async function AdminPage({
           {a.pageTitle}
         </h1>
 
-        <SiteSettingsManager showPricing={showPricing} />
+        <SiteSettingsManager showPricing={showPricing} showProDriverLesson={showProDriverLesson} />
 
         <AiModelManager models={aiModels} />
 

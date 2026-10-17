@@ -277,13 +277,21 @@ export async function readActivityExport(filters: ActivityFilters): Promise<Acti
   return rows.map(toRow);
 }
 
-export type AdminUser = { id: number; userName: string; emailAddress: string; role: string };
+export type AdminUser = { id: number; userName: string; emailAddress: string; role: string; membershipLevel: string };
 
-// Every account, for the Admin page's user filter and User Roles section
+// Every account, for the Admin page's user filter and User Roles section (role and membership level)
 export async function listUsersForAdmin(): Promise<AdminUser[]> {
   await ensureUserSchema();
-  const rows = await query('SELECT id, user_name, email_address, role FROM racingcoach."Users" ORDER BY lower(user_name), id');
-  return rows.map((row) => ({ id: Number(row.id), userName: row.user_name, emailAddress: row.email_address, role: row.role }));
+  const rows = await query(
+    'SELECT id, user_name, email_address, role, membership_level FROM racingcoach."Users" ORDER BY lower(user_name), id'
+  );
+  return rows.map((row) => ({
+    id: Number(row.id),
+    userName: row.user_name,
+    emailAddress: row.email_address,
+    role: row.role,
+    membershipLevel: row.membership_level,
+  }));
 }
 
 // "Chrome · Windows" from a user agent, for the table (the full string is in the export)

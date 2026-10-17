@@ -9,6 +9,7 @@ import {
   LEGACY_SUBSCRIBED_STATUSES,
   MEMBERSHIP_LEVEL,
   PLANS,
+  type MembershipLevel,
   type Plan,
 } from './accountStatus';
 import { copyDefaultCars, seedDefaultCars } from './defaultCars';
@@ -786,6 +787,18 @@ export async function setUserRole(userId: number, role: Role, changedBy: number)
     await client.query('UPDATE racingcoach."Users" SET role = $1 WHERE id = $2', [role, userId]);
     return { userName: target.user_name as string, role };
   });
+}
+
+// Sets a user's membership level from the Admin page's User Roles section. Stripe still changes it
+// when the user buys a plan, and getUserById drops a Subscribed or Canceled account back to Bronze once
+// its subscription end date has passed. Returns the user's name, or null when there's no such user.
+export async function setMembershipLevel(userId: number, membershipLevel: MembershipLevel): Promise<string | null> {
+  await ensureUserSchema();
+  const [row] = await query('UPDATE racingcoach."Users" SET membership_level = $1 WHERE id = $2 RETURNING user_name', [
+    membershipLevel,
+    userId,
+  ]);
+  return row ? (row.user_name as string) : null;
 }
 
 export async function setPreferredLanguage(userId: number, language: Language): Promise<void> {

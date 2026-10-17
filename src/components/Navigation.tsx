@@ -14,14 +14,15 @@ type NavigationProps = {
   user: { userName: string; canUpgrade: boolean; isAdmin: boolean } | null;
   // The Admin page's Show Pricing setting (src/lib/siteSettings.ts)
   showPricing: boolean;
+  // The Admin page's Show Pro Driver Lesson setting
+  showProDriverLesson: boolean;
 };
 
 const links = [
   { href: '/#toolkit', key: 'toolkit' },
   { href: '/installing', key: 'installing' },
   { href: '/racing', key: 'coachingAnalysis' },
-  { href: '/track-data', key: 'trackData' },
-  { href: '/car-data', key: 'carData' },
+  { href: '/cars-tracks', key: 'carsTracks' },
   { href: '/prodrivinglesson', key: 'proDriverLesson' },
   { href: '/learning', key: 'learning' },
   { href: '/support', key: 'support' },
@@ -33,7 +34,7 @@ const bottomLinks = [
   { href: '/race-trends', key: 'raceTrends' },
 ] as const;
 
-export default function Navigation({ user, showPricing }: NavigationProps) {
+export default function Navigation({ user, showPricing, showProDriverLesson }: NavigationProps) {
   const { t } = useLanguage();
   const router = useRouter();
   const pathname = usePathname();
@@ -41,6 +42,8 @@ export default function Navigation({ user, showPricing }: NavigationProps) {
   const [loggingOut, setLoggingOut] = useState(false);
   // Hidden when the Admin page turns Show Pricing off, and for Gold subscribers, who have nothing left to buy
   const hidePricing = !showPricing || (user !== null && !user.canUpgrade);
+  // Hidden when the Admin page turns Show Pro Driver Lesson off
+  const visibleLinks = showProDriverLesson ? links : links.filter((link) => link.key !== 'proDriverLesson');
   const visibleBottomLinks = hidePricing ? bottomLinks.filter((link) => link.key !== 'pricing') : bottomLinks;
 
   const toggleMenu = () => setIsOpen(!isOpen);
@@ -71,7 +74,7 @@ export default function Navigation({ user, showPricing }: NavigationProps) {
         <Brand />
 
         <div className="flex flex-col gap-5">
-          {links.map((link) => (
+          {visibleLinks.map((link) => (
             <Link key={link.key} href={link.href} className={navLink(link.href)}>{t.nav[link.key]}</Link>
           ))}
         </div>
@@ -128,7 +131,7 @@ export default function Navigation({ user, showPricing }: NavigationProps) {
       {isOpen && (
         <div className="lg:hidden bg-card border-t border-border">
           <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-            {links.map((link) => (
+            {visibleLinks.map((link) => (
               <Link key={link.key} href={link.href} className={mobileLink(link.href)} onClick={closeMenu}>{t.nav[link.key]}</Link>
             ))}
             <div className="border-t border-border pt-2 mt-2">

@@ -14,12 +14,13 @@ const SHOW_SPACE_FACTS_TAB = false;
 const SHOW_FRIENDS_TAB = false;
 const SHOW_STINT_TAB = false;
 
-type Tab = 'friends' | 'spaceFacts' | 'racecar' | 'stint' | 'lapCompare' | 'debrief';
+// Racecar Analysis is a tab of the Cars & Tracks page
+type Tab = 'friends' | 'spaceFacts' | 'stint' | 'lapCompare' | 'debrief';
 
 // Tab bar order: the top row on the left, the bottom row on the right
 const TAB_ROWS: Tab[][] = [
   ['debrief', 'spaceFacts', 'lapCompare', 'stint'],
-  ['friends', 'racecar'],
+  ['friends'],
 ];
 
 export default function RacingPage() {
@@ -73,13 +74,6 @@ export default function RacingPage() {
 
             {activeTab === 'friends' && <FriendsRoster />}
             {activeTab === 'spaceFacts' && <SpaceFactQuery />}
-            {activeTab === 'racecar' && (
-              <SpaceFactQuery
-                endpoint="/api/racecar-analysis"
-                queryLabel={t.racing.racecarQuestionLabel}
-                placeholder={t.racing.racecarPlaceholder}
-              />
-            )}
             {activeTab === 'stint' && <StintAnalysis />}
             {activeTab === 'lapCompare' && <LapCompare initialLaps={lapsToCompare} />}
             {activeTab === 'debrief' && <DebriefCoach onCompare={compareLaps} />}          </div>

@@ -8,7 +8,7 @@ import UnitsProvider from "@/components/UnitsProvider";
 import { getDictionary, getLanguage } from "@/lib/i18n/server";
 import { isAdmin } from "@/lib/roles";
 import { getCurrentUser } from "@/lib/session";
-import { getShowPricing } from "@/lib/siteSettings";
+import { getShowPricing, getShowProDriverLesson } from "@/lib/siteSettings";
 import { getTheme } from "@/lib/themeServer";
 import { getUnits } from "@/lib/unitsServer";
 import { canBuyAnything } from "@/lib/users";
@@ -36,7 +36,7 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const [user, showPricing] = await Promise.all([getCurrentUser(), getShowPricing()]);
+  const [user, showPricing, showProDriverLesson] = await Promise.all([getCurrentUser(), getShowPricing(), getShowProDriverLesson()]);
   // Every page is in the user's Preferred Language (or a visitor's chosen one); client components get
   // the dictionary from LanguageProvider
   const language = await getLanguage(user);
@@ -61,6 +61,7 @@ export default async function RootLayout({
             <Navigation
               user={user ? { userName: user.userName, canUpgrade: canBuyAnything(user), isAdmin: isAdmin(user.role) } : null}
               showPricing={showPricing}
+              showProDriverLesson={showProDriverLesson}
             />
             {/* On large screens the nav is a fixed sidebar down the left, so the page starts after it */}
             <div className="flex-1 flex flex-col lg:pl-[280px]">

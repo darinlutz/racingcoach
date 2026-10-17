@@ -24,6 +24,8 @@ export type TrackData = {
   key: string;
   // iRacing's length, sent by the collector with its laps of the track (trackLengths.ts); null without any
   lengthFeet: number | null;
+  // "Road Course", "Oval" or "Dirt" (categorizeTracks in trackCorners.ts); null when not set
+  category: string | null;
   // Where the track is, for Track Data's satellite picture (trackLocations.ts): iRacing's location, and the
   // extent of a lap's track positions; null until laps of the track give them
   location: { latitude: number; longitude: number } | null;
@@ -35,7 +37,7 @@ export type TrackData = {
 export async function readTracks(): Promise<TrackData[]> {
   await ensureUserSchema();
   const tracks = await query(
-    `SELECT t.id, t.track_key, t.track_name, t.notes, t.track_length_feet,
+    `SELECT t.id, t.track_key, t.track_name, t.notes, t.track_length_feet, t.track_category,
        t.track_latitude, t.track_longitude, t.track_south, t.track_west, t.track_north, t.track_east FROM racingcoach."Tracks" t
      WHERE EXISTS (SELECT 1 FROM racingcoach."TrackFocusAreas" f WHERE f.track_id = t.id)
      ORDER BY lower(t.track_name)`
@@ -49,6 +51,7 @@ export async function readTracks(): Promise<TrackData[]> {
     name: t.track_name as string,
     key: t.track_key as string,
     lengthFeet: t.track_length_feet == null ? null : Math.round(Number(t.track_length_feet)),
+    category: t.track_category as string | null,
     location:
       t.track_latitude == null || t.track_longitude == null
         ? null

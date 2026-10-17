@@ -3,9 +3,6 @@
 import { useState } from 'react';
 import FriendsRoster from '@/components/FriendsRoster';
 import { useLanguage } from '@/components/LanguageProvider';
-import TrackFileExport from '@/components/TrackFileExport';
-import TrackManagement from '@/components/TrackManagement';
-import CarDataManagement from '@/components/CarDataManagement';
 import SpaceFactQuery from '@/components/SpaceFactQuery';
 import StintAnalysis from '@/components/StintAnalysis';
 import LapCompare from '@/components/LapCompare';
@@ -17,12 +14,12 @@ const SHOW_SPACE_FACTS_TAB = false;
 const SHOW_FRIENDS_TAB = false;
 const SHOW_STINT_TAB = false;
 
-type Tab = 'tracks' | 'cars' | 'friends' | 'spaceFacts' | 'racecar' | 'stint' | 'lapCompare' | 'debrief';
+type Tab = 'friends' | 'spaceFacts' | 'racecar' | 'stint' | 'lapCompare' | 'debrief';
 
 // Tab bar order: the top row on the left, the bottom row on the right
 const TAB_ROWS: Tab[][] = [
   ['debrief', 'spaceFacts', 'lapCompare', 'stint'],
-  ['friends', 'tracks', 'racecar', 'cars'],
+  ['friends', 'racecar'],
 ];
 
 export default function RacingPage() {
@@ -74,13 +71,6 @@ export default function RacingPage() {
             <h2 className="text-2xl font-bold text-foreground mb-2">{t.racing.tabs[activeTab]}</h2>
             <p className="text-muted-foreground mb-6">{t.racing.intros[activeTab]}</p>
 
-            {activeTab === 'cars' && <CarDataManagement />}
-            {activeTab === 'tracks' && (
-              <>
-                <TrackFileExport />
-                <TrackManagement />
-              </>
-            )}
             {activeTab === 'friends' && <FriendsRoster />}
             {activeTab === 'spaceFacts' && <SpaceFactQuery />}
             {activeTab === 'racecar' && (

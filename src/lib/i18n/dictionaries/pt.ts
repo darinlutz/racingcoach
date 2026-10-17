@@ -45,6 +45,8 @@ export const pt: Dictionary = {
     learning: 'Aprendizado',
     coachingAnalysis: 'Coaching e análise',
     raceTrends: 'Minhas tendências',
+    trackData: 'Dados de pistas',
+    carData: 'Dados de carros',
     pricing: 'Preços',
     proDriverLesson: 'Aula 1:1 com piloto profissional',
     support: 'Suporte',
@@ -698,6 +700,14 @@ export const pt: Dictionary = {
     none: 'Nenhuma pista ainda.',
     lengthLabel: 'Comprimento ({unit})',
     startEnd: 'Início – Fim',
+    trackType: 'Tipo de pista',
+    noneOfType: 'Nenhuma pista do tipo {type} ainda.',
+    // Labels for "Tracks".track_category; a type without one shows as stored
+    categories: {
+      'Road Course': 'Circuito misto',
+      Oval: 'Oval',
+      Dirt: 'Terra',
+    } as Record<string, string>,
   },
 
   cars: {

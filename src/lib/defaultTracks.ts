@@ -1,7 +1,7 @@
 import type { PoolClient } from 'pg';
 
 // The tracks and focus areas of Track Data. They are seeded once into racingcoach."Tracks" and
-// "TrackFocusAreas", which belong to no user and are shared by every user (read only in the Track Data tab).
+// "TrackFocusAreas", which belong to no user and are shared by every user (read only on the Track Data page).
 //
 // key is the iRacing track key (lowercase) and name the name Garage 61 puts in its CSV file names.
 // Areas are in order around the lap; start/end are fractions of a lap (LapDistPct). They have no brake or

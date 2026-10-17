@@ -9,9 +9,18 @@ import type { TrackData } from '@/lib/tracks';
 import { useUnits } from '@/components/UnitsProvider';
 import { DISTANCE_UNIT, distanceFromFeet } from '@/lib/units';
 
+// The Track Type radio buttons' order; types not listed here follow, alphabetically
+const CATEGORY_ORDER = ['Road Course', 'Oval', 'Dirt'];
+const DEFAULT_CATEGORY = 'Road Course';
+const categoryRank = (category: string) => {
+  const i = CATEGORY_ORDER.indexOf(category);
+  return i === -1 ? CATEGORY_ORDER.length : i;
+};
+
 const target = (value: number | null, unit: string, locale: string) => (value === null ? '—' : `${value.toLocaleString(locale)}${unit}`);
 
-// Track Data's tracks and focus areas, the same for every user. Read only.
+// Track Data's tracks and focus areas, the same for every user. Read only. The Track Type radio buttons
+// ("Tracks".track_category, Road Course by default) pick which tracks are listed.
 export default function TrackManagement() {
   const { t: dictionary, locale } = useLanguage();
   const units = useUnits();
@@ -24,6 +33,7 @@ export default function TrackManagement() {
   const [signedOut, setSignedOut] = useState(false);
   const [message, setMessage] = useState('');
   const [expanded, setExpanded] = useState<number | null>(null);
+  const [category, setCategory] = useState(DEFAULT_CATEGORY);
   // The track whose name is hovered (or focused), and where its satellite picture goes. Fixed to the window, as
   // the table's scroll box would clip it; scrolling hides it
   const [picture, setPicture] = useState<{ track: TrackData; left: number; top: number } | null>(null);
@@ -65,6 +75,13 @@ export default function TrackManagement() {
       .finally(() => setLoaded(true));
   }, [t]);
 
+  // Road Course always has a button, so the default has one even before tracks of that type have focus areas
+  const categories = [...new Set([DEFAULT_CATEGORY, ...tracks.flatMap((track) => (track.category ? [track.category] : []))])].sort(
+    (a, b) => categoryRank(a) - categoryRank(b) || a.localeCompare(b)
+  );
+  const categoryLabel = (value: string) => t.categories[value] ?? value;
+  const shown = tracks.filter((track) => track.category === category);
+
   if (signedOut) {
     return (
       <div className="bg-secondary rounded-xl border border-border p-8 text-muted-foreground">
@@ -87,85 +104,113 @@ export default function TrackManagement() {
       ) : tracks.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t.none}</p>
       ) : (
-        <div className="overflow-x-auto bg-card border border-border rounded-lg">
-          <table className="w-full text-sm text-left">
-            <thead className="bg-secondary text-foreground">
-              <tr>
-                <th scope="col" className="px-4 py-3 font-semibold">
-                  {t.track}
-                </th>
-                <th scope="col" className="px-4 py-3 font-semibold text-right">
-                  {fmt(t.lengthLabel, { unit })}
-                </th>
-                <th scope="col" className="px-4 py-3 font-semibold text-right">
-                  {t.focusAreas}
-                </th>
-                <th scope="col" className="px-4 py-3 font-semibold">
-                  {t.notes}
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border text-foreground">
-              {tracks.map((track) => (
-                <Fragment key={track.id}>
-                  <tr>
-                    <th scope="row" className="px-4 py-3 font-semibold text-foreground">
-                      <button
-                        type="button"
-                        onClick={() => setExpanded(expanded === track.id ? null : track.id)}
-                        onMouseEnter={showPicture(track)}
-                        onMouseLeave={hidePicture}
-                        onFocus={showPicture(track)}
-                        onBlur={hidePicture}
-                        aria-expanded={expanded === track.id}
-                        className="text-left hover:text-primary"
-                      >
-                        <span className="inline-block w-4 text-muted-foreground">{expanded === track.id ? '▾' : '▸'}</span>
-                        {track.name}
-                      </button>
-                      {track.key !== track.name && <p className="ml-4 text-xs font-normal text-muted-foreground">{track.key}</p>}
-                    </th>
-                    <td className="px-4 py-3 text-right tabular-nums">{target(distance(track.lengthFeet), '', locale)}</td>
-                    <td className="px-4 py-3 text-right tabular-nums">
-                      {track.areas.length}
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">{track.notes ?? ''}</td>
-                  </tr>
-
-                  {/* Focus areas for this track */}
-                  {expanded === track.id && (
-                    <tr>
-                      <td colSpan={4} className="px-4 pb-4 bg-secondary">
-                        <table className="mt-3 w-full text-xs text-left bg-card border border-border rounded">
-                          <thead className="bg-secondary text-muted-foreground">
-                            <tr>
-                              <th className="px-3 py-2 font-medium">#</th>
-                              <th className="px-3 py-2 font-medium">{t.name}</th>
-                              <th className="px-3 py-2 font-medium text-right">{t.startEnd}</th>
-                              <th className="px-3 py-2 font-medium">{t.notes}</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-border" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                            {track.areas.map((a) => (
-                              <tr key={a.id}>
-                                <td className="px-3 py-1.5 text-muted-foreground">{a.position}</td>
-                                <td className="px-3 py-1.5 font-semibold text-foreground">{a.name}</td>
-                                <td className="px-3 py-1.5 text-right">
-                                  {a.startPoint} – {a.endPoint}
-                                </td>
-                                <td className="px-3 py-1.5 text-muted-foreground">{a.notes ?? ''}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </td>
-                    </tr>
-                  )}
-                </Fragment>
+        <>
+          <fieldset>
+            <legend className="block text-sm font-medium text-foreground mb-2">{t.trackType}</legend>
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+              {categories.map((value) => (
+                <label key={value} className="inline-flex items-center gap-2 cursor-pointer text-sm text-foreground">
+                  <input
+                    type="radio"
+                    name="trackType"
+                    value={value}
+                    checked={category === value}
+                    onChange={() => {
+                      setCategory(value);
+                      setExpanded(null);
+                    }}
+                    data-track={`track-type-${value}`}
+                    className="h-4 w-4 accent-primary"
+                  />
+                  <span className="font-semibold">{categoryLabel(value)}</span>
+                </label>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </div>
+          </fieldset>
+          {shown.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{fmt(t.noneOfType, { type: categoryLabel(category) })}</p>
+          ) : (
+            <div className="overflow-x-auto bg-card border border-border rounded-lg">
+              <table className="w-full text-sm text-left">
+                <thead className="bg-secondary text-foreground">
+                  <tr>
+                    <th scope="col" className="px-4 py-3 font-semibold">
+                      {t.track}
+                    </th>
+                    <th scope="col" className="px-4 py-3 font-semibold text-right">
+                      {fmt(t.lengthLabel, { unit })}
+                    </th>
+                    <th scope="col" className="px-4 py-3 font-semibold text-right">
+                      {t.focusAreas}
+                    </th>
+                    <th scope="col" className="px-4 py-3 font-semibold">
+                      {t.notes}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border text-foreground">
+                  {shown.map((track) => (
+                    <Fragment key={track.id}>
+                      <tr>
+                        <th scope="row" className="px-4 py-3 font-semibold text-foreground">
+                          <button
+                            type="button"
+                            onClick={() => setExpanded(expanded === track.id ? null : track.id)}
+                            onMouseEnter={showPicture(track)}
+                            onMouseLeave={hidePicture}
+                            onFocus={showPicture(track)}
+                            onBlur={hidePicture}
+                            aria-expanded={expanded === track.id}
+                            className="text-left hover:text-primary"
+                          >
+                            <span className="inline-block w-4 text-muted-foreground">{expanded === track.id ? '▾' : '▸'}</span>
+                            {track.name}
+                          </button>
+                          {track.key !== track.name && <p className="ml-4 text-xs font-normal text-muted-foreground">{track.key}</p>}
+                        </th>
+                        <td className="px-4 py-3 text-right tabular-nums">{target(distance(track.lengthFeet), '', locale)}</td>
+                        <td className="px-4 py-3 text-right tabular-nums">
+                          {track.areas.length}
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground">{track.notes ?? ''}</td>
+                      </tr>
+
+                      {/* Focus areas for this track */}
+                      {expanded === track.id && (
+                        <tr>
+                          <td colSpan={4} className="px-4 pb-4 bg-secondary">
+                            <table className="mt-3 w-full text-xs text-left bg-card border border-border rounded">
+                              <thead className="bg-secondary text-muted-foreground">
+                                <tr>
+                                  <th className="px-3 py-2 font-medium">#</th>
+                                  <th className="px-3 py-2 font-medium">{t.name}</th>
+                                  <th className="px-3 py-2 font-medium text-right">{t.startEnd}</th>
+                                  <th className="px-3 py-2 font-medium">{t.notes}</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-border" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                                {track.areas.map((a) => (
+                                  <tr key={a.id}>
+                                    <td className="px-3 py-1.5 text-muted-foreground">{a.position}</td>
+                                    <td className="px-3 py-1.5 font-semibold text-foreground">{a.name}</td>
+                                    <td className="px-3 py-1.5 text-right">
+                                      {a.startPoint} – {a.endPoint}
+                                    </td>
+                                    <td className="px-3 py-1.5 text-muted-foreground">{a.notes ?? ''}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
       )}
 
       {picture && (

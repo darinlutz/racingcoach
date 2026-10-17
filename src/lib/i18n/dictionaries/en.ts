@@ -45,6 +45,8 @@ export const en = {
     learning: 'Learning',
     coachingAnalysis: 'Coaching & Analysis',
     raceTrends: 'My Race Trends',
+    trackData: 'Track Data',
+    carData: 'Car Data',
     pricing: 'Pricing',
     proDriverLesson: '1:1 Pro Driver Lesson',
     support: 'Support',
@@ -709,6 +711,14 @@ export const en = {
     none: 'No tracks yet.',
     lengthLabel: 'Length ({unit})',
     startEnd: 'Start – End',
+    trackType: 'Track Type',
+    noneOfType: 'No {type} tracks yet.',
+    // Labels for "Tracks".track_category; a type without one shows as stored
+    categories: {
+      'Road Course': 'Road Course',
+      Oval: 'Oval',
+      Dirt: 'Dirt',
+    } as Record<string, string>,
   },
 
   cars: {

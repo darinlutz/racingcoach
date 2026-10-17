@@ -21,6 +21,8 @@ const links = [
   { href: '/installing', key: 'installing' },
   { href: '/racing', key: 'coachingAnalysis' },
   { href: '/race-trends', key: 'raceTrends' },
+  { href: '/track-data', key: 'trackData' },
+  { href: '/car-data', key: 'carData' },
   { href: '/prodrivinglesson', key: 'proDriverLesson' },
   { href: '/learning', key: 'learning' },
   { href: '/support', key: 'support' },

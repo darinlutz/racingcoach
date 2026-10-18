@@ -10,7 +10,7 @@ import RateLimitDialog from "@/components/RateLimitDialog";
 import UnitsProvider from "@/components/UnitsProvider";
 import { getDictionary, getLanguage } from "@/lib/i18n/server";
 import { hasAcceptedCurrentPolicies } from "@/lib/policyAcceptances";
-import { isAdmin } from "@/lib/roles";
+import { canCoach, isAdmin } from "@/lib/roles";
 import { getCurrentUser } from "@/lib/session";
 import { getShowPricing, getShowProDriverLesson } from "@/lib/siteSettings";
 import { getTheme } from "@/lib/themeServer";
@@ -68,7 +68,7 @@ export default async function RootLayout({
             {/* Pops up when an AI feature was refused because the user's AI limit is used up */}
             <RateLimitDialog />
             <Navigation
-              user={user ? { userName: user.userName, canUpgrade: canBuyAnything(user), isAdmin: isAdmin(user.role) } : null}
+              user={user ? { userName: user.userName, canUpgrade: canBuyAnything(user), isAdmin: isAdmin(user.role), canCoach: canCoach(user.role) } : null}
               showPricing={showPricing}
               showProDriverLesson={showProDriverLesson}
             />

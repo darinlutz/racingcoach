@@ -843,18 +843,6 @@ export const pt: Dictionary = {
     none: 'Nenhum amigo adicionado ainda.',
   },
 
-  trackFile: {
-    failedLoad: 'Não foi possível carregar as pistas',
-    failedGenerate: 'Não foi possível gerar o arquivo de texto',
-    couldNotCopy: 'Não foi possível copiar para a área de transferência. Selecione o texto e copie manualmente.',
-    generate: 'Gerar arquivo de texto',
-    generating: 'Gerando…',
-    lines: { one: '({n} linha)', other: '({n} linhas)' },
-    saveData: 'Salvar dados',
-    copy: 'Copiar',
-    copied: 'Copiado!',
-  },
-
   qa: {
     spaceLabel: 'Faça uma pergunta sobre o espaço',
     spacePlaceholder: 'ex.: O que é o Telescópio Espacial Hubble?',
@@ -1306,6 +1294,15 @@ export const pt: Dictionary = {
     onlyVisitor: 'Mostrar só este visitante',
     onlySession: 'Mostrar só esta sessão',
     onlyIp: 'Mostrar só este endereço IP',
+  },
+
+  // Shown when a Bronze member uses a feature for Silver and Gold only (MembershipRequiredDialog)
+  membershipRequired: {
+    title: 'Upgrade de assinatura necessário',
+    text: 'Usuários Bronze não têm acesso a este recurso.',
+    upgrade: 'Faça upgrade para Prata ou Ouro para desbloquear a Análise de carros.',
+    viewPlans: 'Ver planos de assinatura',
+    close: 'Fechar',
   },
 
   rateLimit: {

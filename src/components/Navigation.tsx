@@ -11,8 +11,8 @@ import LoginRequiredDialog from '@/components/LoginRequiredDialog';
 
 type NavigationProps = {
   // isAdmin shows the Admin and My Race Trends links; canUpgrade is false for Gold subscribers.
-  // Every signed-in user sees the Coach link, and the Coach page tells anyone but Coaches and Admins it's not for them
-  user: { userName: string; canUpgrade: boolean; isAdmin: boolean } | null;
+  // canCoach (Coaches and Admins) shows the Coach link
+  user: { userName: string; canUpgrade: boolean; isAdmin: boolean; canCoach: boolean } | null;
   // The Admin page's Show Pricing setting (src/lib/siteSettings.ts)
   showPricing: boolean;
   // The Admin page's Show Pro Driver Lesson setting
@@ -102,7 +102,7 @@ export default function Navigation({ user, showPricing, showProDriverLesson }: N
         <div className="mt-auto flex flex-col items-start gap-5 border-t border-border pt-6">
           {user ? (
             <>
-              <Link href="/coach" className={navLink('/coach')}>{t.nav.coach}</Link>
+              {user.canCoach && <Link href="/coach" className={navLink('/coach')}>{t.nav.coach}</Link>}
               {user.isAdmin && <Link href="/admin" className={navLink('/admin')}>{t.nav.admin}</Link>}
               {visibleBottomLinks.map((link) => (
                 <Link key={link.key} href={link.href} className={navLink(link.href)}>{t.nav[link.key]}</Link>
@@ -156,7 +156,9 @@ export default function Navigation({ user, showPricing, showProDriverLesson }: N
             <div className="border-t border-border pt-2 mt-2">
               {user ? (
                 <>
-                  <Link href="/coach" className={mobileLink('/coach')} onClick={closeMenu}>{t.nav.coach}</Link>
+                  {user.canCoach && (
+                    <Link href="/coach" className={mobileLink('/coach')} onClick={closeMenu}>{t.nav.coach}</Link>
+                  )}
                   {user.isAdmin && (
                     <Link href="/admin" className={mobileLink('/admin')} onClick={closeMenu}>{t.nav.admin}</Link>
                   )}

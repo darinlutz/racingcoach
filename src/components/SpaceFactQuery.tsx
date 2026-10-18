@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useLanguage } from '@/components/LanguageProvider';
+import MembershipRequiredDialog from '@/components/MembershipRequiredDialog';
 import { reportRateLimit } from '@/lib/rateLimitClient';
 
 const LLM_OPTIONS = [
@@ -36,6 +37,8 @@ export default function SpaceFactQuery({
   const [references, setReferences] = useState<string[]>([]);
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle');
   const [message, setMessage] = useState('');
+  // Set when the route refused a Bronze member (createRagRoute's notForBronze): whether to offer the Pricing page
+  const [membershipRequired, setMembershipRequired] = useState<{ showPricing: boolean } | null>(null);
 
   // Ollama options only appear when the server can reach a local Ollama.
   useEffect(() => {
@@ -68,6 +71,12 @@ export default function SpaceFactQuery({
       const data = await res.json();
       reportRateLimit(res, data);
 
+      if (res.status === 403 && data.code === 'membershipRequired') {
+        setMembershipRequired({ showPricing: data.showPricing === true });
+        setStatus('idle');
+        return;
+      }
+
       if (!res.ok) {
         throw new Error(data.error || t.failed);
       }
@@ -83,6 +92,11 @@ export default function SpaceFactQuery({
 
   return (
     <div className="bg-secondary rounded-xl border border-border p-8">
+      <MembershipRequiredDialog
+        open={membershipRequired !== null}
+        showPricing={membershipRequired?.showPricing ?? false}
+        onClose={() => setMembershipRequired(null)}
+      />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
         <fieldset>
           <legend className="block text-sm font-medium text-foreground mb-2">{t.llmModel}</legend>

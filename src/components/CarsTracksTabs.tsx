@@ -4,7 +4,6 @@ import { useState } from 'react';
 import CarDataManagement from '@/components/CarDataManagement';
 import { useLanguage } from '@/components/LanguageProvider';
 import SpaceFactQuery from '@/components/SpaceFactQuery';
-import TrackFileExport from '@/components/TrackFileExport';
 import TrackManagement from '@/components/TrackManagement';
 import { CARS_TRACKS_TABS, type CarsTracksTab } from '@/lib/carsTracksTabs';
 
@@ -44,12 +43,7 @@ export default function CarsTracksTabs({ initialTab }: { initialTab: CarsTracksT
         <p className="text-muted-foreground mb-6">{t.carsTracks.intros[activeTab]}</p>
 
         {activeTab === 'cars' && <CarDataManagement />}
-        {activeTab === 'tracks' && (
-          <>
-            <TrackFileExport />
-            <TrackManagement />
-          </>
-        )}
+        {activeTab === 'tracks' && <TrackManagement />}
         {activeTab === 'racecar' && (
           <SpaceFactQuery
             endpoint="/api/racecar-analysis"

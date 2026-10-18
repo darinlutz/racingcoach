@@ -1,9 +1,12 @@
 import { execFile } from 'node:child_process';
 import path from 'node:path';
 import { NextResponse } from 'next/server';
+import { MEMBERSHIP_LEVEL } from './accountStatus';
 import { isAiOutOfCredits } from './aiErrors';
 import { aiRateLimit, type RateLimitedFeature } from './rateLimits';
+import { isAdmin } from './roles';
 import { getCurrentUser } from './session';
+import { getShowPricing } from './siteSettings';
 import { apiText } from './i18n/server';
 import { getUnits } from './unitsServer';
 
@@ -83,8 +86,15 @@ export function runPythonJson<T extends { error?: string }>(
 
 // Builds the GET/POST handlers for a RAG tab backed by a Python script in
 // src/ that accepts a JSON payload argument and prints a JSON result. feature is
-// what the Admin page's Rate Limiting counts its calls as.
-export function createRagRoute(scriptFile: string, feature: RateLimitedFeature, timeoutMs = 60000) {
+// what the Admin page's Rate Limiting counts its calls as. With notForBronze, signed-in Bronze members (other than
+// Admins) get 403 { code: 'membershipRequired', showPricing } before any AI call, which opens the page's
+// MembershipRequiredDialog.
+export function createRagRoute(
+  scriptFile: string,
+  feature: RateLimitedFeature,
+  timeoutMs = 60000,
+  { notForBronze = false }: { notForBronze?: boolean } = {}
+) {
   async function GET() {
     return ollamaAvailabilityResponse();
   }
@@ -101,6 +111,12 @@ export function createRagRoute(scriptFile: string, feature: RateLimitedFeature, 
     const embeddingType = isEmbeddingType(body.embeddingType) ? body.embeddingType : 'openai';
 
     const user = await getCurrentUser();
+    if (notForBronze && user && user.membershipLevel === MEMBERSHIP_LEVEL.bronze && !isAdmin(user.role)) {
+      return NextResponse.json(
+        { error: 'Not available for Bronze members', code: 'membershipRequired', showPricing: await getShowPricing() },
+        { status: 403 }
+      );
+    }
     const limit = await aiRateLimit(request, feature, user);
     if (limit.response) return limit.response;
 

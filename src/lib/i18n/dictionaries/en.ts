@@ -861,18 +861,6 @@ export const en = {
     none: 'No friends added yet.',
   },
 
-  trackFile: {
-    failedLoad: 'Failed to load tracks',
-    failedGenerate: 'Failed to generate the text file',
-    couldNotCopy: 'Could not copy to the clipboard. Select the text and copy it instead.',
-    generate: 'Generate Text File',
-    generating: 'Generating…',
-    lines: { one: '({n} line)', other: '({n} lines)' },
-    saveData: 'Save Data',
-    copy: 'Copy',
-    copied: 'Copied!',
-  },
-
   // The question-and-answer box (Racecar Analysis, and the hidden Space Fact Query)
   qa: {
     spaceLabel: 'Ask a Question About Space',
@@ -1334,6 +1322,15 @@ export const en = {
 
   // Shown when an AI feature is refused because the user's AI limit is used up (src/lib/rateLimits.ts,
   // src/components/RateLimitDialog.tsx)
+  // Shown when a Bronze member uses a feature for Silver and Gold only (MembershipRequiredDialog)
+  membershipRequired: {
+    title: 'Membership upgrade required',
+    text: 'Bronze users do not have access to this feature.',
+    upgrade: 'Upgrade to Silver or Gold to unlock Racecar Analysis.',
+    viewPlans: 'View Membership Plans',
+    close: 'Close',
+  },
+
   rateLimit: {
     title: 'AI limit reached',
     titleBurst: 'Slow down a little',

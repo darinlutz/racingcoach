@@ -44,7 +44,7 @@ export async function GET(request: Request) {
     // Feet as the overlay measures them: with iRacing's length of the track (sent with collector laps), or the lap's own
     const targeted = withTargetLap(toLapTrack(track), target);
 
-    // The same names and order as a track in the Track Data text file (trackFile.ts), which is what
+    // The same names and order as a track in the Track_Area_Information.txt format, which is what
     // TelemetryEngine.js reads; targets that aren't set are 0
     const areas = track.areas.map((area, i) => {
       const targets = targeted.areas[i];

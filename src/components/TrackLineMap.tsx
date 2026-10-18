@@ -24,6 +24,8 @@ const ZOOM_STEP = 1.6;
 const DRAG_THRESHOLD = 4;
 // Pointer within this many px of the Base line moves the crosshair
 const HOVER_DISTANCE = 40;
+// Length (px) of the arrow from each crosshair dot showing where the car points
+const HEADING_ARROW = 40;
 
 // Where the map is looking: pixels per zoom-0 pixel, and the zoom-0 point at the map's center
 type View = { scale: number; centerX: number; centerY: number };
@@ -39,6 +41,14 @@ function scaleBar(metersPerPixel: number, units: Units) {
   const magnitude = 10 ** Math.floor(Math.log10(target));
   const length = [1, 2, 5, 10].map((m) => m * magnitude).filter((m) => m <= target).at(-1) ?? magnitude;
   return { length: Number(length.toPrecision(2)), pixels: length / perPixel };
+}
+
+// An arrowhead at tip pointing along a compass bearing (radians clockwise from north, north up)
+function arrowHead([x, y]: number[], heading: number) {
+  const [dx, dy] = [Math.sin(heading), -Math.cos(heading)];
+  const [back, half] = [11, 6];
+  const corner = (side: number) => `${(x - dx * back - dy * half * side).toFixed(1)},${(y - dy * back + dx * half * side).toFixed(1)}`;
+  return `M${(x + dx * 2).toFixed(1)},${(y + dy * 2).toFixed(1)}L${corner(1)}L${corner(-1)}Z`;
 }
 
 // Keeps the center over the lines; fully zoomed out is always the fitted view
@@ -336,10 +346,29 @@ export default function TrackLineMap({
             ))}
           </g>
 
+          {/* Each lap's crosshair dot, with an arrow where the car points there (its Yaw): the gap to its
+              line's direction is how much the car is sliding */}
           {hoverPct !== null &&
             screenLines.map((points, i) => {
-              const [x, y] = points[nearestIndex(lines[i].lap.trace.pcts, hoverPct)];
-              return <circle key={lines[i].key} cx={x} cy={y} r={5} fill={lines[i].color} stroke="white" strokeWidth={1.5} />;
+              const index = nearestIndex(lines[i].lap.trace.pcts, hoverPct);
+              const [x, y] = points[index];
+              const heading = lines[i].lap.trace.headings?.[index];
+              // Bearing clockwise from north; the map has north up, and Web Mercator keeps angles
+              const tip =
+                heading === undefined ? null : [x + Math.sin(heading) * HEADING_ARROW, y - Math.cos(heading) * HEADING_ARROW];
+              return (
+                <g key={lines[i].key}>
+                  {tip && (
+                    <g strokeLinecap="round" strokeLinejoin="round">
+                      <line x1={x} y1={y} x2={tip[0]} y2={tip[1]} stroke={CASING_COLOR} strokeWidth={5} />
+                      <path d={arrowHead(tip, heading!)} fill={CASING_COLOR} stroke={CASING_COLOR} strokeWidth={2.5} />
+                      <line x1={x} y1={y} x2={tip[0]} y2={tip[1]} stroke={lines[i].color} strokeWidth={2.5} />
+                      <path d={arrowHead(tip, heading!)} fill={lines[i].color} />
+                    </g>
+                  )}
+                  <circle cx={x} cy={y} r={5} fill={lines[i].color} stroke="white" strokeWidth={1.5} />
+                </g>
+              );
             })}
 
           {/* Scale bar, bottom left */}

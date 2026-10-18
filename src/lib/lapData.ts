@@ -81,7 +81,7 @@ export const MPH_PER_METER_PER_SECOND = 2.23694;
 
 // steerings is SteeringWheelAngle in radians, positive to the left (0 where the CSV has none).
 // lats/lons are the car's position in degrees; NaN where the CSV has none (laps the collector hasn't
-// added positions to yet, see IbtEnricher.cs)
+// added positions to yet, see IbtEnricher.cs). yaws is iRacing's Yaw (radians, NaN where the CSV has none).
 export type LapSamples = {
   pcts: number[];
   brakes: number[];
@@ -90,6 +90,7 @@ export type LapSamples = {
   steerings: number[];
   lats: number[];
   lons: number[];
+  yaws: number[];
   // RPM and Gear (NaN when the lap file has no such column)
   rpms: number[];
   gears: number[];
@@ -101,7 +102,7 @@ const BRAKE_THRESHOLD = 0;
 // Throttle (0-1) at or above this counts as the driver being back on the power
 const THROTTLE_THRESHOLD = 0.1;
 
-// Reads the LapDistPct, Brake, Throttle, Speed, SteeringWheelAngle, Lat, Lon, RPM and Gear columns. LapDistPct is unwrapped so it keeps
+// Reads the LapDistPct, Brake, Throttle, Speed, SteeringWheelAngle, Lat, Lon, Yaw, RPM and Gear columns. LapDistPct is unwrapped so it keeps
 // increasing past the start/finish line (e.g. 0.999 -> 1.001 instead of 0.001).
 export async function readLapSamples(file: File): Promise<LapSamples> {
   return lapSamplesFromText(await file.text());
@@ -118,6 +119,7 @@ export function lapSamplesFromText(text: string): LapSamples {
   const steeringColumn = header.indexOf('SteeringWheelAngle');
   const latColumn = header.indexOf('Lat');
   const lonColumn = header.indexOf('Lon');
+  const yawColumn = header.indexOf('Yaw');
   const rpmColumn = header.indexOf('RPM');
   const gearColumn = header.indexOf('Gear');
   const pcts: number[] = [];
@@ -127,6 +129,7 @@ export function lapSamplesFromText(text: string): LapSamples {
   const steerings: number[] = [];
   const lats: number[] = [];
   const lons: number[] = [];
+  const yaws: number[] = [];
   const rpms: number[] = [];
   const gears: number[] = [];
   let offset = 0;
@@ -145,10 +148,11 @@ export function lapSamplesFromText(text: string): LapSamples {
     // parseFloat of a missing or empty cell is NaN
     lats.push(latColumn < 0 ? NaN : parseFloat(cells[latColumn]));
     lons.push(lonColumn < 0 ? NaN : parseFloat(cells[lonColumn]));
+    yaws.push(yawColumn < 0 ? NaN : parseFloat(cells[yawColumn]));
     rpms.push(rpmColumn < 0 ? NaN : parseFloat(cells[rpmColumn]));
     gears.push(gearColumn < 0 ? NaN : parseFloat(cells[gearColumn]));
   }
-  return { pcts, brakes, speeds, throttles, steerings, lats, lons, rpms, gears };
+  return { pcts, brakes, speeds, throttles, steerings, lats, lons, yaws, rpms, gears };
 }
 
 // Fractional sample index where the lap first reaches `target`, at or after `from`
@@ -168,6 +172,8 @@ export function crossingIndex(pcts: number[], target: number, from: number) {
 // times is each sample's time from the start of the lap (s), spaced like areaStats counts them.
 // steerings is the steering wheel angle at each sample (radians, positive to the left), speeds the speed (m/s).
 // positions is the car's [lat, lon] at each sample, or null if the lap has no track positions there.
+// headings is where the car points at each sample, as a compass bearing (radians clockwise from north),
+// or null without positions or Yaw (see lapHeadings).
 export type AreaTrace = {
   pcts: number[];
   times: number[];
@@ -176,6 +182,7 @@ export type AreaTrace = {
   steerings: number[];
   speeds: number[];
   positions: [number, number][] | null;
+  headings: number[] | null;
   domain: [number, number];
 };
 
@@ -204,12 +211,49 @@ export function withoutThrottleBlips(brakes: number[], throttles: number[]): num
   return out;
 }
 
+// Samples this far apart (before and after) give the direction the car is travelling, for lapHeadings
+const TRAVEL_SPAN = 3;
+// Slower than this (m/s) the travel direction is too noisy to calibrate against
+const MIN_CALIBRATION_SPEED = 10;
+// How consistently Yaw has to line up with the travel direction (0-1) to be trusted
+const MIN_HEADING_AGREEMENT = 0.9;
+
+// The compass bearing (radians clockwise from north) the car points at each sample. iRacing's Yaw is
+// the car's orientation but from a track-specific zero and direction, so it's lined up with the
+// direction the car travels (from Lat/Lon) over the whole lap: the sign and offset that agree best.
+// Away from slides the car points where it goes, so the offset is the average difference.
+// null when the lap has no Yaw, too few positions, or the two don't agree.
+export function lapHeadings({ speeds, lats, lons, yaws }: LapSamples): number[] | null {
+  if (!yaws.some(Number.isFinite)) return null;
+  const sums = { 1: [0, 0], [-1]: [0, 0] } as Record<1 | -1, [number, number]>;
+  let count = 0;
+  for (let i = TRAVEL_SPAN; i < yaws.length - TRAVEL_SPAN; i += 2) {
+    const [a, b] = [i - TRAVEL_SPAN, i + TRAVEL_SPAN];
+    if (speeds[i] < MIN_CALIBRATION_SPEED || ![lats[a], lons[a], lats[b], lons[b], yaws[i]].every(Number.isFinite)) continue;
+    const east = (lons[b] - lons[a]) * Math.cos((lats[i] * Math.PI) / 180);
+    const north = lats[b] - lats[a];
+    if (east === 0 && north === 0) continue;
+    const bearing = Math.atan2(east, north);
+    for (const sign of [1, -1] as const) {
+      sums[sign][0] += Math.cos(bearing - sign * yaws[i]);
+      sums[sign][1] += Math.sin(bearing - sign * yaws[i]);
+    }
+    count++;
+  }
+  if (count < 20) return null;
+  const sign = Math.hypot(...sums[1]) >= Math.hypot(...sums[-1]) ? 1 : -1;
+  if (Math.hypot(...sums[sign]) / count < MIN_HEADING_AGREEMENT) return null;
+  const offset = Math.atan2(sums[sign][1], sums[sign][0]);
+  return yaws.map((yaw) => sign * yaw + offset);
+}
+
 export function areaTrace(
-  { pcts, brakes, throttles, steerings, speeds, lats, lons }: LapSamples,
+  samples: LapSamples,
   lapSeconds: number,
   start: number,
   end: number
 ): AreaTrace | null {
+  const { pcts, brakes, throttles, steerings, speeds, lats, lons } = samples;
   const startIndex = crossingIndex(pcts, start, 0);
   if (startIndex === null) return null;
   const domainEnd = end < start ? end + 1 : end;
@@ -220,6 +264,8 @@ export function areaTrace(
   const areaBrakes = brakes.slice(from, to);
   const positions = lats.slice(from, to).map((lat, i): [number, number] => [lat, lons[from + i]]);
   const sampleSeconds = lapSeconds / pcts.length;
+  const hasPositions = positions.every(([lat, lon]) => Number.isFinite(lat) && Number.isFinite(lon));
+  const headings = hasPositions ? lapHeadings(samples)?.slice(from, to) ?? null : null;
   return {
     pcts: pcts.slice(from, to),
     times: Array.from({ length: to - from }, (_, i) => (from + i) * sampleSeconds),
@@ -227,7 +273,8 @@ export function areaTrace(
     throttles: withoutThrottleBlips(areaBrakes, throttles.slice(from, to)),
     steerings: steerings.slice(from, to),
     speeds: speeds.slice(from, to),
-    positions: positions.every(([lat, lon]) => Number.isFinite(lat) && Number.isFinite(lon)) ? positions : null,
+    positions: hasPositions ? positions : null,
+    headings: headings && headings.every(Number.isFinite) ? headings : null,
     domain: [start, domainEnd],
   };
 }

@@ -4,9 +4,9 @@ import { Fragment, useMemo, useState } from 'react';
 import { useLanguage } from '@/components/LanguageProvider';
 import type { MaintenanceFocusArea, MaintenanceTrack } from '@/lib/trackMaintenance';
 
-// The Admin page's Track and Focus Area Maintenance section: every track in racingcoach."Tracks" with its
-// key, name and number of corners, adding tracks (POST /api/admin/tracks), and each track's focus areas, which
-// can be added, edited and deleted (/api/admin/tracks/[id]/focus-areas). Focus areas have no brake or throttle
+// The Coach page's Track and Focus Area Maintenance section: every track in racingcoach."Tracks" with its
+// key, name and number of corners, adding tracks (POST /api/coach/tracks), and each track's focus areas, which
+// can be added, edited and deleted (/api/coach/tracks/[id]/focus-areas). Focus areas have no brake or throttle
 // targets: those come from each driver's Target Lap (targetLapTargets.ts).
 
 const inputClass =
@@ -24,10 +24,9 @@ type AreaForm = {
   name: string;
   startPoint: string;
   endPoint: string;
-  notes: string;
 };
 
-const emptyAreaForm: AreaForm = { name: '', startPoint: '', endPoint: '', notes: '' };
+const emptyAreaForm: AreaForm = { name: '', startPoint: '', endPoint: '' };
 
 export default function TrackMaintenance({ tracks: initialTracks }: { tracks: MaintenanceTrack[] }) {
   const { t, fmt } = useLanguage();
@@ -73,7 +72,7 @@ export default function TrackMaintenance({ tracks: initialTracks }: { tracks: Ma
     setAddingTrack(true);
     setMessage(null);
     try {
-      const { track } = (await send('/api/admin/tracks', 'POST', {
+      const { track } = (await send('/api/coach/tracks', 'POST', {
         key: newKey,
         name: newName,
         numberOfCorners: newCorners.trim() === '' ? null : Number(newCorners),
@@ -104,7 +103,6 @@ export default function TrackMaintenance({ tracks: initialTracks }: { tracks: Ma
       name: area.name,
       startPoint: String(area.startPoint),
       endPoint: String(area.endPoint),
-      notes: area.notes ?? '',
     });
     setMessage(null);
   };
@@ -118,12 +116,11 @@ export default function TrackMaintenance({ tracks: initialTracks }: { tracks: Ma
       name: form.name,
       startPoint: Number(form.startPoint),
       endPoint: Number(form.endPoint),
-      notes: form.notes,
     };
     setBusy(true);
     setMessage(null);
     try {
-      const base = `/api/admin/tracks/${editing.trackId}/focus-areas`;
+      const base = `/api/coach/tracks/${editing.trackId}/focus-areas`;
       const { areas } = (await (editing.areaId === null ? send(base, 'POST', body) : send(`${base}/${editing.areaId}`, 'PUT', body))) as {
         areas: MaintenanceFocusArea[];
       };
@@ -142,7 +139,7 @@ export default function TrackMaintenance({ tracks: initialTracks }: { tracks: Ma
     setBusy(true);
     setMessage(null);
     try {
-      const { areas } = (await send(`/api/admin/tracks/${trackId}/focus-areas/${area.id}`, 'DELETE')) as { areas: MaintenanceFocusArea[] };
+      const { areas } = (await send(`/api/coach/tracks/${trackId}/focus-areas/${area.id}`, 'DELETE')) as { areas: MaintenanceFocusArea[] };
       replaceAreas(trackId, areas);
       if (editing?.areaId === area.id) setEditing(null);
       setMessage({ ok: true, text: fmt(a.areaDeleted, { area: area.name }) });
@@ -171,11 +168,10 @@ export default function TrackMaintenance({ tracks: initialTracks }: { tracks: Ma
   const areaForm = (
     <div className="bg-card border border-border rounded-lg p-4 space-y-3">
       <p className="text-sm font-medium text-foreground">{editing?.areaId === null ? a.addArea : a.editArea}</p>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-3">
         {field('name', a.areaName, { maxLength: 100 })}
         {field('startPoint', a.areaStart, { type: 'number', step: '0.001', min: 0, max: 1 })}
         {field('endPoint', a.areaEnd, { type: 'number', step: '0.001', min: 0, max: 1 })}
-        <div className="sm:col-span-2">{field('notes', a.areaNotes, { maxLength: 2000 })}</div>
       </div>
       <p className="text-xs text-muted-foreground">{a.areaPointsHint}</p>
       <div className="flex gap-2">
@@ -315,7 +311,6 @@ export default function TrackMaintenance({ tracks: initialTracks }: { tracks: Ma
                                       a.areaName,
                                       a.areaStart,
                                       a.areaEnd,
-                                      a.areaNotes,
                                       '',
                                     ].map((heading, i) => (
                                       <th key={i} className="px-2 py-1 font-medium whitespace-nowrap">{heading}</th>
@@ -329,9 +324,6 @@ export default function TrackMaintenance({ tracks: initialTracks }: { tracks: Ma
                                       <td className="px-2 py-1.5 text-foreground">{area.name}</td>
                                       <td className="px-2 py-1.5 tabular-nums">{area.startPoint}</td>
                                       <td className="px-2 py-1.5 tabular-nums">{area.endPoint}</td>
-                                      <td className="px-2 py-1.5 max-w-[16rem] truncate text-muted-foreground" title={area.notes ?? undefined}>
-                                        {area.notes ?? ''}
-                                      </td>
                                       <td className="px-2 py-1.5 text-right whitespace-nowrap space-x-2">
                                         <button type="button" onClick={() => startEdit(track.id, area)} disabled={busy} className={secondaryButton}>
                                           {t.common.edit}

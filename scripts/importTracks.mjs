@@ -39,15 +39,13 @@ function toRows(config) {
     return {
       key,
       name: text(track.TrackFileName) ?? key,
-      notes: text(track.Notes),
       areas: areas.map((area, i) => ({
         position: i + 1,
         name: text(area.name) ?? `Area ${i + 1}`,
         start: area.start,
         end: area.end,
         // The file's BrakepointTarget, MaxBrakeTarget and ThrottlePickupTarget aren't imported: targets come only
-        // from each driver's Target Lap
-        notes: text(area.Notes),
+        // from each driver's Target Lap; nor are Notes
       })),
     };
   });
@@ -63,20 +61,20 @@ try {
     const {
       rows: [{ id: trackId }],
     } = await client.query(
-      `INSERT INTO racingcoach."Tracks" (track_key, track_name, notes)
-       VALUES ($1, $2, $3)
+      `INSERT INTO racingcoach."Tracks" (track_key, track_name)
+       VALUES ($1, $2)
        ON CONFLICT (lower(track_key)) DO UPDATE
-         SET track_name = EXCLUDED.track_name, notes = EXCLUDED.notes, updated_at = now()
+         SET track_name = EXCLUDED.track_name, updated_at = now()
        RETURNING id`,
-      [track.key, track.name, track.notes]
+      [track.key, track.name]
     );
     await client.query('DELETE FROM racingcoach."TrackFocusAreas" WHERE track_id = $1', [trackId]);
     for (const area of track.areas) {
       await client.query(
         `INSERT INTO racingcoach."TrackFocusAreas"
-           (track_id, position, name, start_point, end_point, notes)
-         VALUES ($1, $2, $3, $4, $5, $6)`,
-        [trackId, area.position, area.name, area.start, area.end, area.notes]
+           (track_id, position, name, start_point, end_point)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [trackId, area.position, area.name, area.start, area.end]
       );
     }
     console.log(`${track.name}: ${track.areas.length} focus areas`);

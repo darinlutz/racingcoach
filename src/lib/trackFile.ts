@@ -42,8 +42,7 @@ function areaBlock(area: TrackData['areas'][number]) {
     '            {',
     `                name: ${str(area.name)},`,
     `                start: ${pct(area.startPoint)},`,
-    `                end: ${pct(area.endPoint)},`,
-    `                Notes: ${str(area.notes)}`,
+    `                end: ${pct(area.endPoint)}`,
     '            }',
   ].join('\n');
 }
@@ -59,7 +58,6 @@ function trackBlock(track: TrackData) {
     '',
     `        TrackFileName: ${str(track.name)},`,
     `        TrackLengthInFeet: ${int(track.lengthFeet)},`,
-    `        Notes: ${str(track.notes)},`,
     '',
     '        areas: [',
     areas.length > 0 ? areas.map(areaBlock).join(',\n') : '            // TODO: add areas',

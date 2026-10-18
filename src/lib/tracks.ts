@@ -14,7 +14,6 @@ export type FocusArea = {
   name: string;
   startPoint: number;
   endPoint: number;
-  notes: string | null;
 };
 
 export type TrackData = {
@@ -30,20 +29,19 @@ export type TrackData = {
   // extent of a lap's track positions; null until laps of the track give them
   location: { latitude: number; longitude: number } | null;
   bounds: TrackBounds | null;
-  notes: string | null;
   areas: FocusArea[];
 };
 
 export async function readTracks(): Promise<TrackData[]> {
   await ensureUserSchema();
   const tracks = await query(
-    `SELECT t.id, t.track_key, t.track_name, t.notes, t.track_length_feet, t.track_category,
+    `SELECT t.id, t.track_key, t.track_name, t.track_length_feet, t.track_category,
        t.track_latitude, t.track_longitude, t.track_south, t.track_west, t.track_north, t.track_east FROM racingcoach."Tracks" t
      WHERE EXISTS (SELECT 1 FROM racingcoach."TrackFocusAreas" f WHERE f.track_id = t.id)
      ORDER BY lower(t.track_name)`
   );
   const areas = await query(
-    `SELECT id, track_id, position, name, start_point, end_point, notes
+    `SELECT id, track_id, position, name, start_point, end_point
      FROM racingcoach."TrackFocusAreas" ORDER BY track_id, position`
   );
   return tracks.map((t) => ({
@@ -60,7 +58,6 @@ export async function readTracks(): Promise<TrackData[]> {
       t.track_south == null
         ? null
         : { south: Number(t.track_south), west: Number(t.track_west), north: Number(t.track_north), east: Number(t.track_east) },
-    notes: t.notes as string | null,
     areas: areas
       .filter((a) => a.track_id === t.id)
       .map((a) => ({
@@ -69,7 +66,6 @@ export async function readTracks(): Promise<TrackData[]> {
         name: a.name as string,
         startPoint: a.start_point as number,
         endPoint: a.end_point as number,
-        notes: a.notes as string | null,
       })),
   }));
 }

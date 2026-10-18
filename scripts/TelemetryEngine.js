@@ -199,18 +199,6 @@ function GetTrackName(trackName)
 }
 
 
-function GetTrackNotes(trackName)
-{
-    var track =
-        GetTrackConfig(trackName);
-
-    if (track == null)
-        return "";
-
-    return track.Notes || "";
-}
-
-
 function GetAreaCount(trackName)
 {
     var track =
@@ -273,21 +261,6 @@ function GetAreaEnd(trackName, areaNumber)
         return 0;
 
     return area.end;
-}
-
-
-function GetAreaNotes(trackName, areaNumber)
-{
-    var area =
-        GetArea(
-            trackName,
-            areaNumber
-        );
-
-    if (area == null)
-        return "";
-
-    return area.Notes || "";
 }
 
 

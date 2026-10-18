@@ -5,7 +5,6 @@ import AiModelManager from '@/components/AiModelManager';
 import CollectorLogsViewer from '@/components/CollectorLogsViewer';
 import RateLimitManager from '@/components/RateLimitManager';
 import SiteSettingsManager from '@/components/SiteSettingsManager';
-import TrackMaintenance from '@/components/TrackMaintenance';
 import UserRoleManager from '@/components/UserRoleManager';
 import {
   ACTIVITY_PAGE_SIZE,
@@ -26,11 +25,9 @@ import { getDictionary } from '@/lib/i18n/server';
 import { isAdmin } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
 import { getShowPricing, getShowProDriverLesson } from '@/lib/siteSettings';
-import { listTracksForMaintenance } from '@/lib/trackMaintenance';
 
 // The site owner's Admin page: Site Settings (src/components/SiteSettingsManager.tsx), AI Model Control
-// (src/components/AiModelManager.tsx), Rate Limiting (src/components/RateLimitManager.tsx), User Roles (src/components/UserRoleManager.tsx), Track and Focus Area
-// Maintenance (src/components/TrackMaintenance.tsx), Collector Logs
+// (src/components/AiModelManager.tsx), Rate Limiting (src/components/RateLimitManager.tsx), User Roles (src/components/UserRoleManager.tsx), Collector Logs
 // (src/components/CollectorLogsViewer.tsx), then racingcoach."ActivityLog",
 // every page view and click, filtered through the URL (so a filtered view can be bookmarked), with totals,
 // the top pages and controls, and a CSV export.
@@ -54,13 +51,12 @@ export default async function AdminPage({
   const t = getDictionary(user.preferredLanguage);
   const a = t.admin;
   const locale = LANGUAGE_LOCALES[user.preferredLanguage];
-  const [report, users, showPricing, showProDriverLesson, aiModels, tracks, rateLimits, rateLimitOverrides] = await Promise.all([
+  const [report, users, showPricing, showProDriverLesson, aiModels, rateLimits, rateLimitOverrides] = await Promise.all([
     readActivityReport(filters),
     listUsersForAdmin(),
     getShowPricing(),
     getShowProDriverLesson(),
     getAiModels(),
-    listTracksForMaintenance(),
     getRateLimitSettings(),
     listOverrides(),
   ]);
@@ -104,8 +100,6 @@ export default async function AdminPage({
         <RateLimitManager settings={rateLimits} overrides={rateLimitOverrides} users={users} timeZone={filters.timeZone} />
 
         <UserRoleManager users={users} currentUserId={user.id} />
-
-        <TrackMaintenance tracks={tracks} />
 
         <CollectorLogsViewer
           initialUser={typeof params.logUser === 'string' ? params.logUser : null}

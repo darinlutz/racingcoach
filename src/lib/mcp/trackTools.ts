@@ -7,7 +7,6 @@ const insertSchema = z.object({
   config_name: z.string().trim().max(200).nullable().optional(),
   number_of_corners: z.number().int().min(0).max(200).nullable().optional(),
   track_category: z.enum(['Road Course', 'Oval', 'Dirt']).nullable().optional(),
-  notes: z.string().max(5000).nullable().optional(),
 }).strict();
 
 const globalForMcp = globalThis as typeof globalThis & { mcpDbPool?: Pool };
@@ -25,7 +24,6 @@ export const definitions = [
   { name: 'insert_track', description: 'Insert one new track; does not modify existing tracks', inputSchema: { type: 'object', properties: {
     track_key: { type: 'string' }, track_name: { type: 'string' }, config_name: { type: ['string', 'null'] },
     number_of_corners: { type: ['integer', 'null'] }, track_category: { type: ['string', 'null'], enum: ['Road Course', 'Oval', 'Dirt', null] },
-    notes: { type: ['string', 'null'] },
   }, required: ['track_key', 'track_name'], additionalProperties: false } },
 ];
 export async function runTool(name: string, args: unknown, subject: string): Promise<unknown> {
@@ -53,8 +51,8 @@ export async function runTool(name: string, args: unknown, subject: string): Pro
         return { error: 'Track key already exists', existing_id: existing.rows[0].id };
       }
       const result = await client.query(
-        'INSERT INTO racingcoach."Tracks" (track_key, track_name, notes, config_name, number_of_corners, track_category, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6,NOW(),NOW()) RETURNING id, track_key, track_name, config_name, number_of_corners, track_category',
-        [data.track_key, data.track_name, data.notes ?? null, data.config_name ?? null, data.number_of_corners ?? null, data.track_category ?? null]
+        'INSERT INTO racingcoach."Tracks" (track_key, track_name, config_name, number_of_corners, track_category, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,NOW(),NOW()) RETURNING id, track_key, track_name, config_name, number_of_corners, track_category',
+        [data.track_key, data.track_name, data.config_name ?? null, data.number_of_corners ?? null, data.track_category ?? null]
       );
       // A dedicated append-only audit table must be provisioned before enabling writes.
       await client.query('INSERT INTO racingcoach."McpAuditLog" (actor_subject, action, track_id, details) VALUES ($1,$2,$3,$4::jsonb)', [subject, 'insert_track', result.rows[0].id, JSON.stringify(data)]);

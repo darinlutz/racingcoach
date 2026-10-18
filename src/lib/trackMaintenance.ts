@@ -2,7 +2,7 @@ import type { PoolClient } from 'pg';
 import { isUniqueViolation, query, transaction } from './db';
 import { ensureUserSchema } from './users';
 
-// The Admin page's Track and Focus Area Maintenance section (src/components/TrackMaintenance.tsx): every
+// The Coach page's Track and Focus Area Maintenance section (src/components/TrackMaintenance.tsx): every
 // track in racingcoach."Tracks" (with or without focus areas, unlike readTracks), adding tracks, and adding,
 // editing and deleting their "TrackFocusAreas". Focus areas stay numbered from 1 in order around the lap by
 // start point, so positions are renumbered after every change.
@@ -13,7 +13,6 @@ export type MaintenanceFocusArea = {
   name: string;
   startPoint: number;
   endPoint: number;
-  notes: string | null;
 };
 
 export type MaintenanceTrack = {
@@ -24,13 +23,12 @@ export type MaintenanceTrack = {
   areas: MaintenanceFocusArea[];
 };
 
-// What the admin types for a focus area. It has no brake or throttle targets: those come only from each
+// What the coach types for a focus area. It has no brake or throttle targets: those come only from each
 // driver's Target Lap (targetLapTargets.ts).
 export type FocusAreaInput = {
   name: string;
   startPoint: number;
   endPoint: number;
-  notes: string | null;
 };
 
 export type TrackInput = { key: string; name: string; numberOfCorners: number | null };
@@ -48,7 +46,7 @@ export async function listTracksForMaintenance(): Promise<MaintenanceTrack[]> {
   const [tracks, areas] = await Promise.all([
     query(`SELECT id, track_key, track_name, number_of_corners FROM racingcoach."Tracks" ORDER BY lower(track_name)`),
     query(
-      `SELECT id, track_id, position, name, start_point, end_point, notes
+      `SELECT id, track_id, position, name, start_point, end_point
        FROM racingcoach."TrackFocusAreas" ORDER BY track_id, position`
     ),
   ]);
@@ -121,12 +119,12 @@ export async function deleteFocusArea(trackId: number, areaId: number): Promise<
   });
 }
 
-// Locks the track row, so two admins' changes to the same track don't interleave, and reads its areas
+// Locks the track row, so two people's changes to the same track don't interleave, and reads its areas
 async function lockAreas(client: PoolClient, trackId: number): Promise<MaintenanceFocusArea[]> {
   const track = await client.query('SELECT id FROM racingcoach."Tracks" WHERE id = $1 FOR UPDATE', [trackId]);
   if (track.rowCount === 0) throw new TrackMaintenanceError('track-not-found');
   const { rows } = await client.query(
-    `SELECT id, position, name, start_point, end_point, notes
+    `SELECT id, position, name, start_point, end_point
      FROM racingcoach."TrackFocusAreas" WHERE track_id = $1 ORDER BY position`,
     [trackId]
   );
@@ -142,10 +140,10 @@ async function rewriteAreas(client: PoolClient, trackId: number, areas: Maintena
   for (const [i, a] of sorted.entries()) {
     const { rows } = await client.query(
       `INSERT INTO racingcoach."TrackFocusAreas"
-         (id, track_id, position, name, start_point, end_point, notes)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
-       RETURNING id, position, name, start_point, end_point, notes`,
-      [a.id, trackId, i + 1, a.name, a.startPoint, a.endPoint, a.notes]
+         (id, track_id, position, name, start_point, end_point)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id, position, name, start_point, end_point`,
+      [a.id, trackId, i + 1, a.name, a.startPoint, a.endPoint]
     );
     result.push(toArea(rows[0]));
   }
@@ -160,7 +158,6 @@ function toArea(a: Record<string, unknown>): MaintenanceFocusArea {
     name: a.name as string,
     startPoint: a.start_point as number,
     endPoint: a.end_point as number,
-    notes: a.notes as string | null,
   };
 }
 
@@ -173,8 +170,7 @@ export function parseFocusAreaInput(body: unknown): FocusAreaInput | null {
   if (!name || name.length > 100) return null;
   if (!Number.isFinite(startPoint) || !Number.isFinite(endPoint)) return null;
   if (startPoint < 0 || endPoint > 1 || startPoint >= endPoint) return null;
-  const notes = typeof b.notes === 'string' && b.notes.trim() ? b.notes.trim().slice(0, 2000) : null;
-  return { name, startPoint, endPoint, notes };
+  return { name, startPoint, endPoint };
 }
 
 export function parseTrackInput(body: unknown): TrackInput | null {
@@ -191,7 +187,7 @@ export function parseTrackInput(body: unknown): TrackInput | null {
   return { key, name, numberOfCorners };
 }
 
-// The API dictionary's message and the status for each error (the routes under src/app/api/admin/tracks/)
+// The API dictionary's message and the status for each error (the routes under src/app/api/coach/tracks/)
 export function maintenanceErrorReply(reason: TrackMaintenanceError['reason']) {
   return {
     'track-not-found': { key: 'trackNotFound', status: 404 },

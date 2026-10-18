@@ -143,7 +143,7 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
     }
 
     /// <summary>The Track Data track for an iRacing track name, as the JSON TelemetryEngine.js reads from
-    /// its TrackConfig (TrackFileName, TrackLengthInFeet, Notes and areas), or null if they have no such track;
+    /// its TrackConfig (TrackFileName, TrackLengthInFeet and areas), or null if they have no such track;
     /// whether their Preferred Units on the Account page are Metric (meters, kph) rather than Standard
     /// (feet, mph; also for a site from before there were units); and where the areas' targets came from: "set"
     /// (the user's Target Lap), "none" (they have no Target Lap, so there are none), "otherTrack" (their Target Lap

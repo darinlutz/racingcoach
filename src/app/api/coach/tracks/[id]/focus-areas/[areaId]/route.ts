@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { apiText } from '@/lib/i18n/server';
-import { isAdmin } from '@/lib/roles';
+import { canCoach } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
 import {
   deleteFocusArea,
@@ -10,9 +10,9 @@ import {
   updateFocusArea,
 } from '@/lib/trackMaintenance';
 
-// The Admin page's Track and Focus Area Maintenance section: edits (PUT, same body as adding one) or deletes
+// The Coach page's Track and Focus Area Maintenance section: edits (PUT, same body as adding one) or deletes
 // (DELETE) one of a track's focus areas. Both answer { areas }, the track's focus areas renumbered by start point.
-// Admin role only; anyone else gets a 404, like the Admin page.
+// Coach and Admin roles only; anyone else gets a 404, like the Coach page.
 
 type Params = { params: Promise<{ id: string; areaId: string }> };
 
@@ -28,7 +28,7 @@ async function handle(params: Params['params'], action: 'edit' | 'delete', reque
   const user = await getCurrentUser();
   const t = await apiText(user);
   try {
-    if (!user || !isAdmin(user.role)) {
+    if (!user || !canCoach(user.role)) {
       return NextResponse.json({ error: t.adminOnly }, { status: 404 });
     }
     const { id, areaId } = await params;

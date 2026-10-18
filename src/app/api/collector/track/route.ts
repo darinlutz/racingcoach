@@ -52,7 +52,6 @@ export async function GET(request: Request) {
         name: area.name,
         start: area.startPoint,
         end: area.endPoint,
-        Notes: area.notes ?? '',
         BrakepointTarget: targets.brakepointTarget ?? 0,
         MaxBrakeTarget: targets.maxBrakeTarget ?? 0,
         ThrottlePickupTarget: targets.throttlePickupTarget ?? 0,
@@ -62,7 +61,6 @@ export async function GET(request: Request) {
       track: {
         TrackFileName: track.name,
         TrackLengthInFeet: track.lengthFeet ?? 0,
-        Notes: track.notes ?? '',
         areas,
       },
       units: user.units,

@@ -6,8 +6,6 @@ import { useLanguage } from '@/components/LanguageProvider';
 import TrackSatellite, { SATELLITE_HEIGHT, SATELLITE_WIDTH } from '@/components/TrackSatellite';
 import { fmt } from '@/lib/i18n/languages';
 import type { TrackData } from '@/lib/tracks';
-import { useUnits } from '@/components/UnitsProvider';
-import { DISTANCE_UNIT, distanceFromFeet } from '@/lib/units';
 
 // The Track Type radio buttons' order; types not listed here follow, alphabetically
 const CATEGORY_ORDER = ['Road Course', 'Oval', 'Dirt'];
@@ -17,17 +15,11 @@ const categoryRank = (category: string) => {
   return i === -1 ? CATEGORY_ORDER.length : i;
 };
 
-const target = (value: number | null, unit: string, locale: string) => (value === null ? '—' : `${value.toLocaleString(locale)}${unit}`);
-
 // Track Data's tracks and focus areas, the same for every user. Read only. The Track Type radio buttons
 // ("Tracks".track_category, Road Course by default) pick which tracks are listed.
 export default function TrackManagement() {
-  const { t: dictionary, locale } = useLanguage();
-  const units = useUnits();
+  const { t: dictionary } = useLanguage();
   const t = dictionary.tracks;
-  const unit = DISTANCE_UNIT[units];
-  // Whole feet or meters for the track list
-  const distance = (feet: number | null) => (feet === null ? null : Math.round(distanceFromFeet(feet, units)));
   const [tracks, setTracks] = useState<TrackData[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [signedOut, setSignedOut] = useState(false);
@@ -138,13 +130,7 @@ export default function TrackManagement() {
                       {t.track}
                     </th>
                     <th scope="col" className="px-4 py-3 font-semibold text-right">
-                      {fmt(t.lengthLabel, { unit })}
-                    </th>
-                    <th scope="col" className="px-4 py-3 font-semibold text-right">
                       {t.focusAreas}
-                    </th>
-                    <th scope="col" className="px-4 py-3 font-semibold">
-                      {t.notes}
                     </th>
                   </tr>
                 </thead>
@@ -168,24 +154,21 @@ export default function TrackManagement() {
                           </button>
                           {track.key !== track.name && <p className="ml-4 text-xs font-normal text-muted-foreground">{track.key}</p>}
                         </th>
-                        <td className="px-4 py-3 text-right tabular-nums">{target(distance(track.lengthFeet), '', locale)}</td>
                         <td className="px-4 py-3 text-right tabular-nums">
                           {track.areas.length}
                         </td>
-                        <td className="px-4 py-3 text-muted-foreground">{track.notes ?? ''}</td>
                       </tr>
 
                       {/* Focus areas for this track */}
                       {expanded === track.id && (
                         <tr>
-                          <td colSpan={4} className="px-4 pb-4 bg-secondary">
+                          <td colSpan={2} className="px-4 pb-4 bg-secondary">
                             <table className="mt-3 w-full text-xs text-left bg-card border border-border rounded">
                               <thead className="bg-secondary text-muted-foreground">
                                 <tr>
                                   <th className="px-3 py-2 font-medium">#</th>
                                   <th className="px-3 py-2 font-medium">{t.name}</th>
                                   <th className="px-3 py-2 font-medium text-right">{t.startEnd}</th>
-                                  <th className="px-3 py-2 font-medium">{t.notes}</th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-border" style={{ fontVariantNumeric: 'tabular-nums' }}>
@@ -196,7 +179,6 @@ export default function TrackManagement() {
                                     <td className="px-3 py-1.5 text-right">
                                       {a.startPoint} – {a.endPoint}
                                     </td>
-                                    <td className="px-3 py-1.5 text-muted-foreground">{a.notes ?? ''}</td>
                                   </tr>
                                 ))}
                               </tbody>

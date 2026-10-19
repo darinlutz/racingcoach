@@ -1,12 +1,15 @@
 'use client';
 
+import Link from 'next/link';
 import { useState } from 'react';
 import CoachVoicePicker from '@/components/CoachVoicePicker';
 import { useLanguage } from '@/components/LanguageProvider';
 
 // The Account page's My In-Car AI Coach Instructions box: what the user's own In-Car AI Coach should do
 // and not do, saved for them only (PUT /api/account/in-car-coach-instructions) with the Save button; and
-// below it the voice the coach speaks with (and its accent, for Spanish).
+// below it the voice the coach speaks with (and its accent, for Spanish). The In-Car AI Coach is for Gold members
+// (canUseInCarCoach); anyone else sees why in place of the box, with View Membership Plans when viewPlans, and still
+// picks the voice, which the collector's in-session debrief speaks with too.
 export default function InCarCoachInstructionsCard({
   instructions: initial,
   maxLength,
@@ -14,6 +17,8 @@ export default function InCarCoachInstructionsCard({
   voices,
   spanishAccent,
   spanishAccents,
+  available,
+  viewPlans,
 }: {
   instructions: string;
   maxLength: number;
@@ -21,6 +26,8 @@ export default function InCarCoachInstructionsCard({
   voices: readonly string[];
   spanishAccent: string;
   spanishAccents: readonly string[];
+  available: boolean;
+  viewPlans: boolean;
 }) {
   const { t, fmt } = useLanguage();
   const c = t.inCarCoach;
@@ -59,40 +66,56 @@ export default function InCarCoachInstructionsCard({
         <label htmlFor="in-car-coach-instructions">{c.title}</label>
       </h2>
       <p className="text-sm text-muted-foreground mb-3">{c.intro}</p>
-      <textarea
-        id="in-car-coach-instructions"
-        value={text}
-        onChange={(e) => {
-          setText(e.target.value);
-          setMessage(null);
-        }}
-        maxLength={maxLength}
-        rows={6}
-        placeholder={c.placeholder}
-        className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-foreground text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors"
-      />
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-        <button
-          type="button"
-          onClick={save}
-          disabled={saving || text.trim() === saved}
-          className="px-5 py-2 rounded-lg text-sm font-semibold text-white bg-primary hover:bg-primary-strong transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {saving ? c.saving : c.save}
-        </button>
-        <span className="text-xs text-muted-foreground tabular-nums">
-          {fmt(c.characters, { n: text.length, max: maxLength })}
-        </span>
-      </div>
-      {message && (
-        <p
-          role="status"
-          className={`mt-3 p-3 rounded-lg text-sm ${
-            message.ok ? 'bg-green-500/15 text-green-400' : 'bg-primary/15 border border-primary/40 text-red-300'
-          }`}
-        >
-          {message.text}
-        </p>
+      {available ? (
+        <>
+          <textarea
+            id="in-car-coach-instructions"
+            value={text}
+            onChange={(e) => {
+              setText(e.target.value);
+              setMessage(null);
+            }}
+            maxLength={maxLength}
+            rows={6}
+            placeholder={c.placeholder}
+            className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-foreground text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors"
+          />
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={save}
+              disabled={saving || text.trim() === saved}
+              className="px-5 py-2 rounded-lg text-sm font-semibold text-white bg-primary hover:bg-primary-strong transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {saving ? c.saving : c.save}
+            </button>
+            <span className="text-xs text-muted-foreground tabular-nums">
+              {fmt(c.characters, { n: text.length, max: maxLength })}
+            </span>
+          </div>
+          {message && (
+            <p
+              role="status"
+              className={`mt-3 p-3 rounded-lg text-sm ${
+                message.ok ? 'bg-green-500/15 text-green-400' : 'bg-primary/15 border border-primary/40 text-red-300'
+              }`}
+            >
+              {message.text}
+            </p>
+          )}
+        </>
+      ) : (
+        <div className="p-3 rounded-lg bg-secondary border border-border text-sm text-foreground">
+          <p>{c.goldOnly}</p>
+          {viewPlans && (
+            <Link
+              href="/pricing"
+              className="mt-2 inline-block font-semibold text-primary hover:text-primary-strong transition-colors"
+            >
+              {t.account.viewPlans}
+            </Link>
+          )}
+        </div>
       )}
       <CoachVoicePicker voice={voice} voices={voices} spanishAccent={spanishAccent} spanishAccents={spanishAccents} />
     </div>

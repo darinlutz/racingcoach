@@ -269,6 +269,7 @@ export const es: Dictionary = {
     intro:
       'Dile a tu entrenador IA en el auto qué hacer y qué no hacer mientras manejas. Funciona en el RacingCoach.app Collector: puede reproducir un sonido, hablar o mostrar un mensaje cuando cruzas la línea de salida/meta, terminas una vuelta, haces una nueva mejor vuelta, entras o sales de un área de enfoque, entras o sales del pit o tienes un incidente, y te entrena con tus vueltas a medida que se suben. Solo valen para ti.',
     placeholder: 'Por ejemplo: Reproduce un sonido cuando cruce la línea de salida/meta.',
+    goldOnly: 'El entrenador IA en el auto es para miembros Oro. Pásate a Oro para usarlo.',
     save: 'Guardar',
     saving: 'Guardando…',
     saved: 'Instrucciones del entrenador IA en el auto guardadas.',
@@ -1352,6 +1353,7 @@ export const es: Dictionary = {
     failedSaveInCarInstructions: 'No se pudieron guardar las instrucciones del entrenador IA en el auto',
     inCarInstructionsTooLong: 'Las instrucciones del entrenador IA en el auto son demasiado largas',
     logInInCarInstructions: 'Inicia sesión para guardar tus instrucciones del entrenador IA en el auto',
+    inCarCoachGoldOnly: 'El entrenador IA en el auto es para miembros Oro',
     unknownCoachVoice: 'Voz del entrenador desconocida',
     unknownSpanishAccent: 'Acento desconocido',
     failedSaveCoachVoice: 'No se pudo guardar la voz del entrenador',

@@ -1,5 +1,7 @@
-// Values of racingcoach."Users".role. Dependency-free so client components can use it.
-// Subscriptions are tracked by account_status, not by role. Admins set roles on the Admin page.
+// Values of racingcoach."Users".role. Only imports accountStatus.ts (also dependency-free) so client components can
+// use it. Subscriptions are tracked by account_status, not by role. Admins set roles on the Admin page.
+import { MEMBERSHIP_LEVEL } from './accountStatus';
+
 export const ROLES = {
   admin: 'Admin',
   coach: 'Coach',
@@ -21,3 +23,8 @@ export const canSeeAllLaps = (role: string | null | undefined) => role === ROLES
 
 // Coaches and Admins see the Coach page and write the AI Coach Instructions
 export const canCoach = (role: string | null | undefined) => role === ROLES.admin || role === ROLES.coach;
+
+// The In-Car AI Coach is for Gold members (and Admins): the collector's /api/collector/in-car-coach and the Account
+// page's In-Car AI Coach Instructions
+export const canUseInCarCoach = (user: { membershipLevel: string; role: string }) =>
+  user.role === ROLES.admin || user.membershipLevel === MEMBERSHIP_LEVEL.gold;

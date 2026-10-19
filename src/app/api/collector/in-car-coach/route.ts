@@ -9,6 +9,7 @@ import { DEFAULT_LANGUAGE, LANGUAGE_LOCALES } from '@/lib/i18n/languages';
 import { inCarCoachCallouts, inCarCoachPlan } from '@/lib/inCarCoach';
 import { lapSamplesFromText } from '@/lib/lapData';
 import { aiRateLimit, type AiRateLimit } from '@/lib/rateLimits';
+import { canUseInCarCoach } from '@/lib/roles';
 import { readTargetLap } from '@/lib/targetLap';
 import { targetLapIsOf, withTargetLap } from '@/lib/targetLapTargets';
 import { findTrackByKey, readTracks, toLapTrack } from '@/lib/tracks';
@@ -16,7 +17,14 @@ import { DEFAULT_UNITS } from '@/lib/units';
 import { getInCarCoachInstructions, getUserById } from '@/lib/users';
 
 // The telemetry collector's In-Car AI Coach (src/lib/inCarCoach.ts), authenticated with the upload key as a
-// bearer token, like /api/collector/laps.
+// bearer token, like /api/collector/laps. For Gold members and Admins only (canUseInCarCoach): anyone else gets
+// 403 { code: 'membershipRequired' } before any AI call, and the collector turns the coach off.
+
+const goldOnlyResponse = () =>
+  NextResponse.json(
+    { error: 'The In-Car AI Coach is for Gold members', code: 'membershipRequired' },
+    { status: 403 }
+  );
 
 // The agent makes several model calls (one per tool round)
 export const maxDuration = 60;
@@ -45,6 +53,7 @@ export async function GET(request: Request) {
     if (!user) {
       return NextResponse.json({ error: 'Missing or unknown upload key' }, { status: 401 });
     }
+    if (!user.user || !canUseInCarCoach(user.user)) return goldOnlyResponse();
     const track = findTrackByKey(await readTracks(), new URL(request.url).searchParams.get('key'));
     const areas = [...(track?.areas ?? [])]
       .sort((a, b) => a.position - b.position)
@@ -82,6 +91,7 @@ export async function POST(request: Request) {
     if (!user) {
       return NextResponse.json({ error: 'Missing or unknown upload key' }, { status: 401 });
     }
+    if (!user.user || !canUseInCarCoach(user.user)) return goldOnlyResponse();
     const parsed = bodySchema.safeParse(await request.json().catch(() => null));
     if (!parsed.success) {
       return NextResponse.json({ error: 'Expected { clientLapIds: [uuid, ...], recentCallouts: [string, ...] }' }, { status: 400 });

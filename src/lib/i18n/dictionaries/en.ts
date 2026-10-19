@@ -276,6 +276,8 @@ export const en = {
     intro:
       'Tell your In-Car AI Coach what to do and what not to do while you drive. It runs in the RacingCoach.app Collector: it can play a sound, speak or show a message when you cross the start/finish line, finish a lap, set a new best lap, enter or leave a focus area, enter or leave pit road or get an incident, and it coaches you from your laps as they upload. These are yours only.',
     placeholder: 'For example: Play a sound when I cross the start/finish line.',
+    // Shown instead of the instructions box to anyone but Gold members (and Admins)
+    goldOnly: 'The In-Car AI Coach is for Gold members. Upgrade to Gold to use it.',
     save: 'Save',
     saving: 'Saving…',
     saved: 'In-Car AI Coach Instructions saved.',
@@ -1379,6 +1381,7 @@ export const en = {
     failedSaveInCarInstructions: 'Failed to save the In-Car AI Coach Instructions',
     inCarInstructionsTooLong: 'The In-Car AI Coach Instructions are too long',
     logInInCarInstructions: 'Log in to save your In-Car AI Coach Instructions',
+    inCarCoachGoldOnly: 'The In-Car AI Coach is for Gold members',
     unknownCoachVoice: 'Unknown coach voice',
     unknownSpanishAccent: 'Unknown Spanish accent',
     failedSaveCoachVoice: 'Failed to save the coach voice',

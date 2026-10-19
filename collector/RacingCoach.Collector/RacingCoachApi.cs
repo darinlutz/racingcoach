@@ -227,12 +227,15 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
     /// <summary>The In-Car AI Coach's plan for a track: the user's In-Car AI Coach Instructions turned into rules
     /// to run on live telemetry, how to deliver lap feedback, and the track's focus areas. Throws
     /// UnauthorizedAccessException if the key isn't accepted, HttpRequestException (also for a server error,
-    /// e.g. the AI being unavailable) or TaskCanceledException if the site can't be reached.</summary>
+    /// e.g. the AI being unavailable) or TaskCanceledException if the site can't be reached, and
+    /// CoachNotAvailableException when the account isn't a Gold member.</summary>
     public async Task<CoachPlanResponse> GetCoachPlanAsync(string trackName, CancellationToken ct)
     {
         using var response = await _http.GetAsync($"api/collector/in-car-coach?track={Uri.EscapeDataString(trackName)}{TrackKeys.Param(trackName)}", ct);
         if (response.StatusCode == HttpStatusCode.Unauthorized)
             throw new UnauthorizedAccessException("RacingCoach.app doesn't accept the upload key");
+        if (response.StatusCode == HttpStatusCode.Forbidden)
+            throw new CoachNotAvailableException(await ErrorMessageAsync(response, ct));
         if (!response.IsSuccessStatusCode)
             throw new HttpRequestException(await ErrorMessageAsync(response, ct));
         return await response.Content.ReadFromJsonAsync<CoachPlanResponse>(JsonOptions, ct)
@@ -240,13 +243,16 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
     }
 
     /// <summary>What the In-Car AI Coach wants to tell the driver now, from the session's uploaded laps (by
-    /// clientLapId, oldest first) and what it said recently; often nothing. Error is why there's no answer.</summary>
+    /// clientLapId, oldest first) and what it said recently; often nothing. Error is why there's no answer. Throws
+    /// CoachNotAvailableException when the account isn't a Gold member.</summary>
     public async Task<(IReadOnlyList<CoachCallout> Callouts, string? Error)> GetCoachCalloutsAsync(
         IEnumerable<Guid> clientLapIds, IEnumerable<string> recentCallouts, CancellationToken ct)
     {
         try
         {
             using var response = await _http.PostAsJsonAsync("api/collector/in-car-coach", new { clientLapIds, recentCallouts }, JsonOptions, ct);
+            if (response.StatusCode == HttpStatusCode.Forbidden)
+                throw new CoachNotAvailableException(await ErrorMessageAsync(response, ct));
             if (!response.IsSuccessStatusCode)
                 return ([], await ErrorMessageAsync(response, ct));
             var body = await response.Content.ReadFromJsonAsync<CalloutsResponse>(JsonOptions, ct);
@@ -426,6 +432,9 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
 internal sealed record AccountPreferences(bool Metric, string Language, bool? BrakeBeeps, int? BrakeBeepsVolume, bool? PoliciesAccepted);
 
 /// <summary>GET /api/collector/in-car-coach (src/lib/inCarCoach.ts in the website).</summary>
+/// <summary>The site doesn't give this account the In-Car AI Coach (it's for Gold members); Message says why.</summary>
+internal sealed class CoachNotAvailableException(string message) : Exception(message);
+
 internal sealed record CoachPlanResponse(string? Instructions, CoachPlan? Plan, List<CoachArea>? Areas, string? Locale);
 
 /// <summary>Rules to run on live telemetry, and how to deliver the lap feedback.</summary>

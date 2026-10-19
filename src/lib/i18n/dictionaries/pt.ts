@@ -269,6 +269,7 @@ export const pt: Dictionary = {
     intro:
       'Diga ao seu treinador IA no carro o que fazer e o que não fazer enquanto você pilota. Ele roda no RacingCoach.app Collector: pode tocar um som, falar ou mostrar uma mensagem quando você cruza a linha de largada/chegada, termina uma volta, faz uma nova melhor volta, entra ou sai de uma área de foco, entra ou sai do pit ou sofre um incidente, e treina você a partir das suas voltas conforme elas são enviadas. Elas valem só para você.',
     placeholder: 'Por exemplo: Toque um som quando eu cruzar a linha de largada/chegada.',
+    goldOnly: 'O treinador IA no carro é para membros Ouro. Faça upgrade para Ouro para usá-lo.',
     save: 'Salvar',
     saving: 'Salvando…',
     saved: 'Instruções do treinador IA no carro salvas.',
@@ -1352,6 +1353,7 @@ export const pt: Dictionary = {
     failedSaveInCarInstructions: 'Não foi possível salvar as instruções do treinador IA no carro',
     inCarInstructionsTooLong: 'As instruções do treinador IA no carro são longas demais',
     logInInCarInstructions: 'Entre para salvar suas instruções do treinador IA no carro',
+    inCarCoachGoldOnly: 'O treinador IA no carro é para membros Ouro',
     unknownCoachVoice: 'Voz do treinador desconhecida',
     unknownSpanishAccent: 'Sotaque desconhecido',
     failedSaveCoachVoice: 'Não foi possível salvar a voz do treinador',

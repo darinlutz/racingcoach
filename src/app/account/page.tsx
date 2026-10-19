@@ -14,7 +14,7 @@ import { getCollectorKey } from '@/lib/collectorKeys';
 import { DISCORD_INVITE_URL, getDiscordConnection } from '@/lib/discord';
 import { fmt, LANGUAGE_LOCALES } from '@/lib/i18n/languages';
 import { getDictionary } from '@/lib/i18n/server';
-import { isAdmin } from '@/lib/roles';
+import { canUseInCarCoach, isAdmin } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
 import { getShowPricing } from '@/lib/siteSettings';
 import { getTargetLapInfo } from '@/lib/targetLap';
@@ -209,6 +209,8 @@ export default async function AccountPage({
           voices={COACH_VOICES}
           spanishAccent={coachVoice.spanishAccent}
           spanishAccents={SPANISH_ACCENTS}
+          available={canUseInCarCoach(user)}
+          viewPlans={showViewPlans}
         />
 
         {showViewPlans && (

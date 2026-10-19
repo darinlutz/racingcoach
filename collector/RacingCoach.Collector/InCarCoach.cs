@@ -24,6 +24,8 @@ internal sealed class InCarCoach(Func<RacingCoachApi?> api, Action<string> log)
     private const float SecondCalloutAt = 0.5f;
     // Lap feedback before the plan has loaded (or when it couldn't): the plan's defaults
     private static readonly CoachPlan DefaultPlan = new([], true, true, false, true, 1);
+    // When the site says the account doesn't have the In-Car AI Coach (it's for Gold members): no rules, no lap feedback
+    private static readonly CoachPlan OffPlan = new([], false, false, false, false, 1);
     private const int MaxLapsSent = 30;
     private const int RecentCalloutsKept = 6;
     private static readonly TimeSpan RetryAfter = TimeSpan.FromMinutes(1);
@@ -128,6 +130,10 @@ internal sealed class InCarCoach(Func<RacingCoachApi?> api, Action<string> log)
         {
             // the window asks for a new key; the plan loads again with it
         }
+        catch (CoachNotAvailableException e)
+        {
+            TurnOff(track, site, e.Message);
+        }
         catch (Exception e) when (e is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
         {
             log($"In-Car Coach couldn't load your instructions for {track} ({e.Message}). Trying again in a minute.");
@@ -139,6 +145,18 @@ internal sealed class InCarCoach(Func<RacingCoachApi?> api, Action<string> log)
             lock (_lock)
                 _loading = false;
         }
+    }
+
+    // Off for this track and key, until either changes (no retry: the account isn't a Gold member)
+    private void TurnOff(string track, RacingCoachApi site, string why)
+    {
+        lock (_lock)
+        {
+            if (_loadedTrack != track || _loadedWith != site || ReferenceEquals(_plan?.Plan, OffPlan))
+                return;
+            _plan = new LoadedPlan(track, OffPlan, [], [], CultureFor(null));
+        }
+        log($"In-Car Coach is off for {track}: {why}.");
     }
 
     private static string Feedback(CoachPlan plan) =>
@@ -385,13 +403,25 @@ internal sealed class InCarCoach(Func<RacingCoachApi?> api, Action<string> log)
 
             if (api() is { } site)
             {
-                var (callouts, error) = await site.GetCoachCalloutsAsync(laps, recent, CancellationToken.None);
-                if (error is not null)
-                    log($"In-Car Coach had no feedback after {Plural(laps.Count, "lap")}: {error}.");
-                else if (callouts.Count == 0)
-                    log($"In-Car Coach: nothing new to say after {Plural(laps.Count, "lap")}.");
-                for (var i = 0; i < callouts.Count; i++)
-                    Deliver(callouts[i], midLap: i > 0);
+                try
+                {
+                    var (callouts, error) = await site.GetCoachCalloutsAsync(laps, recent, CancellationToken.None);
+                    if (error is not null)
+                        log($"In-Car Coach had no feedback after {Plural(laps.Count, "lap")}: {error}.");
+                    else if (callouts.Count == 0)
+                        log($"In-Car Coach: nothing new to say after {Plural(laps.Count, "lap")}.");
+                    for (var i = 0; i < callouts.Count; i++)
+                        Deliver(callouts[i], midLap: i > 0);
+                }
+                catch (CoachNotAvailableException e)
+                {
+                    // Asked before the plan had loaded (which would have turned the coach off)
+                    string? track;
+                    lock (_lock)
+                        track = _loadedTrack;
+                    if (track is not null)
+                        TurnOff(track, site, e.Message);
+                }
             }
 
             lock (_lock)

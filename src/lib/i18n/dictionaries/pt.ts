@@ -965,6 +965,11 @@ export const pt: Dictionary = {
     saving: 'Salvando…',
     saved: 'Instruções do treinador IA salvas.',
     characters: '{n} / {max} caracteres',
+    inCarTitle: 'Instruções do treinador IA no carro',
+    inCarIntro: 'Diga ao treinador IA no carro o que fazer enquanto os pilotos estão na pista. Estas instruções valem para o treinador IA no carro de todos os pilotos, junto com as instruções de cada piloto na página da conta.',
+    inCarPlaceholder: 'Por exemplo: Faça avisos curtos e só fale nas retas.',
+    inCarSave: 'Salvar instruções do treinador IA no carro',
+    inCarSaved: 'Instruções do treinador IA no carro salvas.',
   },
 
   installing: {

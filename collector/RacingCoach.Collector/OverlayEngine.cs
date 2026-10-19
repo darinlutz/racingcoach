@@ -8,11 +8,12 @@ using SVappsLAB.iRacingTelemetrySDK;
 namespace RacingCoach.Collector;
 
 /// <summary>One focus area's values on this lap, as TelemetryEngine.js's functions return them, in the user's
-/// units and language (colors are SimHub color names such as "Firebrick", "#AARRGGBB", or "Transparent").</summary>
+/// units and language (colors are SimHub color names such as "Firebrick", "#AARRGGBB", or "Transparent").
+/// ForceTarget is the area's target max brake ("Target 65"), or "" when the Target Lap doesn't brake there.</summary>
 internal sealed record OverlayAreaValues(
     string AlertColor,
     string Brake, string BrakeColor,
-    string Force, string ForceColor,
+    string Force, string ForceColor, string ForceTarget,
     string Gas, string GasColor,
     string Time, string TimeColor,
     string Exit, string ExitColor,
@@ -20,7 +21,8 @@ internal sealed record OverlayAreaValues(
 
 /// <summary>What the overlay window shows, copied out of OverlayEngine for the UI thread. UpcomingArea is the
 /// index (0-based) of the focus area the car is in, or the next one ahead of it when it's between areas; InArea is
-/// true while the car is inside it (the Target Telemetry window's "In Area").</summary>
+/// true while the car is inside it (the Target Telemetry window's "In Area"). LastArea is the area the car last
+/// left, while it's between areas (null inside one), whose time and exit speed the row shows until the next.</summary>
 internal sealed record OverlaySnapshot(
     string? Track,
     IReadOnlyList<string?> AreaNames,
@@ -30,6 +32,7 @@ internal sealed record OverlaySnapshot(
     string? Error,
     int? UpcomingArea,
     bool InArea,
+    int? LastArea,
     bool Metric);
 
 /// <summary>
@@ -57,7 +60,7 @@ internal sealed partial class OverlayEngine
     [
         "LapBrakePoint", "GetAreaMaxBrake", "GetThrottlePickupPoint", "GetBrakepointAlertColor",
         "GetBrakepointDiffTarget", "GetBrakepointColorTarget",
-        "GetBrakePressureDiffTarget", "GetBrakePressureDiffTargetColor",
+        "GetBrakePressureTarget", "GetBrakePressureDiffTarget", "GetBrakePressureDiffTargetColor",
         "GetThrottlePickupDiffTarget", "GetThrottlePickupColorTarget",
         "GetTimeArea", "GetSpeedArea", "GetCoastingDistance", "GetControlOverlapDistance",
         "GetMaximumBrakePressure", "GetMinimumSpeed",
@@ -94,6 +97,7 @@ internal sealed partial class OverlayEngine
     private (double Start, double End)?[] _areaRanges = [];
     private int? _upcomingArea;
     private bool _inArea;
+    private int? _lastArea;
     private OverlayAreaValues?[] _areas = [];
     private string? _maxBrake;
     private string? _minSpeed;
@@ -151,7 +155,7 @@ internal sealed partial class OverlayEngine
     public OverlaySnapshot Snapshot()
     {
         lock (_lock)
-            return new OverlaySnapshot(_scriptTrack, [.. _areaNames], [.. _areas], _maxBrake, _minSpeed, _error, _upcomingArea, _inArea, _shownMetric);
+            return new OverlaySnapshot(_scriptTrack, [.. _areaNames], [.. _areas], _maxBrake, _minSpeed, _error, _upcomingArea, _inArea, _lastArea, _shownMetric);
     }
 
     /// <summary>Runs the script for one telemetry sample (on the telemetry thread).</summary>
@@ -173,7 +177,27 @@ internal sealed partial class OverlayEngine
             // A bare number in SpeedLocal's units (mph or kph)
             var minSpeed = Localize(Text(Call("GetMinimumSpeed")));
 
-            var withText = _sampleCount++ % TextEvery == 0;
+            // iRacing's LapDistPct is outside 0-1 while the car isn't on track; the last area shown stays then
+            // (but the car isn't in it)
+            int? upcoming, lastArea;
+            bool wasInArea;
+            lock (_lock)
+                (upcoming, wasInArea, lastArea) = (_upcomingArea, _inArea, _lastArea);
+            var previousUpcoming = upcoming;
+            var inArea = false;
+            if (_scriptTrack is null)
+                upcoming = null;
+            else if (data.LapDistPct is { } pos and >= 0 and <= 1)
+                (upcoming, inArea) = UpcomingArea(pos);
+            // Leaving an area keeps its time and exit speed on show until the car enters the next one
+            if (inArea || upcoming is null)
+                lastArea = null;
+            else if (wasInArea)
+                lastArea = previousUpcoming;
+
+            // The texts are worked out again at once when the car enters or leaves an area, so the area just left
+            // shows this lap's time straight away rather than up to TextEvery samples later
+            var withText = _sampleCount++ % TextEvery == 0 || inArea != wasInArea || upcoming != previousUpcoming;
             // _areaNames and _areas only change on this thread (ApplyPendingTrack), so they're the same length here
             OverlayAreaValues?[] previous;
             lock (_lock)
@@ -187,21 +211,12 @@ internal sealed partial class OverlayEngine
                         results[area - 1] = AreaValues(area, withText ? null : previous[area - 1]);
                 }
             }
-            // iRacing's LapDistPct is outside 0-1 while the car isn't on track; the last area shown stays then
-            // (but the car isn't in it)
-            int? upcoming;
-            var inArea = false;
-            lock (_lock)
-                upcoming = _upcomingArea;
-            if (_scriptTrack is null)
-                upcoming = null;
-            else if (data.LapDistPct is { } pos and >= 0 and <= 1)
-                (upcoming, inArea) = UpcomingArea(pos);
             lock (_lock)
             {
                 _areas = results;
                 _upcomingArea = upcoming;
                 _inArea = inArea;
+                _lastArea = lastArea;
                 _maxBrake = maxBrake;
                 _minSpeed = minSpeed;
                 _error = null;
@@ -231,7 +246,7 @@ internal sealed partial class OverlayEngine
         Call("GetThrottlePickupPoint", area);
         var measured = new OverlayAreaValues(
             AlertColor: Text(Call("GetBrakepointAlertColor", area)),
-            Brake: "", BrakeColor: "", Force: "", ForceColor: "", Gas: "", GasColor: "", Time: "", TimeColor: "",
+            Brake: "", BrakeColor: "", Force: "", ForceColor: "", ForceTarget: "", Gas: "", GasColor: "", Time: "", TimeColor: "",
             // GetSpeedArea takes the track name too
             Exit: Localize(Text(Call("GetSpeedArea", _trackName, area))),
             ExitColor: CallOptional("GetSpeedAreaColor", _trackName, area),
@@ -243,7 +258,7 @@ internal sealed partial class OverlayEngine
             return measured with
             {
                 Brake = keepText.Brake, BrakeColor = keepText.BrakeColor,
-                Force = keepText.Force, ForceColor = keepText.ForceColor,
+                Force = keepText.Force, ForceColor = keepText.ForceColor, ForceTarget = keepText.ForceTarget,
                 Gas = keepText.Gas, GasColor = keepText.GasColor,
                 Time = keepText.Time, TimeColor = keepText.TimeColor,
             };
@@ -254,6 +269,9 @@ internal sealed partial class OverlayEngine
             BrakeColor = Text(Call("GetBrakepointColorTarget", area)),
             Force = Localize(Text(Call("GetBrakePressureDiffTarget", area))),
             ForceColor = Text(Call("GetBrakePressureDiffTargetColor", area)),
+            ForceTarget = Call("GetBrakePressureTarget", area) is var target && target.IsNumber() && target.AsNumber() > 0
+                ? Localize($"Target {Math.Round(target.AsNumber()).ToString("0", CultureInfo.InvariantCulture)}")
+                : "",
             Gas = Localize(Text(Call("GetThrottlePickupDiffTarget", area))),
             GasColor = Text(Call("GetThrottlePickupColorTarget", area)),
             Time = Localize(Text(Call("GetTimeArea", _trackName, area))),
@@ -339,6 +357,7 @@ internal sealed partial class OverlayEngine
             Array.Clear(_areas);
             _upcomingArea = null;
             _inArea = false;
+            _lastArea = null;
             _maxBrake = null;
             _minSpeed = null;
         }

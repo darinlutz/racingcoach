@@ -5,9 +5,12 @@ using System.Windows.Media;
 namespace RacingCoach.Collector;
 
 /// <summary>
-/// The overlay's one row of focus area values, the Upcoming Focus Area (outlined): the area the car is in, or the
-/// next one as soon as it leaves an area, with its name and its values on this lap from TelemetryEngine.js; hidden
-/// without one. In the overlay and, as a copy, the Target Telemetry window.
+/// The overlay's one row of focus area values, the Upcoming Focus Area (outlined): the area the car is in ("Area"),
+/// or the next one as soon as it leaves an area ("Next Area"), with its name and its values on this lap from
+/// TelemetryEngine.js; hidden without one. Inside an area, Area Time and Area Exit are blank; once it leaves, they
+/// show the area just left against the session's best (purple "BEST" for a new best) until it enters the next,
+/// and Brake Pressure shows the next area's target (blank when the Target Lap doesn't brake there).
+/// In the Target Telemetry window.
 /// </summary>
 public partial class OverlayAreaRow : UserControl
 {
@@ -15,7 +18,7 @@ public partial class OverlayAreaRow : UserControl
     private static readonly (string Heading, double Width)[] Columns =
     [
         ("overlay.focusArea", 95), ("overlay.brakePoint", 115), ("overlay.brakePressure", 105),
-        ("overlay.time", 80), ("overlay.exit", 90), ("overlay.coast", 64), ("overlay.overlap", 64),
+        ("overlay.time", 115), ("overlay.exit", 120), ("overlay.coast", 64), ("overlay.overlap", 64),
     ];
     private static readonly Brush BoxBackground = Frozen(Color.FromRgb(0x1A, 0x1B, 0x1E));
     internal static readonly Brush LightText = Frozen(Color.FromRgb(0xF3, 0xF4, 0xF6));
@@ -26,8 +29,9 @@ public partial class OverlayAreaRow : UserControl
 
     private readonly TextBox[] _cells = new TextBox[Columns.Length];
     private readonly TextBlock[] _headings = new TextBlock[Columns.Length];
-    // The language the headings are in (null before the first Show)
+    // The language the headings are in (null before the first Show), and whether the first says Area or Next Area
     private string? _shownIn;
+    private bool _shownInArea;
 
     public OverlayAreaRow()
     {
@@ -61,18 +65,21 @@ public partial class OverlayAreaRow : UserControl
 
     internal void Show(OverlaySnapshot snapshot, string language)
     {
-        if (_shownIn != language)
+        if (_shownIn != language || _shownInArea != snapshot.InArea)
         {
             _shownIn = language;
+            _shownInArea = snapshot.InArea;
             for (var c = 0; c < Columns.Length; c++)
-                _headings[c].Text = Loc.T(language, Columns[c].Heading);
+                _headings[c].Text = Loc.T(language, c == 0 && !snapshot.InArea ? "overlay.nextArea" : Columns[c].Heading);
         }
         var upcoming = snapshot.UpcomingArea;
-        ShowRow(upcoming is { } u ? snapshot.AreaNames[u] : null, upcoming is { } a ? snapshot.Areas[a] : null);
+        ShowRow(upcoming is { } u ? snapshot.AreaNames[u] : null, upcoming is { } a ? snapshot.Areas[a] : null,
+            snapshot.InArea, snapshot.LastArea is { } l ? snapshot.Areas[l] : null);
     }
 
-    // The area's name, then its values on this lap; hidden without a name
-    private void ShowRow(string? name, OverlayAreaValues? area)
+    // The area's name, then its values on this lap; hidden without a name. Between areas, the time and exit speed
+    // are the last area's and the brake pressure is the next one's target
+    private void ShowRow(string? name, OverlayAreaValues? area, bool inArea, OverlayAreaValues? last)
     {
         foreach (var cell in _cells)
             cell.Visibility = name is null ? Visibility.Collapsed : Visibility.Visible;
@@ -85,10 +92,13 @@ public partial class OverlayAreaRow : UserControl
 
         Show(_cells[0], name, null, alertBackground);
         Show(_cells[1], area?.Brake, area?.BrakeColor, alertBackground);
-        Show(_cells[2], area?.Force, area?.ForceColor, null);
+        if (inArea)
+            Show(_cells[2], area?.Force, area?.ForceColor, null);
+        else
+            Show(_cells[2], area?.ForceTarget, null, null);
         // Purple for the session's best ("BEST")
-        Show(_cells[3], area?.Time, area?.TimeColor, alertBackground);
-        Show(_cells[4], area?.Exit, area?.ExitColor, alertBackground);
+        Show(_cells[3], last?.Time, last?.TimeColor, alertBackground);
+        Show(_cells[4], last?.Exit, last?.ExitColor, alertBackground);
         Show(_cells[5], area?.Coast, null, alertBackground);
         Show(_cells[6], area?.Overlap, null, alertBackground);
     }

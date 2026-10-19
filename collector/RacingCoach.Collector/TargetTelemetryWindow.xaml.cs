@@ -14,7 +14,8 @@ namespace RacingCoach.Collector;
 /// track around the car, and across the top the gear it shifted into at each gear change. The car is the vertical
 /// line, 200 ft from the left, so the trace and gear changes scroll left as the car drives: a gear reaches the car's
 /// line where the Target Lap shifted into it. A short bar on the car's line is the
-/// driver's own brake, live (hidden off the brake). Positions come from live LapDistPct and the track's length (Track
+/// driver's own brake, live (hidden off the brake), and a brighter, thicker red line over the Target Lap's trace is
+/// the driver's brake over the track behind the car, so the two can be compared. Positions come from live LapDistPct and the track's length (Track
 /// Data's, or iRacing's when Track Data has none). The Target Lap loads when the window opens, when the track or
 /// the upload key changes, and with Reload. Above the chart are copies of the overlay's Max Brake, Min Speed and
 /// handling boxes (OverlayStats), and under it its Upcoming Focus Area row (OverlayAreaRow), from the same
@@ -31,6 +32,7 @@ public partial class TargetTelemetryWindow : Window
     private static readonly double[] GuideLines = [20, 40, 60, 80, 100];
     private static readonly CultureInfo Culture = CultureInfo.InvariantCulture;
     private static readonly Brush TraceBrush = Frozen(Color.FromRgb(0xEF, 0x44, 0x44));
+    private static readonly Brush DriverTraceBrush = Frozen(Color.FromRgb(0xFF, 0x2D, 0x2D));
     private static readonly Brush FillBrush = Frozen(Color.FromArgb(0x40, 0xEF, 0x44, 0x44));
     private static readonly Brush UpshiftBrush = Frozen(Color.FromRgb(0x3B, 0x8B, 0xFF));
     private static readonly Brush DownshiftBrush = Frozen(Color.FromRgb(0xF5, 0x9E, 0x0B));
@@ -46,6 +48,8 @@ public partial class TargetTelemetryWindow : Window
     private readonly DispatcherTimer _overlayTimer = new() { Interval = TimeSpan.FromMilliseconds(100) };
     private readonly Polyline _trace = new() { Stroke = TraceBrush, StrokeThickness = 2, StrokeLineJoin = PenLineJoin.Round };
     private readonly Polygon _fill = new() { Fill = FillBrush };
+    // The driver's brake behind the car, over the Target Lap's trace
+    private readonly Polyline _driverTrace = new() { Stroke = DriverTraceBrush, StrokeThickness = 3, StrokeLineJoin = PenLineJoin.Round };
     private readonly Canvas _gears = new();
     private readonly Line _car = new() { Stroke = CarBrush, StrokeThickness = 2 };
     // The driver's brake: a short bar across the car's line, at the brake's height
@@ -58,6 +62,11 @@ public partial class TargetTelemetryWindow : Window
     private double[] _brakes = [];
     // Its gear changes: where (0-1), the new gear, and whether that was an upshift
     private (double Pct, int Gear, bool Up)[] _gearChanges = [];
+    // The driver's brake (0-100) at each new position (0-1) the car reached, oldest first, back to just beyond the
+    // left edge; started over when the car goes backwards or jumps (a reset, a tow, another session)
+    private readonly List<(float Pct, double Brake)> _driverBrakes = [];
+    // A step further than this (a share of the lap) between frames is a jump, not driving
+    private const double JumpPct = 0.05;
     private TargetLapTrace? _lap;
     private readonly TargetLapSource _target;
     private readonly OverlayFeed? _feed;
@@ -103,16 +112,20 @@ public partial class TargetTelemetryWindow : Window
             DrawAxes(); // "car" on the distance axis
         }
         var live = _engine.TryGetLatest(out var data) && data.LapDistPct is { } pct && pct >= 0;
+        var lengthFeet = _target.LengthFeet;
         if (live)
+        {
             _position = data.LapDistPct;
+            RecordDriverBrake(data.LapDistPct!.Value, data.Brake, lengthFeet);
+        }
         DrawBrakeBar(live ? data.Brake : null);
 
-        var lengthFeet = _target.LengthFeet;
         ShowStatus(live);
         if (_lap is null || lengthFeet <= 0 || _position is not { } position)
         {
             _trace.Points = [];
             _fill.Points = [];
+            _driverTrace.Points = [];
             _gears.Children.Clear();
             BrakeReadout.Text = "—";
             _drawn = null;
@@ -213,7 +226,41 @@ public partial class TargetTelemetryWindow : Window
             fill.Add(new Point(trace[^1].X, Y(0)));
         }
         _fill.Points = fill;
+
+        // The driver's brake behind the car, up to the car's line
+        var driver = new PointCollection(_driverBrakes.Count);
+        foreach (var (pct, driverBrake) in _driverBrakes)
+            driver.Add(new Point(X(FeetFromCar(pct, position, lengthFeet)), Y(driverBrake)));
+        _driverTrace.Points = driver;
     }
+
+    // Adds the driver's brake at a new position, and drops what's gone off the left edge
+    private void RecordDriverBrake(float pct, float? brake, double lengthFeet)
+    {
+        if (lengthFeet <= 0)
+        {
+            _driverBrakes.Clear();
+            return;
+        }
+        if (_driverBrakes.Count > 0)
+        {
+            var step = (double)pct - _driverBrakes[^1].Pct;
+            step -= Math.Floor(step + 0.5); // across the start/finish line
+            if (step == 0)
+                return;
+            if (step < 0 || step > JumpPct)
+                _driverBrakes.Clear();
+        }
+        _driverBrakes.Add((pct, Math.Clamp(brake ?? 0, 0, 1) * 100.0));
+        var keep = (BehindFeet + MarginFeet) / lengthFeet;
+        var drop = 0;
+        while (drop < _driverBrakes.Count - 1 && Behind(_driverBrakes[drop].Pct, pct) > keep)
+            drop++;
+        _driverBrakes.RemoveRange(0, drop);
+    }
+
+    // How far (a share of the lap, 0-1) a position is behind the car, across the start/finish line
+    private static double Behind(float pct, float car) => ((car - pct) % 1 + 1) % 1;
 
     // Each gear change of the Target Lap within the window: the gear it shifted into, across the top, centered on
     // where it shifted (blue up, amber down)
@@ -288,6 +335,7 @@ public partial class TargetTelemetryWindow : Window
         }
         Plot.Children.Add(_fill);
         Plot.Children.Add(_trace);
+        Plot.Children.Add(_driverTrace);
 
         _car.X1 = _car.X2 = X(0);
         _car.Y1 = 0;

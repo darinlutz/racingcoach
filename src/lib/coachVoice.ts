@@ -69,6 +69,26 @@ export async function setCoachVoice(userId: number, voice: CoachVoice): Promise<
 
 export class SpeechError extends Error {}
 
+// How turn numbers are said in each language: "T1" is "Turn 1", "T7-8" (two corners in a row) "Turn 7 and 8" and
+// "T8-11" "Turns 8 through 11"
+const TURN_WORDS: Record<Language, { one: string; many: string; and: string; through: string }> = {
+  en: { one: 'Turn', many: 'Turns', and: 'and', through: 'through' },
+  pt: { one: 'Curva', many: 'Curvas', and: 'e', through: 'a' },
+  es: { one: 'Curva', many: 'Curvas', and: 'y', through: 'a' },
+};
+
+// The text with turn abbreviations (T1, T7-8, T8-T11) written out, so the voice says "Turn 1" rather than "T one"
+export function spokenTurnNames(text: string, language: Language = DEFAULT_LANGUAGE): string {
+  const words = TURN_WORDS[language];
+  return text
+    .replace(/\bT(\d+)\s*[-–—]\s*T?(\d+)\b/g, (_, from: string, to: string) =>
+      Number(to) === Number(from) + 1
+        ? `${words.one} ${from} ${words.and} ${to}`
+        : `${words.many} ${from} ${words.through} ${to}`
+    )
+    .replace(/\bT(\d+)\b/g, `${words.one} $1`);
+}
+
 // The text spoken in the voice, as a WAV file (PCM wrapped in a WAV header, which Windows plays without any
 // codec, and so do browsers). The text is already in the driver's language; the instructions give it a native
 // accent (Spain's or Latin American for Spanish) and a race engineer's delivery.
@@ -89,7 +109,7 @@ export async function synthesizeSpeech(
     body: JSON.stringify({
       model: SPEECH_MODEL,
       voice,
-      input: text,
+      input: spokenTurnNames(text, language),
       response_format: 'pcm',
       instructions:
         `Speak as a native ${nativeSpeaker(language, spanishAccent)} pronouncing everything the way a native speaker ` +

@@ -4,12 +4,13 @@ import { z } from 'zod';
 import { brakeChangeRule, createTools, hasTrackPosition, type DebriefSession } from './debriefCoach';
 import { DEFAULT_UNITS, DISTANCE_NAME, DISTANCE_UNIT, SPEED_UNIT, type Units } from './units';
 import { aiLanguageRule, DEFAULT_LANGUAGE, type Language } from './i18n/languages';
-import { coachInstructionsRule } from './siteSettings';
+import { coachInstructionsRule, getHeadCoachInCarInstructions } from './siteSettings';
 import { chatModel, getAiModel } from '@/lib/aiModels';
 
 // The In-Car AI Coach: the telemetry collector's coach while the driver is on track. Each user writes their own
 // In-Car AI Coach Instructions on the Account page ("Users".in_car_coach_instructions), on top of the head
-// coach's AI Coach Instructions that every AI feature follows. It works in two parts:
+// coach's AI Coach Instructions that every AI feature follows and the head coach's In-Car AI Coach Instructions
+// from the Coach page (getHeadCoachInCarInstructions) that every driver's In-Car AI Coach follows. It works in two parts:
 //   - Plan (inCarCoachPlan): at the start of a session the collector fetches the instructions turned into rules
 //     it runs itself on live telemetry (e.g. play a sound at the start/finish line), and how to deliver what the
 //     coach says. No laps needed; no AI call without instructions.
@@ -82,6 +83,29 @@ const calloutsSchema = z.object({
 export type Callout = z.infer<typeof calloutsSchema>['callouts'][number];
 const MAX_CALLOUTS = 2; // the model gives 3, the third a spare in case one is dropped
 
+// The Coach page's In-Car AI Coach Instructions, for every driver; a failed read only loses them, not the coaching
+async function readHeadCoachInCarInstructions(): Promise<string> {
+  try {
+    return (await getHeadCoachInCarInstructions()).trim();
+  } catch (error) {
+    console.error("Failed to read the head coach's In-Car AI Coach Instructions:", error);
+    return '';
+  }
+}
+
+const headCoachInCarBlock = (instructions: string) =>
+  instructions ? `<head_coach_in_car_instructions>\n${instructions}\n</head_coach_in_car_instructions>` : '';
+
+// The head coach's In-Car AI Coach Instructions, for every driver's In-Car AI Coach, before the driver's own
+function headCoachInCarRule(instructions: string): string {
+  if (!instructions) return '';
+  return (
+    '\n\nThe head coach has given these instructions for every driver\'s In-Car AI Coach. Follow them, unless the ' +
+    "driver's own instructions below say otherwise or one needs data you do not have; never invent data.\n" +
+    headCoachInCarBlock(instructions)
+  );
+}
+
 // The driver's own instructions, after the head coach's: the driver's say what this coach does in their car
 function driverInstructionsRule(instructions: string): string {
   if (!instructions.trim()) return '';
@@ -99,7 +123,8 @@ const PLAN_PROMPT =
   'that setup. Make a rule only for something the instructions ask to happen at one of the listed moments; ' +
   'coaching advice, analysis and things to avoid are not rules (they steer the lap feedback, which follows the ' +
   'same instructions). When an instruction asks for something the coach cannot detect or do, leave it out. Keep ' +
-  'rule texts short and write them in the language below.';
+  'rule texts short and write them in the language below. The head coach\'s instructions, when given, apply to ' +
+  'every driver; the driver\'s own instructions come after them and win where the two disagree.';
 
 // Rule texts are spoken and shown as they are, so any distance or speed in them is in the user's units
 const unitsRule = (units: Units) =>
@@ -115,14 +140,17 @@ export async function inCarCoachPlan(
   language: Language = DEFAULT_LANGUAGE,
   units: Units = DEFAULT_UNITS
 ): Promise<InCarCoachPlan> {
-  if (!instructions.trim()) return DEFAULT_PLAN;
+  const headCoach = await readHeadCoachInCarInstructions();
+  if (!instructions.trim() && !headCoach) return DEFAULT_PLAN;
   if (!process.env.OPENAI_API_KEY) {
     throw new Error('OPENAI_API_KEY is not configured');
   }
 
   // Keyed by model too, so a model picked on the Admin page takes effect at once
   const model = await getAiModel('inCarCoachPlan');
-  const key = createHash('sha256').update(JSON.stringify([instructions.trim(), areaNames, language, units, model])).digest('hex');
+  const key = createHash('sha256')
+    .update(JSON.stringify([headCoach, instructions.trim(), areaNames, language, units, model]))
+    .digest('hex');
   const cached = planCache.get(key);
   if (cached) return cached;
 
@@ -138,7 +166,8 @@ export async function inCarCoachPlan(
         role: 'user',
         content:
           `Focus areas on this track: ${areaNames.length > 0 ? areaNames.join(', ') : 'none (no areaEntry or areaExit rules)'}.\n` +
-          `<driver_instructions>\n${instructions.trim()}\n</driver_instructions>`,
+          (headCoach ? `${headCoachInCarBlock(headCoach)}\n` : '') +
+          (instructions.trim() ? `<driver_instructions>\n${instructions.trim()}\n</driver_instructions>` : ''),
       },
     ],
   });
@@ -218,6 +247,7 @@ export async function inCarCoachCallouts(input: {
     systemPrompt:
       calloutPrompt(units) +
       (await coachInstructionsRule()) +
+      headCoachInCarRule(await readHeadCoachInCarInstructions()) +
       driverInstructionsRule(input.instructions) +
       aiLanguageRule(input.language ?? DEFAULT_LANGUAGE),
     responseFormat: calloutsSchema,

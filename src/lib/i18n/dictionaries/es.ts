@@ -964,6 +964,11 @@ export const es: Dictionary = {
     saving: 'Guardando…',
     saved: 'Instrucciones del entrenador IA guardadas.',
     characters: '{n} / {max} caracteres',
+    inCarTitle: 'Instrucciones del entrenador IA en el auto',
+    inCarIntro: 'Indica al entrenador IA en el auto qué hacer mientras los pilotos están en la pista. Estas instrucciones se aplican al entrenador IA en el auto de todos los pilotos, junto con las instrucciones de cada piloto en su página de cuenta.',
+    inCarPlaceholder: 'Por ejemplo: Da avisos cortos y habla solo en las rectas.',
+    inCarSave: 'Guardar instrucciones del entrenador IA en el auto',
+    inCarSaved: 'Instrucciones del entrenador IA en el auto guardadas.',
   },
 
   installing: {

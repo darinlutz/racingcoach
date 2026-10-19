@@ -4,10 +4,31 @@ import { useState } from 'react';
 import { useLanguage } from '@/components/LanguageProvider';
 
 // The Coach page's AI Coach Instructions box: what the AI coach should do, saved for every driver
-// (PUT /api/coach/instructions) with the Save AI Coach Instructions button.
-export default function CoachInstructionsEditor({ instructions: initial, maxLength }: { instructions: string; maxLength: number }) {
+// (PUT /api/coach/instructions) with the Save AI Coach Instructions button. With inCar, its In-Car AI Coach
+// Instructions box instead, for every driver's In-Car AI Coach (PUT /api/coach/in-car-instructions).
+export default function CoachInstructionsEditor({
+  instructions: initial,
+  maxLength,
+  inCar = false,
+}: {
+  instructions: string;
+  maxLength: number;
+  inCar?: boolean;
+}) {
   const { t, fmt } = useLanguage();
-  const c = t.coach;
+  const c = inCar
+    ? {
+        ...t.coach,
+        instructionsTitle: t.coach.inCarTitle,
+        instructionsIntro: t.coach.inCarIntro,
+        placeholder: t.coach.inCarPlaceholder,
+        save: t.coach.inCarSave,
+        saved: t.coach.inCarSaved,
+      }
+    : t.coach;
+  const endpoint = inCar ? '/api/coach/in-car-instructions' : '/api/coach/instructions';
+  const failed = inCar ? t.api.failedSaveInCarInstructions : t.api.failedSaveInstructions;
+  const fieldId = inCar ? 'coach-in-car-instructions' : 'coach-instructions';
   const [saved, setSaved] = useState(initial);
   const [text, setText] = useState(initial);
   const [saving, setSaving] = useState(false);
@@ -17,21 +38,21 @@ export default function CoachInstructionsEditor({ instructions: initial, maxLeng
     setSaving(true);
     setMessage(null);
     try {
-      const res = await fetch('/api/coach/instructions', {
+      const res = await fetch(endpoint, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ instructions: text }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setMessage({ ok: false, text: data.error ?? t.api.failedSaveInstructions });
+        setMessage({ ok: false, text: data.error ?? failed });
         return;
       }
       setSaved(data.instructions);
       setText(data.instructions);
       setMessage({ ok: true, text: c.saved });
     } catch {
-      setMessage({ ok: false, text: t.api.failedSaveInstructions });
+      setMessage({ ok: false, text: failed });
     } finally {
       setSaving(false);
     }
@@ -42,11 +63,11 @@ export default function CoachInstructionsEditor({ instructions: initial, maxLeng
       <h2 className="text-xl font-bold text-foreground mb-1">{c.instructionsTitle}</h2>
       <p className="text-sm text-muted-foreground mb-4">{c.instructionsIntro}</p>
 
-      <label htmlFor="coach-instructions" className="sr-only">
+      <label htmlFor={fieldId} className="sr-only">
         {c.instructionsTitle}
       </label>
       <textarea
-        id="coach-instructions"
+        id={fieldId}
         value={text}
         onChange={(e) => {
           setText(e.target.value);

@@ -117,6 +117,7 @@ internal static class Loc
         ["overlay.maxBrake"] = ("Max Brake", "Freio máx.", "Freno máx."),
         ["overlay.minSpeed"] = ("Min Speed ({0})", "Vel. mínima ({0})", "Vel. mínima ({0})"),
         ["overlay.focusArea"] = ("Area", "Área", "Zona"),
+        ["overlay.nextArea"] = ("Next Area", "Próxima área", "Próxima zona"),
         ["overlay.brakePoint"] = ("Brake Point", "Ponto de frenagem", "Punto de frenado"),
         ["overlay.brakePressure"] = ("Brake Pressure", "Pressão de freio", "Presión de freno"),
         ["overlay.time"] = ("Area Time", "Tempo na área", "Tiempo en zona"),

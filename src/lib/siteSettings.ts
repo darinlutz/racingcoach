@@ -47,20 +47,42 @@ const COACH_INSTRUCTIONS = 'ai_coach_instructions';
 // Longest AI Coach Instructions the Coach page saves; they go into every coaching prompt
 export const MAX_COACH_INSTRUCTIONS = 4000;
 
-// The Coach page's AI Coach Instructions, for every driver's AI coaching; empty when none are saved
-export async function getCoachInstructions(): Promise<string> {
+// A text setting; empty when it has no row
+async function getText(key: string): Promise<string> {
   await ensureUserSchema();
-  const rows = await query<{ value: string }>('SELECT value FROM racingcoach."SiteSettings" WHERE key = $1', [COACH_INSTRUCTIONS]);
+  const rows = await query<{ value: string }>('SELECT value FROM racingcoach."SiteSettings" WHERE key = $1', [key]);
   return rows[0]?.value ?? '';
 }
 
-export async function setCoachInstructions(instructions: string, userId: number): Promise<void> {
+async function setText(key: string, value: string, userId: number): Promise<void> {
   await ensureUserSchema();
   await query(
     `INSERT INTO racingcoach."SiteSettings" (key, value, updated_by) VALUES ($1, $2, $3)
      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now(), updated_by = EXCLUDED.updated_by`,
-    [COACH_INSTRUCTIONS, instructions, userId]
+    [key, value, userId]
   );
+}
+
+// The Coach page's AI Coach Instructions, for every driver's AI coaching; empty when none are saved
+export async function getCoachInstructions(): Promise<string> {
+  return getText(COACH_INSTRUCTIONS);
+}
+
+export async function setCoachInstructions(instructions: string, userId: number): Promise<void> {
+  await setText(COACH_INSTRUCTIONS, instructions, userId);
+}
+
+const IN_CAR_COACH_INSTRUCTIONS = 'in_car_coach_instructions';
+
+// The Coach page's In-Car AI Coach Instructions, for every driver's In-Car AI Coach (src/lib/inCarCoach.ts), on
+// top of the AI Coach Instructions and under each driver's own from the Account page; empty when none are saved.
+// Same length limit as the AI Coach Instructions.
+export async function getHeadCoachInCarInstructions(): Promise<string> {
+  return getText(IN_CAR_COACH_INSTRUCTIONS);
+}
+
+export async function setHeadCoachInCarInstructions(instructions: string, userId: number): Promise<void> {
+  await setText(IN_CAR_COACH_INSTRUCTIONS, instructions, userId);
 }
 
 // Appended to the AI coaching prompts (Debrief Coach, the lap and stint summaries, Race

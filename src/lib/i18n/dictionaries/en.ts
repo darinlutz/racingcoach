@@ -982,6 +982,11 @@ export const en = {
     saving: 'Saving…',
     saved: 'AI Coach Instructions saved.',
     characters: '{n} / {max} characters',
+    inCarTitle: 'In Car AI Coach Instructions',
+    inCarIntro: 'Tell the In-Car AI Coach what to do while drivers are on track. These instructions apply to every driver’s In-Car AI Coach, along with each driver’s own instructions from their Account page.',
+    inCarPlaceholder: 'For example: Keep callouts short and only talk on the straights.',
+    inCarSave: 'Save In Car AI Coach Instructions',
+    inCarSaved: 'In Car AI Coach Instructions saved.',
   },
 
   // The Support page (src/app/support/page.tsx): emails the user's issue to the site owner

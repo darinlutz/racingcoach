@@ -108,7 +108,7 @@ export const TRACK_CORNERS: TrackCorners[] = [
   { trackId: 'barcelona national', track: 'Circuit de Barcelona Catalunya', config: 'National', corners: 11 },
   { trackId: 'barcelona rallycross', track: 'Circuit de Barcelona Catalunya', config: 'Rallycross', corners: 9 },
   { trackId: 'ledenon', track: 'Circuit de Lédenon', config: 'Default', corners: 13 },
-  { trackId: 'magnycours grandprix', track: 'Circuit de Nevers Magny-Cours', config: 'Grand Prix', corners: 17 },
+  { trackId: 'magnycours gp', track: 'Circuit de Nevers Magny-Cours', config: 'Grand Prix', corners: 17 },
   { trackId: 'spa 2024 bike', track: 'Circuit de Spa-Francorchamps', config: 'Bike', corners: 21 },
   { trackId: 'spa 2024 low', track: 'Circuit de Spa-Francorchamps', config: 'Classic Pits', corners: 21 },
   { trackId: 'spa low', track: 'Circuit de Spa-Francorchamps', config: 'Classic Pits - 2010', corners: 21 },

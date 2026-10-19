@@ -30,7 +30,7 @@ const links = [
 ] as const;
 
 // Signed-out visitors who click these get the Log in box instead of the page
-const loginRequiredLinks: ReadonlySet<string> = new Set(['installing', 'coachingAnalysis']);
+const loginRequiredLinks: ReadonlySet<string> = new Set(['installing', 'coachingAnalysis', 'carsTracks', 'support']);
 
 // At the bottom, just above My Settings (or Log In)
 const bottomLinks = [

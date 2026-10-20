@@ -9,7 +9,7 @@ import { deleteUser } from '@/lib/users';
 
 // The Account page's Delete Account, for the signed-in user only (never an Admin). Cancels a live Stripe
 // subscription first so it isn't charged again, then deletes the account and everything tied to it except
-// the ActivityLog (deleteUser), and signs the browser out.
+// the ActivityLog, cancellation feedback and billing history (deleteUser), and signs the browser out.
 export async function DELETE() {
   const user = await getCurrentUser();
   const t = await apiText(user);

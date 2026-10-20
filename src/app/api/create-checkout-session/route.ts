@@ -61,7 +61,10 @@ export async function POST(request: Request) {
       billing_address_collection: 'auto',
       phone_number_collection: { enabled: false },
       automatic_tax: { enabled: false },
-      allow_promotion_codes: false,
+      // Stripe's checkout page takes a promotion code (made in the Stripe Dashboard), checks that it's active, not
+      // expired or used up and meets its restrictions, and shows the discounted price before paying. The webhook
+      // records the code from Stripe, never from the browser.
+      allow_promotion_codes: true,
       submit_type: 'auto',
       integration_identifier: 'hosted_web_0001',
       origin_context: 'web',
@@ -76,6 +79,11 @@ export async function POST(request: Request) {
         plan,
         app: STRIPE_APP,
         ...(replacesSubscription ? { replaces_subscription: replacesSubscription } : {}),
+      },
+      // The subscription carries them too, so its own events (which reach TalkNinja's webhook as well) say which
+      // app and account it belongs to (src/lib/stripeBilling.ts)
+      subscription_data: {
+        metadata: { app: STRIPE_APP, plan, user_id: String(user.id) },
       },
     };
 

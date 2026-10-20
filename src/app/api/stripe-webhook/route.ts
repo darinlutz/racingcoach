@@ -9,6 +9,12 @@ import {
 import { ACCOUNT_STATUS, parsePlan, type Plan } from '@/lib/accountStatus';
 import { notifyOwner } from '@/lib/ownerNotifications';
 import { STRIPE_APP } from '@/lib/stripePlans';
+import {
+  claimWebhookEvent,
+  finishWebhookEvent,
+  releaseWebhookEvent,
+  syncSubscription,
+} from '@/lib/stripeBilling';
 
 export async function POST(request: Request) {
   // Check if Stripe keys are configured
@@ -30,7 +36,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const stripe = new Stripe(stripeSecretKey);
+  const stripe = new Stripe(stripeSecretKey, { maxNetworkRetries: 2 });
 
   // Signature verification needs the raw, unparsed body
   let event: Stripe.Event;
@@ -46,6 +52,18 @@ export async function POST(request: Request) {
       { error: 'Invalid signature' },
       { status: 400 }
     );
+  }
+
+  // Stripe can deliver an event more than once; each is handled once (src/lib/stripeBilling.ts)
+  try {
+    const claim = await claimWebhookEvent(event);
+    if (claim === 'done') return NextResponse.json({ received: true, duplicate: true });
+    if (claim === 'busy') {
+      return NextResponse.json({ error: 'Event is being handled' }, { status: 409 });
+    }
+  } catch (error) {
+    console.error('Stripe webhook claim error:', error);
+    return NextResponse.json({ error: 'Webhook handling failed' }, { status: 500 });
   }
 
   try {
@@ -79,6 +97,8 @@ export async function POST(request: Request) {
         if (replaced && replaced !== session.subscription) {
           await cancelReplacedSubscription(stripe, replaced, plan);
         }
+        // The Subscribers page's copy, with the promotion code entered at checkout (session.discounts)
+        await syncSubscription(stripe, session.subscription, { userId, checkoutSession: session });
         await notifyOwnerOfPurchase(plan, userId);
         break;
       }
@@ -86,22 +106,41 @@ export async function POST(request: Request) {
       case 'invoice.paid': {
         const invoice = event.data.object;
         const subscription = invoice.parent?.subscription_details?.subscription;
+        if (!subscription) break;
+        const subscriptionId = typeof subscription === 'string' ? subscription : subscription.id;
+        await syncSubscription(stripe, subscriptionId, { invoiceIds: [invoice.id] });
         // The first invoice is handled by checkout.session.completed
-        if (invoice.billing_reason !== 'subscription_cycle' || !subscription) break;
+        if (invoice.billing_reason !== 'subscription_cycle') break;
         const periodEnd = Math.max(0, ...invoice.lines.data.map((line) => line.period.end));
         if (!periodEnd) {
           console.warn('Renewal invoice has no billing period:', invoice.id);
           break;
         }
-        await renewSubscription(
-          typeof subscription === 'string' ? subscription : subscription.id,
-          new Date(periodEnd * 1000).toISOString()
-        );
+        await renewSubscription(subscriptionId, new Date(periodEnd * 1000).toISOString());
+        break;
+      }
+      // A payment failed: the Subscribers page shows it (Stripe retries, then cancels per the Dashboard's settings)
+      case 'invoice.payment_failed': {
+        const invoice = event.data.object;
+        const subscription = invoice.parent?.subscription_details?.subscription;
+        if (!subscription) break;
+        await syncSubscription(stripe, typeof subscription === 'string' ? subscription : subscription.id, {
+          invoiceIds: [invoice.id],
+          paymentFailedAt: new Date(event.created * 1000),
+        });
+        break;
+      }
+      // Created, or changed (a plan change, a discount added or removed, a cancellation scheduled...): the
+      // Subscribers page's copy is refreshed from Stripe
+      case 'customer.subscription.created':
+      case 'customer.subscription.updated': {
+        await syncSubscription(stripe, event.data.object.id);
         break;
       }
       // Subscription ended (canceled here, in the Dashboard, or after failed payments)
       case 'customer.subscription.deleted': {
         await setStatusBySubscriptionId(event.data.object.id, ACCOUNT_STATUS.canceled);
+        await syncSubscription(stripe, event.data.object.id);
         break;
       }
       default:
@@ -110,12 +149,16 @@ export async function POST(request: Request) {
   } catch (error) {
     // A non-2xx response makes Stripe retry the event later
     console.error('Stripe webhook handling error:', error);
+    await releaseWebhookEvent(event.id).catch((releaseError) =>
+      console.error('Stripe webhook release error:', releaseError)
+    );
     return NextResponse.json(
       { error: 'Webhook handling failed' },
       { status: 500 }
     );
   }
 
+  await finishWebhookEvent(event.id).catch((error) => console.error('Stripe webhook finish error:', error));
   return NextResponse.json({ received: true });
 }
 

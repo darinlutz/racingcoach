@@ -26,7 +26,7 @@ import { isAdmin } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
 import { getShowPricing, getShowProDriverLesson } from '@/lib/siteSettings';
 
-// The site owner's Admin page: Site Settings (src/components/SiteSettingsManager.tsx), AI Model Control
+// The site owner's Admin page: a link to Subscribers (src/app/admin/subscribers/), Site Settings (src/components/SiteSettingsManager.tsx), AI Model Control
 // (src/components/AiModelManager.tsx), Rate Limiting (src/components/RateLimitManager.tsx), User Roles (src/components/UserRoleManager.tsx), Collector Logs
 // (src/components/CollectorLogsViewer.tsx), then racingcoach."ActivityLog",
 // every page view and click, filtered through the URL (so a filtered view can be bookmarked), with totals,
@@ -92,6 +92,19 @@ export default async function AdminPage({
         <h1 className="text-3xl font-bold bg-gradient-to-r from-primary-strong via-primary to-primary-strong bg-clip-text text-transparent">
           {a.pageTitle}
         </h1>
+
+        <div className="bg-secondary rounded-xl border border-border p-4 sm:p-6 flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 className="text-xl font-bold text-foreground">{t.subscribers.pageTitle}</h2>
+            <p className="text-sm text-muted-foreground">{t.subscribers.adminLinkHint}</p>
+          </div>
+          <Link
+            href={`/admin/subscribers?tz=${encodeURIComponent(filters.timeZone)}`}
+            className="px-5 py-2 rounded-lg text-sm font-semibold text-white bg-primary hover:bg-primary-strong transition-colors"
+          >
+            {t.subscribers.openSubscribers}
+          </Link>
+        </div>
 
         <SiteSettingsManager showPricing={showPricing} showProDriverLesson={showProDriverLesson} />
 

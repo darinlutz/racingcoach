@@ -22,6 +22,20 @@ export function getStripeConfig(plan: Plan): { stripe: Stripe; productId: string
   return { stripe: new Stripe(stripeSecretKey), productId };
 }
 
+// The plan a Stripe Product is sold as, or null when it isn't one of this app's plans (e.g. TalkNinja's)
+export function planForProduct(productId: string | null | undefined): Plan | null {
+  if (!productId) return null;
+  const entry = Object.entries(PLAN_PRODUCT_ENV).find(([, env]) => process.env[env] === productId);
+  return entry ? (entry[0] as Plan) : null;
+}
+
+// A Stripe client for reading billing data. Retries rate-limited (429) and failed requests with backoff,
+// which the Admin page's Sync from Stripe relies on when it pages through every subscription.
+export function stripeClient(): Stripe | null {
+  const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+  return stripeSecretKey ? new Stripe(stripeSecretKey, { maxNetworkRetries: 3 }) : null;
+}
+
 // The plan product's default Price, or null if the product has none
 export async function getPlanPrice(stripe: Stripe, productId: string): Promise<Stripe.Price | null> {
   const product = await stripe.products.retrieve(productId, {

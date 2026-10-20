@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
-import { isAdmin } from '@/lib/roles';
+import { canSeeSubscribers } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
 import { parseSubscriberFilters, readSubscriberExport, type SubscriberRow } from '@/lib/subscriberReport';
 
 // The Subscribers page's Export CSV button: the accounts matching the page's filters (same URL parameters), in its
-// order. Amounts are in the currency's minor units (cents), as Stripe gives them. Admin role only.
+// order. Amounts are in the currency's minor units (cents), as Stripe gives them. Coaches and Admins only.
 
 const COLUMNS: [string, (row: SubscriberRow, local: Intl.DateTimeFormat) => string | number | null][] = [
   ['user_id', (row) => row.userId],
@@ -44,7 +44,7 @@ function csvCell(value: string | number | null): string {
 export async function GET(request: Request) {
   try {
     const user = await getCurrentUser();
-    if (!user || !isAdmin(user.role)) {
+    if (!user || !canSeeSubscribers(user.role)) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
 

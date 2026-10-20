@@ -5,6 +5,7 @@ import AiModelManager from '@/components/AiModelManager';
 import CollectorLogsViewer from '@/components/CollectorLogsViewer';
 import RateLimitManager from '@/components/RateLimitManager';
 import SiteSettingsManager from '@/components/SiteSettingsManager';
+import SubscribersLinkCard from '@/components/SubscribersLinkCard';
 import UserRoleManager from '@/components/UserRoleManager';
 import {
   ACTIVITY_PAGE_SIZE,
@@ -93,18 +94,7 @@ export default async function AdminPage({
           {a.pageTitle}
         </h1>
 
-        <div className="bg-secondary rounded-xl border border-border p-4 sm:p-6 flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-bold text-foreground">{t.subscribers.pageTitle}</h2>
-            <p className="text-sm text-muted-foreground">{t.subscribers.adminLinkHint}</p>
-          </div>
-          <Link
-            href={`/admin/subscribers?tz=${encodeURIComponent(filters.timeZone)}`}
-            className="px-5 py-2 rounded-lg text-sm font-semibold text-white bg-primary hover:bg-primary-strong transition-colors"
-          >
-            {t.subscribers.openSubscribers}
-          </Link>
-        </div>
+        <SubscribersLinkCard t={t.subscribers} timeZone={filters.timeZone} />
 
         <SiteSettingsManager showPricing={showPricing} showProDriverLesson={showProDriverLesson} />
 

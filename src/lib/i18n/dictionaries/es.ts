@@ -1308,6 +1308,7 @@ export const es: Dictionary = {
     adminLinkHint: 'Todos los usuarios registrados, su suscripción y el código de descuento que usaron.',
     openSubscribers: 'Abrir Suscriptores',
     backToAdmin: '← Admin',
+    backToCoach: '← Coach',
     backToSubscribers: '← Suscriptores',
     syncButton: 'Sincronizar con Stripe',
     syncing: 'Sincronizando…',

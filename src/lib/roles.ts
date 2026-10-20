@@ -24,6 +24,9 @@ export const canSeeAllLaps = (role: string | null | undefined) => role === ROLES
 // Coaches and Admins see the Coach page and write the AI Coach Instructions
 export const canCoach = (role: string | null | undefined) => role === ROLES.admin || role === ROLES.coach;
 
+// Coaches and Admins see the Subscribers page (src/app/admin/subscribers/), linked from the Admin and Coach pages
+export const canSeeSubscribers = canCoach;
+
 // The In-Car AI Coach is for Gold members (and Admins): the collector's /api/collector/in-car-coach and the Account
 // page's In-Car AI Coach Instructions
 export const canUseInCarCoach = (user: { membershipLevel: string; role: string }) =>

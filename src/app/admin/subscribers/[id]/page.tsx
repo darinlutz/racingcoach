@@ -6,7 +6,7 @@ import SubscriptionStatusBadge from '@/components/SubscriptionStatusBadge';
 import { isTimeZone } from '@/lib/activityReport';
 import { fmt, LANGUAGE_LOCALES } from '@/lib/i18n/languages';
 import { getDictionary } from '@/lib/i18n/server';
-import { isAdmin } from '@/lib/roles';
+import { canSeeSubscribers } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
 import {
   type DiscountHistoryRow,
@@ -19,7 +19,7 @@ import {
 
 // One account on the Subscribers page: its details, every subscription it has had, every discount applied to them
 // (the original signup code first), payment status and cancellation feedback, with links to Stripe's Dashboard.
-// Admin role only; anyone else gets a 404.
+// Coaches and Admins only; anyone else gets a 404.
 
 const cardClass = 'bg-secondary rounded-xl border border-border p-4 sm:p-6';
 const linkClass = 'text-primary hover:text-primary-strong underline underline-offset-2 transition-colors';
@@ -32,7 +32,7 @@ export default async function SubscriberDetailsPage({
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const user = await getCurrentUser();
-  if (!user || !isAdmin(user.role)) notFound();
+  if (!user || !canSeeSubscribers(user.role)) notFound();
 
   const { id } = await params;
   const query = await searchParams;

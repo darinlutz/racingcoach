@@ -30,7 +30,7 @@ const links = [
 ] as const;
 
 // Signed-out visitors who click these get the Log in box instead of the page
-const loginRequiredLinks: ReadonlySet<string> = new Set(['installing', 'coachingAnalysis', 'carsTracks', 'support']);
+const loginRequiredLinks: ReadonlySet<string> = new Set(['installing', 'coachingAnalysis', 'carsTracks', 'support', 'pricing']);
 
 // At the bottom, just above My Settings (or Log In)
 const bottomLinks = [
@@ -120,7 +120,7 @@ export default function Navigation({ user, showPricing, showProDriverLesson }: N
           ) : (
             <>
               {visibleBottomLinks.map((link) => (
-                <Link key={link.key} href={link.href} className={navLink(link.href)}>{t.nav[link.key]}</Link>
+                <Link key={link.key} href={link.href} className={navLink(link.href)} onClick={guardLink(link.key, link.href)}>{t.nav[link.key]}</Link>
               ))}
               <Link href="/login" className={navLink('/login')}>{t.nav.logIn}</Link>
               <Link href="/signup" className={buttonVariants({ variant: 'racing', size: 'sm' })}>
@@ -180,7 +180,7 @@ export default function Navigation({ user, showPricing, showProDriverLesson }: N
               ) : (
                 <>
                   {visibleBottomLinks.map((link) => (
-                    <Link key={link.key} href={link.href} className={mobileLink(link.href)} onClick={closeMenu}>{t.nav[link.key]}</Link>
+                    <Link key={link.key} href={link.href} className={mobileLink(link.href)} onClick={guardLink(link.key, link.href)}>{t.nav[link.key]}</Link>
                   ))}
                   <Link href="/login" className={mobileLink('/login')} onClick={closeMenu}>{t.nav.logIn}</Link>
                   <Link href="/signup" className={mobileLink('/signup')} onClick={closeMenu}>{t.nav.getStarted}</Link>

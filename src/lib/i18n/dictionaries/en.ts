@@ -1334,6 +1334,7 @@ export const en = {
     adminLinkHint: 'Every registered user, their subscription and the discount code they used.',
     openSubscribers: 'Open Subscribers',
     backToAdmin: '← Admin',
+    backToCoach: '← Coach',
     backToSubscribers: '← Subscribers',
     syncButton: 'Sync from Stripe',
     syncing: 'Syncing…',

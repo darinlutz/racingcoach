@@ -1308,6 +1308,7 @@ export const pt: Dictionary = {
     adminLinkHint: 'Todos os usuários cadastrados, a assinatura e o código de desconto que usaram.',
     openSubscribers: 'Abrir Assinantes',
     backToAdmin: '← Admin',
+    backToCoach: '← Coach',
     backToSubscribers: '← Assinantes',
     syncButton: 'Sincronizar com o Stripe',
     syncing: 'Sincronizando…',

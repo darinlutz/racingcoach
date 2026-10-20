@@ -1,4 +1,5 @@
 import CoachInstructionsEditor from '@/components/CoachInstructionsEditor';
+import SubscribersLinkCard from '@/components/SubscribersLinkCard';
 import TrackMaintenance from '@/components/TrackMaintenance';
 import { getDictionary, getLanguage } from '@/lib/i18n/server';
 import { canCoach } from '@/lib/roles';
@@ -6,13 +7,14 @@ import { getCurrentUser } from '@/lib/session';
 import { getCoachInstructions, getHeadCoachInCarInstructions, MAX_COACH_INSTRUCTIONS } from '@/lib/siteSettings';
 import { listTracksForMaintenance } from '@/lib/trackMaintenance';
 
-// The Coach page: the AI Coach Instructions every driver's AI coaching follows (src/lib/siteSettings.ts), the
+// The Coach page: a link to Subscribers (src/components/SubscribersLinkCard.tsx), the AI Coach Instructions every driver's AI coaching follows (src/lib/siteSettings.ts), the
 // In-Car AI Coach Instructions every driver's In-Car AI Coach follows, then Track and Focus Area Maintenance
 // (src/components/TrackMaintenance.tsx).
 // Only Coaches and Admins can use it; anyone else (signed in or not) gets a message saying so.
 export default async function CoachPage() {
   const user = await getCurrentUser();
-  const t = getDictionary(await getLanguage(user)).coach;
+  const dictionary = getDictionary(await getLanguage(user));
+  const t = dictionary.coach;
   const allowed = user !== null && canCoach(user.role);
   const [instructions, inCarInstructions, tracks] = allowed
     ? await Promise.all([getCoachInstructions(), getHeadCoachInCarInstructions(), listTracksForMaintenance()])
@@ -26,6 +28,7 @@ export default async function CoachPage() {
         </h1>
         {allowed ? (
           <>
+            <SubscribersLinkCard t={dictionary.subscribers} />
             <CoachInstructionsEditor instructions={instructions} maxLength={MAX_COACH_INSTRUCTIONS} />
             <CoachInstructionsEditor instructions={inCarInstructions} maxLength={MAX_COACH_INSTRUCTIONS} inCar />
             <TrackMaintenance tracks={tracks} />

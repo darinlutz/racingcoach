@@ -6,7 +6,7 @@ import SubscriptionStatusBadge from '@/components/SubscriptionStatusBadge';
 import { PLANS } from '@/lib/accountStatus';
 import { fmt, LANGUAGE_LOCALES } from '@/lib/i18n/languages';
 import { getDictionary } from '@/lib/i18n/server';
-import { isAdmin } from '@/lib/roles';
+import { canSeeSubscribers, isAdmin } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
 import { ACTIVE_STATUSES } from '@/lib/stripeBilling';
 import {
@@ -26,7 +26,7 @@ import {
 
 // The Admin page's Subscribers page: Discount Code Usage, then every registered account with its current
 // subscription and original discount code (src/lib/subscriberReport.ts), searched, filtered, sorted and paged
-// through the URL, with a CSV export and Sync from Stripe. Admin role only; anyone else gets a 404.
+// through the URL, with a CSV export and Sync from Stripe. Coaches and Admins only; anyone else gets a 404.
 
 const inputClass =
   'w-full px-3 py-2 bg-card border border-border rounded-lg text-foreground text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors';
@@ -39,7 +39,7 @@ export default async function SubscribersPage({
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const user = await getCurrentUser();
-  if (!user || !isAdmin(user.role)) notFound();
+  if (!user || !canSeeSubscribers(user.role)) notFound();
 
   const params = await searchParams;
   const filters = parseSubscriberFilters(params);
@@ -99,8 +99,11 @@ export default async function SubscribersPage({
       <AdminTimeZone current={typeof params.tz === 'string' ? params.tz : null} />
       <div className="site-container space-y-6">
         <div>
-          <Link href={`/admin?tz=${encodeURIComponent(filters.timeZone)}`} className="text-sm text-muted-foreground hover:text-primary transition-colors">
-            {s.backToAdmin}
+          <Link
+            href={isAdmin(user.role) ? `/admin?tz=${encodeURIComponent(filters.timeZone)}` : '/coach'}
+            className="text-sm text-muted-foreground hover:text-primary transition-colors"
+          >
+            {isAdmin(user.role) ? s.backToAdmin : s.backToCoach}
           </Link>
           <h1 className="text-3xl font-bold bg-gradient-to-r from-primary-strong via-primary to-primary-strong bg-clip-text text-transparent">
             {s.pageTitle}

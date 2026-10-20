@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
-import { isAdmin } from '@/lib/roles';
+import { canSeeSubscribers } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
 import { importStripeSubscriptions, type ImportResult } from '@/lib/stripeBilling';
 import { stripeClient } from '@/lib/stripePlans';
 
 // The Subscribers page's Sync from Stripe: imports every subscription in the Stripe account and its discounts
-// (src/lib/stripeBilling.ts importStripeSubscriptions). Safe to run again. Admin role only; anyone else gets a 404.
+// (src/lib/stripeBilling.ts importStripeSubscriptions). Safe to run again. Coaches and Admins only; anyone else gets a 404.
 // One at a time per server, so a double click doesn't run it twice.
 
 // A big Stripe account takes a while: one request per subscription for its invoices, plus a preview of the next one
@@ -16,7 +16,7 @@ let running: Promise<ImportResult> | null = null;
 export async function POST() {
   try {
     const user = await getCurrentUser();
-    if (!user || !isAdmin(user.role)) {
+    if (!user || !canSeeSubscribers(user.role)) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
     const stripe = stripeClient();

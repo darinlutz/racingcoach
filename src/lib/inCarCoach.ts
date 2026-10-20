@@ -4,7 +4,9 @@ import { z } from 'zod';
 import { brakeChangeRule, createTools, hasTrackPosition, type DebriefSession } from './debriefCoach';
 import { DEFAULT_UNITS, DISTANCE_NAME, DISTANCE_UNIT, SPEED_UNIT, type Units } from './units';
 import { aiLanguageRule, DEFAULT_LANGUAGE, type Language } from './i18n/languages';
+import { LAP_TIME_RULE } from './lapData';
 import { coachInstructionsRule, getHeadCoachInCarInstructions } from './siteSettings';
+import { formatSeconds } from './stintExport';
 import { chatModel, getAiModel } from '@/lib/aiModels';
 
 // The In-Car AI Coach: the telemetry collector's coach while the driver is on track. Each user writes their own
@@ -217,7 +219,8 @@ const calloutPrompt = (units: Units) =>
   'went on something you said before (better or worse, with its number), or give the next most useful change. ' +
   'Only repeat earlier advice word for word when nothing else in the data is worth saying. ' +
   'Use the numbers from the data, never ' +
-  'invent data, talk to the driver as "you", and use plain text with no markdown.';
+  'invent data, talk to the driver as "you", and use plain text with no markdown.' +
+  LAP_TIME_RULE;
 
 export type InCarLap = { id: string; lapNumber: number; lapSeconds: number; incidents: number; offTrack: boolean };
 
@@ -255,7 +258,7 @@ export async function inCarCoachCallouts(input: {
 
   const lapLines = input.laps.map(
     (lap) =>
-      `[${lap.id}] lap ${lap.lapNumber}: ${lap.lapSeconds.toFixed(3)}s` +
+      `[${lap.id}] lap ${lap.lapNumber}: ${formatSeconds(lap.lapSeconds)}` +
       (lap.incidents > 0 ? `, ${lap.incidents} incident points` : '') +
       (lap.offTrack ? ', went off track' : '')
   );

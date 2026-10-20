@@ -76,6 +76,13 @@ export function formatLapTime(lapTime: string) {
   return `${Number(minutes)}:${seconds}.${millis}`;
 }
 
+// Added to the AI coaches' prompts; the data they're given already writes lap times this way (formatSeconds in
+// stintExport.ts), and this keeps lap times the model works out itself (e.g. a theoretical lap) the same
+export const LAP_TIME_RULE =
+  ' Write every whole-lap time (a lap, or the best, average, worst or theoretical lap) in minutes, seconds and ' +
+  'thousandths, e.g. "2:10.568", never as a number of seconds such as "130.568 s". Times through a focus area or ' +
+  'part of the lap, gaps between laps and standard deviations stay in seconds, e.g. "0.452 s".';
+
 // speeds are in m/s, as exported by Garage 61
 export const MPH_PER_METER_PER_SECOND = 2.23694;
 

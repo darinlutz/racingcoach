@@ -2,6 +2,7 @@ import { ChatPromptTemplate } from '@langchain/core/prompts';
 import { createAgent, tool } from 'langchain';
 import { z } from 'zod';
 import { aiLanguageRule, DEFAULT_LANGUAGE, type Language } from './i18n/languages';
+import { LAP_TIME_RULE } from './lapData';
 import type { LapDrivingLine } from './lapDrivingLine';
 import { coachInstructionsRule } from './siteSettings';
 import { DEFAULT_UNITS, DISTANCE_NAME, DISTANCE_UNIT, distanceFromMeters, roundLineOffset, SPEED_UNIT, type Units } from './units';
@@ -148,7 +149,7 @@ export async function summarizeLapComparison(
   const agent = createAgent({
     model: await chatModel('lapSummary', 0.3),
     tools: [analyzeDrivingLineTool(lines, areaNames, units)],
-    systemPrompt: lapSummaryPrompt(track, units) + (await coachInstructionsRule()) + aiLanguageRule(language),
+    systemPrompt: lapSummaryPrompt(track, units) + LAP_TIME_RULE + (await coachInstructionsRule()) + aiLanguageRule(language),
     responseFormat: lapSummarySchema,
   });
   const result = await agent.invoke({ messages: [{ role: 'user', content: comparison }] }, { recursionLimit: 20 });
@@ -193,7 +194,7 @@ export async function summarizeMultiLap(
     stats,
     track,
     ...unitWords(units),
-    rules: (await coachInstructionsRule()) + aiLanguageRule(language),
+    rules: LAP_TIME_RULE + (await coachInstructionsRule()) + aiLanguageRule(language),
   });
   return response.text.trim();
 }
@@ -224,6 +225,6 @@ export async function summarizeStint(report: string, track: string, language: La
 
   const model = await chatModel('stintSummary', 0.3);
   const chain = STINT_PROMPT_TEMPLATE.pipe(model);
-  const response = await chain.invoke({ report, track, rules: (await coachInstructionsRule()) + aiLanguageRule(language) });
+  const response = await chain.invoke({ report, track, rules: LAP_TIME_RULE + (await coachInstructionsRule()) + aiLanguageRule(language) });
   return response.text.trim();
 }

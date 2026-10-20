@@ -88,9 +88,11 @@ export async function parseStintExport(file: File): Promise<StintExport> {
   return { fileName: file.name, sectorCount: sectorColumns.length, laps };
 }
 
-// 110.8992 -> "1:50.899"
+// 110.8992 -> "1:50.899". Rounded to the millisecond first, so 119.9996 is "2:00.000", not "1:60.000".
+// Also how lap times are written for the AI coaches (LAP_TIME_RULE in lapData.ts).
 export function formatSeconds(seconds: number) {
-  return `${Math.floor(seconds / 60)}:${(seconds % 60).toFixed(3).padStart(6, '0')}`;
+  const millis = Math.round(seconds * 1000);
+  return `${Math.floor(millis / 60000)}:${((millis % 60000) / 1000).toFixed(3).padStart(6, '0')}`;
 }
 
 // compass: the eight directions from N clockwise, in the user's language (dictionary weather.compass)

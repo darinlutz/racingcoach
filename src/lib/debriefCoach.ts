@@ -2,9 +2,11 @@ import { AIMessage } from '@langchain/core/messages';
 import { createAgent, tool } from 'langchain';
 import { z } from 'zod';
 import { aiLanguageRule, DEFAULT_LANGUAGE, type Language } from './i18n/languages';
+import { LAP_TIME_RULE } from './lapData';
 import { planOptimalLap, segmentName, type OptimalLap } from './optimalLap';
 import { shiftLimit, type LapShifting } from './shifting';
 import { coachInstructionsRule } from './siteSettings';
+import { formatSeconds } from './stintExport';
 import {
   DEFAULT_UNITS,
   DISTANCE_NAME,
@@ -302,12 +304,12 @@ export function createTools(session: DebriefSession, units: Units = DEFAULT_UNIT
       const laps = [...cleanLaps].sort((a, b) => a.lapTime - b.lapTime);
       return [
         incidentLaps.length > 0
-          ? `Left out as incident laps (over ${cutoff.toFixed(3)}s, 110% of the median lap): ` +
-            `${incidentLaps.map((l) => `[${l.id}] ${l.lapTime.toFixed(3)}s`).join(', ')}. All statistics below use the other laps.`
+          ? `Left out as incident laps (over ${formatSeconds(cutoff)}, 110% of the median lap): ` +
+            `${incidentLaps.map((l) => `[${l.id}] ${formatSeconds(l.lapTime)}`).join(', ')}. All statistics below use the other laps.`
           : 'No incident laps were left out.',
-        `${session.track}, ${session.car}. ${times.length} laps: best ${Math.min(...times).toFixed(3)}s, ` +
-          `avg ${mean(times).toFixed(3)}s, worst ${Math.max(...times).toFixed(3)}s, std dev ${fixed(stdDev(times), 3, 's')}.`,
-        `Laps fastest to slowest: ${laps.map((l) => `[${l.id}] ${l.lapTime.toFixed(3)}s`).join(', ')}`,
+        `${session.track}, ${session.car}. ${times.length} laps: best ${formatSeconds(Math.min(...times))}, ` +
+          `avg ${formatSeconds(mean(times))}, worst ${formatSeconds(Math.max(...times))}, std dev ${fixed(stdDev(times), 3, 's')}.`,
+        `Laps fastest to slowest: ${laps.map((l) => `[${l.id}] ${formatSeconds(l.lapTime)}`).join(', ')}`,
         '',
         'Focus areas, most average time lost first:',
         ...[...areas]
@@ -409,7 +411,7 @@ export function createTools(session: DebriefSession, units: Units = DEFAULT_UNIT
       rows.sort((a, b) => b.delta - a.delta);
       const total = rows.reduce((sum, r) => sum + r.delta, 0);
       return [
-        `Lap [${match.id}] ${match.lapTime.toFixed(3)}s${match.lapTime > cutoff ? ' (an incident lap)' : ''}. Time lost to the best run in each focus area, most first ` +
+        `Lap [${match.id}] ${formatSeconds(match.lapTime)}${match.lapTime > cutoff ? ' (an incident lap)' : ''}. Time lost to the best run in each focus area, most first ` +
           `(${total.toFixed(3)}s in total):`,
         ...rows.map((r) => `+${r.delta.toFixed(3)}s ${r.text}`),
       ].join('\n');
@@ -607,7 +609,7 @@ export function createTools(session: DebriefSession, units: Units = DEFAULT_UNIT
             (hit.beforeUpshift ? ' before shifting up' : ' (no upshift after it)')
         );
         return (
-          `[${lap.id}] ${lap.lapTime.toFixed(3)}s: ${shifts.length > 0 ? shifts.join(', ') : 'no full-throttle upshifts'}` +
+          `[${lap.id}] ${formatSeconds(lap.lapTime)}: ${shifts.length > 0 ? shifts.join(', ') : 'no full-throttle upshifts'}` +
           (hits.length > 0 ? `; ${hits.join(', ')}` : '; never on the limiter') +
           (shifting.partThrottleUpshifts > 0 ? `; ${shifting.partThrottleUpshifts} part-throttle upshift(s) left out` : '')
         );
@@ -698,7 +700,7 @@ export function createTools(session: DebriefSession, units: Units = DEFAULT_UNIT
         '',
         `Fastest ${k} vs slowest ${k} laps (averages): ` +
           [
-            `lap time ${avgOf(fast.map((l) => l.lapTime), 3, 's')} vs ${avgOf(slow.map((l) => l.lapTime), 3, 's')}`,
+            `lap time ${formatSeconds(mean(fast.map((l) => l.lapTime)))} vs ${formatSeconds(mean(slow.map((l) => l.lapTime)))}`,
             `upshift ${avgShare(fast)} vs ${avgShare(slow)} of the limit`,
             `time on the limiter ${limiterSeconds(fast)} vs ${limiterSeconds(slow)} per lap`,
           ].join('; ') +
@@ -863,8 +865,8 @@ function assembleOptimalLapTool(plan: OptimalLap | null, session: DebriefSession
       const gain = plan.bestLap.lapTime - plan.lapTime;
       const laps = new Set(plan.segments.map((s) => s.lap));
       return [
-        `Theoretical lap ${plan.lapTime.toFixed(3)}s, ${gain.toFixed(3)}s faster than your best lap [${plan.bestLap.id}] ` +
-          `${plan.bestLap.lapTime.toFixed(3)}s, built from the fastest clean run through each of ${plan.segments.length} parts ` +
+        `Theoretical lap ${formatSeconds(plan.lapTime)}, ${gain.toFixed(3)}s faster than your best lap [${plan.bestLap.id}] ` +
+          `${formatSeconds(plan.bestLap.lapTime)}, built from the fastest clean run through each of ${plan.segments.length} parts ` +
           `of the track, taken from ${laps.size} lap${laps.size === 1 ? '' : 's'}. The driver can download it and set it ` +
           'as their Target Lap.',
         'Parts in lap order (time, lap it comes from, gain over your best lap):',
@@ -939,7 +941,8 @@ const systemPrompt = (units: Units) =>
   'nothing in the data explains the time, say the cause is not in the data instead of guessing. Use the numbers ' +
   `from the tools in the units they give (${DISTANCE_NAME[units]}, ${SPEED_UNIT[units]}), never invent data, write to ` +
   'the driver as "you", and use plain text with no markdown. Once you have your fixes, call assemble_optimal_lap ' +
-  'once and sum up the theoretical lap it builds in optimalLap.';
+  'once and sum up the theoretical lap it builds in optimalLap.' +
+  LAP_TIME_RULE;
 
 // "brake about 30 ft later", "braking earlier", "brake later" -> the direction words in a fix. Also
 // Portuguese ("freie uns 30 ft mais tarde") and Spanish ("frena más tarde"), for answers in those languages

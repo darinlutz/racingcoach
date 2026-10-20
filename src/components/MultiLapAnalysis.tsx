@@ -14,7 +14,7 @@ import {
   type LapFile,
   type Track,
 } from '@/lib/lapData';
-import { isStintExport, parseStintExport, type StintExport } from '@/lib/stintExport';
+import { formatSeconds, isStintExport, parseStintExport, type StintExport } from '@/lib/stintExport';
 import { DISTANCE_UNIT, distanceFromFeet, SPEED_UNIT, speedFromMetersPerSecond, type Units } from '@/lib/units';
 import { useUnits } from '@/components/UnitsProvider';
 import WeatherTable from '@/components/WeatherTable';
@@ -243,8 +243,8 @@ export default function MultiLapAnalysis() {
           const lapTimes = trackLaps.map((lap) => lapTimeToSeconds(lap.lapTime));
           const lapStdDev = sampleStdDev(lapTimes);
           const stats = [
-            `Lap times (${lapTimes.length} laps): best ${Math.min(...lapTimes).toFixed(3)}s, avg ${mean(lapTimes).toFixed(3)}s, ` +
-              `worst ${Math.max(...lapTimes).toFixed(3)}s, std dev ${lapStdDev === null ? 'n/a' : `${lapStdDev.toFixed(3)}s`}.`,
+            `Lap times (${lapTimes.length} laps): best ${formatSeconds(Math.min(...lapTimes))}, avg ${formatSeconds(mean(lapTimes))}, ` +
+              `worst ${formatSeconds(Math.max(...lapTimes))}, std dev ${lapStdDev === null ? 'n/a' : `${lapStdDev.toFixed(3)}s`}.`,
             '',
             ...areaSummaries.sort((a, b) => b.lost - a.lost).map((a) => a.text),
           ].join('\n');

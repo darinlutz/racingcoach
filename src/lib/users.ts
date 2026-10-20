@@ -670,6 +670,17 @@ export function ensureUserSchema(): Promise<void> {
         counted BOOLEAN NOT NULL DEFAULT true,
         failed BOOLEAN NOT NULL DEFAULT false
       )`);
+      // Tables made before counted was added get it here. A failed call was refunded, so it doesn't count
+      const [{ counted_missing: countedMissing }] = (
+        await client.query(`SELECT NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_schema = 'racingcoach' AND table_name = 'AiUsage' AND column_name = 'counted'
+        ) AS counted_missing`)
+      ).rows;
+      if (countedMissing) {
+        await client.query('ALTER TABLE racingcoach."AiUsage" ADD COLUMN counted BOOLEAN NOT NULL DEFAULT true');
+        await client.query('UPDATE racingcoach."AiUsage" SET counted = false WHERE failed');
+      }
       await client.query('CREATE INDEX IF NOT EXISTS ai_usage_occurred_at_idx ON racingcoach."AiUsage" (occurred_at)');
       await client.query('CREATE INDEX IF NOT EXISTS ai_usage_user_id_occurred_at_idx ON racingcoach."AiUsage" (user_id, occurred_at)');
       await client.query('CREATE INDEX IF NOT EXISTS ai_usage_ip_address_occurred_at_idx ON racingcoach."AiUsage" (ip_address, occurred_at)');

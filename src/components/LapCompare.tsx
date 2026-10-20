@@ -209,6 +209,24 @@ function formatAreaAdvice(areaName: string, c: AreaComparison, units: Units) {
     : `${areaName} advice: braking is about the same on both laps, so the time is in the speeds; do not give braking advice here.`;
 }
 
+// How many of the areas where the Compare lap lost the most time the summary must cover
+const TOP_LOSSES = 3;
+
+// The areas where the Compare lap lost the most time, most first, ranked here rather than by the model
+// so it can't miss the biggest one. Only sent to the summary.
+function formatTopLosses(areas: { name: string; secondsDiff: number }[]) {
+  const losses = areas
+    .filter((area) => area.secondsDiff > 0)
+    .sort((a, b) => b.secondsDiff - a.secondsDiff)
+    .slice(0, TOP_LOSSES);
+  if (losses.length === 0) return 'Biggest losses: none, the Compare lap was as fast or faster in every focus area.';
+  return (
+    'Biggest losses (most time lost first; the summary must cover these, starting with the first): ' +
+    losses.map((area) => `${area.name} ${formatSecondsDiff(area.secondsDiff)} s`).join(', ') +
+    '.'
+  );
+}
+
 // A table row: the comparison, or why there isn't one (in the user's language)
 type AreaRow = { name: string; comparison: AreaComparison | null; note: string };
 
@@ -583,7 +601,14 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
         // The table shows right away; the summary follows once the coach has written it
         setAnalysis(t.writing);
         const summary = await fetchSummary(
-          [lines.join('\n').trim(), '', 'Braking advice (follow exactly):', ...advice].join('\n'),
+          [
+            lines.join('\n').trim(),
+            '',
+            formatTopLosses(rows.flatMap((row) => (row.comparison ? [{ name: row.name, secondsDiff: row.comparison.secondsDiff }] : []))),
+            '',
+            'Braking advice (follow exactly):',
+            ...advice,
+          ].join('\n'),
           selectedTrack.fileName,
           drivingLines,
           selectedTrack.areas.map((a) => a.name),

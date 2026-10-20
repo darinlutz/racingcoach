@@ -107,12 +107,14 @@ const lapSummaryPrompt = (track: string, units: Units) =>
   `where each lap first touched the brake in ${DISTANCE_NAME[units]} from the start/finish line (later or earlier ` +
   'for the Compare lap), and the peak brake pressure for each lap (harder or lighter for the ' +
   `Compare lap), the minimum speed through the area (min speed, in ${SPEED_UNIT[units]}) for each lap, and the ` +
-  `speed at the end of the area (exit speed, in ${SPEED_UNIT[units]}) for each lap. Before writing, call ` +
-  'analyze_driving_line on the focus areas where the Compare lap lost the most time (at least the top two that ' +
-  'have track positions) to see whether the driving line explains the time. Write a summary of exactly 6 or 7 ' +
-  'sentences from the perspective of the Compare lap that answers: where on the track, and how, could the Compare ' +
-  'lap be better? Name the specific focus areas where the Compare lap lost the most time, use the numbers from the ' +
-  'data, and give concrete advice based on the brakepoint, brake pressure, min speed, exit speed and driving line ' +
+  `speed at the end of the area (exit speed, in ${SPEED_UNIT[units]}) for each lap. After the focus areas, a ` +
+  '"Biggest losses" line lists the focus areas where the Compare lap lost the most time, most first, already ranked ' +
+  'for you: trust it rather than ranking the areas yourself. Before writing, call analyze_driving_line on each ' +
+  'area in the "Biggest losses" line that has track positions, to see whether the driving line explains the time. ' +
+  'Write a summary of exactly 6 or 7 sentences from the perspective of the Compare lap that answers: where on the ' +
+  'track, and how, could the Compare lap be better? Start with the first area in the "Biggest losses" line, then ' +
+  'cover the others in it in that order (never leave out the first), use the numbers from the data, and give ' +
+  'concrete advice based on the brakepoint, brake pressure, min speed, exit speed and driving line ' +
   'differences. Briefly note where the Compare lap was already stronger. After the focus areas comes a "Braking ' +
   'advice" line for each area, worked out from the data: any braking advice you give for an area must use exactly ' +
   'that direction (later or earlier, more or less pressure) and number, and never the opposite. A Compare lap that braked ' +

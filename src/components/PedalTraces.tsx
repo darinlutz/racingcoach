@@ -16,11 +16,13 @@ import { DISTANCE_UNIT, distanceFromFeet } from '@/lib/units';
 // (#202124, dark): inside the lightness band, CVD separation ΔE 9.2 (deutan), contrast >= 3:1
 const BRAKE_COLOR = '#c9302c';
 const THROTTLE_COLOR = '#26a764';
+// The Compare lap's lines: lighter versions of the same colors, dotted
+const COMPARE_BRAKE_COLOR = '#f0807c';
+const COMPARE_THROTTLE_COLOR = '#7ad9a4';
+const DOTTED = '0 4'; // zero-length dashes with round caps draw dots
 
-const HEIGHT = 180;
+const HEIGHT = 220;
 const Y_TICKS = [0, 0.25, 0.5, 0.75, 1];
-// End labels closer than this (px) would collide, so the legend carries identity instead
-const MIN_LABEL_GAP = 14;
 
 export type PedalTraceLap = {
   title: string; // e.g. "Base lap · 1:25.488"
@@ -41,42 +43,48 @@ function useWidth() {
   return [ref, width] as const;
 }
 
-function LineKey({ color }: { color: string }) {
-  return <span className="inline-block w-3 h-0.5 rounded-full align-middle" style={{ backgroundColor: color }} />;
+function LineKey({ color, dotted = false }: { color: string; dotted?: boolean }) {
+  return dotted ? (
+    <span className="inline-block w-3 align-middle border-t-2 border-dotted" style={{ borderColor: color }} />
+  ) : (
+    <span className="inline-block w-3 h-0.5 rounded-full align-middle" style={{ backgroundColor: color }} />
+  );
 }
 
+// Both laps' brake and throttle on one chart: the Base lap in solid lines, the Compare lap in
+// lighter dotted ones
 function TraceChart({
   id,
-  lap,
+  base,
+  compare,
   axis,
   width,
   hoverPct,
   onHover,
 }: {
   id: string;
-  lap: PedalTraceLap;
+  base: PedalTraceLap;
+  compare: PedalTraceLap;
   axis: Axis;
   width: number;
   hoverPct: number | null;
   onHover: (pct: number | null) => void;
 }) {
   const { t } = useLanguage();
-  const { pcts, brakes, throttles } = lap.trace;
+  const laps = [
+    { key: 'base', lap: base, brakeColor: BRAKE_COLOR, throttleColor: THROTTLE_COLOR, dotted: false },
+    { key: 'compare', lap: compare, brakeColor: COMPARE_BRAKE_COLOR, throttleColor: COMPARE_THROTTLE_COLOR, dotted: true },
+  ];
   const [d0, d1] = axis.domain;
   const span = d1 - d0;
   const innerW = Math.max(width - MARGIN.left - MARGIN.right, 50);
   const innerH = HEIGHT - MARGIN.top - MARGIN.bottom;
   const x = (pct: number) => MARGIN.left + ((pct - d0) / span) * innerW;
   const y = (value: number) => MARGIN.top + (1 - clamp(value, 0, 1)) * innerH;
-  const path = (values: number[]) =>
+  const path = (pcts: number[], values: number[]) =>
     pcts.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(p).toFixed(1)},${y(values[i]).toFixed(1)}`).join('');
 
-  const last = pcts.length - 1;
-  const brakeEndY = y(brakes[last]);
-  const throttleEndY = y(throttles[last]);
-  const showEndLabels = Math.abs(brakeEndY - throttleEndY) >= MIN_LABEL_GAP;
-
-  const hoverIndex = hoverPct === null ? null : nearestIndex(pcts, hoverPct);
+  const hoverIndexes = hoverPct === null ? null : laps.map(({ lap }) => nearestIndex(lap.trace.pcts, hoverPct));
   const hoverX = hoverPct === null ? null : x(clamp(hoverPct, d0, d1));
 
   const positionFromPointer = (event: PointerEvent<SVGRectElement>) => {
@@ -95,13 +103,25 @@ function TraceChart({
 
   return (
     <figure className="relative">
-      <p className="text-sm font-semibold text-foreground mb-1">{lap.title}</p>
+      <div className="flex flex-wrap gap-x-6 gap-y-1 mb-1 text-xs text-muted-foreground">
+        {laps.map(({ key, lap, brakeColor, throttleColor, dotted }) => (
+          <span key={key} className="flex items-center gap-3">
+            <span className="text-sm font-semibold text-foreground">{lap.title}</span>
+            <span className="flex items-center gap-1.5">
+              <LineKey color={brakeColor} dotted={dotted} /> {t.charts.brake}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <LineKey color={throttleColor} dotted={dotted} /> {t.charts.throttle}
+            </span>
+          </span>
+        ))}
+      </div>
       <svg
         width={width}
         height={HEIGHT}
         tabIndex={0}
         role="img"
-        aria-label={`${lap.title}: ${lap.summary}`}
+        aria-label={laps.map(({ lap }) => `${lap.title}: ${lap.summary}`).join(' ')}
         onKeyDown={onKeyDown}
         onFocus={() => onHover(hoverPct ?? d0)}
         onBlur={() => onHover(null)}
@@ -128,22 +148,15 @@ function TraceChart({
           </text>
         ))}
 
+        {/* Base lap underneath, Compare lap's dots on top so they stay visible where the lines meet */}
         <g clipPath={`url(#${id}-plot)`} fill="none" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round">
-          <path d={path(throttles)} stroke={THROTTLE_COLOR} />
-          <path d={path(brakes)} stroke={BRAKE_COLOR} />
+          {laps.map(({ key, lap, brakeColor, throttleColor, dotted }) => (
+            <g key={key} strokeDasharray={dotted ? DOTTED : undefined} strokeWidth={dotted ? 2.5 : 2}>
+              <path d={path(lap.trace.pcts, lap.trace.throttles)} stroke={throttleColor} />
+              <path d={path(lap.trace.pcts, lap.trace.brakes)} stroke={brakeColor} />
+            </g>
+          ))}
         </g>
-
-        {/* Direct end labels when they don't collide; the legend always carries identity */}
-        {showEndLabels && (
-          <g fontSize={11} fill="currentColor">
-            <text x={MARGIN.left + innerW + 6} y={brakeEndY} dy="0.32em">
-              {t.charts.brake}
-            </text>
-            <text x={MARGIN.left + innerW + 6} y={throttleEndY} dy="0.32em">
-              {t.charts.throttle}
-            </text>
-          </g>
-        )}
 
         {hoverX !== null && (
           <line x1={hoverX} x2={hoverX} y1={MARGIN.top} y2={MARGIN.top + innerH} stroke="currentColor" strokeWidth={1} />
@@ -161,32 +174,47 @@ function TraceChart({
         />
       </svg>
 
-      {hoverIndex !== null && hoverX !== null && (
+      {hoverIndexes !== null && hoverX !== null && hoverPct !== null && (
         <div
-          className="pointer-events-none absolute top-6 z-10 px-3 py-2 rounded-lg border border-border bg-card shadow-lg text-xs"
+          className="pointer-events-none absolute top-8 z-10 px-3 py-2 rounded-lg border border-border bg-card shadow-lg text-xs"
           style={hoverX > width / 2 ? { right: width - hoverX + 8 } : { left: hoverX + 8 }}
         >
-          <p className="text-muted-foreground mb-1 tabular-nums">{positionLabel(pcts[hoverIndex], axis)}</p>
-          <p className="flex items-center gap-2">
-            <LineKey color={BRAKE_COLOR} />
-            <span className="font-semibold text-foreground tabular-nums">{Math.round(brakes[hoverIndex] * 100)}%</span>
-            <span className="text-muted-foreground">{t.charts.brake}</span>
-          </p>
-          <p className="flex items-center gap-2">
-            <LineKey color={THROTTLE_COLOR} />
-            <span className="font-semibold text-foreground tabular-nums">{Math.round(throttles[hoverIndex] * 100)}%</span>
-            <span className="text-muted-foreground">{t.charts.throttle}</span>
-          </p>
+          <p className="text-muted-foreground mb-1 tabular-nums">{positionLabel(hoverPct, axis)}</p>
+          {laps.map(({ key, lap, brakeColor, throttleColor, dotted }, i) => (
+            <div key={key} className={i > 0 ? 'mt-1.5' : ''}>
+              <p className="font-semibold text-foreground">{lap.title}</p>
+              <p className="flex items-center gap-2">
+                <LineKey color={brakeColor} dotted={dotted} />
+                <span className="font-semibold text-foreground tabular-nums">
+                  {Math.round(lap.trace.brakes[hoverIndexes[i]] * 100)}%
+                </span>
+                <span className="text-muted-foreground">{t.charts.brake}</span>
+              </p>
+              <p className="flex items-center gap-2">
+                <LineKey color={throttleColor} dotted={dotted} />
+                <span className="font-semibold text-foreground tabular-nums">
+                  {Math.round(lap.trace.throttles[hoverIndexes[i]] * 100)}%
+                </span>
+                <span className="text-muted-foreground">{t.charts.throttle}</span>
+              </p>
+            </div>
+          ))}
         </div>
       )}
 
-      <figcaption className="mt-1 text-xs text-muted-foreground">{lap.summary}</figcaption>
+      <figcaption className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+        {laps.map(({ key, lap }) => (
+          <p key={key}>
+            <span className="text-foreground">{lap.title}:</span> {lap.summary}
+          </p>
+        ))}
+      </figcaption>
     </figure>
   );
 }
 
-// Brake and throttle through one focus area for the Base and Compare laps, on the same horizontal axis,
-// with a crosshair that follows the pointer (or arrow keys) on all the charts at once. Below them, the
+// Brake and throttle through one focus area for the Base (solid) and Compare (lighter, dotted) laps on one
+// chart, with a crosshair that follows the pointer (or arrow keys) on all the charts at once. Below them, the
 // time the Compare lap gains or loses through the area (TimeDeltaTrace), both laps' steering angle on one
 // chart (SteeringTrace), then their driving lines on a map (TrackLineMap) with the crosshair's position
 // marked on each, and how far left or right of the Base lap's line the Compare lap was (DrivingLineDiffTrace).
@@ -204,7 +232,7 @@ export default function PedalTraces({
   base: PedalTraceLap;
   compare: PedalTraceLap;
 }) {
-  const { t, locale } = useLanguage();
+  const { locale } = useLanguage();
   const units = useUnits();
   const [containerRef, width] = useWidth();
   const [hoverPct, setHoverPct] = useState<number | null>(null);
@@ -217,18 +245,9 @@ export default function PedalTraces({
 
   return (
     <div ref={containerRef} className="space-y-4">
-      <p className="flex gap-4 text-xs text-muted-foreground">
-        <span className="flex items-center gap-1.5">
-          <LineKey color={BRAKE_COLOR} /> {t.charts.brake}
-        </span>
-        <span className="flex items-center gap-1.5">
-          <LineKey color={THROTTLE_COLOR} /> {t.charts.throttle}
-        </span>
-      </p>
       {width > 0 && (
         <>
-          <TraceChart id={`${id}-base`} lap={base} axis={axis} width={width} hoverPct={hoverPct} onHover={setHoverPct} />
-          <TraceChart id={`${id}-compare`} lap={compare} axis={axis} width={width} hoverPct={hoverPct} onHover={setHoverPct} />
+          <TraceChart id={`${id}-pedals`} base={base} compare={compare} axis={axis} width={width} hoverPct={hoverPct} onHover={setHoverPct} />
           <TimeDeltaTrace id={`${id}-delta`} base={base} compare={compare} axis={axis} width={width} hoverPct={hoverPct} onHover={setHoverPct} />
           <SteeringTrace id={`${id}-steering`} base={base} compare={compare} axis={axis} width={width} hoverPct={hoverPct} onHover={setHoverPct} />
           <TrackLineMap base={base} compare={compare} width={width} hoverPct={hoverPct} onHover={setHoverPct} />

@@ -50,10 +50,11 @@ export async function getAiModel(feature: AiFeature): Promise<AiModel> {
 const isReasoningModel = (model: string) => model.startsWith('gpt-5');
 
 // The chat model for a feature. Reasoning models get low effort instead of the temperature, since their
-// reasoning is billed as output tokens.
+// reasoning is billed as output tokens. They go through the Responses API, as Chat Completions refuses tools
+// with a reasoning effort for newer models (e.g. gpt-5.5), so read replies with .text, not .content.
 export async function chatModel(feature: AiFeature, temperature: number): Promise<ChatOpenAI> {
   const model = await getAiModel(feature);
   return isReasoningModel(model)
-    ? new ChatOpenAI({ model, reasoning: { effort: 'low' } })
+    ? new ChatOpenAI({ model, reasoning: { effort: 'low' }, useResponsesApi: true })
     : new ChatOpenAI({ model, temperature });
 }

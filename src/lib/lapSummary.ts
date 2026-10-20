@@ -195,7 +195,7 @@ export async function summarizeMultiLap(
     ...unitWords(units),
     rules: (await coachInstructionsRule()) + aiLanguageRule(language),
   });
-  return typeof response.content === 'string' ? response.content.trim() : '';
+  return response.text.trim();
 }
 
 const STINT_PROMPT_TEMPLATE = ChatPromptTemplate.fromMessages([
@@ -225,5 +225,5 @@ export async function summarizeStint(report: string, track: string, language: La
   const model = await chatModel('stintSummary', 0.3);
   const chain = STINT_PROMPT_TEMPLATE.pipe(model);
   const response = await chain.invoke({ report, track, rules: (await coachInstructionsRule()) + aiLanguageRule(language) });
-  return typeof response.content === 'string' ? response.content.trim() : '';
+  return response.text.trim();
 }

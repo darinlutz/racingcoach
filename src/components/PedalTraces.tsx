@@ -213,9 +213,9 @@ function TraceChart({
   );
 }
 
-// Brake and throttle through one focus area for the Base (solid) and Compare (lighter, dotted) laps on one
-// chart, with a crosshair that follows the pointer (or arrow keys) on all the charts at once. Below them, the
-// time the Compare lap gains or loses through the area (TimeDeltaTrace), both laps' steering angle on one
+// The time the Compare lap gains or loses through one focus area (TimeDeltaTrace), then brake and throttle
+// for the Base (solid) and Compare (lighter, dotted) laps on one chart, with a crosshair that follows the
+// pointer (or arrow keys) on all the charts at once. Below them, both laps' steering angle on one
 // chart (SteeringTrace), then their driving lines on a map (TrackLineMap) with the crosshair's position
 // marked on each, and how far left or right of the Base lap's line the Compare lap was (DrivingLineDiffTrace).
 // id must be unique on
@@ -247,8 +247,8 @@ export default function PedalTraces({
     <div ref={containerRef} className="space-y-4">
       {width > 0 && (
         <>
-          <TraceChart id={`${id}-pedals`} base={base} compare={compare} axis={axis} width={width} hoverPct={hoverPct} onHover={setHoverPct} />
           <TimeDeltaTrace id={`${id}-delta`} base={base} compare={compare} axis={axis} width={width} hoverPct={hoverPct} onHover={setHoverPct} />
+          <TraceChart id={`${id}-pedals`} base={base} compare={compare} axis={axis} width={width} hoverPct={hoverPct} onHover={setHoverPct} />
           <SteeringTrace id={`${id}-steering`} base={base} compare={compare} axis={axis} width={width} hoverPct={hoverPct} onHover={setHoverPct} />
           <TrackLineMap base={base} compare={compare} width={width} hoverPct={hoverPct} onHover={setHoverPct} />
           <DrivingLineDiffTrace id={`${id}-line`} base={base} compare={compare} axis={axis} width={width} hoverPct={hoverPct} onHover={setHoverPct} />

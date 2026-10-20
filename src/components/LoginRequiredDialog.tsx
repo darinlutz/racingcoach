@@ -15,7 +15,7 @@ type LoginRequiredDialogProps = {
 };
 
 // Shown by the nav bar when a signed-out visitor clicks a link to a page that needs an account
-// (Installing RacingCoach, Coaching & Analysis, Cars & Tracks, Support). Fades and scales like ConfirmDialog; Escape or a click outside closes it.
+// (Installing RacingCoach, Coaching & Analysis, Cars & Tracks, Support, Pricing). Fades and scales like ConfirmDialog; Escape or a click outside closes it.
 export default function LoginRequiredDialog({ open, returnTo, onClose }: LoginRequiredDialogProps) {
   const { t } = useLanguage();
   const logInRef = useRef<HTMLAnchorElement>(null);

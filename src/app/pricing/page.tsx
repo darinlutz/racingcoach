@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { Check, Info, Medal } from 'lucide-react';
 import { buttonVariants } from '@/components/Button';
 import type Stripe from 'stripe';
@@ -12,6 +13,7 @@ import {
 import type { Dictionary } from '@/lib/i18n/dictionaries/en';
 import { fmt } from '@/lib/i18n/languages';
 import { getDictionary, getLanguage } from '@/lib/i18n/server';
+import { withReturnTo } from '@/lib/returnTo';
 import { getCurrentUser } from '@/lib/session';
 import { annualDiscountPercent, formatPrice, getPlanPrice, getStripeConfig } from '@/lib/stripePlans';
 import { canBuy, type User } from '@/lib/users';
@@ -99,6 +101,8 @@ export default async function PricingPage() {
     loadPrice('gold_monthly'),
     loadPrice('gold_annual'),
   ]);
+  // Like Coaching & Analysis, signed-out visitors log in first and come back here
+  if (!user) redirect(withReturnTo('/login', '/pricing'));
   const t = getDictionary(await getLanguage(user)).pricing;
   const prices: Record<PaidLevel, { monthly: Stripe.Price | null; annual: Stripe.Price | null }> = {
     Silver: { monthly: silverMonthly, annual: silverAnnual },

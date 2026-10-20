@@ -596,6 +596,7 @@ export const pt: Dictionary = {
     compareLapSlower: 'Volta comparada {seconds} s mais lenta',
     compareLapFaster: 'Volta comparada {seconds} s mais rápida',
     mostTimeLost: 'maior perda de tempo',
+    collapseAllAreas: 'Recolher todas as áreas',
   },
 
   charts: {

@@ -608,6 +608,7 @@ export const en = {
     compareLapSlower: 'Compare lap {seconds} s slower',
     compareLapFaster: 'Compare lap {seconds} s faster',
     mostTimeLost: 'most time lost',
+    collapseAllAreas: 'Collapse All Areas',
   },
 
   // The charts under each focus area in Lap Compare

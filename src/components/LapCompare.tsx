@@ -477,6 +477,8 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
     { name: string; diff: number; base: PedalTraceLap; compare: PedalTraceLap }[]
   >([]);
   const [analyzing, setAnalyzing] = useState(false);
+  // Names of the focus areas whose pedal traces are expanded
+  const [openAreas, setOpenAreas] = useState<Set<string>>(new Set());
 
   // Starts on the initial laps' track when there are any, otherwise the first track
   const initialTrack = initialLaps?.base.trackName;
@@ -597,6 +599,11 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
         }
         setAreaRows(rows);
         setTraces(areaTraces);
+        const worst = areaTraces.reduce<(typeof areaTraces)[number] | null>(
+          (w, trace) => (!w || trace.diff > w.diff ? trace : w),
+          null
+        );
+        setOpenAreas(new Set(worst && worst.diff > 0 ? [worst.name] : []));
 
         // The table shows right away; the summary follows once the coach has written it
         setAnalysis(t.writing);
@@ -622,6 +629,17 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
       setAnalyzing(false);
     }
   };
+
+  // Shown above the first and after the last focus area while any of them is expanded
+  const collapseAllButton = traces.some((area) => openAreas.has(area.name)) && (
+    <button
+      type="button"
+      onClick={() => setOpenAreas(new Set())}
+      className="px-3 py-1 text-xs font-medium text-foreground bg-card border border-border rounded-md hover:bg-secondary transition-colors"
+    >
+      {t.collapseAllAreas}
+    </button>
+  );
 
   return (
     <div className="bg-secondary rounded-xl border border-border p-8 space-y-6">
@@ -702,10 +720,25 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
           <div className="space-y-2">
             <h3 className="text-sm font-medium text-foreground">{t.pedalTraces}</h3>
             <p className="text-xs text-muted-foreground">{t.pedalTracesIntro}</p>
+            {collapseAllButton}
             {traces.map((area, index) => {
               const isWorst = index === worstTraceIndex && area.diff > 0;
               return (
-                <details key={area.name} open={isWorst} className="bg-card border border-border rounded-lg">
+                <details
+                  key={area.name}
+                  open={openAreas.has(area.name)}
+                  onToggle={(e) => {
+                    const isOpen = e.currentTarget.open;
+                    setOpenAreas((prev) => {
+                      if (prev.has(area.name) === isOpen) return prev;
+                      const next = new Set(prev);
+                      if (isOpen) next.add(area.name);
+                      else next.delete(area.name);
+                      return next;
+                    });
+                  }}
+                  className="bg-card border border-border rounded-lg"
+                >
                   <summary className="cursor-pointer px-4 py-3 text-sm">
                     <span className="font-semibold text-foreground">{area.name}</span>
                     <span className="text-muted-foreground">
@@ -731,6 +764,7 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
                 </details>
               );
             })}
+            {collapseAllButton}
           </div>
         )}
       </div>

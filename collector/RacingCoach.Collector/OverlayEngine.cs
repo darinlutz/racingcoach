@@ -265,7 +265,8 @@ internal sealed partial class OverlayEngine
         }
         return measured with
         {
-            Brake = Localize(Text(Call("GetBrakepointDiffTarget", area))),
+            // "3 ft late", or "2.3 m early" for Metric
+            Brake = Localize(Text(Call("GetBrakepointDiffTarget", area)), metersFormat: "0.0"),
             BrakeColor = Text(Call("GetBrakepointColorTarget", area)),
             Force = Localize(Text(Call("GetBrakePressureDiffTarget", area))),
             ForceColor = Text(Call("GetBrakePressureDiffTargetColor", area)),
@@ -327,20 +328,21 @@ internal sealed partial class OverlayEngine
 
     /// <summary>The script's text in the user's units and language: for Metric, "12 ft late" becomes "4 m late"
     /// and its speeds (already kph, from SpeedLocal) are labeled km/h; then its words and decimal points are the
-    /// language's, e.g. "4 m depois" and "+0,12 s" in Portuguese.</summary>
-    private string Localize(string text)
+    /// language's, e.g. "4 m depois" and "+0,12 s" in Portuguese. Feet are shown as whole numbers, and meters
+    /// in <paramref name="metersFormat"/>.</summary>
+    private string Localize(string text, string metersFormat = "0")
     {
         if (text.Length == 0)
             return text;
-        if (_metric)
+        text = FeetText().Replace(text, m =>
         {
-            text = FeetText().Replace(text, m =>
-            {
-                var feet = double.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture);
-                return Math.Round(feet * MetersPerFoot).ToString("0", CultureInfo.InvariantCulture) + " m";
-            });
+            var feet = double.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture);
+            return _metric
+                ? (feet * MetersPerFoot).ToString(metersFormat, CultureInfo.InvariantCulture) + " m"
+                : Math.Round(feet).ToString("0", CultureInfo.InvariantCulture) + " ft";
+        });
+        if (_metric)
             text = MphText().Replace(text, Loc.SpeedUnit(metric: true));
-        }
         var language = _language;
         if (language == Loc.English)
             return text;

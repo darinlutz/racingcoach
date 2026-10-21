@@ -6,8 +6,8 @@ import { USAGE_RANGES, type RateLimitOverride, type UsageRange } from '@/lib/rat
 import type { UsageReport, UsageRow } from '@/lib/rateLimits';
 
 // The Rate Limiting section's AI usage report (GET /api/admin/rate-limits/usage): every AI call in a range, by
-// user (a visitor who isn't signed in by IP address) or by IP address, with totals, calls by feature, and each
-// row's usage of the limit that applies to it now. Set Limit opens the section's override form for the row;
+// user (a visitor who isn't signed in by IP address) or by IP address, with totals, calls and OpenAI tokens by
+// feature (src/lib/aiTokenUsage.ts), and each row's usage of the limit that applies to it now. Set Limit opens the section's override form for the row;
 // Reset starts its count over (POST /api/admin/rate-limits/reset).
 
 export type LimitTarget = { userId: number } | { ipAddress: string };
@@ -97,15 +97,24 @@ export default function AiUsageReport({
 
   const formatTime = new Intl.DateTimeFormat(locale, { timeZone, dateStyle: 'short', timeStyle: 'short' });
   const featureName = (feature: string) => a.aiFeatures[feature] ?? feature;
+  // Token counts get large: 12345678 -> "12M"
+  const compact = new Intl.NumberFormat(locale, { notation: 'compact', maximumFractionDigits: 1 });
+  const tokens = (n: number) => compact.format(n);
   const totals = report?.totals;
-  const tiles = totals
+  const tiles: { label: string; value: string; note?: string }[] = totals
     ? [
-        { label: r.calls, value: totals.calls },
-        { label: r.weighted, value: totals.weighted },
-        { label: r.blocked, value: totals.blocked },
-        { label: r.failedCalls, value: totals.failed },
-        { label: r.users, value: totals.users },
-        { label: r.ips, value: totals.ips },
+        { label: r.calls, value: number(totals.calls) },
+        { label: r.weighted, value: number(totals.weighted) },
+        { label: r.blocked, value: number(totals.blocked) },
+        { label: r.failedCalls, value: number(totals.failed) },
+        { label: r.users, value: number(totals.users) },
+        { label: r.ips, value: number(totals.ips) },
+        {
+          label: r.inputTokens,
+          value: tokens(totals.inputTokens),
+          note: totals.cachedInputTokens > 0 ? fmt(r.cachedTokens, { n: tokens(totals.cachedInputTokens) }) : undefined,
+        },
+        { label: r.outputTokens, value: tokens(totals.outputTokens) },
       ]
     : [];
   const maxFeature = Math.max(1, ...(report?.features ?? []).map((f) => f.calls + f.blocked));
@@ -158,11 +167,12 @@ export default function AiUsageReport({
 
       {report && (
         <>
-          <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
+          <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
             {tiles.map((tile) => (
               <div key={tile.label} className="bg-card rounded-xl border border-border px-4 py-3">
                 <p className="text-xs font-medium text-muted-foreground">{tile.label}</p>
-                <p className="text-2xl font-bold text-foreground tabular-nums">{number(tile.value)}</p>
+                <p className="text-2xl font-bold text-foreground tabular-nums">{tile.value}</p>
+                {tile.note && <p className="text-xs text-muted-foreground tabular-nums">{tile.note}</p>}
               </div>
             ))}
           </div>
@@ -184,6 +194,29 @@ export default function AiUsageReport({
                       <div className="h-1.5 bg-primary" style={{ width: `${(f.calls / maxFeature) * 100}%` }} />
                       <div className="h-1.5 bg-red-400/70" style={{ width: `${(f.blocked / maxFeature) * 100}%` }} />
                     </div>
+                    <div className="mt-1 text-xs text-muted-foreground tabular-nums">
+                      {f.trackedCalls === 0 ? (
+                        <p>{r.noTokens}</p>
+                      ) : (
+                        <>
+                          <p>
+                            {fmt(r.featureTokens, {
+                              input: tokens(f.inputTokens),
+                              cached: tokens(f.cachedInputTokens),
+                              output: tokens(f.outputTokens),
+                            })}
+                          </p>
+                          {/* Averages over the calls with tokens recorded, so calls from before don't drag them down */}
+                          <p>
+                            {fmt(r.perCall, {
+                              tokens: tokens((f.inputTokens + f.outputTokens) / f.trackedCalls),
+                              modelCalls: (f.modelCalls / f.trackedCalls).toLocaleString(locale, { maximumFractionDigits: 1 }),
+                            })}
+                          </p>
+                          {f.models && <p className="truncate">{f.models}</p>}
+                        </>
+                      )}
+                    </div>
                   </li>
                 ))}
               </ol>
@@ -195,7 +228,7 @@ export default function AiUsageReport({
               <table className="w-full text-sm">
                 <thead className="text-left text-xs text-muted-foreground border-b border-border">
                   <tr>
-                    {[by === 'user' ? a.user : r.ipAddress, by === 'user' ? r.level : r.accountsHeading, r.calls, r.weighted, r.blocked, r.current, r.features, r.lastCall, ''].map(
+                    {[by === 'user' ? a.user : r.ipAddress, by === 'user' ? r.level : r.accountsHeading, r.calls, r.weighted, r.tokens, r.blocked, r.current, r.features, r.lastCall, ''].map(
                       (heading, i) => (
                         <th key={i} className="px-3 py-2 font-medium whitespace-nowrap">{heading}</th>
                       )
@@ -205,7 +238,7 @@ export default function AiUsageReport({
                 <tbody className="divide-y divide-border">
                   {report.rows.length === 0 && (
                     <tr>
-                      <td colSpan={9} className="px-3 py-8 text-center text-muted-foreground">{r.noUsage}</td>
+                      <td colSpan={10} className="px-3 py-8 text-center text-muted-foreground">{r.noUsage}</td>
                     </tr>
                   )}
                   {report.rows.map((row) => {
@@ -242,6 +275,11 @@ export default function AiUsageReport({
                         </td>
                         <td className="px-3 py-2 tabular-nums text-foreground">{number(row.calls)}</td>
                         <td className="px-3 py-2 tabular-nums text-foreground">{number(row.weighted)}</td>
+                        <td className="px-3 py-2 tabular-nums text-xs text-muted-foreground whitespace-nowrap">
+                          {row.inputTokens + row.outputTokens === 0
+                            ? '—'
+                            : fmt(r.tokensInOut, { input: tokens(row.inputTokens), output: tokens(row.outputTokens) })}
+                        </td>
                         <td className={`px-3 py-2 tabular-nums ${row.blocked > 0 ? 'text-red-400' : 'text-muted-foreground'}`}>
                           {number(row.blocked)}
                           {row.failed > 0 && <p className="text-xs text-muted-foreground">{fmt(r.failedCount, { n: number(row.failed) })}</p>}

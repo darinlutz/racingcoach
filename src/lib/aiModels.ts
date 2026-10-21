@@ -1,6 +1,7 @@
 import { ChatOpenAI } from '@langchain/openai';
 import { query } from '@/lib/db';
 import { AI_FEATURES, type AiFeature, type AiModel, isAiFeature, isAiModel } from '@/lib/aiModelList';
+import { tokenUsageCallbacks } from '@/lib/aiTokenUsage';
 import { ensureUserSchema } from '@/lib/users';
 
 export * from '@/lib/aiModelList';
@@ -51,10 +52,12 @@ const isReasoningModel = (model: string) => model.startsWith('gpt-5');
 
 // The chat model for a feature. Reasoning models get low effort instead of the temperature, since their
 // reasoning is billed as output tokens. They go through the Responses API, as Chat Completions refuses tools
-// with a reasoning effort for newer models (e.g. gpt-5.5), so read replies with .text, not .content.
+// with a reasoning effort for newer models (e.g. gpt-5.5), so read replies with .text, not .content. Inside an
+// AI route's limit.track(), every call's tokens are added to its AiUsage row (src/lib/aiTokenUsage.ts).
 export async function chatModel(feature: AiFeature, temperature: number): Promise<ChatOpenAI> {
   const model = await getAiModel(feature);
+  const callbacks = tokenUsageCallbacks(model);
   return isReasoningModel(model)
-    ? new ChatOpenAI({ model, reasoning: { effort: 'low' }, useResponsesApi: true })
-    : new ChatOpenAI({ model, temperature });
+    ? new ChatOpenAI({ model, reasoning: { effort: 'low' }, useResponsesApi: true, callbacks })
+    : new ChatOpenAI({ model, temperature, callbacks });
 }

@@ -1,6 +1,7 @@
 import { isIP } from 'node:net';
 import { NextResponse } from 'next/server';
 import type { PoolClient } from 'pg';
+import { withAiUsage } from './aiTokenUsage';
 import { query, transaction } from './db';
 import { getDictionary, getLanguage } from './i18n/server';
 import { fmt, LANGUAGE_LOCALES, type Language } from './i18n/languages';
@@ -240,9 +241,12 @@ export type AiRateLimit = {
   response: NextResponse | null;
   // Call when the AI call failed, so it doesn't count against the limit
   refund: () => Promise<void>;
+  // Runs the AI work so its tokens are recorded on this call's AiUsage row (src/lib/aiTokenUsage.ts)
+  track: <T>(work: () => Promise<T>) => Promise<T>;
 };
 
 const noRefund = async () => {};
+const untracked = <T>(work: () => Promise<T>) => work();
 
 // The gate before every AI call: logs it, and refuses it while limits are on and the caller has used theirs up.
 // user is the signed-in (or collector or Discord) user, null for a visitor; request is null where the caller's
@@ -269,7 +273,7 @@ export async function aiRateLimit(request: Request | null, feature: RateLimitedF
     pruneOldUsage();
   } catch (error) {
     console.error(`AI rate limit check failed for ${feature}; allowing the call:`, error);
-    return { response: null, refund: noRefund };
+    return { response: null, refund: noRefund, track: untracked };
   }
 
   if (!decision.refusal) {
@@ -283,6 +287,7 @@ export async function aiRateLimit(request: Request | null, feature: RateLimitedF
           console.error('Failed to refund an AI call:', error);
         }
       },
+      track: (work) => withAiUsage(id, work),
     };
   }
 
@@ -299,6 +304,7 @@ export async function aiRateLimit(request: Request | null, feature: RateLimitedF
       }
     ),
     refund: noRefund,
+    track: untracked,
   };
 }
 
@@ -458,6 +464,9 @@ export type UsageRow = {
   weighted: number;
   blocked: number;
   failed: number;
+  // OpenAI tokens, added up over the calls' model calls (0 for calls from before tokens were recorded)
+  inputTokens: number;
+  outputTokens: number;
   // Users view: how many IP addresses the user called from. IP addresses view: how many accounts called from it
   distinct: number;
   names: string | null;
@@ -467,9 +476,33 @@ export type UsageRow = {
   override: OverrideMode | null;
 };
 
+export type UsageFeature = {
+  feature: string;
+  calls: number;
+  blocked: number;
+  inputTokens: number;
+  cachedInputTokens: number;
+  outputTokens: number;
+  // Calls with tokens recorded and their model calls, for the averages per call
+  trackedCalls: number;
+  modelCalls: number;
+  // The models the calls used, e.g. "gpt-5-mini, gpt-5.5"
+  models: string | null;
+};
+
 export type UsageReport = {
-  totals: { calls: number; weighted: number; blocked: number; failed: number; users: number; ips: number };
-  features: { feature: string; calls: number; blocked: number }[];
+  totals: {
+    calls: number;
+    weighted: number;
+    blocked: number;
+    failed: number;
+    users: number;
+    ips: number;
+    inputTokens: number;
+    cachedInputTokens: number;
+    outputTokens: number;
+  };
+  features: UsageFeature[];
   rows: UsageRow[];
 };
 
@@ -493,6 +526,9 @@ export async function readUsageReport(range: UsageRange, by: 'user' | 'ip', sear
     coalesce(sum(a.weight) FILTER (WHERE a.allowed AND NOT a.failed), 0) AS weighted,
     count(*) FILTER (WHERE NOT a.allowed) AS blocked,
     count(*) FILTER (WHERE a.failed) AS failed,
+    coalesce(sum(a.input_tokens), 0) AS input_tokens,
+    coalesce(sum(a.cached_input_tokens), 0) AS cached_input_tokens,
+    coalesce(sum(a.output_tokens), 0) AS output_tokens,
     max(a.occurred_at) AS last_at`;
 
   const [settings, overrides, totalsRows, featureRows] = await Promise.all([
@@ -503,8 +539,11 @@ export async function readUsageReport(range: UsageRange, by: 'user' | 'ip', sear
       params
     ),
     query(
-      `SELECT a.feature, count(*) FILTER (WHERE a.allowed) AS calls, count(*) FILTER (WHERE NOT a.allowed) AS blocked
-       FROM ${from} WHERE ${filter} GROUP BY a.feature ORDER BY calls DESC`,
+      `SELECT a.feature, count(*) FILTER (WHERE a.allowed) AS calls, count(*) FILTER (WHERE NOT a.allowed) AS blocked,
+              coalesce(sum(a.input_tokens), 0) AS input_tokens, coalesce(sum(a.cached_input_tokens), 0) AS cached_input_tokens,
+              coalesce(sum(a.output_tokens), 0) AS output_tokens, count(*) FILTER (WHERE a.model_calls > 0) AS tracked_calls,
+              coalesce(sum(a.model_calls), 0) AS model_calls, string_agg(DISTINCT a.model, ', ') AS models
+       FROM ${from} WHERE ${filter} GROUP BY a.feature ORDER BY input_tokens + output_tokens DESC, calls DESC`,
       params
     ),
   ]);
@@ -555,6 +594,8 @@ export async function readUsageReport(range: UsageRange, by: 'user' | 'ip', sear
       weighted: Number(row.weighted),
       blocked: Number(row.blocked),
       failed: Number(row.failed),
+      inputTokens: Number(row.input_tokens),
+      outputTokens: Number(row.output_tokens),
       distinct: Number(row.distinct_count),
       names: row.names ?? null,
       lastAt: new Date(row.last_at).toISOString(),
@@ -575,8 +616,21 @@ export async function readUsageReport(range: UsageRange, by: 'user' | 'ip', sear
       failed: Number(totals.failed),
       users: Number(totals.users),
       ips: Number(totals.ips),
+      inputTokens: Number(totals.input_tokens),
+      cachedInputTokens: Number(totals.cached_input_tokens),
+      outputTokens: Number(totals.output_tokens),
     },
-    features: featureRows.map((row) => ({ feature: row.feature, calls: Number(row.calls), blocked: Number(row.blocked) })),
+    features: featureRows.map((row) => ({
+      feature: row.feature,
+      calls: Number(row.calls),
+      blocked: Number(row.blocked),
+      inputTokens: Number(row.input_tokens),
+      cachedInputTokens: Number(row.cached_input_tokens),
+      outputTokens: Number(row.output_tokens),
+      trackedCalls: Number(row.tracked_calls),
+      modelCalls: Number(row.model_calls),
+      models: row.models ?? null,
+    })),
     rows,
   };
 }

@@ -38,7 +38,8 @@ export async function POST(request: Request) {
     if (limit.response) return limit.response;
     // For the shifting tool; without it the coach falls back to the RPM in the laps
     const rpmLimit = await carRpmLimit(user?.id ?? null, parsed.data.car).catch(() => null);
-    const { debrief, steps, optimalLap } = await runDebriefCoach(parsed.data, await getLanguage(user), await getUnits(user), rpmLimit);
+    const [language, units] = await Promise.all([getLanguage(user), getUnits(user)]);
+    const { debrief, steps, optimalLap } = await limit.track(() => runDebriefCoach(parsed.data, language, units, rpmLimit));
 
     // Kept for signed-in users (e.g. for the Discord bot's /coach debrief). Saving is extra, so a failure
     // is logged rather than costing them the debrief.

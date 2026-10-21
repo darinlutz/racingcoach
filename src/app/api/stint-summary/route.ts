@@ -31,7 +31,8 @@ export async function POST(request: Request) {
     const user = await getCurrentUser();
     limit = await aiRateLimit(request, 'stintSummary', user);
     if (limit.response) return limit.response;
-    const summary = await summarizeStint(report, track, await getLanguage(user));
+    const language = await getLanguage(user);
+    const summary = await limit.track(() => summarizeStint(report, track, language));
 
     return NextResponse.json({ success: true, summary }, { status: 200 });
   } catch (error) {

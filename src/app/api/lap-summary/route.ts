@@ -40,13 +40,16 @@ export async function POST(request: Request) {
     const user = await getCurrentUser();
     limit = await aiRateLimit(request, 'lapSummary', user);
     if (limit.response) return limit.response;
-    const summary = await summarizeLapComparison(
-      comparison,
-      track,
-      await getLanguage(user),
-      await getUnits(user),
-      lines.data,
-      areaNames.data.length > 0 ? areaNames.data : lines.data.map((l) => l.area)
+    const [language, units] = await Promise.all([getLanguage(user), getUnits(user)]);
+    const summary = await limit.track(() =>
+      summarizeLapComparison(
+        comparison,
+        track,
+        language,
+        units,
+        lines.data,
+        areaNames.data.length > 0 ? areaNames.data : lines.data.map((l) => l.area)
+      )
     );
 
     return NextResponse.json({ success: true, summary }, { status: 200 });

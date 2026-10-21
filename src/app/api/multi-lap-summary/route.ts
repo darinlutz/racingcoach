@@ -30,7 +30,8 @@ export async function POST(request: Request) {
     const user = await getCurrentUser();
     limit = await aiRateLimit(request, 'multiLapSummary', user);
     if (limit.response) return limit.response;
-    const summary = await summarizeMultiLap(stats, track, undefined, await getUnits(user));
+    const units = await getUnits(user);
+    const summary = await limit.track(() => summarizeMultiLap(stats, track, undefined, units));
 
     return NextResponse.json({ success: true, summary }, { status: 200 });
   } catch (error) {

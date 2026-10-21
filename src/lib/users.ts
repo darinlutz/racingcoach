@@ -682,6 +682,14 @@ export function ensureUserSchema(): Promise<void> {
         await client.query('ALTER TABLE racingcoach."AiUsage" ADD COLUMN counted BOOLEAN NOT NULL DEFAULT true');
         await client.query('UPDATE racingcoach."AiUsage" SET counted = false WHERE failed');
       }
+      // The OpenAI tokens each AI call used, added up over its model calls, and the model it used
+      // (src/lib/aiTokenUsage.ts). Calls from before these columns, and calls with no chat model, have 0
+      await client.query(`ALTER TABLE racingcoach."AiUsage"
+        ADD COLUMN IF NOT EXISTS input_tokens BIGINT NOT NULL DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS cached_input_tokens BIGINT NOT NULL DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS output_tokens BIGINT NOT NULL DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS model_calls INTEGER NOT NULL DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS model TEXT`);
       await client.query('CREATE INDEX IF NOT EXISTS ai_usage_occurred_at_idx ON racingcoach."AiUsage" (occurred_at)');
       await client.query('CREATE INDEX IF NOT EXISTS ai_usage_user_id_occurred_at_idx ON racingcoach."AiUsage" (user_id, occurred_at)');
       await client.query('CREATE INDEX IF NOT EXISTS ai_usage_ip_address_occurred_at_idx ON racingcoach."AiUsage" (ip_address, occurred_at)');

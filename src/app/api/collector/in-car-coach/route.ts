@@ -61,11 +61,13 @@ export async function GET(request: Request) {
 
     limit = await aiRateLimit(request, 'inCarCoachPlan', user.user);
     if (limit.response) return limit.response;
-    const plan = await inCarCoachPlan(
-      user.instructions,
-      areas.map((area) => area.name),
-      user.language,
-      user.units
+    const plan = await limit.track(() =>
+      inCarCoachPlan(
+        user.instructions,
+        areas.map((area) => area.name),
+        user.language,
+        user.units
+      )
     );
     // The locale formats the numbers the collector puts in rule texts (e.g. 1:23,456 in pt-BR) for the voice
     return NextResponse.json({ instructions: user.instructions, plan, areas, locale: LANGUAGE_LOCALES[user.language] });
@@ -121,23 +123,26 @@ export async function POST(request: Request) {
 
     limit = await aiRateLimit(request, 'inCarCoachCallouts', user.user);
     if (limit.response) return limit.response;
-    const { callouts, steps } = await inCarCoachCallouts({
-      instructions: user.instructions,
-      track: trackName,
-      car: laps[0].car,
-      laps: laps.map((lap) => ({
-        id: lap.id,
-        lapNumber: lap.lapNumber,
-        lapSeconds: lap.lapTimeSeconds,
-        incidents: lap.incidents,
-        offTrack: lap.offTrack,
-      })),
-      session,
-      carRpmLimit: await carRpmLimit(user.userId, laps[0].car).catch(() => null),
-      recentCallouts: parsed.data.recentCallouts,
-      language: user.language,
-      units: user.units,
-    });
+    const rpmLimit = await carRpmLimit(user.userId, laps[0].car).catch(() => null);
+    const { callouts, steps } = await limit.track(() =>
+      inCarCoachCallouts({
+        instructions: user.instructions,
+        track: trackName,
+        car: laps[0].car,
+        laps: laps.map((lap) => ({
+          id: lap.id,
+          lapNumber: lap.lapNumber,
+          lapSeconds: lap.lapTimeSeconds,
+          incidents: lap.incidents,
+          offTrack: lap.offTrack,
+        })),
+        session,
+        carRpmLimit: rpmLimit,
+        recentCallouts: parsed.data.recentCallouts,
+        language: user.language,
+        units: user.units,
+      })
+    );
     console.log(`In-Car AI Coach: user ${user.userId}, ${laps.length} laps, ${callouts.length} callouts (${steps.join(', ') || 'no tools'})`);
     return NextResponse.json({ callouts });
   } catch (error) {

@@ -62,7 +62,7 @@ export async function POST(request: Request) {
     limit = await aiRateLimit(null, 'raceCoaching', user);
     if (limit.response) return limit.response;
 
-    const coaching = await runRaceCoaching(connection?.iracingName ?? user.userName, events);
+    const coaching = await limit.track(() => runRaceCoaching(connection?.iracingName ?? user.userName, events));
     return NextResponse.json({ success: true, coaching });
   } catch (error) {
     console.error('Bot coach error:', error);

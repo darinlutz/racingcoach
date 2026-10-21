@@ -56,7 +56,10 @@ export async function POST(request: Request) {
     limit = await aiRateLimit(request, 'raceTrends', user);
     if (limit.response) return limit.response;
 
-    const { trend, incidents, commentary, steps } = await runRaceTrends(connection?.iracingName ?? user.userName, events, await getLanguage(user));
+    const language = await getLanguage(user);
+    const { trend, incidents, commentary, steps } = await limit.track(() =>
+      runRaceTrends(connection?.iracingName ?? user.userName, events, language)
+    );
 
     return NextResponse.json({ success: true, trend, incidents, commentary, steps }, { status: 200 });
   } catch (error) {

@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.187",
+    "@langchain/anthropic": "^1.5.13",
     "@langchain/core": "^1.2.1",
     "@langchain/openai": "^1.5.2",
     "axios": "^1.16.1",

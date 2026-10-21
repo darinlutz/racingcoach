@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { isAiFeature, isAiModel, isAiModelCategory, setAiModel } from '@/lib/aiModels';
+import { isAiFeature, isAiModelCategory, isAiModelFor, setAiModel } from '@/lib/aiModels';
 import { apiText } from '@/lib/i18n/server';
 import { isAdmin } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
@@ -15,7 +15,7 @@ export async function PUT(request: Request) {
     }
 
     const body = await request.json().catch(() => ({}));
-    if (!isAiModelCategory(body.category) || !isAiFeature(body.feature) || !isAiModel(body.model)) {
+    if (!isAiModelCategory(body.category) || !isAiFeature(body.feature) || !isAiModelFor(body.feature, body.model)) {
       return NextResponse.json({ error: t.failedSaveSetting }, { status: 400 });
     }
 

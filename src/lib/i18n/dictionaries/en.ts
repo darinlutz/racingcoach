@@ -1099,7 +1099,7 @@ export const en = {
     // Keyed by the stored role (src/lib/roles.ts)
     roles: { Admin: 'Admin', Coach: 'Coach', User: 'User' } as Record<string, string>,
     aiModelsTitle: 'AI Model Control',
-    aiModelsIntro: 'Choose which OpenAI model each AI feature uses for Admins and for each membership level. Coaches and Users get their level’s models; visitors who aren’t signed in get Bronze’s. Smaller models cost less per call.',
+    aiModelsIntro: 'Choose which OpenAI or Anthropic model each AI feature uses for Admins and for each membership level. Coaches and Users get their level’s models; visitors who aren’t signed in get Bronze’s. Smaller models cost less per call. The In-Car AI Coach uses OpenAI models only.',
     aiFeature: 'Feature',
     aiModel: 'Model',
     aiModelDefault: '{model} (default)',

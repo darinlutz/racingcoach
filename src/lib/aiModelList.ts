@@ -18,7 +18,8 @@ export const AI_FEATURES = {
 export type AiFeature = keyof typeof AI_FEATURES;
 export const AI_FEATURE_VALUES = Object.keys(AI_FEATURES) as AiFeature[];
 
-// The models the Admin page offers; only these can be saved. Add new OpenAI chat models here.
+// The models the Admin page offers; only these can be saved. Add new OpenAI or Anthropic (claude-*) chat models here.
+// Not claude-haiku-5-5: given tools and a response format together, it often answers without calling the tools.
 export const AI_MODELS = [
   'gpt-4o-mini',
   'gpt-4o',
@@ -32,9 +33,25 @@ export const AI_MODELS = [
   'gpt-5.2',
   'gpt-5.4',
   'gpt-5.5',
+  'claude-sonnet-5-5',
+  'claude-opus-5-5',
 ] as const;
 
 export type AiModel = (typeof AI_MODELS)[number];
+
+export const isClaudeModel = (model: string) => model.startsWith('claude-');
+
+// Features that can't use Anthropic models: the In-Car AI Coach stays on OpenAI, alongside its OpenAI voice
+const OPENAI_ONLY_FEATURES: readonly AiFeature[] = ['inCarCoachPlan', 'inCarCoachCallouts'];
+
+// The models the Admin page offers for a feature
+export function aiModelsFor(feature: AiFeature): readonly AiModel[] {
+  return OPENAI_ONLY_FEATURES.includes(feature) ? AI_MODELS.filter((model) => !isClaudeModel(model)) : AI_MODELS;
+}
+
+export function isAiModelFor(feature: AiFeature, value: unknown): value is AiModel {
+  return isAiModel(value) && aiModelsFor(feature).includes(value);
+}
 
 // Each feature's model is set separately for each category of caller: the Admin role, else their membership level.
 // Coaches and Users go by their level; visitors who aren't signed in count as Bronze.

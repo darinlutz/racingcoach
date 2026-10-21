@@ -1075,13 +1075,14 @@ export const es: Dictionary = {
     // Keyed by the stored role (src/lib/roles.ts)
     roles: { Admin: 'Administrador', Coach: 'Entrenador', User: 'Usuario' } as Record<string, string>,
     aiModelsTitle: 'Control de modelos de IA',
-    aiModelsIntro: 'Elige qué modelo de OpenAI usa cada función de IA. Los modelos más pequeños cuestan menos por llamada.',
+    aiModelsIntro: 'Elige qué modelo de OpenAI usa cada función de IA para los administradores y para cada nivel de membresía. Los entrenadores y usuarios reciben los modelos de su nivel; los visitantes sin sesión iniciada, los de Bronce. Los modelos más pequeños cuestan menos por llamada.',
     aiFeature: 'Función',
     aiModel: 'Modelo',
     aiModelDefault: '{model} (predeterminado)',
     saveAiModel: 'Guardar',
     savingAiModel: 'Guardando…',
-    aiModelSaved: '{feature} ahora usa {model}.',
+    aiModelSaved: 'Se guardaron {count} cambios de modelo.',
+    aiModelUnsaved: '{count} cambios sin guardar',
     // Keyed by feature (src/lib/aiModels.ts AI_FEATURES)
     aiFeatures: {
       debriefCoach: 'Debrief Coach',

@@ -6,13 +6,20 @@ import { query } from './db';
 // Token counts for the Admin page's AI Usage report. aiRateLimit's track() runs a route's AI work with its
 // racingcoach."AiUsage" row in context; chatModel (src/lib/aiModels.ts) then gives the model a callback that adds
 // each model call's tokens to that row. An agent makes several model calls per AI call, so they add up. AI calls
-// made outside track() (or without an OpenAI chat model, e.g. speech) record none.
+// made outside track() (or without an OpenAI chat model, e.g. speech) record none. track() also puts the caller's
+// AI model category (Admin, Gold, Silver or Bronze) in context, which chatModel uses to pick the feature's model.
 
-const currentUsage = new AsyncLocalStorage<{ usageId: number }>();
+const currentUsage = new AsyncLocalStorage<{ usageId: number | null; category: string }>();
 
-// Runs work with the AiUsage row usageId in context
-export function withAiUsage<T>(usageId: number, work: () => Promise<T>): Promise<T> {
-  return currentUsage.run({ usageId }, work);
+// Runs work with the AiUsage row usageId (null when the call wasn't logged) and the caller's AI model category in
+// context
+export function withAiUsage<T>(usageId: number | null, category: string, work: () => Promise<T>): Promise<T> {
+  return currentUsage.run({ usageId, category }, work);
+}
+
+// The AI model category of the call in context, or undefined outside track()
+export function currentAiModelCategory(): string | undefined {
+  return currentUsage.getStore()?.category;
 }
 
 type UsageMetadata = {
@@ -47,7 +54,7 @@ function tokensOf(output: LLMResult) {
 // context. None when there's no row. Recording never fails the AI call.
 export function tokenUsageCallbacks(model: string): CallbackHandlerMethods[] {
   const usageId = currentUsage.getStore()?.usageId;
-  if (usageId === undefined) return [];
+  if (usageId === undefined || usageId === null) return [];
   return [
     {
       handleLLMEnd: async (output: LLMResult) => {

@@ -36,6 +36,25 @@ export const AI_MODELS = [
 
 export type AiModel = (typeof AI_MODELS)[number];
 
+// Each feature's model is set separately for each category of caller: the Admin role, else their membership level.
+// Coaches and Users go by their level; visitors who aren't signed in count as Bronze.
+export const AI_MODEL_CATEGORIES = ['Admin', 'Gold', 'Silver', 'Bronze'] as const;
+export type AiModelCategory = (typeof AI_MODEL_CATEGORIES)[number];
+
+// AI calls made for no user (e.g. the collector log review) use the Admin category's models
+export const SYSTEM_AI_MODEL_CATEGORY: AiModelCategory = 'Admin';
+
+// role 'Admin' is ROLES.admin (src/lib/roles.ts), written out so this file keeps no imports
+export function aiModelCategoryOf(user: { role: string; membershipLevel: string } | null): AiModelCategory {
+  if (!user) return 'Bronze';
+  if (user.role === 'Admin') return 'Admin';
+  return user.membershipLevel === 'Gold' || user.membershipLevel === 'Silver' ? user.membershipLevel : 'Bronze';
+}
+
+export function isAiModelCategory(value: unknown): value is AiModelCategory {
+  return typeof value === 'string' && (AI_MODEL_CATEGORIES as readonly string[]).includes(value);
+}
+
 export function isAiFeature(value: unknown): value is AiFeature {
   return typeof value === 'string' && Object.hasOwn(AI_FEATURES, value);
 }

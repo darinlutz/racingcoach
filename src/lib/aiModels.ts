@@ -1,46 +1,78 @@
 import { ChatOpenAI } from '@langchain/openai';
 import { query } from '@/lib/db';
-import { AI_FEATURES, type AiFeature, type AiModel, isAiFeature, isAiModel } from '@/lib/aiModelList';
-import { tokenUsageCallbacks } from '@/lib/aiTokenUsage';
+import {
+  AI_FEATURE_VALUES,
+  AI_FEATURES,
+  AI_MODEL_CATEGORIES,
+  type AiFeature,
+  type AiModel,
+  type AiModelCategory,
+  isAiFeature,
+  isAiModel,
+  isAiModelCategory,
+  SYSTEM_AI_MODEL_CATEGORY,
+} from '@/lib/aiModelList';
+import { currentAiModelCategory, tokenUsageCallbacks } from '@/lib/aiTokenUsage';
 import { ensureUserSchema } from '@/lib/users';
 
 export * from '@/lib/aiModelList';
 
-// Which OpenAI model each AI feature uses, chosen on the Admin page's AI Model Control section and kept in
-// racingcoach."SiteSettings" (key ai_model:<feature>). A feature with no row uses its default (AI_FEATURES in
-// src/lib/aiModelList.ts).
+// Which OpenAI model each AI feature uses for each category of caller (Admin, Gold, Silver, Bronze; see
+// aiModelCategoryOf), chosen on the Admin page's AI Model Control section and kept in racingcoach."SiteSettings"
+// (key ai_model:<category>:<feature>). A category with no row for a feature uses the feature's model from before
+// models were set per category (key ai_model:<feature>), else its default (AI_FEATURES in src/lib/aiModelList.ts).
 
-const settingKey = (feature: AiFeature) => `ai_model:${feature}`;
+const settingKey = (category: AiModelCategory, feature: AiFeature) => `ai_model:${category}:${feature}`;
 
-// Every feature's model, saved or default
-export async function getAiModels(): Promise<Record<AiFeature, AiModel>> {
+export type AiModelsByCategory = Record<AiModelCategory, Record<AiFeature, AiModel>>;
+
+// Every category's model for every feature, saved or default
+export async function getAiModels(): Promise<AiModelsByCategory> {
   await ensureUserSchema();
   const rows = await query<{ key: string; value: string }>(
     `SELECT key, value FROM racingcoach."SiteSettings" WHERE key LIKE 'ai_model:%'`
   );
-  const models = { ...AI_FEATURES } as Record<AiFeature, AiModel>;
+  const shared = { ...AI_FEATURES } as Record<AiFeature, AiModel>;
+  const saved: Partial<Record<AiModelCategory, Partial<Record<AiFeature, AiModel>>>> = {};
   for (const row of rows) {
-    const feature = row.key.slice('ai_model:'.length);
-    if (isAiFeature(feature) && isAiModel(row.value)) models[feature] = row.value;
+    if (!isAiModel(row.value)) continue;
+    const parts = row.key.split(':');
+    if (parts.length === 2 && isAiFeature(parts[1])) shared[parts[1]] = row.value;
+    if (parts.length === 3 && isAiModelCategory(parts[1]) && isAiFeature(parts[2])) {
+      (saved[parts[1]] ??= {})[parts[2]] = row.value;
+    }
   }
-  return models;
+  return Object.fromEntries(
+    AI_MODEL_CATEGORIES.map((category) => [
+      category,
+      Object.fromEntries(AI_FEATURE_VALUES.map((feature) => [feature, saved[category]?.[feature] ?? shared[feature]])),
+    ])
+  ) as AiModelsByCategory;
 }
 
-export async function setAiModel(feature: AiFeature, model: AiModel, userId: number): Promise<void> {
+export async function setAiModel(category: AiModelCategory, feature: AiFeature, model: AiModel, userId: number): Promise<void> {
   await ensureUserSchema();
   await query(
     `INSERT INTO racingcoach."SiteSettings" (key, value, updated_by) VALUES ($1, $2, $3)
      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now(), updated_by = EXCLUDED.updated_by`,
-    [settingKey(feature), model, userId]
+    [settingKey(category, feature), model, userId]
   );
 }
 
-// A feature's model; a failed read falls back to the default rather than failing the feature
+// A feature's model for the caller in context (aiRateLimit's track(); the Admin category outside it). A failed
+// read falls back to the default rather than failing the feature
 export async function getAiModel(feature: AiFeature): Promise<AiModel> {
+  const context = currentAiModelCategory();
+  const category = isAiModelCategory(context) ? context : SYSTEM_AI_MODEL_CATEGORY;
   try {
     await ensureUserSchema();
-    const rows = await query<{ value: string }>('SELECT value FROM racingcoach."SiteSettings" WHERE key = $1', [settingKey(feature)]);
-    return isAiModel(rows[0]?.value) ? rows[0].value : AI_FEATURES[feature];
+    const rows = await query<{ key: string; value: string }>(
+      'SELECT key, value FROM racingcoach."SiteSettings" WHERE key = ANY($1)',
+      [[settingKey(category, feature), `ai_model:${feature}`]]
+    );
+    const own = rows.find((row) => row.key === settingKey(category, feature))?.value;
+    const shared = rows.find((row) => row.key === `ai_model:${feature}`)?.value;
+    return isAiModel(own) ? own : isAiModel(shared) ? shared : AI_FEATURES[feature];
   } catch (error) {
     console.error(`Failed to read the AI model for ${feature}:`, error);
     return AI_FEATURES[feature];

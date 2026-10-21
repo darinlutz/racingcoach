@@ -1,6 +1,7 @@
 import { isIP } from 'node:net';
 import { NextResponse } from 'next/server';
 import type { PoolClient } from 'pg';
+import { aiModelCategoryOf } from './aiModelList';
 import { withAiUsage } from './aiTokenUsage';
 import { query, transaction } from './db';
 import { getDictionary, getLanguage } from './i18n/server';
@@ -246,7 +247,6 @@ export type AiRateLimit = {
 };
 
 const noRefund = async () => {};
-const untracked = <T>(work: () => Promise<T>) => work();
 
 // The gate before every AI call: logs it, and refuses it while limits are on and the caller has used theirs up.
 // user is the signed-in (or collector or Discord) user, null for a visitor; request is null where the caller's
@@ -254,6 +254,9 @@ const untracked = <T>(work: () => Promise<T>) => work();
 // AI call: it's logged and the call goes ahead.
 export async function aiRateLimit(request: Request | null, feature: RateLimitedFeature, user: User | null): Promise<AiRateLimit> {
   const ip = request ? clientIp(request) : null;
+  // Even an unlogged call runs with the caller's AI model category, so it uses their models
+  const category = aiModelCategoryOf(user);
+  const untracked = <T>(work: () => Promise<T>) => withAiUsage(null, category, work);
   let decision: { id: number; refusal: Refusal | null; tier: LimitTier; settings: RateLimitSettings };
   try {
     const settings = await getRateLimitSettings();
@@ -287,7 +290,7 @@ export async function aiRateLimit(request: Request | null, feature: RateLimitedF
           console.error('Failed to refund an AI call:', error);
         }
       },
-      track: (work) => withAiUsage(id, work),
+      track: (work) => withAiUsage(id, category, work),
     };
   }
 

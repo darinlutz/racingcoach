@@ -546,7 +546,8 @@ export async function readUsageReport(range: UsageRange, by: 'user' | 'ip', sear
               coalesce(sum(a.input_tokens), 0) AS input_tokens, coalesce(sum(a.cached_input_tokens), 0) AS cached_input_tokens,
               coalesce(sum(a.output_tokens), 0) AS output_tokens, count(*) FILTER (WHERE a.model_calls > 0) AS tracked_calls,
               coalesce(sum(a.model_calls), 0) AS model_calls, string_agg(DISTINCT a.model, ', ') AS models
-       FROM ${from} WHERE ${filter} GROUP BY a.feature ORDER BY input_tokens + output_tokens DESC, calls DESC`,
+       FROM ${from} WHERE ${filter} GROUP BY a.feature
+       ORDER BY coalesce(sum(a.input_tokens), 0) + coalesce(sum(a.output_tokens), 0) DESC, calls DESC`,
       params
     ),
   ]);

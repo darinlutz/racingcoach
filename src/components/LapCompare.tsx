@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLanguage } from '@/components/LanguageProvider';
 import PedalTraces, { type PedalTraceLap } from '@/components/PedalTraces';
+import SummaryPanel from '@/components/SummaryPanel';
 import type { Dictionary } from '@/lib/i18n/dictionaries/en';
 import { fmt } from '@/lib/i18n/languages';
 import { measureDrivingLine, type LapDrivingLine } from '@/lib/lapDrivingLine';
@@ -702,19 +703,12 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
 
         {areaRows.length > 0 && <AreaTable rows={areaRows} />}
 
-        <div>
-          <label htmlFor="lap-compare-analysis" className="block text-sm font-medium text-foreground mb-2">
-            {t.summary}
-          </label>
-          <textarea
-            id="lap-compare-analysis"
-            value={analysis}
-            readOnly
-            rows={12}
-            placeholder={!baseLap || !compareLap ? t.summaryPlaceholderNoLaps : t.summaryPlaceholder}
-            className={`${inputClass} resize-y font-mono text-sm`}
-          />
-        </div>
+        <SummaryPanel
+          title={t.summary}
+          text={analysis}
+          placeholder={!baseLap || !compareLap ? t.summaryPlaceholderNoLaps : t.summaryPlaceholder}
+          pending={analyzing && analysis === t.writing}
+        />
 
         {traces.length > 0 && (
           <div className="space-y-2">

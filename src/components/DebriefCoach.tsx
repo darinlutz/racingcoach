@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useLanguage } from '@/components/LanguageProvider';
 import RecordedLaps from '@/components/RecordedLaps';
+import SetTargetLapDialog, { type SetTargetLapStep } from '@/components/SetTargetLapDialog';
 
 import type { Debrief } from '@/lib/debriefCoach';
 import { buildDebriefSession, lapId } from '@/lib/debriefSession';
@@ -56,9 +57,11 @@ export default function DebriefCoach({ onCompare }: { onCompare?: (base: LapFile
   // The coach's theoretical lap (assemble_optimal_lap): its plan, the stitched CSV and a download URL for it
   const [optimal, setOptimal] = useState<{ plan: OptimalLap; file: File; url: string } | null>(null);
   const [optimalError, setOptimalError] = useState('');
-  const [settingTarget, setSettingTarget] = useState(false);
-  const [targetNotice, setTargetNotice] = useState('');
+  // Set as Target's dialog
+  const [targetOpen, setTargetOpen] = useState(false);
+  const [targetStep, setTargetStep] = useState<SetTargetLapStep>('confirm');
   const [targetError, setTargetError] = useState('');
+  const closeSetTarget = useCallback(() => setTargetOpen(false), []);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // The download URL is let go when the lap is replaced or the tab closes
@@ -142,8 +145,6 @@ export default function DebriefCoach({ onCompare }: { onCompare?: (base: LapFile
     setSteps([]);
     setOptimal(null);
     setOptimalError('');
-    setTargetNotice('');
-    setTargetError('');
     try {
       const laps = trackLaps;
       const session = await buildDebriefSession(selectedTrack, laps);
@@ -174,17 +175,15 @@ export default function DebriefCoach({ onCompare }: { onCompare?: (base: LapFile
   // Saves the theoretical lap as the user's Target Lap (the Account page's Target Lap card)
   const setOptimalAsTarget = async () => {
     if (!optimal) return;
-    setSettingTarget(true);
-    setTargetNotice('');
     setTargetError('');
+    setTargetStep('saving');
     try {
       await uploadTargetLap(optimal.file, t.api.failedSaveTargetLap);
-      setTargetNotice(t.debrief.targetSaved);
+      setTargetStep('saved');
       setTargetLapVersion((v) => v + 1);
     } catch (err) {
       setTargetError(fmt(t.debrief.setTargetFailed, { error: err instanceof Error ? err.message : t.common.unknownError }));
-    } finally {
-      setSettingTarget(false);
+      setTargetStep('confirm');
     }
   };
 
@@ -431,27 +430,32 @@ export default function DebriefCoach({ onCompare }: { onCompare?: (base: LapFile
                   </a>
                   <button
                     type="button"
-                    disabled={settingTarget}
-                    onClick={() => void setOptimalAsTarget()}
+                    onClick={() => {
+                      setTargetStep('confirm');
+                      setTargetError('');
+                      setTargetOpen(true);
+                    }}
                     data-track="set-optimal-target"
                     className="px-4 py-2 text-sm font-semibold rounded-lg text-white bg-green-600 hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {settingTarget ? t.debrief.settingTarget : t.debrief.setAsTarget}
+                    {t.debrief.setAsTarget}
                   </button>
                 </div>
-                {targetNotice && (
-                  <div className="px-4 py-3 rounded-lg border text-sm bg-green-500/10 border-green-500/40 text-green-300">{targetNotice}</div>
-                )}
-                {targetError && (
-                  <div className="px-4 py-3 rounded-lg border text-sm bg-primary/10 border-primary/40 text-red-300">{targetError}</div>
-                )}
+                <SetTargetLapDialog
+                  open={targetOpen}
+                  step={targetStep}
+                  fileName={optimal.file.name}
+                  error={targetError}
+                  onConfirm={() => void setOptimalAsTarget()}
+                  onClose={closeSetTarget}
+                />
               </div>
             )}
 
             {steps.length > 0 && (
               <details className="text-sm text-muted-foreground">
                 <summary className="cursor-pointer">{plural(steps.length, t.debrief.stepsChecked)}</summary>
-                <ol className="mt-2 list-decimal pl-5 space-y-1 font-mono text-xs">
+                <ol className="mt-3 list-decimal pl-5 space-y-2 text-sm leading-relaxed text-foreground/80 marker:text-muted-foreground">
                   {steps.map((step, i) => (
                     <li key={i}>{step}</li>
                   ))}

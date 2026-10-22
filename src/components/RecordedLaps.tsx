@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import DriverMultiSelect, { type DriverPick } from '@/components/DriverMultiSelect';
 import { useLanguage } from '@/components/LanguageProvider';
+import SetTargetLapDialog, { type SetTargetLapStep } from '@/components/SetTargetLapDialog';
 import type { CollectorLapSummary, LapOwner } from '@/lib/collectorLaps';
 import {
   formatLapTime,
@@ -113,10 +114,12 @@ export default function RecordedLaps({
   const [files, setFiles] = useState<Record<number, LapFile>>({});
   const [loading, setLoading] = useState<Set<number>>(new Set());
   const [error, setError] = useState('');
-  // Laps ticked in the Target column, and the session whose Set Target is running
+  // Laps ticked in the Target column, and Set Target's dialog and its lap (kept after it closes, while it fades out)
   const [targetPicks, setTargetPicks] = useState<Set<number>>(new Set());
-  const [settingTarget, setSettingTarget] = useState<string | null>(null);
-  const [notice, setNotice] = useState('');
+  const [targetOpen, setTargetOpen] = useState(false);
+  const [targetLap, setTargetLap] = useState<CollectorLapSummary | null>(null);
+  const [targetStep, setTargetStep] = useState<SetTargetLapStep>('confirm');
+  const [targetError, setTargetError] = useState('');
   // Laps ticked in the Compare column, oldest tick first (at most two), and whether Compare is loading them
   const [comparePicks, setComparePicks] = useState<number[]>([]);
   const [comparing, setComparing] = useState(false);
@@ -166,7 +169,6 @@ export default function RecordedLaps({
     setTargetPicks(new Set());
     setComparePicks([]);
     setError('');
-    setNotice('');
     setStatus('loading');
     setDriverPick(pick);
   };
@@ -268,24 +270,31 @@ export default function RecordedLaps({
     }
   };
 
-  // Saves the one lap ticked in the session's Target column as the user's Target Lap (the Account page's Target
-  // Lap card)
-  const setTarget = async (session: Session) => {
+  // Set Target opens the dialog for the one lap ticked in the session's Target column
+  const openSetTarget = (session: Session) => {
     const lap = session.laps.find((l) => targetPicks.has(l.id));
-    if (!lap || !window.confirm(t.setTargetConfirm)) return;
-    setError('');
-    setNotice('');
+    if (!lap) return;
+    setTargetLap(lap);
+    setTargetStep('confirm');
+    setTargetError('');
+    setTargetOpen(true);
+  };
 
-    setSettingTarget(session.key);
+  const closeSetTarget = useCallback(() => setTargetOpen(false), []);
+
+  // Saves the dialog's lap as the user's Target Lap (the Account page's Target Lap card)
+  const setTarget = async () => {
+    if (!targetLap) return;
+    setTargetError('');
+    setTargetStep('saving');
     try {
-      const file = await lapFile(lap);
+      const file = await lapFile(targetLap);
       await uploadTargetLap(file.file, dictionary.api.failedSaveTargetLap);
-      setNotice(t.targetLapSaved);
+      setTargetStep('saved');
       onTargetLapSet?.();
     } catch (err) {
-      setError(fmt(t.setTargetFailed, { error: err instanceof Error ? err.message : dictionary.common.unknownError }));
-    } finally {
-      setSettingTarget(null);
+      setTargetError(fmt(t.setTargetFailed, { error: err instanceof Error ? err.message : dictionary.common.unknownError }));
+      setTargetStep('confirm');
     }
   };
 
@@ -327,11 +336,14 @@ export default function RecordedLaps({
       {error && (
         <div className="px-4 py-3 rounded-lg border text-sm bg-primary/10 border-primary/40 text-red-300">{error}</div>
       )}
-      {notice && (
-        <div className="px-4 py-3 rounded-lg border text-sm bg-green-500/10 border-green-500/40 text-green-300">
-          {notice}
-        </div>
-      )}
+      <SetTargetLapDialog
+        open={targetOpen}
+        step={targetStep}
+        fileName={targetLap ? lapFileName(targetLap, lapTrackName(tracks, targetLap)) : ''}
+        error={targetError}
+        onConfirm={() => void setTarget()}
+        onClose={closeSetTarget}
+      />
       {moreStints && (
         <p className="px-4 py-3 rounded-lg border text-sm bg-yellow-500/10 border-yellow-500/40 text-yellow-200">
           {stintLimit === STINT_LIMITS.bronze
@@ -388,11 +400,11 @@ export default function RecordedLaps({
                 {/* Only enabled with exactly one lap ticked in this session's Target column */}
                 <button
                   type="button"
-                  disabled={targetCount !== 1 || settingTarget !== null}
-                  onClick={() => void setTarget(session)}
+                  disabled={targetCount !== 1}
+                  onClick={() => openSetTarget(session)}
                   className="px-3 py-1 text-xs font-semibold rounded-lg text-white bg-green-600 hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {settingTarget === session.key ? t.settingTarget : t.setTarget}
+                  {t.setTarget}
                 </button>
                 {/* Only enabled with exactly two laps ticked in the Compare column */}
                 {onCompare && (

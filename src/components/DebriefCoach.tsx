@@ -240,6 +240,140 @@ export default function DebriefCoach({ onCompare }: { onCompare?: (base: LapFile
         )}
       </div>
 
+      {/* The debrief, above the stints so it shows without scrolling past them */}
+      {debrief && (
+        <div className="space-y-4">
+          <div className="px-5 py-4 rounded-lg bg-gradient-to-r from-primary to-primary-strong text-white">
+            <p className="text-xs font-semibold uppercase tracking-wide opacity-80">{t.debrief.fixFirst}</p>
+            <p className="mt-1 text-lg font-semibold">{debrief.headline}</p>
+          </div>
+
+          <ol className="space-y-3">
+            {debrief.fixes.map((fix, i) => (
+              <li key={`${fix.area}-${i}`} className="px-5 py-4 bg-card border border-border rounded-lg">
+                <div className="flex items-baseline justify-between gap-3">
+                  <h3 className="font-bold text-foreground">
+                    {i + 1}. {fix.area}
+                  </h3>
+                  <span className="shrink-0 text-sm font-semibold text-primary">
+                    {fmt(t.debrief.perLap, { seconds: number(fix.timeGainSeconds, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) })}
+                  </span>
+                </div>
+                <dl className="mt-2 space-y-1 text-sm">
+                  <div>
+                    <dt className="inline font-semibold text-foreground">{t.debrief.problem}</dt>
+                    <dd className="inline text-foreground">{fix.problem}</dd>
+                  </div>
+                  <div>
+                    <dt className="inline font-semibold text-foreground">{t.debrief.fix}</dt>
+                    <dd className="inline text-foreground">{fix.fix}</dd>
+                  </div>
+                  <div>
+                    <dt className="inline font-semibold text-foreground">{t.debrief.evidence}</dt>
+                    <dd className="inline text-muted-foreground">{fix.evidence}</dd>
+                  </div>
+                </dl>
+              </li>
+            ))}
+          </ol>
+
+          {debrief.keepDoing.length > 0 && (
+            <div className="px-5 py-4 bg-card border border-border rounded-lg">
+              <h3 className="font-bold text-foreground mb-2">{t.debrief.keepDoing}</h3>
+              <ul className="list-disc pl-5 space-y-1 text-sm text-foreground">
+                {debrief.keepDoing.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {optimalError && (
+            <div className="px-4 py-3 rounded-lg border text-sm bg-primary/10 border-primary/40 text-red-300">{optimalError}</div>
+          )}
+
+          {optimal && (
+            <div className="px-5 py-4 bg-card border border-border rounded-lg space-y-3">
+              <div className="flex items-baseline justify-between gap-3">
+                <h3 className="font-bold text-foreground">{t.debrief.optimalTitle}</h3>
+                <span className="shrink-0 text-lg font-semibold text-primary">
+                  {formatLapTime(secondsToLapTime(optimal.plan.lapTime))}
+                </span>
+              </div>
+              <p className="text-sm text-foreground">
+                {fmt(t.debrief.optimalFaster, {
+                  seconds: number(optimal.plan.bestLap.lapTime - optimal.plan.lapTime, { minimumFractionDigits: 3, maximumFractionDigits: 3 }),
+                  best: formatLapTime(secondsToLapTime(optimal.plan.bestLap.lapTime)),
+                  lap: optimal.plan.bestLap.id,
+                })}
+              </p>
+              {debrief.optimalLap && <p className="text-sm text-muted-foreground">{debrief.optimalLap}</p>}
+
+              <details className="text-sm text-muted-foreground">
+                <summary className="cursor-pointer">{plural(optimal.plan.segments.length, t.debrief.optimalParts)}</summary>
+                <ol className="mt-2 space-y-1 text-xs">
+                  {optimal.plan.segments.map((segment) => (
+                    <li key={segment.start} className="flex justify-between gap-3">
+                      <span className="min-w-0 truncate">
+                        {segment.area ?? fmt(t.debrief.optimalBefore, { area: segment.next ?? '' })}{' '}
+                        <span className="opacity-70">
+                          ({number(segment.start * 100, { maximumFractionDigits: 0 })}%-{number(segment.end * 100, { maximumFractionDigits: 0 })}%)
+                        </span>
+                      </span>
+                      <span className="shrink-0 font-mono">
+                        [{segment.lap}] {number(segment.seconds, { minimumFractionDigits: 3, maximumFractionDigits: 3 })}s
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              </details>
+
+              <div className="flex flex-wrap gap-2">
+                <a
+                  href={optimal.url}
+                  download={optimal.file.name}
+                  data-track="download-optimal-lap"
+                  className="px-4 py-2 text-sm font-semibold bg-card border border-border rounded-lg text-foreground hover:border-primary hover:text-primary transition-colors"
+                >
+                  {t.debrief.optimalDownload}
+                </a>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTargetStep('confirm');
+                    setTargetError('');
+                    setTargetOpen(true);
+                  }}
+                  data-track="set-optimal-target"
+                  className="px-4 py-2 text-sm font-semibold rounded-lg text-white bg-green-600 hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {t.debrief.setAsTarget}
+                </button>
+              </div>
+              <SetTargetLapDialog
+                open={targetOpen}
+                step={targetStep}
+                fileName={optimal.file.name}
+                error={targetError}
+                onConfirm={() => void setOptimalAsTarget()}
+                onClose={closeSetTarget}
+              />
+            </div>
+          )}
+
+          {steps.length > 0 && (
+            <details className="text-sm text-muted-foreground">
+              <summary className="cursor-pointer">{plural(steps.length, t.debrief.stepsChecked)}</summary>
+              <ol className="mt-3 list-decimal pl-5 space-y-2 text-sm leading-relaxed text-foreground/80 marker:text-muted-foreground">
+                {steps.map((step, i) => (
+                  <li key={i}>{step}</li>
+                ))}
+              </ol>
+            </details>
+          )}
+        </div>
+      )}
+
       {/* Laps the RacingCoach collector uploaded */}
       <div>
         <p className="block text-sm text-muted-foreground mb-2">{t.debrief.yourRecordedLaps}</p>
@@ -328,141 +462,6 @@ export default function DebriefCoach({ onCompare }: { onCompare?: (base: LapFile
               </li>
             ))}
           </ul>
-        )}
-      </div>
-
-      <div className="space-y-4">
-        {debrief && (
-          <div className="space-y-4">
-            <div className="px-5 py-4 rounded-lg bg-gradient-to-r from-primary to-primary-strong text-white">
-              <p className="text-xs font-semibold uppercase tracking-wide opacity-80">{t.debrief.fixFirst}</p>
-              <p className="mt-1 text-lg font-semibold">{debrief.headline}</p>
-            </div>
-
-            <ol className="space-y-3">
-              {debrief.fixes.map((fix, i) => (
-                <li key={`${fix.area}-${i}`} className="px-5 py-4 bg-card border border-border rounded-lg">
-                  <div className="flex items-baseline justify-between gap-3">
-                    <h3 className="font-bold text-foreground">
-                      {i + 1}. {fix.area}
-                    </h3>
-                    <span className="shrink-0 text-sm font-semibold text-primary">
-                      {fmt(t.debrief.perLap, { seconds: number(fix.timeGainSeconds, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) })}
-                    </span>
-                  </div>
-                  <dl className="mt-2 space-y-1 text-sm">
-                    <div>
-                      <dt className="inline font-semibold text-foreground">{t.debrief.problem}</dt>
-                      <dd className="inline text-foreground">{fix.problem}</dd>
-                    </div>
-                    <div>
-                      <dt className="inline font-semibold text-foreground">{t.debrief.fix}</dt>
-                      <dd className="inline text-foreground">{fix.fix}</dd>
-                    </div>
-                    <div>
-                      <dt className="inline font-semibold text-foreground">{t.debrief.evidence}</dt>
-                      <dd className="inline text-muted-foreground">{fix.evidence}</dd>
-                    </div>
-                  </dl>
-                </li>
-              ))}
-            </ol>
-
-            {debrief.keepDoing.length > 0 && (
-              <div className="px-5 py-4 bg-card border border-border rounded-lg">
-                <h3 className="font-bold text-foreground mb-2">{t.debrief.keepDoing}</h3>
-                <ul className="list-disc pl-5 space-y-1 text-sm text-foreground">
-                  {debrief.keepDoing.map((item) => (
-                    <li key={item}>{item}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {optimalError && (
-              <div className="px-4 py-3 rounded-lg border text-sm bg-primary/10 border-primary/40 text-red-300">{optimalError}</div>
-            )}
-
-            {optimal && (
-              <div className="px-5 py-4 bg-card border border-border rounded-lg space-y-3">
-                <div className="flex items-baseline justify-between gap-3">
-                  <h3 className="font-bold text-foreground">{t.debrief.optimalTitle}</h3>
-                  <span className="shrink-0 text-lg font-semibold text-primary">
-                    {formatLapTime(secondsToLapTime(optimal.plan.lapTime))}
-                  </span>
-                </div>
-                <p className="text-sm text-foreground">
-                  {fmt(t.debrief.optimalFaster, {
-                    seconds: number(optimal.plan.bestLap.lapTime - optimal.plan.lapTime, { minimumFractionDigits: 3, maximumFractionDigits: 3 }),
-                    best: formatLapTime(secondsToLapTime(optimal.plan.bestLap.lapTime)),
-                    lap: optimal.plan.bestLap.id,
-                  })}
-                </p>
-                {debrief.optimalLap && <p className="text-sm text-muted-foreground">{debrief.optimalLap}</p>}
-
-                <details className="text-sm text-muted-foreground">
-                  <summary className="cursor-pointer">{plural(optimal.plan.segments.length, t.debrief.optimalParts)}</summary>
-                  <ol className="mt-2 space-y-1 text-xs">
-                    {optimal.plan.segments.map((segment) => (
-                      <li key={segment.start} className="flex justify-between gap-3">
-                        <span className="min-w-0 truncate">
-                          {segment.area ?? fmt(t.debrief.optimalBefore, { area: segment.next ?? '' })}{' '}
-                          <span className="opacity-70">
-                            ({number(segment.start * 100, { maximumFractionDigits: 0 })}%-{number(segment.end * 100, { maximumFractionDigits: 0 })}%)
-                          </span>
-                        </span>
-                        <span className="shrink-0 font-mono">
-                          [{segment.lap}] {number(segment.seconds, { minimumFractionDigits: 3, maximumFractionDigits: 3 })}s
-                        </span>
-                      </li>
-                    ))}
-                  </ol>
-                </details>
-
-                <div className="flex flex-wrap gap-2">
-                  <a
-                    href={optimal.url}
-                    download={optimal.file.name}
-                    data-track="download-optimal-lap"
-                    className="px-4 py-2 text-sm font-semibold bg-card border border-border rounded-lg text-foreground hover:border-primary hover:text-primary transition-colors"
-                  >
-                    {t.debrief.optimalDownload}
-                  </a>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setTargetStep('confirm');
-                      setTargetError('');
-                      setTargetOpen(true);
-                    }}
-                    data-track="set-optimal-target"
-                    className="px-4 py-2 text-sm font-semibold rounded-lg text-white bg-green-600 hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {t.debrief.setAsTarget}
-                  </button>
-                </div>
-                <SetTargetLapDialog
-                  open={targetOpen}
-                  step={targetStep}
-                  fileName={optimal.file.name}
-                  error={targetError}
-                  onConfirm={() => void setOptimalAsTarget()}
-                  onClose={closeSetTarget}
-                />
-              </div>
-            )}
-
-            {steps.length > 0 && (
-              <details className="text-sm text-muted-foreground">
-                <summary className="cursor-pointer">{plural(steps.length, t.debrief.stepsChecked)}</summary>
-                <ol className="mt-3 list-decimal pl-5 space-y-2 text-sm leading-relaxed text-foreground/80 marker:text-muted-foreground">
-                  {steps.map((step, i) => (
-                    <li key={i}>{step}</li>
-                  ))}
-                </ol>
-              </details>
-            )}
-          </div>
         )}
       </div>
     </div>

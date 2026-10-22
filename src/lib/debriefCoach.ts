@@ -905,13 +905,15 @@ export function brakeChangeRule(units: Units = DEFAULT_UNITS): string {
   );
 }
 
-// A change in feet or meters is followed by its direction ("30 ft later") or comes after "by" ("later by 30 ft");
-// any other number of feet or meters is a place on the track, e.g. "brake at 6,120 ft" or "near 375 meters".
-// Driving line moves ("1.5 m to the left") are changes too.
+// A change in feet or meters is followed by its direction ("30 ft later", "16 m too early") or comes after "by"
+// or "within" ("later by 30 ft", "within 3 m of each other", as the verdicts say); any other number of feet or
+// meters is a place on the track, e.g. "brake at 6,120 ft" or "near 375 meters". Driving line moves ("1.5 m to
+// the left") are changes too.
 const DISTANCE_RE = /\d[\d,.]*\s*(?:ft|feet|foot|pés|pies|m|meters?|metres?|metros?)(?!\p{L})/giu;
 const CHANGE_AFTER_RE =
-  /^[^\p{L}\p{N}]*(?:\p{L}+[^\p{L}\p{N}]+){0,2}?(?:later|earlier|sooner|deeper|mais tarde|más tarde|mais cedo|más temprano|antes|depois|después|toward|towards|further|farther|wider|tighter|para|hacia|em direção|en dirección|left|right|esquerda|direita|izquierda|derecha)(?!\p{L})/iu;
-const CHANGE_BEFORE_RE = /(?<!\p{L})(?:by|por|em|en)\s+(?:about\s+|around\s+|roughly\s+|cerca de\s+|unos\s+|uns\s+)?$/iu;
+  /^[^\p{L}\p{N}]*(?:\p{L}+[^\p{L}\p{N}]+){0,2}?(?:later|earlier|sooner|late|early|deeper|apart|mais tarde|más tarde|mais cedo|más temprano|tarde|cedo|temprano|antes|depois|después|toward|towards|further|farther|wider|tighter|wide|para|hacia|em direção|en dirección|left|right|esquerda|direita|izquierda|derecha)(?!\p{L})/iu;
+const CHANGE_BEFORE_RE =
+  /(?<!\p{L})(?:by|por|em|en|within|under|over|less than|more than|up to|dentro de|menos de|más de|mais de|até|hasta)\s+(?:about\s+|around\s+|roughly\s+|cerca de\s+|unos\s+|uns\s+)?$/iu;
 
 export function hasTrackPosition(text: string): boolean {
   return [...text.matchAll(DISTANCE_RE)].some((m) => {
@@ -1047,6 +1049,7 @@ export async function runDebriefCoach(
   }
 
   const response: DebriefFixes = result.structuredResponse;
+  for (const p of problems) console.error(`Debrief coach dropped a fix: ${p.message}`, JSON.stringify(p.fix));
   const fixes = response.fixes.filter((fix) => !problems.some((p) => p.fix === fix));
   if (fixes.length === 0) {
     throw new Error('The coach gave brakepoint advice that contradicts the data or says where on the track to brake');

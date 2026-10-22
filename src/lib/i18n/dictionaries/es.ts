@@ -28,6 +28,7 @@ export const es: Dictionary = {
     required: '{label} *',
     passwordHint: '(al menos 8 caracteres)',
     optional: '(opcional)',
+    promoCode: 'Código Promocional',
   },
 
   meta: {
@@ -1367,6 +1368,7 @@ export const es: Dictionary = {
     originalPrice: 'Precio Original',
     discountCode: 'Código de Descuento',
     discountPercent: 'Descuento %',
+    signupPromoCode: 'Código Promocional de Registro',
     currentPrice: 'Precio Actual',
     subscriptionDate: 'Fecha de Suscripción',
     renewalDate: 'Fecha de Renovación',

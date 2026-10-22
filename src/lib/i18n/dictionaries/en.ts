@@ -28,6 +28,7 @@ export const en = {
     required: '{label} *',
     passwordHint: '(at least 8 characters)',
     optional: '(optional)',
+    promoCode: 'Promo Code',
   },
 
   meta: {
@@ -1393,6 +1394,7 @@ export const en = {
     originalPrice: 'Original Price',
     discountCode: 'Discount Code',
     discountPercent: 'Discount %',
+    signupPromoCode: 'Signup Promo Code',
     currentPrice: 'Current Price',
     subscriptionDate: 'Subscription Date',
     renewalDate: 'Renewal Date',

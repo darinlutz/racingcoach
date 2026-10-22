@@ -53,6 +53,8 @@ export type SubscriberRow = {
   userName: string | null;
   emailAddress: string | null;
   signedUpAt: string | null;
+  // The promo code typed on the Create an Account page (src/lib/promoCode.ts), not one used at checkout
+  signupPromoCode: string | null;
   // Stripe's status of the account's current subscription, 'none' or 'unsynced'
   status: string;
   plan: string | null;
@@ -144,6 +146,7 @@ const ORIGINAL_DISCOUNT = (account: string) => `LEFT JOIN LATERAL (
 const BASE = `
   SELECT u.id, false AS account_deleted, u.user_name, u.email_address,
     CASE WHEN u.signup_date ~ '^\\d{4}-\\d{2}-\\d{2}T' THEN u.signup_date::timestamptz ELSE u.created_at END AS signed_up_at,
+    u.promo_code AS signup_promo_code,
     COALESCE(s.status, CASE WHEN u.stripe_subscription_id IS NOT NULL THEN 'unsynced' ELSE 'none' END) AS status,
     COALESCE(s.stripe_subscription_id, u.stripe_subscription_id) AS stripe_subscription_id,
     COALESCE(s.stripe_customer_id, u.stripe_customer_id) AS stripe_customer_id,
@@ -156,7 +159,7 @@ const BASE = `
   ) s ON true
   ${ORIGINAL_DISCOUNT('u.id')}
   UNION ALL
-  SELECT gone.id, true, NULL, NULL, NULL::timestamptz, s.status, s.stripe_subscription_id, s.stripe_customer_id,
+  SELECT gone.id, true, NULL, NULL, NULL::timestamptz, NULL, s.status, s.stripe_subscription_id, s.stripe_customer_id,
     ${SUBSCRIPTION_COLUMNS}
   FROM (SELECT DISTINCT deleted_user_id AS id FROM racingcoach."StripeSubscriptions"
         WHERE user_id IS NULL AND deleted_user_id IS NOT NULL) gone
@@ -183,7 +186,10 @@ function where(filters: SubscriberFilters): { sql: string; params: unknown[] } {
     `EXISTS (SELECT 1 FROM racingcoach."StripeDiscounts" d WHERE ${ACCOUNT('d')} = b.id AND ${condition})`;
   if (filters.search) {
     const like = add(`%${filters.search.replace(/[\\%_]/g, '\\$&')}%`);
-    conditions.push(`(b.user_name ILIKE ${like} OR b.email_address ILIKE ${like} OR ${usedCode(`d.promotion_code ILIKE ${like}`)})`);
+    conditions.push(
+      `(b.user_name ILIKE ${like} OR b.email_address ILIKE ${like} OR b.signup_promo_code ILIKE ${like}
+        OR ${usedCode(`d.promotion_code ILIKE ${like}`)})`
+    );
   }
   if (filters.status) conditions.push(`b.status = ${add(filters.status)}`);
   if (filters.plan === 'none') conditions.push('b.plan IS NULL');
@@ -220,6 +226,7 @@ function rowToSubscriber(row: Record<string, unknown>): SubscriberRow {
     userName: (row.user_name as string | null) ?? null,
     emailAddress: (row.email_address as string | null) ?? null,
     signedUpAt: iso(row.signed_up_at),
+    signupPromoCode: (row.signup_promo_code as string | null) ?? null,
     status: row.status as string,
     plan: (row.plan as string | null) ?? null,
     stripeSubscriptionId: (row.stripe_subscription_id as string | null) ?? null,

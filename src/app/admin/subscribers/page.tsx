@@ -84,6 +84,7 @@ export default async function SubscribersPage({
     s.name,
     s.email,
     s.signupDate,
+    s.signupPromoCode,
     s.plan,
     s.status,
     s.originalPrice,
@@ -298,6 +299,9 @@ export default async function SubscribersPage({
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap text-muted-foreground">{row.emailAddress ?? '—'}</td>
                       <td className="px-3 py-2 whitespace-nowrap tabular-nums">{date(row.signedUpAt)}</td>
+                      <td className="px-3 py-2 whitespace-nowrap font-mono">
+                        {row.signupPromoCode ?? <span className="text-muted-foreground">—</span>}
+                      </td>
                       <td className="px-3 py-2 whitespace-nowrap">{row.plan ? (s.plans[row.plan] ?? row.plan) : '—'}</td>
                       <td className="px-3 py-2 whitespace-nowrap">
                         <SubscriptionStatusBadge status={row.status} label={s.statuses[row.status] ?? row.status} />

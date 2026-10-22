@@ -178,6 +178,8 @@ export function ensureUserSchema(): Promise<void> {
       await client.query(`ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS coach_voice TEXT NOT NULL DEFAULT ''`);
       // Its accent for Spanish: latinAmerica or spain (src/lib/coachVoice.ts); empty for the default one
       await client.query(`ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS coach_spanish_accent TEXT NOT NULL DEFAULT ''`);
+      // The optional promo code typed on the Create an Account page (src/lib/promoCode.ts); NULL for none
+      await client.query('ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS promo_code TEXT');
       // Email addresses are unique regardless of case
       await client.query(
         'CREATE UNIQUE INDEX IF NOT EXISTS users_email_address_key ON racingcoach."Users" (lower(email_address))'
@@ -886,6 +888,7 @@ export async function createUser(input: {
   emailAddress: string;
   password: string;
   preferredLanguage: Language;
+  promoCode: string | null;
   acceptedPolicies: PolicyVersions;
 }): Promise<User> {
   await ensureUserSchema();
@@ -896,8 +899,9 @@ export async function createUser(input: {
     return await transaction(async (client) => {
       const { rows } = await client.query(
         `INSERT INTO racingcoach."Users"
-           (user_name, email_address, password, account_status, membership_level, signup_date, role, preferred_language)
-         VALUES ($1, $2, $3, $6, $8, $4, $5, $7)
+           (user_name, email_address, password, account_status, membership_level, signup_date, role, preferred_language,
+            promo_code)
+         VALUES ($1, $2, $3, $6, $8, $4, $5, $7, $9)
          RETURNING ${USER_COLUMNS}`,
         [
           input.userName,
@@ -908,6 +912,7 @@ export async function createUser(input: {
           ACCOUNT_STATUS.unsubscribed,
           input.preferredLanguage,
           MEMBERSHIP_LEVEL.bronze,
+          input.promoCode,
         ]
       );
       const user = rowToUser(rows[0]);

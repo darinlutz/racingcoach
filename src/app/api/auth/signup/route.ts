@@ -3,6 +3,7 @@ import { DEFAULT_LANGUAGE, fmt, isLanguage } from '@/lib/i18n/languages';
 import { setLanguageCookie } from '@/lib/i18n/server';
 import { notifyOwner } from '@/lib/ownerNotifications';
 import { isCurrentPolicyVersions, POLICY_VERSIONS } from '@/lib/policyVersions';
+import { cleanPromoCode } from '@/lib/promoCode';
 import { createSession } from '@/lib/session';
 import { createUser, EmailTakenError } from '@/lib/users';
 import { apiText } from '@/lib/i18n/server';
@@ -10,7 +11,7 @@ import { apiText } from '@/lib/i18n/server';
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_NAME_LENGTH = 100;
 
-// Creates an account from a name, email address, password and Preferred Language, recording that it accepted the
+// Creates an account from a name, email address, password, Preferred Language and optional promo code, recording that it accepted the
 // Terms of Service and Privacy Policy versions in acceptedPolicies. iRacePlan is connected later, from the
 // My Race Trends page (/api/race-trends/connection).
 export async function POST(request: Request) {
@@ -21,6 +22,7 @@ export async function POST(request: Request) {
     const emailAddress = typeof body.emailAddress === 'string' ? body.emailAddress.trim().toLowerCase() : '';
     const password = typeof body.password === 'string' ? body.password : '';
     const preferredLanguage = isLanguage(body.preferredLanguage) ? body.preferredLanguage : DEFAULT_LANGUAGE;
+    const promoCode = cleanPromoCode(body.promoCode);
 
     if (!userName || !emailAddress || !password) {
       return NextResponse.json({ error: t.allFieldsRequired }, { status: 400 });
@@ -45,6 +47,7 @@ export async function POST(request: Request) {
       emailAddress,
       password,
       preferredLanguage,
+      promoCode,
       acceptedPolicies: { ...POLICY_VERSIONS },
     });
     await createSession(user.id);

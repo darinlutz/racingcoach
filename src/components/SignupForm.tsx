@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { withReturnTo } from '@/lib/returnTo';
 import { POLICY_VERSIONS } from '@/lib/policyVersions';
+import { MAX_PROMO_CODE_LENGTH } from '@/lib/promoCode';
 import ForgotPasswordForm from './ForgotPasswordForm';
 import LanguageSelect from './LanguageSelect';
 import { useLanguage } from './LanguageProvider';
@@ -20,6 +21,7 @@ export default function SignupForm({ next = '/' }: { next?: string }) {
     userName: '',
     emailAddress: '',
     password: '',
+    promoCode: '',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -107,6 +109,22 @@ export default function SignupForm({ next = '/' }: { next?: string }) {
           required
           minLength={8}
           autoComplete="new-password"
+          className={inputClass}
+        />
+      </div>
+
+      <div>
+        <label htmlFor="promoCode" className="block text-sm font-medium text-foreground mb-2">
+          {t.common.promoCode} <span className="text-muted-foreground font-normal">{t.common.optional}</span>
+        </label>
+        <input
+          type="text"
+          id="promoCode"
+          name="promoCode"
+          value={formData.promoCode}
+          onChange={handleChange}
+          maxLength={MAX_PROMO_CODE_LENGTH}
+          autoComplete="off"
           className={inputClass}
         />
       </div>

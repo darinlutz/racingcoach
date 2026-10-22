@@ -12,6 +12,7 @@ const COLUMNS: [string, (row: SubscriberRow, local: Intl.DateTimeFormat) => stri
   ['name', (row) => row.userName],
   ['email', (row) => row.emailAddress],
   ['signup_date', (row, local) => (row.signedUpAt ? local.format(new Date(row.signedUpAt)) : null)],
+  ['signup_promo_code', (row) => row.signupPromoCode],
   ['subscription_status', (row) => row.status],
   ['plan', (row) => row.plan],
   ['currency', (row) => row.currency],

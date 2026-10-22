@@ -551,6 +551,9 @@ export const en = {
     pitRoad: 'pit road',
     offTrack: 'off track',
     loadingLap: 'loading…',
+    bronzeStintLimit: 'Bronze users have limited stints. Upgrade to see more stints.',
+    silverStintLimit: 'Upgrade to Gold to see more stints.',
+    maxStintLimit: 'Your maximum is {n} stints, so only your {n} most recent stints are shown.',
   },
 
   lapCompare: {

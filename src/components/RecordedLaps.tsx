@@ -12,6 +12,7 @@ import {
   type LapFile,
   type Track,
 } from '@/lib/lapData';
+import { STINT_LIMITS } from '@/lib/roles';
 import { uploadTargetLap } from '@/lib/targetLapUpload';
 
 // Laps more than this far apart start a new session in the list (offline sessions have no iRacing IDs)
@@ -124,6 +125,9 @@ export default function RecordedLaps({
   // null until drivers are picked (the user's own laps)
   const [driverPick, setDriverPick] = useState<DriverPick | null>(null);
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+  // How many of the newest stints are listed (recordedStintLimit: 8 for Bronze, 20 for Silver, 50 for Gold, Coaches
+  // and Admins); it picks the message shown when there are more
+  const [stintLimit, setStintLimit] = useState<number | null>(null);
 
   useEffect(() => {
     // A slower answer for drivers picked earlier mustn't replace the ones picked last
@@ -137,6 +141,7 @@ export default function RecordedLaps({
         if (!current) return;
         if (!res.ok) throw new Error(data.error || t.failedLoad);
         setLaps(data.laps);
+        setStintLimit(data.stintLimit ?? null);
         if (data.drivers) {
           setDrivers(data.drivers);
           setCurrentUserId(data.currentUserId);
@@ -171,7 +176,9 @@ export default function RecordedLaps({
     <DriverMultiSelect drivers={drivers} currentUserId={currentUserId} value={shownPick} onChange={changeDrivers} />
   );
 
-  const sessions = useMemo(() => groupSessions(laps), [laps]);
+  const allSessions = useMemo(() => groupSessions(laps), [laps]);
+  const sessions = stintLimit === null ? allSessions : allSessions.slice(0, stintLimit);
+  const moreStints = allSessions.length > sessions.length;
 
   // Report the picked laps whose CSVs have loaded, in the order they were driven
   useEffect(() => {
@@ -325,6 +332,17 @@ export default function RecordedLaps({
           {notice}
         </div>
       )}
+      {moreStints && (
+        <p className="px-4 py-3 rounded-lg border text-sm bg-yellow-500/10 border-yellow-500/40 text-yellow-200">
+          {stintLimit === STINT_LIMITS.bronze
+            ? t.bronzeStintLimit
+            : stintLimit === STINT_LIMITS.silver
+              ? t.silverStintLimit
+              : fmt(t.maxStintLimit, { n: stintLimit ?? STINT_LIMITS.max })}
+        </p>
+      )}
+      {/* Scrolls on its own so a long list doesn't run down the page */}
+      <div className="max-h-[36rem] overflow-y-auto space-y-2 pr-1">
       {sessions.map((session, index) => {
         const first = session.laps[0];
         const best = Math.min(...session.laps.map((lap) => lap.lapTimeSeconds));
@@ -462,6 +480,7 @@ export default function RecordedLaps({
           </details>
         );
       })}
+      </div>
     </div>
   );
 }

@@ -9,6 +9,7 @@ import {
   MAX_UPLOAD_BYTES,
   saveCollectorLap,
 } from '@/lib/collectorLaps';
+import { recordedStintLimit } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
 import { apiText } from '@/lib/i18n/server';
 
@@ -18,7 +19,8 @@ const UNAUTHORIZED = { error: 'Missing or unknown upload key' };
 // ?userId= picks the drivers, comma-separated (e.g. ?userId=3,7), or ?userId=all for every driver; the signed-in
 // user's own laps by default. Coaches and Admins can see every driver's laps; Users their own and Coaches' (see
 // LapViewer in collectorLaps.ts), and other drivers' are left out. Also answers `drivers`: every account with laps
-// the user can see, for the page's Driver box.
+// the user can see, for the page's Driver box, and `stintLimit`, how many of the newest stints the page lists
+// (recordedStintLimit).
 export async function GET(request: Request) {
   const t = await apiText();
   try {
@@ -40,7 +42,12 @@ export async function GET(request: Request) {
     const drivers = owners.some((owner) => owner.userId === user.id)
       ? owners
       : [{ userId: user.id, userName: user.userName, lapCount: 0 }, ...owners];
-    return NextResponse.json({ laps, drivers, currentUserId: user.id });
+    return NextResponse.json({
+      laps,
+      drivers,
+      currentUserId: user.id,
+      stintLimit: recordedStintLimit(user),
+    });
   } catch (error) {
     console.error('Collector lap list error:', error);
     return NextResponse.json({ error: t.failedLoadRecordedLaps }, { status: 500 });

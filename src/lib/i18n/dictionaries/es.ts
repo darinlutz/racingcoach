@@ -541,6 +541,9 @@ export const es: Dictionary = {
     pitRoad: 'pit lane',
     offTrack: 'fuera de pista',
     loadingLap: 'cargando…',
+    bronzeStintLimit: 'Los usuarios Bronze tienen stints limitados. Mejora tu plan para ver más stints.',
+    silverStintLimit: 'Mejora a Gold para ver más stints.',
+    maxStintLimit: 'Tu máximo es de {n} stints, así que solo se muestran tus {n} stints más recientes.',
   },
 
   lapCompare: {

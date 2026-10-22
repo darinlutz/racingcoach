@@ -31,3 +31,14 @@ export const canSeeSubscribers = canCoach;
 // page's In-Car AI Coach Instructions
 export const canUseInCarCoach = (user: { membershipLevel: string; role: string }) =>
   user.role === ROLES.admin || user.membershipLevel === MEMBERSHIP_LEVEL.gold;
+
+// How many of the newest stints (sessions) Debrief Coach's recorded laps list shows: 8 for Bronze, 20 for Silver,
+// 50 for Gold members, Coaches and Admins (the most anyone sees)
+export const STINT_LIMITS = { bronze: 8, silver: 20, max: 50 } as const;
+
+export const recordedStintLimit = (user: { membershipLevel: string; role: string }): number =>
+  user.role === ROLES.admin || user.role === ROLES.coach || user.membershipLevel === MEMBERSHIP_LEVEL.gold
+    ? STINT_LIMITS.max
+    : user.membershipLevel === MEMBERSHIP_LEVEL.silver
+      ? STINT_LIMITS.silver
+      : STINT_LIMITS.bronze;

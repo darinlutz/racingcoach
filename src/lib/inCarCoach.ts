@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto';
 import { createAgent } from 'langchain';
 import { z } from 'zod';
-import { brakeChangeRule, createTools, hasTrackPosition, type DebriefSession } from './debriefCoach';
+import { brakeChangeRule, createTools, type DebriefSession } from './debriefCoach';
+import { hasTrackPosition } from './trackPositions';
 import { DEFAULT_UNITS, DISTANCE_NAME, DISTANCE_UNIT, SPEED_UNIT, type Units } from './units';
 import { aiLanguageRule, DEFAULT_LANGUAGE, type Language } from './i18n/languages';
 import { LAP_TIME_RULE } from './lapData';
@@ -128,9 +129,11 @@ const PLAN_PROMPT =
   'rule texts short and write them in the language below. The head coach\'s instructions, when given, apply to ' +
   'every driver; the driver\'s own instructions come after them and win where the two disagree.';
 
-// Rule texts are spoken and shown as they are, so any distance or speed in them is in the user's units
+// Rule texts are spoken and shown as they are, so any distance or speed in them is in the user's units, and no
+// distance in them is a place on the track
 const unitsRule = (units: Units) =>
-  ` Any distance or speed in a rule text is in ${DISTANCE_NAME[units]} (${DISTANCE_UNIT[units]}) and ${SPEED_UNIT[units]}.`;
+  ` Any distance or speed in a rule text is in ${DISTANCE_NAME[units]} (${DISTANCE_UNIT[units]}) and ${SPEED_UNIT[units]}. ` +
+  brakeChangeRule(units);
 
 // A plan is only worked out again when the instructions, the track's focus areas, the language or the units change
 const planCache = new Map<string, InCarCoachPlan>();
@@ -180,7 +183,8 @@ export async function inCarCoachPlan(
   return plan;
 }
 
-// Drops rules the collector couldn't run (a say or message with no text, a sound with none, an unknown area)
+// Drops rules the collector couldn't run (a say or message with no text, a sound with none, an unknown area), and
+// any whose text says where on the track something happens (src/lib/trackPositions.ts)
 function cleanPlan(plan: InCarCoachPlan, areaNames: string[]): InCarCoachPlan {
   const rules = plan.rules
     .flatMap((rule): CoachRule[] => {
@@ -188,7 +192,7 @@ function cleanPlan(plan: InCarCoachPlan, areaNames: string[]): InCarCoachPlan {
       const area = isAreaEvent && rule.area ? areaNames.find((n) => n.toLowerCase() === rule.area!.trim().toLowerCase()) : null;
       if (isAreaEvent && rule.area && !area) return [];
       if (rule.action === 'sound') return [{ ...rule, area: area ?? null, text: null, sound: rule.sound ?? 'beep' }];
-      if (!rule.text?.trim()) return [];
+      if (!rule.text?.trim() || hasTrackPosition(rule.text)) return [];
       return [{ ...rule, area: area ?? null, text: rule.text.trim(), sound: null }];
     })
     .slice(0, MAX_RULES);

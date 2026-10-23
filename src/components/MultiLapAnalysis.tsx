@@ -70,18 +70,35 @@ function formatAreaStats(
   const avg = mean(times);
   const stdDev = sampleStdDev(times);
   const bestLap = runs[times.indexOf(best)].lap;
-  const brakepoints = lengthFeet
-    ? runs.flatMap((r) => (r.stats.brakePct === null ? [] : [distanceFromFeet(brakeFeet(r.stats.brakePct, lengthFeet), units)]))
-    : [];
   const noBrakeLaps = runs.filter((r) => r.stats.brakePct === null).length;
   const unit = ` ${DISTANCE_UNIT[units]}`;
   const speed = ` ${SPEED_UNIT[units]}`;
+
+  // Brakepoints go to the AI from the reference brakepoint, where the area's fastest lap that braked started
+  // braking, never as places on the track: it can't repeat one it never sees (src/lib/trackPositions.ts)
+  const reference = [...runs].sort((a, b) => a.stats.seconds - b.stats.seconds).find((r) => r.stats.brakePct !== null);
+  const toDistance = (feet: number) => distanceFromFeet(feet, units);
+  const referenceFeet = reference && lengthFeet ? brakeFeet(reference.stats.brakePct!, lengthFeet) : null;
+  const fromReference = (feet: number) => {
+    const diff = Math.round(toDistance(feet - referenceFeet!));
+    return diff === 0 ? "at the fastest lap's brakepoint" : `${Math.abs(diff)}${unit} ${diff > 0 ? 'after' : 'before'} the fastest lap's brakepoint`;
+  };
+  const brakepointText = () => {
+    if (!lengthFeet) return 'Brakepoint n/a (track length unknown)';
+    if (referenceFeet === null) return 'No braking';
+    const feet = runs.flatMap((r) => (r.stats.brakePct === null ? [] : [brakeFeet(r.stats.brakePct, lengthFeet)]));
+    const spread = sampleStdDev(feet.map(toDistance));
+    return (
+      `Brakepoint, from where the fastest lap [${reference!.lap.fileId.slice(-4)}] started braking (after is later): avg ${fromReference(mean(feet))}, std dev ${spread === null ? 'n/a' : `${spread.toFixed(1)}${unit}`} ` +
+      `(Target Lap ${brakeTarget === null ? 'n/a' : fromReference(brakeTarget)})`
+    );
+  };
 
   return (
     `${name}: ${runs.length} laps, best ${best.toFixed(3)}s [${bestLap.fileId.slice(-4)}], avg ${avg.toFixed(3)}s ` +
     `(avg lost to best ${(avg - best).toFixed(3)}s), worst ${Math.max(...times).toFixed(3)}s, ` +
     `std dev ${stdDev === null ? 'n/a' : `${stdDev.toFixed(3)}s`}. ` +
-    `Brakepoint ${formatSpread(brakepoints, unit)} (Target Lap ${distance(brakeTarget, units) ?? 'n/a'}${unit})` +
+    brakepointText() +
     `${noBrakeLaps > 0 ? `, no braking on ${noBrakeLaps} laps` : ''}. ` +
     `Max brake ${formatSpread(runs.map((r) => r.stats.maxBrake * 100), '%')} (Target Lap ${pressureTarget === null ? 'n/a' : `${pressureTarget}%`}). ` +
     `Min speed ${formatSpread(runs.map((r) => speedFromMetersPerSecond(r.stats.minSpeed, units)), speed)}. ` +

@@ -159,22 +159,27 @@ function formatSignedDiff(diff: number) {
   return `${diff >= 0 ? '+' : '-'}${Math.abs(diff)}`;
 }
 
-// "T 7: Base 8.345 s, Compare 8.465 s (+0.120).  Base brake 4,345 ft at 65%, Compare brake
-// 4,495 ft (150 ft later) at 68% (3% harder).  Base exit 98 mph, Compare exit 101 mph (+3 mph)."
-// In meters and kph for Metric.
+// "T 7: Base 8.345 s, Compare 8.465 s (+0.120).  Base brakes (the reference brakepoint) at 65% peak, Compare
+// brakes 150 ft later than Base at 68% (3% harder).  Base exit 98 mph, Compare exit 101 mph (+3 mph)."
+// In meters and kph for Metric. Only for the summary's AI, so the brakepoints are against the Base lap's, never
+// where on the track: it can't repeat a place on the track it never sees (src/lib/trackPositions.ts).
 function formatAreaLine(areaName: string, c: AreaComparison, lengthFeet: number | null, units: Units) {
-  const unit = DISTANCE_UNIT[units];
   const speed = SPEED_UNIT[units];
-  const brakeAt = (distance: number | null) => {
-    if (distance !== null) return `${formatDistance(distance)} ${unit}`;
-    return lengthFeet ? 'no braking' : `n/a ${unit} (track length unknown)`;
-  };
-  const brakepointDiff = c.brakeDiff === null ? '' : ` (${formatBrakeDiff(c.brakeDiff, units)})`;
+  const noBrake = lengthFeet ? 'no braking' : 'brakepoint unknown (track length unknown)';
+  const baseBrake = c.baseBrake === null ? noBrake : 'brakes (the reference brakepoint)';
+  const compareBrake =
+    c.compareBrake === null
+      ? noBrake
+      : c.brakeDiff === null
+        ? 'brakes (the Base lap did not brake)'
+        : c.brakeDiff === 0
+          ? 'brakes at the same point as Base'
+          : `brakes ${formatBrakeDiff(c.brakeDiff, units)} than Base`;
 
   return (
     `${areaName}: Base ${c.baseSeconds.toFixed(3)} s, Compare ${c.compareSeconds.toFixed(3)} s (${formatSecondsDiff(c.secondsDiff)}).  ` +
-    `Base brake ${brakeAt(c.baseBrake)} at ${c.basePressure}%, ` +
-    `Compare brake ${brakeAt(c.compareBrake)}${brakepointDiff} at ${c.comparePressure}% (${formatPressureDiff(c.pressureDiff)}).  ` +
+    `Base ${baseBrake} at ${c.basePressure}% peak, ` +
+    `Compare ${compareBrake} at ${c.comparePressure}% (${formatPressureDiff(c.pressureDiff)}).  ` +
     `Base entry ${c.baseEntry} ${speed}, Compare entry ${c.compareEntry} ${speed} (${formatSignedDiff(c.entryDiff)} ${speed}).  ` +
     `Base Min speed ${c.baseMin} ${speed}, Compare Min speed ${c.compareMin} ${speed} (${formatSignedDiff(c.minDiff)} ${speed}).  ` +
     `Base exit ${c.baseExit} ${speed}, Compare exit ${c.compareExit} ${speed} (${formatSignedDiff(c.exitDiff)} ${speed}).`

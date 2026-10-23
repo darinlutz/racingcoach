@@ -3,6 +3,7 @@ import { createAgent, tool } from 'langchain';
 import { z } from 'zod';
 import { aiLanguageRule, DEFAULT_LANGUAGE, type Language } from './i18n/languages';
 import { coachInstructionsRule } from './siteSettings';
+import { removeTrackPositions } from './trackPositions';
 import { chatModel } from '@/lib/aiModels';
 
 // My Race Trends page. The driver's races are synced from iRacePlan into racingcoach."RaceResults"
@@ -283,7 +284,8 @@ export async function runRaceTrends(
   return {
     trend: iRatingTrend(events),
     incidents: incidentTrend(events),
-    commentary: result.structuredResponse.commentary,
+    // Race results have no track positions, but no coach ever says where on the track something happens
+    commentary: removeTrackPositions(result.structuredResponse.commentary),
     steps,
   };
 }
@@ -330,5 +332,10 @@ export async function runRaceCoaching(driver: string, events: RaceEvent[]): Prom
     { messages: [{ role: 'user', content: `Coach ${driver} on their race results.` }] },
     { recursionLimit: 30 }
   );
-  return result.structuredResponse;
+  // Race results have no track positions, but no coach ever says where on the track something happens
+  const coaching: RaceCoaching = result.structuredResponse;
+  return {
+    summary: removeTrackPositions(coaching.summary),
+    opportunities: coaching.opportunities.map((o) => ({ ...o, advice: removeTrackPositions(o.advice), impact: removeTrackPositions(o.impact) })),
+  };
 }

@@ -89,6 +89,7 @@ src/
 - Check environment variables before making external calls
 - Return `NextResponse.json()` with appropriate status codes
 - Handle errors gracefully with clear error messages
+- AI coaches never say where on the track something happens (a distance from the start/finish line or a share of the lap): give the model only distances relative to a reference (e.g. "15 ft after your fastest run's brakepoint"), put `brakeChangeRule` (`src/lib/debriefCoach.ts`) in its prompt when its data has brakepoints, else `TRACK_POSITION_RULE`, and pass its answer through `src/lib/trackPositions.ts` (`withoutTrackPositions`: one rewrite, then the sentences that still do are dropped). `npm run test:track-positions` tests the check
 
 **Example API route structure:**
 ```typescript

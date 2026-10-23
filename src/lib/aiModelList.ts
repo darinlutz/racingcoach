@@ -31,6 +31,7 @@ export const AI_MODELS = [
   'gpt-5',
   'gpt-5.1',
   'gpt-5.2',
+  'gpt-5.4-mini',
   'gpt-5.4',
   'gpt-5.5',
   'claude-sonnet-5-5',

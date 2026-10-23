@@ -7,6 +7,7 @@ import { planOptimalLap, segmentName, type OptimalLap } from './optimalLap';
 import { shiftLimit, type LapShifting } from './shifting';
 import { coachInstructionsRule } from './siteSettings';
 import { formatSeconds } from './stintExport';
+import { hasTrackPosition, removeTrackPositions, trackPositionFeedback } from './trackPositions';
 import {
   DEFAULT_UNITS,
   DISTANCE_NAME,
@@ -183,10 +184,47 @@ function unitFormat(units: Units) {
   };
 }
 
-function describeRun(run: DebriefRun, u: UnitFormat) {
+// Where an area's distances are measured from, so the coach never sees a place on the track (feet from the
+// start/finish line) to repeat: the brakepoint of the area's fastest run that braked, else, with no braking in
+// the area, where its fastest run put the throttle back on. null when neither was measured.
+type AreaReference = { feet: number; name: string; lap: string } | null;
+function areaReference(area: DebriefArea): AreaReference {
+  const runs = [...area.runs].sort((a, b) => a.seconds - b.seconds);
+  const braked = runs.find((r) => r.brakeFeet !== null);
+  if (braked) return { feet: braked.brakeFeet!, name: "your fastest run's brakepoint", lap: braked.lap };
+  const pickup = runs.find((r) => typeof r.throttle?.pickupFeet === 'number');
+  if (pickup) return { feet: pickup.throttle!.pickupFeet!, name: "your fastest run's throttle pickup", lap: pickup.lap };
+  return null;
+}
+
+// Feet from the start/finish line -> "15 ft after your fastest run's brakepoint" (or "5 m before ...")
+type FromReference = (feet: number | null | undefined) => string;
+function fromReference(ref: AreaReference, u: UnitFormat): FromReference {
+  return (feet) => {
+    if (typeof feet !== 'number' || !ref) return 'n/a';
+    const diff = Math.round(u.feet(feet - ref.feet));
+    return diff === 0 ? `at ${ref.name}` : `${Math.abs(diff)}${u.unit} ${diff > 0 ? 'after' : 'before'} ${ref.name}`;
+  };
+}
+
+// The average of the laps that measured it, from the reference
+function averageFromReference(values: (number | null | undefined)[], from: FromReference) {
+  const measured = values.filter((v): v is number => typeof v === 'number');
+  return measured.length === 0 ? 'n/a' : from(mean(measured));
+}
+
+// The tools' note on what their distances mean
+function referenceNote(ref: AreaReference, u: UnitFormat) {
+  return ref
+    ? `Every distance here is from ${ref.name} ([${ref.lap}]): "after" is further along the track (later), "before" is earlier. ` +
+        `Give the driver changes (${u.distanceName} later or earlier, against a reference you name), never these as places on the track.`
+    : 'No run braked or picked the throttle back up here, so there are no distances.';
+}
+
+function describeRun(run: DebriefRun, u: UnitFormat, from: FromReference) {
   return (
     `[${run.lap}] ${run.seconds.toFixed(3)}s, ` +
-    `${run.brakeFeet === null ? 'no braking' : `brake at ${u.feet(run.brakeFeet).toFixed(0)}${u.unit}`}, ` +
+    `${run.brakeFeet === null ? 'no braking' : `brake ${from(run.brakeFeet)}`}, ` +
     `max brake ${run.maxBrakePct.toFixed(0)}%, min ${u.mph(run.minSpeedMph).toFixed(1)}${u.speed}, ` +
     `exit ${u.mph(run.exitSpeedMph).toFixed(1)}${u.speed}`
   );
@@ -292,8 +330,6 @@ const LINE_CHECKPOINTS = ['the start of the area (entry)', '25% through', 'the m
 // carRpmLimit is the car's rev limit from the user's Car Data (null when it isn't there), for get_shifting_points.
 export function createTools(session: DebriefSession, units: Units = DEFAULT_UNITS, carRpmLimit: number | null = null) {
   const u = unitFormat(units);
-  // Feet that may not have been measured -> the user's units
-  const feetIn = <T extends null | undefined>(feet: number | T): number | T => (typeof feet === 'number' ? u.feet(feet) : feet);
   const { cutoff, incidentLaps, cleanLaps, areas } = cleanSession(session);
   const findArea = (name: string) => areas.find((a) => a.name.toLowerCase() === name.trim().toLowerCase());
   const areaNames = areas.map((a) => a.name).join(', ');
@@ -317,7 +353,7 @@ export function createTools(session: DebriefSession, units: Units = DEFAULT_UNIT
           .map((a) => {
             const times = a.runs.map((r) => r.seconds);
             return (
-              `- ${a.name} (${a.range}): best ${Math.min(...times).toFixed(3)}s, avg lost to best ${timeLost(a).toFixed(3)}s, ` +
+              `- ${a.name}: best ${Math.min(...times).toFixed(3)}s, avg lost to best ${timeLost(a).toFixed(3)}s, ` +
               `std dev ${fixed(stdDev(times), 3, 's')}, ${times.length} laps`
             );
           }),
@@ -337,19 +373,20 @@ export function createTools(session: DebriefSession, units: Units = DEFAULT_UNIT
 
       const { runs, k, fast, slow } = fastSlow(area);
       const split = (label: string, pick: (r: DebriefRun[]) => string) => `${label} ${pick(fast)} vs ${pick(slow)}`;
+      const ref = areaReference(area);
+      const from = fromReference(ref, u);
 
       const lines = [
-        `${area.name} (${area.range}). Target Lap brakepoint ` +
-          `${area.brakepointTarget === null ? 'n/a' : `${u.feet(area.brakepointTarget).toFixed(0)}${u.unit}`}, ` +
+        `${area.name}. Target Lap brakepoint ${area.brakepointTarget === null ? 'n/a' : from(area.brakepointTarget)}, ` +
           `Target Lap max brake ${area.maxBrakeTarget === null ? 'n/a' : `${area.maxBrakeTarget}%`}. ` +
-          `Brakepoints are ${u.distanceName} from the start/finish line, so more ${u.distanceName} means braking later.`,
+          referenceNote(ref, u),
         'Per lap, fastest first:',
-        ...runs.map((run) => describeRun(run, u)),
+        ...runs.map((run) => describeRun(run, u, from)),
         '',
         `Fastest ${k} vs slowest ${k} runs (averages): ` +
           [
             split('time', (r) => avgOf(r.map((x) => x.seconds), 3, 's')),
-            split('brakepoint', (r) => avgOf(brakeFeetOf(r).map(u.feet), 0, u.unit)),
+            split('brakepoint', (r) => averageFromReference(brakeFeetOf(r), from)),
             split('max brake', (r) => avgOf(r.map((x) => x.maxBrakePct), 0, '%')),
             split('min speed', (r) => avgOf(r.map((x) => u.mph(x.minSpeedMph)), 1, u.speed)),
             split('exit speed', (r) => avgOf(r.map((x) => u.mph(x.exitSpeedMph)), 1, u.speed)),
@@ -406,13 +443,15 @@ export function createTools(session: DebriefSession, units: Units = DEFAULT_UNIT
         const run = session.areas.find((a) => a.name === area.name)?.runs.find((r) => r.lap === match.id);
         if (!run) return [];
         const best = area.runs.reduce((a, b) => (b.seconds < a.seconds ? b : a));
-        return [{ delta: run.seconds - best.seconds, text: `${area.name}: ${describeRun(run, u)} | area best ${describeRun(best, u)}` }];
+        const from = fromReference(areaReference(area), u);
+        return [{ delta: run.seconds - best.seconds, text: `${area.name}: ${describeRun(run, u, from)} | area best ${describeRun(best, u, from)}` }];
       });
       rows.sort((a, b) => b.delta - a.delta);
       const total = rows.reduce((sum, r) => sum + r.delta, 0);
       return [
         `Lap [${match.id}] ${formatSeconds(match.lapTime)}${match.lapTime > cutoff ? ' (an incident lap)' : ''}. Time lost to the best run in each focus area, most first ` +
-          `(${total.toFixed(3)}s in total):`,
+          `(${total.toFixed(3)}s in total). Brakepoints are from where each area's fastest run started braking ` +
+          '("after" is later, "before" earlier):',
         ...rows.map((r) => `+${r.delta.toFixed(3)}s ${r.text}`),
       ].join('\n');
     },
@@ -431,6 +470,8 @@ export function createTools(session: DebriefSession, units: Units = DEFAULT_UNIT
       if (!area) return `No focus area named "${name}". Focus areas: ${areaNames}`;
       const { runs, k, fast, slow } = fastSlow(area);
       if (!runs.some((r) => r.braking)) return `Braking detail was not measured for ${area.name} in this session.`;
+      const ref = areaReference(area);
+      const from = fromReference(ref, u);
 
       const describe = (run: DebriefRun) => {
         const d = run.braking;
@@ -438,14 +479,14 @@ export function createTools(session: DebriefSession, units: Units = DEFAULT_UNIT
         return (
           `[${run.lap}] ${run.seconds.toFixed(3)}s: ` +
           [
-            run.brakeFeet === null ? 'no braking' : `brake at ${u.feet(run.brakeFeet).toFixed(0)}${u.unit}`,
+            run.brakeFeet === null ? 'no braking' : `brake ${from(run.brakeFeet)}`,
             `${fixed(d.rampSeconds, 2, 's')} to peak ${run.maxBrakePct.toFixed(0)}%`,
             `${fixed(d.trailSeconds, 2, 's')} from peak to release`,
-            `released at ${fixed(feetIn(d.releaseFeet), 0, u.unit)}`,
+            `released ${from(d.releaseFeet)}`,
             d.brakeAtTurnInPct === null ? 'no turn-in' : `${d.brakeAtTurnInPct}% brake at turn-in`,
             `${d.brakeSeconds.toFixed(2)}s on the brake`,
             `${d.coastSeconds.toFixed(2)}s coasting`,
-            `throttle back at ${fixed(feetIn(d.throttleFeet), 0, u.unit)}`,
+            `throttle back ${from(d.throttleFeet)}`,
           ].join(', ')
         );
       };
@@ -453,8 +494,7 @@ export function createTools(session: DebriefSession, units: Units = DEFAULT_UNIT
         `${label} ${avgMeasured(fast.map(pick), digits, unit)} vs ${avgMeasured(slow.map(pick), digits, unit)}`;
 
       return [
-        `${area.name} (${area.range}) braking. ${u.distanceName[0].toUpperCase()}${u.distanceName.slice(1)} are from ` +
-          `the start/finish line (more ${u.distanceName} = later). "To peak" is ` +
+        `${area.name} braking. ${referenceNote(ref, u)} "To peak" is ` +
           'how long the brake took to reach its highest pressure; "peak to release" is how long it was trailed off ' +
           'into the corner; "at turn-in" is the brake pressure when the steering reached half its largest angle; ' +
           'coasting is off the brake with under 10% throttle.',
@@ -465,11 +505,11 @@ export function createTools(session: DebriefSession, units: Units = DEFAULT_UNIT
           [
             split('time to peak', (r) => r.braking?.rampSeconds, 2, 's'),
             split('peak to release', (r) => r.braking?.trailSeconds, 2, 's'),
-            split('release point', (r) => feetIn(r.braking?.releaseFeet), 0, u.unit),
+            `release point ${averageFromReference(fast.map((r) => r.braking?.releaseFeet), from)} vs ${averageFromReference(slow.map((r) => r.braking?.releaseFeet), from)}`,
             split('brake at turn-in', (r) => r.braking?.brakeAtTurnInPct, 0, '%'),
             split('time on the brake', (r) => r.braking?.brakeSeconds, 2, 's'),
             split('coasting', (r) => r.braking?.coastSeconds, 2, 's'),
-            split('throttle back', (r) => feetIn(r.braking?.throttleFeet), 0, u.unit),
+            `throttle back ${averageFromReference(fast.map((r) => r.braking?.throttleFeet), from)} vs ${averageFromReference(slow.map((r) => r.braking?.throttleFeet), from)}`,
           ].join('; ') +
           '.',
       ].join('\n');
@@ -490,6 +530,8 @@ export function createTools(session: DebriefSession, units: Units = DEFAULT_UNIT
       if (!area) return `No focus area named "${name}". Focus areas: ${areaNames}`;
       const { runs, k, fast, slow } = fastSlow(area);
       if (!runs.some((r) => r.throttle)) return `Throttle detail was not measured for ${area.name} in this session.`;
+      const ref = areaReference(area);
+      const from = fromReference(ref, u);
 
       const describe = (run: DebriefRun) => {
         const d = run.throttle;
@@ -504,7 +546,7 @@ export function createTools(session: DebriefSession, units: Units = DEFAULT_UNIT
           `[${run.lap}] ${run.seconds.toFixed(3)}s: ` +
           [
             lift,
-            d.pickupFeet === null ? 'no pickup in the area' : `throttle on at ${u.feet(d.pickupFeet).toFixed(0)}${u.unit}`,
+            d.pickupFeet === null ? 'no pickup in the area' : `throttle on ${from(d.pickupFeet)}`,
             d.pickupFeet === null ? null : d.pickupToFullSeconds === null ? 'never full throttle in the area' : `${d.pickupToFullSeconds.toFixed(2)}s to full throttle`,
             d.reapplications === 0
               ? d.pickupFeet === null ? null : 'committed (no re-application)'
@@ -519,10 +561,10 @@ export function createTools(session: DebriefSession, units: Units = DEFAULT_UNIT
         `${label} ${avgMeasured(fast.map(pick), digits, unit)} vs ${avgMeasured(slow.map(pick), digits, unit)}`;
 
       const lines = [
-        `${area.name} (${area.range}) throttle. Lift time is how long the throttle took from 90% to off (under 10%): ` +
+        `${area.name} throttle. ${referenceNote(ref, u)} Lift time is how long the throttle took from 90% to off (under 10%): ` +
           `a committed lift is quick, under ${SLOW_LIFT_SECONDS.toFixed(2)}s, and a slower one is marked slow. A partial lift ` +
           `went back to 90% without getting off the throttle. "Throttle on" is where the throttle went back on (10%) ` +
-          `after being off, in ${u.distanceName} from the start/finish line (more ${u.distanceName} = later). A re-application is the ` +
+          'after being off. A re-application is the ' +
           'throttle cut back by 15% or more after the pickup and then pressed again. The ideal: once you commit to the ' +
           'throttle, go to 100% and do not come back off it.',
         'Per lap, fastest first:',
@@ -531,7 +573,7 @@ export function createTools(session: DebriefSession, units: Units = DEFAULT_UNIT
         `Fastest ${k} vs slowest ${k} runs (averages): ` +
           [
             split('lift time', (r) => r.throttle?.liftSeconds, 2, 's'),
-            split('throttle on', (r) => feetIn(r.throttle?.pickupFeet), 0, u.unit),
+            `throttle on ${averageFromReference(fast.map((r) => r.throttle?.pickupFeet), from)} vs ${averageFromReference(slow.map((r) => r.throttle?.pickupFeet), from)}`,
             split('time to full throttle', (r) => r.throttle?.pickupToFullSeconds, 2, 's'),
             split('re-applications', (r) => r.throttle?.reapplications, 1, ''),
           ].join('; ') +
@@ -740,7 +782,7 @@ export function createTools(session: DebriefSession, units: Units = DEFAULT_UNIT
       const turn = turnDirection(area);
 
       return [
-        `${area.name} (${area.range}) steering, in steering wheel degrees. ` +
+        `${area.name} steering, in steering wheel degrees. ` +
           (turn ? `It is a ${turn}-hand corner. ` : 'It has no single corner direction (a straight or a chicane). ') +
           'A reversal is the wheel swinging back the other way by 4° or more: turning in then unwinding is one, so ' +
           'more than that means corrections (sawing at the wheel or catching the car). More wheel angle at the same ' +
@@ -823,7 +865,7 @@ export function createTools(session: DebriefSession, units: Units = DEFAULT_UNIT
             'driving line does not explain the time here. Do not give a driving line fix for this area.';
 
       return [
-        `${area.name} (${area.range}) driving line, compared with lap [${area.lineReference ?? '?'}] (the fastest ` +
+        `${area.name} driving line, compared with lap [${area.lineReference ?? '?'}] (the fastest ` +
           `through the area with track positions). Each lap shows how many ${u.distanceName} it was from that line at the start ` +
           "of the area, 25%, 50%, 75% and the end, to the left or right as seen from the driver's seat facing the " +
           'direction of travel' +
@@ -888,39 +930,26 @@ function assembleOptimalLapTool(plan: OptimalLap | null, session: DebriefSession
   );
 }
 
-// Brake advice is only ever a change (how many feet or meters earlier or later), never where on the track to brake.
-// Also used by the In-Car AI Coach.
+// Brake advice is only ever a change (how many feet or meters earlier or later), never where on the track to brake,
+// and no other distance is a place on the track either (src/lib/trackPositions.ts checks every answer).
+// Used by every AI coach that sees lap data.
 export function brakeChangeRule(units: Units = DEFAULT_UNITS): string {
   const [small, smaller, far, near] = units === 'metric' ? [6, 3, 1865, 375] : [20, 10, 6120, 1230];
   const unit = DISTANCE_UNIT[units];
   return (
-    `Tell the driver how much to change the brakepoint in ${DISTANCE_NAME[units]}, e.g. "brake about ${small} ${unit} later" ` +
-    `or "brake ${smaller} ${unit} earlier", and never where on the track to brake: never write a brakepoint as a ` +
-    `distance from the start/finish line (not "brake at ${far} ${unit}" or "near ${near} ${unit}").` +
+    `Tell the driver how much to change the brakepoint in ${DISTANCE_NAME[units]}, relative to a braking reference ` +
+    `point you name, e.g. "brake about ${small} ${unit} later than your fastest lap" or "brake ${smaller} ${unit} earlier ` +
+    'than the Target Lap", and never where on the track to brake: never write a brakepoint as a distance from the ' +
+    `start/finish line (not "brake at ${far} ${unit}" or "near ${near} ${unit}"). The same goes for every other ` +
+    'distance, including where the brake is released, where the throttle goes back on, where to shift and what the ' +
+    `driver already does well: say how much later or earlier than a reference (e.g. "release the brake ${smaller} ` +
+    `${unit} later than your fastest lap"), never a distance from the start/finish line or a share of the lap.` +
     (units === 'metric'
       ? ''
       : ' Round every brakepoint change to the nearest 5 feet, so it ends in 5 or 0 (22 feet earlier is "20 feet ' +
         'earlier", 48 feet later is "50 feet later"), and give driving line moves in whole feet with no decimals ' +
         '(not "2.1 ft to the left" but "2 ft to the left").')
   );
-}
-
-// A change in feet or meters is followed by its direction ("30 ft later", "16 m too early") or comes after "by"
-// or "within" ("later by 30 ft", "within 3 m of each other", as the verdicts say); any other number of feet or
-// meters is a place on the track, e.g. "brake at 6,120 ft" or "near 375 meters". Driving line moves ("1.5 m to
-// the left") are changes too.
-const DISTANCE_RE = /\d[\d,.]*\s*(?:ft|feet|foot|pés|pies|m|meters?|metres?|metros?)(?!\p{L})/giu;
-const CHANGE_AFTER_RE =
-  /^[^\p{L}\p{N}]*(?:\p{L}+[^\p{L}\p{N}]+){0,2}?(?:later|earlier|sooner|late|early|deeper|apart|mais tarde|más tarde|mais cedo|más temprano|tarde|cedo|temprano|antes|depois|después|toward|towards|further|farther|wider|tighter|wide|para|hacia|em direção|en dirección|left|right|esquerda|direita|izquierda|derecha)(?!\p{L})/iu;
-const CHANGE_BEFORE_RE =
-  /(?<!\p{L})(?:by|por|em|en|within|under|over|less than|more than|up to|dentro de|menos de|más de|mais de|até|hasta)\s+(?:about\s+|around\s+|roughly\s+|cerca de\s+|unos\s+|uns\s+)?$/iu;
-
-export function hasTrackPosition(text: string): boolean {
-  return [...text.matchAll(DISTANCE_RE)].some((m) => {
-    const before = text.slice(Math.max(0, m.index - 25), m.index);
-    const after = text.slice(m.index + m[0].length, m.index + m[0].length + 40);
-    return !CHANGE_AFTER_RE.test(after) && !CHANGE_BEFORE_RE.test(before);
-  });
 }
 
 const systemPrompt = (units: Units) =>
@@ -977,13 +1006,19 @@ function brakeContradictions(response: DebriefFixes, areas: DebriefArea[], u: Un
   });
 }
 
-// Fixes that tell the driver where on the track to brake (feet or meters from the start/finish line) instead of a change
-function trackPositions(response: DebriefFixes, u: UnitFormat) {
-  return response.fixes.flatMap((fix) =>
-    [fix.fix, fix.problem, fix.evidence].some(hasTrackPosition)
-      ? [{ fix, message: `In ${fix.area} you gave a place on the track in ${u.distanceName} instead of a change.` }]
-      : []
-  );
+// Fixes, keep-doing items and the theoretical lap summary that say where on the track something happens (feet or
+// meters from the start/finish line) instead of a change
+function trackPositions(response: DebriefFixes, u: UnitFormat): { fix?: DebriefFixes['fixes'][number]; message: string }[] {
+  return [
+    ...response.fixes.flatMap((fix) =>
+      [fix.fix, fix.problem, fix.evidence].some(hasTrackPosition)
+        ? [{ fix, message: `In ${fix.area} you gave a place on the track in ${u.distanceName} instead of a change.` }]
+        : []
+    ),
+    ...[...response.keepDoing, response.optimalLap]
+      .filter(hasTrackPosition)
+      .map((text) => ({ message: trackPositionFeedback([text]) })),
+  ];
 }
 
 // Tool calls the agent made, e.g. "get_area_detail(T 1&2)", shown under the debrief
@@ -1025,8 +1060,8 @@ export async function runDebriefCoach(
     { recursionLimit: 40 }
   );
 
-  // The model can still flip "later" and "earlier" or say where to brake, so check every fix and give it one
-  // chance to correct itself before dropping any fix that still breaks the rules
+  // The model can still flip "later" and "earlier" or say where to brake, so check everything it wrote and give it
+  // one chance to correct itself before dropping any fix, keep-doing item or sentence that still breaks the rules
   const check = (response: DebriefFixes) => [...brakeContradictions(response, areas, u), ...trackPositions(response, u)];
   let problems = check(result.structuredResponse);
   if (problems.length > 0) {
@@ -1039,7 +1074,8 @@ export async function runDebriefCoach(
             content:
               `Your debrief breaks the brakepoint rules: ${problems.map((p) => p.message).join(' ')} ` +
               'Rewrite the whole debrief so every brakepoint fix, problem and evidence agrees with the brakepoint ' +
-              `verdicts. ${brakeChangeRule(units)}`,
+              `verdicts, and no fix, keep-doing item or theoretical lap summary says where on the track something ` +
+              `happens. ${brakeChangeRule(units)}`,
           },
         ],
       },
@@ -1049,15 +1085,22 @@ export async function runDebriefCoach(
   }
 
   const response: DebriefFixes = result.structuredResponse;
-  for (const p of problems) console.error(`Debrief coach dropped a fix: ${p.message}`, JSON.stringify(p.fix));
+  for (const p of problems) console.error(`Debrief coach dropped what broke the rules: ${p.message}`, JSON.stringify(p.fix ?? ''));
   const fixes = response.fixes.filter((fix) => !problems.some((p) => p.fix === fix));
+  const keepDoing = response.keepDoing.filter((text) => !hasTrackPosition(text));
   if (fixes.length === 0) {
     throw new Error('The coach gave brakepoint advice that contradicts the data or says where on the track to brake');
   }
 
   const toolNames = new Set<string>(tools.map((t) => t.name));
   return {
-    debrief: { ...response, fixes, headline: `${fixes[0].area}: ${fixes[0].fix}`, optimalLap: optimalLap ? response.optimalLap : '' },
+    debrief: {
+      ...response,
+      fixes,
+      keepDoing,
+      headline: `${fixes[0].area}: ${fixes[0].fix}`,
+      optimalLap: optimalLap ? removeTrackPositions(response.optimalLap) : '',
+    },
     steps: toolSteps(result.messages).filter((step) => toolNames.has(step.slice(0, step.indexOf('(')))),
     optimalLap,
   };

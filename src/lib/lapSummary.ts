@@ -1,10 +1,13 @@
+import { AIMessage, HumanMessage } from '@langchain/core/messages';
 import { ChatPromptTemplate } from '@langchain/core/prompts';
 import { createAgent, tool } from 'langchain';
 import { z } from 'zod';
+import { brakeChangeRule } from './debriefCoach';
 import { aiLanguageRule, DEFAULT_LANGUAGE, type Language } from './i18n/languages';
 import { LAP_TIME_RULE } from './lapData';
 import type { LapDrivingLine } from './lapDrivingLine';
 import { coachInstructionsRule } from './siteSettings';
+import { TRACK_POSITION_RULE, withoutTrackPositions } from './trackPositions';
 import { DEFAULT_UNITS, DISTANCE_NAME, DISTANCE_UNIT, distanceFromMeters, roundLineOffset, SPEED_UNIT, type Units } from './units';
 import { chatModel } from '@/lib/aiModels';
 
@@ -105,8 +108,8 @@ const lapSummaryPrompt = (track: string, units: Units) =>
   'You are a sim racing driving coach. The user will give you a focus-area comparison of two laps ' +
   `of ${track}: a Base lap and a Compare lap. Each focus area lists the time through the area for ` +
   'both laps with the difference (Compare minus Base; negative means the Compare lap was faster), ' +
-  `where each lap first touched the brake in ${DISTANCE_NAME[units]} from the start/finish line (later or earlier ` +
-  'for the Compare lap), and the peak brake pressure for each lap (harder or lighter for the ' +
+  `how many ${DISTANCE_NAME[units]} later or earlier the Compare lap first touched the brake than the Base lap (the ` +
+  'reference brakepoint), and the peak brake pressure for each lap (harder or lighter for the ' +
   `Compare lap), the minimum speed through the area (min speed, in ${SPEED_UNIT[units]}) for each lap, and the ` +
   `speed at the end of the area (exit speed, in ${SPEED_UNIT[units]}) for each lap. After the focus areas, a ` +
   '"Biggest losses" line lists the focus areas where the Compare lap lost the most time, most first, already ranked ' +
@@ -125,12 +128,8 @@ const lapSummaryPrompt = (track: string, units: Units) =>
   'which way to move the car as left or right, never inside or outside. Both ' +
   'laps were driven in the same conditions, which may be wet, so do not assume a dry track; when the advice is ' +
   'more pressure, say to build it progressively to avoid locking up. Write plain prose in a single paragraph with ' +
-  'no headings, lists, or markdown, and do not invent data that is not in the comparison or the tool results.' +
-  (units === 'metric'
-    ? ''
-    : ' Round every brakepoint change to the nearest 5 feet, so it ends in 5 or 0 (22 feet earlier is "20 feet ' +
-      'earlier", 48 feet later is "50 feet later"), and give driving line distances in whole feet with no decimals ' +
-      '(not "2.1 ft to the left" but "2 ft to the left").');
+  'no headings, lists, or markdown, and do not invent data that is not in the comparison or the tool results. ' +
+  brakeChangeRule(units);
 
 // Coaching summary of a Lap Compare result, written for the Compare lap. lines are the focus areas' driving
 // lines for the analyze_driving_line tool, and areaNames every focus area in the comparison.
@@ -153,7 +152,10 @@ export async function summarizeLapComparison(
     responseFormat: lapSummarySchema,
   });
   const result = await agent.invoke({ messages: [{ role: 'user', content: comparison }] }, { recursionLimit: 20 });
-  return result.structuredResponse.summary.trim();
+  return withoutTrackPositions(result.structuredResponse.summary.trim(), async (feedback) => {
+    const rewritten = await agent.invoke({ messages: [...result.messages, { role: 'user', content: feedback }] }, { recursionLimit: 20 });
+    return rewritten.structuredResponse.summary.trim();
+  });
 }
 
 const MULTI_LAP_PROMPT_TEMPLATE = ChatPromptTemplate.fromMessages([
@@ -162,9 +164,9 @@ const MULTI_LAP_PROMPT_TEMPLATE = ChatPromptTemplate.fromMessages([
     'You are a sim racing driving coach. The user will give you multi-lap statistics from several laps of ' +
       '{track} by the same driver. It lists the lap times, then each focus area with the best, average ' +
       'and worst time through the area, the average time lost to the best, and the standard deviation ' +
-      'of the time; plus the average and standard deviation of the brakepoint ({distanceName} from the start/finish ' +
-      'line, with the driver\'s Target Lap\'s brakepoint when there is one; more {distanceName} than the Target Lap ' +
-      'means braking later than it), the peak brake pressure (with the Target Lap\'s when there is ' +
+      'of the time; plus the average and standard deviation of the brakepoint (in {distanceName} after or before the ' +
+      'fastest lap\'s brakepoint in the area, with the driver\'s Target Lap\'s brakepoint from it too when there is ' +
+      'one; after means later), the peak brake pressure (with the Target Lap\'s when there is ' +
       'one), the minimum speed and the exit speed ({speedUnit}). Focus areas are listed from most to least ' +
       'average time lost. Write an analysis in two short paragraphs of plain prose, 8 to 10 sentences in ' +
       'total. The first paragraph covers the biggest opportunities: which focus areas cost the most time ' +
@@ -189,14 +191,12 @@ export async function summarizeMultiLap(
   }
 
   const model = await chatModel('multiLapSummary', 0.3);
-  const chain = MULTI_LAP_PROMPT_TEMPLATE.pipe(model);
-  const response = await chain.invoke({
+  return invokeWithoutTrackPositions(MULTI_LAP_PROMPT_TEMPLATE, model, {
     stats,
     track,
     ...unitWords(units),
-    rules: LAP_TIME_RULE + (await coachInstructionsRule()) + aiLanguageRule(language),
+    rules: ' ' + brakeChangeRule(units) + LAP_TIME_RULE + (await coachInstructionsRule()) + aiLanguageRule(language),
   });
-  return response.text.trim();
 }
 
 const STINT_PROMPT_TEMPLATE = ChatPromptTemplate.fromMessages([
@@ -217,6 +217,19 @@ const STINT_PROMPT_TEMPLATE = ChatPromptTemplate.fromMessages([
   ['user', '{report}'],
 ]);
 
+// A prompt and model's answer, rewritten once and then cut if it says where on the track something happens
+async function invokeWithoutTrackPositions(
+  prompt: ChatPromptTemplate,
+  model: Awaited<ReturnType<typeof chatModel>>,
+  values: Record<string, string>
+): Promise<string> {
+  const messages = await prompt.formatMessages(values);
+  const response = await model.invoke(messages);
+  return withoutTrackPositions(response.text.trim(), async (feedback) =>
+    (await model.invoke([...messages, new AIMessage(response.text), new HumanMessage(feedback)])).text.trim()
+  );
+}
+
 // Coaching analysis of a Stint Analysis report
 export async function summarizeStint(report: string, track: string, language: Language = DEFAULT_LANGUAGE): Promise<string> {
   if (!process.env.OPENAI_API_KEY) {
@@ -224,7 +237,9 @@ export async function summarizeStint(report: string, track: string, language: La
   }
 
   const model = await chatModel('stintSummary', 0.3);
-  const chain = STINT_PROMPT_TEMPLATE.pipe(model);
-  const response = await chain.invoke({ report, track, rules: LAP_TIME_RULE + (await coachInstructionsRule()) + aiLanguageRule(language) });
-  return response.text.trim();
+  return invokeWithoutTrackPositions(STINT_PROMPT_TEMPLATE, model, {
+    report,
+    track,
+    rules: TRACK_POSITION_RULE + LAP_TIME_RULE + (await coachInstructionsRule()) + aiLanguageRule(language),
+  });
 }

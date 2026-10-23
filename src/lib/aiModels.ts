@@ -95,6 +95,15 @@ class ClaudeChatModel extends ChatAnthropic {
   }
 }
 
+// LangChain only has profiles for the OpenAI models it knew when it was released, and without one createAgent falls
+// back to a forced tool call for responseFormat, which leaves structuredResponse empty (seen with gpt-5.4-mini).
+// Every gpt-5 model supports JSON-schema output, so say so.
+class OpenAIReasoningChatModel extends ChatOpenAI {
+  get profile() {
+    return { ...super.profile, toolCalling: true, structuredOutput: true };
+  }
+}
+
 // The chat model for a feature. OpenAI reasoning models get low effort instead of the temperature, since their
 // reasoning is billed as output tokens. They go through the Responses API, as Chat Completions refuses tools
 // with a reasoning effort for newer models (e.g. gpt-5.5), so read replies with .text, not .content. Claude models
@@ -108,6 +117,6 @@ export async function chatModel(feature: AiFeature, temperature: number): Promis
     return new ClaudeChatModel({ model, maxTokens: 16000, outputConfig: { effort: 'low' }, callbacks });
   }
   return isReasoningModel(model)
-    ? new ChatOpenAI({ model, reasoning: { effort: 'low' }, useResponsesApi: true, callbacks })
+    ? new OpenAIReasoningChatModel({ model, reasoning: { effort: 'low' }, useResponsesApi: true, callbacks })
     : new ChatOpenAI({ model, temperature, callbacks });
 }

@@ -1131,7 +1131,7 @@ export const en = {
     // Keyed by the stored role (src/lib/roles.ts)
     roles: { Admin: 'Admin', Coach: 'Coach', User: 'User' } as Record<string, string>,
     aiModelsTitle: 'AI Model Control',
-    aiModelsIntro: 'Choose which OpenAI or Anthropic model each AI feature uses for Admins and for each membership level. Coaches and Users get their level’s models; visitors who aren’t signed in get Bronze’s. Smaller models cost less per call. The In-Car AI Coach uses OpenAI models only.',
+    aiModelsIntro: 'Choose which OpenAI, Anthropic or DeepSeek model each AI feature uses for Admins and for each membership level. Coaches and Users get their level’s models; visitors who aren’t signed in get Bronze’s. Smaller models cost less per call. The In-Car AI Coach uses OpenAI and DeepSeek models only.',
     aiFeature: 'Feature',
     aiModel: 'Model',
     aiModelDefault: '{model} (default)',
@@ -1218,7 +1218,7 @@ export const en = {
       setBy: 'Set by',
       ruleCustom: '{limit} per {period}',
       usageTitle: 'AI Usage',
-      usageIntro: 'Every AI call, by user or by IP address. Weighted is what counts against the limits; Tokens are what OpenAI bills, added up over each call’s model calls (calls from before tokens were recorded have none); Current Limit is the usage of the limit that applies now. Times are in {timeZone}.',
+      usageIntro: 'Every AI call, by user or by IP address. Weighted is what counts against the limits; Tokens are what the AI provider bills, added up over each call’s model calls (calls from before tokens were recorded have none); Current Limit is the usage of the limit that applies now. Times are in {timeZone}.',
       range: 'Range',
       ranges: { hour: 'Last hour', day: 'Last 24 hours', week: 'Last 7 days', month: 'Last 30 days', all: 'All time' },
       view: 'Show',

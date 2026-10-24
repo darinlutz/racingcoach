@@ -6,24 +6,20 @@ import {
   AI_FEATURE_VALUES,
   AI_FEATURES,
   AI_MODEL_CATEGORIES,
+  AI_MODEL_PROVIDERS,
+  aiModelProvider,
   aiModelsFor,
   type AiFeature,
   type AiModel,
   type AiModelCategory,
-  isClaudeModel,
 } from '@/lib/aiModelList';
 
-// The Admin page's AI Model Control section: a grid of every feature's OpenAI or Anthropic model for each category
+// The Admin page's AI Model Control section: a grid of every feature's OpenAI, Anthropic or DeepSeek model for each category
 // of caller (Admin, Gold, Silver, Bronze; see aiModelCategoryOf in src/lib/aiModelList.ts). The In-Car AI Coach's
-// features offer OpenAI models only (aiModelsFor). Changed cells are saved together (PUT /api/admin/ai-models, one
+// features offer OpenAI and DeepSeek models only (aiModelsFor). Changed cells are saved together (PUT /api/admin/ai-models, one
 // per cell); the feature's next AI call for that category uses them.
 
 type Models = Record<AiModelCategory, Record<AiFeature, AiModel>>;
-
-const MODEL_PROVIDERS = [
-  { label: 'OpenAI', claude: false },
-  { label: 'Anthropic', claude: true },
-];
 
 const selectClass =
   'w-full min-w-[9rem] px-2 py-1.5 bg-card border border-border rounded-lg text-foreground text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors';
@@ -112,10 +108,10 @@ export default function AiModelManager({ models: initialModels }: { models: Mode
                         models[category][feature] !== saved[category][feature] ? 'border-primary' : ''
                       }`}
                     >
-                      {MODEL_PROVIDERS.map(({ label, claude }) => {
-                        const options = aiModelsFor(feature).filter((value) => isClaudeModel(value) === claude);
+                      {AI_MODEL_PROVIDERS.map((provider) => {
+                        const options = aiModelsFor(feature).filter((value) => aiModelProvider(value) === provider);
                         return options.length === 0 ? null : (
-                          <optgroup key={label} label={label}>
+                          <optgroup key={provider} label={provider}>
                             {options.map((value) => (
                               <option key={value} value={value}>
                                 {modelName(feature, value)}

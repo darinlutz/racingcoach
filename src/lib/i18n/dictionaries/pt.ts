@@ -1106,7 +1106,7 @@ export const pt: Dictionary = {
     // Keyed by the stored role (src/lib/roles.ts)
     roles: { Admin: 'Administrador', Coach: 'Treinador', User: 'Usuário' } as Record<string, string>,
     aiModelsTitle: 'Controle de modelos de IA',
-    aiModelsIntro: 'Escolha qual modelo da OpenAI ou da Anthropic cada recurso de IA usa para os administradores e para cada nível de assinatura. Treinadores e usuários recebem os modelos do seu nível; visitantes sem login, os do Bronze. Modelos menores custam menos por chamada. O Treinador de IA no carro usa apenas modelos da OpenAI.',
+    aiModelsIntro: 'Escolha qual modelo da OpenAI, da Anthropic ou da DeepSeek cada recurso de IA usa para os administradores e para cada nível de assinatura. Treinadores e usuários recebem os modelos do seu nível; visitantes sem login, os do Bronze. Modelos menores custam menos por chamada. O Treinador de IA no carro usa apenas modelos da OpenAI e da DeepSeek.',
     aiFeature: 'Recurso',
     aiModel: 'Modelo',
     aiModelDefault: '{model} (padrão)',
@@ -1192,7 +1192,7 @@ export const pt: Dictionary = {
       setBy: 'Definida por',
       ruleCustom: '{limit} por {period}',
       usageTitle: 'Uso de IA',
-      usageIntro: 'Toda chamada de IA, por usuário ou por endereço IP. Ponderadas é o que conta nos limites; Tokens é o que a OpenAI cobra, somado nas chamadas ao modelo de cada chamada (chamadas de antes do registro de tokens não têm); Limite atual é o uso do limite que vale agora. Horários em {timeZone}.',
+      usageIntro: 'Toda chamada de IA, por usuário ou por endereço IP. Ponderadas é o que conta nos limites; Tokens é o que o provedor de IA cobra, somado nas chamadas ao modelo de cada chamada (chamadas de antes do registro de tokens não têm); Limite atual é o uso do limite que vale agora. Horários em {timeZone}.',
       range: 'Período',
       ranges: { hour: 'Última hora', day: 'Últimas 24 horas', week: 'Últimos 7 dias', month: 'Últimos 30 dias', all: 'Todo o período' },
       view: 'Mostrar',

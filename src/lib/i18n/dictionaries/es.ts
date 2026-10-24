@@ -1106,7 +1106,7 @@ export const es: Dictionary = {
     // Keyed by the stored role (src/lib/roles.ts)
     roles: { Admin: 'Administrador', Coach: 'Entrenador', User: 'Usuario' } as Record<string, string>,
     aiModelsTitle: 'Control de modelos de IA',
-    aiModelsIntro: 'Elige qué modelo de OpenAI o Anthropic usa cada función de IA para los administradores y para cada nivel de membresía. Los entrenadores y usuarios reciben los modelos de su nivel; los visitantes sin sesión iniciada, los de Bronce. Los modelos más pequeños cuestan menos por llamada. El Entrenador de IA en el auto usa solo modelos de OpenAI.',
+    aiModelsIntro: 'Elige qué modelo de OpenAI, Anthropic o DeepSeek usa cada función de IA para los administradores y para cada nivel de membresía. Los entrenadores y usuarios reciben los modelos de su nivel; los visitantes sin sesión iniciada, los de Bronce. Los modelos más pequeños cuestan menos por llamada. El Entrenador de IA en el auto usa solo modelos de OpenAI y DeepSeek.',
     aiFeature: 'Función',
     aiModel: 'Modelo',
     aiModelDefault: '{model} (predeterminado)',
@@ -1192,7 +1192,7 @@ export const es: Dictionary = {
       setBy: 'Puesta por',
       ruleCustom: '{limit} por {period}',
       usageTitle: 'Uso de IA',
-      usageIntro: 'Cada llamada de IA, por usuario o por dirección IP. Ponderadas es lo que cuenta contra los límites; Tokens es lo que cobra OpenAI, sumado en las llamadas al modelo de cada llamada (las llamadas de antes de registrar tokens no tienen); Límite actual es el uso del límite que aplica ahora. Horas en {timeZone}.',
+      usageIntro: 'Cada llamada de IA, por usuario o por dirección IP. Ponderadas es lo que cuenta contra los límites; Tokens es lo que cobra el proveedor de IA, sumado en las llamadas al modelo de cada llamada (las llamadas de antes de registrar tokens no tienen); Límite actual es el uso del límite que aplica ahora. Horas en {timeZone}.',
       range: 'Período',
       ranges: { hour: 'Última hora', day: 'Últimas 24 horas', week: 'Últimos 7 días', month: 'Últimos 30 días', all: 'Todo el tiempo' },
       view: 'Mostrar',

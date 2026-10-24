@@ -14,6 +14,7 @@ import {
   isAiModelCategory,
   isAiModelFor,
   isClaudeModel,
+  isDeepSeekModel,
   SYSTEM_AI_MODEL_CATEGORY,
 } from '@/lib/aiModelList';
 import { currentAiModelCategory, tokenUsageCallbacks } from '@/lib/aiTokenUsage';
@@ -21,7 +22,7 @@ import { ensureUserSchema } from '@/lib/users';
 
 export * from '@/lib/aiModelList';
 
-// Which OpenAI or Anthropic model each AI feature uses for each category of caller (Admin, Gold, Silver, Bronze; see
+// Which OpenAI, Anthropic or DeepSeek model each AI feature uses for each category of caller (Admin, Gold, Silver, Bronze; see
 // aiModelCategoryOf), chosen on the Admin page's AI Model Control section and kept in racingcoach."SiteSettings"
 // (key ai_model:<category>:<feature>). A category with no row for a feature uses the feature's model from before
 // models were set per category (key ai_model:<feature>), else its default (AI_FEATURES in src/lib/aiModelList.ts).
@@ -104,17 +105,41 @@ class OpenAIReasoningChatModel extends ChatOpenAI {
   }
 }
 
+// DeepSeek's API is OpenAI-compatible. Its models think by default, and then with tools every later request must
+// send back the reasoning_content, which ChatOpenAI drops (400), so thinking is turned off; without it they take a
+// temperature. DeepSeek has no JSON-schema response format, so createAgent's forced tool call gives responseFormat
+// (DeepSeek supports tool_choice required).
+const DEEPSEEK_BASE_URL = 'https://api.deepseek.com';
+
+class DeepSeekChatModel extends ChatOpenAI {
+  get profile() {
+    return { ...super.profile, toolCalling: true, structuredOutput: false };
+  }
+}
+
 // The chat model for a feature. OpenAI reasoning models get low effort instead of the temperature, since their
 // reasoning is billed as output tokens. They go through the Responses API, as Chat Completions refuses tools
 // with a reasoning effort for newer models (e.g. gpt-5.5), so read replies with .text, not .content. Claude models
-// (claude-*) always think and refuse a temperature, so they get low effort too. Inside an AI route's limit.track(),
-// every call's tokens are added to its AiUsage row (src/lib/aiTokenUsage.ts).
+// (claude-*) always think and refuse a temperature, so they get low effort too. DeepSeek models (deepseek-*) go to
+// DeepSeek's API with thinking off. Inside an AI route's limit.track(), every call's tokens are added to its AiUsage
+// row (src/lib/aiTokenUsage.ts).
 export async function chatModel(feature: AiFeature, temperature: number): Promise<BaseChatModel> {
   const model = await getAiModel(feature);
   const callbacks = tokenUsageCallbacks(model);
   if (isClaudeModel(model)) {
     if (!process.env.ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY is not configured');
     return new ClaudeChatModel({ model, maxTokens: 16000, outputConfig: { effort: 'low' }, callbacks });
+  }
+  if (isDeepSeekModel(model)) {
+    if (!process.env.DEEPSEEK_API_KEY) throw new Error('DEEPSEEK_API_KEY is not configured');
+    return new DeepSeekChatModel({
+      model,
+      temperature,
+      apiKey: process.env.DEEPSEEK_API_KEY,
+      configuration: { baseURL: DEEPSEEK_BASE_URL },
+      modelKwargs: { thinking: { type: 'disabled' } },
+      callbacks,
+    });
   }
   return isReasoningModel(model)
     ? new OpenAIReasoningChatModel({ model, reasoning: { effort: 'low' }, useResponsesApi: true, callbacks })

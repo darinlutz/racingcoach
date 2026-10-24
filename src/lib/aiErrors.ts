@@ -4,9 +4,14 @@ import { NextResponse } from 'next/server';
 // no credits left (HTTP 429, insufficient_quota), so the cause is obvious from the page.
 export const AI_OUT_OF_CREDITS = 'The AI service is out of credits';
 
-// OpenAI's codes for an exhausted balance. The Python scripts only pass the message text along, so
-// that is checked too.
-const OUT_OF_CREDITS_MARKERS = ['insufficient_quota', 'credit_balance_exhausted', 'You have no credits remaining'];
+// OpenAI's codes for an exhausted balance, and DeepSeek's message (HTTP 402). The Python scripts only pass the message
+// text along, so that is checked too.
+const OUT_OF_CREDITS_MARKERS = [
+  'insufficient_quota',
+  'credit_balance_exhausted',
+  'You have no credits remaining',
+  'Insufficient Balance',
+];
 
 export function isAiOutOfCredits(error: unknown): boolean {
   for (let e = error, depth = 0; e && typeof e === 'object' && depth < 5; e = (e as { cause?: unknown }).cause, depth++) {

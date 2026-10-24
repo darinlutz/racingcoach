@@ -166,6 +166,18 @@ export const pt: Dictionary = {
     failedReset: 'Não foi possível redefinir a senha',
     resetDone: 'Sua senha foi redefinida.',
     resetInvalid: 'Este link de redefinição é inválido ou expirou. Solicite um novo.',
+    or: 'ou',
+    googleLogIn: 'Entrar com o Google',
+    googleSignUp: 'Cadastrar-se com o Google',
+    google: {
+      canceled: 'O login com o Google foi cancelado.',
+      expired: 'Esse login com o Google expirou. Tente novamente.',
+      unavailable: 'O login com o Google não está disponível no momento. Use seu e-mail e senha.',
+      policiesChanged: 'Os Termos de Serviço ou a Política de Privacidade mudaram. Revise-os e tente novamente.',
+      noAccount: 'Nenhuma conta do RacingCoach.app usa essa conta do Google ainda. Cadastre-se com o Google abaixo para criar uma.',
+      unverified: 'O e-mail dessa conta do Google não foi verificado, então ela não pode ser usada para entrar.',
+      error: 'Falha no login com o Google. Tente novamente.',
+    },
   },
 
   targetLap: {

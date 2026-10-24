@@ -124,7 +124,8 @@ export default async function AccountPage({
           )}
         </dl>
 
-        <ChangePasswordButton />
+        {/* Accounts made through Google sign-in have no password to change until Forgot Password sets one */}
+        {user.hasPassword && <ChangePasswordButton />}
 
         {/* The site's language, including what the AI features answer in, Standard / Metric units, and Dark Mode / Light Mode */}
         <div className="mt-6 bg-card rounded-lg border border-border px-4 py-4">

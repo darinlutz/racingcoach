@@ -49,10 +49,13 @@ export type User = {
   brakeBeeps: boolean;
   // How loud those beeps play, as a percentage of full volume (MIN_BRAKE_BEEPS_VOLUME to 100)
   brakeBeepsVolume: number;
+  // False for an account made by signing in with another service (e.g. Google) that hasn't set a password since
+  // (Forgot Password sets one); the Account page hides Change Password for it
+  hasPassword: boolean;
 };
 
 const USER_COLUMNS =
-  'id, user_name, email_address, account_status, membership_level, signup_date, subscription_end_date, stripe_subscription_id, stripe_customer_id, role, preferred_language, theme, units, brake_beeps, brake_beeps_volume';
+  'id, user_name, email_address, account_status, membership_level, signup_date, subscription_end_date, stripe_subscription_id, stripe_customer_id, role, preferred_language, theme, units, brake_beeps, brake_beeps_volume, has_password';
 
 // The site owner is made Admin on sign-up; everyone else is a User
 export const OWNER_EMAIL = 'darinlutz@yahoo.com';
@@ -97,7 +100,7 @@ let schemaReady: Promise<void> | null = null;
 
 // The racingcoach schema holds the site's accounts and everything tied to one:
 // Users, Track Data's Tracks and their TrackFocusAreas (shared by every user), each user's own Friends,
-// the default Cars and each user's CarsUsers, IRacePlanConnections and RaceResults (from iRacePlan and the collector), DiscordConnections, saved
+// the default Cars and each user's CarsUsers, IRacePlanConnections and RaceResults (from iRacePlan and the collector), DiscordConnections, GoogleConnections, saved
 // DebriefSessions, the telemetry collector's CollectorKeys, uploaded CollectorLaps, CollectorLogs and CollectorLogReviews, sign-in Sessions,
 // PasswordResets links, CancellationReason feedback, the ActivityLog of page views and clicks, and the
 // PolicyAcceptances of the Terms of Service and Privacy Policy, and the Subscribers page's copy of Stripe
@@ -180,6 +183,8 @@ export function ensureUserSchema(): Promise<void> {
       await client.query(`ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS coach_spanish_accent TEXT NOT NULL DEFAULT ''`);
       // The optional promo code typed on the Create an Account page (src/lib/promoCode.ts); NULL for none
       await client.query('ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS promo_code TEXT');
+      // False until an account made through Google sign-in (or another such service) sets a password of its own
+      await client.query('ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS has_password BOOLEAN NOT NULL DEFAULT true');
       // Email addresses are unique regardless of case
       await client.query(
         'CREATE UNIQUE INDEX IF NOT EXISTS users_email_address_key ON racingcoach."Users" (lower(email_address))'
@@ -506,6 +511,13 @@ export function ensureUserSchema(): Promise<void> {
         discord_username TEXT NOT NULL,
         discord_global_name TEXT,
         discord_avatar TEXT,
+        connected_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      )`);
+      // Each user's Google account for Sign in with Google (src/lib/googleAuth.ts), by Google's account ID (sub)
+      await client.query(`CREATE TABLE IF NOT EXISTS racingcoach."GoogleConnections" (
+        user_id INTEGER PRIMARY KEY REFERENCES racingcoach."Users"(id) ON DELETE CASCADE,
+        google_sub TEXT NOT NULL UNIQUE,
+        google_email TEXT NOT NULL,
         connected_at TIMESTAMPTZ NOT NULL DEFAULT now()
       )`);
       // Each Debrief Coach run by a signed-in user: the session the browser measured from the lap CSVs
@@ -871,6 +883,7 @@ function rowToUser(row: Record<string, unknown>): User {
     units: isUnits(row.units) ? row.units : DEFAULT_UNITS,
     brakeBeeps: row.brake_beeps !== false,
     brakeBeepsVolume: brakeBeepsVolume(row.brake_beeps_volume),
+    hasPassword: row.has_password !== false,
     signupDate: (row.signup_date as string | null) ?? null,
     subscriptionEndDate: (row.subscription_end_date as string | null) ?? null,
     stripeSubscriptionId: (row.stripe_subscription_id as string | null) ?? null,
@@ -886,13 +899,14 @@ function initialRole(emailAddress: string): string {
 export async function createUser(input: {
   userName: string;
   emailAddress: string;
-  password: string;
+  // Null for an account made by signing in with another service: it gets a random password nobody knows
+  password: string | null;
   preferredLanguage: Language;
   promoCode: string | null;
   acceptedPolicies: PolicyVersions;
 }): Promise<User> {
   await ensureUserSchema();
-  const passwordHash = await hashPassword(input.password);
+  const passwordHash = await hashPassword(input.password ?? randomBytes(32).toString('hex'));
   try {
     // The account starts at the Bronze level, with its own copy of the default cars to edit in
     // the Car Data tab
@@ -900,8 +914,8 @@ export async function createUser(input: {
       const { rows } = await client.query(
         `INSERT INTO racingcoach."Users"
            (user_name, email_address, password, account_status, membership_level, signup_date, role, preferred_language,
-            promo_code)
-         VALUES ($1, $2, $3, $6, $8, $4, $5, $7, $9)
+            promo_code, has_password)
+         VALUES ($1, $2, $3, $6, $8, $4, $5, $7, $9, $10)
          RETURNING ${USER_COLUMNS}`,
         [
           input.userName,
@@ -913,6 +927,7 @@ export async function createUser(input: {
           input.preferredLanguage,
           MEMBERSHIP_LEVEL.bronze,
           input.promoCode,
+          input.password !== null,
         ]
       );
       const user = rowToUser(rows[0]);
@@ -1061,7 +1076,7 @@ export async function updatePassword(userId: number, password: string): Promise<
   await ensureUserSchema();
   const passwordHash = await hashPassword(password);
   await transaction(async (client) => {
-    await client.query('UPDATE racingcoach."Users" SET password = $1 WHERE id = $2', [passwordHash, userId]);
+    await client.query('UPDATE racingcoach."Users" SET password = $1, has_password = true WHERE id = $2', [passwordHash, userId]);
     await client.query('DELETE FROM racingcoach."Sessions" WHERE user_id = $1', [userId]);
   });
 }

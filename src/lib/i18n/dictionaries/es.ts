@@ -166,6 +166,18 @@ export const es: Dictionary = {
     failedReset: 'No se pudo restablecer la contraseña',
     resetDone: 'Tu contraseña fue restablecida.',
     resetInvalid: 'Este enlace para restablecer la contraseña no es válido o venció. Solicita uno nuevo.',
+    or: 'o',
+    googleLogIn: 'Iniciar sesión con Google',
+    googleSignUp: 'Registrarse con Google',
+    google: {
+      canceled: 'Se canceló el inicio de sesión con Google.',
+      expired: 'Ese inicio de sesión con Google venció. Inténtalo de nuevo.',
+      unavailable: 'El inicio de sesión con Google no está disponible en este momento. Usa tu correo y contraseña.',
+      policiesChanged: 'Los Términos de Servicio o la Política de Privacidad cambiaron. Revísalos e inténtalo de nuevo.',
+      noAccount: 'Ninguna cuenta de RacingCoach.app usa esa cuenta de Google todavía. Regístrate con Google abajo para crear una.',
+      unverified: 'El correo de esa cuenta de Google no está verificado, así que no se puede usar para iniciar sesión.',
+      error: 'No se pudo iniciar sesión con Google. Inténtalo de nuevo.',
+    },
   },
 
   targetLap: {

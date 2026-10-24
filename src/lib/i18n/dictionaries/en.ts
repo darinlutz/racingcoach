@@ -171,6 +171,19 @@ export const en = {
     failedReset: 'Failed to reset password',
     resetDone: 'Your password has been reset.',
     resetInvalid: 'This reset link is invalid or has expired. Please request a new one.',
+    or: 'or',
+    googleLogIn: 'Log in with Google',
+    googleSignUp: 'Sign up with Google',
+    // Shown on the Log In or Create an Account page when Sign in with Google comes back with ?google=
+    google: {
+      canceled: 'Google sign-in was canceled.',
+      expired: 'That Google sign-in expired. Please try again.',
+      unavailable: 'Google sign-in isn’t available right now. Please use your email and password.',
+      policiesChanged: 'The Terms of Service or Privacy Policy changed. Please review them and try again.',
+      noAccount: 'No RacingCoach.app account uses that Google account yet. Sign up with Google below to create one.',
+      unverified: 'That Google account’s email address isn’t verified, so it can’t be used to sign in.',
+      error: 'Google sign-in failed. Please try again.',
+    },
   },
 
   targetLap: {

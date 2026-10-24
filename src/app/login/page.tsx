@@ -1,14 +1,23 @@
 import { redirect } from 'next/navigation';
 import LoginForm from '@/components/LoginForm';
+import { googleConfig } from '@/lib/googleAuth';
 import { getDictionary, getLanguage } from '@/lib/i18n/server';
 import { safeReturnTo } from '@/lib/returnTo';
 import { getCurrentUser } from '@/lib/session';
 
-// ?next= is the page to go back to afterwards (src/lib/returnTo.ts)
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string | string[] }> }) {
-  const next = safeReturnTo((await searchParams).next);
+// ?next= is the page to go back to afterwards (src/lib/returnTo.ts); ?google= is what Sign in with Google came
+// back with (src/app/api/auth/google)
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string | string[]; google?: string | string[] }>;
+}) {
+  const params = await searchParams;
+  const next = safeReturnTo(params.next);
   if (await getCurrentUser()) redirect(next);
   const t = getDictionary(await getLanguage(null)).auth;
+  const googleResult = typeof params.google === 'string' ? params.google : '';
+  const googleMessage = Object.hasOwn(t.google, googleResult) ? t.google[googleResult as keyof typeof t.google] : undefined;
 
   return (
     <section className="py-12 px-4 bg-gradient-to-b from-background to-background flex justify-center">
@@ -17,7 +26,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           {t.logInTitle}
         </h1>
         <p className="text-muted-foreground mb-8">{t.logInIntro}</p>
-        <LoginForm next={next} />
+        <LoginForm next={next} googleEnabled={googleConfig() !== null} googleMessage={googleMessage} />
       </div>
     </section>
   );

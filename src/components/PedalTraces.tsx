@@ -7,6 +7,7 @@ import SteeringTrace from '@/components/SteeringTrace';
 import SteeringWheel from '@/components/SteeringWheel';
 import { useLanguage } from '@/components/LanguageProvider';
 import TimeDeltaTrace from '@/components/TimeDeltaTrace';
+import TireData from '@/components/TireData';
 import TrackLineMap from '@/components/TrackLineMap';
 import { useUnits } from '@/components/UnitsProvider';
 import { CHART_MARGIN as MARGIN, clamp, nearestIndex, positionLabel, xTicks, type Axis } from '@/lib/lapCharts';
@@ -219,6 +220,7 @@ function TraceChart({
 // pointer (or arrow keys) on all the charts at once. Below them, both laps' steering angle on one
 // chart (SteeringTrace) and a steering wheel turned to their angles at the crosshair (SteeringWheel), then their driving lines on a map (TrackLineMap) with the crosshair's position
 // marked on each, and how far left or right of the Base lap's line the Compare lap was (DrivingLineDiffTrace).
+// Last, the Tire Temp, Tire Pressure and Ride Heights tabs (TireData).
 // id must be unique on
 // the page (the charts' clip paths are named after it). Charts only draw once the container has a width,
 // so inside a closed <details> they draw when it's opened.
@@ -254,6 +256,7 @@ export default function PedalTraces({
           <SteeringWheel base={base} compare={compare} axis={axis} hoverPct={hoverPct} />
           <TrackLineMap base={base} compare={compare} width={width} hoverPct={hoverPct} onHover={setHoverPct} />
           <DrivingLineDiffTrace id={`${id}-line`} base={base} compare={compare} axis={axis} width={width} hoverPct={hoverPct} onHover={setHoverPct} />
+          <TireData id={`${id}-tires`} base={base} compare={compare} axis={axis} width={width} hoverPct={hoverPct} onHover={setHoverPct} />
         </>
       )}
     </div>

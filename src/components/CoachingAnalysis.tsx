@@ -43,8 +43,11 @@ export default function CoachingAnalysis() {
         </div>
       </section>
 
-      <section className="py-16 px-6 sm:px-10 lg:px-16 bg-card flex flex-col items-center">
-        <div className="w-full max-w-4xl">
+      {/* Lap Compare's charts get the site's full container width, like the Cars & Tracks and Coach pages */}
+      <section
+        className={`py-16 bg-card flex flex-col items-center ${activeTab === 'lapCompare' ? '' : 'px-6 sm:px-10 lg:px-16'}`}
+      >
+        <div className={activeTab === 'lapCompare' ? 'site-container' : 'w-full max-w-4xl'}>
           {/* Tab Navigation */}
           <div className="flex flex-col gap-4 mb-6 border-b border-border">
             {TAB_ROWS.map((row, i) => (

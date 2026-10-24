@@ -54,6 +54,19 @@ namespace RacingCoach.Collector;
     // the Rotation Model (RotationMonitor), the Rotation window, and saved to the lap CSVs
     TelemetryVar.VelocityX,
     TelemetryVar.VelocityY,
+    // saved to the lap CSVs for Lap Compare's Tire Temp charts
+    TelemetryVar.LFtempCL,
+    TelemetryVar.LFtempCM,
+    TelemetryVar.LFtempCR,
+    TelemetryVar.RFtempCL,
+    TelemetryVar.RFtempCM,
+    TelemetryVar.RFtempCR,
+    TelemetryVar.LRtempCL,
+    TelemetryVar.LRtempCM,
+    TelemetryVar.LRtempCR,
+    TelemetryVar.RRtempCL,
+    TelemetryVar.RRtempCM,
+    TelemetryVar.RRtempCR,
     // read by TelemetryEngine.js in the overlay (as SimHub's GameRawData.Telemetry.SessionUniqueID)
     TelemetryVar.SessionUniqueID,
 ])]

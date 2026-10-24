@@ -673,6 +673,20 @@ export const pt: Dictionary = {
     lineDiffLeft: 'A volta comparada fica até {n} {unit} à esquerda do traçado da volta base, em {where}',
     lineDiffRight: 'A volta comparada fica até {n} {unit} à direita do traçado da volta base, em {where}',
     lineDiffCaption: 'A volta base é a linha azul reta; a linha vermelha mostra quanto a volta comparada ficou à esquerda (para cima) ou à direita (para baixo) dela.',
+    tireDataLabel: 'Dados de pneus e suspensão',
+    tireTabs: { temp: 'Temp. dos pneus', pressure: 'Pressão dos pneus', rideHeights: 'Alturas de rodagem' },
+    tireCorners: { LF: 'Dianteiro esquerdo', RF: 'Dianteiro direito', LR: 'Traseiro esquerdo', RR: 'Traseiro direito' },
+    tireOuter: 'EXT',
+    tireMiddle: 'MEIO',
+    tireInner: 'INT',
+    tireAreaAverage: 'Média da área de foco',
+    tireDiffLabel: 'Comparada menos base: externo, meio, interno',
+    tireComingSoon: 'Em breve.',
+    tireNoTemps:
+      'Nenhuma volta tem temperaturas dos pneus. As voltas gravadas por um coletor RacingCoach atualizado as têm; voltas mais antigas e exportações do Garage 61 não.',
+    tireLapNoTemps: 'Sem temperaturas dos pneus na {lap}.',
+    tireTempCaption:
+      'Temperaturas da carcaça ao longo de cada pneu. As linhas contínuas são a volta base e as pontilhadas a volta comparada; os números grandes mostram quanto mais quente (+) ou fria (−) a volta comparada ficou.',
   },
 
   stint: {

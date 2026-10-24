@@ -673,6 +673,20 @@ export const es: Dictionary = {
     lineDiffLeft: 'La vuelta comparada va hasta {n} {unit} a la izquierda de la trazada de la vuelta base, en {where}',
     lineDiffRight: 'La vuelta comparada va hasta {n} {unit} a la derecha de la trazada de la vuelta base, en {where}',
     lineDiffCaption: 'La vuelta base es la línea azul plana; la línea roja muestra cuánto se desvió la vuelta comparada a la izquierda (arriba) o a la derecha (abajo).',
+    tireDataLabel: 'Datos de neumáticos y suspensión',
+    tireTabs: { temp: 'Temp. de neumáticos', pressure: 'Presión de neumáticos', rideHeights: 'Alturas de manejo' },
+    tireCorners: { LF: 'Delantero izquierdo', RF: 'Delantero derecho', LR: 'Trasero izquierdo', RR: 'Trasero derecho' },
+    tireOuter: 'EXT',
+    tireMiddle: 'MED',
+    tireInner: 'INT',
+    tireAreaAverage: 'Promedio del área de enfoque',
+    tireDiffLabel: 'Comparada menos base: exterior, medio, interior',
+    tireComingSoon: 'Próximamente.',
+    tireNoTemps:
+      'Ninguna vuelta tiene temperaturas de neumáticos. Las vueltas grabadas con un colector de RacingCoach actualizado las tienen; las vueltas anteriores y las exportaciones de Garage 61 no.',
+    tireLapNoTemps: 'No hay temperaturas de neumáticos en la {lap}.',
+    tireTempCaption:
+      'Temperaturas de la carcasa a lo ancho de cada neumático. Las líneas continuas son la vuelta base y las punteadas la vuelta comparada; los números grandes muestran cuánto más caliente (+) o fría (−) estuvo la vuelta comparada.',
   },
 
   stint: {

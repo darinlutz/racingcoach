@@ -687,6 +687,20 @@ export const en = {
     lineDiffLeft: 'The Compare lap is up to {n} {unit} left of the Base lap’s line, at {where}',
     lineDiffRight: 'The Compare lap is up to {n} {unit} right of the Base lap’s line, at {where}',
     lineDiffCaption: 'The Base lap is the flat blue line; the red line shows how far left (up) or right (down) of it the Compare lap was.',
+    tireDataLabel: 'Tire and suspension data',
+    tireTabs: { temp: 'Tire Temp', pressure: 'Tire Pressure', rideHeights: 'Ride Heights' },
+    tireCorners: { LF: 'Left Front', RF: 'Right Front', LR: 'Left Rear', RR: 'Right Rear' },
+    tireOuter: 'OUT',
+    tireMiddle: 'MID',
+    tireInner: 'IN',
+    tireAreaAverage: 'Focus area average',
+    tireDiffLabel: 'Compare minus Base: outer, middle, inner',
+    tireComingSoon: 'Coming soon.',
+    tireNoTemps:
+      'Neither lap has tire temperatures. Laps recorded by an updated RacingCoach collector have them; older laps and Garage 61 exports don’t.',
+    tireLapNoTemps: 'No tire temperatures in the {lap}.',
+    tireTempCaption:
+      'Carcass temperatures across each tire. Solid lines are the Base lap, dotted lines the Compare lap; the large numbers show how much hotter (+) or cooler (−) the Compare lap ran.',
   },
 
   stint: {

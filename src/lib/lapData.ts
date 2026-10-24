@@ -101,7 +101,22 @@ export type LapSamples = {
   // RPM and Gear (NaN when the lap file has no such column)
   rpms: number[];
   gears: number[];
+  // Each tire's carcass temperatures (°C, NaN when the lap file has no such columns)
+  tireTemps: Record<TireCorner, TireTemps>;
 };
+
+export const TIRE_CORNERS = ['LF', 'RF', 'LR', 'RR'] as const;
+export type TireCorner = (typeof TIRE_CORNERS)[number];
+
+// A tire's outer, middle and inner carcass temperatures (°C), one per sample
+export type TireTemps = { outer: number[]; middle: number[]; inner: number[] };
+
+// iRacing's carcass temperature columns (LFtempCL, LFtempCM, LFtempCR, ...) go left, middle, right across
+// the tire, so the outer edge is the left one on the left-side tires and the right one on the right-side tires
+function tireTempColumns(corner: TireCorner): Record<keyof TireTemps, string> {
+  const [outer, inner] = corner[0] === 'L' ? ['L', 'R'] : ['R', 'L'];
+  return { outer: `${corner}tempC${outer}`, middle: `${corner}tempCM`, inner: `${corner}tempC${inner}` };
+}
 
 // Brake (0-1) above this counts as the driver being on the brakes
 const BRAKE_THRESHOLD = 0;
@@ -109,7 +124,7 @@ const BRAKE_THRESHOLD = 0;
 // Throttle (0-1) at or above this counts as the driver being back on the power
 const THROTTLE_THRESHOLD = 0.1;
 
-// Reads the LapDistPct, Brake, Throttle, Speed, SteeringWheelAngle, Lat, Lon, Yaw, RPM and Gear columns. LapDistPct is unwrapped so it keeps
+// Reads the LapDistPct, Brake, Throttle, Speed, SteeringWheelAngle, Lat, Lon, Yaw, RPM, Gear and tire temperature columns. LapDistPct is unwrapped so it keeps
 // increasing past the start/finish line (e.g. 0.999 -> 1.001 instead of 0.001).
 export async function readLapSamples(file: File): Promise<LapSamples> {
   return lapSamplesFromText(await file.text());
@@ -139,6 +154,15 @@ export function lapSamplesFromText(text: string): LapSamples {
   const yaws: number[] = [];
   const rpms: number[] = [];
   const gears: number[] = [];
+  const tireTemps = Object.fromEntries(
+    TIRE_CORNERS.map((corner): [TireCorner, TireTemps] => [corner, { outer: [], middle: [], inner: [] }])
+  ) as Record<TireCorner, TireTemps>;
+  const tireColumns = TIRE_CORNERS.flatMap((corner) =>
+    Object.entries(tireTempColumns(corner)).map(([edge, name]) => ({
+      values: tireTemps[corner][edge as keyof TireTemps],
+      column: header.indexOf(name),
+    }))
+  );
   let offset = 0;
 
   for (let i = 1; i < lines.length; i++) {
@@ -158,8 +182,9 @@ export function lapSamplesFromText(text: string): LapSamples {
     yaws.push(yawColumn < 0 ? NaN : parseFloat(cells[yawColumn]));
     rpms.push(rpmColumn < 0 ? NaN : parseFloat(cells[rpmColumn]));
     gears.push(gearColumn < 0 ? NaN : parseFloat(cells[gearColumn]));
+    for (const { values, column } of tireColumns) values.push(column < 0 ? NaN : parseFloat(cells[column]));
   }
-  return { pcts, brakes, speeds, throttles, steerings, lats, lons, yaws, rpms, gears };
+  return { pcts, brakes, speeds, throttles, steerings, lats, lons, yaws, rpms, gears, tireTemps };
 }
 
 // Fractional sample index where the lap first reaches `target`, at or after `from`
@@ -181,6 +206,7 @@ export function crossingIndex(pcts: number[], target: number, from: number) {
 // positions is the car's [lat, lon] at each sample, or null if the lap has no track positions there.
 // headings is where the car points at each sample, as a compass bearing (radians clockwise from north),
 // or null without positions or Yaw (see lapHeadings).
+// tireTemps is each tire's carcass temperatures (°C) at each sample, or null if the lap has none there.
 export type AreaTrace = {
   pcts: number[];
   times: number[];
@@ -190,6 +216,7 @@ export type AreaTrace = {
   speeds: number[];
   positions: [number, number][] | null;
   headings: number[] | null;
+  tireTemps: Record<TireCorner, TireTemps> | null;
   domain: [number, number];
 };
 
@@ -273,6 +300,13 @@ export function areaTrace(
   const sampleSeconds = lapSeconds / pcts.length;
   const hasPositions = positions.every(([lat, lon]) => Number.isFinite(lat) && Number.isFinite(lon));
   const headings = hasPositions ? lapHeadings(samples)?.slice(from, to) ?? null : null;
+  const tireTemps = Object.fromEntries(
+    TIRE_CORNERS.map((corner) => {
+      const { outer, middle, inner } = samples.tireTemps[corner];
+      return [corner, { outer: outer.slice(from, to), middle: middle.slice(from, to), inner: inner.slice(from, to) }];
+    })
+  ) as Record<TireCorner, TireTemps>;
+  const hasTireTemps = TIRE_CORNERS.some((corner) => tireTemps[corner].middle.some(Number.isFinite));
   return {
     pcts: pcts.slice(from, to),
     times: Array.from({ length: to - from }, (_, i) => (from + i) * sampleSeconds),
@@ -282,6 +316,7 @@ export function areaTrace(
     speeds: speeds.slice(from, to),
     positions: hasPositions ? positions : null,
     headings: headings && headings.every(Number.isFinite) ? headings : null,
+    tireTemps: hasTireTemps ? tireTemps : null,
     domain: [start, domainEnd],
   };
 }

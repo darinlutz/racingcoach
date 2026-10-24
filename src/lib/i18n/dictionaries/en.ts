@@ -616,12 +616,16 @@ export const en = {
     distanceWhere: '{n} {unit}',
     pctOfLap: '{n}% of the lap',
     pedalTraces: 'Pedal traces',
-    pedalTracesIntro: 'Brake and throttle through each focus area. The area where the Compare lap loses the most time is open.',
+    pedalTracesIntro: 'Brake, throttle and steering through one focus area at a time. Pick an area across the top; each shows the time the Compare lap gained (green) or lost (red) there. The area where it loses the most time is picked first.',
     compareLapSame: 'Compare lap same time',
     compareLapSlower: 'Compare lap {seconds} s slower',
     compareLapFaster: 'Compare lap {seconds} s faster',
     mostTimeLost: 'most time lost',
-    collapseAllAreas: 'Collapse All Areas',
+    areaTabs: 'Focus areas',
+    sortByTimeLost: 'Sorted by time lost. Sort in track order',
+    sortByTrackOrder: 'In track order. Sort by time lost',
+    scrollAreasLeft: 'Show earlier focus areas',
+    scrollAreasRight: 'Show more focus areas',
   },
 
   // The charts under each focus area in Lap Compare

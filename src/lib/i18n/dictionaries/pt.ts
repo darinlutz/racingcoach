@@ -604,12 +604,16 @@ export const pt: Dictionary = {
     distanceWhere: '{n} {unit}',
     pctOfLap: '{n}% da volta',
     pedalTraces: 'Traçados dos pedais',
-    pedalTracesIntro: 'Freio e acelerador em cada área de foco. A área em que a volta comparada perde mais tempo fica aberta.',
+    pedalTracesIntro: 'Freio, acelerador e direção em uma área de foco por vez. Escolha uma área no topo; cada uma mostra o tempo que a volta comparada ganhou (verde) ou perdeu (vermelho) nela. A área em que ela perde mais tempo é escolhida primeiro.',
     compareLapSame: 'Volta comparada com o mesmo tempo',
     compareLapSlower: 'Volta comparada {seconds} s mais lenta',
     compareLapFaster: 'Volta comparada {seconds} s mais rápida',
     mostTimeLost: 'maior perda de tempo',
-    collapseAllAreas: 'Recolher todas as áreas',
+    areaTabs: 'Áreas de foco',
+    sortByTimeLost: 'Ordenadas por tempo perdido. Ordenar pela pista',
+    sortByTrackOrder: 'Na ordem da pista. Ordenar por tempo perdido',
+    scrollAreasLeft: 'Mostrar áreas anteriores',
+    scrollAreasRight: 'Mostrar mais áreas',
   },
 
   charts: {

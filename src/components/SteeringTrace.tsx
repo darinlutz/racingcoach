@@ -26,7 +26,7 @@ const MIN_LABEL_GAP = 14;
 const degrees = (radians: number) => (radians * 180) / Math.PI;
 
 // iRacing's steering angle is positive to the left: 30 -> "30° L", -30 -> "30° R"
-function steeringLabel(deg: number, t: Dictionary['charts']) {
+export function steeringLabel(deg: number, t: Dictionary['charts']) {
   const rounded = Math.round(deg);
   return rounded === 0 ? '0°' : fmt(rounded > 0 ? t.steeringLeft : t.steeringRight, { n: Math.abs(rounded) });
 }

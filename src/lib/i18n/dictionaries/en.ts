@@ -648,6 +648,8 @@ export const en = {
     lapStraight: '{lap} lap: straight',
     and: ' and ',
     steeringCaption: 'Left turns are up, right turns down.',
+    wheelAria: 'Steering wheel at {position}: {angles}',
+    wheelHint: 'The wheel turns with the Base lap at the crosshair; the arcs show each lap’s angle from straight ahead.',
     drivingLine: 'Driving line',
     drivingLinesAria: 'Driving lines through the focus area: {laps}',
     noPositions:

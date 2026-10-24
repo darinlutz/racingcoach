@@ -138,7 +138,7 @@ export default function TrackManagement() {
                   {shown.map((track) => (
                     <Fragment key={track.id}>
                       <tr>
-                        <th scope="row" className="px-4 py-3 font-semibold text-foreground">
+                        <th scope="row" className="px-4 py-3 font-semibold text-foreground whitespace-nowrap">
                           <button
                             type="button"
                             onClick={() => setExpanded(expanded === track.id ? null : track.id)}
@@ -152,7 +152,7 @@ export default function TrackManagement() {
                             <span className="inline-block w-4 text-muted-foreground">{expanded === track.id ? '▾' : '▸'}</span>
                             {track.name}
                           </button>
-                          {track.key !== track.name && <p className="ml-4 text-xs font-normal text-muted-foreground">{track.key}</p>}
+                          {track.key !== track.name && <span className="ml-3 text-xs font-normal text-muted-foreground">{track.key}</span>}
                         </th>
                         <td className="px-4 py-3 text-right tabular-nums">
                           {track.areas.length}

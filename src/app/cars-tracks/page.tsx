@@ -24,8 +24,8 @@ export default async function CarsTracksPage({
         </div>
       </section>
 
-      <section className="py-16 px-6 sm:px-10 lg:px-16 bg-card flex flex-col items-center">
-        <div className="w-full max-w-4xl">
+      <section className="py-16 bg-card">
+        <div className="site-container">
           <CarsTracksTabs initialTab={initialTab} />
         </div>
       </section>

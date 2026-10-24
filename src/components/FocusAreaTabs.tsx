@@ -7,7 +7,7 @@ import { useLanguage } from '@/components/LanguageProvider';
 
 export type FocusAreaTab = { name: string; diff: number };
 
-// Lap Compare's focus areas across the top, each with the time the Compare lap lost (red, +) or
+// Lap Compare's focus areas across the top, each with, under its name, the time the Compare lap lost (red, +) or
 // gained (green, -) there, tinted by how much. Picking one shows its telemetry below; only one at a
 // time. The button on the left switches between most time lost first and track order (areas come in
 // track order); the arrows scroll the strip when the areas don't all fit.
@@ -123,13 +123,13 @@ export default function FocusAreaTabs({
               tabIndex={isSelected ? 0 : -1}
               onClick={() => onSelect(area.name)}
               style={isSelected ? undefined : { backgroundColor: tint }}
-              className={`shrink-0 flex items-center gap-3 px-4 border-r border-border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white ${
+              className={`shrink-0 flex flex-col items-center justify-center gap-1 px-3 border-r border-border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white ${
                 isSelected ? 'bg-sky-600 text-white' : 'text-foreground hover:brightness-125'
               }`}
             >
-              <span className="font-display text-2xl font-bold leading-none whitespace-nowrap">{area.name}</span>
+              <span className="font-display text-[1.35rem] font-bold leading-none whitespace-nowrap">{area.name}</span>
               <span
-                className={`font-display text-base font-semibold tabular-nums whitespace-nowrap ${
+                className={`font-display text-sm font-semibold leading-none tabular-nums whitespace-nowrap ${
                   isSelected ? 'text-white/85' : area.diff > 0 ? 'text-red-400' : area.diff < 0 ? 'text-green-400' : 'text-muted-foreground'
                 }`}
               >

@@ -330,7 +330,7 @@ export default function CarDataManagement() {
               {cars.map((car) => (
                 <Fragment key={car.id}>
                   <tr className={draft?.id === car.id ? 'bg-accent' : undefined}>
-                    <th scope="row" className="px-4 py-3 font-semibold text-foreground">
+                    <th scope="row" className="px-4 py-3 font-semibold text-foreground whitespace-nowrap">
                       <button
                         type="button"
                         onClick={() => setExpanded(expanded === car.id ? null : car.id)}

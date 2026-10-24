@@ -5,7 +5,8 @@ import { getCurrentUser } from '@/lib/session';
 import { createTrack, maintenanceErrorReply, parseTrackInput, TrackMaintenanceError } from '@/lib/trackMaintenance';
 
 // The Coach page's Track and Focus Area Maintenance section: adds a track.
-// Body: { key: string, name: string, numberOfCorners: number | null }. Answers { track }.
+// Body: { key: string, name: string, numberOfCorners: number | null, category?: "Road Course" | "Oval" | "Dirt" }.
+// Answers { track }.
 // Coach and Admin roles only; anyone else gets a 404, like the Coach page.
 export async function POST(request: Request) {
   const user = await getCurrentUser();

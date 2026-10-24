@@ -1,5 +1,6 @@
 import type { PoolClient } from 'pg';
 import { isUniqueViolation, query, transaction } from './db';
+import { TRACK_CATEGORIES } from './trackCategories';
 import { ensureUserSchema } from './users';
 
 // The Coach page's Track and Focus Area Maintenance section (src/components/TrackMaintenance.tsx): every
@@ -20,6 +21,7 @@ export type MaintenanceTrack = {
   key: string;
   name: string;
   numberOfCorners: number | null;
+  category: string | null;
   areas: MaintenanceFocusArea[];
 };
 
@@ -31,7 +33,8 @@ export type FocusAreaInput = {
   endPoint: number;
 };
 
-export type TrackInput = { key: string; name: string; numberOfCorners: number | null };
+// category null: worked out like categorizeTracks (trackCorners.ts)
+export type TrackInput = { key: string; name: string; numberOfCorners: number | null; category: string | null };
 
 export class TrackMaintenanceError extends Error {
   constructor(
@@ -44,7 +47,7 @@ export class TrackMaintenanceError extends Error {
 export async function listTracksForMaintenance(): Promise<MaintenanceTrack[]> {
   await ensureUserSchema();
   const [tracks, areas] = await Promise.all([
-    query(`SELECT id, track_key, track_name, number_of_corners FROM racingcoach."Tracks" ORDER BY lower(track_name)`),
+    query(`SELECT id, track_key, track_name, number_of_corners, track_category FROM racingcoach."Tracks" ORDER BY lower(track_name)`),
     query(
       `SELECT id, track_id, position, name, start_point, end_point
        FROM racingcoach."TrackFocusAreas" ORDER BY track_id, position`
@@ -61,6 +64,7 @@ export async function listTracksForMaintenance(): Promise<MaintenanceTrack[]> {
     key: t.track_key as string,
     name: t.track_name as string,
     numberOfCorners: t.number_of_corners as number | null,
+    category: t.track_category as string | null,
     areas: byTrack.get(t.id as number) ?? [],
   }));
 }
@@ -68,21 +72,22 @@ export async function listTracksForMaintenance(): Promise<MaintenanceTrack[]> {
 export async function createTrack(input: TrackInput): Promise<MaintenanceTrack> {
   await ensureUserSchema();
   try {
-    // Categorized like categorizeTracks (trackCorners.ts)
+    // Without a category, categorized like categorizeTracks (trackCorners.ts)
     const [row] = await query(
       `INSERT INTO racingcoach."Tracks" (track_key, track_name, number_of_corners, track_category)
-       VALUES ($1, $2, $3::int, CASE
+       VALUES ($1, $2, $3::int, COALESCE($4, CASE
          WHEN $2 ~* '(dirt|rally)' THEN 'Dirt'
          WHEN $3::int <= 4 THEN 'Oval'
-         ELSE 'Road Course' END)
-       RETURNING id, track_key, track_name, number_of_corners`,
-      [input.key, input.name, input.numberOfCorners]
+         ELSE 'Road Course' END))
+       RETURNING id, track_key, track_name, number_of_corners, track_category`,
+      [input.key, input.name, input.numberOfCorners, input.category]
     );
     return {
       id: row.id as number,
       key: row.track_key as string,
       name: row.track_name as string,
       numberOfCorners: row.number_of_corners as number | null,
+      category: row.track_category as string | null,
       areas: [],
     };
   } catch (error) {
@@ -184,7 +189,12 @@ export function parseTrackInput(body: unknown): TrackInput | null {
     if (!Number.isInteger(n) || n <= 0 || n > 1000) return null;
     numberOfCorners = n;
   }
-  return { key, name, numberOfCorners };
+  let category: string | null = null;
+  if (b.category !== null && b.category !== undefined) {
+    if (typeof b.category !== 'string' || !TRACK_CATEGORIES.includes(b.category)) return null;
+    category = b.category;
+  }
+  return { key, name, numberOfCorners, category };
 }
 
 // The API dictionary's message and the status for each error (the routes under src/app/api/coach/tracks/)

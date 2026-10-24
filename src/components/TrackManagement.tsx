@@ -5,15 +5,8 @@ import Link from 'next/link';
 import { useLanguage } from '@/components/LanguageProvider';
 import TrackSatellite, { SATELLITE_HEIGHT, SATELLITE_WIDTH } from '@/components/TrackSatellite';
 import { fmt } from '@/lib/i18n/languages';
+import { DEFAULT_TRACK_CATEGORY, trackCategoriesOf } from '@/lib/trackCategories';
 import type { TrackData } from '@/lib/tracks';
-
-// The Track Type radio buttons' order; types not listed here follow, alphabetically
-const CATEGORY_ORDER = ['Road Course', 'Oval', 'Dirt'];
-const DEFAULT_CATEGORY = 'Road Course';
-const categoryRank = (category: string) => {
-  const i = CATEGORY_ORDER.indexOf(category);
-  return i === -1 ? CATEGORY_ORDER.length : i;
-};
 
 // Track Data's tracks and focus areas, the same for every user. Read only. The Track Type radio buttons
 // ("Tracks".track_category, Road Course by default) pick which tracks are listed.
@@ -25,7 +18,7 @@ export default function TrackManagement() {
   const [signedOut, setSignedOut] = useState(false);
   const [message, setMessage] = useState('');
   const [expanded, setExpanded] = useState<number | null>(null);
-  const [category, setCategory] = useState(DEFAULT_CATEGORY);
+  const [category, setCategory] = useState(DEFAULT_TRACK_CATEGORY);
   // The track whose name is hovered (or focused), and where its satellite picture goes. Fixed to the window, as
   // the table's scroll box would clip it; scrolling hides it
   const [picture, setPicture] = useState<{ track: TrackData; left: number; top: number } | null>(null);
@@ -68,9 +61,7 @@ export default function TrackManagement() {
   }, [t]);
 
   // Road Course always has a button, so the default has one even before tracks of that type have focus areas
-  const categories = [...new Set([DEFAULT_CATEGORY, ...tracks.flatMap((track) => (track.category ? [track.category] : []))])].sort(
-    (a, b) => categoryRank(a) - categoryRank(b) || a.localeCompare(b)
-  );
+  const categories = trackCategoriesOf(tracks);
   const categoryLabel = (value: string) => t.categories[value] ?? value;
   const shown = tracks.filter((track) => track.category === category);
 

@@ -2,10 +2,11 @@
 
 import { Fragment, useMemo, useState } from 'react';
 import { useLanguage } from '@/components/LanguageProvider';
+import { DEFAULT_TRACK_CATEGORY, TRACK_CATEGORIES, trackCategoriesOf } from '@/lib/trackCategories';
 import type { MaintenanceFocusArea, MaintenanceTrack } from '@/lib/trackMaintenance';
 
 // The Coach page's Track and Focus Area Maintenance section: every track in racingcoach."Tracks" with its
-// key, name and number of corners, adding tracks (POST /api/coach/tracks), and each track's focus areas, which
+// key, name and number of corners, listed by Track Type like Track Data, adding tracks (POST /api/coach/tracks), and each track's focus areas, which
 // can be added, edited and deleted (/api/coach/tracks/[id]/focus-areas). Focus areas have no brake or throttle
 // targets: those come from each driver's Target Lap (targetLapTargets.ts).
 
@@ -34,6 +35,7 @@ export default function TrackMaintenance({ tracks: initialTracks }: { tracks: Ma
   const [tracks, setTracks] = useState(initialTracks);
   const [search, setSearch] = useState('');
   const [onlyWithAreas, setOnlyWithAreas] = useState(true);
+  const [category, setCategory] = useState(DEFAULT_TRACK_CATEGORY);
   const [openTrackId, setOpenTrackId] = useState<number | null>(null);
   const [message, setMessage] = useState<Message>(null);
 
@@ -41,6 +43,7 @@ export default function TrackMaintenance({ tracks: initialTracks }: { tracks: Ma
   const [newKey, setNewKey] = useState('');
   const [newName, setNewName] = useState('');
   const [newCorners, setNewCorners] = useState('');
+  const [newCategory, setNewCategory] = useState(DEFAULT_TRACK_CATEGORY);
   const [addingTrack, setAddingTrack] = useState(false);
 
   // The focus area being added (areaId null) or edited
@@ -52,10 +55,35 @@ export default function TrackMaintenance({ tracks: initialTracks }: { tracks: Ma
     const needle = search.trim().toLowerCase();
     return tracks.filter(
       (track) =>
+        track.category === category &&
         (!onlyWithAreas || track.areas.length > 0 || track.id === openTrackId) &&
         (!needle || track.name.toLowerCase().includes(needle) || track.key.toLowerCase().includes(needle))
     );
-  }, [tracks, search, onlyWithAreas, openTrackId]);
+  }, [tracks, category, search, onlyWithAreas, openTrackId]);
+
+  const categories = trackCategoriesOf(tracks);
+  const categoryLabel = (value: string) => t.tracks.categories[value] ?? value;
+  const categoryRadios = (name: string, values: string[], checked: string, onChange: (value: string) => void) => (
+    <fieldset>
+      <legend className={labelClass}>{t.tracks.trackType}</legend>
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+        {values.map((value) => (
+          <label key={value} className="inline-flex items-center gap-2 cursor-pointer text-sm text-foreground">
+            <input
+              type="radio"
+              name={name}
+              value={value}
+              checked={checked === value}
+              onChange={() => onChange(value)}
+              data-track={`${name}-${value}`}
+              className="h-4 w-4 accent-primary"
+            />
+            <span className="font-semibold">{categoryLabel(value)}</span>
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  );
 
   const send = async (url: string, method: string, body?: unknown) => {
     const res = await fetch(url, {
@@ -76,12 +104,14 @@ export default function TrackMaintenance({ tracks: initialTracks }: { tracks: Ma
         key: newKey,
         name: newName,
         numberOfCorners: newCorners.trim() === '' ? null : Number(newCorners),
+        category: newCategory,
       })) as { track: MaintenanceTrack };
       setTracks((list) => [...list, track].sort((x, y) => x.name.toLowerCase().localeCompare(y.name.toLowerCase())));
       setNewKey('');
       setNewName('');
       setNewCorners('');
       setOpenTrackId(track.id);
+      setCategory(track.category ?? DEFAULT_TRACK_CATEGORY);
       setSearch(track.name);
       setMessage({ ok: true, text: fmt(a.trackAdded, { track: track.name }) });
     } catch (error) {
@@ -200,6 +230,7 @@ export default function TrackMaintenance({ tracks: initialTracks }: { tracks: Ma
       {/* Add Track */}
       <div className="bg-card border border-border rounded-lg p-4">
         <p className="text-sm font-medium text-foreground mb-3">{a.addTrack}</p>
+        <div className="mb-3">{categoryRadios('new-track-type', TRACK_CATEGORIES, newCategory, setNewCategory)}</div>
         <div className="grid gap-3 sm:grid-cols-[1fr_1fr_10rem_auto] items-end">
           <div>
             <label htmlFor="new-track-key" className={labelClass}>{a.trackKey}</label>
@@ -228,6 +259,11 @@ export default function TrackMaintenance({ tracks: initialTracks }: { tracks: Ma
       </div>
 
       {/* Find tracks */}
+      {categoryRadios('track-type', categories, category, (value) => {
+        setCategory(value);
+        setOpenTrackId(null);
+        setEditing(null);
+      })}
       <div className="flex flex-wrap items-end gap-4">
         <div className="flex-1 min-w-[14rem]">
           <label htmlFor="track-search" className={labelClass}>{a.searchTracks}</label>
@@ -245,7 +281,7 @@ export default function TrackMaintenance({ tracks: initialTracks }: { tracks: Ma
           <input type="checkbox" checked={onlyWithAreas} onChange={(e) => setOnlyWithAreas(e.target.checked)} className="accent-primary" />
           {a.onlyWithAreas}
         </label>
-        <span className="text-xs text-muted-foreground pb-2">{fmt(a.tracksShown, { shown: visible.length, total: tracks.length })}</span>
+        <span className="text-xs text-muted-foreground pb-2">{fmt(a.tracksShown, { shown: visible.length, total: tracks.filter((track) => track.category === category).length })}</span>
       </div>
 
       {message && (

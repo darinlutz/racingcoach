@@ -361,7 +361,8 @@ internal sealed class CollectorEngine
                 Session.Driver,
                 Session.SessionId,
                 Session.SubSessionId,
-                sessionTypes);
+                sessionTypes,
+                session.DriverInfo?.DriverCarFuelKgPerLtr);
 
             TrackKeys.Set(_recorder.Session.Track, weekend?.TrackName, weekend?.TrackLength, weekend?.TrackLatitude, weekend?.TrackLongitude); // before anything asks the site about the track
             _coach.SetTrack(_recorder.Session.Track);

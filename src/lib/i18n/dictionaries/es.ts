@@ -673,18 +673,41 @@ export const es: Dictionary = {
     lineDiffLeft: 'La vuelta comparada va hasta {n} {unit} a la izquierda de la trazada de la vuelta base, en {where}',
     lineDiffRight: 'La vuelta comparada va hasta {n} {unit} a la derecha de la trazada de la vuelta base, en {where}',
     lineDiffCaption: 'La vuelta base es la línea azul plana; la línea roja muestra cuánto se desvió la vuelta comparada a la izquierda (arriba) o a la derecha (abajo).',
-    tireDataLabel: 'Datos de neumáticos y suspensión',
-    tireTabs: { temp: 'Temp. de neumáticos', pressure: 'Presión de neumáticos', rideHeights: 'Alturas de manejo' },
+    tireDataLabel: 'Datos de neumáticos, suspensión y motor',
+    tireTabs: { temp: 'Temp. de neumáticos', pressure: 'Presión de neumáticos', rideHeights: 'Alturas de manejo', engine: 'Motor' },
+    lapDataDiffLabel: 'Comparada menos base',
+    lapDataNone: 'Ninguna vuelta tiene este dato.',
+    engineCharts: {
+      rpm: 'RPM',
+      waterTemp: 'Temp. del agua',
+      oilTemp: 'Temp. del aceite',
+      fuelLevel: 'Nivel de combustible',
+      fuelUsage: 'Consumo de combustible',
+    },
+    engineNone:
+      'Ninguna vuelta tiene datos del motor. Las vueltas grabadas con un colector de RacingCoach actualizado los tienen; las vueltas anteriores y las exportaciones de Garage 61 no.',
+    engineLapNone: 'No hay datos del motor en la {lap}.',
+    engineCaption:
+      'La línea azul continua es la vuelta base y la roja punteada la vuelta comparada; el número grande muestra cuánto más alta (+) o baja (−) fue la vuelta comparada. El consumo de combustible es el ritmo al que el motor quemaba combustible.',
     tireCorners: { LF: 'Delantero izquierdo', RF: 'Delantero derecho', LR: 'Trasero izquierdo', RR: 'Trasero derecho' },
     tireOuter: 'EXT',
     tireMiddle: 'MED',
     tireInner: 'INT',
     tireAreaAverage: 'Promedio del área de enfoque',
     tireDiffLabel: 'Comparada menos base: exterior, medio, interior',
-    tireComingSoon: 'Próximamente.',
+    rideHeightNone:
+      'Ninguna vuelta tiene alturas de manejo. Las vueltas grabadas con un colector de RacingCoach actualizado las tienen; las vueltas anteriores y las exportaciones de Garage 61 no.',
+    rideHeightLapNone: 'No hay alturas de manejo en la {lap}.',
+    rideHeightCaption:
+      'La altura de manejo de cada esquina. La línea azul continua es la vuelta base y la roja punteada la vuelta comparada; el número grande muestra cuánto más alto (+) o bajo (−) iba el auto en la vuelta comparada.',
     tireNoTemps:
       'Ninguna vuelta tiene temperaturas de neumáticos. Las vueltas grabadas con un colector de RacingCoach actualizado las tienen; las vueltas anteriores y las exportaciones de Garage 61 no.',
     tireLapNoTemps: 'No hay temperaturas de neumáticos en la {lap}.',
+    tireNoPressures:
+      'Ninguna vuelta tiene presiones de neumáticos. Las vueltas grabadas con un colector de RacingCoach actualizado las tienen; las vueltas anteriores y las exportaciones de Garage 61 no.',
+    tireLapNoPressures: 'No hay presiones de neumáticos en la {lap}.',
+    tirePressureCaption:
+      'La presión de cada neumático. La línea azul continua es la vuelta base y la roja punteada la vuelta comparada; el número grande muestra cuánto más alta (+) o baja (−) fue la presión de la vuelta comparada.',
     tireTempCaption:
       'Temperaturas de la carcasa a lo ancho de cada neumático. Las líneas continuas son la vuelta base y las punteadas la vuelta comparada; los números grandes muestran cuánto más caliente (+) o fría (−) estuvo la vuelta comparada.',
   },

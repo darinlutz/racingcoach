@@ -9,7 +9,10 @@ internal sealed record SessionContext(
     string Driver,
     int SessionId,
     int SubSessionId,
-    IReadOnlyDictionary<int, string> SessionTypes);
+    IReadOnlyDictionary<int, string> SessionTypes,
+    // The car's fuel density (kg per liter, DriverInfo.DriverCarFuelKgPerLtr), saved with each lap so the
+    // website can turn FuelLevel (liters) into a weight
+    double? FuelKgPerLtr = null);
 
 /// <summary>A finished lap, handed from the recorder to the writer.</summary>
 internal sealed record CompletedLap(

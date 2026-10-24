@@ -687,18 +687,35 @@ export const en = {
     lineDiffLeft: 'The Compare lap is up to {n} {unit} left of the Base lap’s line, at {where}',
     lineDiffRight: 'The Compare lap is up to {n} {unit} right of the Base lap’s line, at {where}',
     lineDiffCaption: 'The Base lap is the flat blue line; the red line shows how far left (up) or right (down) of it the Compare lap was.',
-    tireDataLabel: 'Tire and suspension data',
-    tireTabs: { temp: 'Tire Temp', pressure: 'Tire Pressure', rideHeights: 'Ride Heights' },
+    tireDataLabel: 'Tire, suspension and engine data',
+    tireTabs: { temp: 'Tire Temp', pressure: 'Tire Pressure', rideHeights: 'Ride Heights', engine: 'Engine' },
+    lapDataDiffLabel: 'Compare minus Base',
+    lapDataNone: 'Neither lap has this.',
+    engineCharts: { rpm: 'RPM', waterTemp: 'Water Temp', oilTemp: 'Oil Temp', fuelLevel: 'Fuel Level', fuelUsage: 'Fuel Usage' },
+    engineNone:
+      'Neither lap has engine data. Laps recorded by an updated RacingCoach collector have it; older laps and Garage 61 exports don’t.',
+    engineLapNone: 'No engine data in the {lap}.',
+    engineCaption:
+      'The solid blue line is the Base lap, the dotted red line the Compare lap; the large number shows how much higher (+) or lower (−) the Compare lap was. Fuel Usage is the rate the engine was burning fuel.',
     tireCorners: { LF: 'Left Front', RF: 'Right Front', LR: 'Left Rear', RR: 'Right Rear' },
     tireOuter: 'OUT',
     tireMiddle: 'MID',
     tireInner: 'IN',
     tireAreaAverage: 'Focus area average',
     tireDiffLabel: 'Compare minus Base: outer, middle, inner',
-    tireComingSoon: 'Coming soon.',
+    rideHeightNone:
+      'Neither lap has ride heights. Laps recorded by an updated RacingCoach collector have them; older laps and Garage 61 exports don’t.',
+    rideHeightLapNone: 'No ride heights in the {lap}.',
+    rideHeightCaption:
+      'Each corner’s ride height. The solid blue line is the Base lap, the dotted red line the Compare lap; the large number shows how much higher (+) or lower (−) the Compare lap’s car sat.',
     tireNoTemps:
       'Neither lap has tire temperatures. Laps recorded by an updated RacingCoach collector have them; older laps and Garage 61 exports don’t.',
     tireLapNoTemps: 'No tire temperatures in the {lap}.',
+    tireNoPressures:
+      'Neither lap has tire pressures. Laps recorded by an updated RacingCoach collector have them; older laps and Garage 61 exports don’t.',
+    tireLapNoPressures: 'No tire pressures in the {lap}.',
+    tirePressureCaption:
+      'Each tire’s pressure. The solid blue line is the Base lap, the dotted red line the Compare lap; the large number shows how much higher (+) or lower (−) the Compare lap’s pressure was.',
     tireTempCaption:
       'Carcass temperatures across each tire. Solid lines are the Base lap, dotted lines the Compare lap; the large numbers show how much hotter (+) or cooler (−) the Compare lap ran.',
   },

@@ -56,6 +56,21 @@ internal sealed class LapWriter : IAsyncDisposable
         ("RRtempCL", d => F(d.RRtempCL)),
         ("RRtempCM", d => F(d.RRtempCM)),
         ("RRtempCR", d => F(d.RRtempCR)),
+        // Lap Compare's Engine charts: fuel in liters, fuel use in kg/h, temperatures in °C (RPM is above)
+        ("FuelLevel", d => F(d.FuelLevel)),
+        ("FuelUsePerHour", d => F(d.FuelUsePerHour)),
+        ("WaterTemp", d => F(d.WaterTemp)),
+        ("OilTemp", d => F(d.OilTemp)),
+        // Each corner's ride height (m): Lap Compare's Ride Heights charts
+        ("LFrideHeight", d => F(d.LFrideHeight)),
+        ("RFrideHeight", d => F(d.RFrideHeight)),
+        ("LRrideHeight", d => F(d.LRrideHeight)),
+        ("RRrideHeight", d => F(d.RRrideHeight)),
+        // Each tire's pressure (kPa): Lap Compare's Tire Pressure charts
+        ("LFpressure", d => F(d.LFpressure)),
+        ("RFpressure", d => F(d.RFpressure)),
+        ("LRpressure", d => F(d.LRpressure)),
+        ("RRpressure", d => F(d.RRpressure)),
         ("Lap", d => I(d.Lap)),
         ("LapDist", d => F(d.LapDist)),
         ("SessionTime", d => d.SessionTime?.ToString(Inv) ?? ""),
@@ -218,9 +233,11 @@ internal sealed class LapWriter : IAsyncDisposable
         using (var writer = new StreamWriter(temp, append: false, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false), bufferSize: 1 << 16))
         {
             writer.NewLine = "\n";
-            writer.WriteLine(string.Join(',', Columns.Select(c => c.Name)));
+            // Last, the car's fuel density from session info, the same on every row
+            var fuelKgPerLtr = session.FuelKgPerLtr is { } density ? density.ToString(Inv) : "";
+            writer.WriteLine(string.Join(',', Columns.Select(c => c.Name)) + ",FuelKgPerLtr");
             foreach (var sample in lap.Samples)
-                writer.WriteLine(string.Join(',', Columns.Select(c => c.Value(sample))));
+                writer.WriteLine(string.Join(',', Columns.Select(c => c.Value(sample))) + "," + fuelKgPerLtr);
         }
         File.Move(temp, path);
 

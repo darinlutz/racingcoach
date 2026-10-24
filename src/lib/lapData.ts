@@ -103,7 +103,18 @@ export type LapSamples = {
   gears: number[];
   // Each tire's carcass temperatures (°C, NaN when the lap file has no such columns)
   tireTemps: Record<TireCorner, TireTemps>;
+  // Each tire's pressure (kPa, NaN when the lap file has no such column)
+  tirePressures: Record<TireCorner, number[]>;
+  // Each corner's ride height (m, NaN when the lap file has no such column)
+  rideHeights: Record<TireCorner, number[]>;
+  // Water and oil temperatures (°C), fuel left (kg) and fuel use (kg/h), NaN when the lap file has no such column
+  engine: EngineSamples;
 };
+
+export type EngineSamples = { waterTemps: number[]; oilTemps: number[]; fuelKgs: number[]; fuelKgPerHour: number[] };
+
+// The fuel density used when a lap file has FuelLevel but not the car's FuelKgPerLtr: iRacing's usual petrol
+const DEFAULT_FUEL_KG_PER_LTR = 0.75;
 
 export const TIRE_CORNERS = ['LF', 'RF', 'LR', 'RR'] as const;
 export type TireCorner = (typeof TIRE_CORNERS)[number];
@@ -124,7 +135,7 @@ const BRAKE_THRESHOLD = 0;
 // Throttle (0-1) at or above this counts as the driver being back on the power
 const THROTTLE_THRESHOLD = 0.1;
 
-// Reads the LapDistPct, Brake, Throttle, Speed, SteeringWheelAngle, Lat, Lon, Yaw, RPM, Gear and tire temperature columns. LapDistPct is unwrapped so it keeps
+// Reads the LapDistPct, Brake, Throttle, Speed, SteeringWheelAngle, Lat, Lon, Yaw, RPM, Gear, tire temperature, tire pressure, ride height and engine columns. LapDistPct is unwrapped so it keeps
 // increasing past the start/finish line (e.g. 0.999 -> 1.001 instead of 0.001).
 export async function readLapSamples(file: File): Promise<LapSamples> {
   return lapSamplesFromText(await file.text());
@@ -163,6 +174,27 @@ export function lapSamplesFromText(text: string): LapSamples {
       column: header.indexOf(name),
     }))
   );
+  const tirePressures = Object.fromEntries(
+    TIRE_CORNERS.map((corner): [TireCorner, number[]] => [corner, []])
+  ) as Record<TireCorner, number[]>;
+  const rideHeights = Object.fromEntries(
+    TIRE_CORNERS.map((corner): [TireCorner, number[]] => [corner, []])
+  ) as Record<TireCorner, number[]>;
+  for (const corner of TIRE_CORNERS) {
+    tireColumns.push(
+      { values: tirePressures[corner], column: header.indexOf(`${corner}pressure`) },
+      { values: rideHeights[corner], column: header.indexOf(`${corner}rideHeight`) }
+    );
+  }
+  const engine: EngineSamples = { waterTemps: [], oilTemps: [], fuelKgs: [], fuelKgPerHour: [] };
+  const fuelLiters: number[] = [];
+  tireColumns.push(
+    { values: engine.waterTemps, column: header.indexOf('WaterTemp') },
+    { values: engine.oilTemps, column: header.indexOf('OilTemp') },
+    { values: engine.fuelKgPerHour, column: header.indexOf('FuelUsePerHour') },
+    { values: fuelLiters, column: header.indexOf('FuelLevel') }
+  );
+  const densityColumn = header.indexOf('FuelKgPerLtr');
   let offset = 0;
 
   for (let i = 1; i < lines.length; i++) {
@@ -183,8 +215,10 @@ export function lapSamplesFromText(text: string): LapSamples {
     rpms.push(rpmColumn < 0 ? NaN : parseFloat(cells[rpmColumn]));
     gears.push(gearColumn < 0 ? NaN : parseFloat(cells[gearColumn]));
     for (const { values, column } of tireColumns) values.push(column < 0 ? NaN : parseFloat(cells[column]));
+    const density = densityColumn < 0 ? NaN : parseFloat(cells[densityColumn]);
+    engine.fuelKgs.push(fuelLiters[fuelLiters.length - 1] * (density > 0 ? density : DEFAULT_FUEL_KG_PER_LTR));
   }
-  return { pcts, brakes, speeds, throttles, steerings, lats, lons, yaws, rpms, gears, tireTemps };
+  return { pcts, brakes, speeds, throttles, steerings, lats, lons, yaws, rpms, gears, tireTemps, tirePressures, rideHeights, engine };
 }
 
 // Fractional sample index where the lap first reaches `target`, at or after `from`
@@ -206,7 +240,9 @@ export function crossingIndex(pcts: number[], target: number, from: number) {
 // positions is the car's [lat, lon] at each sample, or null if the lap has no track positions there.
 // headings is where the car points at each sample, as a compass bearing (radians clockwise from north),
 // or null without positions or Yaw (see lapHeadings).
-// tireTemps is each tire's carcass temperatures (°C) at each sample, or null if the lap has none there.
+// tireTemps is each tire's carcass temperatures (°C) at each sample, or null if the lap has none there;
+// tirePressures the same for each tire's pressure (kPa), and rideHeights for each corner's ride height (m). engine is RPM and the lap file's EngineSamples at each
+// sample, NaN where it has none.
 export type AreaTrace = {
   pcts: number[];
   times: number[];
@@ -217,6 +253,9 @@ export type AreaTrace = {
   positions: [number, number][] | null;
   headings: number[] | null;
   tireTemps: Record<TireCorner, TireTemps> | null;
+  tirePressures: Record<TireCorner, number[]> | null;
+  rideHeights: Record<TireCorner, number[]> | null;
+  engine: EngineSamples & { rpms: number[] };
   domain: [number, number];
 };
 
@@ -307,6 +346,14 @@ export function areaTrace(
     })
   ) as Record<TireCorner, TireTemps>;
   const hasTireTemps = TIRE_CORNERS.some((corner) => tireTemps[corner].middle.some(Number.isFinite));
+  const tirePressures = Object.fromEntries(
+    TIRE_CORNERS.map((corner): [TireCorner, number[]] => [corner, samples.tirePressures[corner].slice(from, to)])
+  ) as Record<TireCorner, number[]>;
+  const hasTirePressures = TIRE_CORNERS.some((corner) => tirePressures[corner].some(Number.isFinite));
+  const rideHeights = Object.fromEntries(
+    TIRE_CORNERS.map((corner): [TireCorner, number[]] => [corner, samples.rideHeights[corner].slice(from, to)])
+  ) as Record<TireCorner, number[]>;
+  const hasRideHeights = TIRE_CORNERS.some((corner) => rideHeights[corner].some(Number.isFinite));
   return {
     pcts: pcts.slice(from, to),
     times: Array.from({ length: to - from }, (_, i) => (from + i) * sampleSeconds),
@@ -317,6 +364,15 @@ export function areaTrace(
     positions: hasPositions ? positions : null,
     headings: headings && headings.every(Number.isFinite) ? headings : null,
     tireTemps: hasTireTemps ? tireTemps : null,
+    tirePressures: hasTirePressures ? tirePressures : null,
+    rideHeights: hasRideHeights ? rideHeights : null,
+    engine: {
+      rpms: samples.rpms.slice(from, to),
+      waterTemps: samples.engine.waterTemps.slice(from, to),
+      oilTemps: samples.engine.oilTemps.slice(from, to),
+      fuelKgs: samples.engine.fuelKgs.slice(from, to),
+      fuelKgPerHour: samples.engine.fuelKgPerHour.slice(from, to),
+    },
     domain: [start, domainEnd],
   };
 }

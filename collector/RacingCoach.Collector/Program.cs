@@ -67,6 +67,20 @@ namespace RacingCoach.Collector;
     TelemetryVar.RRtempCL,
     TelemetryVar.RRtempCM,
     TelemetryVar.RRtempCR,
+    // saved to the lap CSVs for Lap Compare's Engine charts (with FuelLevel and RPM, above)
+    TelemetryVar.FuelUsePerHour,
+    TelemetryVar.WaterTemp,
+    TelemetryVar.OilTemp,
+    // saved to the lap CSVs for Lap Compare's Ride Heights charts
+    TelemetryVar.LFrideHeight,
+    TelemetryVar.RFrideHeight,
+    TelemetryVar.LRrideHeight,
+    TelemetryVar.RRrideHeight,
+    // saved to the lap CSVs for Lap Compare's Tire Pressure charts
+    TelemetryVar.LFpressure,
+    TelemetryVar.RFpressure,
+    TelemetryVar.LRpressure,
+    TelemetryVar.RRpressure,
     // read by TelemetryEngine.js in the overlay (as SimHub's GameRawData.Telemetry.SessionUniqueID)
     TelemetryVar.SessionUniqueID,
 ])]

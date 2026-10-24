@@ -23,6 +23,10 @@ const KPH_PER_METER_PER_SECOND = 3.6;
 export const DISTANCE_UNIT: Record<Units, string> = { standard: 'ft', metric: 'm' };
 export const SPEED_UNIT: Record<Units, string> = { standard: 'mph', metric: 'kph' };
 export const TEMPERATURE_UNIT: Record<Units, string> = { standard: '°F', metric: '°C' };
+export const PRESSURE_UNIT: Record<Units, string> = { standard: 'psi', metric: 'kPa' };
+export const RIDE_HEIGHT_UNIT: Record<Units, string> = { standard: 'in', metric: 'mm' };
+export const MASS_UNIT: Record<Units, string> = { standard: 'lb', metric: 'kg' };
+export const MASS_RATE_UNIT: Record<Units, string> = { standard: 'lb/h', metric: 'kg/h' };
 
 // How the AI features name them in prompts
 export const DISTANCE_NAME: Record<Units, string> = { standard: 'feet', metric: 'meters' };
@@ -70,6 +74,27 @@ export function lbFtFromTorque(value: number, units: Units): number {
 // °C (iRacing's temperatures) -> °F or °C
 export function temperatureFromCelsius(celsius: number, units: Units): number {
   return units === 'metric' ? celsius : (celsius * 9) / 5 + 32;
+}
+
+const KPA_PER_PSI = 6.894757;
+
+// kPa (iRacing's tire pressures) -> psi or kPa
+export function pressureFromKpa(kpa: number, units: Units): number {
+  return units === 'metric' ? kpa : kpa / KPA_PER_PSI;
+}
+
+const METERS_PER_INCH = 0.0254;
+
+// Meters (iRacing's ride heights) -> inches or millimeters
+export function rideHeightFromMeters(meters: number, units: Units): number {
+  return units === 'metric' ? meters * 1000 : meters / METERS_PER_INCH;
+}
+
+const POUNDS_PER_KG = 2.2046226;
+
+// kg (fuel, from iRacing's liters and the car's fuel density) -> pounds or kg; per hour too
+export function massFromKg(kg: number, units: Units): number {
+  return units === 'metric' ? kg : kg * POUNDS_PER_KG;
 }
 
 // A brakepoint change the coaches tell the driver, already in the user's units: feet to the nearest 5

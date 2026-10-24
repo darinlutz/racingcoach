@@ -673,18 +673,41 @@ export const pt: Dictionary = {
     lineDiffLeft: 'A volta comparada fica até {n} {unit} à esquerda do traçado da volta base, em {where}',
     lineDiffRight: 'A volta comparada fica até {n} {unit} à direita do traçado da volta base, em {where}',
     lineDiffCaption: 'A volta base é a linha azul reta; a linha vermelha mostra quanto a volta comparada ficou à esquerda (para cima) ou à direita (para baixo) dela.',
-    tireDataLabel: 'Dados de pneus e suspensão',
-    tireTabs: { temp: 'Temp. dos pneus', pressure: 'Pressão dos pneus', rideHeights: 'Alturas de rodagem' },
+    tireDataLabel: 'Dados de pneus, suspensão e motor',
+    tireTabs: { temp: 'Temp. dos pneus', pressure: 'Pressão dos pneus', rideHeights: 'Alturas de rodagem', engine: 'Motor' },
+    lapDataDiffLabel: 'Comparada menos base',
+    lapDataNone: 'Nenhuma volta tem este dado.',
+    engineCharts: {
+      rpm: 'RPM',
+      waterTemp: 'Temp. da água',
+      oilTemp: 'Temp. do óleo',
+      fuelLevel: 'Nível de combustível',
+      fuelUsage: 'Consumo de combustível',
+    },
+    engineNone:
+      'Nenhuma volta tem dados do motor. As voltas gravadas por um coletor RacingCoach atualizado os têm; voltas mais antigas e exportações do Garage 61 não.',
+    engineLapNone: 'Sem dados do motor na {lap}.',
+    engineCaption:
+      'A linha azul contínua é a volta base e a vermelha pontilhada a volta comparada; o número grande mostra quanto mais alta (+) ou baixa (−) ficou a volta comparada. O consumo de combustível é o ritmo em que o motor queimava combustível.',
     tireCorners: { LF: 'Dianteiro esquerdo', RF: 'Dianteiro direito', LR: 'Traseiro esquerdo', RR: 'Traseiro direito' },
     tireOuter: 'EXT',
     tireMiddle: 'MEIO',
     tireInner: 'INT',
     tireAreaAverage: 'Média da área de foco',
     tireDiffLabel: 'Comparada menos base: externo, meio, interno',
-    tireComingSoon: 'Em breve.',
+    rideHeightNone:
+      'Nenhuma volta tem alturas de rodagem. As voltas gravadas por um coletor RacingCoach atualizado as têm; voltas mais antigas e exportações do Garage 61 não.',
+    rideHeightLapNone: 'Sem alturas de rodagem na {lap}.',
+    rideHeightCaption:
+      'A altura de rodagem de cada canto. A linha azul contínua é a volta base e a vermelha pontilhada a volta comparada; o número grande mostra quanto mais alto (+) ou baixo (−) o carro ficou na volta comparada.',
     tireNoTemps:
       'Nenhuma volta tem temperaturas dos pneus. As voltas gravadas por um coletor RacingCoach atualizado as têm; voltas mais antigas e exportações do Garage 61 não.',
     tireLapNoTemps: 'Sem temperaturas dos pneus na {lap}.',
+    tireNoPressures:
+      'Nenhuma volta tem pressões dos pneus. As voltas gravadas por um coletor RacingCoach atualizado as têm; voltas mais antigas e exportações do Garage 61 não.',
+    tireLapNoPressures: 'Sem pressões dos pneus na {lap}.',
+    tirePressureCaption:
+      'A pressão de cada pneu. A linha azul contínua é a volta base e a vermelha pontilhada a volta comparada; o número grande mostra quanto mais alta (+) ou baixa (−) ficou a pressão da volta comparada.',
     tireTempCaption:
       'Temperaturas da carcaça ao longo de cada pneu. As linhas contínuas são a volta base e as pontilhadas a volta comparada; os números grandes mostram quanto mais quente (+) ou fria (−) a volta comparada ficou.',
   },

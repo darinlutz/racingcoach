@@ -688,7 +688,7 @@ export const en = {
     lineDiffRight: 'The Compare lap is up to {n} {unit} right of the Base lap’s line, at {where}',
     lineDiffCaption: 'The Base lap is the flat blue line; the red line shows how far left (up) or right (down) of it the Compare lap was.',
     tireDataLabel: 'Tire, suspension and engine data',
-    tireTabs: { temp: 'Tire Temp', pressure: 'Tire Pressure', rideHeights: 'Ride Heights', engine: 'Engine' },
+    tireTabs: { temp: 'Tire Temp', pressure: 'Tire Pressure', rideHeights: 'Ride Heights', gear: 'Gear', engine: 'Engine', slip: 'Slip & Balance' },
     lapDataDiffLabel: 'Compare minus Base',
     lapDataNone: 'Neither lap has this.',
     engineCharts: { rpm: 'RPM', waterTemp: 'Water Temp', oilTemp: 'Oil Temp', fuelLevel: 'Fuel Level', fuelUsage: 'Fuel Usage' },
@@ -697,6 +697,26 @@ export const en = {
     engineLapNone: 'No engine data in the {lap}.',
     engineCaption:
       'The solid blue line is the Base lap, the dotted red line the Compare lap; the large number shows how much higher (+) or lower (−) the Compare lap was. Fuel Usage is the rate the engine was burning fuel.',
+    gearCharts: { gear: 'Gear' },
+    gearNone: 'Neither lap has gear data.',
+    gearLapNone: 'No gear data in the {lap}.',
+    gearCaption:
+      'The gear each lap was in, and the engine RPM. The solid blue line is the Base lap, the dotted red line the Compare lap; the large number shows how much higher (+) or lower (−) the Compare lap was.',
+    slipCharts: {
+      steering: 'Steering Angle',
+      yawRate: 'Yaw Rate',
+      frontWheels: 'Front Wheels Slip',
+      rearWheels: 'Rear Wheels Slip',
+      frontTires: 'Front Tires Slip',
+      rearTires: 'Rear Tires Slip',
+      balance: 'Car Balance',
+    },
+    frontWheelSlipNone:
+      'iRacing doesn’t record wheel speeds, so the front wheels’ slip can’t be measured. The rear wheels’ is worked out from the engine RPM in each gear.',
+    slipNone: 'Neither lap has yaw rate data.',
+    slipLapNone: 'No yaw rate data in the {lap}.',
+    slipCaption:
+      'Steering and yaw rate are positive turning left. Wheels slip is how much faster (+, wheelspin) or slower (−, locking up) the wheels turn than the car is going; the rear wheels’ is worked out from RPM, for rear-wheel-drive cars. Tires slip is the angle between where the tires point and where they travel, and Car Balance is the front’s minus the rear’s in the direction of the turn: positive is understeer, negative oversteer. Slip angles are estimated with a typical GT3 car’s steering ratio and geometry, from the lap’s sideslip (laps from the RacingCoach collector) or its driving line (Garage 61 exports), so compare laps of the same car rather than read them as exact.',
     tireCorners: { LF: 'Left Front', RF: 'Right Front', LR: 'Left Rear', RR: 'Right Rear' },
     tireOuter: 'OUT',
     tireMiddle: 'MID',

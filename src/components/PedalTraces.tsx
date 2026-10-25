@@ -220,7 +220,7 @@ function TraceChart({
 // pointer (or arrow keys) on all the charts at once. Below them, both laps' steering angle on one
 // chart (SteeringTrace) and a steering wheel turned to their angles at the crosshair (SteeringWheel), then their driving lines on a map (TrackLineMap) with the crosshair's position
 // marked on each, and how far left or right of the Base lap's line the Compare lap was (DrivingLineDiffTrace).
-// Last, the Tire Temp, Tire Pressure, Ride Heights and Engine tabs (LapDataTabs).
+// Last, the Tire Temp, Tire Pressure, Ride Heights, Gear, Engine and Slip & Balance tabs (LapDataTabs).
 // id must be unique on
 // the page (the charts' clip paths are named after it). Charts only draw once the container has a width,
 // so inside a closed <details> they draw when it's opened.

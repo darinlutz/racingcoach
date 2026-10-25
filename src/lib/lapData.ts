@@ -101,6 +101,12 @@ export type LapSamples = {
   // RPM and Gear (NaN when the lap file has no such column)
   rpms: number[];
   gears: number[];
+  // YawRate (rad/s, positive turning left) and VelocityX/VelocityY (m/s in the car's frame: forward and left),
+  // NaN when the lap file has no such column (Garage 61 exports and laps from collectors before the Rotation
+  // Model have no VelocityX/VelocityY)
+  yawRates: number[];
+  velocityXs: number[];
+  velocityYs: number[];
   // Each tire's carcass temperatures (°C, NaN when the lap file has no such columns)
   tireTemps: Record<TireCorner, TireTemps>;
   // Each tire's pressure (kPa, NaN when the lap file has no such column)
@@ -135,7 +141,7 @@ const BRAKE_THRESHOLD = 0;
 // Throttle (0-1) at or above this counts as the driver being back on the power
 const THROTTLE_THRESHOLD = 0.1;
 
-// Reads the LapDistPct, Brake, Throttle, Speed, SteeringWheelAngle, Lat, Lon, Yaw, RPM, Gear, tire temperature, tire pressure, ride height and engine columns. LapDistPct is unwrapped so it keeps
+// Reads the LapDistPct, Brake, Throttle, Speed, SteeringWheelAngle, Lat, Lon, Yaw, YawRate, VelocityX, VelocityY, RPM, Gear, tire temperature, tire pressure, ride height and engine columns. LapDistPct is unwrapped so it keeps
 // increasing past the start/finish line (e.g. 0.999 -> 1.001 instead of 0.001).
 export async function readLapSamples(file: File): Promise<LapSamples> {
   return lapSamplesFromText(await file.text());
@@ -155,6 +161,9 @@ export function lapSamplesFromText(text: string): LapSamples {
   const yawColumn = header.indexOf('Yaw');
   const rpmColumn = header.indexOf('RPM');
   const gearColumn = header.indexOf('Gear');
+  const yawRateColumn = header.indexOf('YawRate');
+  const velocityXColumn = header.indexOf('VelocityX');
+  const velocityYColumn = header.indexOf('VelocityY');
   const pcts: number[] = [];
   const brakes: number[] = [];
   const speeds: number[] = [];
@@ -165,6 +174,9 @@ export function lapSamplesFromText(text: string): LapSamples {
   const yaws: number[] = [];
   const rpms: number[] = [];
   const gears: number[] = [];
+  const yawRates: number[] = [];
+  const velocityXs: number[] = [];
+  const velocityYs: number[] = [];
   const tireTemps = Object.fromEntries(
     TIRE_CORNERS.map((corner): [TireCorner, TireTemps] => [corner, { outer: [], middle: [], inner: [] }])
   ) as Record<TireCorner, TireTemps>;
@@ -214,11 +226,17 @@ export function lapSamplesFromText(text: string): LapSamples {
     yaws.push(yawColumn < 0 ? NaN : parseFloat(cells[yawColumn]));
     rpms.push(rpmColumn < 0 ? NaN : parseFloat(cells[rpmColumn]));
     gears.push(gearColumn < 0 ? NaN : parseFloat(cells[gearColumn]));
+    yawRates.push(yawRateColumn < 0 ? NaN : parseFloat(cells[yawRateColumn]));
+    velocityXs.push(velocityXColumn < 0 ? NaN : parseFloat(cells[velocityXColumn]));
+    velocityYs.push(velocityYColumn < 0 ? NaN : parseFloat(cells[velocityYColumn]));
     for (const { values, column } of tireColumns) values.push(column < 0 ? NaN : parseFloat(cells[column]));
     const density = densityColumn < 0 ? NaN : parseFloat(cells[densityColumn]);
     engine.fuelKgs.push(fuelLiters[fuelLiters.length - 1] * (density > 0 ? density : DEFAULT_FUEL_KG_PER_LTR));
   }
-  return { pcts, brakes, speeds, throttles, steerings, lats, lons, yaws, rpms, gears, tireTemps, tirePressures, rideHeights, engine };
+  return {
+    pcts, brakes, speeds, throttles, steerings, lats, lons, yaws, rpms, gears, yawRates, velocityXs, velocityYs,
+    tireTemps, tirePressures, rideHeights, engine,
+  };
 }
 
 // Fractional sample index where the lap first reaches `target`, at or after `from`
@@ -241,8 +259,8 @@ export function crossingIndex(pcts: number[], target: number, from: number) {
 // headings is where the car points at each sample, as a compass bearing (radians clockwise from north),
 // or null without positions or Yaw (see lapHeadings).
 // tireTemps is each tire's carcass temperatures (°C) at each sample, or null if the lap has none there;
-// tirePressures the same for each tire's pressure (kPa), and rideHeights for each corner's ride height (m). engine is RPM and the lap file's EngineSamples at each
-// sample, NaN where it has none.
+// tirePressures the same for each tire's pressure (kPa), and rideHeights for each corner's ride height (m). engine is RPM, Gear and the lap file's EngineSamples at each
+// sample, NaN where it has none. handling is what the Slip & Balance charts are worked out from (see HandlingSamples).
 export type AreaTrace = {
   pcts: number[];
   times: number[];
@@ -255,7 +273,8 @@ export type AreaTrace = {
   tireTemps: Record<TireCorner, TireTemps> | null;
   tirePressures: Record<TireCorner, number[]> | null;
   rideHeights: Record<TireCorner, number[]> | null;
-  engine: EngineSamples & { rpms: number[] };
+  engine: EngineSamples & { rpms: number[]; gears: number[] };
+  handling: HandlingSamples;
   domain: [number, number];
 };
 
@@ -368,13 +387,86 @@ export function areaTrace(
     rideHeights: hasRideHeights ? rideHeights : null,
     engine: {
       rpms: samples.rpms.slice(from, to),
+      gears: samples.gears.slice(from, to),
       waterTemps: samples.engine.waterTemps.slice(from, to),
       oilTemps: samples.engine.oilTemps.slice(from, to),
       fuelKgs: samples.engine.fuelKgs.slice(from, to),
       fuelKgPerHour: samples.engine.fuelKgPerHour.slice(from, to),
     },
+    handling: {
+      yawRates: samples.yawRates.slice(from, to),
+      sideslips: lapSideslips(samples).slice(from, to),
+      rearWheelSlips: rearWheelSlips(samples).slice(from, to),
+    },
     domain: [start, domainEnd],
   };
+}
+
+// At each sample (NaN where the lap can't tell): yawRates is YawRate (rad/s, positive turning left); sideslips
+// the car's sideslip angle (rad, positive when it travels to the left of where it points); rearWheelSlips the
+// rear wheels' longitudinal slip (0.05 = turning 5% faster than the car is going, wheelspin; negative is
+// locking up)
+export type HandlingSamples = { yawRates: number[]; sideslips: number[]; rearWheelSlips: number[] };
+
+// Slower than this (m/s) sideslip and wheel slip are left out: dividing by a small speed only gives noise
+const MIN_SLIP_SPEED = 10;
+
+// The sideslip angle from VelocityX/VelocityY when the lap has them, otherwise from where the car points
+// (lapHeadings, from Yaw) against the direction it travels (from Lat/Lon, TRAVEL_SPAN samples either side)
+function lapSideslips(samples: LapSamples): number[] {
+  const { speeds, velocityXs, velocityYs, lats, lons } = samples;
+  if (velocityXs.some(Number.isFinite)) {
+    return velocityXs.map((vx, i) =>
+      speeds[i] >= MIN_SLIP_SPEED && vx > 0 && Number.isFinite(velocityYs[i]) ? Math.atan2(velocityYs[i], vx) : NaN
+    );
+  }
+  const headings = lapHeadings(samples);
+  return speeds.map((speed, i) => {
+    const [a, b] = [i - TRAVEL_SPAN, i + TRAVEL_SPAN];
+    if (!headings || speed < MIN_SLIP_SPEED || a < 0 || b >= speeds.length) return NaN;
+    if (![lats[a], lons[a], lats[b], lons[b], headings[i]].every(Number.isFinite)) return NaN;
+    const east = (lons[b] - lons[a]) * Math.cos((lats[i] * Math.PI) / 180);
+    const north = lats[b] - lats[a];
+    // Compass bearings turn clockwise, so travelling left of the nose is a smaller bearing than the heading
+    const slip = headings[i] - Math.atan2(east, north);
+    return Math.atan2(Math.sin(slip), Math.cos(slip));
+  });
+}
+
+// Each gear's car speed per engine RPM (m/s per rpm) with the rear wheels rolling, the median through the lap
+// off the brakes, where wheelspin is rare; used to tell the rear wheels' speed from RPM (rear-wheel drive)
+function gearSpeedRatios({ speeds, rpms, gears, brakes }: LapSamples) {
+  const byGear = new Map<number, number[]>();
+  gears.forEach((gear, i) => {
+    if (gear >= 1 && rpms[i] > 1000 && speeds[i] >= MIN_SLIP_SPEED && brakes[i] <= 0.02) {
+      if (!byGear.has(gear)) byGear.set(gear, []);
+      byGear.get(gear)!.push(speeds[i] / rpms[i]);
+    }
+  });
+  return new Map(
+    [...byGear].filter(([, ratios]) => ratios.length >= 30).map(([gear, ratios]) => {
+      const sorted = ratios.sort((x, y) => x - y);
+      return [gear, sorted[Math.floor(sorted.length / 2)]] as const;
+    })
+  );
+}
+
+// Samples this close (0.15 s at 60 Hz) to a gear change are left out: the clutch is open and RPM jumps
+const SHIFT_SAMPLES = 9;
+
+// The rear wheels' longitudinal slip, from how fast RPM says they turn in the gear against the car's speed.
+// iRacing records no wheel speeds, so this is only for rear-wheel-drive cars, and the front wheels' is unknown.
+function rearWheelSlips(samples: LapSamples): number[] {
+  const { speeds, rpms, gears } = samples;
+  const ratios = gearSpeedRatios(samples);
+  return speeds.map((speed, i) => {
+    const ratio = ratios.get(gears[i]);
+    if (ratio === undefined || speed < MIN_SLIP_SPEED || !Number.isFinite(rpms[i])) return NaN;
+    for (let j = Math.max(1, i - SHIFT_SAMPLES); j <= Math.min(gears.length - 1, i + SHIFT_SAMPLES); j++) {
+      if (gears[j] !== gears[j - 1]) return NaN;
+    }
+    return (rpms[i] * ratio - speed) / speed;
+  });
 }
 
 // The lap's time (s from the start of the lap) when it reached a lap position, interpolated between

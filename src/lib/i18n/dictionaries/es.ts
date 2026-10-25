@@ -674,7 +674,7 @@ export const es: Dictionary = {
     lineDiffRight: 'La vuelta comparada va hasta {n} {unit} a la derecha de la trazada de la vuelta base, en {where}',
     lineDiffCaption: 'La vuelta base es la línea azul plana; la línea roja muestra cuánto se desvió la vuelta comparada a la izquierda (arriba) o a la derecha (abajo).',
     tireDataLabel: 'Datos de neumáticos, suspensión y motor',
-    tireTabs: { temp: 'Temp. de neumáticos', pressure: 'Presión de neumáticos', rideHeights: 'Alturas de manejo', engine: 'Motor' },
+    tireTabs: { temp: 'Temp. de neumáticos', pressure: 'Presión de neumáticos', rideHeights: 'Alturas de manejo', gear: 'Marcha', engine: 'Motor', slip: 'Deslizamiento y balance' },
     lapDataDiffLabel: 'Comparada menos base',
     lapDataNone: 'Ninguna vuelta tiene este dato.',
     engineCharts: {
@@ -689,6 +689,26 @@ export const es: Dictionary = {
     engineLapNone: 'No hay datos del motor en la {lap}.',
     engineCaption:
       'La línea azul continua es la vuelta base y la roja punteada la vuelta comparada; el número grande muestra cuánto más alta (+) o baja (−) fue la vuelta comparada. El consumo de combustible es el ritmo al que el motor quemaba combustible.',
+    gearCharts: { gear: 'Marcha' },
+    gearNone: 'Ninguna vuelta tiene datos de marchas.',
+    gearLapNone: 'No hay datos de marchas en la {lap}.',
+    gearCaption:
+      'La marcha en la que iba cada vuelta y las RPM del motor. La línea azul continua es la vuelta base y la roja punteada la vuelta comparada; el número grande muestra cuánto más alta (+) o baja (−) fue la vuelta comparada.',
+    slipCharts: {
+      steering: 'Ángulo de dirección',
+      yawRate: 'Velocidad de guiñada',
+      frontWheels: 'Deslizamiento de ruedas delanteras',
+      rearWheels: 'Deslizamiento de ruedas traseras',
+      frontTires: 'Deslizamiento de neumáticos delanteros',
+      rearTires: 'Deslizamiento de neumáticos traseros',
+      balance: 'Balance del auto',
+    },
+    frontWheelSlipNone:
+      'iRacing no registra la velocidad de las ruedas, así que no se puede medir el deslizamiento de las ruedas delanteras. El de las traseras se calcula a partir de las RPM del motor en cada marcha.',
+    slipNone: 'Ninguna vuelta tiene datos de velocidad de guiñada.',
+    slipLapNone: 'No hay datos de velocidad de guiñada en la {lap}.',
+    slipCaption:
+      'La dirección y la velocidad de guiñada son positivas girando a la izquierda. El deslizamiento de las ruedas es cuánto más rápido (+, patinan) o más lento (−, se bloquean) giran las ruedas que la velocidad del auto; el de las traseras se calcula a partir de las RPM, para autos de tracción trasera. El deslizamiento de los neumáticos es el ángulo entre hacia dónde apuntan y hacia dónde avanzan, y el balance del auto es el de los delanteros menos el de los traseros en el sentido de la curva: positivo es subviraje, negativo sobreviraje. Los ángulos de deslizamiento se estiman con la relación de dirección y la geometría de un GT3 típico, a partir del derrape de la vuelta (vueltas del colector de RacingCoach) o de su trazada (exportaciones de Garage 61), así que compara vueltas del mismo auto en lugar de leerlos como exactos.',
     tireCorners: { LF: 'Delantero izquierdo', RF: 'Delantero derecho', LR: 'Trasero izquierdo', RR: 'Trasero derecho' },
     tireOuter: 'EXT',
     tireMiddle: 'MED',

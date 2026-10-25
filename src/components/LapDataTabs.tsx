@@ -19,8 +19,8 @@ import {
   temperatureFromCelsius,
 } from '@/lib/units';
 
-type Tab = 'temp' | 'pressure' | 'rideHeights' | 'engine';
-const TABS: Tab[] = ['temp', 'pressure', 'rideHeights', 'engine'];
+type Tab = 'temp' | 'pressure' | 'rideHeights' | 'gear' | 'engine' | 'slip';
+const TABS: Tab[] = ['temp', 'pressure', 'rideHeights', 'gear', 'engine', 'slip'];
 
 type Edge = keyof TireTemps;
 const EDGES: Edge[] = ['outer', 'middle', 'inner'];
@@ -35,6 +35,37 @@ const EDGE_COLORS: Record<Edge, { base: string; compare: string }> = {
 // Charts with one line per lap use the laps' own colors (Compare still dotted)
 const LAP_COLORS = { base: BASE_LAP_COLOR, compare: COMPARE_LAP_COLOR };
 const DOTTED = '0 4'; // zero-length dashes with round caps draw dots
+
+// The Slip & Balance tab's tire slip angles need the car's geometry, which neither iRacing nor the lap files
+// give, so they're estimated for a typical GT3 car: steering wheel angle / front wheel angle, and the distances
+// (m) from the center of gravity to the front and rear axles (2.7 m wheelbase, a little more weight on the rear)
+const STEERING_RATIO = 11;
+const CG_TO_FRONT_AXLE = 1.49;
+const CG_TO_REAR_AXLE = 1.21;
+const DEGREES_PER_RADIAN = 180 / Math.PI;
+
+// Each sample's front and rear tire slip angles (degrees, NaN where the lap can't tell), from the steering, the
+// yaw rate and the sideslip (a bicycle model, as the Rotation Model works them out): the angle between where
+// each axle's wheels point and the direction that axle travels. Signed like the steering: positive in a left turn.
+function tireSlipAngles({ steerings, speeds, handling: { yawRates, sideslips } }: AreaTrace) {
+  const front: number[] = [];
+  const rear: number[] = [];
+  sideslips.forEach((beta, i) => {
+    const forward = speeds[i] * Math.cos(beta);
+    const left = speeds[i] * Math.sin(beta);
+    const r = yawRates[i];
+    front.push((steerings[i] / STEERING_RATIO - Math.atan2(left + CG_TO_FRONT_AXLE * r, forward)) * DEGREES_PER_RADIAN);
+    rear.push(-Math.atan2(left - CG_TO_REAR_AXLE * r, forward) * DEGREES_PER_RADIAN);
+  });
+  return { front, rear };
+}
+
+// Front minus rear tire slip angle in the direction the car turns (degrees): positive is understeer (the front
+// slipping more), negative oversteer
+function carBalance(trace: AreaTrace) {
+  const { front, rear } = tireSlipAngles(trace);
+  return front.map((f, i) => Math.sign(trace.handling.yawRates[i]) * (f - rear[i]));
+}
 
 // Upper left, upper right, lower left, lower right
 const CORNER_ORDER: TireCorner[] = ['LF', 'RF', 'LR', 'RR'];
@@ -63,6 +94,8 @@ type Chart = {
   minSpan: number;
   digits: number;
   diffLabel: string;
+  // Shown instead of the chart when neither lap has its data (otherwise lapDataNone)
+  none?: string;
 };
 
 function LineKey({ color, dotted = false }: { color: string; dotted?: boolean }) {
@@ -97,7 +130,7 @@ function yTicks(lo: number, hi: number, minSpan: number) {
 // no crosshair; under that each lap's own values.
 function LapDataChart({
   id,
-  chart: { title, series, unit, convert, minSpan, digits, diffLabel },
+  chart: { title, series, unit, convert, minSpan, digits, diffLabel, none },
   base,
   compare,
   axis,
@@ -192,7 +225,7 @@ function LapDataChart({
       </div>
 
       {all.length === 0 ? (
-        <p className="py-6 text-sm text-muted-foreground">{t.lapDataNone}</p>
+        <p className="py-6 text-sm text-muted-foreground">{none ?? t.lapDataNone}</p>
       ) : (
         <>
           {/* The difference, Compare minus Base, stands out; each lap's values are under it */}
@@ -283,10 +316,12 @@ function LapDataChart({
   );
 }
 
-// Under Lap Compare's charts for a focus area: Tire Temp, Tire Pressure, Ride Heights and Engine tabs. The first
-// three each have a chart per corner (left front and right front above, left rear and right rear below) of both
-// laps' tire carcass temperatures (outer, middle, inner), tire pressures or ride heights; Engine has RPM, water
-// and oil temperatures, fuel left and fuel use. Two charts a row, or one on narrow screens. width is the container's.
+// Under Lap Compare's charts for a focus area: Tire Temp, Tire Pressure, Ride Heights, Gear, Engine and Slip &
+// Balance tabs. The first three each have a chart per corner (left front and right front above, left rear and
+// right rear below) of both laps' tire carcass temperatures (outer, middle, inner), tire pressures or ride
+// heights; Gear has the gear and RPM; Engine has RPM, water and oil temperatures, fuel left and fuel use; Slip &
+// Balance has the steering angle, yaw rate, front and rear wheel slip, front and rear tire slip angles and the
+// car's balance. Two charts a row, or one on narrow screens. width is the container's.
 export default function LapDataTabs({
   id,
   base,
@@ -329,6 +364,20 @@ export default function LapDataTabs({
     digits: number,
     values: (trace: AreaTrace) => number[] | null
   ): Chart => ({ key, title, series: lapLine(values), unit, convert, minSpan, digits, diffLabel: t.lapDataDiffLabel });
+
+  // Slip & Balance charts, in units that are the same for Standard and Metric; none explains a chart no lap can have
+  const slipChart = (
+    key: string,
+    title: string,
+    unit: string,
+    convert: (value: number) => number,
+    minSpan: number,
+    digits: number,
+    values: (trace: AreaTrace) => number[] | null,
+    none?: string
+  ): Chart => ({ ...engineChart(key, title, unit, convert, minSpan, digits, values), none });
+  const asIs = (value: number) => value;
+  const toDegrees = (radians: number) => radians * DEGREES_PER_RADIAN;
 
   // What each filled-in tab charts, whether a lap has any of it, and its texts
   const tabs = {
@@ -385,10 +434,20 @@ export default function LapDataTabs({
       lapNone: t.rideHeightLapNone,
       caption: t.rideHeightCaption,
     },
+    gear: {
+      has: ({ engine }: AreaTrace) => Boolean(present(engine.gears)),
+      charts: [
+        engineChart('gear', t.gearCharts.gear, '', asIs, 2, 0, (trace) => present(trace.engine.gears)),
+        engineChart('rpm', t.engineCharts.rpm, 'rpm', asIs, 500, 0, (trace) => present(trace.engine.rpms)),
+      ],
+      none: t.gearNone,
+      lapNone: t.gearLapNone,
+      caption: t.gearCaption,
+    },
     engine: {
       has: ({ engine }: AreaTrace) => Object.values(engine).some((values) => present(values)),
       charts: [
-        engineChart('rpm', t.engineCharts.rpm, 'rpm', (rpm) => rpm, 500, 0, (trace) => present(trace.engine.rpms)),
+        engineChart('rpm', t.engineCharts.rpm, 'rpm', asIs, 500, 0, (trace) => present(trace.engine.rpms)),
         engineChart('water', t.engineCharts.waterTemp, TEMPERATURE_UNIT[units], toTemperature, 1, 1, (trace) =>
           present(trace.engine.waterTemps)
         ),
@@ -403,6 +462,23 @@ export default function LapDataTabs({
       none: t.engineNone,
       lapNone: t.engineLapNone,
       caption: t.engineCaption,
+    },
+    slip: {
+      has: ({ handling }: AreaTrace) => Boolean(present(handling.yawRates) || present(handling.sideslips)),
+      charts: [
+        slipChart('steering', t.slipCharts.steering, '°', toDegrees, 20, 1, (trace) => trace.steerings),
+        slipChart('yawRate', t.slipCharts.yawRate, '°/s', toDegrees, 10, 1, (trace) => present(trace.handling.yawRates)),
+        slipChart('frontWheels', t.slipCharts.frontWheels, '%', asIs, 2, 1, () => null, t.frontWheelSlipNone),
+        slipChart('rearWheels', t.slipCharts.rearWheels, '%', (ratio) => ratio * 100, 2, 1, (trace) =>
+          present(trace.handling.rearWheelSlips)
+        ),
+        slipChart('frontTires', t.slipCharts.frontTires, '°', asIs, 2, 2, (trace) => present(tireSlipAngles(trace).front)),
+        slipChart('rearTires', t.slipCharts.rearTires, '°', asIs, 2, 2, (trace) => present(tireSlipAngles(trace).rear)),
+        slipChart('balance', t.slipCharts.balance, '°', asIs, 2, 2, (trace) => present(carBalance(trace))),
+      ],
+      none: t.slipNone,
+      lapNone: t.slipLapNone,
+      caption: t.slipCaption,
     },
   };
   const panel = tabs[tab];

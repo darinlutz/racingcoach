@@ -30,6 +30,8 @@ export default function SpaceFactQuery({
   const { t: dictionary } = useLanguage();
   const t = dictionary.qa;
   const [ollamaAvailable, setOllamaAvailable] = useState(false);
+  // The model the 'openai' option uses (the Admin page's AI Model Control), when the route says
+  const [cloudModel, setCloudModel] = useState<string | null>(null);
   const [llmType, setLlmType] = useState('openai');
   const [embeddingType, setEmbeddingType] = useState('openai');
   const [query, setQuery] = useState('');
@@ -44,11 +46,16 @@ export default function SpaceFactQuery({
   useEffect(() => {
     fetch(endpoint)
       .then((res) => res.json())
-      .then((data) => setOllamaAvailable(Boolean(data.ollamaAvailable)))
+      .then((data) => {
+        setOllamaAvailable(Boolean(data.ollamaAvailable));
+        setCloudModel(typeof data.model === 'string' ? data.model : null);
+      })
       .catch(() => setOllamaAvailable(false));
   }, [endpoint]);
 
-  const llmOptions = LLM_OPTIONS.filter((option) => ollamaAvailable || !option.needsOllama);
+  const llmOptions = LLM_OPTIONS.filter((option) => ollamaAvailable || !option.needsOllama).map((option) =>
+    option.value === 'openai' && cloudModel ? { ...option, label: cloudModel } : option
+  );
   const embeddingOptions = EMBEDDING_OPTIONS.filter(
     (option) => ollamaAvailable || !option.needsOllama
   );

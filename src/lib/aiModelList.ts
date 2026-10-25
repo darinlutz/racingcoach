@@ -13,6 +13,7 @@ export const AI_FEATURES = {
   raceTrends: 'gpt-4o',
   raceCoaching: 'gpt-4o',
   collectorLogReview: 'gpt-4o',
+  racecarAnalysis: 'gpt-4o-mini',
 } as const satisfies Record<string, AiModel>;
 
 export type AiFeature = keyof typeof AI_FEATURES;

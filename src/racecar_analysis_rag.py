@@ -229,7 +229,36 @@ def augment_prompt(query, related_chunks):
     return augmented_prompt
 
 
-def rag_pipeline(query, collection, llm_model, top_k=None):
+SYSTEM_PROMPT = (
+    "You are an expert GT3 racecar and circuit analyst. Each question comes with two data sets: GT3 CAR DATA "
+    "(specs for each car, plus Notes describing its layout, handling and strengths/weaknesses) and TRACK DATA (length, corner count, average speed and typical lap time for each circuit, plus track notes on its downforce level, layout, braking zones, overtaking and tire wear). "
+    "Build your answer from three sources:\n"
+    "1. The GT3 car data. Check every car listed before naming a highest/lowest/best, and quote the relevant "
+    "numbers with their units (a HIGHER power-to-weight ratio is better, a lower weight is lighter). Each car's Notes are provided data too: use them for its layout, handling "
+    "character, desirable and undesirable traits, driver suitability and the kinds of tracks it suits, and "
+    "match those traits to the demands of the track in question.\n"
+    "2. The track data. Quote the relevant numbers, and use the derived figures (miles or km, corners per mile or km) to "
+    "characterize each circuit, e.g. high average speed and few corners per mile = a power/top-speed track; "
+    "many corners per mile and a low average speed = a technical, agility/braking track. "
+    "Each track's notes are provided data too: use them for its downforce level, layout, key corners and "
+    "braking zones, overtaking chances and tire/brake wear, and set them against each car's Notes to judge "
+    "how well a car's traits suit what the track demands.\n"
+    "3. Your own general knowledge of GT3 racing and of these circuits (layout, notable corners and straights, "
+    "elevation, tire wear, car characteristics such as engine layout, aero and braking). The track ID identifies "
+    "which circuit/layout a row refers to.\n"
+    "Combine them: for example, match cars to tracks by comparing car power, weight and dimensions with the "
+    "track's demands. Clearly separate what comes from the provided data from what comes from your general "
+    "knowledge (for instance, by labeling the latter 'General knowledge:'), and label any estimate or "
+    "judgement as such. Never invent numbers that are not in the data and present them as data; if the data "
+    "doesn't contain something you need, say so and, if you can, offer your best-informed general-knowledge view. "
+    "Compare every row internally, but keep the answer focused: only quote the cars and tracks that matter to the "
+    "question (usually the top few), not every row, and end with a short conclusion. "
+    "If a question has nothing to do with racecars or tracks, say you can only help with racing questions."
+)
+
+
+def build_messages(query, collection, top_k=None):
+    """The chat messages for a question, and the documents they were built from."""
     print(f"\nProcessing query: {query}")
 
     # The car and track data sets are small, and questions like "which car is
@@ -242,45 +271,21 @@ def rag_pipeline(query, collection, llm_model, top_k=None):
     related_chunks = find_related_chunks(query, collection, top_k)
     augmented_prompt = augment_prompt(query, related_chunks)
 
-    response = llm_model.generate_completion(
-        [
-            {
-                "role": "system",
-                "content": (
-                    "You are an expert GT3 racecar and circuit analyst. Each question comes with two data sets: GT3 CAR DATA "
-                    "(specs for each car, plus Notes describing its layout, handling and strengths/weaknesses) and TRACK DATA (length, corner count, average speed and typical lap time for each circuit, plus track notes on its downforce level, layout, braking zones, overtaking and tire wear). "
-                    "Build your answer from three sources:\n"
-                    "1. The GT3 car data. Check every car listed before naming a highest/lowest/best, and quote the relevant "
-                    "numbers with their units (a HIGHER power-to-weight ratio is better, a lower weight is lighter). Each car's Notes are provided data too: use them for its layout, handling "
-                    "character, desirable and undesirable traits, driver suitability and the kinds of tracks it suits, and "
-                    "match those traits to the demands of the track in question.\n"
-                    "2. The track data. Quote the relevant numbers, and use the derived figures (miles or km, corners per mile or km) to "
-                    "characterize each circuit, e.g. high average speed and few corners per mile = a power/top-speed track; "
-                    "many corners per mile and a low average speed = a technical, agility/braking track. "
-                    "Each track's notes are provided data too: use them for its downforce level, layout, key corners and "
-                    "braking zones, overtaking chances and tire/brake wear, and set them against each car's Notes to judge "
-                    "how well a car's traits suit what the track demands.\n"
-                    "3. Your own general knowledge of GT3 racing and of these circuits (layout, notable corners and straights, "
-                    "elevation, tire wear, car characteristics such as engine layout, aero and braking). The track ID identifies "
-                    "which circuit/layout a row refers to.\n"
-                    "Combine them: for example, match cars to tracks by comparing car power, weight and dimensions with the "
-                    "track's demands. Clearly separate what comes from the provided data from what comes from your general "
-                    "knowledge (for instance, by labeling the latter 'General knowledge:'), and label any estimate or "
-                    "judgement as such. Never invent numbers that are not in the data and present them as data; if the data "
-                    "doesn't contain something you need, say so and, if you can, offer your best-informed general-knowledge view. "
-                    "Compare every row internally, but keep the answer focused: only quote the cars and tracks that matter to the "
-                    "question (usually the top few), not every row, and end with a short conclusion. "
-                    "If a question has nothing to do with racecars or tracks, say you can only help with racing questions."
-                ),
-            },
-            {"role": "user", "content": augmented_prompt},
-        ]
-    )
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": augmented_prompt},
+    ]
+    references = [chunk[0] for chunk in related_chunks]
+    return messages, references
+
+
+def rag_pipeline(query, collection, llm_model, top_k=None):
+    messages, references = build_messages(query, collection, top_k)
+    response = llm_model.generate_completion(messages)
 
     print("\nGenerated response:")
     print(response)
 
-    references = [chunk[0] for chunk in related_chunks]
     return response, references
 
 
@@ -292,18 +297,29 @@ def run_query(payload: dict) -> dict:
     embedding_type = payload.get("embeddingType", "openai")
     # The user's Preferred Units: "standard" or "metric"
     units = payload.get("units", "standard")
+    # promptOnly: answer the system prompt and the question's prompt instead of
+    # an answer. The website sends them to the model picked for Racecar Analysis
+    # in the Admin page's AI Model Control, which records its token counts.
+    prompt_only = bool(payload.get("promptOnly", False))
 
     # load_documents/setup_chromadb/rag_pipeline print a lot of
     # human-readable progress info for the interactive CLI mode below;
     # swallow it here so stdout carries nothing but the JSON result.
     with contextlib.redirect_stdout(io.StringIO()):
-        llm_model = LLMModel(llm_type)
         embedding_model = EmbeddingModel(embedding_type)
 
         documents, metadatas = load_documents(units)
         collection = setup_chromadb(documents, metadatas, embedding_model)
 
-        response, references = rag_pipeline(query, collection, llm_model)
+        if prompt_only:
+            messages, references = build_messages(query, collection)
+            return {
+                "system": messages[0]["content"],
+                "prompt": messages[1]["content"],
+                "references": references,
+            }
+
+        response, references = rag_pipeline(query, collection, LLMModel(llm_type))
 
     return {"response": response, "references": references}
 

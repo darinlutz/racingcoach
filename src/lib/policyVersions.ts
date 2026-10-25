@@ -4,7 +4,7 @@
 // Kept apart from legal.ts so the signup form can import it without the documents' text.
 export const POLICY_VERSIONS = {
   terms: '2026-10-17',
-  privacy: '2026-10-17',
+  privacy: '2026-10-24',
 } as const;
 
 export type Policy = keyof typeof POLICY_VERSIONS;

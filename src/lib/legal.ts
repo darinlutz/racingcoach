@@ -25,7 +25,7 @@ const BUSINESS_OPERATOR = 'Clarivex, LLC';
 
 export const privacyPolicy: LegalDocumentContent = {
   title: 'RacingCoach.app Privacy Policy',
-  effectiveDate: 'October 17, 2026',
+  effectiveDate: 'October 24, 2026',
   intro: [
     'RacingCoach.app ("RacingCoach," "we," "our," or "us") respects your privacy and is committed to protecting your personal information.',
     'This Privacy Policy explains how we collect, use, store, share, and protect information when you use our website, applications, telemetry collection software, AI coaching features, Discord integrations, and related services (collectively, the "Services").',
@@ -172,7 +172,7 @@ export const privacyPolicy: LegalDocumentContent = {
       heading: "10. Children's Privacy",
       blocks: [
         'RacingCoach is not directed to children under the age of 13, and we do not knowingly collect personal information from children under 13.',
-        'If we discover that we have collected such information without legally required authorization, we will take appropriate steps to delete it.',
+        'If we learn that a user is under 13, we will delete their account and the personal information associated with it. If you believe a child under 13 has created an account, please contact us using the details in Section 13.',
         'Users under the age of majority in their jurisdiction should obtain permission from a parent or legal guardian before using the Services.',
       ],
     },

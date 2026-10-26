@@ -6,6 +6,7 @@ import { buttonVariants } from '@/components/Button';
 import CoachingWorkbench from '@/components/CoachingWorkbench';
 import { getDictionary, getLanguage } from '@/lib/i18n/server';
 import { getCurrentUser } from '@/lib/session';
+import { getEnableAiFeatures } from '@/lib/siteSettings';
 import './landing.css';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -26,7 +27,7 @@ export async function generateMetadata(): Promise<Metadata> {
 const capabilityIcons = [Sparkles, Radio, GitCompareArrows, ShieldCheck];
 
 export default async function Home() {
-  const user = await getCurrentUser();
+  const [user, enableAiFeatures] = await Promise.all([getCurrentUser(), getEnableAiFeatures()]);
   const t = getDictionary(await getLanguage(user)).home;
 
   return (
@@ -44,7 +45,8 @@ export default async function Home() {
         <div className="site-container hero-content">
           <div className="eyebrow">{t.eyebrow}</div>
           <h1>{t.heroLine1}<br /><span>{t.heroLine2}</span></h1>
-          <p className="hero-copy">{t.heroCopy}</p>
+          {/* The Admin page's Enable AI Features setting picks AI or personal race engineer, like the logo */}
+          <p className="hero-copy">{enableAiFeatures ? t.heroCopy : t.heroCopyNoAi}</p>
           <div className="hero-actions">
             <a href="#toolkit" className={buttonVariants({ variant: 'racing' })}>{t.exploreToolkit} <ArrowRight /></a>
             <a href="#how-it-works" className={buttonVariants({ variant: 'racingOutline' })}>{t.howItWorks} <ArrowDown /></a>
@@ -55,8 +57,13 @@ export default async function Home() {
       </section>
 
       <section className="capabilities" aria-label={t.capabilitiesLabel}>
-        <div className="site-container capability-row">
+        {/* The first, AI-powered coaching, is left out while the Admin page's Enable AI Features is off */}
+        <div
+          className="site-container capability-row"
+          style={{ '--capability-count': enableAiFeatures ? 4 : 3 } as React.CSSProperties}
+        >
           {t.capabilities.map((item, i) => {
+            if (i === 0 && !enableAiFeatures) return null;
             const Icon = capabilityIcons[i];
             return (
               <div className="capability" key={item.title}>

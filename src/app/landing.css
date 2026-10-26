@@ -14,7 +14,7 @@
 .hero-coordinate { position: absolute; bottom: 28px; right: 40px; z-index: 2; color: var(--foreground); font-size: 10px; letter-spacing: 2px; display: flex; gap: 12px; align-items: center; }
 .hero-coordinate::before { content: ''; width: 28px; height: 2px; background: var(--primary); }
 .capabilities { border-bottom: 1px solid var(--border); }
-.capability-row { display: grid; grid-template-columns: repeat(4,1fr); padding-block: 26px; }
+.capability-row { display: grid; grid-template-columns: repeat(var(--capability-count, 4),1fr); padding-block: 26px; }
 .capability { display: flex; align-items: center; justify-content: center; gap: 13px; border-right: 1px solid var(--border); }
 .capability:first-child { justify-content: flex-start; }
 .capability:last-child { border: 0; }

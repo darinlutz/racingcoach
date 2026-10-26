@@ -109,6 +109,8 @@ export const es: Dictionary = {
     heroLine2: 'ESTÁ EN LOS DATOS.',
     heroCopy:
       'Conoce a tu ingeniero de carrera con IA. Convierte cada vuelta en un plan claro para manejar más rápido, competir con más inteligencia y ser constante.',
+    heroCopyNoAi:
+      'Conoce a tu ingeniero de carrera personal. Convierte cada vuelta en un plan claro para manejar más rápido, competir con más inteligencia y ser constante.',
     exploreToolkit: 'Explora tus herramientas',
     howItWorks: 'Cómo funciona',
     footnote: 'Tu telemetría. Tu potencial. Tu ventaja.',
@@ -1148,7 +1150,7 @@ export const es: Dictionary = {
     showProDriverLesson: 'Mostrar clase con piloto profesional',
     showProDriverLessonHint: 'Muestra el enlace Clase 1:1 con piloto profesional en la barra de navegación para todos.',
     enableAiFeatures: 'Activar funciones de IA',
-    enableAiFeaturesHint: 'Si está desactivado, el lema del logotipo dice TU INGENIERO DE CARRERA PERSONAL en lugar de TU INGENIERO DE CARRERA CON IA, el entrenador IA en el auto se desactiva (la página de Cuenta oculta Mis instrucciones del entrenador IA en el auto) y Autos y pistas oculta Análisis de autos, para todos.',
+    enableAiFeaturesHint: 'Si está desactivado, el lema del logotipo dice TU INGENIERO DE CARRERA PERSONAL en lugar de TU INGENIERO DE CARRERA CON IA, la página de inicio dice ingeniero de carrera personal y oculta Coaching con IA, el entrenador IA en el auto se desactiva (la página de Cuenta oculta Mis instrucciones del entrenador IA en el auto) y Autos y pistas oculta Análisis de autos, para todos.',
     rolesTitle: 'Roles de usuario',
     rolesIntro: 'Busca un usuario, elige su rol y su nivel de membresía y guarda.',
     findUser: 'Buscar un usuario',

@@ -185,7 +185,7 @@ export const es: Dictionary = {
 
   targetLap: {
     title: 'Vuelta Objetivo',
-    intro: 'La vuelta que quieres alcanzar. Suelta aquí un CSV de vuelta, o marca la casilla Objetivo de una vuelta en Debrief Coach y pulsa Definir objetivo.',
+    intro: 'La vuelta que quieres alcanzar. Suelta aquí un CSV de vuelta, o marca la casilla Objetivo de una vuelta abajo y pulsa Definir objetivo.',
     drop: 'Arrastra y suelta aquí un CSV de vuelta',
     saving: 'Guardando…',
     saved: 'Vuelta Objetivo guardada.',
@@ -520,7 +520,7 @@ export const es: Dictionary = {
     confirm: 'Establecer Vuelta Objetivo',
     saving: 'Guardando…',
     savedTitle: 'Vuelta Objetivo establecida',
-    savedText: 'Esta vuelta ahora es tu Vuelta Objetivo. Puedes verla o quitarla en tu página de Cuenta.',
+    savedText: 'Esta vuelta ahora es tu Vuelta Objetivo. Puedes verla o quitarla arriba en Debrief Coach.',
     done: 'Listo',
   },
   recordedLaps: {

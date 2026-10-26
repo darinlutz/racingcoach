@@ -3,7 +3,7 @@ import { query } from '@/lib/db';
 import { ensureUserSchema } from '@/lib/users';
 
 // Each user's Target Lap: one lap CSV kept in racingcoach."Users"."TargetLap" (gzip-compressed, like
-// "CollectorLaps".csv_gzip), with its file name and when it was set. Set on the Account page's Target Lap card
+// "CollectorLaps".csv_gzip), with its file name and when it was set. Set on Debrief Coach's Target Lap card
 // (dropping or browsing for a CSV) or with Debrief Coach's Set Target button, through /api/account/target-lap.
 // Only this file reads or writes the CSV, and the columns stay out of USER_COLUMNS so loading a user doesn't
 // read a lap.

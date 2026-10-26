@@ -1,5 +1,5 @@
-// Saves a lap CSV as the signed-in user's Target Lap (PUT /api/account/target-lap), from the Account page's
-// Target Lap card and Debrief Coach's Set Target button. Throws with the server's message when it isn't saved.
+// Saves a lap CSV as the signed-in user's Target Lap (PUT /api/account/target-lap), from Debrief Coach's
+// Target Lap card and Set Target buttons. Throws with the server's message when it isn't saved.
 
 export type SavedTargetLap = { fileName: string; setAt: string };
 

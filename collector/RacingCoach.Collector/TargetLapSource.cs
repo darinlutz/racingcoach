@@ -44,7 +44,7 @@ internal sealed class TargetLapSource(CollectorEngine engine)
             _ = LoadAsync(Track, _site);
     }
 
-    /// <summary>Loads the Target Lap again on the next frame, e.g. after changing it on the Account page.</summary>
+    /// <summary>Loads the Target Lap again on the next frame, e.g. after changing it in Debrief Coach.</summary>
     public void Reload()
     {
         if (!_loading)

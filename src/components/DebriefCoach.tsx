@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLanguage } from '@/components/LanguageProvider';
 import RecordedLaps from '@/components/RecordedLaps';
 import SetTargetLapDialog, { type SetTargetLapStep } from '@/components/SetTargetLapDialog';
+import TargetLapCard from '@/components/TargetLapCard';
 
 import type { Debrief } from '@/lib/debriefCoach';
 import { buildDebriefSession, lapId } from '@/lib/debriefSession';
@@ -172,7 +173,7 @@ export default function DebriefCoach({ onCompare }: { onCompare?: (base: LapFile
     }
   };
 
-  // Saves the theoretical lap as the user's Target Lap (the Account page's Target Lap card)
+  // Saves the theoretical lap as the user's Target Lap (the Target Lap card at the top)
   const setOptimalAsTarget = async () => {
     if (!optimal) return;
     setTargetError('');
@@ -192,6 +193,8 @@ export default function DebriefCoach({ onCompare }: { onCompare?: (base: LapFile
 
   return (
     <div className="bg-secondary rounded-xl border border-border p-8 space-y-6">
+      <TargetLapCard version={targetLapVersion} onChange={() => setTargetLapVersion((v) => v + 1)} />
+
       <div>
         <label htmlFor="debrief-track-name" className="block text-sm font-medium text-foreground mb-2">
           {t.laps.trackName}

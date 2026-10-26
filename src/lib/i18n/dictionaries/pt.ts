@@ -185,7 +185,7 @@ export const pt: Dictionary = {
 
   targetLap: {
     title: 'Volta Alvo',
-    intro: 'A volta que você quer alcançar. Solte um CSV de volta aqui, ou marque a caixa Alvo de uma volta no Debrief Coach e clique em Definir alvo.',
+    intro: 'A volta que você quer alcançar. Solte um CSV de volta aqui, ou marque a caixa Alvo de uma volta abaixo e clique em Definir alvo.',
     drop: 'Arraste e solte um CSV de volta aqui',
     saving: 'Salvando…',
     saved: 'Volta Alvo salva.',
@@ -520,7 +520,7 @@ export const pt: Dictionary = {
     confirm: 'Definir Volta Alvo',
     saving: 'Salvando…',
     savedTitle: 'Volta Alvo definida',
-    savedText: 'Esta volta agora é sua Volta Alvo. Você pode vê-la ou removê-la na sua página de Conta.',
+    savedText: 'Esta volta agora é sua Volta Alvo. Você pode vê-la ou removê-la no topo do Debrief Coach.',
     done: 'Concluído',
   },
   recordedLaps: {

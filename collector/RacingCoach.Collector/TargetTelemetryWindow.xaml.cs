@@ -10,7 +10,7 @@ namespace RacingCoach.Collector;
 
 /// <summary>
 /// The window the Target Telemetry button opens: a see-through, always-on-top window, like the overlay, with the
-/// brake trace (red) of the user's Target Lap (Account page, from /api/collector/target-lap) over the 500 ft of
+/// brake trace (red) of the user's Target Lap (Debrief Coach, from /api/collector/target-lap) over the 500 ft of
 /// track around the car, and across the top the gear it shifted into at each gear change. The car is the vertical
 /// line, 200 ft from the left, so the trace and gear changes scroll left as the car drives: a gear reaches the car's
 /// line where the Target Lap shifted into it. A short bar on the car's line is the
@@ -383,7 +383,7 @@ public partial class TargetTelemetryWindow : Window
             DragMove();
     }
 
-    // Loads the Target Lap again on the next frame, e.g. after changing it on the Account page, and with it the focus
+    // Loads the Target Lap again on the next frame, e.g. after changing it in Debrief Coach, and with it the focus
     // areas' targets and the brake beeps' brakepoints, which come from it
     private void Reload_Click(object sender, RoutedEventArgs e)
     {

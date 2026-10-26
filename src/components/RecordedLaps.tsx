@@ -283,7 +283,7 @@ export default function RecordedLaps({
 
   const closeSetTarget = useCallback(() => setTargetOpen(false), []);
 
-  // Saves the dialog's lap as the user's Target Lap (the Account page's Target Lap card)
+  // Saves the dialog's lap as the user's Target Lap (Debrief Coach's Target Lap card)
   const setTarget = async () => {
     if (!targetLap) return;
     setTargetError('');

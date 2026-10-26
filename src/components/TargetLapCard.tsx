@@ -1,18 +1,20 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { useLanguage } from '@/components/LanguageProvider';
 import { formatLapTime } from '@/lib/lapData';
 import { targetLapParts, uploadTargetLap, type SavedTargetLap } from '@/lib/targetLapUpload';
 
-// The Account page's Target Lap card: one lap CSV saved for the user (racingcoach."Users"."TargetLap"). Drop a
-// CSV on it or browse for one, or tick a lap's Target box in Debrief Coach and press Set Target. Shows the
-// current Target Lap with Download and Remove.
-export default function TargetLapCard({ targetLap: initial }: { targetLap: SavedTargetLap | null }) {
+// Debrief Coach's Target Lap card, at its top: one lap CSV saved for the user (racingcoach."Users"."TargetLap").
+// Drop a CSV on it or browse for one, or tick a lap's Target box below and press Set Target. Shows the current
+// Target Lap with Download and Remove. Loaded again when `version` changes (a Set Target button elsewhere in
+// Debrief Coach); `onChange` tells Debrief Coach when this card sets or removes it.
+export default function TargetLapCard({ version = 0, onChange }: { version?: number; onChange?: () => void }) {
   const { t, fmt, locale } = useLanguage();
   const c = t.targetLap;
-  const [targetLap, setTargetLap] = useState(initial);
+  const [targetLap, setTargetLap] = useState<SavedTargetLap | null>(null);
+  const [loaded, setLoaded] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [busy, setBusy] = useState(false);
   const [confirmingRemove, setConfirmingRemove] = useState(false);
@@ -20,6 +22,25 @@ export default function TargetLapCard({ targetLap: initial }: { targetLap: Saved
   const closeConfirm = useCallback(() => setConfirmingRemove(false), []);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/account/target-lap?info=1')
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || t.api.failedLoadTargetLap);
+        if (!cancelled) setTargetLap(data.targetLap);
+      })
+      .catch((err: Error) => {
+        if (!cancelled) setMessage({ ok: false, text: err.message });
+      })
+      .finally(() => {
+        if (!cancelled) setLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [t, version]);
 
   const save = async (files: FileList | null | undefined) => {
     if (!files || files.length === 0 || busy) return;
@@ -32,6 +53,7 @@ export default function TargetLapCard({ targetLap: initial }: { targetLap: Saved
     try {
       setTargetLap(await uploadTargetLap(files[0], t.api.failedSaveTargetLap));
       setMessage({ ok: true, text: c.saved });
+      onChange?.();
     } catch (err) {
       setMessage({ ok: false, text: err instanceof Error ? err.message : t.api.failedSaveTargetLap });
     } finally {
@@ -50,6 +72,7 @@ export default function TargetLapCard({ targetLap: initial }: { targetLap: Saved
       if (!res.ok) throw new Error(data.error || t.api.failedRemoveTargetLap);
       setTargetLap(null);
       setMessage({ ok: true, text: c.removed });
+      onChange?.();
     } catch (err) {
       setMessage({ ok: false, text: err instanceof Error ? err.message : t.api.failedRemoveTargetLap });
     } finally {
@@ -60,7 +83,7 @@ export default function TargetLapCard({ targetLap: initial }: { targetLap: Saved
   const parts = targetLap && targetLapParts(targetLap.fileName);
 
   return (
-    <div className="mt-6 bg-card rounded-lg border border-border px-4 py-4">
+    <div className="bg-card rounded-lg border border-border px-4 py-4">
       <h2 className="text-sm font-medium text-muted-foreground mb-1">{c.title}</h2>
       <p className="text-sm text-muted-foreground mb-3">{c.intro}</p>
 
@@ -140,7 +163,7 @@ export default function TargetLapCard({ targetLap: initial }: { targetLap: Saved
           </div>
         </div>
       ) : (
-        <p className="mt-3 text-sm text-muted-foreground">{c.none}</p>
+        <p className="mt-3 text-sm text-muted-foreground">{loaded ? c.none : t.common.loading}</p>
       )}
 
       <ConfirmDialog

@@ -1,20 +1,30 @@
 import { NextResponse } from 'next/server';
 import { apiText } from '@/lib/i18n/server';
 import { getCurrentUser } from '@/lib/session';
-import { clearTargetLap, MAX_TARGET_LAP_BYTES, readTargetLap, setTargetLap, TargetLapError } from '@/lib/targetLap';
+import {
+  clearTargetLap,
+  getTargetLapInfo,
+  MAX_TARGET_LAP_BYTES,
+  readTargetLap,
+  setTargetLap,
+  TargetLapError,
+} from '@/lib/targetLap';
 
-// The signed-in user's Target Lap (racingcoach."Users"."TargetLap", see src/lib/targetLap.ts), from the Account
-// page's Target Lap card and Debrief Coach's Set Target button.
-//   GET     the lap's CSV, as a download
+// The signed-in user's Target Lap (racingcoach."Users"."TargetLap", see src/lib/targetLap.ts), from Debrief
+// Coach's Target Lap card and Set Target buttons.
+//   GET     the lap's CSV, as a download; with ?info=1, { targetLap: { fileName, setAt } | null }
 //   PUT     multipart form with `file` = the lap CSV; answers { targetLap: { fileName, setAt } }
 //   DELETE  removes it
 
-export async function GET() {
+export async function GET(request: Request) {
   const user = await getCurrentUser();
   const t = await apiText(user);
   try {
     if (!user) {
       return NextResponse.json({ error: t.logInTargetLap }, { status: 401 });
+    }
+    if (new URL(request.url).searchParams.has('info')) {
+      return NextResponse.json({ targetLap: await getTargetLapInfo(user.id) });
     }
     const lap = await readTargetLap(user.id);
     if (!lap) {

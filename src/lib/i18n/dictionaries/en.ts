@@ -190,7 +190,7 @@ export const en = {
 
   targetLap: {
     title: 'Target Lap',
-    intro: 'The lap you’re aiming for. Drop a lap CSV here, or tick a lap’s Target box in Debrief Coach and press Set Target.',
+    intro: 'The lap you’re aiming for. Drop a lap CSV here, or tick a lap’s Target box below and press Set Target.',
     drop: 'Drag and drop a lap CSV here',
     saving: 'Saving…',
     saved: 'Target Lap saved.',
@@ -535,7 +535,7 @@ export const en = {
     confirm: 'Set Target Lap',
     saving: 'Saving…',
     savedTitle: 'Target Lap set',
-    savedText: 'This lap is now your Target Lap. You can see it or remove it on your Account page.',
+    savedText: 'This lap is now your Target Lap. You can see it or remove it at the top of Debrief Coach.',
     done: 'Done',
   },
   recordedLaps: {

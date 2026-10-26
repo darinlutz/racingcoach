@@ -3,8 +3,8 @@
 // form showed, with when, in racingcoach."PolicyAcceptances" (createUser in src/lib/users.ts).
 // Kept apart from legal.ts so the signup form can import it without the documents' text.
 export const POLICY_VERSIONS = {
-  terms: '2026-10-17',
-  privacy: '2026-10-24',
+  terms: '2026-10-26',
+  privacy: '2026-10-26',
 } as const;
 
 export type Policy = keyof typeof POLICY_VERSIONS;

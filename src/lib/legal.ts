@@ -25,10 +25,10 @@ const BUSINESS_OPERATOR = 'Clarivex, LLC';
 
 export const privacyPolicy: LegalDocumentContent = {
   title: 'RacingCoach.app Privacy Policy',
-  effectiveDate: 'October 24, 2026',
+  effectiveDate: 'October 26, 2026',
   intro: [
     'RacingCoach.app ("RacingCoach," "we," "our," or "us") respects your privacy and is committed to protecting your personal information.',
-    'This Privacy Policy explains how we collect, use, store, share, and protect information when you use our website, applications, telemetry collection software, AI coaching features, Discord integrations, and related services (collectively, the "Services").',
+    'This Privacy Policy explains how we collect, use, store, share, and protect information when you use our website, applications, telemetry collection software, coaching features, Discord integrations, and related services (collectively, the "Services").',
     'By using RacingCoach, you acknowledge the data practices described in this Privacy Policy.',
   ],
   sections: [
@@ -61,18 +61,18 @@ export const privacyPolicy: LegalDocumentContent = {
           ],
         },
         'Some telemetry may be collected in real time through locally installed RacingCoach software and transmitted to our servers for processing, storage, and analysis.',
-        { subheading: 'AI Coaching Data' },
-        'When you use AI-powered coaching features, we may process:',
+        { subheading: 'Coaching Data' },
+        'When you use coaching features, we may process:',
         {
           list: [
             'Your racing telemetry and performance history.',
-            'Questions and messages submitted to the AI coach.',
+            'Questions and messages submitted to the coach.',
             'Coaching recommendations and analysis results.',
             'Driver preferences, goals, and coaching settings.',
             'Relevant session and vehicle information.',
           ],
         },
-        'We may use third-party AI service providers to process this information and generate coaching responses.',
+        'We may use third-party service providers to process this information and generate coaching responses.',
         { subheading: 'Technical and Usage Information' },
         'We may automatically collect information such as IP addresses, browser type, operating system, device information, application version, feature usage, diagnostic information, error logs, and security events.',
         { subheading: 'Payment Information' },
@@ -88,7 +88,7 @@ export const privacyPolicy: LegalDocumentContent = {
           list: [
             'Provide and maintain RacingCoach services.',
             'Analyze racing telemetry and driving performance.',
-            'Generate personalized AI coaching recommendations.',
+            'Generate personalized coaching recommendations.',
             'Deliver real-time coaching, alerts, and visual overlays.',
             'Display racing history, analytics, and progress reports.',
             'Authenticate users and manage subscriptions.',
@@ -105,7 +105,7 @@ export const privacyPolicy: LegalDocumentContent = {
     {
       heading: '3. Third-Party Integrations',
       blocks: [
-        'RacingCoach may integrate with services including iRacing, Discord, authentication providers, payment processors, and AI service providers.',
+        'RacingCoach may integrate with services including iRacing, Discord, authentication providers, and payment processors.',
         'When you connect an external account, we may access and process information that you authorize and that the provider makes available under its applicable permissions and terms.',
         'You can disconnect supported integrations through available account settings or the third-party provider.',
         'Disconnecting an integration does not necessarily delete data previously imported into RacingCoach. You may separately request deletion of applicable stored information.',
@@ -113,17 +113,17 @@ export const privacyPolicy: LegalDocumentContent = {
       ],
     },
     {
-      heading: '4. AI Processing and Model Training',
+      heading: '4. Coaching Analysis',
       blocks: [
-        'RacingCoach uses artificial intelligence to analyze telemetry, identify driving patterns, and provide coaching recommendations.',
-        'Information submitted for AI analysis may be transmitted to contracted AI technology providers solely as necessary to provide the requested functionality and other purposes disclosed in this policy.',
+        'RacingCoach uses automated analysis to examine telemetry, identify driving patterns, and provide coaching recommendations.',
+        'Information submitted for analysis may be transmitted to contracted technology providers solely as necessary to provide the requested functionality and other purposes disclosed in this policy.',
       ],
     },
     {
       heading: '5. Data Sharing',
       blocks: [
         'We do not sell personal information in exchange for money.',
-        'We may share information with service providers that support hosting, authentication, payment processing, analytics, AI processing, customer support, and other operational functions.',
+        'We may share information with service providers that support hosting, authentication, payment processing, analytics, data processing, customer support, and other operational functions.',
         'We may also disclose information when required by law, to protect the security of the Services, or as part of a legitimate business transfer, subject to applicable legal requirements.',
       ],
     },
@@ -209,10 +209,10 @@ export const privacyPolicy: LegalDocumentContent = {
 
 export const termsOfService: LegalDocumentContent = {
   title: 'RacingCoach.app Terms of Service',
-  effectiveDate: 'October 17, 2026',
+  effectiveDate: 'October 26, 2026',
   intro: [
     'Welcome to RacingCoach.app.',
-    'These Terms of Service ("Terms") govern your access to and use of the RacingCoach website, applications, telemetry collection software, AI coaching tools, analytics, integrations, and related services (collectively, the "Services").',
+    'These Terms of Service ("Terms") govern your access to and use of the RacingCoach website, applications, telemetry collection software, coaching tools, analytics, integrations, and related services (collectively, the "Services").',
     `The Services are operated by ${BUSINESS_OPERATOR} ("RacingCoach," "we," "our," or "us").`,
     'By creating an account, purchasing a subscription, or accessing the Services, you agree to these Terms.',
     'If you do not agree, you must not use the Services.',
@@ -225,7 +225,7 @@ export const termsOfService: LegalDocumentContent = {
         'Features may include:',
         {
           list: [
-            'AI-generated driving analysis and coaching recommendations.',
+            'Automated driving analysis and coaching recommendations.',
             'Real-time in-car voice coaching and visual guidance.',
             'Telemetry collection, visualization, and analysis.',
             'Lap, sector, corner, and performance comparisons.',
@@ -291,17 +291,17 @@ export const termsOfService: LegalDocumentContent = {
       ],
     },
     {
-      heading: '6. AI Coaching and Recommendations',
+      heading: '6. Coaching and Recommendations',
       blocks: [
-        'RacingCoach uses automated analysis and artificial intelligence to provide driving recommendations.',
+        'RacingCoach uses automated analysis to provide driving recommendations.',
         'These recommendations are generated from available telemetry, algorithms, statistical models, and other information.',
-        { strong: 'AI-generated recommendations are informational and may be inaccurate, incomplete, or unsuitable for a particular driving situation.' },
+        { strong: 'Coaching recommendations are informational and may be inaccurate, incomplete, or unsuitable for a particular driving situation.' },
         'You acknowledge that:',
         {
           list: [
             'Recommendations do not guarantee faster lap times, improved ratings, race victories, or specific results.',
             'Telemetry analysis may be affected by incomplete or inaccurate data.',
-            'AI systems may produce incorrect or inconsistent conclusions.',
+            'Automated analysis may produce incorrect or inconsistent conclusions.',
             'You are responsible for evaluating recommendations before applying them.',
             'Real-time coaching may not account for every racing condition or unexpected event.',
           ],

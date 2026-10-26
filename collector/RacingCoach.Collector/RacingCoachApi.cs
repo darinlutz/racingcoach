@@ -325,6 +325,7 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
             lap.PitRoad,
             lap.OffTrack,
             lap.RecordedAt,
+            lap.Conditions,
         };
 
         // The parts' Content-Disposition headers are written by hand: .NET's own leave the names unquoted

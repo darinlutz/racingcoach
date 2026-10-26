@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import DriverMultiSelect, { type DriverPick } from '@/components/DriverMultiSelect';
 import { useLanguage } from '@/components/LanguageProvider';
+import SessionConditions from '@/components/SessionConditions';
 import SetTargetLapDialog, { type SetTargetLapStep } from '@/components/SetTargetLapDialog';
 import type { CollectorLapSummary, LapOwner } from '@/lib/collectorLaps';
 import {
@@ -363,6 +364,8 @@ export default function RecordedLaps({
         // Compare can pair laps from different sessions; it's enabled in each session holding one of them
         const comparesHere = session.laps.some((lap) => comparePicks.includes(lap.id));
         const inTrackData = tracks.length === 0 || lapTrack(tracks, first) !== undefined;
+        // How the session ended: its last lap with conditions (none for laps from collectors before 1.40.0)
+        const endConditions = session.laps.findLast((lap) => lap.conditions !== null)?.conditions;
         return (
           <details key={session.key} open={index === 0} className="bg-card border border-border rounded-lg">
             <summary className="cursor-pointer px-4 py-3 text-sm">
@@ -375,6 +378,7 @@ export default function RecordedLaps({
                 {plural(session.laps.length, t.lapCount)} • {fmt(t.best, { time: formatLapTime(secondsToLapTime(best)) })}
                 {pickedCount > 0 && <span className="text-primary"> • {fmt(t.selectedCount, { n: pickedCount })}</span>}
               </span>
+              {endConditions && <SessionConditions conditions={endConditions} />}
             </summary>
 
             <div className="px-4 pb-3 space-y-2">

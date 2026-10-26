@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using SVappsLAB.iRacingTelemetrySDK;
 
 namespace RacingCoach.Collector;
 
@@ -71,7 +72,35 @@ internal sealed class ManifestLap
     /// <summary>True once the lap's CSV has been deleted from this PC, which happens once RacingCoach.app has it
     /// and it won't get track positions any more (LapWriter.DeleteUploadedCsvs). The entry stays for the lap list.</summary>
     public bool CsvDeleted { get; set; }
+    /// <summary>The weather at the end of the lap and the session's track usage, sent with its upload for the
+    /// Debrief Coach's recorded laps. Missing in laps saved by collectors before 1.40.0.</summary>
+    public LapConditions? Conditions { get; set; }
 
-    /// <summary>A copy for another thread (every property is a value or a string).</summary>
+    /// <summary>A copy for another thread (every property is a value, a string or an immutable record).</summary>
     public ManifestLap Copy() => (ManifestLap)MemberwiseClone();
+}
+
+/// <summary>A lap's weather, in iRacing's units: temperatures in °C, humidity 0-1, wind in m/s and radians (WindDir).
+/// TrackUsage is iRacing's words for the session's rubber, e.g. "moderate usage".</summary>
+internal sealed record LapConditions(
+    double? TrackTempC,
+    double? AirTempC,
+    double? RelativeHumidity,
+    double? WindVelocity,
+    double? WindDirection,
+    string? TrackUsage)
+{
+    /// <summary>The conditions on the lap's last sample; null when telemetry has none of them.</summary>
+    public static LapConditions? From(TelemetryData last, string? trackUsage)
+    {
+        static double? Round(float? value, int digits) => value is { } v && float.IsFinite(v) ? Math.Round(v, digits) : null;
+        var conditions = new LapConditions(
+            Round(last.TrackTempCrew, 1),
+            Round(last.AirTemp, 1),
+            Round(last.RelativeHumidity, 3),
+            Round(last.WindVel, 2),
+            Round(last.WindDir, 3),
+            string.IsNullOrWhiteSpace(trackUsage) ? null : trackUsage);
+        return conditions == new LapConditions(null, null, null, null, null, null) ? null : conditions;
+    }
 }

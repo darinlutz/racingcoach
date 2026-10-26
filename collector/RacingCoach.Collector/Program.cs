@@ -42,8 +42,12 @@ namespace RacingCoach.Collector;
     // only shown in the window
     TelemetryVar.FuelLevel,
     TelemetryVar.FuelLevelPct,
+    // shown in the window, and with the next three the lap's weather, sent with its details (LapConditions)
     TelemetryVar.TrackTempCrew,
     TelemetryVar.AirTemp,
+    TelemetryVar.RelativeHumidity,
+    TelemetryVar.WindVel,
+    TelemetryVar.WindDir,
     TelemetryVar.SessionTimeRemain,
     TelemetryVar.SessionLapsRemainEx,
     TelemetryVar.LapCurrentLapTime,

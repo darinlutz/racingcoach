@@ -362,7 +362,10 @@ internal sealed class CollectorEngine
                 Session.SessionId,
                 Session.SubSessionId,
                 sessionTypes,
-                session.DriverInfo?.DriverCarFuelKgPerLtr);
+                session.DriverInfo?.DriverCarFuelKgPerLtr,
+                session.SessionInfo?.Sessions?
+                    .Where(s => !string.IsNullOrWhiteSpace(s.SessionTrackRubberState))
+                    .ToDictionary(s => s.SessionNum, s => s.SessionTrackRubberState!.Trim()));
 
             TrackKeys.Set(_recorder.Session.Track, weekend?.TrackName, weekend?.TrackLength, weekend?.TrackLatitude, weekend?.TrackLongitude); // before anything asks the site about the track
             _coach.SetTrack(_recorder.Session.Track);

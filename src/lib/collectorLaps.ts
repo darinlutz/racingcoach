@@ -45,9 +45,43 @@ export const collectorLapSchema = z.object({
   pitRoad: z.boolean(),
   offTrack: z.boolean(),
   recordedAt: z.iso.datetime({ offset: true }),
+  // The weather at the end of the lap and the session's track usage; collectors before 1.40.0 don't send it
+  conditions: z
+    .object({
+      trackTempC: z.number().min(-60).max(100).nullish(),
+      airTempC: z.number().min(-60).max(70).nullish(),
+      relativeHumidity: z.number().min(0).max(1).nullish(),
+      windVelocity: z.number().min(0).max(150).nullish(),
+      windDirection: z.number().min(-10).max(10).nullish(),
+      trackUsage: z.string().trim().min(1).max(100).nullish(),
+    })
+    .nullish(),
 });
 
 export type CollectorLap = z.infer<typeof collectorLapSchema>;
+
+// A lap's weather, in iRacing's units: °C, humidity 0-1, wind in m/s and radians (iRacing's WindDir). trackUsage is
+// iRacing's words for the session's rubber (SessionTrackRubberState, e.g. "moderate usage")
+export type LapConditions = {
+  trackTempC: number | null;
+  airTempC: number | null;
+  relativeHumidity: number | null;
+  windVelocity: number | null;
+  windDirection: number | null;
+  trackUsage: string | null;
+};
+
+function toLapConditions(conditions: CollectorLap['conditions']): LapConditions | null {
+  if (!conditions) return null;
+  return {
+    trackTempC: conditions.trackTempC ?? null,
+    airTempC: conditions.airTempC ?? null,
+    relativeHumidity: conditions.relativeHumidity ?? null,
+    windVelocity: conditions.windVelocity ?? null,
+    windDirection: conditions.windDirection ?? null,
+    trackUsage: conditions.trackUsage ?? null,
+  };
+}
 
 export class InvalidLapCsvError extends Error {}
 
@@ -113,6 +147,8 @@ export type CollectorLapSummary = {
   pitRoad: boolean;
   offTrack: boolean;
   recordedAt: string;
+  // null for laps from collectors before 1.40.0
+  conditions: LapConditions | null;
 };
 
 // How many of the user's most recent laps the Racing page lists
@@ -154,10 +190,11 @@ export async function listCollectorLaps(viewer: LapViewer, driverIds: number[] |
     pit_road: boolean;
     off_track: boolean;
     recorded_at: Date;
+    conditions: LapConditions | null;
   }>(
     `SELECT l.id, l.client_lap_id, l.track, l.track_key, l.car, l.user_id, u.user_name, l.driver, l.iracing_session_id,
             l.iracing_subsession_id, l.session_num, l.session_type, l.lap_number, l.lap_time_seconds, l.sample_count,
-            l.missing_samples, l.incidents, l.pit_road, l.off_track, l.recorded_at
+            l.missing_samples, l.incidents, l.pit_road, l.off_track, l.recorded_at, l.conditions
      FROM racingcoach."CollectorLaps" l JOIN racingcoach."Users" u ON u.id = l.user_id
      WHERE ${visibleTo(1)} AND ($2::integer[] IS NULL OR l.user_id = ANY($2::integer[]))
      ORDER BY l.recorded_at DESC, l.id DESC LIMIT $3`,
@@ -185,6 +222,7 @@ export async function listCollectorLaps(viewer: LapViewer, driverIds: number[] |
     pitRoad: row.pit_road,
     offTrack: row.off_track,
     recordedAt: row.recorded_at.toISOString(),
+    conditions: row.conditions,
   }));
 }
 
@@ -304,8 +342,8 @@ export async function saveCollectorLap(
       `INSERT INTO racingcoach."CollectorLaps" (
          user_id, client_lap_id, track, car, driver, iracing_session_id, iracing_subsession_id, session_num,
          session_type, lap_number, lap_time_seconds, sample_count, missing_samples, incidents, pit_road,
-         off_track, recorded_at, csv_bytes, csv_gzip, has_position, track_key)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
+         off_track, recorded_at, csv_bytes, csv_gzip, has_position, track_key, conditions)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
        RETURNING id`,
       [
         userId,
@@ -329,6 +367,8 @@ export async function saveCollectorLap(
         csvGzip,
         hasPosition,
         lap.trackKey ?? null,
+        // pg would send a plain object as JSON anyway; stringified so null stays SQL NULL
+        lap.conditions ? JSON.stringify(toLapConditions(lap.conditions)) : null,
       ]
     );
     await saveTrackLength(lap.trackKey ?? null, lap.trackLengthFeet ?? null);

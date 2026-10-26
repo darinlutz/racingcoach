@@ -581,6 +581,9 @@ export function ensureUserSchema(): Promise<void> {
       );
       // iRacing's track key (WeekendInfo.TrackName), which finds the Track Data track when the names differ
       await client.query('ALTER TABLE racingcoach."CollectorLaps" ADD COLUMN IF NOT EXISTS track_key TEXT');
+      // The weather at the end of the lap and the session's track usage (LapConditions in src/lib/collectorLaps.ts),
+      // shown with each session in Debrief Coach's recorded laps; NULL for laps from collectors before 1.40.0
+      await client.query('ALTER TABLE racingcoach."CollectorLaps" ADD COLUMN IF NOT EXISTS conditions JSONB');
       // Track lengths used to be in their own table; they're iRacing's, in "Tracks".track_length_feet, now
       await dropTrackLengthsTable(client);
       await client.query(

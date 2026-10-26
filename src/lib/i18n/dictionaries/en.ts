@@ -539,6 +539,8 @@ export const en = {
     done: 'Done',
   },
   recordedLaps: {
+    // Read out before the weather a session ended in (SessionConditions)
+    endConditions: 'Conditions at the end of the session',
     driver: 'Driver',
     driverOption: '{name} · {laps}',
     allDrivers: 'All Drivers',
@@ -797,6 +799,19 @@ export const en = {
     clouds: ['Clear', 'Partly cloudy', 'Mostly cloudy', 'Overcast'],
     // Wind directions, N, NE, E, ... clockwise
     compass: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'],
+    // iRacing's track usage (SessionTrackRubberState), by its lowercase words
+    trackUsageStates: {
+      'clean': 'Clean',
+      'slight usage': 'Slight usage',
+      'low usage': 'Low usage',
+      'moderately low usage': 'Moderately low usage',
+      'moderate usage': 'Moderate usage',
+      'moderately high usage': 'Moderately high usage',
+      'high usage': 'High usage',
+      'extensive usage': 'Extensive usage',
+      'maximum usage': 'Maximum usage',
+      'carry over': 'Carried over',
+    } as Record<string, string>,
   },
 
   sectorChart: {

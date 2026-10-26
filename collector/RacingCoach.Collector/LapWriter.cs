@@ -259,6 +259,7 @@ internal sealed class LapWriter : IAsyncDisposable
             HasPosition = lap.Samples.All(s => s.Lat is { } lat && s.Lon is { } lon && (lat != 0 || lon != 0)),
             // Without session info the lap can't be matched to a track on RacingCoach.app; it's kept here only
             UploadError = lap.Session is null ? UnknownTrackError : null,
+            Conditions = LapConditions.From(lap.Samples[^1], session.TrackUsage?.GetValueOrDefault(lap.SessionNum)),
         };
         var manifest = SessionManifest.Load(folder) ?? new SessionManifest();
         // Keep the newest session details (session types fill in over time)

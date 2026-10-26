@@ -524,6 +524,8 @@ export const es: Dictionary = {
     done: 'Listo',
   },
   recordedLaps: {
+    // Read out before the weather a session ended in (SessionConditions)
+    endConditions: 'Condiciones al final de la sesión',
     driver: 'Piloto',
     driverOption: '{name} · {laps}',
     allDrivers: 'Todos los pilotos',
@@ -786,6 +788,19 @@ export const es: Dictionary = {
     },
     clouds: ['Despejado', 'Parcialmente nublado', 'Mayormente nublado', 'Cubierto'],
     compass: ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'],
+    // iRacing's track usage (SessionTrackRubberState), by its lowercase words
+    trackUsageStates: {
+      'clean': 'Limpia',
+      'slight usage': 'Uso leve',
+      'low usage': 'Uso bajo',
+      'moderately low usage': 'Uso moderadamente bajo',
+      'moderate usage': 'Uso moderado',
+      'moderately high usage': 'Uso moderadamente alto',
+      'high usage': 'Uso alto',
+      'extensive usage': 'Uso extenso',
+      'maximum usage': 'Uso máximo',
+      'carry over': 'Heredada',
+    } as Record<string, string>,
   },
 
   sectorChart: {

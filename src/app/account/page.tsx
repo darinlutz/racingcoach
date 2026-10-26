@@ -16,7 +16,7 @@ import { fmt, LANGUAGE_LOCALES } from '@/lib/i18n/languages';
 import { getDictionary } from '@/lib/i18n/server';
 import { canUseInCarCoach, isAdmin } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
-import { getShowPricing } from '@/lib/siteSettings';
+import { getEnableAiFeatures, getShowPricing } from '@/lib/siteSettings';
 import { getTargetLapInfo } from '@/lib/targetLap';
 import { canBuyAnything, getInCarCoachInstructions, MAX_IN_CAR_COACH_INSTRUCTIONS } from '@/lib/users';
 import { ACCOUNT_STATUS, MEMBERSHIP_LEVEL } from '@/lib/accountStatus';
@@ -53,13 +53,14 @@ export default async function AccountPage({
   const { discord: discordResult } = await searchParams;
   const discordText = typeof discordResult === 'string' ? t.account.discordMessages[discordResult] : undefined;
   const discordOk = typeof discordResult === 'string' && DISCORD_OK.has(discordResult);
-  const [discord, collectorKey, inCarCoachInstructions, coachVoice, showPricing, targetLap] = await Promise.all([
+  const [discord, collectorKey, inCarCoachInstructions, coachVoice, showPricing, targetLap, enableAiFeatures] = await Promise.all([
     getDiscordConnection(user.id),
     getCollectorKey(user.id),
     getInCarCoachInstructions(user.id),
     getCoachVoice(user.id),
     getShowPricing(),
     getTargetLapInfo(user.id),
+    getEnableAiFeatures(),
   ]);
   const isSubscribed = user.accountStatus === ACCOUNT_STATUS.subscribed;
   // A canceled subscription keeps its end date: the end of the last paid period
@@ -203,16 +204,19 @@ export default async function AccountPage({
 
         <TargetLapCard targetLap={targetLap} />
 
-        <InCarCoachInstructionsCard
-          instructions={inCarCoachInstructions}
-          maxLength={MAX_IN_CAR_COACH_INSTRUCTIONS}
-          voice={coachVoice.voice}
-          voices={COACH_VOICES}
-          spanishAccent={coachVoice.spanishAccent}
-          spanishAccents={SPANISH_ACCENTS}
-          available={canUseInCarCoach(user)}
-          viewPlans={showViewPlans}
-        />
+        {/* Hidden when the Admin page turns Enable AI Features off */}
+        {enableAiFeatures && (
+          <InCarCoachInstructionsCard
+            instructions={inCarCoachInstructions}
+            maxLength={MAX_IN_CAR_COACH_INSTRUCTIONS}
+            voice={coachVoice.voice}
+            voices={COACH_VOICES}
+            spanishAccent={coachVoice.spanishAccent}
+            spanishAccents={SPANISH_ACCENTS}
+            available={canUseInCarCoach(user)}
+            viewPlans={showViewPlans}
+          />
+        )}
 
         {showViewPlans && (
           <Link

@@ -5,10 +5,10 @@ import CarDataManagement from '@/components/CarDataManagement';
 import { useLanguage } from '@/components/LanguageProvider';
 import SpaceFactQuery from '@/components/SpaceFactQuery';
 import TrackManagement from '@/components/TrackManagement';
-import { CARS_TRACKS_TABS, type CarsTracksTab } from '@/lib/carsTracksTabs';
+import { type CarsTracksTab } from '@/lib/carsTracksTabs';
 
-// The Cars & Tracks page's tabs: Cars (Car Data), Tracks (Track Data) and Racecar Analysis
-export default function CarsTracksTabs({ initialTab }: { initialTab: CarsTracksTab }) {
+// The Cars & Tracks page's tabs: Cars (Car Data), Tracks (Track Data) and Racecar Analysis (tabs is the ones shown)
+export default function CarsTracksTabs({ tabs, initialTab }: { tabs: CarsTracksTab[]; initialTab: CarsTracksTab }) {
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<CarsTracksTab>(initialTab);
 
@@ -22,7 +22,7 @@ export default function CarsTracksTabs({ initialTab }: { initialTab: CarsTracksT
     <>
       {/* Tab Navigation */}
       <div className="flex flex-wrap gap-4 mb-6 border-b border-border">
-        {CARS_TRACKS_TABS.map((tab) => (
+        {tabs.map((tab) => (
           <button
             key={tab}
             onClick={() => selectTab(tab)}

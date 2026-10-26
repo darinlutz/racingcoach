@@ -1,9 +1,11 @@
 import CarsTracksTabs from '@/components/CarsTracksTabs';
 import { CARS_TRACKS_TABS, type CarsTracksTab } from '@/lib/carsTracksTabs';
 import { getDictionary, getLanguage } from '@/lib/i18n/server';
+import { getEnableAiFeatures } from '@/lib/siteSettings';
 
 // Cars & Tracks: Car Data, Track Data and Racecar Analysis in one page of tabs (the nav bar's Cars & Tracks link).
-// ?tab=cars|tracks|racecar picks the tab it opens on
+// ?tab=cars|tracks|racecar picks the tab it opens on. Racecar Analysis is left out while the Admin page's Enable AI
+// Features is off
 export default async function CarsTracksPage({
   searchParams,
 }: {
@@ -11,7 +13,8 @@ export default async function CarsTracksPage({
 }) {
   const t = getDictionary(await getLanguage()).carsTracks;
   const { tab } = await searchParams;
-  const initialTab = CARS_TRACKS_TABS.find((name) => name === tab) ?? ('cars' satisfies CarsTracksTab);
+  const tabs = (await getEnableAiFeatures()) ? [...CARS_TRACKS_TABS] : CARS_TRACKS_TABS.filter((name) => name !== 'racecar');
+  const initialTab = tabs.find((name) => name === tab) ?? ('cars' satisfies CarsTracksTab);
 
   return (
     <div className="w-full">
@@ -26,7 +29,7 @@ export default async function CarsTracksPage({
 
       <section className="py-16 bg-card">
         <div className="site-container">
-          <CarsTracksTabs initialTab={initialTab} />
+          <CarsTracksTabs tabs={tabs} initialTab={initialTab} />
         </div>
       </section>
     </div>

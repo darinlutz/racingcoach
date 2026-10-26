@@ -9,7 +9,7 @@ import { withAiUsage } from './aiTokenUsage';
 import { aiRateLimit, type RateLimitedFeature } from './rateLimits';
 import { isAdmin } from './roles';
 import { getCurrentUser } from './session';
-import { getShowPricing } from './siteSettings';
+import { getEnableAiFeatures, getShowPricing } from './siteSettings';
 import { apiText } from './i18n/server';
 import { getUnits } from './unitsServer';
 
@@ -89,7 +89,8 @@ export function runPythonJson<T extends { error?: string }>(
 
 // Builds the GET/POST handlers for a RAG tab backed by a Python script in
 // src/ that accepts a JSON payload argument and prints a JSON result. feature is
-// what the Admin page's Rate Limiting counts its calls as. With notForBronze, signed-in Bronze members (other than
+// what the Admin page's Rate Limiting counts its calls as. While the Admin page's Enable AI Features is off, every
+// POST gets 403 { code: 'aiFeaturesDisabled' }. With notForBronze, signed-in Bronze members (other than
 // Admins) get 403 { code: 'membershipRequired', showPricing } before any AI call, which opens the page's
 // MembershipRequiredDialog. With modelFeature, the 'openai' LLM option asks the script for its prompt only
 // ({ promptOnly: true } answers { system, prompt, references }) and sends it to that feature's model from the Admin
@@ -120,6 +121,9 @@ export function createRagRoute(
     const embeddingType = isEmbeddingType(body.embeddingType) ? body.embeddingType : 'openai';
 
     const user = await getCurrentUser();
+    if (!(await getEnableAiFeatures())) {
+      return NextResponse.json({ error: 'AI features are turned off', code: 'aiFeaturesDisabled' }, { status: 403 });
+    }
     if (notForBronze && user && user.membershipLevel === MEMBERSHIP_LEVEL.bronze && !isAdmin(user.role)) {
       return NextResponse.json(
         { error: 'Not available for Bronze members', code: 'membershipRequired', showPricing: await getShowPricing() },

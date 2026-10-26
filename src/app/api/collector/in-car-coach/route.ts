@@ -10,6 +10,7 @@ import { inCarCoachCallouts, inCarCoachPlan } from '@/lib/inCarCoach';
 import { lapSamplesFromText } from '@/lib/lapData';
 import { aiRateLimit, type AiRateLimit } from '@/lib/rateLimits';
 import { canUseInCarCoach } from '@/lib/roles';
+import { getEnableAiFeatures } from '@/lib/siteSettings';
 import { readTargetLap } from '@/lib/targetLap';
 import { targetLapIsOf, withTargetLap } from '@/lib/targetLapTargets';
 import { findTrackByKey, readTracks, toLapTrack } from '@/lib/tracks';
@@ -18,11 +19,19 @@ import { getInCarCoachInstructions, getUserById } from '@/lib/users';
 
 // The telemetry collector's In-Car AI Coach (src/lib/inCarCoach.ts), authenticated with the upload key as a
 // bearer token, like /api/collector/laps. For Gold members and Admins only (canUseInCarCoach): anyone else gets
-// 403 { code: 'membershipRequired' } before any AI call, and the collector turns the coach off.
+// 403 { code: 'membershipRequired' } before any AI call, and the collector turns the coach off. While the Admin
+// page's Enable AI Features is off, everyone gets 403 { code: 'aiFeaturesDisabled' } the same way (the collector
+// asks again at the next track).
 
 const goldOnlyResponse = () =>
   NextResponse.json(
     { error: 'The In-Car AI Coach is for Gold members', code: 'membershipRequired' },
+    { status: 403 }
+  );
+
+const disabledResponse = () =>
+  NextResponse.json(
+    { error: 'The In-Car AI Coach is turned off on RacingCoach.app', code: 'aiFeaturesDisabled' },
     { status: 403 }
   );
 
@@ -53,6 +62,7 @@ export async function GET(request: Request) {
     if (!user) {
       return NextResponse.json({ error: 'Missing or unknown upload key' }, { status: 401 });
     }
+    if (!(await getEnableAiFeatures())) return disabledResponse();
     if (!user.user || !canUseInCarCoach(user.user)) return goldOnlyResponse();
     const track = findTrackByKey(await readTracks(), new URL(request.url).searchParams.get('key'));
     const areas = [...(track?.areas ?? [])]
@@ -93,6 +103,7 @@ export async function POST(request: Request) {
     if (!user) {
       return NextResponse.json({ error: 'Missing or unknown upload key' }, { status: 401 });
     }
+    if (!(await getEnableAiFeatures())) return disabledResponse();
     if (!user.user || !canUseInCarCoach(user.user)) return goldOnlyResponse();
     const parsed = bodySchema.safeParse(await request.json().catch(() => null));
     if (!parsed.success) {

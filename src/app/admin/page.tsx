@@ -25,7 +25,7 @@ import { getRateLimitSettings, listOverrides } from '@/lib/rateLimits';
 import { getDictionary } from '@/lib/i18n/server';
 import { isAdmin } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
-import { getShowPricing, getShowProDriverLesson } from '@/lib/siteSettings';
+import { getEnableAiFeatures, getShowPricing, getShowProDriverLesson } from '@/lib/siteSettings';
 
 // The site owner's Admin page: a link to Subscribers (src/app/admin/subscribers/), Site Settings (src/components/SiteSettingsManager.tsx), AI Model Control
 // (src/components/AiModelManager.tsx), Rate Limiting (src/components/RateLimitManager.tsx), User Roles (src/components/UserRoleManager.tsx), Collector Logs
@@ -52,11 +52,12 @@ export default async function AdminPage({
   const t = getDictionary(user.preferredLanguage);
   const a = t.admin;
   const locale = LANGUAGE_LOCALES[user.preferredLanguage];
-  const [report, users, showPricing, showProDriverLesson, aiModels, rateLimits, rateLimitOverrides] = await Promise.all([
+  const [report, users, showPricing, showProDriverLesson, enableAiFeatures, aiModels, rateLimits, rateLimitOverrides] = await Promise.all([
     readActivityReport(filters),
     listUsersForAdmin(),
     getShowPricing(),
     getShowProDriverLesson(),
+    getEnableAiFeatures(),
     getAiModels(),
     getRateLimitSettings(),
     listOverrides(),
@@ -96,7 +97,7 @@ export default async function AdminPage({
 
         <SubscribersLinkCard t={t.subscribers} timeZone={filters.timeZone} />
 
-        <SiteSettingsManager showPricing={showPricing} showProDriverLesson={showProDriverLesson} />
+        <SiteSettingsManager showPricing={showPricing} showProDriverLesson={showProDriverLesson} enableAiFeatures={enableAiFeatures} />
 
         <AiModelManager models={aiModels} />
 

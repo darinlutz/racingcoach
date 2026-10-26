@@ -12,7 +12,7 @@ import { getDictionary, getLanguage } from "@/lib/i18n/server";
 import { hasAcceptedCurrentPolicies } from "@/lib/policyAcceptances";
 import { canCoach, isAdmin } from "@/lib/roles";
 import { getCurrentUser } from "@/lib/session";
-import { getShowPricing, getShowProDriverLesson } from "@/lib/siteSettings";
+import { getEnableAiFeatures, getShowPricing, getShowProDriverLesson } from "@/lib/siteSettings";
 import { getTheme } from "@/lib/themeServer";
 import { getUnits } from "@/lib/unitsServer";
 import { canBuyAnything } from "@/lib/users";
@@ -40,7 +40,12 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const [user, showPricing, showProDriverLesson] = await Promise.all([getCurrentUser(), getShowPricing(), getShowProDriverLesson()]);
+  const [user, showPricing, showProDriverLesson, enableAiFeatures] = await Promise.all([
+    getCurrentUser(),
+    getShowPricing(),
+    getShowProDriverLesson(),
+    getEnableAiFeatures(),
+  ]);
   // Every page is in the user's Preferred Language (or a visitor's chosen one); client components get
   // the dictionary from LanguageProvider
   const language = await getLanguage(user);
@@ -71,6 +76,7 @@ export default async function RootLayout({
               user={user ? { userName: user.userName, canUpgrade: canBuyAnything(user), isAdmin: isAdmin(user.role), canCoach: canCoach(user.role) } : null}
               showPricing={showPricing}
               showProDriverLesson={showProDriverLesson}
+              enableAiFeatures={enableAiFeatures}
             />
             {/* On large screens the nav is a fixed sidebar down the left, so the page starts after it */}
             <div className="flex-1 flex flex-col lg:pl-[280px]">
@@ -80,7 +86,7 @@ export default async function RootLayout({
               </main>
               <footer className="border-t border-border py-6">
                 <div className="site-container flex items-center justify-between gap-5">
-                  <Brand />
+                  <Brand aiFeatures={enableAiFeatures} />
                   <div className="text-[10px] text-muted-foreground text-right max-sm:max-w-[140px]">
                     <p>© 2026 RacingCoach.app<br />{t.footer.tagline}</p>
                     <nav aria-label={t.legal.pageTitle} className="mt-1.5 flex flex-wrap justify-end gap-x-2">

@@ -73,6 +73,7 @@ export const en = {
   brand: {
     home: 'RacingCoach.app home',
     tagline: 'YOUR AI RACE ENGINEER',
+    taglineNoAi: 'YOUR PERSONAL RACE ENGINEER',
   },
 
   footer: {
@@ -1165,6 +1166,8 @@ export const en = {
     showPricingHint: 'Shows the Pricing link in the navigation bar and the View Membership Plans button on the Account page for everyone.',
     showProDriverLesson: 'Show Pro Driver Lesson',
     showProDriverLessonHint: 'Shows the 1:1 Pro Driver Lesson link in the navigation bar for everyone.',
+    enableAiFeatures: 'Enable AI Features',
+    enableAiFeaturesHint: "When off, the logo's tagline reads YOUR PERSONAL RACE ENGINEER instead of YOUR AI RACE ENGINEER, for everyone.",
     rolesTitle: 'User Roles',
     rolesIntro: 'Find a user, choose their role and membership level and save.',
     findUser: 'Find a user',

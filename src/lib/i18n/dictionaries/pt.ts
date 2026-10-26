@@ -72,6 +72,7 @@ export const pt: Dictionary = {
   brand: {
     home: 'Página inicial do RacingCoach.app',
     tagline: 'SEU ENGENHEIRO DE CORRIDA COM IA',
+    taglineNoAi: 'SEU ENGENHEIRO DE CORRIDA PESSOAL',
   },
 
   footer: {
@@ -1146,6 +1147,8 @@ export const pt: Dictionary = {
     showPricingHint: 'Mostra o link de Preços na barra de navegação e o botão Ver planos de assinatura na página da Conta para todos.',
     showProDriverLesson: 'Mostrar aula com piloto profissional',
     showProDriverLessonHint: 'Mostra o link Aula 1:1 com piloto profissional na barra de navegação para todos.',
+    enableAiFeatures: 'Ativar recursos de IA',
+    enableAiFeaturesHint: 'Quando desativado, o slogan do logotipo diz SEU ENGENHEIRO DE CORRIDA PESSOAL em vez de SEU ENGENHEIRO DE CORRIDA COM IA, para todos.',
     rolesTitle: 'Funções dos usuários',
     rolesIntro: 'Encontre um usuário, escolha a função e o nível de assinatura e salve.',
     findUser: 'Encontrar um usuário',

@@ -4,8 +4,9 @@ import Link from 'next/link';
 import { Flag } from 'lucide-react';
 import { useLanguage } from '@/components/LanguageProvider';
 
-// RacingCoach.app wordmark: red flag + condensed RACINGCOACH.APP with tagline
-export default function Brand({ onClick }: { onClick?: () => void }) {
+// RacingCoach.app wordmark: red flag + condensed RACINGCOACH.APP with tagline. aiFeatures is the Admin page's
+// Enable AI Features setting: the tagline says AI race engineer when on, personal race engineer when off
+export default function Brand({ onClick, aiFeatures = true }: { onClick?: () => void; aiFeatures?: boolean }) {
   const { t } = useLanguage();
   return (
     <Link href="/" className="flex items-center gap-[11px]" aria-label={t.brand.home} onClick={onClick}>
@@ -15,7 +16,7 @@ export default function Brand({ onClick }: { onClick?: () => void }) {
           RACING<span className="font-normal text-muted-foreground">COACH</span>
           <span className="font-normal text-primary">.APP</span>
         </div>
-        <span className="block mt-[5px] text-[8px] tracking-[2.5px] text-muted-foreground">{t.brand.tagline}</span>
+        <span className="block mt-[5px] text-[8px] tracking-[2.5px] text-muted-foreground">{aiFeatures ? t.brand.tagline : t.brand.taglineNoAi}</span>
       </div>
     </Link>
   );

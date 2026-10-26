@@ -4,9 +4,9 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useLanguage } from '@/components/LanguageProvider';
 
-type SettingKey = 'showPricing' | 'showProDriverLesson';
+type SettingKey = 'showPricing' | 'showProDriverLesson' | 'enableAiFeatures';
 
-// The Admin page's Site Settings section: the Show Pricing and Show Pro Driver Lesson switches, saved for
+// The Admin page's Site Settings section: the Show Pricing, Show Pro Driver Lesson and Enable AI Features switches, saved for
 // everyone (PUT /api/admin/settings) as soon as they're flipped.
 export default function SiteSettingsManager(initial: Record<SettingKey, boolean>) {
   const { t } = useLanguage();
@@ -15,6 +15,7 @@ export default function SiteSettingsManager(initial: Record<SettingKey, boolean>
   const [settings, setSettings] = useState<Record<SettingKey, boolean>>({
     showPricing: initial.showPricing,
     showProDriverLesson: initial.showProDriverLesson,
+    enableAiFeatures: initial.enableAiFeatures,
   });
   const [saving, setSaving] = useState<SettingKey | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -37,7 +38,7 @@ export default function SiteSettingsManager(initial: Record<SettingKey, boolean>
         setError(data.error ?? t.api.failedSaveSetting);
         return;
       }
-      // The navigation bar is rendered by the layout on the server
+      // The navigation bar and logo are rendered by the layout on the server
       router.refresh();
     } catch {
       set(!next);
@@ -50,6 +51,7 @@ export default function SiteSettingsManager(initial: Record<SettingKey, boolean>
   const rows: { key: SettingKey; id: string; label: string; hint: string }[] = [
     { key: 'showPricing', id: 'show-pricing', label: a.showPricing, hint: a.showPricingHint },
     { key: 'showProDriverLesson', id: 'show-pro-driver-lesson', label: a.showProDriverLesson, hint: a.showProDriverLessonHint },
+    { key: 'enableAiFeatures', id: 'enable-ai-features', label: a.enableAiFeatures, hint: a.enableAiFeaturesHint },
   ];
 
   return (

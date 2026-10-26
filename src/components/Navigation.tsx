@@ -17,6 +17,8 @@ type NavigationProps = {
   showPricing: boolean;
   // The Admin page's Show Pro Driver Lesson setting
   showProDriverLesson: boolean;
+  // The Admin page's Enable AI Features setting, which picks the logo's tagline
+  enableAiFeatures: boolean;
 };
 
 const links = [
@@ -38,7 +40,7 @@ const bottomLinks = [
   { href: '/race-trends', key: 'raceTrends' },
 ] as const;
 
-export default function Navigation({ user, showPricing, showProDriverLesson }: NavigationProps) {
+export default function Navigation({ user, showPricing, showProDriverLesson, enableAiFeatures }: NavigationProps) {
   const { t } = useLanguage();
   const router = useRouter();
   const pathname = usePathname();
@@ -90,7 +92,7 @@ export default function Navigation({ user, showPricing, showProDriverLesson }: N
     <nav className="sticky top-0 z-50 w-full bg-background border-b border-border lg:fixed lg:inset-y-0 lg:left-0 lg:w-[280px] lg:border-b-0 lg:border-r lg:overflow-y-auto">
       {/* Desktop Sidebar */}
       <div className="hidden lg:flex flex-col h-full px-6 py-6 gap-10">
-        <Brand />
+        <Brand aiFeatures={enableAiFeatures} />
 
         <div className="flex flex-col gap-5">
           {visibleLinks.map((link) => (
@@ -133,7 +135,7 @@ export default function Navigation({ user, showPricing, showProDriverLesson }: N
 
       {/* Mobile Bar */}
       <div className="lg:hidden site-container h-[84px] max-sm:h-[72px] flex items-center justify-between gap-[30px] max-sm:gap-3">
-        <Brand onClick={closeMenu} />
+        <Brand onClick={closeMenu} aiFeatures={enableAiFeatures} />
 
         {/* Mobile menu button */}
         <button

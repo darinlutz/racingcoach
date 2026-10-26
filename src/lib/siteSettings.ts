@@ -6,6 +6,7 @@ import { ensureUserSchema } from '@/lib/users';
 
 const SHOW_PRICING = 'show_pricing';
 const SHOW_PRO_DRIVER_LESSON = 'show_pro_driver_lesson';
+const ENABLE_AI_FEATURES = 'enable_ai_features';
 
 // An on/off setting; on when it has no row
 async function getSwitch(key: string): Promise<boolean> {
@@ -40,6 +41,15 @@ export async function getShowProDriverLesson(): Promise<boolean> {
 
 export async function setShowProDriverLesson(show: boolean, userId: number): Promise<void> {
   await setSwitch(SHOW_PRO_DRIVER_LESSON, show, userId);
+}
+
+// Whether the logo's tagline reads YOUR AI RACE ENGINEER (on) or YOUR PERSONAL RACE ENGINEER (off), for everyone
+export async function getEnableAiFeatures(): Promise<boolean> {
+  return getSwitch(ENABLE_AI_FEATURES);
+}
+
+export async function setEnableAiFeatures(enable: boolean, userId: number): Promise<void> {
+  await setSwitch(ENABLE_AI_FEATURES, enable, userId);
 }
 
 const COACH_INSTRUCTIONS = 'ai_coach_instructions';

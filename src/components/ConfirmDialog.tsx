@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useId, useRef, type ReactNode } from 'react';
 
 type ConfirmDialogProps = {
   open: boolean;
@@ -17,6 +17,8 @@ type ConfirmDialogProps = {
 // focus when it opens, and focus goes back to whatever had it on close.
 export default function ConfirmDialog({ open, title, children, confirmLabel, cancelLabel, onConfirm, onCancel }: ConfirmDialogProps) {
   const cancelRef = useRef<HTMLButtonElement>(null);
+  // Unique, as a page can have more than one
+  const titleId = useId();
 
   useEffect(() => {
     if (!open) return;
@@ -43,13 +45,13 @@ export default function ConfirmDialog({ open, title, children, confirmLabel, can
       <div
         role="alertdialog"
         aria-modal="true"
-        aria-labelledby="confirmDialogTitle"
+        aria-labelledby={titleId}
         onClick={(e) => e.stopPropagation()}
         className={`w-full max-w-sm rounded-xl bg-card border border-border p-6 shadow-xl transition-transform duration-200 ease-out ${
           open ? 'scale-100 translate-y-0' : 'scale-95 translate-y-2'
         }`}
       >
-        <h2 id="confirmDialogTitle" className="text-lg font-bold text-foreground">
+        <h2 id={titleId} className="text-lg font-bold text-foreground">
           {title}
         </h2>
         {children && <div className="mt-2 text-sm text-muted-foreground">{children}</div>}

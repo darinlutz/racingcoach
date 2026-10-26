@@ -20,7 +20,15 @@ export type TargetLapInfo = { fileName: string; setAt: string };
 
 // The track a Target Lap's file name names, or null when it doesn't follow the Garage 61 / RacingCoach naming
 export function targetLapTrackName(fileName: string): string | null {
-  return LAP_FILE_NAME.exec(fileName)?.[3] ?? null;
+  return lapFileNameParts(fileName)?.track ?? null;
+}
+
+// The driver, car, track and lap time a Garage 61 / RacingCoach lap file name names, or null for any other name
+export function lapFileNameParts(fileName: string): { driver: string; car: string; track: string; lapTime: string } | null {
+  const match = LAP_FILE_NAME.exec(fileName);
+  if (!match) return null;
+  const [, driver, car, track, lapTime] = match;
+  return { driver: driver.trim(), car: car.trim(), track: track.trim(), lapTime };
 }
 
 export class TargetLapError extends Error {

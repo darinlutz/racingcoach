@@ -15,7 +15,8 @@ const byTrackAndCar = (a: ExpertLapInfo, b: ExpertLapInfo) =>
 // The Coach page's Expert Laps section: lap CSVs dropped on it (or browsed for) are saved as the Expert Lap of
 // their car and track (POST /api/coach/expert-laps, src/lib/expertLaps.ts). Several files go one at a time; when
 // one's car and track already has an Expert Lap, a modal asks whether to replace it, and the upload waits for
-// the answer. Lists the Expert Laps with Download and Remove.
+// the answer. Lists the Expert Laps with Set Target (copies it into the user's own Target Lap), Download and
+// Remove.
 export default function ExpertLapsManager({ expertLaps: initial }: { expertLaps: ExpertLapInfo[] }) {
   const { t, fmt, locale } = useLanguage();
   const c = t.coach;
@@ -108,6 +109,22 @@ export default function ExpertLapsManager({ expertLaps: initial }: { expertLaps:
     }
   };
 
+  const setTarget = async (lap: ExpertLapInfo) => {
+    if (busy) return;
+    setBusyFile(lap.fileName);
+    setMessages([]);
+    try {
+      const res = await fetch(`/api/coach/expert-laps/${lap.id}/target`, { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || t.api.failedSaveTargetLap);
+      setMessages([{ ok: true, text: fmt(c.expertLapsTargetSet, names(lap)) }]);
+    } catch (err) {
+      setMessages([{ ok: false, text: err instanceof Error ? err.message : t.api.failedSaveTargetLap }]);
+    } finally {
+      setBusyFile(null);
+    }
+  };
+
   const buttonClass =
     'px-3 py-1 text-xs font-semibold bg-card border border-border rounded-lg text-foreground hover:border-primary hover:text-primary transition-colors disabled:opacity-50';
 
@@ -191,6 +208,15 @@ export default function ExpertLapsManager({ expertLaps: initial }: { expertLaps:
                   </td>
                   <td className="px-3 py-2">
                     <div className="flex justify-end gap-2">
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void setTarget(lap)}
+                        data-track="set-target-expert-lap"
+                        className="px-3 py-1 text-xs font-semibold rounded-lg text-white bg-green-600 hover:bg-green-700 transition-colors whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {c.expertLapsSetTarget}
+                      </button>
                       <a
                         href={`/api/coach/expert-laps/${lap.id}`}
                         download={lap.fileName}

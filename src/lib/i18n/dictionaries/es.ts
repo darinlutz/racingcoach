@@ -1091,6 +1091,8 @@ export const es: Dictionary = {
     expertLapsLapTime: 'Tiempo de vuelta',
     expertLapsUploaded: 'Subida',
     expertLapsDownload: 'Descargar',
+    expertLapsSetTarget: 'Fijar objetivo',
+    expertLapsTargetSet: 'La vuelta de experto para {car} en {track} ahora es tu Vuelta Objetivo.',
     expertLapsRemove: 'Eliminar',
     expertLapsRemoveConfirm: '¿Eliminar esta vuelta de experto?',
     expertLapsRemoved: 'Vuelta de experto para {car} en {track} eliminada.',

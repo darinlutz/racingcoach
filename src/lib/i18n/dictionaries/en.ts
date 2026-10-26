@@ -1104,6 +1104,8 @@ export const en = {
     expertLapsLapTime: 'Lap Time',
     expertLapsUploaded: 'Uploaded',
     expertLapsDownload: 'Download',
+    expertLapsSetTarget: 'Set Target',
+    expertLapsTargetSet: 'Expert lap for {car} at {track} is now your Target Lap.',
     expertLapsRemove: 'Remove',
     expertLapsRemoveConfirm: 'Remove this expert lap?',
     expertLapsRemoved: 'Expert lap for {car} at {track} removed.',

@@ -94,7 +94,7 @@ const bodySchema = z.object({
 });
 
 // POST { clientLapIds, recentCallouts }: the session's laps uploaded so far (by clientLapId, oldest first) and what
-// the coach said recently. Answers { callouts: [{ text, sound }] } (2, the first said at once and the second halfway round the lap), or
+// the coach said recently. Answers { callouts: [{ text, sound }] } (1: the coach talks once per lap), or
 // 404 when none of the laps have been uploaded.
 export async function POST(request: Request) {
   let limit: AiRateLimit | null = null;

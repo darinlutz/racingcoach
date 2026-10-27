@@ -78,13 +78,13 @@ const calloutsSchema = z.object({
       })
     )
     .describe(
-      'Exactly 3 callouts, the most important first. The driver hears the first two every lap (one straight away, ' +
-        'one halfway round); the third is a spare in case one of them cannot be used'
+      'Exactly 2 callouts, the most important first. The driver hears only the first, once per lap; the second is ' +
+        'a spare in case the first cannot be used'
     ),
 });
 
 export type Callout = z.infer<typeof calloutsSchema>['callouts'][number];
-const MAX_CALLOUTS = 2; // the model gives 3, the third a spare in case one is dropped
+const MAX_CALLOUTS = 1; // the coach talks once per lap; the model gives 2, the second a spare in case one is dropped
 
 // The Coach page's In-Car AI Coach Instructions, for every driver; a failed read only loses them, not the coaching
 async function readHeadCoachInCarInstructions(): Promise<string> {
@@ -206,8 +206,8 @@ function cleanPlan(plan: InCarCoachPlan, areaNames: string[]): InCarCoachPlan {
 const calloutPrompt = (units: Units) =>
   'You are an In-Car AI Coach for a sim racing driver who is driving right now. After each lap the driver\'s ' +
   'laps so far in this session are analysed, and you decide what, if anything, to tell them before the next ' +
-  'lap. Every lap you give exactly 3 callouts, most important first: the driver hears the first two, one as the ' +
-  'lap starts and one halfway round, and the third is a spare. They are at speed: each callout is one short sentence they can take in while driving, with at most one ' +
+  'lap. Every lap you give exactly 2 callouts, most important first: the driver hears only the first, once per ' +
+  'lap, and the second is a spare. They are at speed: each callout is one short sentence they can take in while driving, with at most one ' +
   `number, and points at one focus area and one change (for example "Turn 1: brake about ${units === 'metric' ? 6 : 20} ` +
   `${DISTANCE_UNIT[units]} later"). When the ` +
   'Debrief Coach tools are available, start with get_session_overview, then dig into ' +
@@ -218,7 +218,7 @@ const calloutPrompt = (units: Units) =>
   'driving line advice unless get_driving_line shows a line verdict. Anything the driver\'s instructions ask to ' +
   'happen at a moment on track (a sound at the line, the lap time after each lap, a message at an area) is ' +
   'already done by the coach\'s rules, so never repeat it here: your callouts are coaching from the lap data. Only ' +
-  'add a sound when the instructions ask for one with coaching. Never return fewer than 3 callouts. Vary them from ' +
+  'add a sound when the instructions ask for one with coaching. Never return fewer than 2 callouts. Vary them from ' +
   'lap to lap: prefer a focus area or change you have not mentioned recently, tell the driver how the newest lap ' +
   'went on something you said before (better or worse, with its number), or give the next most useful change. ' +
   'Only repeat earlier advice word for word when nothing else in the data is worth saying. ' +
@@ -278,7 +278,7 @@ export async function inCarCoachCallouts(input: {
         'something else, rather than saying it the same way again: ' +
         input.recentCallouts.map((c) => `"${c}"`).join(' ')
       : 'You have not said anything yet this session.',
-    'What are your 3 callouts for my next lap?',
+    'What are your 2 callouts for my next lap?',
   ].join('\n');
 
   const result = await agent.invoke({ messages: [{ role: 'user', content }] }, { recursionLimit: 20 });

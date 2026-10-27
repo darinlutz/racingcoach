@@ -20,8 +20,6 @@ internal sealed class InCarCoach(Func<RacingCoachApi?> api, Action<string> log)
 {
     /// <summary>Laps that have to upload before the first lap feedback.</summary>
     public const int LapsBeforeFeedback = 1;
-    /// <summary>Where in the lap (a fraction) the second callout of each lap feedback is said.</summary>
-    private const float SecondCalloutAt = 0.5f;
     // Lap feedback before the plan has loaded (or when it couldn't): the plan's defaults
     private static readonly CoachPlan DefaultPlan = new([], true, true, false, true, 1);
     // When the site says the account doesn't have the In-Car AI Coach (it's for Gold members): no rules, no lap feedback
@@ -66,7 +64,10 @@ internal sealed class InCarCoach(Func<RacingCoachApi?> api, Action<string> log)
     private string? _pendingFolder;
     private readonly Queue<string> _recent = [];
     private readonly List<string> _held = [];
-    private readonly List<string> _midLap = []; // said once the car passes SecondCalloutAt
+    // The coach talks once per lap: the lap the last callout was said on, and the newest one waiting for the next lap
+    private int _lapStarts;
+    private int _saidOnLap = -1;
+    private CoachCallout? _nextLap;
 
     /// <summary>The last message shown, for the Target Telemetry window.</summary>
     public CoachMessage? LatestMessage { get; private set; }
@@ -193,6 +194,8 @@ internal sealed class InCarCoach(Func<RacingCoachApi?> api, Action<string> log)
             _awaitingLapTime = null;
             _bestLap = null;
             _inArea = false;
+            lock (_lock)
+                _nextLap = null;
         }
         if (_plan is not { } plan)
         {
@@ -240,9 +243,8 @@ internal sealed class InCarCoach(Func<RacingCoachApi?> api, Action<string> log)
                 {
                     Fire(plan, "lapStart", null);
                     _awaitingLapTime = (data.LapLastLapTime, time);
+                    NewLap(plan.Plan);
                 }
-                if (Crossed(previous, pct, SecondCalloutAt))
-                    SayMidLap(plan.Plan);
                 foreach (var area in plan.Areas)
                 {
                     if (Crossed(previous, pct, area.Start))
@@ -410,8 +412,8 @@ internal sealed class InCarCoach(Func<RacingCoachApi?> api, Action<string> log)
                         log($"In-Car Coach had no feedback after {Plural(laps.Count, "lap")}: {error}.");
                     else if (callouts.Count == 0)
                         log($"In-Car Coach: nothing new to say after {Plural(laps.Count, "lap")}.");
-                    for (var i = 0; i < callouts.Count; i++)
-                        Deliver(callouts[i], midLap: i > 0);
+                    if (callouts.Count > 0)
+                        Deliver(callouts[0]);
                 }
                 catch (CoachNotAvailableException e)
                 {
@@ -437,9 +439,9 @@ internal sealed class InCarCoach(Func<RacingCoachApi?> api, Action<string> log)
         }
     }
 
-    // The first callout is said straight away, the others halfway round the lap (straight after the first when the
-    // car is already past halfway, or not driving)
-    private void Deliver(CoachCallout callout, bool midLap)
+    // Said straight away, unless a callout was already said on this lap: then it waits for the next lap to start,
+    // replacing any older one waiting
+    private void Deliver(CoachCallout callout)
     {
         if (string.IsNullOrWhiteSpace(callout.Text))
             return;
@@ -449,28 +451,29 @@ internal sealed class InCarCoach(Func<RacingCoachApi?> api, Action<string> log)
             _recent.Enqueue(callout.Text);
             while (_recent.Count > RecentCalloutsKept)
                 _recent.Dequeue();
-            var pct = _livePct;
-            if (midLap && pct >= 0 && pct < SecondCalloutAt)
+            if (_saidOnLap == _lapStarts)
             {
-                _midLap.Add(callout.Text);
+                _nextLap = callout;
                 return;
             }
+            _saidOnLap = _lapStarts;
         }
         Say(plan, callout.Text, callout.Sound);
     }
 
-    private void SayMidLap(CoachPlan plan)
+    private void NewLap(CoachPlan plan)
     {
-        string[] texts;
+        CoachCallout? next;
         lock (_lock)
         {
-            if (_midLap.Count == 0)
-                return;
-            texts = [.. _midLap];
-            _midLap.Clear();
+            _lapStarts++;
+            next = _nextLap;
+            _nextLap = null;
+            if (next is not null)
+                _saidOnLap = _lapStarts;
         }
-        foreach (var text in texts)
-            Say(plan, text, null);
+        if (next is not null)
+            Say(plan, next.Text, next.Sound);
     }
 
     private void Say(CoachPlan plan, string text, string? sound)

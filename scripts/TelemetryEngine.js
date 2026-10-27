@@ -3077,7 +3077,7 @@ function GetMaximumBrakePressure()
     root["PeakBrakeTime"] = now;
     }
 
-    if (root["PeakBrake"] > 0 && (now - root["PeakBrakeTime"]) >= 4000) {
+    if (root["PeakBrake"] > 0 && (now - root["PeakBrakeTime"]) >= 5000) {
     root["PeakBrake"] = 0;
     root["PeakBrakeTime"] = 0;
     }

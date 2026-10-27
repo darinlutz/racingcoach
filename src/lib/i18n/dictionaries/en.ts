@@ -311,6 +311,19 @@ export const en = {
     sample: 'Turn 1: brake about {later} {units} later, near {near} {units}. Nice lap, two tenths quicker.',
   },
 
+  // The Account page's My AI Usage (src/components/MyAiUsageCard.tsx)
+  aiUsage: {
+    title: 'My AI Usage',
+    intro: 'The AI calls you have made recently. Weighted calls count each call by how much AI work it takes, which is what usage limits count.',
+    last24Hours: 'Last 24 hours',
+    last7Days: 'Last 7 days',
+    calls: 'AI calls',
+    weighted: 'Weighted calls',
+    inputTokens: 'Input tokens',
+    outputTokens: 'Output tokens',
+    blocked: 'Blocked',
+  },
+
   // Fixed things the collector says out loud (POST /api/collector/speech, the in-session debrief)
   coachSpeech: {
     newLap: 'Starting new lap',

@@ -6,6 +6,7 @@ import CollectorKeyCard from '@/components/CollectorKeyCard';
 import DeleteAccountButton from '@/components/DeleteAccountButton';
 import InCarCoachInstructionsCard from '@/components/InCarCoachInstructionsCard';
 import LanguageSelect from '@/components/LanguageSelect';
+import MyAiUsageCard from '@/components/MyAiUsageCard';
 import ThemeToggle from '@/components/ThemeToggle';
 import UnitsToggle from '@/components/UnitsToggle';
 import { COACH_VOICES, getCoachVoice, SPANISH_ACCENTS } from '@/lib/coachVoice';
@@ -13,6 +14,7 @@ import { getCollectorKey } from '@/lib/collectorKeys';
 import { DISCORD_INVITE_URL, getDiscordConnection } from '@/lib/discord';
 import { fmt, LANGUAGE_LOCALES } from '@/lib/i18n/languages';
 import { getDictionary } from '@/lib/i18n/server';
+import { readOwnAiUsage } from '@/lib/rateLimits';
 import { canUseInCarCoach, isAdmin } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
 import { getEnableAiFeatures, getShowPricing } from '@/lib/siteSettings';
@@ -51,13 +53,14 @@ export default async function AccountPage({
   const { discord: discordResult } = await searchParams;
   const discordText = typeof discordResult === 'string' ? t.account.discordMessages[discordResult] : undefined;
   const discordOk = typeof discordResult === 'string' && DISCORD_OK.has(discordResult);
-  const [discord, collectorKey, inCarCoachInstructions, coachVoice, showPricing, enableAiFeatures] = await Promise.all([
+  const [discord, collectorKey, inCarCoachInstructions, coachVoice, showPricing, enableAiFeatures, aiUsage] = await Promise.all([
     getDiscordConnection(user.id),
     getCollectorKey(user.id),
     getInCarCoachInstructions(user.id),
     getCoachVoice(user.id),
     getShowPricing(),
     getEnableAiFeatures(),
+    readOwnAiUsage(user.id),
   ]);
   const isSubscribed = user.accountStatus === ACCOUNT_STATUS.subscribed;
   // A canceled subscription keeps its end date: the end of the last paid period
@@ -71,7 +74,7 @@ export default async function AccountPage({
 
   return (
     <section className="py-12 px-4 bg-gradient-to-b from-background to-background flex justify-center">
-      <div className="w-full max-w-lg bg-secondary rounded-xl border border-border p-6 sm:p-8">
+      <div className="w-full max-w-2xl bg-secondary rounded-xl border border-border p-6 sm:p-8">
         <h1 className="text-3xl font-bold mb-2 bg-gradient-to-r from-primary-strong via-primary to-primary-strong bg-clip-text text-transparent">
           {t.account.title}
         </h1>
@@ -212,6 +215,8 @@ export default async function AccountPage({
             viewPlans={showViewPlans}
           />
         )}
+
+        {enableAiFeatures && <MyAiUsageCard day={aiUsage.day} week={aiUsage.week} />}
 
         {showViewPlans && (
           <Link

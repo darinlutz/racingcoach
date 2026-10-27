@@ -450,6 +450,34 @@ export async function resetUsage(target: { userId: number } | { ipAddress: strin
   return rows.length;
 }
 
+// ---- A user's own usage (the Account page's My AI Usage) ----
+
+export type OwnAiUsage = { calls: number; weighted: number; inputTokens: number; outputTokens: number; blocked: number };
+
+// The user's AI calls in the last 24 hours and the last 7 days, counted like the usage report's
+export async function readOwnAiUsage(userId: number): Promise<{ day: OwnAiUsage; week: OwnAiUsage }> {
+  await ensureUserSchema();
+  const measures = (prefix: string, since: string) => `
+    count(*) FILTER (WHERE allowed AND occurred_at >= ${since}) AS ${prefix}_calls,
+    coalesce(sum(weight) FILTER (WHERE allowed AND NOT failed AND occurred_at >= ${since}), 0) AS ${prefix}_weighted,
+    coalesce(sum(input_tokens) FILTER (WHERE occurred_at >= ${since}), 0) AS ${prefix}_input_tokens,
+    coalesce(sum(output_tokens) FILTER (WHERE occurred_at >= ${since}), 0) AS ${prefix}_output_tokens,
+    count(*) FILTER (WHERE NOT allowed AND occurred_at >= ${since}) AS ${prefix}_blocked`;
+  const rows = await query(
+    `SELECT ${measures('day', `now() - interval '1 day'`)}, ${measures('week', `now() - interval '7 days'`)}
+     FROM racingcoach."AiUsage" WHERE user_id = $1 AND occurred_at >= now() - interval '7 days'`,
+    [userId]
+  );
+  const toUsage = (prefix: string): OwnAiUsage => ({
+    calls: Number(rows[0][`${prefix}_calls`]),
+    weighted: Number(rows[0][`${prefix}_weighted`]),
+    inputTokens: Number(rows[0][`${prefix}_input_tokens`]),
+    outputTokens: Number(rows[0][`${prefix}_output_tokens`]),
+    blocked: Number(rows[0][`${prefix}_blocked`]),
+  });
+  return { day: toUsage('day'), week: toUsage('week') };
+}
+
 // ---- Usage report ----
 
 export type UsageCurrent = { used: number; limit: number | null; period: Period; unlimited: boolean; exempt: boolean };

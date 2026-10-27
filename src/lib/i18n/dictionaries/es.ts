@@ -301,6 +301,18 @@ export const es: Dictionary = {
     sample: 'Curva 1: frena unos {later} {units} más tarde, cerca de {near} {units}. Buena vuelta, dos décimas más rápida.',
   },
 
+  aiUsage: {
+    title: 'Mi uso de IA',
+    intro: 'Las llamadas de IA que hiciste recientemente. Las llamadas ponderadas cuentan cada llamada según cuánto trabajo de IA requiere, que es lo que cuentan los límites de uso.',
+    last24Hours: 'Últimas 24 horas',
+    last7Days: 'Últimos 7 días',
+    calls: 'Llamadas de IA',
+    weighted: 'Llamadas ponderadas',
+    inputTokens: 'Tokens de entrada',
+    outputTokens: 'Tokens de salida',
+    blocked: 'Bloqueadas',
+  },
+
   coachSpeech: {
     newLap: 'Empezando nueva vuelta',
     areaAverage: 'El tiempo promedio en el área {n} fue de {seconds} segundos',

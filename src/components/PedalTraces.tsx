@@ -221,13 +221,14 @@ function TraceChart({
   );
 }
 
-// Brake and throttle for the Base (solid) and Compare (lighter, dotted) laps on one chart, beside the
-// time the Compare lap gains or loses through one focus area (TimeDeltaTrace), with a crosshair that
-// follows the pointer (or arrow keys) on all the charts at once. Below them, their driving lines on a map
-// (TrackLineMap) with the crosshair's position marked on each, beside how far left or right of the Base
-// lap's line the Compare lap was (DrivingLineDiffTrace), then a steering wheel turned to both laps' angles
-// at the crosshair (SteeringWheel) beside their steering angle on one chart (SteeringTrace).
-// Each pair stacks when the container is narrower than SIDE_BY_SIDE_MIN_WIDTH.
+// Two columns, with a crosshair that follows the pointer (or arrow keys) on all the charts at once. On the
+// left, the Base and Compare laps' driving lines on a square map (TrackLineMap) with the crosshair's
+// position marked on each, and under it a steering wheel turned to both laps' angles at the crosshair,
+// with their gears (SteeringWheel). On the right, top to bottom: the time the Compare lap gains or loses
+// through one focus area (TimeDeltaTrace), brake and throttle for the Base (solid) and Compare (lighter,
+// dotted) laps on one chart (TraceChart), how far left or right of the Base lap's line the Compare lap was
+// (DrivingLineDiffTrace) and their steering angle on one chart (SteeringTrace).
+// The columns stack when the container is narrower than SIDE_BY_SIDE_MIN_WIDTH.
 // Last, the Tire Temp, Tire Pressure, Ride Heights, Gear, Engine and Slip & Balance tabs (LapDataTabs).
 // id must be unique on
 // the page (the charts' clip paths are named after it). Charts only draw once the container has a width,
@@ -254,29 +255,26 @@ export default function PedalTraces({
     locale,
   };
 
-  // Wide enough: pedals beside time gained/lost, the map beside the driving line difference and the wheel
-  // beside the steering chart, each half the width; narrower, everything stacks at full width
+  // Wide enough: two columns, each half the width; on the left the square map with the wheel and gears
+  // under it, on the right the charts stacked; narrower, everything stacks at full width
   const sideBySide = width >= SIDE_BY_SIDE_MIN_WIDTH;
   const half = sideBySide ? (width - ROW_GAP) / 2 : width;
-  const row = sideBySide ? 'flex items-start gap-4' : 'space-y-4';
 
   return (
     <div ref={containerRef} className="space-y-4">
       {width > 0 && (
         <>
-          <div className={row}>
-            <TraceChart id={`${id}-pedals`} base={base} compare={compare} axis={axis} width={half} hoverPct={hoverPct} onHover={setHoverPct} />
-            <TimeDeltaTrace id={`${id}-delta`} base={base} compare={compare} axis={axis} width={half} hoverPct={hoverPct} onHover={setHoverPct} />
-          </div>
-          <div className={row}>
-            <TrackLineMap base={base} compare={compare} width={half} hoverPct={hoverPct} onHover={setHoverPct} />
-            <DrivingLineDiffTrace id={`${id}-line`} base={base} compare={compare} axis={axis} width={half} hoverPct={hoverPct} onHover={setHoverPct} />
-          </div>
-          <div className={sideBySide ? 'flex items-center gap-4' : 'space-y-4'}>
-            <div style={sideBySide ? { width: half, flexShrink: 0 } : undefined}>
+          <div className={sideBySide ? 'flex items-start gap-4' : 'space-y-4'}>
+            <div className="space-y-4" style={sideBySide ? { width: half, flexShrink: 0 } : undefined}>
+              <TrackLineMap base={base} compare={compare} width={half} height={half} hoverPct={hoverPct} onHover={setHoverPct} />
               <SteeringWheel base={base} compare={compare} axis={axis} hoverPct={hoverPct} />
             </div>
-            <SteeringTrace id={`${id}-steering`} base={base} compare={compare} axis={axis} width={half} hoverPct={hoverPct} onHover={setHoverPct} />
+            <div className="space-y-4" style={sideBySide ? { width: half, flexShrink: 0 } : undefined}>
+              <TimeDeltaTrace id={`${id}-delta`} base={base} compare={compare} axis={axis} width={half} hoverPct={hoverPct} onHover={setHoverPct} />
+              <TraceChart id={`${id}-pedals`} base={base} compare={compare} axis={axis} width={half} hoverPct={hoverPct} onHover={setHoverPct} />
+              <DrivingLineDiffTrace id={`${id}-line`} base={base} compare={compare} axis={axis} width={half} hoverPct={hoverPct} onHover={setHoverPct} />
+              <SteeringTrace id={`${id}-steering`} base={base} compare={compare} axis={axis} width={half} hoverPct={hoverPct} onHover={setHoverPct} />
+            </div>
           </div>
           <LapDataTabs id={`${id}-data`} base={base} compare={compare} axis={axis} width={width} hoverPct={hoverPct} onHover={setHoverPct} />
         </>

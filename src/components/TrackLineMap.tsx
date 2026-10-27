@@ -12,7 +12,7 @@ import { DISTANCE_UNIT, distanceFromMeters, type Units } from '@/lib/units';
 // Under each line, so it also holds up on light concrete and run-off
 const CASING_COLOR = 'rgba(0, 0, 0, 0.55)';
 
-const HEIGHT = 360;
+const DEFAULT_HEIGHT = 360;
 const PADDING = 28; // px between the lines and the map's edge
 // Fitting a short focus area stops at this zoom, so it doesn't open on blurry imagery
 const MAX_FIT_ZOOM = 20;
@@ -32,7 +32,7 @@ type View = { scale: number; centerX: number; centerY: number };
 
 // What zooming and panning need to know: the view that fits the lines, and the lines' extent (zoom-0
 // pixels), which the center is kept inside so the lines can't be dragged out of sight
-type Frame = { fit: View; minX: number; maxX: number; minY: number; maxY: number; width: number };
+type Frame = { fit: View; minX: number; maxX: number; minY: number; maxY: number; width: number; height: number };
 
 // A round scale bar length in the user's units (feet or meters) close to 100 px
 function scaleBar(metersPerPixel: number, units: Units) {
@@ -69,7 +69,7 @@ function zoomView(view: View, frame: Frame, factor: number, px: number, py: numb
     {
       scale,
       centerX: view.centerX + (px - frame.width / 2) * shift,
-      centerY: view.centerY + (py - HEIGHT / 2) * shift,
+      centerY: view.centerY + (py - frame.height / 2) * shift,
     },
     frame
   );
@@ -90,12 +90,14 @@ export default function TrackLineMap({
   base,
   compare,
   width,
+  height = DEFAULT_HEIGHT,
   hoverPct,
   onHover,
 }: {
   base: PedalTraceLap;
   compare: PedalTraceLap;
   width: number;
+  height?: number;
   hoverPct: number | null;
   onHover: (pct: number | null) => void;
 }) {
@@ -130,13 +132,13 @@ export default function TrackLineMap({
   const fit: View = {
     scale: Math.min(
       (width - 2 * PADDING) / Math.max(maxX - minX, 1e-12),
-      (HEIGHT - 2 * PADDING) / Math.max(maxY - minY, 1e-12),
+      (height - 2 * PADDING) / Math.max(maxY - minY, 1e-12),
       2 ** MAX_FIT_ZOOM
     ),
     centerX: (minX + maxX) / 2,
     centerY: (minY + maxY) / 2,
   };
-  const frame: Frame = { fit, minX, maxX, minY, maxY, width };
+  const frame: Frame = { fit, minX, maxX, minY, maxY, width, height };
   const view = saved && saved.trace === base.trace ? settle(saved.view, frame) : fit;
 
   const show = (next: View) => {
@@ -178,14 +180,14 @@ export default function TrackLineMap({
   const { scale, centerX, centerY } = view;
   const toScreen = ([x, y]: [number, number]): [number, number] => [
     width / 2 + (x - centerX) * scale,
-    HEIGHT / 2 + (y - centerY) * scale,
+    height / 2 + (y - centerY) * scale,
   ];
   const screenLines = projected.map((points) => points.map(toScreen));
   const zoomedIn = view !== fit;
 
   // Tiles one zoom level sharper than the view, drawn at 50-100% size (larger past MAX_TILE_ZOOM),
   // covering the whole view
-  const { zoom: tileZoom, size: tileScreen, tiles: coveringTiles } = viewTiles(centerX, centerY, scale, width, HEIGHT);
+  const { zoom: tileZoom, size: tileScreen, tiles: coveringTiles } = viewTiles(centerX, centerY, scale, width, height);
   const tiles = settings?.available ? coveringTiles : [];
 
   const latitude = lines[0].positions[0][0];
@@ -250,7 +252,7 @@ export default function TrackLineMap({
 
   const zoomButton = (factor: number) => {
     const current = live.current;
-    if (current) show(zoomView(current.view, current.frame, factor, width / 2, HEIGHT / 2));
+    if (current) show(zoomView(current.view, current.frame, factor, width / 2, height / 2));
   };
 
   const pathOf = (points: [number, number][]) =>
@@ -273,7 +275,7 @@ export default function TrackLineMap({
 
       <div
         className="relative overflow-hidden rounded-lg border border-border bg-slate-800"
-        style={{ width, height: HEIGHT }}
+        style={{ width, height }}
       >
         <svg width="0" height="0" className="absolute" aria-hidden="true">
           <filter id={sharpenId} colorInterpolationFilters="sRGB">
@@ -300,7 +302,7 @@ export default function TrackLineMap({
         <svg
           ref={svgRef}
           width={width}
-          height={HEIGHT}
+          height={height}
           role="img"
           aria-label={fmt(t.drivingLinesAria, { laps: lines.map((l) => l.lap.title).join(t.and) })}
           className="absolute inset-0 touch-none cursor-grab active:cursor-grabbing select-none"
@@ -372,7 +374,7 @@ export default function TrackLineMap({
             })}
 
           {/* Scale bar, bottom left */}
-          <g transform={`translate(12, ${HEIGHT - 14})`} fontSize={11} fill="white">
+          <g transform={`translate(12, ${height - 14})`} fontSize={11} fill="white">
             <rect x={-4} y={-16} width={bar.pixels + 8} height={22} rx={4} fill="rgba(0, 0, 0, 0.45)" />
             <line x1={0} x2={bar.pixels} y1={0} y2={0} stroke="white" strokeWidth={2} />
             <line x1={0} x2={0} y1={-4} y2={0} stroke="white" strokeWidth={2} />

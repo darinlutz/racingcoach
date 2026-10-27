@@ -227,7 +227,6 @@ internal static class Loc
         ["target.brake"] = ("target brake", "freio alvo", "freno objetivo"),
         ["target.target"] = ("target", "alvo", "objetivo"),
         ["target.you"] = ("you", "você", "tú"),
-        ["target.inArea"] = ("In Area", "Na Área", "En el Área"),
         ["target.noKey"] = ("Enter an upload key (Upload Key in the main window) to load your Target Lap.",
             "Informe uma chave de envio (Upload Key na janela principal) para carregar sua Volta Alvo.",
             "Ingresa una clave de carga (Upload Key en la ventana principal) para cargar tu Vuelta Objetivo."),

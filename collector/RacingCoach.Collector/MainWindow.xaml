@@ -121,12 +121,11 @@
                     </StackPanel>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <Button Style="{StaticResource Button}" Content="Open Laps Folder" Click="OpenLapsFolder_Click" Margin="0,0,8,0" />
                     <Button Style="{StaticResource Button}" Content="Upload Key" Click="ChangeKey_Click" Margin="0,0,8,0" x:Name="KeyButton" />
                     <Button Style="{StaticResource Button}" Content="RacingCoach.app" Click="OpenSite_Click" Margin="0,0,8,0" />
-                    <Button Style="{StaticResource PrimaryButton}" Content="Rotation" Click="Rotation_Click" Margin="0,0,8,0" />
                     <Button Style="{StaticResource BlueButton}" Content="Brake Practice" Click="BrakePractice_Click" Margin="0,0,8,0" />
-                    <Button Style="{StaticResource BlueButton}" Content="Target Telemetry" Click="TargetTelemetry_Click" />
+                    <Button Style="{StaticResource PrimaryButton}" Content="Rotation Overlay" Click="Rotation_Click" Margin="0,0,8,0" />
+                    <Button Style="{StaticResource PrimaryButton}" Content="Target Telemetry Overlay" Click="TargetTelemetry_Click" />
                 </StackPanel>
             </Grid>
 

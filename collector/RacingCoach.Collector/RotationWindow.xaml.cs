@@ -66,11 +66,14 @@ public partial class RotationWindow : Window
             foreach (var raw in new[] { SteeringRaw, SpeedRaw, YawRateRaw, YawRaw, VelocityXRaw, VelocityYRaw, LatAccelRaw, LongAccelRaw, ThrottleRaw, BrakeRaw })
                 raw.Text = "";
             ClearRotationModel();
+            TrackIdText.Text = LapPctText.Text = "";
             return;
         }
 
         var session = _engine.Session;
         StatusText.Text = session is null ? Loc.T(_language, "live") : session.TrackConfig is null ? session.Track : $"{session.Track} ({session.TrackConfig})";
+        TrackIdText.Text = session is null ? "" : TrackKeys.For(session.Track) ?? "";
+        LapPctText.Text = d.LapDistPct is { } pct && float.IsFinite(pct) && pct >= 0 ? $"{N(pct * 100, "0.00")}%" : "";
 
         // iRacing's angles are radians, positive to the left (counterclockwise)
         Show(SteeringBox, SteeringRaw, d.SteeringWheelAngle, v => LeftRight(v * RadiansToDegrees, "°"), "rad");

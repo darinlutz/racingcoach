@@ -676,12 +676,6 @@ public partial class MainWindow : Window
 
     // ---------------------------------------------------------------- Buttons and links
 
-    private void OpenLapsFolder_Click(object sender, RoutedEventArgs e)
-    {
-        Directory.CreateDirectory(_currentFolder ?? _engine.LapsFolder);
-        Open(_currentFolder ?? _engine.LapsFolder);
-    }
-
     private void OpenLogFile_Click(object sender, RoutedEventArgs e) => Open(ActivityLog.Shared.FilePath);
     private void OpenSite_Click(object sender, RoutedEventArgs e) => Open(_siteUrl);
     private void OpenAccount_Click(object sender, RoutedEventArgs e) => Open($"{_siteUrl}/account");

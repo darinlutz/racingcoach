@@ -124,6 +124,12 @@
                 </StackPanel>
             </Grid>
 
+            <!-- Footer: iRacing's track ID (WeekendInfo.TrackName, e.g. "limerock full") and where the car is on the lap -->
+            <DockPanel DockPanel.Dock="Bottom" Margin="0,0,0,6">
+                <TextBlock x:Name="LapPctText" DockPanel.Dock="Right" Foreground="#9A9CA3" FontSize="12" FontFamily="Consolas" />
+                <TextBlock x:Name="TrackIdText" Foreground="#9A9CA3" FontSize="12" FontFamily="Consolas" TextTrimming="CharacterEllipsis" />
+            </DockPanel>
+
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />

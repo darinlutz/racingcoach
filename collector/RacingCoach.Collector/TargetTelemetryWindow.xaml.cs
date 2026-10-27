@@ -87,7 +87,6 @@ public partial class TargetTelemetryWindow : Window
         {
             Stats.Visibility = Visibility.Collapsed;
             AreaRow.Visibility = Visibility.Collapsed;
-            InAreaText.Visibility = Visibility.Collapsed;
         }
         _overlayTimer.Tick += (_, _) => RefreshOverlay(feed);
         _overlayTimer.Start();
@@ -148,7 +147,6 @@ public partial class TargetTelemetryWindow : Window
         var language = _engine.Language;
         Stats.Show(snapshot, language, _engine.Rotation);
         AreaRow.Show(snapshot, language);
-        InAreaText.Visibility = snapshot.InArea ? Visibility.Visible : Visibility.Hidden;
         var status = feed.Status(language, snapshot);
         OverlayStatusText.Text = status ?? "";
         OverlayStatusText.Visibility = status is null ? Visibility.Collapsed : Visibility.Visible;

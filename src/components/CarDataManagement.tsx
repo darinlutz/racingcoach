@@ -1,11 +1,12 @@
 'use client';
 
-import { Fragment, useEffect, useState } from 'react';
+import { type FocusEvent, Fragment, type MouseEvent, useEffect, useState } from 'react';
 import Link from 'next/link';
 import CalibrationHelpButton from '@/components/CalibrationHelpButton';
 import { useLanguage } from '@/components/LanguageProvider';
 import { useUnits } from '@/components/UnitsProvider';
 import type { CarInput, UserCar } from '@/lib/carData';
+import { CAR_PICTURE_HEIGHT, CAR_PICTURE_WIDTH, carPictureUrl } from '@/lib/carPictures';
 import type { Dictionary } from '@/lib/i18n/dictionaries/en';
 import { fmt } from '@/lib/i18n/languages';
 import { ROTATION_CALIBRATIONS } from '@/lib/rotationModelConfig';
@@ -85,6 +86,31 @@ export default function CarDataManagement() {
   const [draft, setDraft] = useState<CarDraft | null>(null);
   const [saving, setSaving] = useState(false);
   const [expanded, setExpanded] = useState<number | null>(null);
+  // The car whose name is hovered (or focused), and where its picture goes. Fixed to the window, as the table's
+  // scroll box would clip it; scrolling hides it
+  const [picture, setPicture] = useState<{ car: UserCar; url: string; left: number; top: number } | null>(null);
+
+  useEffect(() => {
+    if (!picture) return;
+    const hide = () => setPicture(null);
+    window.addEventListener('scroll', hide, true);
+    return () => window.removeEventListener('scroll', hide, true);
+  }, [picture]);
+
+  // Under the name, or above it when there's no room below; kept inside the window
+  const showPicture = (car: UserCar) => (event: MouseEvent<HTMLElement> | FocusEvent<HTMLElement>) => {
+    const url = carPictureUrl(car.name);
+    if (!url) return;
+    const box = event.currentTarget.getBoundingClientRect();
+    const below = box.bottom + 8 + CAR_PICTURE_HEIGHT <= window.innerHeight;
+    setPicture({
+      car,
+      url,
+      left: Math.max(8, Math.min(box.left, window.innerWidth - CAR_PICTURE_WIDTH - 8)),
+      top: below ? box.bottom + 8 : Math.max(8, box.top - 8 - CAR_PICTURE_HEIGHT),
+    });
+  };
+  const hidePicture = () => setPicture(null);
 
   useEffect(() => {
     fetch('/api/car-data')
@@ -334,6 +360,10 @@ export default function CarDataManagement() {
                       <button
                         type="button"
                         onClick={() => setExpanded(expanded === car.id ? null : car.id)}
+                        onMouseEnter={showPicture(car)}
+                        onMouseLeave={hidePicture}
+                        onFocus={showPicture(car)}
+                        onBlur={hidePicture}
                         aria-expanded={expanded === car.id}
                         className="text-left hover:text-primary"
                       >
@@ -400,6 +430,20 @@ export default function CarDataManagement() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {picture && (
+        <div className="fixed z-50 pointer-events-none" style={{ left: picture.left, top: picture.top }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={picture.url}
+            alt={picture.car.name}
+            width={CAR_PICTURE_WIDTH}
+            height={CAR_PICTURE_HEIGHT}
+            className="rounded-lg border border-border bg-card shadow-xl object-cover"
+            style={{ width: CAR_PICTURE_WIDTH, height: CAR_PICTURE_HEIGHT }}
+          />
         </div>
       )}
     </div>

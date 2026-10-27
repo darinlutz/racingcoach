@@ -672,7 +672,7 @@ export const es: Dictionary = {
     and: ' y ',
     steeringCaption: 'Las curvas a la izquierda van arriba y las de la derecha, abajo.',
     wheelAria: 'Volante en {position}: {angles}',
-    wheelHint: 'El volante gira con la vuelta Base en la cruz; los arcos muestran el ángulo de cada vuelta desde el centro.',
+    wheelHint: 'El volante gira con la vuelta Base en la cruz; los arcos muestran el ángulo de cada vuelta desde el centro, y las pantallas a su lado la marcha de cada vuelta.',
     drivingLine: 'Trazada',
     drivingLinesAria: 'Trazadas en la zona de enfoque: {laps}',
     noPositions:

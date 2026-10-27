@@ -75,6 +75,46 @@
       ],
       "overrides": null,
       "source": "rotation-calibrate.mjs: 30 laps, 1174 steady samples, 2026-10-13"
+    },
+    {
+      "calibrationId": "porsche992rgt3-2026-10-27",
+      "calibrationVersion": "1.0.0",
+      "carId": "porsche992rgt3",
+      "carNames": [
+        "Porsche 911 GT3 R (992)"
+      ],
+      "wheelbaseMeters": null,
+      "steeringRatio": null,
+      "cgToFrontAxleMeters": null,
+      "cgToRearAxleMeters": null,
+      "understeerGradient": null,
+      "effectiveSteerLength": 94.024,
+      "effectiveUndersteerTerm": -0.010048,
+      "yawReferenceModel": "identified-bicycle",
+      "yawGainMap": [
+        {
+          "speedMps": 41.6,
+          "gainPerRad": 0.5419
+        },
+        {
+          "speedMps": 54.3,
+          "gainPerRad": 0.8296
+        },
+        {
+          "speedMps": 56.5,
+          "gainPerRad": 0.9257
+        },
+        {
+          "speedMps": 62,
+          "gainPerRad": 1.063
+        }
+      ],
+      "validSpeedRangeMps": [
+        36,
+        68
+      ],
+      "overrides": null,
+      "source": "rotation-calibrate.mjs: 59 laps, 1498 steady samples, 2026-10-27"
     }
   ]
 }

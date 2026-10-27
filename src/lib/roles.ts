@@ -27,10 +27,12 @@ export const canCoach = (role: string | null | undefined) => role === ROLES.admi
 // Coaches and Admins see the Subscribers page (src/app/admin/subscribers/), linked from the Admin and Coach pages
 export const canSeeSubscribers = canCoach;
 
-// The In-Car AI Coach is for Gold members (and Admins): the collector's /api/collector/in-car-coach and the Account
-// page's In-Car AI Coach Instructions
+// The In-Car AI Coach is for Silver and Gold members (and Admins): the collector's /api/collector/in-car-coach and
+// the Account page's In-Car AI Coach Instructions
 export const canUseInCarCoach = (user: { membershipLevel: string; role: string }) =>
-  user.role === ROLES.admin || user.membershipLevel === MEMBERSHIP_LEVEL.gold;
+  user.role === ROLES.admin ||
+  user.membershipLevel === MEMBERSHIP_LEVEL.silver ||
+  user.membershipLevel === MEMBERSHIP_LEVEL.gold;
 
 // How many of the newest stints (sessions) Debrief Coach's recorded laps list shows: 8 for Bronze, 20 for Silver,
 // 50 for Gold members, Coaches and Admins (the most anyone sees)

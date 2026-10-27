@@ -7,7 +7,7 @@ import { MAX_IN_CAR_COACH_INSTRUCTIONS, setInCarCoachInstructions } from '@/lib/
 
 // The Account page's In-Car AI Coach Instructions, saved for the signed-in user only
 // (racingcoach."Users".in_car_coach_instructions). Body: { instructions: string } (empty clears them).
-// Gold members and Admins only, like the In-Car AI Coach itself, and only while the Admin page's Enable AI Features is on.
+// Silver and Gold members and Admins only, like the In-Car AI Coach itself, and only while the Admin page's Enable AI Features is on.
 export async function PUT(request: Request) {
   const user = await getCurrentUser();
   const t = await apiText(user);
@@ -19,7 +19,7 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: t.inCarCoachDisabled, code: 'aiFeaturesDisabled' }, { status: 403 });
     }
     if (!canUseInCarCoach(user)) {
-      return NextResponse.json({ error: t.inCarCoachGoldOnly, code: 'membershipRequired' }, { status: 403 });
+      return NextResponse.json({ error: t.inCarCoachMembersOnly, code: 'membershipRequired' }, { status: 403 });
     }
 
     const body = await request.json().catch(() => ({}));

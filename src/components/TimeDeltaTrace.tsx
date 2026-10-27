@@ -4,8 +4,19 @@ import { type KeyboardEvent, type PointerEvent } from 'react';
 
 import { useLanguage } from '@/components/LanguageProvider';
 import type { PedalTraceLap } from '@/components/PedalTraces';
-import { CHART_MARGIN as MARGIN, clamp, nearestIndex, positionLabel, xTicks, type Axis } from '@/lib/lapCharts';
+import { useUnits } from '@/components/UnitsProvider';
+import {
+  BASE_LAP_COLOR,
+  CHART_MARGIN as MARGIN,
+  clamp,
+  COMPARE_LAP_COLOR,
+  nearestIndex,
+  positionLabel,
+  xTicks,
+  type Axis,
+} from '@/lib/lapCharts';
 import { timeAtPosition } from '@/lib/lapData';
+import { SPEED_UNIT, speedFromMetersPerSecond } from '@/lib/units';
 
 const HEIGHT = 180;
 // Shading where the Compare lap loses time (above zero) and gains it (below zero)
@@ -33,9 +44,20 @@ function yTicks(lo: number, hi: number) {
   return ticks;
 }
 
+// Round speed ticks covering lo..hi: steps of 1/2/5 x 10^n, about 4 of them
+function speedTicks(lo: number, hi: number) {
+  const raw = Math.max(hi - lo, 1) / 4;
+  const magnitude = 10 ** Math.floor(Math.log10(raw));
+  const step = [1, 2, 5, 10].map((m) => m * magnitude).find((s) => s >= raw) ?? raw;
+  const ticks: number[] = [];
+  for (let v = Math.floor(lo / step) * step; v <= Math.ceil(hi / step) * step + step / 2; v += step) ticks.push(v);
+  return ticks;
+}
+
 // The Compare lap's time gained or lost against the Base lap through one focus area: at each position,
 // how much longer the Compare lap has taken since the area's start than the Base lap. Above zero the
-// Compare lap is behind, below zero ahead; the end value is the area's difference in the table. Shares
+// Compare lap is behind, below zero ahead; the end value is the area's difference in the table. Behind it,
+// each lap's speed on its own axis on the right (mph or kph): Base solid blue, Compare dotted red. Shares
 // the pedal traces' horizontal axis and crosshair.
 export default function TimeDeltaTrace({
   id,
@@ -56,6 +78,8 @@ export default function TimeDeltaTrace({
 }) {
   const { t: dictionary, fmt, locale } = useLanguage();
   const t = dictionary.charts;
+  const units = useUnits();
+  const speedUnit = SPEED_UNIT[units];
   const delta = (seconds: number) => formatDelta(seconds, locale);
   const [d0, d1] = axis.domain;
   const span = d1 - d0;
@@ -79,9 +103,28 @@ export default function TimeDeltaTrace({
   const line = pcts.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(p).toFixed(1)},${y(deltas[i]).toFixed(1)}`).join('');
   const area = `${line}L${x(d1).toFixed(1)},${zeroY.toFixed(1)}L${x(d0).toFixed(1)},${zeroY.toFixed(1)}Z`;
 
+  // Each lap's speed at the same positions, in the user's units, on its own scale
+  const speedLaps = [
+    { key: 'base', label: dictionary.lapCompare.base, lap: base, color: BASE_LAP_COLOR, dash: undefined },
+    { key: 'compare', label: dictionary.lapCompare.compare, lap: compare, color: COMPARE_LAP_COLOR, dash: '1 4' },
+  ].map((l) => ({
+    ...l,
+    speeds: pcts.map((p) => speedFromMetersPerSecond(l.lap.trace.speeds[nearestIndex(l.lap.trace.pcts, p)] ?? NaN, units)),
+  }));
+  const allSpeeds = speedLaps.flatMap((l) => l.speeds).filter(Number.isFinite);
+  const hasSpeeds = allSpeeds.length > 0;
+  const sTicks = hasSpeeds ? speedTicks(Math.min(...allSpeeds), Math.max(...allSpeeds)) : [];
+  const [sLo, sHi] = [sTicks[0] ?? 0, sTicks[sTicks.length - 1] ?? 1];
+  const sy = (speed: number) => MARGIN.top + ((sHi - clamp(speed, sLo, sHi)) / (sHi - sLo || 1)) * innerH;
+  const speedLine = (speeds: number[]) =>
+    speeds
+      .map((s, i) => (Number.isFinite(s) ? `${i === 0 || !Number.isFinite(speeds[i - 1]) ? 'M' : 'L'}${x(pcts[i]).toFixed(1)},${sy(s).toFixed(1)}` : ''))
+      .join('');
+
   const final = deltas[deltas.length - 1];
   const hoverX = hoverPct === null ? null : x(clamp(hoverPct, d0, d1));
-  const hoverDelta = hoverPct === null ? null : deltas[nearestIndex(pcts, hoverPct)];
+  const hoverIndex = hoverPct === null ? null : nearestIndex(pcts, hoverPct);
+  const hoverDelta = hoverIndex === null ? null : deltas[hoverIndex];
 
   // Text version of the chart: where the gap ends, and its largest swing each way
   const most = Math.max(...deltas);
@@ -119,6 +162,15 @@ export default function TimeDeltaTrace({
         <span className="flex items-center gap-1.5">
           <span className="inline-block w-3 h-2.5 rounded-sm" style={{ backgroundColor: GAIN_FILL }} /> {t.compareAhead}
         </span>
+        {hasSpeeds &&
+          speedLaps.map(({ key, label, color, dash }) => (
+            <span key={key} className="flex items-center gap-1.5">
+              <svg width={14} height={4} aria-hidden="true">
+                <line x1={1} x2={13} y1={2} y2={2} stroke={color} strokeWidth={2} strokeDasharray={dash} strokeLinecap="round" />
+              </svg>
+              {fmt(t.lapSpeed, { lap: label, unit: speedUnit })}
+            </span>
+          ))}
       </div>
       <svg
         width={width}
@@ -163,16 +215,37 @@ export default function TimeDeltaTrace({
           </text>
         ))}
 
+        {/* The speed axis, on the right (its unit is in the legend) */}
+        {sTicks.map((tick) => (
+          <text key={tick} x={MARGIN.left + innerW + 6} y={sy(tick)} dy="0.32em" fontSize={11} fill="currentColor" className="tabular-nums">
+            {tick.toLocaleString(locale)}
+          </text>
+        ))}
+
         <path d={area} fill={LOSS_FILL} clipPath={`url(#${id}-behind)`} />
         <path d={area} fill={GAIN_FILL} clipPath={`url(#${id}-ahead)`} />
+        {speedLaps.map(({ key, color, dash, speeds }) => (
+          <path
+            key={key}
+            d={speedLine(speeds)}
+            fill="none"
+            stroke={color}
+            strokeWidth={2}
+            strokeDasharray={dash}
+            strokeLinejoin="round"
+            strokeLinecap="round"
+          />
+        ))}
         <path d={line} fill="none" stroke="var(--foreground)" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
 
-        {/* The area's result, at the end of the line */}
+        {/* The area's result, just inside the end of the line (the speed axis has the right margin) */}
         <text
-          x={MARGIN.left + innerW + 6}
+          x={MARGIN.left + innerW - 4}
           y={y(final)}
-          dy="0.32em"
+          dy={final > 0 ? '1.1em' : '-0.5em'}
+          textAnchor="end"
           fontSize={11}
+          fontWeight={600}
           className={`tabular-nums ${final > 0 ? 'fill-red-300' : final < 0 ? 'fill-green-300' : 'fill-current'}`}
         >
           {delta(final).replace(' s', '')}
@@ -208,6 +281,19 @@ export default function TimeDeltaTrace({
               {Math.abs(hoverDelta) < 0.0005 ? t.level : hoverDelta > 0 ? t.compareBehind : t.compareAhead}
             </span>
           </p>
+          {hasSpeeds &&
+            hoverIndex !== null &&
+            speedLaps.map(({ key, label, color, speeds }) =>
+              Number.isFinite(speeds[hoverIndex]) ? (
+                <p key={key} className="flex items-center gap-2 mt-0.5">
+                  <span className="inline-block w-3 h-0.5 rounded-full" style={{ backgroundColor: color }} />
+                  <span className="font-semibold text-foreground tabular-nums">
+                    {speeds[hoverIndex].toFixed(1)} {speedUnit}
+                  </span>
+                  <span className="text-muted-foreground">{label}</span>
+                </p>
+              ) : null
+            )}
         </div>
       )}
 

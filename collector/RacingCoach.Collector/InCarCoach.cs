@@ -22,7 +22,7 @@ internal sealed class InCarCoach(Func<RacingCoachApi?> api, Action<string> log)
     public const int LapsBeforeFeedback = 1;
     // Lap feedback before the plan has loaded (or when it couldn't): the plan's defaults
     private static readonly CoachPlan DefaultPlan = new([], true, true, false, true, 1);
-    // When the site says the account doesn't have the In-Car AI Coach (it's for Gold members): no rules, no lap feedback
+    // When the site says the account doesn't have the In-Car AI Coach (it's for Silver and Gold members): no rules, no lap feedback
     private static readonly CoachPlan OffPlan = new([], false, false, false, false, 1);
     private const int MaxLapsSent = 30;
     private const int RecentCalloutsKept = 6;
@@ -148,7 +148,7 @@ internal sealed class InCarCoach(Func<RacingCoachApi?> api, Action<string> log)
         }
     }
 
-    // Off for this track and key, until either changes (no retry: the account isn't a Gold member)
+    // Off for this track and key, until either changes (no retry: the account isn't a Silver or Gold member)
     private void TurnOff(string track, RacingCoachApi site, string why)
     {
         lock (_lock)

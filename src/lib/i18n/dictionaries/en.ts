@@ -193,7 +193,6 @@ export const en = {
     intro: 'The lap you’re aiming for. Drop a lap CSV here, or tick a lap’s Target box below and press Set Target.',
     drop: 'Drag and drop a lap CSV here',
     saving: 'Saving…',
-    saved: 'Target Lap saved.',
     none: 'No Target Lap yet.',
     onlyOne: 'Drop one CSV file at a time.',
     setOn: 'Set {date}',
@@ -292,8 +291,8 @@ export const en = {
     intro:
       'Tell your In-Car AI Coach what to do and what not to do while you drive. It runs in the RacingCoach.app Collector: it can play a sound, speak or show a message when you cross the start/finish line, finish a lap, set a new best lap, enter or leave a focus area, enter or leave pit road or get an incident, and it coaches you from your laps as they upload. These are yours only.',
     placeholder: 'For example: Play a sound when I cross the start/finish line.',
-    // Shown instead of the instructions box to anyone but Gold members (and Admins)
-    goldOnly: 'The In-Car AI Coach is for Gold members. Upgrade to Gold to use it.',
+    // Shown instead of the instructions box to anyone but Silver and Gold members (and Admins)
+    membersOnly: 'The In-Car AI Coach is for Silver and Gold members. Upgrade to Silver or Gold to use it.',
     save: 'Save',
     saving: 'Saving…',
     saved: 'In-Car AI Coach Instructions saved.',
@@ -359,6 +358,7 @@ export const en = {
           'AI Coach debriefs: a lap-by-lap review of every session',
           'Clear, prioritized advice on where you’re losing time',
           'Your debriefs saved to your account and on Discord',
+          'Real-time AI coaching while you drive',
         ],
       },
       Gold: {
@@ -366,7 +366,6 @@ export const en = {
         features: [
           'Everything in Silver',
           'In-car overlay with live brake, throttle and speed targets for every focus area',
-          'Real-time AI coaching while you drive',
           'The full RacingCoach experience, on track and off',
         ],
       },
@@ -669,6 +668,7 @@ export const en = {
     pedalHoverHint: 'Hover over the chart to see the values',
     timeTitle: 'Time gained/lost',
     timeVs: 'Compare lap vs Base lap',
+    lapSpeed: '{lap} speed ({unit})',
     compareBehind: 'Compare behind',
     compareAhead: 'Compare ahead',
     level: 'level',
@@ -942,6 +942,17 @@ export const en = {
     actions: 'Actions',
     noNotes: 'No notes yet. Press Edit to add some.',
     calibratedCars: 'Calibrated Cars',
+    racingDiscipline: 'Racing Discipline',
+    noDiscipline: 'None',
+    // Labels of RACING_DISCIPLINES (src/lib/racingDisciplines.ts), by the English name stored with the car
+    disciplines: {
+      'Sports Car': 'Sports Car',
+      'Prototype': 'Prototype',
+      'Formula Car': 'Formula Car',
+      'Oval': 'Oval',
+      'Dirt Oval': 'Dirt Oval',
+      'Dirt Road': 'Dirt Road',
+    },
     noCalibratedCars: 'No cars are calibrated yet.',
     calibrationVersion: 'Calibration',
     validSpeeds: 'Valid Speeds ({unit})',
@@ -1690,7 +1701,7 @@ export const en = {
     failedSaveInCarInstructions: 'Failed to save the In-Car AI Coach Instructions',
     inCarInstructionsTooLong: 'The In-Car AI Coach Instructions are too long',
     logInInCarInstructions: 'Log in to save your In-Car AI Coach Instructions',
-    inCarCoachGoldOnly: 'The In-Car AI Coach is for Gold members',
+    inCarCoachMembersOnly: 'The In-Car AI Coach is for Silver and Gold members',
     inCarCoachDisabled: 'The In-Car AI Coach is turned off right now',
     unknownCoachVoice: 'Unknown coach voice',
     unknownSpanishAccent: 'Unknown Spanish accent',

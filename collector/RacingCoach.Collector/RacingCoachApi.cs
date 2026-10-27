@@ -228,7 +228,7 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
     /// to run on live telemetry, how to deliver lap feedback, and the track's focus areas. Throws
     /// UnauthorizedAccessException if the key isn't accepted, HttpRequestException (also for a server error,
     /// e.g. the AI being unavailable) or TaskCanceledException if the site can't be reached, and
-    /// CoachNotAvailableException when the account isn't a Gold member.</summary>
+    /// CoachNotAvailableException when the account isn't a Silver or Gold member.</summary>
     public async Task<CoachPlanResponse> GetCoachPlanAsync(string trackName, CancellationToken ct)
     {
         using var response = await _http.GetAsync($"api/collector/in-car-coach?track={Uri.EscapeDataString(trackName)}{TrackKeys.Param(trackName)}", ct);
@@ -244,7 +244,7 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
 
     /// <summary>What the In-Car AI Coach wants to tell the driver now, from the session's uploaded laps (by
     /// clientLapId, oldest first) and what it said recently; often nothing. Error is why there's no answer. Throws
-    /// CoachNotAvailableException when the account isn't a Gold member.</summary>
+    /// CoachNotAvailableException when the account isn't a Silver or Gold member.</summary>
     public async Task<(IReadOnlyList<CoachCallout> Callouts, string? Error)> GetCoachCalloutsAsync(
         IEnumerable<Guid> clientLapIds, IEnumerable<string> recentCallouts, CancellationToken ct)
     {
@@ -433,7 +433,7 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
 internal sealed record AccountPreferences(bool Metric, string Language, bool? BrakeBeeps, int? BrakeBeepsVolume, bool? PoliciesAccepted);
 
 /// <summary>GET /api/collector/in-car-coach (src/lib/inCarCoach.ts in the website).</summary>
-/// <summary>The site doesn't give this account the In-Car AI Coach (it's for Gold members); Message says why.</summary>
+/// <summary>The site doesn't give this account the In-Car AI Coach (it's for Silver and Gold members); Message says why.</summary>
 internal sealed class CoachNotAvailableException(string message) : Exception(message);
 
 internal sealed record CoachPlanResponse(string? Instructions, CoachPlan? Plan, List<CoachArea>? Areas, string? Locale);

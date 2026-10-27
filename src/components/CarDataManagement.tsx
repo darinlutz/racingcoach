@@ -9,13 +9,17 @@ import type { CarInput, UserCar } from '@/lib/carData';
 import { CAR_PICTURE_HEIGHT, CAR_PICTURE_WIDTH, carPictureUrl } from '@/lib/carPictures';
 import type { Dictionary } from '@/lib/i18n/dictionaries/en';
 import { fmt } from '@/lib/i18n/languages';
+import { RACING_DISCIPLINES, type RacingDiscipline } from '@/lib/racingDisciplines';
 import { ROTATION_CALIBRATIONS } from '@/lib/rotationModelConfig';
 import { lbFtFromTorque, SPEED_UNIT, speedFromMetersPerSecond, TORQUE_UNIT, torqueFromLbFt, type Units } from '@/lib/units';
 
-type NumberField = Exclude<keyof CarInput, 'name' | 'notes'>;
+type NumberField = Exclude<keyof CarInput, 'name' | 'racingDiscipline' | 'notes'>;
 
 // Form values are kept as typed text and converted when the car is saved
-type CarDraft = { id: number | null; name: string; notes: string } & Record<NumberField, string>;
+type CarDraft = { id: number | null; name: string; racingDiscipline: RacingDiscipline | ''; notes: string } & Record<
+  NumberField,
+  string
+>;
 
 // Every numeric field in form order: unit, whether it is a whole number, and a placeholder (labels: dictionary cars.fields)
 const NUMBER_FIELDS: { field: NumberField; unit: string; integer: boolean; placeholder: string }[] = [
@@ -40,7 +44,12 @@ const fieldPlaceholder = (field: NumberField, placeholder: string, units: Units)
   field === 'torqueLbFt' ? String(torqueText(Number(placeholder), units)) : placeholder;
 
 function toDraft(car: UserCar | null, units: Units): CarDraft {
-  const draft = { id: car?.id ?? null, name: car?.name ?? '', notes: car?.notes ?? '' } as CarDraft;
+  const draft = {
+    id: car?.id ?? null,
+    name: car?.name ?? '',
+    racingDiscipline: car?.racingDiscipline ?? '',
+    notes: car?.notes ?? '',
+  } as CarDraft;
   for (const { field } of NUMBER_FIELDS) {
     draft[field] = !car ? '' : field === 'torqueLbFt' ? asText(torqueText(car.torqueLbFt, units)) : asText(car[field]);
   }
@@ -59,7 +68,7 @@ function parseNumber(text: string, label: string, integer: boolean, t: Dictionar
 }
 
 function toInput(draft: CarDraft, t: Dictionary['cars'], units: Units): CarInput {
-  const input = { name: draft.name, notes: draft.notes } as CarInput;
+  const input = { name: draft.name, racingDiscipline: draft.racingDiscipline || null, notes: draft.notes } as CarInput;
   for (const { field, integer } of NUMBER_FIELDS) input[field] = parseNumber(draft[field], t.fields[field], integer, t);
   // Back to whole lb-ft, as Car Data stores it
   if (input.torqueLbFt !== null) input.torqueLbFt = Math.max(1, Math.round(lbFtFromTorque(input.torqueLbFt, units)));
@@ -270,6 +279,25 @@ export default function CarDataManagement() {
             />
           </div>
 
+          <div>
+            <label htmlFor="car-discipline" className="block text-sm font-medium text-foreground mb-1">
+              {t.racingDiscipline} <span className="font-normal text-muted-foreground">{dictionary.common.optional}</span>
+            </label>
+            <select
+              id="car-discipline"
+              value={draft.racingDiscipline}
+              onChange={(e) => updateDraft({ racingDiscipline: e.target.value as RacingDiscipline | '' })}
+              className={inputClass}
+            >
+              <option value="">{t.noDiscipline}</option>
+              {RACING_DISCIPLINES.map((discipline) => (
+                <option key={discipline} value={discipline}>
+                  {t.disciplines[discipline]}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {NUMBER_FIELDS.map(({ field, unit, integer, placeholder }) => (
               <div key={field}>
@@ -332,6 +360,9 @@ export default function CarDataManagement() {
                 <th scope="col" className="px-4 py-3 font-semibold">
                   {t.car}
                 </th>
+                <th scope="col" className="px-4 py-3 font-semibold">
+                  {t.racingDiscipline}
+                </th>
                 <th scope="col" className="px-4 py-3 font-semibold text-right">
                   {t.powerBhp}
                 </th>
@@ -371,6 +402,9 @@ export default function CarDataManagement() {
                         {car.name}
                       </button>
                     </th>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {car.racingDiscipline ? t.disciplines[car.racingDiscipline] : '—'}
+                    </td>
                     <td className="px-4 py-3 text-right tabular-nums">{stat(car.powerBhp, locale)}</td>
                     <td className="px-4 py-3 text-right tabular-nums">{stat(torqueText(car.torqueLbFt, units), locale)}</td>
                     <td className="px-4 py-3 text-right tabular-nums">{stat(car.rpmLimit, locale)}</td>
@@ -399,7 +433,7 @@ export default function CarDataManagement() {
                   {/* Dimensions, weights and notes for this car */}
                   {expanded === car.id && (
                     <tr>
-                      <td colSpan={7} className="px-4 pb-4 bg-secondary">
+                      <td colSpan={8} className="px-4 pb-4 bg-secondary">
                         <table className="mt-3 w-full text-xs text-left bg-card border border-border rounded">
                           <thead className="bg-secondary text-muted-foreground">
                             <tr>

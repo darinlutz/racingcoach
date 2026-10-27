@@ -18,14 +18,14 @@ import { DEFAULT_UNITS } from '@/lib/units';
 import { getInCarCoachInstructions, getUserById } from '@/lib/users';
 
 // The telemetry collector's In-Car AI Coach (src/lib/inCarCoach.ts), authenticated with the upload key as a
-// bearer token, like /api/collector/laps. For Gold members and Admins only (canUseInCarCoach): anyone else gets
+// bearer token, like /api/collector/laps. For Silver and Gold members and Admins only (canUseInCarCoach): anyone else gets
 // 403 { code: 'membershipRequired' } before any AI call, and the collector turns the coach off. While the Admin
 // page's Enable AI Features is off, everyone gets 403 { code: 'aiFeaturesDisabled' } the same way (the collector
 // asks again at the next track).
 
-const goldOnlyResponse = () =>
+const membersOnlyResponse = () =>
   NextResponse.json(
-    { error: 'The In-Car AI Coach is for Gold members', code: 'membershipRequired' },
+    { error: 'The In-Car AI Coach is for Silver and Gold members', code: 'membershipRequired' },
     { status: 403 }
   );
 
@@ -63,7 +63,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Missing or unknown upload key' }, { status: 401 });
     }
     if (!(await getEnableAiFeatures())) return disabledResponse();
-    if (!user.user || !canUseInCarCoach(user.user)) return goldOnlyResponse();
+    if (!user.user || !canUseInCarCoach(user.user)) return membersOnlyResponse();
     const track = findTrackByKey(await readTracks(), new URL(request.url).searchParams.get('key'));
     const areas = [...(track?.areas ?? [])]
       .sort((a, b) => a.position - b.position)
@@ -104,7 +104,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing or unknown upload key' }, { status: 401 });
     }
     if (!(await getEnableAiFeatures())) return disabledResponse();
-    if (!user.user || !canUseInCarCoach(user.user)) return goldOnlyResponse();
+    if (!user.user || !canUseInCarCoach(user.user)) return membersOnlyResponse();
     const parsed = bodySchema.safeParse(await request.json().catch(() => null));
     if (!parsed.success) {
       return NextResponse.json({ error: 'Expected { clientLapIds: [uuid, ...], recentCallouts: [string, ...] }' }, { status: 400 });

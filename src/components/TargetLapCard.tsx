@@ -3,11 +3,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { useLanguage } from '@/components/LanguageProvider';
+import SetTargetLapDialog, { type SetTargetLapStep } from '@/components/SetTargetLapDialog';
 import { formatLapTime } from '@/lib/lapData';
 import { targetLapParts, uploadTargetLap, type SavedTargetLap } from '@/lib/targetLapUpload';
 
 // Debrief Coach's Target Lap card, at its top: one lap CSV saved for the user (racingcoach."Users"."TargetLap").
-// Drop a CSV on it or browse for one, or tick a lap's Target box below and press Set Target. Shows the current
+// Drop a CSV on it or browse for one (confirmed in SetTargetLapDialog), or tick a lap's Target box below and press Set Target. Shows the current
 // Target Lap with Download and Remove. Loaded again when `version` changes (a Set Target button elsewhere in
 // Debrief Coach); `onChange` tells Debrief Coach when this card sets or removes it.
 export default function TargetLapCard({ version = 0, onChange }: { version?: number; onChange?: () => void }) {
@@ -20,6 +21,12 @@ export default function TargetLapCard({ version = 0, onChange }: { version?: num
   const [confirmingRemove, setConfirmingRemove] = useState(false);
   // Stable, so the dialog's Escape listener isn't re-added on every render
   const closeConfirm = useCallback(() => setConfirmingRemove(false), []);
+  // The dropped or browsed CSV waiting in the Set Target dialog (kept after it closes, while it fades out)
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [setOpen, setSetOpen] = useState(false);
+  const [setStep, setSetStep] = useState<SetTargetLapStep>('confirm');
+  const [setError, setSetError] = useState('');
+  const closeSetTarget = useCallback(() => setSetOpen(false), []);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -42,20 +49,32 @@ export default function TargetLapCard({ version = 0, onChange }: { version?: num
     };
   }, [t, version]);
 
-  const save = async (files: FileList | null | undefined) => {
+  // A dropped or browsed CSV is only saved once the user confirms it in SetTargetLapDialog
+  const pick = (files: FileList | null | undefined) => {
     if (!files || files.length === 0 || busy) return;
     if (files.length > 1) {
       setMessage({ ok: false, text: c.onlyOne });
       return;
     }
-    setBusy(true);
     setMessage(null);
+    setPendingFile(files[0]);
+    setSetStep('confirm');
+    setSetError('');
+    setSetOpen(true);
+  };
+
+  const save = async () => {
+    if (!pendingFile) return;
+    setBusy(true);
+    setSetError('');
+    setSetStep('saving');
     try {
-      setTargetLap(await uploadTargetLap(files[0], t.api.failedSaveTargetLap));
-      setMessage({ ok: true, text: c.saved });
+      setTargetLap(await uploadTargetLap(pendingFile, t.api.failedSaveTargetLap));
+      setSetStep('saved');
       onChange?.();
     } catch (err) {
-      setMessage({ ok: false, text: err instanceof Error ? err.message : t.api.failedSaveTargetLap });
+      setSetError(err instanceof Error ? err.message : t.api.failedSaveTargetLap);
+      setSetStep('confirm');
     } finally {
       setBusy(false);
     }
@@ -96,7 +115,7 @@ export default function TargetLapCard({ version = 0, onChange }: { version?: num
         onDrop={(e) => {
           e.preventDefault();
           setDragging(false);
-          void save(e.dataTransfer.files);
+          pick(e.dataTransfer.files);
         }}
         className={`flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-4 rounded-lg border-2 border-dashed transition-colors ${
           dragging ? 'border-primary bg-accent' : 'border-border bg-secondary'
@@ -120,7 +139,7 @@ export default function TargetLapCard({ version = 0, onChange }: { version?: num
           className="hidden"
           aria-label={c.title}
           onChange={(e) => {
-            void save(e.target.files);
+            pick(e.target.files);
             e.target.value = '';
           }}
         />
@@ -176,6 +195,15 @@ export default function TargetLapCard({ version = 0, onChange }: { version?: num
       >
         {targetLap && (parts ? `${parts.driver} • ${parts.car} • ${parts.track} • ${formatLapTime(parts.lapTime)}` : targetLap.fileName)}
       </ConfirmDialog>
+
+      <SetTargetLapDialog
+        open={setOpen}
+        step={setStep}
+        fileName={pendingFile?.name ?? ''}
+        error={setError}
+        onConfirm={() => void save()}
+        onClose={closeSetTarget}
+      />
 
       {message && (
         <p role="status" className={`mt-2 text-sm ${message.ok ? 'text-positive' : 'text-red-300'}`}>

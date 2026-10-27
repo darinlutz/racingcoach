@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { query } from './db';
 import { DEFAULT_CARS } from './defaultCars';
+import { RACING_DISCIPLINES } from './racingDisciplines';
 import { ensureUserSchema } from './users';
 
 // Each user's own cars in racingcoach."CarsUsers" (created by ensureUserSchema and copied from the
@@ -11,6 +12,7 @@ const whole = z.number().int().positive().max(100000).nullable();
 
 export const carInputSchema = z.object({
   name: z.string().trim().min(1, 'Car name is required').max(200),
+  racingDiscipline: z.enum(RACING_DISCIPLINES).nullable(),
   lengthIn: measure,
   widthIn: measure,
   wheelbaseIn: measure,
@@ -50,11 +52,12 @@ export class CarNotFoundError extends Error {
   }
 }
 
-const CAR_COLUMNS = `car_name, length_in, width_in, wheelbase_in, dry_weight_lbs, wet_weight_lbs,
+const CAR_COLUMNS = `car_name, racing_discipline, length_in, width_in, wheelbase_in, dry_weight_lbs, wet_weight_lbs,
   displacement_liters, rpm_limit, torque_lb_ft, power_bhp, notes`;
 
 const carValues = (car: CarInput) => [
   car.name,
+  car.racingDiscipline,
   car.lengthIn,
   car.widthIn,
   car.wheelbaseIn,
@@ -76,6 +79,7 @@ export async function readCars(userId: number): Promise<UserCar[]> {
   return rows.map((r) => ({
     id: r.id as number,
     name: r.car_name as string,
+    racingDiscipline: r.racing_discipline as CarInput['racingDiscipline'],
     lengthIn: r.length_in as number | null,
     widthIn: r.width_in as number | null,
     wheelbaseIn: r.wheelbase_in as number | null,
@@ -94,7 +98,7 @@ export async function addCar(userId: number, car: CarInput): Promise<number> {
   await ensureUserSchema();
   const [row] = await query(
     `INSERT INTO racingcoach."CarsUsers" (user_id, ${CAR_COLUMNS})
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id`,
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING id`,
     [userId, ...carValues(car)]
   );
   return row.id as number;
@@ -104,9 +108,9 @@ export async function addCar(userId: number, car: CarInput): Promise<number> {
 export async function updateCar(userId: number, id: number, car: CarInput): Promise<void> {
   await ensureUserSchema();
   const rows = await query(
-    `UPDATE racingcoach."CarsUsers" SET car_name = $3, length_in = $4, width_in = $5, wheelbase_in = $6,
-       dry_weight_lbs = $7, wet_weight_lbs = $8, displacement_liters = $9, rpm_limit = $10,
-       torque_lb_ft = $11, power_bhp = $12, notes = $13, updated_at = now()
+    `UPDATE racingcoach."CarsUsers" SET car_name = $3, racing_discipline = $4, length_in = $5, width_in = $6,
+       wheelbase_in = $7, dry_weight_lbs = $8, wet_weight_lbs = $9, displacement_liters = $10, rpm_limit = $11,
+       torque_lb_ft = $12, power_bhp = $13, notes = $14, updated_at = now()
      WHERE id = $1 AND user_id = $2 RETURNING id`,
     [id, userId, ...carValues(car)]
   );

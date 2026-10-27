@@ -7,8 +7,8 @@ import { useLanguage } from '@/components/LanguageProvider';
 
 // The Account page's My In-Car AI Coach Instructions box: what the user's own In-Car AI Coach should do
 // and not do, saved for them only (PUT /api/account/in-car-coach-instructions) with the Save button; and
-// below it the voice the coach speaks with (and its accent, for Spanish). The In-Car AI Coach is for Gold members
-// (canUseInCarCoach); anyone else sees why in place of the box, with View Membership Plans when viewPlans, and still
+// below it the voice the coach speaks with (and its accent, for Spanish). The In-Car AI Coach is for Silver and Gold
+// members (canUseInCarCoach); anyone else sees why in place of the box, with View Membership Plans when viewPlans, and still
 // picks the voice, which the collector's in-session debrief speaks with too.
 export default function InCarCoachInstructionsCard({
   instructions: initial,
@@ -106,7 +106,7 @@ export default function InCarCoachInstructionsCard({
         </>
       ) : (
         <div className="p-3 rounded-lg bg-secondary border border-border text-sm text-foreground">
-          <p>{c.goldOnly}</p>
+          <p>{c.membersOnly}</p>
           {viewPlans && (
             <Link
               href="/pricing"

@@ -556,6 +556,8 @@ export const es: Dictionary = {
     selectAll: 'Seleccionar todas',
     setTarget: 'Definir objetivo',
     compare: 'Comparar',
+    compareToTarget: 'Comparar con el objetivo',
+    noTargetSet: 'Sin objetivo definido',
     loadingShort: 'Cargando…',
     debriefColumn: 'Debrief',
     targetColumn: 'Objetivo',

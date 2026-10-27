@@ -15,7 +15,7 @@ import {
   type Track,
 } from '@/lib/lapData';
 import { STINT_LIMITS } from '@/lib/roles';
-import { uploadTargetLap } from '@/lib/targetLapUpload';
+import { targetLapParts, uploadTargetLap, type SavedTargetLap } from '@/lib/targetLapUpload';
 
 // Laps more than this far apart start a new session in the list (offline sessions have no iRacing IDs)
 const SESSION_GAP_MS = 30 * 60 * 1000;
@@ -92,7 +92,8 @@ const smallButtonClass =
 // Each lap also has a Target checkbox: Set Target saves the one ticked lap as the user's Target Lap
 // (/api/account/target-lap, shown on the Account page).
 // A Compare column takes up to two laps; Compare sends them to onCompare, fastest first (the Racing
-// page opens them in Lap Compare as the Base and Compare laps).
+// page opens them in Lap Compare as the Base and Compare laps). With one lap ticked there, Compare to Target sends
+// the user's Target Lap as the Base lap and that lap as the Compare lap; it says No Target Set without a Target Lap.
 // A Driver box picks whose laps are listed (their own at first), any number of drivers or All Drivers. Coaches and
 // Admins can pick every account with laps; Users only themselves and Coaches (the API enforces it).
 export default function RecordedLaps({
@@ -100,12 +101,15 @@ export default function RecordedLaps({
   onChange,
   onCompare,
   onTargetLapSet,
+  targetLapVersion = 0,
 }: {
   tracks: Track[];
   onChange: (laps: LapFile[]) => void;
   onCompare?: (base: LapFile, compare: LapFile) => void;
   // After Set Target saved a new Target Lap
   onTargetLapSet?: () => void;
+  // Changes when the Target Lap is set or removed, so Compare to Target checks for it again
+  targetLapVersion?: number;
 }) {
   const { t: dictionary, fmt, plural, locale } = useLanguage();
   const t = dictionary.recordedLaps;
@@ -124,6 +128,9 @@ export default function RecordedLaps({
   // Laps ticked in the Compare column, oldest tick first (at most two), and whether Compare is loading them
   const [comparePicks, setComparePicks] = useState<number[]>([]);
   const [comparing, setComparing] = useState(false);
+  // The user's Target Lap (null when none is set, undefined while loading), and whether Compare to Target is loading
+  const [savedTarget, setSavedTarget] = useState<SavedTargetLap | null | undefined>(undefined);
+  const [comparingTarget, setComparingTarget] = useState(false);
   // The drivers the user can pick, whose laps are shown, and which driver is them
   const [drivers, setDrivers] = useState<LapOwner[] | null>(null);
   // null until drivers are picked (the user's own laps)
@@ -161,6 +168,22 @@ export default function RecordedLaps({
       current = false;
     };
   }, [t, driverPick]);
+
+  useEffect(() => {
+    if (!onCompare) return;
+    let current = true;
+    fetch('/api/account/target-lap?info=1')
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        if (current) setSavedTarget(res.ok ? data.targetLap : null);
+      })
+      .catch(() => {
+        if (current) setSavedTarget(null);
+      });
+    return () => {
+      current = false;
+    };
+  }, [onCompare, targetLapVersion]);
 
   // Shows other drivers' laps, starting over with nothing picked
   const changeDrivers = (pick: DriverPick) => {
@@ -268,6 +291,38 @@ export default function RecordedLaps({
     } catch (err) {
       setError(fmt(t.compareFailed, { error: err instanceof Error ? err.message : dictionary.common.unknownError }));
       setComparing(false);
+    }
+  };
+
+  // Sends the user's Target Lap (as the Base lap) and the one Compare lap to Lap Compare. A Target Lap whose file
+  // name isn't a lap file name takes the Compare lap's car and track, and its time from its 60 Hz rows.
+  const compareToTarget = async () => {
+    const lap = laps.find((l) => comparePicks.includes(l.id));
+    if (comparePicks.length !== 1 || !lap || !savedTarget || !onCompare) return;
+    setError('');
+    setComparingTarget(true);
+    try {
+      const [lapToCompare, csv] = await Promise.all([
+        lapFile(lap),
+        fetch('/api/account/target-lap').then(async (res) => {
+          if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || dictionary.api.failedLoadTargetLap);
+          return res.text();
+        }),
+      ]);
+      const parts = targetLapParts(savedTarget.fileName);
+      const rows = csv.split(/\r?\n/).filter((line) => line.trim()).length - 1;
+      const target: LapFile = {
+        file: new File([csv], savedTarget.fileName, { type: 'text/csv' }),
+        driverName: parts?.driver ?? savedTarget.fileName,
+        carName: parts?.car ?? lapToCompare.carName,
+        trackName: parts?.track ?? lapToCompare.trackName,
+        lapTime: parts?.lapTime ?? secondsToLapTime(rows / 60),
+        fileId: 'target',
+      };
+      onCompare(target, lapToCompare);
+    } catch (err) {
+      setError(fmt(t.compareFailed, { error: err instanceof Error ? err.message : dictionary.common.unknownError }));
+      setComparingTarget(false);
     }
   };
 
@@ -419,6 +474,22 @@ export default function RecordedLaps({
                     className="px-3 py-1 text-xs font-semibold rounded-lg text-white bg-blue-600 hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {comparing && comparesHere ? t.loadingShort : t.compare}
+                  </button>
+                )}
+                {/* Only enabled with exactly one lap ticked in the Compare column and a Target Lap set */}
+                {onCompare && (
+                  <button
+                    type="button"
+                    disabled={comparePicks.length !== 1 || !comparesHere || !savedTarget || comparingTarget}
+                    onClick={() => void compareToTarget()}
+                    data-track="compare-to-target"
+                    className="px-3 py-1 text-xs font-semibold rounded-lg text-white bg-blue-600 hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {comparingTarget && comparesHere
+                      ? t.loadingShort
+                      : savedTarget === null
+                        ? t.noTargetSet
+                        : t.compareToTarget}
                   </button>
                 )}
               </div>

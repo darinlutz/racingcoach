@@ -385,6 +385,7 @@ export default function DebriefCoach({ onCompare }: { onCompare?: (base: LapFile
           onChange={pickRecordedLaps}
           onCompare={onCompare}
           onTargetLapSet={() => setTargetLapVersion((v) => v + 1)}
+          targetLapVersion={targetLapVersion}
         />
       </div>
 

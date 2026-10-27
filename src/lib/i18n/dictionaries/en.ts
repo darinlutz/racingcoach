@@ -566,6 +566,8 @@ export const en = {
     selectAll: 'Select all',
     setTarget: 'Set Target',
     compare: 'Compare',
+    compareToTarget: 'Compare to Target',
+    noTargetSet: 'No Target Set',
     loadingShort: 'Loading…',
     debriefColumn: 'Debrief',
     targetColumn: 'Target',

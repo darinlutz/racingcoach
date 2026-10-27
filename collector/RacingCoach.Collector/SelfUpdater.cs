@@ -94,7 +94,7 @@ internal static class SelfUpdater
         }
         try
         {
-            // Signed by the same publisher as this collector (Clarivex, LLC), or it isn't run
+            // Signed by the same publisher as this collector (Clarivex LLC), or it isn't run
             Authenticode.RequireSamePublisher(partialPath);
         }
         catch

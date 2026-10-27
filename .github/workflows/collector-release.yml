@@ -1,4 +1,4 @@
-# Builds the RacingCoach.app Collector (collector/RacingCoach.Collector), signs it as Clarivex, LLC with Azure Artifact
+# Builds the RacingCoach.app Collector (collector/RacingCoach.Collector), signs it as Clarivex LLC with Azure Artifact
 # Signing, builds and signs its installer (collector/installer), checks every signature, and publishes both as a GitHub
 # release when a collector-v* tag is pushed, e.g.
 #   git tag collector-v1.40.0
@@ -31,7 +31,7 @@ env:
   # what sign tools are given
   INNO_SETUP_VERSION: 6.7.3
   # Who every signature must be from
-  SIGNING_PUBLISHER: Clarivex, LLC
+  SIGNING_PUBLISHER: Clarivex LLC
   TIMESTAMP_URL: http://timestamp.acs.microsoft.com
 
 jobs:
@@ -199,7 +199,7 @@ jobs:
           $notes = @"
           Download **RacingCoach.Collector.Setup.exe** below and run it on the PC you race on. It installs RacingCoach.app Collector in Program Files, with a Start menu shortcut. **RacingCoach.Collector.exe** is the collector on its own, to run without installing.
 
-          Both are signed by **Clarivex, LLC**, the company behind RacingCoach.app. While a new release is still building its reputation, Windows SmartScreen may show a warning: check that the publisher says Clarivex, LLC, then click **More info** and **Run anyway**.
+          Both are signed by **Clarivex LLC**, the company behind RacingCoach.app. While a new release is still building its reputation, Windows SmartScreen may show a warning: check that the publisher says Clarivex LLC, then click **More info** and **Run anyway**.
           "@
           gh release create '${{ github.ref_name }}' `
             'collector/RacingCoach.Collector/publish/RacingCoach.Collector.Setup.exe' `

@@ -4,7 +4,7 @@ using System.Security.Cryptography.X509Certificates;
 namespace RacingCoach.Collector;
 
 /// <summary>
-/// Checks Windows code signatures (Authenticode). Releases are signed by Clarivex, LLC through Azure Artifact Signing
+/// Checks Windows code signatures (Authenticode). Releases are signed by Clarivex LLC through Azure Artifact Signing
 /// (.github/workflows/collector-release.yml), so SelfUpdater only installs a download signed by the same publisher as
 /// the running collector. A collector that isn't signed itself (a local build, or one from before signing) doesn't
 /// check, so local builds still update.

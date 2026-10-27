@@ -37,7 +37,7 @@
 #include AddBackslash(LegalDir) + "versions.iss"
 
 #define AppName "RacingCoach.app Collector"
-#define Publisher "Clarivex, LLC"
+#define Publisher "Clarivex LLC"
 #define AppExe "RacingCoach.Collector.exe"
 ; The collector's single-instance mutex (Program.SingleInstanceName)
 #define AppMutex "Local\RacingCoach.Collector"

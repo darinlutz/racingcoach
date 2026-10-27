@@ -490,7 +490,7 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
   >([]);
   const [analyzing, setAnalyzing] = useState(false);
   // Provide summary: off, Analyze Laps still measures every focus area but skips the AI summary
-  const [provideSummary, setProvideSummary] = useState(true);
+  const [provideSummary, setProvideSummary] = useState(false);
   // The focus area whose telemetry is shown, picked across the top
   const [selectedArea, setSelectedArea] = useState('');
 
@@ -699,25 +699,27 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
       )}
 
       <div className="space-y-4">
-        <button
-          type="button"
-          onClick={() => void analyzeLaps()}
-          disabled={!baseLap || !compareLap || analyzing}
-          className="px-6 py-3 font-semibold text-white bg-gradient-to-r from-primary to-primary-strong rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {analyzing ? t.analyzing : t.analyze}
-        </button>
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+          <button
+            type="button"
+            onClick={() => void analyzeLaps()}
+            disabled={!baseLap || !compareLap || analyzing}
+            className="px-6 py-3 font-semibold text-white bg-gradient-to-r from-primary to-primary-strong rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {analyzing ? t.analyzing : t.analyze}
+          </button>
 
-        <label className="flex items-center gap-2 text-sm text-foreground">
-          <input
-            type="checkbox"
-            checked={provideSummary}
-            onChange={(e) => setProvideSummary(e.target.checked)}
-            disabled={analyzing}
-            className="accent-primary"
-          />
-          {t.provideSummary}
-        </label>
+          <label className="flex items-center gap-2 text-sm text-foreground">
+            <input
+              type="checkbox"
+              checked={provideSummary}
+              onChange={(e) => setProvideSummary(e.target.checked)}
+              disabled={analyzing}
+              className="accent-primary"
+            />
+            {t.provideSummary}
+          </label>
+        </div>
 
         {areaRows.length > 0 && <AreaTable rows={areaRows} />}
 

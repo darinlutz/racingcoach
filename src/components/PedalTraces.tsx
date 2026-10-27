@@ -90,6 +90,10 @@ function TraceChart({
 
   const hoverIndexes = hoverPct === null ? null : laps.map(({ lap }) => nearestIndex(lap.trace.pcts, hoverPct));
   const hoverX = hoverPct === null ? null : x(clamp(hoverPct, d0, d1));
+  const channels = [
+    { key: 'brake', label: t.charts.brake, values: laps.map(({ lap }) => lap.trace.brakes) },
+    { key: 'throttle', label: t.charts.throttle, values: laps.map(({ lap }) => lap.trace.throttles) },
+  ];
 
   const positionFromPointer = (event: PointerEvent<SVGRectElement>) => {
     const box = event.currentTarget.ownerSVGElement?.getBoundingClientRect();
@@ -106,7 +110,7 @@ function TraceChart({
   };
 
   return (
-    <figure className="relative">
+    <figure>
       <div className="flex flex-wrap gap-x-6 gap-y-1 mb-1 text-xs text-muted-foreground">
         {laps.map(({ key, lap, brakeColor, throttleColor, dotted }) => (
           <span key={key} className="flex items-center gap-3">
@@ -119,6 +123,34 @@ function TraceChart({
             </span>
           </span>
         ))}
+      </div>
+      {/* The values at the crosshair in a fixed place above the plot rather than a pop-up, with the
+          Compare lap's minus the Base lap's; dashes while nothing is hovered so the chart doesn't move */}
+      <div className="flex flex-wrap items-start gap-x-8 gap-y-2 mb-2 text-xs">
+        {channels.map(({ key, label, values }) => {
+          const lapValues = hoverIndexes === null ? null : values.map((v, i) => Math.round(v[hoverIndexes[i]] * 100));
+          const delta = lapValues === null ? null : lapValues[1] - lapValues[0];
+          return (
+            <div key={key}>
+              <p className="font-semibold uppercase tracking-wide text-muted-foreground">
+                {label} <span className="font-normal normal-case">({t.charts.pedalDelta})</span>
+              </p>
+              <p className="text-2xl font-semibold text-foreground tabular-nums leading-tight">
+                {delta === null ? '–' : `${delta > 0 ? '+' : delta < 0 ? '−' : ''}${Math.abs(delta)}%`}
+              </p>
+              {laps.map(({ key: lapKey, lap, brakeColor, throttleColor, dotted }, i) => (
+                <p key={lapKey} className="flex items-center gap-1.5 text-muted-foreground">
+                  <LineKey color={key === 'brake' ? brakeColor : throttleColor} dotted={dotted} />
+                  {lap.title}
+                  <span className="font-semibold text-foreground tabular-nums">{lapValues === null ? '–' : `${lapValues[i]}%`}</span>
+                </p>
+              ))}
+            </div>
+          );
+        })}
+        <p className="self-end text-muted-foreground tabular-nums">
+          {hoverPct === null ? t.charts.pedalHoverHint : positionLabel(hoverPct, axis)}
+        </p>
       </div>
       <svg
         width={width}
@@ -177,34 +209,6 @@ function TraceChart({
           onPointerLeave={() => onHover(null)}
         />
       </svg>
-
-      {hoverIndexes !== null && hoverX !== null && hoverPct !== null && (
-        <div
-          className="pointer-events-none absolute top-8 z-10 px-3 py-2 rounded-lg border border-border bg-card shadow-lg text-xs"
-          style={hoverX > width / 2 ? { right: width - hoverX + 8 } : { left: hoverX + 8 }}
-        >
-          <p className="text-muted-foreground mb-1 tabular-nums">{positionLabel(hoverPct, axis)}</p>
-          {laps.map(({ key, lap, brakeColor, throttleColor, dotted }, i) => (
-            <div key={key} className={i > 0 ? 'mt-1.5' : ''}>
-              <p className="font-semibold text-foreground">{lap.title}</p>
-              <p className="flex items-center gap-2">
-                <LineKey color={brakeColor} dotted={dotted} />
-                <span className="font-semibold text-foreground tabular-nums">
-                  {Math.round(lap.trace.brakes[hoverIndexes[i]] * 100)}%
-                </span>
-                <span className="text-muted-foreground">{t.charts.brake}</span>
-              </p>
-              <p className="flex items-center gap-2">
-                <LineKey color={throttleColor} dotted={dotted} />
-                <span className="font-semibold text-foreground tabular-nums">
-                  {Math.round(lap.trace.throttles[hoverIndexes[i]] * 100)}%
-                </span>
-                <span className="text-muted-foreground">{t.charts.throttle}</span>
-              </p>
-            </div>
-          ))}
-        </div>
-      )}
 
       <figcaption className="mt-1 space-y-0.5 text-xs text-muted-foreground">
         {laps.map(({ key, lap }) => (

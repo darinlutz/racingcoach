@@ -665,6 +665,8 @@ export const en = {
   charts: {
     brake: 'Brake',
     throttle: 'Throttle',
+    pedalDelta: 'Compare − Base',
+    pedalHoverHint: 'Hover over the chart to see the values',
     timeTitle: 'Time gained/lost',
     timeVs: 'Compare lap vs Base lap',
     compareBehind: 'Compare behind',

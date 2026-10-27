@@ -651,6 +651,8 @@ export const pt: Dictionary = {
   charts: {
     brake: 'Freio',
     throttle: 'Acelerador',
+    pedalDelta: 'Comparada − Base',
+    pedalHoverHint: 'Passe o cursor sobre o gráfico para ver os valores',
     timeTitle: 'Tempo ganho/perdido',
     timeVs: 'Volta comparada vs. volta base',
     compareBehind: 'Comparada atrás',

@@ -26,6 +26,7 @@ const DOTTED = '0 4'; // zero-length dashes with round caps draw dots
 const HEIGHT = 220;
 const SIDE_BY_SIDE_MIN_WIDTH = 768; // narrower containers stack the charts in one column
 const ROW_GAP = 16; // gap-4
+const MAP_ASPECT = 0.6; // the map's height as a share of its width
 const Y_TICKS = [0, 0.25, 0.5, 0.75, 1];
 
 export type PedalTraceLap = {
@@ -222,7 +223,7 @@ function TraceChart({
 }
 
 // Two columns, with a crosshair that follows the pointer (or arrow keys) on all the charts at once. On the
-// left, the Base and Compare laps' driving lines on a square map (TrackLineMap) with the crosshair's
+// left, the Base and Compare laps' driving lines on a map (TrackLineMap) with the crosshair's
 // position marked on each, and under it a steering wheel turned to both laps' angles at the crosshair,
 // with their gears (SteeringWheel). On the right, top to bottom: the time the Compare lap gains or loses
 // through one focus area (TimeDeltaTrace), brake and throttle for the Base (solid) and Compare (lighter,
@@ -255,7 +256,7 @@ export default function PedalTraces({
     locale,
   };
 
-  // Wide enough: two columns, each half the width; on the left the square map with the wheel and gears
+  // Wide enough: two columns, each half the width; on the left the map with the wheel and gears
   // under it, on the right the charts stacked; narrower, everything stacks at full width
   const sideBySide = width >= SIDE_BY_SIDE_MIN_WIDTH;
   const half = sideBySide ? (width - ROW_GAP) / 2 : width;
@@ -266,7 +267,7 @@ export default function PedalTraces({
         <>
           <div className={sideBySide ? 'flex items-start gap-4' : 'space-y-4'}>
             <div className="space-y-4" style={sideBySide ? { width: half, flexShrink: 0 } : undefined}>
-              <TrackLineMap base={base} compare={compare} width={half} height={half} hoverPct={hoverPct} onHover={setHoverPct} />
+              <TrackLineMap base={base} compare={compare} width={half} height={Math.round(half * MAP_ASPECT)} hoverPct={hoverPct} onHover={setHoverPct} />
               <SteeringWheel base={base} compare={compare} axis={axis} hoverPct={hoverPct} />
             </div>
             <div className="space-y-4" style={sideBySide ? { width: half, flexShrink: 0 } : undefined}>

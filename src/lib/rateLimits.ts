@@ -452,7 +452,22 @@ export async function resetUsage(target: { userId: number } | { ipAddress: strin
 
 // ---- A user's own usage (the Account page's My AI Usage) ----
 
-export type OwnAiUsage = { calls: number; weighted: number; inputTokens: number; outputTokens: number; blocked: number };
+// The average tokens of the AI calls that recorded any over the last 30 days, all features and models together, or
+// null with fewer than MIN_MEASURED_CALLS of them (the Admin page's AI Model Costs table then uses an estimate)
+const MIN_MEASURED_CALLS = 20;
+export async function readAverageCallTokens(): Promise<{ input: number; cachedInput: number; output: number; calls: number } | null> {
+  await ensureUserSchema();
+  const rows = await query(
+    `SELECT count(*) AS calls, avg(input_tokens) AS input, avg(coalesce(cached_input_tokens, 0)) AS cached, avg(output_tokens) AS output
+     FROM racingcoach."AiUsage"
+     WHERE occurred_at >= now() - interval '30 days' AND model_calls > 0`
+  );
+  const calls = Number(rows[0].calls);
+  if (calls < MIN_MEASURED_CALLS) return null;
+  return { input: Number(rows[0].input), cachedInput: Number(rows[0].cached), output: Number(rows[0].output), calls };
+}
+
+export type OwnAiUsage ={ calls: number; weighted: number; inputTokens: number; outputTokens: number; blocked: number };
 
 // The user's AI calls in the last 24 hours and the last 7 days, counted like the usage report's
 export async function readOwnAiUsage(userId: number): Promise<{ day: OwnAiUsage; week: OwnAiUsage }> {

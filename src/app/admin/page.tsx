@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import AdminTimeZone from '@/components/AdminTimeZone';
+import AiModelCostTable from '@/components/AiModelCostTable';
 import AiModelManager from '@/components/AiModelManager';
 import CollectorLogsViewer from '@/components/CollectorLogsViewer';
 import RateLimitManager from '@/components/RateLimitManager';
@@ -21,14 +22,14 @@ import {
 } from '@/lib/activityReport';
 import { getAiModels } from '@/lib/aiModels';
 import { fmt, LANGUAGE_LOCALES } from '@/lib/i18n/languages';
-import { getRateLimitSettings, listOverrides } from '@/lib/rateLimits';
+import { getRateLimitSettings, listOverrides, readAverageCallTokens } from '@/lib/rateLimits';
 import { getDictionary } from '@/lib/i18n/server';
 import { isAdmin } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
 import { getEnableAiFeatures, getShowPricing, getShowProDriverLesson } from '@/lib/siteSettings';
 
 // The site owner's Admin page: a link to Subscribers (src/app/admin/subscribers/), Site Settings (src/components/SiteSettingsManager.tsx), AI Model Control
-// (src/components/AiModelManager.tsx), Rate Limiting (src/components/RateLimitManager.tsx), User Roles (src/components/UserRoleManager.tsx), Collector Logs
+// (src/components/AiModelManager.tsx), AI Model Costs (src/components/AiModelCostTable.tsx), Rate Limiting (src/components/RateLimitManager.tsx), User Roles (src/components/UserRoleManager.tsx), Collector Logs
 // (src/components/CollectorLogsViewer.tsx), then racingcoach."ActivityLog",
 // every page view and click, filtered through the URL (so a filtered view can be bookmarked), with totals,
 // the top pages and controls, and a CSV export.
@@ -52,7 +53,7 @@ export default async function AdminPage({
   const t = getDictionary(user.preferredLanguage);
   const a = t.admin;
   const locale = LANGUAGE_LOCALES[user.preferredLanguage];
-  const [report, users, showPricing, showProDriverLesson, enableAiFeatures, aiModels, rateLimits, rateLimitOverrides] = await Promise.all([
+  const [report, users, showPricing, showProDriverLesson, enableAiFeatures, aiModels, rateLimits, rateLimitOverrides, averageCallTokens] = await Promise.all([
     readActivityReport(filters),
     listUsersForAdmin(),
     getShowPricing(),
@@ -61,6 +62,7 @@ export default async function AdminPage({
     getAiModels(),
     getRateLimitSettings(),
     listOverrides(),
+    readAverageCallTokens(),
   ]);
   const { summary, topPages, topClicks, rows } = report;
 
@@ -100,6 +102,8 @@ export default async function AdminPage({
         <SiteSettingsManager showPricing={showPricing} showProDriverLesson={showProDriverLesson} enableAiFeatures={enableAiFeatures} />
 
         <AiModelManager models={aiModels} />
+
+        <AiModelCostTable t={a} locale={locale} measured={averageCallTokens} />
 
         <RateLimitManager settings={rateLimits} overrides={rateLimitOverrides} users={users} timeZone={filters.timeZone} />
 

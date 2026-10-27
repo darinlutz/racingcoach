@@ -4,6 +4,7 @@ const CAR_PICTURES = new Set([
   'acura-nsx-gt3-evo-22',
   'aston-martin-vantage-gt3-evo',
   'audi-r8-lms-evo-ii-gt3',
+  'bmw-m4-g82-gt4',
   'bmw-m4-gt3-evo',
   'chevrolet-corvette-z06-gt3-r',
   'dallara-p217-lmp2',

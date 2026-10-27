@@ -942,8 +942,10 @@ export const en = {
     actions: 'Actions',
     noNotes: 'No notes yet. Press Edit to add some.',
     calibratedCars: 'Calibrated Cars',
-    racingDiscipline: 'Racing Discipline',
+    racingDiscipline: 'Discipline',
     noDiscipline: 'None',
+    // The Discipline filter (CarDataManagement.tsx) when no car matches the boxes checked
+    noneInDisciplines: 'No cars in the selected disciplines.',
     // Labels of RACING_DISCIPLINES (src/lib/racingDisciplines.ts), by the English name stored with the car
     disciplines: {
       'Sports Car': 'Sports Car',

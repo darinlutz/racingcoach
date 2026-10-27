@@ -75,6 +75,9 @@ function toInput(draft: CarDraft, t: Dictionary['cars'], units: Units): CarInput
   return input;
 }
 
+// The Discipline filter's values: each racing discipline, and '' for cars without one
+type DisciplineFilter = RacingDiscipline | '';
+
 const stat = (value: number | null, locale: string, unit = '') => (value === null ? '—' : `${value.toLocaleString(locale)}${unit}`);
 
 const inputClass =
@@ -95,6 +98,8 @@ export default function CarDataManagement() {
   const [draft, setDraft] = useState<CarDraft | null>(null);
   const [saving, setSaving] = useState(false);
   const [expanded, setExpanded] = useState<number | null>(null);
+  // The disciplines checked in the Discipline filter; only their cars are listed
+  const [disciplines, setDisciplines] = useState<ReadonlySet<DisciplineFilter>>(() => new Set(['Sports Car']));
   // The car whose name is hovered (or focused), and where its picture goes. Fixed to the window, as the table's
   // scroll box would clip it; scrolling hides it
   const [picture, setPicture] = useState<{ car: UserCar; url: string; left: number; top: number } | null>(null);
@@ -177,6 +182,8 @@ export default function CarDataManagement() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || t.failedSave);
       setCars(data.cars);
+      // Check the saved car's discipline, so it doesn't drop out of the list
+      setDisciplines((prev) => new Set(prev).add(car.racingDiscipline ?? ''));
       setExpanded(draft.id ?? data.id);
       setDraft(null);
     } catch (error) {
@@ -206,8 +213,40 @@ export default function CarDataManagement() {
 
   const speed = (metersPerSecond: number) => Math.round(speedFromMetersPerSecond(metersPerSecond, units)).toLocaleString(locale);
 
+  // Every discipline, and None when a car has no discipline
+  const disciplineOptions: DisciplineFilter[] = cars.some((car) => !car.racingDiscipline)
+    ? [...RACING_DISCIPLINES, '']
+    : [...RACING_DISCIPLINES];
+  const shownCars = cars.filter((car) => disciplines.has(car.racingDiscipline ?? ''));
+  const toggleDiscipline = (value: DisciplineFilter) => {
+    setDisciplines((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(value)) next.add(value);
+      return next;
+    });
+    setExpanded(null);
+  };
+
   return (
     <div className="bg-secondary rounded-xl border border-border p-8 space-y-6">
+      <fieldset>
+        <legend className="block text-sm font-medium text-foreground mb-2">{t.racingDiscipline}</legend>
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+          {disciplineOptions.map((value) => (
+            <label key={value || 'none'} className="inline-flex items-center gap-2 cursor-pointer text-sm text-foreground">
+              <input
+                type="checkbox"
+                checked={disciplines.has(value)}
+                onChange={() => toggleDiscipline(value)}
+                data-track={`car-discipline-${value || 'none'}`}
+                className="h-4 w-4 accent-primary"
+              />
+              <span className="font-semibold">{value ? t.disciplines[value] : t.noDiscipline}</span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
       {/* Cars the Rotation Model has a calibration for (rotation-model/calibrations.json) */}
       <div className="space-y-3">
         <div className="flex flex-wrap items-center gap-3">
@@ -352,6 +391,8 @@ export default function CarDataManagement() {
         <p className="text-sm text-muted-foreground">{t.loading}</p>
       ) : cars.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t.none}</p>
+      ) : shownCars.length === 0 ? (
+        <p className="text-sm text-muted-foreground">{t.noneInDisciplines}</p>
       ) : (
         <div className="overflow-x-auto bg-card border border-border rounded-lg">
           <table className="w-full text-sm text-left">
@@ -384,7 +425,7 @@ export default function CarDataManagement() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border text-foreground">
-              {cars.map((car) => (
+              {shownCars.map((car) => (
                 <Fragment key={car.id}>
                   <tr className={draft?.id === car.id ? 'bg-accent' : undefined}>
                     <th scope="row" className="px-4 py-3 font-semibold text-foreground whitespace-nowrap">

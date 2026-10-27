@@ -931,6 +931,7 @@ export const pt: Dictionary = {
     calibratedCars: 'Carros calibrados',
     racingDiscipline: 'Categoria',
     noDiscipline: 'Nenhuma',
+    noneInDisciplines: 'Nenhum carro nas categorias selecionadas.',
     disciplines: {
       'Sports Car': 'Esporte',
       'Prototype': 'Protótipo',

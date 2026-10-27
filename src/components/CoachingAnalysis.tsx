@@ -43,11 +43,9 @@ export default function CoachingAnalysis() {
         </div>
       </section>
 
-      {/* Lap Compare's charts get the site's full container width, like the Cars & Tracks and Coach pages */}
-      <section
-        className={`py-16 bg-card flex flex-col items-center ${activeTab === 'lapCompare' ? '' : 'px-6 sm:px-10 lg:px-16'}`}
-      >
-        <div className={activeTab === 'lapCompare' ? 'site-container' : 'w-full max-w-4xl'}>
+      {/* The tabs take the full width, with a small margin, so Lap Compare's charts (two to a row) are as wide as they can be */}
+      <section className="py-16 px-3 sm:px-4 bg-card">
+        <div className="w-full">
           {/* Tab Navigation */}
           <div className="flex flex-col gap-4 mb-6 border-b border-border">
             {TAB_ROWS.map((row, i) => (
@@ -70,7 +68,7 @@ export default function CoachingAnalysis() {
           </div>
 
           {/* Tab Content */}
-          <div className="bg-secondary rounded-xl border border-border p-8">
+          <div className="bg-secondary rounded-xl border border-border p-4 sm:p-6">
             <h2 className="text-2xl font-bold text-foreground mb-2">{t.racing.tabs[activeTab]}</h2>
             <p className="text-muted-foreground mb-6">{t.racing.intros[activeTab]}</p>
 

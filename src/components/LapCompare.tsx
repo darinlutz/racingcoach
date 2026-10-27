@@ -160,6 +160,11 @@ function formatSignedDiff(diff: number) {
   return `${diff >= 0 ? '+' : '-'}${Math.abs(diff)}`;
 }
 
+// A speed Diff cell: "+3 mph", or "—" when the laps match, like the table's other empty cells
+function formatSpeedDiffCell(diff: number, speed: string) {
+  return diff === 0 ? '—' : `${formatSignedDiff(diff)} ${speed}`;
+}
+
 // "T 7: Base 8.345 s, Compare 8.465 s (+0.120).  Base brakes (the reference brakepoint) at 65% peak, Compare
 // brakes 150 ft later than Base at 68% (3% harder).  Base exit 98 mph, Compare exit 101 mph (+3 mph)."
 // In meters and kph for Metric. Only for the summary's AI, so the brakepoints are against the Base lap's, never
@@ -340,15 +345,15 @@ function AreaTable({ rows }: { rows: AreaRow[] }) {
                   <td className={`${cell} ${brakeDiffText(c.pressureDiff, 3)}`}>{formatPressureDiff(c.pressureDiff, t)}</td>
 
                   <td className={`${cell} ${groupStart} ${diffBackground(c.entryDiff, c.baseEntry, true)}`}>
-                    {formatSignedDiff(c.entryDiff)} {speed}
+                    {formatSpeedDiffCell(c.entryDiff, speed)}
                   </td>
 
                   <td className={`${cell} ${groupStart} ${diffBackground(c.minDiff, c.baseMin, true)}`}>
-                    {formatSignedDiff(c.minDiff)} {speed}
+                    {formatSpeedDiffCell(c.minDiff, speed)}
                   </td>
 
                   <td className={`${cell} ${groupStart} ${diffBackground(c.exitDiff, c.baseExit, true)}`}>
-                    {formatSignedDiff(c.exitDiff)} {speed}
+                    {formatSpeedDiffCell(c.exitDiff, speed)}
                   </td>
                 </>
               )}

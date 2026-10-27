@@ -7,7 +7,7 @@ import SteeringTrace from '@/components/SteeringTrace';
 import SteeringWheel from '@/components/SteeringWheel';
 import { useLanguage } from '@/components/LanguageProvider';
 import TimeDeltaTrace from '@/components/TimeDeltaTrace';
-import LapDataTabs from '@/components/LapDataTabs';
+import LapDataTabs, { type Tab as LapDataTab } from '@/components/LapDataTabs';
 import TrackLineMap from '@/components/TrackLineMap';
 import { useUnits } from '@/components/UnitsProvider';
 import { CHART_MARGIN as MARGIN, clamp, nearestIndex, positionLabel, xTicks, type Axis } from '@/lib/lapCharts';
@@ -26,7 +26,7 @@ const DOTTED = '0 4'; // zero-length dashes with round caps draw dots
 const HEIGHT = 220;
 const SIDE_BY_SIDE_MIN_WIDTH = 768; // narrower containers stack the charts in one column
 const ROW_GAP = 16; // gap-4
-const MAP_ASPECT = 0.6; // the map's height as a share of its width
+const MAP_ASPECT = 0.69; //the map's height as a share of its width
 const Y_TICKS = [0, 0.25, 0.5, 0.75, 1];
 
 export type PedalTraceLap = {
@@ -230,7 +230,7 @@ function TraceChart({
 // dotted) laps on one chart (TraceChart), how far left or right of the Base lap's line the Compare lap was
 // (DrivingLineDiffTrace) and their steering angle on one chart (SteeringTrace).
 // The columns stack when the container is narrower than SIDE_BY_SIDE_MIN_WIDTH.
-// Last, the Tire Temp, Tire Pressure, Ride Heights, Gear, Engine and Slip & Balance tabs (LapDataTabs).
+// Last, the Balance, Tire Temp, Tire Pressure, Ride Heights, Gear and Engine tabs (LapDataTabs).
 // id must be unique on
 // the page (the charts' clip paths are named after it). Charts only draw once the container has a width,
 // so inside a closed <details> they draw when it's opened.
@@ -239,11 +239,16 @@ export default function PedalTraces({
   lengthFeet,
   base,
   compare,
+  dataTab,
+  onDataTabChange,
 }: {
   id: string;
   lengthFeet: number | null;
   base: PedalTraceLap;
   compare: PedalTraceLap;
+  // LapDataTabs' tab, kept by Lap Compare across focus areas
+  dataTab: LapDataTab;
+  onDataTabChange: (tab: LapDataTab) => void;
 }) {
   const { locale } = useLanguage();
   const units = useUnits();
@@ -277,7 +282,7 @@ export default function PedalTraces({
               <SteeringTrace id={`${id}-steering`} base={base} compare={compare} axis={axis} width={half} hoverPct={hoverPct} onHover={setHoverPct} />
             </div>
           </div>
-          <LapDataTabs id={`${id}-data`} base={base} compare={compare} axis={axis} width={width} hoverPct={hoverPct} onHover={setHoverPct} />
+          <LapDataTabs id={`${id}-data`} base={base} compare={compare} axis={axis} width={width} hoverPct={hoverPct} onHover={setHoverPct} tab={dataTab} onTabChange={onDataTabChange} />
         </>
       )}
     </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type KeyboardEvent, type PointerEvent } from 'react';
+import { type KeyboardEvent, type PointerEvent } from 'react';
 
 import { useLanguage } from '@/components/LanguageProvider';
 import type { PedalTraceLap } from '@/components/PedalTraces';
@@ -19,8 +19,8 @@ import {
   temperatureFromCelsius,
 } from '@/lib/units';
 
-type Tab = 'temp' | 'pressure' | 'rideHeights' | 'gear' | 'engine' | 'slip';
-const TABS: Tab[] = ['temp', 'pressure', 'rideHeights', 'gear', 'engine', 'slip'];
+export type Tab = 'temp' | 'pressure' | 'rideHeights' | 'gear' | 'engine' | 'slip';
+const TABS: Tab[] = ['slip', 'temp', 'pressure', 'rideHeights', 'gear', 'engine'];
 
 type Edge = keyof TireTemps;
 const EDGES: Edge[] = ['outer', 'middle', 'inner'];
@@ -316,12 +316,13 @@ function LapDataChart({
   );
 }
 
-// Under Lap Compare's charts for a focus area: Tire Temp, Tire Pressure, Ride Heights, Gear, Engine and Slip &
-// Balance tabs. The first three each have a chart per corner (left front and right front above, left rear and
+// Under Lap Compare's charts for a focus area: Balance, Tire Temp, Tire Pressure, Ride Heights, Gear and Engine
+// tabs. The three tire and ride height tabs each have a chart per corner (left front and right front above, left rear and
 // right rear below) of both laps' tire carcass temperatures (outer, middle, inner), tire pressures or ride
-// heights; Gear has the gear and RPM; Engine has RPM, water and oil temperatures, fuel left and fuel use; Slip &
+// heights; Gear has the gear and RPM; Engine has RPM, water and oil temperatures, fuel left and fuel use;
 // Balance has the steering angle, yaw rate, front and rear wheel slip, front and rear tire slip angles and the
-// car's balance. Two charts a row, or one on narrow screens. width is the container's.
+// car's balance. Two charts a row, or one on narrow screens. width is the container's. The tab is kept by Lap
+// Compare, so it stays the same when another focus area is picked.
 export default function LapDataTabs({
   id,
   base,
@@ -330,6 +331,8 @@ export default function LapDataTabs({
   width,
   hoverPct,
   onHover,
+  tab,
+  onTabChange: setTab,
 }: {
   id: string;
   base: PedalTraceLap;
@@ -338,11 +341,12 @@ export default function LapDataTabs({
   width: number;
   hoverPct: number | null;
   onHover: (pct: number | null) => void;
+  tab: Tab;
+  onTabChange: (tab: Tab) => void;
 }) {
   const { t: dictionary, fmt } = useLanguage();
   const t = dictionary.charts;
   const units = useUnits();
-  const [tab, setTab] = useState<Tab>('temp');
   // The panel's padding (p-4) on both sides, then two columns when there's room
   const innerWidth = width - 32;
   const twoColumns = innerWidth >= 640;

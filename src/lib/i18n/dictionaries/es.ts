@@ -696,7 +696,7 @@ export const es: Dictionary = {
     lineDiffRight: 'La vuelta comparada va hasta {n} {unit} a la derecha de la trazada de la vuelta base, en {where}',
     lineDiffCaption: 'La vuelta base es la línea azul plana; la línea roja muestra cuánto se desvió la vuelta comparada a la izquierda (arriba) o a la derecha (abajo).',
     tireDataLabel: 'Datos de neumáticos, suspensión y motor',
-    tireTabs: { temp: 'Temp. de neumáticos', pressure: 'Presión de neumáticos', rideHeights: 'Alturas de manejo', gear: 'Marcha', engine: 'Motor', slip: 'Deslizamiento y balance' },
+    tireTabs: { temp: 'Temp. de neumáticos', pressure: 'Presión de neumáticos', rideHeights: 'Alturas de manejo', gear: 'Marcha', engine: 'Motor', slip: 'Balance' },
     lapDataDiffLabel: 'Comparada menos base',
     lapDataNone: 'Ninguna vuelta tiene este dato.',
     engineCharts: {

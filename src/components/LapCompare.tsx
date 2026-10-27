@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLanguage } from '@/components/LanguageProvider';
 import FocusAreaTabs from '@/components/FocusAreaTabs';
+import type { Tab as LapDataTab } from '@/components/LapDataTabs';
 import PedalTraces, { type PedalTraceLap } from '@/components/PedalTraces';
 import SummaryPanel from '@/components/SummaryPanel';
 import type { Dictionary } from '@/lib/i18n/dictionaries/en';
@@ -493,6 +494,8 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
   const [provideSummary, setProvideSummary] = useState(false);
   // The focus area whose telemetry is shown, picked across the top
   const [selectedArea, setSelectedArea] = useState('');
+  // The data tab under the charts (Balance, Engine, ...), kept when another focus area is picked; the leftmost first
+  const [dataTab, setDataTab] = useState<LapDataTab>('slip');
 
   // Starts on the initial laps' track when there are any, otherwise the first track
   const initialTrack = initialLaps?.base.trackName;
@@ -765,6 +768,8 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
                   lengthFeet={selectedTrack?.lengthFeet ?? null}
                   base={selectedTrace.base}
                   compare={selectedTrace.compare}
+                  dataTab={dataTab}
+                  onDataTabChange={setDataTab}
                 />
               </div>
             </div>

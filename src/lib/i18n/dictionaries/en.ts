@@ -710,7 +710,7 @@ export const en = {
     lineDiffRight: 'The Compare lap is up to {n} {unit} right of the Base lap’s line, at {where}',
     lineDiffCaption: 'The Base lap is the flat blue line; the red line shows how far left (up) or right (down) of it the Compare lap was.',
     tireDataLabel: 'Tire, suspension and engine data',
-    tireTabs: { temp: 'Tire Temp', pressure: 'Tire Pressure', rideHeights: 'Ride Heights', gear: 'Gear', engine: 'Engine', slip: 'Slip & Balance' },
+    tireTabs: { temp: 'Tire Temp', pressure: 'Tire Pressure', rideHeights: 'Ride Heights', gear: 'Gear', engine: 'Engine', slip: 'Balance' },
     lapDataDiffLabel: 'Compare minus Base',
     lapDataNone: 'Neither lap has this.',
     engineCharts: { rpm: 'RPM', waterTemp: 'Water Temp', oilTemp: 'Oil Temp', fuelLevel: 'Fuel Level', fuelUsage: 'Fuel Usage' },

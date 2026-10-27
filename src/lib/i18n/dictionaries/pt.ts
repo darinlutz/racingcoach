@@ -696,7 +696,7 @@ export const pt: Dictionary = {
     lineDiffRight: 'A volta comparada fica até {n} {unit} à direita do traçado da volta base, em {where}',
     lineDiffCaption: 'A volta base é a linha azul reta; a linha vermelha mostra quanto a volta comparada ficou à esquerda (para cima) ou à direita (para baixo) dela.',
     tireDataLabel: 'Dados de pneus, suspensão e motor',
-    tireTabs: { temp: 'Temp. dos pneus', pressure: 'Pressão dos pneus', rideHeights: 'Alturas de rodagem', gear: 'Marcha', engine: 'Motor', slip: 'Deslizamento e equilíbrio' },
+    tireTabs: { temp: 'Temp. dos pneus', pressure: 'Pressão dos pneus', rideHeights: 'Alturas de rodagem', gear: 'Marcha', engine: 'Motor', slip: 'Equilíbrio' },
     lapDataDiffLabel: 'Comparada menos base',
     lapDataNone: 'Nenhuma volta tem este dado.',
     engineCharts: {

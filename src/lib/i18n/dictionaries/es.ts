@@ -51,7 +51,7 @@ export const es: Dictionary = {
     proDriverLesson: 'Clase 1:1 con piloto profesional',
     support: 'Soporte',
     myAccount: 'Mi configuración',
-    installing: 'Instalar RacingCoach',
+    installing: 'Instalar',
     admin: 'Admin',
     coach: 'Entrenador',
     driver: 'Piloto:',

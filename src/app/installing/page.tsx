@@ -28,7 +28,7 @@ function Step({ number, label, title, children }: { number: number; label: strin
   );
 }
 
-// The Installing RacingCoach page (the nav bar's Installing RacingCoach link): how to get started, in five
+// The Installing RacingCoach page (the nav bar's Installing link): how to get started, in five
 // steps: download the collector, copy the upload key into it (from My Settings' Telemetry Collector card),
 // check that iRacing's Telemetry indicator is showing, set a Target Lap (one of their own laps or the theoretical best lap, in Debrief Coach) for the collector's
 // Target Telemetry window, and contact Support with questions. Signed-in users only; anyone else logs in first and comes back here

@@ -51,7 +51,7 @@ export const en = {
     proDriverLesson: '1:1 Pro Driver Lesson',
     support: 'Support',
     myAccount: 'My Settings',
-    installing: 'Installing RacingCoach',
+    installing: 'Installing',
     admin: 'Admin',
     coach: 'Coach',
     driver: 'Driver:',

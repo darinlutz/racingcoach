@@ -23,11 +23,11 @@ type NavigationProps = {
 
 const links = [
   { href: '/#toolkit', key: 'toolkit' },
-  { href: '/installing', key: 'installing' },
   { href: '/racing', key: 'coachingAnalysis' },
   { href: '/cars-tracks', key: 'carsTracks' },
   { href: '/prodrivinglesson', key: 'proDriverLesson' },
   { href: '/learning', key: 'learning' },
+  { href: '/installing', key: 'installing' },
   { href: '/support', key: 'support' },
 ] as const;
 

@@ -16,8 +16,8 @@ const byTrackAndCar = (a: ExpertLapInfo, b: ExpertLapInfo) =>
 // their car and track (POST /api/coach/expert-laps, src/lib/expertLaps.ts). Several files go one at a time; when
 // one's car and track already has an Expert Lap, a modal asks whether to replace it, and the upload waits for
 // the answer. Lists the Expert Laps with Set Target (copies it into the user's own Target Lap), Download and
-// Remove.
-export default function ExpertLapsManager({ expertLaps: initial }: { expertLaps: ExpertLapInfo[] }) {
+// Remove. readOnly (the nav bar's Expert Laps page, for every signed-in user) lists them with Set Target only.
+export default function ExpertLapsManager({ expertLaps: initial, readOnly = false }: { expertLaps: ExpertLapInfo[]; readOnly?: boolean }) {
   const { t, fmt, locale } = useLanguage();
   const c = t.coach;
   const [expertLaps, setExpertLaps] = useState(initial);
@@ -131,8 +131,9 @@ export default function ExpertLapsManager({ expertLaps: initial }: { expertLaps:
   return (
     <div className="bg-secondary rounded-xl border border-border p-4 sm:p-6">
       <h2 className="text-xl font-bold text-foreground mb-1">{c.expertLapsTitle}</h2>
-      <p className="text-sm text-muted-foreground mb-4">{c.expertLapsIntro}</p>
+      <p className="text-sm text-muted-foreground mb-4">{readOnly ? c.expertLapsViewIntro : c.expertLapsIntro}</p>
 
+      {!readOnly && (
       <div
         onDragOver={(e) => {
           e.preventDefault();
@@ -172,6 +173,7 @@ export default function ExpertLapsManager({ expertLaps: initial }: { expertLaps:
           }}
         />
       </div>
+      )}
 
       {messages.length > 0 && (
         <div role="status" className="mt-3 space-y-1">
@@ -213,10 +215,16 @@ export default function ExpertLapsManager({ expertLaps: initial }: { expertLaps:
                         disabled={busy}
                         onClick={() => void setTarget(lap)}
                         data-track="set-target-expert-lap"
-                        className="px-3 py-1 text-xs font-semibold rounded-lg text-white bg-green-600 hover:bg-green-700 transition-colors whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                        className={
+                          readOnly
+                            ? 'px-3 py-1 text-xs font-semibold bg-card border border-border rounded-lg text-foreground hover:bg-green-600 hover:border-green-600 hover:text-white transition-colors whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed'
+                            : 'px-3 py-1 text-xs font-semibold rounded-lg text-white bg-green-600 hover:bg-green-700 transition-colors whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed'
+                        }
                       >
                         {c.expertLapsSetTarget}
                       </button>
+                      {!readOnly && (
+                      <>
                       <a
                         href={`/api/coach/expert-laps/${lap.id}`}
                         download={lap.fileName}
@@ -228,6 +236,8 @@ export default function ExpertLapsManager({ expertLaps: initial }: { expertLaps:
                       <button type="button" disabled={busy} onClick={() => setRemoving(lap)} className={buttonClass}>
                         {c.expertLapsRemove}
                       </button>
+                      </>
+                      )}
                     </div>
                   </td>
                 </tr>

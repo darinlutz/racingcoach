@@ -79,8 +79,12 @@ export default async function RootLayout({
               enableAiFeatures={enableAiFeatures}
             />
             {/* On large screens the nav is a fixed sidebar down the left, so the page starts after it */}
-            <div className="flex-1 flex flex-col lg:pl-[280px]">
+            <div className="flex-1 flex flex-col lg:pl-[224px]">
               {needsPolicyAcceptance && <PolicyUpdateNotice />}
+              {/* The logo sits at the top left of the page, not in the sidebar (on small screens it's in the top bar) */}
+              <div className="hidden lg:flex px-6 pt-6">
+                <Brand aiFeatures={enableAiFeatures} />
+              </div>
               <main className="flex-1">
                 {children}
               </main>

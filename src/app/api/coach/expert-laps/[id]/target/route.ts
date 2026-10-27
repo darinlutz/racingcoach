@@ -1,13 +1,12 @@
 import { NextResponse } from 'next/server';
 import { readExpertLap } from '@/lib/expertLaps';
 import { apiText } from '@/lib/i18n/server';
-import { canCoach } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
 import { setTargetLap } from '@/lib/targetLap';
 
-// The Coach page's Expert Laps Set Target button: copies the Expert Lap into the signed-in user's Target Lap
-// (src/lib/targetLap.ts). Answers { targetLap: { fileName, setAt } }.
-// Coach and Admin roles only; anyone else gets a 404, like the Coach page.
+// The Expert Laps Set Target button (the Coach page and the nav bar's Expert Laps page): copies the Expert Lap
+// into the signed-in user's Target Lap (src/lib/targetLap.ts). Answers { targetLap: { fileName, setAt } }.
+// Any signed-in user; visitors get a 404.
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -15,7 +14,7 @@ export async function POST(request: Request, { params }: Params) {
   const user = await getCurrentUser();
   const t = await apiText(user);
   try {
-    if (!user || !canCoach(user.role)) {
+    if (!user) {
       return NextResponse.json({ error: t.adminOnly }, { status: 404 });
     }
     const { id } = await params;

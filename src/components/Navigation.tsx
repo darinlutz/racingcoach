@@ -25,6 +25,7 @@ const links = [
   { href: '/#toolkit', key: 'toolkit' },
   { href: '/racing', key: 'coachingAnalysis' },
   { href: '/cars-tracks', key: 'carsTracks' },
+  { href: '/expert-laps', key: 'expertLaps' },
   { href: '/prodrivinglesson', key: 'proDriverLesson' },
   { href: '/learning', key: 'learning' },
   { href: '/installing', key: 'installing' },
@@ -32,7 +33,7 @@ const links = [
 ] as const;
 
 // Signed-out visitors who click these get the Log in box instead of the page
-const loginRequiredLinks: ReadonlySet<string> = new Set(['installing', 'coachingAnalysis', 'carsTracks', 'support', 'pricing']);
+const loginRequiredLinks: ReadonlySet<string> = new Set(['installing', 'coachingAnalysis', 'carsTracks', 'expertLaps', 'support', 'pricing']);
 
 // At the bottom, just above My Settings (or Log In)
 const bottomLinks = [
@@ -84,16 +85,15 @@ export default function Navigation({ user, showPricing, showProDriverLesson, ena
 
   // Same type treatment as the Coaching & Analysis tabs: semibold, muted, red when current
   const linkColor = (href: string) => (href === pathname ? 'text-primary' : 'text-muted-foreground hover:text-foreground');
-  const navLink = (href: string) => `font-semibold whitespace-nowrap transition-colors ${linkColor(href)}`;
+  const navLink = (href: string) => `font-semibold transition-colors ${linkColor(href)}`;
   const mobileLink = (href: string) => `block px-3 py-2 rounded-md font-semibold hover:bg-secondary transition-colors ${linkColor(href)}`;
 
   return (
     // A sidebar down the left side on large screens (the layout pads the page by its width), a bar across the top with a menu below that
-    <nav className="sticky top-0 z-50 w-full bg-background border-b border-border lg:fixed lg:inset-y-0 lg:left-0 lg:w-[280px] lg:border-b-0 lg:border-r lg:overflow-y-auto">
+    <nav className="sticky top-0 z-50 w-full bg-background border-b border-border lg:fixed lg:inset-y-0 lg:left-0 lg:w-[224px] lg:border-b-0 lg:border-r lg:overflow-y-auto">
       {/* Desktop Sidebar */}
+      {/* No logo here: on large screens the layout shows it at the top left of the page */}
       <div className="hidden lg:flex flex-col h-full px-6 py-6 gap-10">
-        <Brand aiFeatures={enableAiFeatures} />
-
         <div className="flex flex-col gap-5">
           {visibleLinks.map((link) => (
             <Link key={link.key} href={link.href} className={navLink(link.href)} onClick={guardLink(link.key, link.href)}>{t.nav[link.key]}</Link>

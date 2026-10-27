@@ -59,7 +59,7 @@ export default function SteeringWheel({
   const angles = laps.map(({ label, angle }) => `${label} ${steeringLabel(angle, t)}`).join(', ');
 
   return (
-    <figure className="flex flex-wrap items-center justify-center gap-x-8 gap-y-2">
+    <figure className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
       <svg
         width={SIZE}
         height={SIZE}
@@ -176,7 +176,8 @@ export default function SteeringWheel({
         </g>
       </svg>
 
-      <figcaption className="space-y-1 text-xs text-muted-foreground max-w-56">
+      {/* A small basis keeps it beside the wheel in half a row; it wraps under only when even that doesn't fit */}
+      <figcaption className="space-y-1 text-xs text-muted-foreground basis-32 grow max-w-56">
         <p className="tabular-nums">{positionLabel(pct, axis)}</p>
         {laps.map(({ key, label, color, angle }) => (
           <p key={key} className="flex items-center gap-2">

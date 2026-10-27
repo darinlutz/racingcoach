@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Barlow, Barlow_Condensed } from "next/font/google";
+import { cookies } from "next/headers";
 import Link from "next/link";
 import ActivityTracker from "@/components/ActivityTracker";
 import Brand from "@/components/Brand";
@@ -9,6 +10,7 @@ import PolicyUpdateNotice from "@/components/PolicyUpdateNotice";
 import RateLimitDialog from "@/components/RateLimitDialog";
 import UnitsProvider from "@/components/UnitsProvider";
 import { getDictionary, getLanguage } from "@/lib/i18n/server";
+import { NAV_COLLAPSED, NAV_COOKIE } from "@/lib/navSidebar";
 import { hasAcceptedCurrentPolicies } from "@/lib/policyAcceptances";
 import { canCoach, isAdmin } from "@/lib/roles";
 import { getCurrentUser } from "@/lib/session";
@@ -58,11 +60,14 @@ export default async function RootLayout({
   // A signed-in user who hasn't accepted the current Terms of Service and Privacy Policy is asked to, above the page
   // (no notice if the check fails)
   const needsPolicyAcceptance = user ? !(await hasAcceptedCurrentPolicies(user.id).catch(() => true)) : false;
+  // Whether the nav sidebar was left collapsed to its icons (large screens only)
+  const navCollapsed = (await cookies()).get(NAV_COOKIE)?.value === NAV_COLLAPSED;
 
   return (
     <html
       lang={language}
       data-theme={theme}
+      data-nav={navCollapsed ? NAV_COLLAPSED : undefined}
       className={`${barlow.variable} ${barlowCondensed.variable} h-full antialiased`}
       data-scroll-behavior="smooth"
     >
@@ -77,14 +82,12 @@ export default async function RootLayout({
               showPricing={showPricing}
               showProDriverLesson={showProDriverLesson}
               enableAiFeatures={enableAiFeatures}
+              initiallyCollapsed={navCollapsed}
             />
-            {/* On large screens the nav is a fixed sidebar down the left, so the page starts after it */}
-            <div className="flex-1 flex flex-col lg:pl-[224px]">
+            {/* On large screens the nav is a fixed sidebar down the left (with the logo at its top), so the page
+                starts after it; --nav-width follows it when it's collapsed */}
+            <div className="flex-1 flex flex-col lg:pl-(--nav-width) lg:transition-[padding] lg:duration-200">
               {needsPolicyAcceptance && <PolicyUpdateNotice />}
-              {/* The logo sits at the top left of the page, not in the sidebar (on small screens it's in the top bar) */}
-              <div className="hidden lg:flex px-6 pt-6">
-                <Brand aiFeatures={enableAiFeatures} />
-              </div>
               <main className="flex-1">
                 {children}
               </main>

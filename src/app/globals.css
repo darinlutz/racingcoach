@@ -44,6 +44,8 @@
   --chart-axis: #3b3d40;
   --chart-dot: #5c5f64;
   --chart-halo: #151618;
+  /* The nav sidebar's width on large screens; data-nav="collapsed" (src/lib/navSidebar.ts) narrows it to its icons */
+  --nav-width: 248px;
   color-scheme: dark;
 }
 
@@ -144,4 +146,8 @@ body {
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   * { transition: none !important; }
+}
+
+:root[data-nav="collapsed"] {
+  --nav-width: 72px;
 }

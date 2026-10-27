@@ -61,6 +61,8 @@ export const en = {
     getStarted: 'Get Started',
     openMenu: 'Open menu',
     closeMenu: 'Close menu',
+    collapseMenu: 'Collapse menu',
+    expandMenu: 'Open menu',
   },
 
   // The nav bar's box for signed-out visitors who click a page that needs an account (src/components/LoginRequiredDialog.tsx)

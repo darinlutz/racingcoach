@@ -61,6 +61,8 @@ export const pt: Dictionary = {
     getStarted: 'Comece agora',
     openMenu: 'Abrir menu',
     closeMenu: 'Fechar menu',
+    collapseMenu: 'Recolher menu',
+    expandMenu: 'Abrir menu',
   },
 
   loginRequired: {

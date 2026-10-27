@@ -46,6 +46,8 @@ export default function RaceTrends() {
   const [commentary, setCommentary] = useState('');
   const [steps, setSteps] = useState<string[]>([]);
   const [runError, setRunError] = useState('');
+  // Provide analysis: off, Get Trends shows the charts without the AI commentary
+  const [provideAnalysis, setProvideAnalysis] = useState(true);
   const syncing = useRef(false);
 
   const loadRaces = useCallback(async () => {
@@ -144,7 +146,11 @@ export default function RaceTrends() {
     setCommentary('');
     setSteps([]);
     try {
-      const res = await fetch('/api/race-trends', { method: 'POST' });
+      const res = await fetch('/api/race-trends', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ analysis: provideAnalysis }),
+      });
       const data = await res.json();
       reportRateLimit(res, data);
       if (!res.ok) throw new Error(data.error || t.failedTrends);
@@ -308,6 +314,17 @@ export default function RaceTrends() {
         >
           {running ? t.analyzing : t.getTrends}
         </button>
+
+        <label className="flex items-center gap-2 text-sm text-foreground">
+          <input
+            type="checkbox"
+            checked={provideAnalysis}
+            onChange={(e) => setProvideAnalysis(e.target.checked)}
+            disabled={running}
+            className="accent-primary"
+          />
+          {t.provideAnalysis}
+        </label>
 
         {runError && (
           <div className="px-4 py-3 rounded-lg border text-sm bg-primary/10 border-primary/40 text-red-300">

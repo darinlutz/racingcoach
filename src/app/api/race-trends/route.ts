@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { aiErrorResponse } from '@/lib/aiErrors';
 import { readConnection, readRaceEvents } from '@/lib/raceHistory';
 import { aiRateLimit, type AiRateLimit } from '@/lib/rateLimits';
-import { runRaceTrends } from '@/lib/raceTrends';
+import { incidentTrend, iRatingTrend, runRaceTrends } from '@/lib/raceTrends';
 import { isAdmin } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
 import { apiText, getLanguage } from '@/lib/i18n/server';
@@ -30,7 +30,8 @@ export async function GET() {
   }
 }
 
-// Charts and agent commentary over the user's synced races
+// Charts and agent commentary over the user's synced races; { analysis: false } answers the charts only,
+// with no AI call
 export async function POST(request: Request) {
   const t = await apiText();
   let limit: AiRateLimit | null = null;
@@ -42,6 +43,18 @@ export async function POST(request: Request) {
     // My Race Trends is for Admins only
     if (!isAdmin(user.role)) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
+    const body = await request.json().catch(() => ({}));
+
+    if (body?.analysis === false) {
+      const events = await readRaceEvents(user.id);
+      if (events.length === 0) {
+        return NextResponse.json({ error: t.noRacesYet }, { status: 400 });
+      }
+      return NextResponse.json(
+        { success: true, trend: iRatingTrend(events), incidents: incidentTrend(events), commentary: '', steps: [] },
+        { status: 200 }
+      );
     }
 
     if (!process.env.OPENAI_API_KEY) {

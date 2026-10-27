@@ -489,6 +489,8 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
     { name: string; diff: number; base: PedalTraceLap; compare: PedalTraceLap }[]
   >([]);
   const [analyzing, setAnalyzing] = useState(false);
+  // Provide summary: off, Analyze Laps still measures every focus area but skips the AI summary
+  const [provideSummary, setProvideSummary] = useState(true);
   // The focus area whose telemetry is shown, picked across the top
   const [selectedArea, setSelectedArea] = useState('');
 
@@ -547,6 +549,7 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
   const analyzeLaps = async () => {
     if (!baseLap || !compareLap) return;
     setAnalyzing(true);
+    setAnalysis('');
     setAreaRows([]);
     setTraces([]);
     try {
@@ -619,6 +622,7 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
         );
         // Start on the area where the Compare lap loses the most time
         setSelectedArea(worst?.name ?? '');
+        if (!provideSummary) return;
 
         // The table shows right away; the summary follows once the coach has written it
         setAnalysis(t.writing);
@@ -704,14 +708,28 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
           {analyzing ? t.analyzing : t.analyze}
         </button>
 
+        <label className="flex items-center gap-2 text-sm text-foreground">
+          <input
+            type="checkbox"
+            checked={provideSummary}
+            onChange={(e) => setProvideSummary(e.target.checked)}
+            disabled={analyzing}
+            className="accent-primary"
+          />
+          {t.provideSummary}
+        </label>
+
         {areaRows.length > 0 && <AreaTable rows={areaRows} />}
 
-        <SummaryPanel
-          title={t.summary}
-          text={analysis}
-          placeholder={!baseLap || !compareLap ? t.summaryPlaceholderNoLaps : t.summaryPlaceholder}
-          pending={analyzing && analysis === t.writing}
-        />
+        {/* Without a summary the panel only shows a message, e.g. no focus areas or an error */}
+        {(provideSummary || analysis) && (
+          <SummaryPanel
+            title={t.summary}
+            text={analysis}
+            placeholder={!baseLap || !compareLap ? t.summaryPlaceholderNoLaps : t.summaryPlaceholder}
+            pending={analyzing && analysis === t.writing}
+          />
+        )}
 
         {traces.length > 0 && (
           <div className="space-y-2">

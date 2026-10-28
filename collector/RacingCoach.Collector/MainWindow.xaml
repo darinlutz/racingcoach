@@ -191,7 +191,7 @@
                                         Margin="6,0,0,0" Click="TestBeeps_Click" ToolTip="Play the beeps at this volume" />
                                 <TextBlock x:Name="BeepsVolumeText" DockPanel.Dock="Right" Width="36" TextAlignment="Right" FontSize="12"
                                            VerticalAlignment="Center" />
-                                <Slider x:Name="BeepsVolumeSlider" Minimum="10" Maximum="100" Value="65" SmallChange="1" LargeChange="10"
+                                <Slider x:Name="BeepsVolumeSlider" Minimum="10" Maximum="100" Value="62" SmallChange="1" LargeChange="10"
                                         IsSnapToTickEnabled="True" TickFrequency="1" VerticalAlignment="Center"
                                         ToolTip="Volume" ValueChanged="BeepsVolume_ValueChanged" />
                             </DockPanel>

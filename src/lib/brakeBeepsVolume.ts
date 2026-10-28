@@ -4,7 +4,7 @@
 export const MIN_BRAKE_BEEPS_VOLUME = 10;
 export const MAX_BRAKE_BEEPS_VOLUME = 100;
 // A new account's volume
-export const DEFAULT_BRAKE_BEEPS_VOLUME = 65;
+export const DEFAULT_BRAKE_BEEPS_VOLUME = 62;
 
 export function isBrakeBeepsVolume(value: unknown): value is number {
   return (

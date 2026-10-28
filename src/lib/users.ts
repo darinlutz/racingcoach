@@ -169,7 +169,7 @@ export function ensureUserSchema(): Promise<void> {
       // before each focus area's target brakepoint and higher at it (BrakeBeeps.cs). Yes by default, which
       // adding the column also sets for every existing user.
       await client.query(`ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS brake_beeps BOOLEAN NOT NULL DEFAULT true`);
-      // Their volume, the collector window's slider under it: a percentage of full volume, 65 for a new account
+      // Their volume, the collector window's slider under it: a percentage of full volume, 62 for a new account
       // (accounts from before keep theirs)
       await client.query(
         `ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS brake_beeps_volume INTEGER NOT NULL DEFAULT ${DEFAULT_BRAKE_BEEPS_VOLUME}`

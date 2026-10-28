@@ -29,7 +29,7 @@ internal sealed class BrakeBeeps(Func<RacingCoachApi?> api, Action<string> log)
     // quieter. The window's Test button (PlayTest) plays at the same gain
     private const double VolumeRangeDb = 40;
     /// <summary>A new account's volume (DEFAULT_BRAKE_BEEPS_VOLUME in src/lib/brakeBeepsVolume.ts).</summary>
-    public const int DefaultVolume = 65;
+    public const int DefaultVolume = 62;
     // The test beeps' spacing, start to start: about as far apart as 100 ft takes at 110 mph
     private const int TestSpacingMs = 600;
 

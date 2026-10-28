@@ -292,6 +292,13 @@ begin
   LegalPage.CheckListBox.Height := LegalPage.SurfaceHeight - LegalPage.CheckListBox.Top;
 end;
 
+// A silent install accepted (or was refused) in InitializeSetup, and can't click Next past an unchecked box: silent
+// Setup still steps through every page, and aborts on one whose Next is disabled
+function ShouldSkipPage(PageID: Integer): Boolean;
+begin
+  Result := (PageID = LegalPage.ID) and WizardSilent();
+end;
+
 procedure CurPageChanged(CurPageID: Integer);
 begin
   if CurPageID = LegalPage.ID then

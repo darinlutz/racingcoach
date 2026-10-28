@@ -403,6 +403,7 @@ internal sealed class CollectorEngine
             _races?.OnSessionInfo(session, _recorder.Session.Track, Session.Car);
             Rotation.SetCar(string.IsNullOrWhiteSpace(driver?.CarPath) ? null : driver.CarPath, Session.Car);
             Live.SetTrack(_recorder.Session.Track, TrackKeys.For(_recorder.Session.Track), Session.Car, sessionTypes);
+            Live.SetField(weekend?.SubSessionID ?? 0, driverIdx, FieldDrivers(session));
 
             // iRacing re-sends session info every few seconds (flags, driver list, ...); only log changes
             if (previous is null || previous.Track != Session.Track || previous.TrackConfig != Session.TrackConfig || previous.Car != Session.Car)
@@ -476,4 +477,19 @@ internal sealed class CollectorEngine
     };
 
     private void Log(string message, bool isError = false) => _log(message, isError);
+
+    // Every car in the session for Live Racing's field, leaving out the pace car and spectators
+    private static List<FieldDriver> FieldDrivers(TelemetrySessionInfo session) =>
+        session.DriverInfo?.Drivers?
+            .Where(d => d.CarIsPaceCar != 1 && d.IsSpectator != 1 && !string.IsNullOrWhiteSpace(d.UserName))
+            .Select(d => new FieldDriver(
+                d.CarIdx,
+                d.UserName!.Trim(),
+                string.IsNullOrWhiteSpace(d.CarNumber) ? null : d.CarNumber.Trim(),
+                string.IsNullOrWhiteSpace(d.CarScreenNameShort) ? d.CarScreenName : d.CarScreenNameShort,
+                string.IsNullOrWhiteSpace(d.CarClassShortName) ? null : d.CarClassShortName.Trim(),
+                d.CarClassColor > 0 ? $"#{d.CarClassColor & 0xFFFFFF:x6}" : null,
+                d.IRating > 0 ? d.IRating : null,
+                string.IsNullOrWhiteSpace(d.LicString) ? null : d.LicString.Trim()))
+            .ToList() ?? [];
 }

@@ -12,6 +12,11 @@ internal sealed record TrackMapArea(string Name, double Start, double End);
 /// own speed and yaw rate over a clean lap (turned an arbitrary way). Areas are the track's focus areas.</summary>
 internal sealed record TrackMap(IReadOnlyList<(double X, double Y)> Points, bool Exact, IReadOnlyList<TrackMapArea> Areas);
 
+/// <summary>A car in the session from session info, for Live Racing's field: iRacing's car index, the driver, car
+/// number, car, class and class color (hex, e.g. "#ffda59"), and the driver's iRating and license (e.g. "A 3.41").</summary>
+internal sealed record FieldDriver(int CarIdx, string Name, string? Number, string? Car, string? CarClass, string? ClassColor,
+    int? IRating, string? License);
+
 /// <summary>
 /// Live Racing (src/lib/liveRacing.ts in the website): sends the driver's live position and lap details to
 /// RacingCoach.app twice a second while they're in the car (every few seconds otherwise), so they, their friends
@@ -23,6 +28,10 @@ internal sealed record TrackMap(IReadOnlyList<(double X, double Y)> Points, bool
 /// first clean lap of the track uploaded with track positions. Until the track has one, a clean lap's own path is
 /// worked out from the car's speed and yaw rate (dead reckoning), its small drift spread round the lap so it closes,
 /// and sent with the next live update, so the website can draw it too.
+///
+/// Each update also carries the field: every car in the session (iRacing's CarIdx telemetry covers all of them), so
+/// the website shows the whole race, not just RacingCoach.app drivers. The drivers' names, cars and classes change
+/// rarely, so they're sent only when they change or the site asks for them (needsField).
 /// </summary>
 internal sealed class LiveRacing(Func<RacingCoachApi?> api, Action<string> log)
 {
@@ -52,6 +61,17 @@ internal sealed class LiveRacing(Func<RacingCoachApi?> api, Action<string> log)
     private RacingCoachApi? _mapApi;
     // The site couldn't be reached or refused the update; shown until the next one works
     private RacingCoachApi? _clearedFor;
+
+    // The field: the session's cars from session info, the driver's own car index, the subsession (0 offline), whether
+    // to send the cars' details with the next update, and each car's LapDistPct and SessionTime at the last update
+    // (for its rate round the lap)
+    private IReadOnlyList<FieldDriver> _fieldDrivers = [];
+    private int? _myCarIdx;
+    private int _subSessionId;
+    private bool _sendFieldDrivers = true;
+    // Counts changes to the field's cars, so an answer to an update sent before a change doesn't mark it sent
+    private int _fieldVersion;
+    private readonly Dictionary<int, (double Pct, double Time)> _fieldPrevious = [];
 
     // Dead reckoning: the car's heading and position since the lap started, and each sample's (LapDistPct, x, y)
     private double? _prevPct;
@@ -92,6 +112,24 @@ internal sealed class LiveRacing(Func<RacingCoachApi?> api, Action<string> log)
         }
     }
 
+    /// <summary>Session info: the subsession, the driver's own car index and every car in the session. Sent with the
+    /// next update when they've changed.</summary>
+    public void SetField(int subSessionId, int? myCarIdx, IReadOnlyList<FieldDriver> drivers)
+    {
+        lock (_lock)
+        {
+            if (_subSessionId == subSessionId && _myCarIdx == myCarIdx && _fieldDrivers.SequenceEqual(drivers))
+                return;
+            if (_subSessionId != subSessionId)
+                _fieldPrevious.Clear();
+            _subSessionId = subSessionId;
+            _myCarIdx = myCarIdx;
+            _fieldDrivers = drivers;
+            _sendFieldDrivers = true;
+            _fieldVersion++;
+        }
+    }
+
     /// <summary>The upload key changed: the map is asked for again with it.</summary>
     public void Refresh()
     {
@@ -105,6 +143,8 @@ internal sealed class LiveRacing(Func<RacingCoachApi?> api, Action<string> log)
         {
             _hasLatest = false;
             ResetPath();
+            _fieldPrevious.Clear();
+            _inputs.Clear();
         }
         _ = ClearAsync();
     }
@@ -116,7 +156,44 @@ internal sealed class LiveRacing(Func<RacingCoachApi?> api, Action<string> log)
             _latest = d;
             _hasLatest = true;
             TrackPath(d);
+            RecordInputs(d);
         }
+    }
+
+    // ---------------------------------------------------------------- The driver's inputs
+
+    // The driver's inputs 20 times a second since the last update, sent with the next one so the website can play
+    // them back smoothly: [SessionTime, throttle, brake, steering (radians, + left), gear, speed (m/s), delta to best]
+    private const double InputInterval = 0.05;
+    // At most 5 s of them, should the site be slow to answer
+    private const int MaxInputs = 100;
+    private readonly List<double?[]> _inputs = [];
+    private double _lastInputTime = double.NegativeInfinity;
+
+    private void RecordInputs(in TelemetryData d)
+    {
+        if (d.IsOnTrack != true || d.IsReplayPlaying == true || d.SessionTime is not { } time)
+        {
+            _inputs.Clear();
+            return;
+        }
+        // a new session starts SessionTime again
+        if (time < _lastInputTime)
+            _inputs.Clear();
+        else if (time - _lastInputTime < InputInterval)
+            return;
+        _lastInputTime = time;
+        if (_inputs.Count >= MaxInputs)
+            _inputs.RemoveAt(0);
+        _inputs.Add([
+            Math.Round(time, 3),
+            d.Throttle is { } throttle ? Math.Round(Math.Clamp(throttle, 0, 1), 3) : null,
+            d.Brake is { } brake ? Math.Round(Math.Clamp(brake, 0, 1), 3) : null,
+            d.SteeringWheelAngle is { } steering ? Math.Round(Math.Clamp(steering, -20, 20), 3) : null,
+            d.Gear is >= -1 and <= 20 ? d.Gear : null,
+            d.Speed is { } speed ? Math.Round(Math.Clamp(speed, 0, 200), 2) : null,
+            d.LapDeltaToBestLap is { } delta && Math.Abs(delta) < 3600 ? Math.Round(delta, 3) : null,
+        ]);
     }
 
     // ---------------------------------------------------------------- Drawing the track from a lap
@@ -261,6 +338,7 @@ internal sealed class LiveRacing(Func<RacingCoachApi?> api, Action<string> log)
         object payload;
         bool onTrack;
         string? trackKey;
+        int fieldVersion;
         lock (_lock)
         {
             if (client is null || !_hasLatest || _track is null || _car is null)
@@ -273,6 +351,7 @@ internal sealed class LiveRacing(Func<RacingCoachApi?> api, Action<string> log)
             var d = _latest;
             onTrack = d.IsOnTrack == true && d.IsReplayPlaying != true;
             trackKey = _trackKey;
+            fieldVersion = _fieldVersion;
             payload = new
             {
                 track = _track,
@@ -294,9 +373,12 @@ internal sealed class LiveRacing(Func<RacingCoachApi?> api, Action<string> log)
                 deltaToBest = d.LapDeltaToBestLap is { } delta && Math.Abs(delta) < 3600 ? Math.Round(delta, 3) : (double?)null,
                 position = d.PlayerCarPosition is >= 0 and <= 1000 ? d.PlayerCarPosition : null,
                 incidents = d.PlayerCarMyIncidentCount is >= 0 ? d.PlayerCarMyIncidentCount : null,
+                steering = d.SteeringWheelAngle is { } steer ? Math.Round(Math.Clamp(steer, -20, 20), 3) : (double?)null,
+                inputs = TakeInputs(),
                 outline = _sendOutline && _map is { Exact: false } map
                     ? new { kind = "meters", points = map.Points.Select(p => new[] { p.X, p.Y }).ToArray() }
                     : null,
+                field = Field(d),
             };
         }
 
@@ -315,6 +397,8 @@ internal sealed class LiveRacing(Func<RacingCoachApi?> api, Action<string> log)
             lock (_lock)
             {
                 _sendOutline = answer.NeedsOutline;
+                if (_fieldVersion == fieldVersion)
+                    _sendFieldDrivers = answer.NeedsField;
                 // The site has had an outline made since the map was loaded (a lap with track positions uploaded)
                 if (answer.SavedOutline && _map is not { Exact: true })
                     _mapLoadedAt = DateTime.MinValue;
@@ -329,6 +413,76 @@ internal sealed class LiveRacing(Func<RacingCoachApi?> api, Action<string> log)
         }
         return onTrack;
     }
+
+    // Every car in the session as it is now, with the cars' details when they're due; null without session info.
+    // Called under the lock.
+    private object? Field(in TelemetryData d)
+    {
+        if (_fieldDrivers.Count == 0 || d.CarIdxLapDistPct is not { } pcts)
+            return null;
+        double? time = d.SessionTime;
+        var cars = new List<object>(_fieldDrivers.Count);
+        foreach (var driver in _fieldDrivers)
+        {
+            var i = driver.CarIdx;
+            double? pct = At(pcts, i) is >= 0 and <= 1 and var p ? Math.Round(p, 5) : null;
+            double? rate = null;
+            if (pct is { } now && time is { } t)
+            {
+                if (_fieldPrevious.TryGetValue(i, out var previous) && t - previous.Time is > 0.1 and < 10)
+                {
+                    // the short way round the lap, so crossing the line isn't a lap backwards
+                    var step = ((now - previous.Pct) % 1 + 1.5) % 1 - 0.5;
+                    rate = step > 0 ? Math.Round(Math.Min(step / (t - previous.Time), 0.1), 6) : 0;
+                }
+                _fieldPrevious[i] = (now, t);
+            }
+            else
+                _fieldPrevious.Remove(i);
+            cars.Add(new
+            {
+                idx = i,
+                pct,
+                rate,
+                lap = At(d.CarIdxLap, i) is >= 0 and var lap ? lap : (int?)null,
+                lapsDone = At(d.CarIdxLapCompleted, i) is >= 0 and var done ? done : (int?)null,
+                position = At(d.CarIdxPosition, i) is > 0 and <= 1000 and var pos ? pos : (int?)null,
+                classPosition = At(d.CarIdxClassPosition, i) is > 0 and <= 1000 and var cpos ? cpos : (int?)null,
+                onPitRoad = At(d.CarIdxOnPitRoad, i),
+                offTrack = At(d.CarIdxTrackSurface, i) == TrackLocation.OffTrack,
+                lastLapTime = LapSeconds(At(d.CarIdxLastLapTime, i)),
+                bestLapTime = LapSeconds(At(d.CarIdxBestLapTime, i)),
+                f2Time = At(d.CarIdxF2Time, i) is >= 0 and < 86400 and var f2 ? Math.Round(f2, 3) : (double?)null,
+                gear = At(d.CarIdxGear, i) is >= -1 and <= 20 and var gear ? gear : (int?)null,
+            });
+        }
+        var drivers = _sendFieldDrivers
+            ? _fieldDrivers.Select(f => new
+            {
+                idx = f.CarIdx,
+                name = f.Name,
+                number = f.Number,
+                car = f.Car,
+                carClass = f.CarClass,
+                classColor = f.ClassColor,
+                iRating = f.IRating,
+                license = f.License,
+            }).ToArray()
+            : null;
+        return new { subSessionId = _subSessionId, myCarIdx = _myCarIdx, cars, drivers };
+    }
+
+    // The inputs recorded since the last update, or null when there are none. Called under the lock.
+    private double?[][]? TakeInputs()
+    {
+        if (_inputs.Count == 0)
+            return null;
+        var inputs = _inputs.ToArray();
+        _inputs.Clear();
+        return inputs;
+    }
+
+    private static T? At<T>(T[]? values, int i) where T : struct => values is not null && i >= 0 && i < values.Length ? values[i] : null;
 
     // iRacing gives 0 or -1 when there's no time
     private static double? LapSeconds(float? seconds) => seconds is > 0 and < 86400 ? Math.Round(seconds.Value, 3) : null;

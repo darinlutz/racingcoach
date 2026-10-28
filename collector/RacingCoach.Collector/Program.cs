@@ -87,6 +87,18 @@ namespace RacingCoach.Collector;
     TelemetryVar.RRpressure,
     // read by TelemetryEngine.js in the overlay (as SimHub's GameRawData.Telemetry.SessionUniqueID)
     TelemetryVar.SessionUniqueID,
+    // every car in the session, for Live Racing's field (LiveRacing.cs)
+    TelemetryVar.CarIdxLapDistPct,
+    TelemetryVar.CarIdxLap,
+    TelemetryVar.CarIdxLapCompleted,
+    TelemetryVar.CarIdxPosition,
+    TelemetryVar.CarIdxClassPosition,
+    TelemetryVar.CarIdxOnPitRoad,
+    TelemetryVar.CarIdxTrackSurface,
+    TelemetryVar.CarIdxLastLapTime,
+    TelemetryVar.CarIdxBestLapTime,
+    TelemetryVar.CarIdxF2Time,
+    TelemetryVar.CarIdxGear,
 ])]
 public static class Program
 {

@@ -9,15 +9,25 @@ import type { TrackOutline } from '@/lib/trackOutlines';
 // to where the next update puts it.
 
 export type MapCar = {
-  id: number;
+  // Unique on the map, e.g. "driver:12" or "car:12345:7"
+  id: string;
   label: string;
   color: string;
   // LapDistPct (0-1) and speed (m/s) at sampledAt (performance.now() time); null pct: not on track
   pct: number | null;
   speed: number;
+  // The car's pace round the lap in laps per second, used instead of speed when given (the field's other cars,
+  // whose speed iRacing doesn't send)
+  rate?: number | null;
   sampledAt: number;
   moving: boolean;
   highlight: boolean;
+  // Another car in the session: drawn smaller, under the RacingCoach.app drivers, labeled with its car number
+  fieldCar?: boolean;
+  // Shown on hover
+  title?: string;
+  // Pit road or off track: drawn faded
+  dim?: boolean;
 };
 
 type Area = { name: string; start: number; end: number };
@@ -115,21 +125,22 @@ export default function LiveTrackMap({
     carsRef.current = cars;
     lengthRef.current = length;
   }, [cars, length]);
-  const [shown, setShown] = useState<Record<number, number>>({});
+  const [shown, setShown] = useState<Record<string, number>>({});
   useEffect(() => {
-    const positions = new Map<number, number>();
+    const positions = new Map<string, number>();
     let last = 0;
     let id = 0;
     const tick = (now: number) => {
       const dt = last ? Math.min((now - last) / 1000, 0.25) : 0;
       last = now;
-      const seen = new Set<number>();
+      const seen = new Set<string>();
       for (const car of carsRef.current) {
         if (car.pct == null) continue;
         seen.add(car.id);
         const elapsed = Math.min(Math.max((now - car.sampledAt) / 1000, 0), MAX_PREDICT_S);
         const lapLength = lengthRef.current;
-        const target = car.moving && lapLength > 0 ? (car.pct + (car.speed * elapsed) / lapLength) % 1 : car.pct;
+        const rate = car.rate ?? (lapLength > 0 ? car.speed / lapLength : 0);
+        const target = car.moving ? (car.pct + rate * elapsed) % 1 : car.pct;
         const previous = positions.get(car.id);
         const delta = previous == null ? 0 : wrapDelta(previous, target);
         positions.set(
@@ -182,16 +193,28 @@ export default function LiveTrackMap({
         </line>
       )}
       {dots
-        .sort((a, b) => Number(a.car.highlight) - Number(b.car.highlight))
-        .map(({ car, at: [x, y] }) => (
-          <g key={car.id}>
-            <circle cx={x} cy={-y} r={s * (car.highlight ? 0.022 : 0.018)} fill={car.color} stroke="white" strokeWidth={2}
-              vectorEffect="non-scaling-stroke" />
-            <text x={x} y={-y} dx={s * 0.03} dy={s * 0.01} fontSize={s * 0.032} fontWeight={600} className="fill-foreground">
-              {car.label}
-            </text>
-          </g>
-        ))}
+        .sort((a, b) => Number(!a.car.fieldCar) - Number(!b.car.fieldCar) || Number(a.car.highlight) - Number(b.car.highlight))
+        .map(({ car, at: [x, y] }) =>
+          car.fieldCar ? (
+            <g key={car.id} opacity={car.dim ? 0.45 : 1}>
+              {car.title && <title>{car.title}</title>}
+              <circle cx={x} cy={-y} r={s * 0.014} fill={car.color} stroke="black" strokeOpacity={0.6} strokeWidth={1}
+                vectorEffect="non-scaling-stroke" />
+              <text x={x} y={-y} dy={s * 0.0065} fontSize={s * 0.017} fontWeight={700} textAnchor="middle" fill="black">
+                {car.label}
+              </text>
+            </g>
+          ) : (
+            <g key={car.id} opacity={car.dim ? 0.6 : 1}>
+              {car.title && <title>{car.title}</title>}
+              <circle cx={x} cy={-y} r={s * (car.highlight ? 0.022 : 0.018)} fill={car.color} stroke="white" strokeWidth={2}
+                vectorEffect="non-scaling-stroke" />
+              <text x={x} y={-y} dx={s * 0.03} dy={s * 0.01} fontSize={s * 0.032} fontWeight={600} className="fill-foreground">
+                {car.label}
+              </text>
+            </g>
+          )
+        )}
     </svg>
   );
 }

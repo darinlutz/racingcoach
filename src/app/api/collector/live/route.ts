@@ -5,9 +5,10 @@ import { hasSavedOutline } from '@/lib/trackOutlines';
 
 // The telemetry collector's live position for Live Racing (src/lib/liveRacing.ts), twice a second while the driver
 // is in the car and every few seconds otherwise. Authenticated with the upload key as a bearer token, like
-// /api/collector/laps. Answers { watchers, needsOutline, savedOutline }: how many others are watching, whether to
-// send the collector's approximate outline of the track with the next update (the track has none saved, and it
-// hasn't been sent), and whether the track has a saved outline (GET /api/collector/track-outline gives it).
+// /api/collector/laps. Answers { watchers, needsOutline, needsField, savedOutline }: how many others are watching,
+// whether to send the collector's approximate outline of the track with the next update (the track has none saved,
+// and it hasn't been sent), whether to send the field's car details with it (this server doesn't have them), and
+// whether the track has a saved outline (GET /api/collector/track-outline gives it).
 export async function POST(request: Request) {
   try {
     const userId = await authenticateCollectorCached(request);

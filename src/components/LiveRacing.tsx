@@ -2,18 +2,28 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLanguage } from '@/components/LanguageProvider';
+import LiveInputs, { type TimedSample } from '@/components/LiveInputs';
+import LiveLeaderboard, { type LeaderboardDriver } from '@/components/LiveLeaderboard';
 import LiveTrackMap, { type MapCar } from '@/components/LiveTrackMap';
 import { useUnits } from '@/components/UnitsProvider';
-import type { LiveDriver } from '@/lib/liveRacing';
+import type { LiveDriver, LiveField } from '@/lib/liveRacing';
+import { formatLapTime as lapTime } from '@/lib/liveRacingFormat';
+import { reportRateLimit } from '@/lib/rateLimitClient';
 import type { TrackOutline } from '@/lib/trackOutlines';
 import { METERS_PER_FOOT, SPEED_UNIT, speedFromMetersPerSecond } from '@/lib/units';
 
 // The Live Racing page's tracks: each track someone the user may watch is driving, as a map with a dot per car, and
-// beside it each of those drivers' lap details. Asks GET /api/live every second while the page is showing, and each
+// beside it each of those drivers' lap details; and, from collectors that send it, every other car in their session
+// on the map and in a leaderboard under it. One driver (the user, until they pick another in the list) has the
+// Driver Inputs panel, and with Announce lap times on, their lap times are said in the site's ElevenLabs voice as
+// each lap ends (POST /api/live/lap-speech). Asks GET /api/live every second while the page is showing, and each
 // track's map from GET /api/live/outline (again every minute while it's missing or approximate, as an exact one
 // appears once a lap with track positions uploads).
 
 const POLL_MS = 1000;
+const ANNOUNCE_KEY = 'liveRacing.announceLaps';
+// A new clock offset this close to the last is noise (network timing), and the samples keep the old one
+const OFFSET_TOLERANCE_MS = 400;
 const OUTLINE_RETRY_MS = 60_000;
 // The user's own dot, then the others' in turn
 const ME_COLOR = '#DE3341';
@@ -32,19 +42,69 @@ type Received = LiveDriver & { sampledAt: number };
 
 const groupKey = (d: LiveDriver) => (d.trackKey ? d.trackKey.toLowerCase() : `name:${d.track}`);
 
-// 109.479 -> "1:49.479"; iRacing gives 0 or -1 when there's no time
-function lapTime(seconds: number | null | undefined): string {
-  if (seconds == null || seconds <= 0) return '—';
-  const ms = Math.round(seconds * 1000);
-  const minutes = Math.floor(ms / 60_000);
-  const rest = (ms % 60_000) / 1000;
-  return `${minutes}:${rest.toFixed(3).padStart(6, '0')}`;
+// A session's field, from the watched driver in it whose update is newest
+type SessionField = { key: string; field: LiveField; from: Received; isRace: boolean };
+
+// The sessions the group's drivers are in: one field per subsession (offline sessions, 0, are each driver's own)
+function sessionFields(group: Received[]): SessionField[] {
+  const bySession = new Map<string, Received>();
+  for (const d of group) {
+    if (!d.field || d.offline) continue;
+    const key = d.field.subSessionId > 0 ? `s:${d.field.subSessionId}` : `u:${d.userId}`;
+    const current = bySession.get(key);
+    if (!current || d.ageMs < current.ageMs) bySession.set(key, d);
+  }
+  return [...bySession.entries()].map(([key, from]) => ({
+    key,
+    field: from.field!,
+    from,
+    isRace: from.sessionType?.toLowerCase() === 'race',
+  }));
+}
+
+// The car index of each watched driver in this session
+function driversInSession(group: Received[], session: SessionField): Map<number, Received> {
+  const cars = new Map<number, Received>();
+  for (const d of group) {
+    if (d.field?.myCarIdx == null) continue;
+    const same = session.field.subSessionId > 0 ? d.field.subSessionId === session.field.subSessionId : d === session.from;
+    if (same) cars.set(d.field.myCarIdx, d);
+  }
+  return cars;
 }
 
 export default function LiveRacing() {
   const { t, fmt } = useLanguage();
   const units = useUnits();
   const [drivers, setDrivers] = useState<Received[] | null>(null);
+  // The driver whose inputs are shown (null: the user, else the first listed), and their recent inputs
+  const [picked, setPicked] = useState<number | null>(null);
+  const focusRef = useRef<number | null>(null);
+  const [samples, setSamples] = useState<TimedSample[]>([]);
+  // Page clock (ms) minus the collector's SessionTime (ms), for the focused driver's samples
+  const offset = useRef<{ driver: number; ms: number } | null>(null);
+  const [announce, setAnnounce] = useState(false);
+  const [announceError, setAnnounceError] = useState('');
+  // The focused driver's last lap time already announced (or there when the page started watching them)
+  const announced = useRef<{ driver: number; lapTime: number | null; best: number | null } | null>(null);
+
+  useEffect(() => {
+    try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- read once from browser storage after hydration
+      setAnnounce(window.localStorage.getItem(ANNOUNCE_KEY) === '1');
+    } catch {
+      // storage blocked: off
+    }
+  }, []);
+  const toggleAnnounce = (on: boolean) => {
+    setAnnounce(on);
+    setAnnounceError('');
+    try {
+      window.localStorage.setItem(ANNOUNCE_KEY, on ? '1' : '0');
+    } catch {
+      // kept for this visit only
+    }
+  };
   const [error, setError] = useState('');
   const [tracks, setTracks] = useState<Record<string, LiveTrack | null>>({});
   // When each track's map was last asked for, and whether it was asked with a driver's approximate outline
@@ -56,13 +116,26 @@ export default function LiveRacing() {
     const poll = async () => {
       if (document.visibilityState === 'visible') {
         try {
-          const response = await fetch('/api/live', { cache: 'no-store' });
+          const focus = focusRef.current;
+          const response = await fetch(focus ? `/api/live?inputs=${focus}` : '/api/live', { cache: 'no-store' });
           const data = await response.json();
           if (!response.ok) throw new Error(data.error || t.api.failedLoadLiveRacing);
           const now = performance.now();
           if (!stopped) {
-            setDrivers((data.drivers as LiveDriver[]).map((d) => ({ ...d, sampledAt: now - d.ageMs })));
+            const received = (data.drivers as LiveDriver[]).map((d) => ({ ...d, sampledAt: now - d.ageMs }));
+            setDrivers(received);
             setError('');
+            const focused = received.find((d) => d.userId === focus);
+            const inputs = focused?.inputs;
+            if (focused && inputs && inputs.length > 0) {
+              const ms = focused.sampledAt - inputs[inputs.length - 1][0] * 1000;
+              const kept = offset.current?.driver === focused.userId && Math.abs(offset.current.ms - ms) < OFFSET_TOLERANCE_MS;
+              if (!kept) offset.current = { driver: focused.userId, ms };
+              const base = offset.current!.ms;
+              setSamples(inputs.map((sample) => ({ at: base + sample[0] * 1000, sample })));
+            } else if (!focused?.onTrack) {
+              setSamples([]);
+            }
           }
         } catch (err) {
           if (!stopped) setError(err instanceof Error ? err.message : t.common.unknownError);
@@ -86,6 +159,48 @@ export default function LiveRacing() {
     // The user's own track first
     return [...byTrack.entries()].sort(([, a], [, b]) => Number(b.some((d) => d.isMe)) - Number(a.some((d) => d.isMe)));
   }, [drivers]);
+
+  // The focused driver: the one picked, else the user, else the first listed
+  const focus = useMemo(() => {
+    const list = drivers ?? [];
+    return (list.find((d) => d.userId === picked) ?? list.find((d) => d.isMe) ?? list[0])?.userId ?? null;
+  }, [drivers, picked]);
+  useEffect(() => {
+    focusRef.current = focus;
+  }, [focus]);
+  const focused = drivers?.find((d) => d.userId === focus) ?? null;
+
+  // Announce the focused driver's lap times as their laps end
+  useEffect(() => {
+    if (!focused) return;
+    const lapTimeNow = focused.lastLapTime ?? null;
+    const previous = announced.current;
+    announced.current = { driver: focused.userId, lapTime: lapTimeNow, best: focused.bestLapTime ?? null };
+    if (!announce || !previous || previous.driver !== focused.userId || lapTimeNow == null || lapTimeNow <= 0) return;
+    if (previous.lapTime === lapTimeNow) return;
+    const newBest = previous.best != null && focused.bestLapTime === lapTimeNow;
+    (async () => {
+      try {
+        const response = await fetch('/api/live/lap-speech', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lapTime: lapTimeNow, newBest }),
+        });
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
+          reportRateLimit(response, data);
+          throw new Error(data.error || t.liveRacing.announceFailed);
+        }
+        const url = URL.createObjectURL(await response.blob());
+        const audio = new Audio(url);
+        audio.onended = () => URL.revokeObjectURL(url);
+        await audio.play();
+        setAnnounceError('');
+      } catch (err) {
+        setAnnounceError(err instanceof Error ? err.message : t.liveRacing.announceFailed);
+      }
+    })();
+  }, [focused, announce, t]);
 
   // Each car keeps its color while it's listed
   const colors = useMemo(() => {
@@ -146,8 +261,9 @@ export default function LiveRacing() {
       {error && <p className="text-sm text-red-300">{error}</p>}
       {groups.map(([key, group]) => {
         const track = tracks[key];
+        const sessions = sessionFields(group);
         const cars: MapCar[] = group.map((d) => ({
-          id: d.userId,
+          id: `driver:${d.userId}`,
           label: d.isMe ? t.liveRacing.you : d.driver,
           color: colors.get(d.userId) ?? COLORS[0],
           pct: d.onTrack && !d.offline && d.pct != null ? d.pct : null,
@@ -155,7 +271,31 @@ export default function LiveRacing() {
           sampledAt: d.sampledAt,
           moving: d.onTrack && !d.offline,
           highlight: d.isMe,
+          dim: !!d.onPitRoad,
         }));
+        // The other cars in their sessions, leaving out the watched drivers' own (drawn above)
+        for (const session of sessions) {
+          const ours = driversInSession(group, session);
+          for (const car of session.field.cars) {
+            if (ours.has(car.idx) || !car.details) continue;
+            cars.push({
+              id: `car:${session.key}:${car.idx}`,
+              label: car.details.number ?? '',
+              color: car.details.classColor ?? '#cbd5e1',
+              pct: car.pct ?? null,
+              speed: 0,
+              rate: car.rate ?? 0,
+              sampledAt: session.from.sampledAt,
+              moving: true,
+              highlight: false,
+              fieldCar: true,
+              dim: !!car.onPitRoad || !!car.offTrack,
+              title: [`#${car.details.number ?? '?'} ${car.details.name}`, car.details.car, car.position ? fmt(t.liveRacing.position, { n: car.position }) : null]
+                .filter(Boolean)
+                .join(' · '),
+            });
+          }
+        }
         return (
           <div key={key} className="bg-card rounded-lg border border-border overflow-hidden">
             <div className="px-4 py-3 border-b border-border">
@@ -178,7 +318,14 @@ export default function LiveRacing() {
               </div>
               <ul className="border-t lg:border-t-0 lg:border-l border-border divide-y divide-border">
                 {group.map((d) => (
-                  <li key={d.userId} className={`px-4 py-3 ${d.offline ? 'opacity-60' : ''}`}>
+                  <li
+                    key={d.userId}
+                    onClick={() => setPicked(d.userId)}
+                    title={t.liveRacing.showInputs}
+                    className={`px-4 py-3 cursor-pointer ${d.offline ? 'opacity-60' : ''} ${
+                      d.userId === focus ? 'bg-primary/10' : 'hover:bg-muted/40'
+                    }`}
+                  >
                     <div className="flex items-center gap-2">
                       <span className="size-3 rounded-full shrink-0" style={{ backgroundColor: colors.get(d.userId) }} />
                       <span className="font-semibold text-foreground truncate">{d.driver}</span>
@@ -235,6 +382,35 @@ export default function LiveRacing() {
                 ))}
               </ul>
             </div>
+            {focused && group.includes(focused) && (
+              <div className="border-t border-border">
+                <LiveInputs driver={focused.isMe ? t.liveRacing.you : focused.driver} samples={samples} />
+                <div className="px-4 pb-3 -mt-1">
+                  <label className="inline-flex items-center gap-2 text-sm text-foreground cursor-pointer">
+                    <input type="checkbox" checked={announce} onChange={(e) => toggleAnnounce(e.target.checked)} />
+                    {t.liveRacing.announceLaps}
+                  </label>
+                  {announceError && <p className="mt-1 text-xs text-red-300">{announceError}</p>}
+                </div>
+              </div>
+            )}
+            {sessions.map((session) => {
+              const ours = driversInSession(group, session);
+              const racingCoachDrivers = new Map<number, LeaderboardDriver>(
+                [...ours].map(([idx, d]) => [idx, { name: d.driver, color: colors.get(d.userId) ?? COLORS[0], isMe: d.isMe }])
+              );
+              return (
+                <div key={session.key} className="border-t border-border">
+                  <div className="px-4 py-2 flex items-baseline gap-2">
+                    <h3 className="text-sm font-semibold text-foreground">{t.liveRacing.leaderboard}</h3>
+                    <span className="text-xs text-muted-foreground">
+                      {[session.from.sessionType, fmt(t.liveRacing.cars, { n: session.field.cars.length })].filter(Boolean).join(' · ')}
+                    </span>
+                  </div>
+                  <LiveLeaderboard field={session.field} isRace={session.isRace} racingCoachDrivers={racingCoachDrivers} />
+                </div>
+              );
+            })}
           </div>
         );
       })}

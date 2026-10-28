@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import DeckGL from '@deck.gl/react';
 import { COORDINATE_SYSTEM, WebMercatorViewport, type MapViewState, type PickingInfo } from '@deck.gl/core';
-import { ColumnLayer, LineLayer, PathLayer } from '@deck.gl/layers';
+import { LineLayer, PathLayer, SolidPolygonLayer } from '@deck.gl/layers';
 import { SimpleMeshLayer } from '@deck.gl/mesh-layers';
 
 import { useLanguage } from '@/components/LanguageProvider';
@@ -24,17 +24,19 @@ import {
 } from '@/lib/lapModel3d';
 import { DISTANCE_UNIT, SPEED_UNIT, distanceFromMeters, speedFromMetersPerSecond } from '@/lib/units';
 
-// Same shading as the time delta chart: where the Compare lap is behind (red) or ahead (green)
-const LOSS_COLOR: [number, number, number, number] = [255, 64, 64, 170];
-const GAIN_COLOR: [number, number, number, number] = [38, 167, 100, 170];
-const CASING_COLOR: [number, number, number, number] = [0, 0, 0, 140];
+// Same shading as the time delta chart: where the Compare lap is behind (red) or ahead (green), see-through so
+// the cars show behind it
+const LOSS_COLOR: [number, number, number, number] = [255, 64, 64, 110];
+const GAIN_COLOR: [number, number, number, number] = [38, 167, 100, 110];
 const EDGE_COLOR: [number, number, number, number] = [235, 235, 235, 200];
 const GRID_COLOR: [number, number, number, number] = [255, 255, 255, 22];
 
-const LINE_WIDTH = 0.6; // m, about a tire's width; the lines are often only 1-3 m apart
-const CASING_WIDTH = 1.1; // m
+const LINE_WIDTH = 0.3; // m; the lines are often only 1-3 m apart
 const LINE_LIFT = 0.06; // m the lines are drawn above the road, so they aren't hidden in it
-const WALL_RADIUS = 0.36; // m, so neighboring columns (STATION_SPACING apart) nearly touch
+const WALL_HALF_THICKNESS = 0.36; // m
+// Stations (STATION_SPACING apart) each side of each one that the wall's gap is averaged over, so its top
+// follows the trend rather than the sample-to-sample noise
+const WALL_SMOOTHING = 8;
 const WALL_MAX_HEIGHT = 12; // m, the wall's tallest point, at the area's largest time gap
 const WALL_MIN_HEIGHT = 0.3; // m, so the wall can still be pointed at where the gap is 0
 const GRID_SPACING = 10; // m between the ground grid's lines
@@ -54,6 +56,10 @@ const HEADLIGHT_COLOR: Rgba = [255, 247, 222, 255];
 const BRAKE_LIGHT_THRESHOLD = 0.02;
 const BRAKE_LIGHT_ON: Rgba = [255, 36, 36, 255];
 const BRAKE_LIGHT_OFF: Rgba = [105, 14, 14, 255];
+// The Base lap's car is a ghost: drawn see-through, after everything solid
+const GHOST_ALPHA = 140;
+// See-through layers blend over what's behind them without hiding it
+const SEE_THROUGH = { depthWriteEnabled: false };
 
 // The car's meshes (carModel3d.ts) and how each is colored: the body in the lap's color, the details in
 // their own, the lights unlit (material false) so they glow, the brake lights only while that lap brakes
@@ -80,8 +86,9 @@ const VIEW_LIMITS = { minZoom: 13, maxZoom: 22, maxPitch: 85 };
 
 type Rgba = [number, number, number, number];
 type Car = { key: 'base' | 'compare'; line: ModelLine; color: Rgba; title: string };
-// One column of the time gap wall: where it stands, the lap position it stands at and the gap there (s)
-type WallColumn = { position: Vec3; pct: number; delta: number };
+// One piece of the time gap wall, between two stations: its footprint, how tall it is, the lap position it
+// stands at and the (smoothed) gap there (s)
+type WallPiece = { polygon: Vec3[]; elevation: number; pct: number; delta: number };
 
 function rgba(hex: string, alpha = 255): Rgba {
   const n = parseInt(hex.slice(1), 16);
@@ -155,17 +162,34 @@ export default function TrackLineMap3D({
     ? withPositions.map(({ key, color, title }, i) => ({ key, color, title, line: model.lines[i] }))
     : [];
 
-  const wall = useMemo((): WallColumn[] => {
-    if (!model) return [];
+  const { wall, largestGap } = useMemo(() => {
+    if (!model) return { wall: [] as WallPiece[], largestGap: 0 };
+    const stations = model.wallBase;
     const d0 = base.trace.domain[0];
     const [baseStart, compareStart] = [timeAtPosition(base.trace, d0), timeAtPosition(compare.trace, d0)];
-    return model.wallBase.map(({ position, pct }) => ({
-      position,
-      pct,
-      delta: timeAtPosition(compare.trace, pct) - compareStart - (timeAtPosition(base.trace, pct) - baseStart),
-    }));
+    const raw = stations.map(
+      ({ pct }) => timeAtPosition(compare.trace, pct) - compareStart - (timeAtPosition(base.trace, pct) - baseStart)
+    );
+    const smoothed = raw.map((_, i) => {
+      const around = raw.slice(Math.max(0, i - WALL_SMOOTHING), i + WALL_SMOOTHING + 1);
+      return around.reduce((sum, d) => sum + d, 0) / around.length;
+    });
+    const largest = Math.max(0, ...smoothed.map(Math.abs));
+    const heightOf = (delta: number) =>
+      largest > 0.001 ? WALL_MIN_HEIGHT + (Math.abs(delta) / largest) * WALL_MAX_HEIGHT : WALL_MIN_HEIGHT;
+    // Each station's two sides, square to the wall's direction there, so neighboring pieces share an edge
+    const sides = stations.map(({ position: [x, y, z] }, i) => {
+      const [a, b] = [stations[Math.max(0, i - 1)].position, stations[Math.min(stations.length - 1, i + 1)].position];
+      const length = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+      const [nx, ny] = [(-(b[1] - a[1]) / length) * WALL_HALF_THICKNESS, ((b[0] - a[0]) / length) * WALL_HALF_THICKNESS];
+      return [[x + nx, y + ny, z], [x - nx, y - ny, z]] as [Vec3, Vec3];
+    });
+    const pieces = stations.slice(1).map(({ pct }, k): WallPiece => {
+      const delta = (smoothed[k] + smoothed[k + 1]) / 2;
+      return { polygon: [sides[k][0], sides[k + 1][0], sides[k + 1][1], sides[k][1]], elevation: heightOf(delta), pct, delta };
+    });
+    return { wall: pieces, largestGap: largest };
   }, [model, base.trace, compare.trace]);
-  const largestGap = Math.max(0, ...wall.map((c) => Math.abs(c.delta)));
 
   const grid = useMemo(() => {
     if (!model) return [];
@@ -251,6 +275,41 @@ export default function TrackLineMap3D({
   const offsets = { coordinateSystem: COORDINATE_SYSTEM.METER_OFFSETS, coordinateOrigin: [origin![1], origin![0], 0] as Vec3 };
   const linePath = ({ points, heights }: ModelLine) => points.map(([x, y], i): Vec3 => [x, y, heights[i] + LINE_LIFT]);
   const carData = cars.map((car, i) => ({ car, pose: poses[i] }));
+  // The solid (Compare) car's layers, or the ghost (Base) car's
+  const carLayers = (ghosts: boolean) => {
+    const data = carData.filter((d) => (d.car.key === 'base') === ghosts);
+    const seeThrough = ghosts ? { parameters: SEE_THROUGH } : {};
+    return [
+      ...CAR_PARTS.map(
+        ({ id, mesh, color, material }) =>
+          new SimpleMeshLayer<(typeof carData)[number]>({
+            id: ghosts ? `${id}-ghost` : id,
+            data,
+            mesh,
+            getPosition: (d) => d.pose.position,
+            getOrientation: (d) => [d.pose.pitch, d.pose.yaw, 0],
+            getColor: (d): Rgba => {
+              const [r, g, b, a] = color(d.car, d.pose);
+              return [r, g, b, ghosts ? GHOST_ALPHA : a];
+            },
+            material,
+            ...seeThrough,
+            ...offsets,
+          })
+      ),
+      new SimpleMeshLayer<{ position: Vec3; orientation: Vec3 }>({
+        id: ghosts ? 'wheels-ghost' : 'wheels',
+        data: data.flatMap((d) => wheelsOf(d.pose)),
+        mesh: WHEEL_MESH,
+        getPosition: (d) => d.position,
+        getOrientation: (d) => d.orientation,
+        getColor: [255, 255, 255, ghosts ? GHOST_ALPHA : 255],
+        material: MATERIAL,
+        ...seeThrough,
+        ...offsets,
+      }),
+    ];
+  };
 
   const layers = [
     new LineLayer<{ from: Vec3; to: Vec3 }>({
@@ -282,71 +341,35 @@ export default function TrackLineMap3D({
       ...offsets,
     }),
     new PathLayer<Car>({
-      id: 'line-casings',
-      data: cars,
-      getPath: (car) => linePath(car.line),
-      getColor: CASING_COLOR,
-      getWidth: CASING_WIDTH,
-      widthUnits: 'meters',
-      widthMinPixels: 4,
-      capRounded: true,
-      jointRounded: true,
-      ...offsets,
-    }),
-    new PathLayer<Car>({
       id: 'lines',
       data: cars,
       getPath: (car) => linePath(car.line),
       getColor: (car) => car.color,
       getWidth: LINE_WIDTH,
       widthUnits: 'meters',
-      widthMinPixels: 2,
+      widthMinPixels: 1,
       capRounded: true,
       jointRounded: true,
       ...offsets,
     }),
-    new ColumnLayer<WallColumn>({
+    // Solid things first, then the see-through wall and ghost car over them
+    ...carLayers(false),
+    new SolidPolygonLayer<WallPiece>({
       id: 'gap-wall',
       data: wall,
-      getPosition: (c) => c.position,
-      getElevation: (c) =>
-        largestGap > 0.001 ? WALL_MIN_HEIGHT + (Math.abs(c.delta) / largestGap) * WALL_MAX_HEIGHT : WALL_MIN_HEIGHT,
-      getFillColor: (c) => (c.delta > 0 ? LOSS_COLOR : GAIN_COLOR),
-      radius: WALL_RADIUS,
-      diskResolution: 4,
+      getPolygon: (p) => p.polygon,
+      getElevation: (p) => p.elevation,
+      getFillColor: (p) => (p.delta > 0 ? LOSS_COLOR : GAIN_COLOR),
       extruded: true,
-      flatShading: true,
       // Points at the crosshair while neither the chase view nor Play is steering it
       pickable: !chase && !playing,
-      updateTriggers: { getElevation: largestGap },
+      parameters: SEE_THROUGH,
       ...offsets,
     }),
-    ...CAR_PARTS.map(
-      ({ id, mesh, color, material }) =>
-        new SimpleMeshLayer<(typeof carData)[number]>({
-          id,
-          data: carData,
-          mesh,
-          getPosition: (d) => d.pose.position,
-          getOrientation: (d) => [d.pose.pitch, d.pose.yaw, 0],
-          getColor: (d) => color(d.car, d.pose),
-          material,
-          ...offsets,
-        })
-    ),
-    new SimpleMeshLayer<{ position: Vec3; orientation: Vec3 }>({
-      id: 'wheels',
-      data: poses.flatMap(wheelsOf),
-      mesh: WHEEL_MESH,
-      getPosition: (d) => d.position,
-      getOrientation: (d) => d.orientation,
-      getColor: [255, 255, 255, 255],
-      material: MATERIAL,
-      ...offsets,
-    }),
+    ...carLayers(true),
   ];
 
-  const onPick = (info: PickingInfo<WallColumn>) => {
+  const onPick = (info: PickingInfo<WallPiece>) => {
     if (chase || playing) return;
     onHover(info.layer?.id === 'gap-wall' && info.object ? info.object.pct : null);
   };
@@ -362,7 +385,9 @@ export default function TrackLineMap3D({
   };
 
   const buttonClass =
-    'h-8 px-2 flex items-center justify-center rounded-md bg-black/60 text-white text-xs hover:bg-black/80 disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-primary';
+    'h-8 px-2 flex items-center justify-center rounded-md bg-primary text-primary-foreground text-xs font-semibold shadow hover:bg-primary-strong transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-white';
+  const selectClass =
+    'h-8 rounded-md bg-primary px-1 text-xs font-semibold text-primary-foreground shadow hover:bg-primary-strong transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white';
   const number = (value: number, digits: number) =>
     value.toLocaleString(locale, { minimumFractionDigits: digits, maximumFractionDigits: digits });
   const distance = (meters: number) => `${number(distanceFromMeters(meters, units), 0)} ${DISTANCE_UNIT[units]}`;
@@ -417,7 +442,7 @@ export default function TrackLineMap3D({
               aria-label={t.playRate}
               value={rate}
               onChange={(e) => setRate(Number(e.target.value))}
-              className="h-8 rounded-md bg-black/60 px-1 text-xs text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              className={selectClass}
             >
               {PLAY_RATES.map((r) => (
                 <option key={r} value={r}>
@@ -430,7 +455,7 @@ export default function TrackLineMap3D({
             type="button"
             aria-pressed={chase}
             title={t.chaseViewHelp}
-            className={`${buttonClass} ${chase ? 'ring-2 ring-white' : ''}`}
+            className={`${buttonClass} ${chase ? 'bg-primary-strong ring-2 ring-white' : ''}`}
             onClick={() => setChase(!chase)}
           >
             {t.chaseView}
@@ -450,7 +475,7 @@ export default function TrackLineMap3D({
             title={t.heightScaleHelp}
             value={heightScale}
             onChange={(e) => setHeightScale(Number(e.target.value))}
-            className="h-8 rounded-md bg-black/60 px-1 text-xs text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            className={selectClass}
           >
             {HEIGHT_SCALES.map((s) => (
               <option key={s} value={s}>

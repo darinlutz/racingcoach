@@ -16,6 +16,63 @@ import { ensureUserSchema, getUserById, type User } from './users';
 // Who can watch a driver (watchableDrivers): the driver themselves; Coaches and Admins, who can watch everyone (as
 // they can open everyone's laps, canSeeAllLaps); everyone signed in can watch Coaches (as they can open Coaches'
 // laps); and the accounts a driver added on the Live Racing page (racingcoach."LiveRacingWatchers"), e.g. friends.
+//
+// Each update also has the field: every car in the driver's session (iRacing's CarIdx telemetry covers all of them),
+// so a watcher sees the whole race, not just RacingCoach.app drivers. Its drivers' names, cars and classes come only
+// when they change, or when this server doesn't have them (needsField), and are kept with the driver's live state.
+// Anyone who may watch the driver sees their field, other drivers' names included, as anyone spectating in iRacing
+// would.
+
+const lapSeconds = z.number().min(0).max(86_400).nullish();
+
+// A car in the field as it is now; idx is iRacing's car index, rate its pace round the lap (laps per second)
+const fieldCarSchema = z.object({
+  idx: z.number().int().min(0).max(255),
+  pct: z.number().min(0).max(1).nullish(),
+  rate: z.number().min(0).max(0.1).nullish(),
+  lap: z.number().int().min(0).max(100_000).nullish(),
+  lapsDone: z.number().int().min(0).max(100_000).nullish(),
+  position: z.number().int().min(1).max(1000).nullish(),
+  classPosition: z.number().int().min(1).max(1000).nullish(),
+  onPitRoad: z.boolean().nullish(),
+  offTrack: z.boolean().nullish(),
+  lastLapTime: lapSeconds,
+  bestLapTime: lapSeconds,
+  // In a race, the time behind the leader; otherwise iRacing's fastest lap time
+  f2Time: lapSeconds,
+  gear: z.number().int().min(-1).max(20).nullish(),
+});
+
+// A car's details from session info: driver, car number, car, class and class color ("#ffda59"), iRating, license
+const fieldDriverSchema = z.object({
+  idx: z.number().int().min(0).max(255),
+  name: z.string().trim().min(1).max(100),
+  number: z.string().trim().max(10).nullish(),
+  car: z.string().trim().max(200).nullish(),
+  carClass: z.string().trim().max(100).nullish(),
+  classColor: z.string().regex(/^#[0-9a-f]{6}$/i).nullish(),
+  iRating: z.number().int().min(0).max(20_000).nullish(),
+  license: z.string().trim().max(20).nullish(),
+});
+
+// The driver's inputs 20 times a second: [SessionTime, throttle 0-1, brake 0-1, steering (radians, + left), gear,
+// speed (m/s), delta to best (s)]
+const inputSampleSchema = z.tuple([
+  z.number().min(0).max(1e7),
+  z.number().min(0).max(1).nullable(),
+  z.number().min(0).max(1).nullable(),
+  z.number().min(-20).max(20).nullable(),
+  z.number().int().min(-1).max(20).nullable(),
+  z.number().min(0).max(200).nullable(),
+  z.number().min(-3600).max(3600).nullable(),
+]);
+
+export type InputSample = z.infer<typeof inputSampleSchema>;
+// How much of the driver's inputs the server keeps, in seconds of SessionTime
+const INPUTS_KEPT_S = 12;
+
+export type FieldCarUpdate = z.infer<typeof fieldCarSchema>;
+export type FieldDriverDetails = z.infer<typeof fieldDriverSchema>;
 
 // The collector's live update. Speeds in m/s, pedals 0-1, times in seconds, pct is LapDistPct (0-1)
 export const liveUpdateSchema = z.object({
@@ -38,6 +95,10 @@ export const liveUpdateSchema = z.object({
   deltaToBest: z.number().min(-3600).max(3600).nullish(),
   position: z.number().int().min(0).max(1000).nullish(),
   incidents: z.number().int().min(0).max(10_000).nullish(),
+  // Steering wheel angle in radians, + left
+  steering: z.number().min(-20).max(20).nullish(),
+  // The inputs since the last update (from collectors from 1.52.0)
+  inputs: z.array(inputSampleSchema).max(200).nullish(),
   // The collector's approximate outline (meters east and north), sent while the track has no saved one
   outline: z
     .object({
@@ -45,14 +106,34 @@ export const liveUpdateSchema = z.object({
       points: z.array(z.tuple([z.number().min(-1e6).max(1e6), z.number().min(-1e6).max(1e6)])).length(OUTLINE_POINTS),
     })
     .nullish(),
+  // Every car in the session (from collectors from 1.52.0); subSessionId 0 offline, myCarIdx the driver's own car
+  field: z
+    .object({
+      subSessionId: z.number().int().min(0),
+      myCarIdx: z.number().int().min(0).max(255).nullish(),
+      cars: z.array(fieldCarSchema).max(100),
+      drivers: z.array(fieldDriverSchema).max(100).nullish(),
+    })
+    .nullish(),
 });
 
 export type LiveUpdate = z.infer<typeof liveUpdateSchema>;
 
+// A car in a driver's field: its live state with its details (null until the collector has sent them)
+export type FieldCar = FieldCarUpdate & { details: FieldDriverDetails | null };
+
+export type LiveField = { subSessionId: number; myCarIdx: number | null; cars: FieldCar[] };
+
 type LiveEntry = {
   userId: number;
   driver: string;
-  update: Omit<LiveUpdate, 'outline'>;
+  update: Omit<LiveUpdate, 'outline' | 'field' | 'inputs'>;
+  field: LiveField | null;
+  // The driver's inputs over the last INPUTS_KEPT_S seconds, oldest first
+  inputs: InputSample[];
+  // The field's car details, by car index, and the subsession they're for
+  fieldDrivers: Map<number, FieldDriverDetails>;
+  fieldSubSession: number | null;
   receivedAt: number;
   // The collector's approximate outline, and the track key it's for
   outline: TrackOutline | null;
@@ -81,23 +162,54 @@ export function recordLiveUpdate(
   user: Pick<User, 'id' | 'userName' | 'role'>,
   update: LiveUpdate,
   savedOutline: boolean
-): { watchers: number; needsOutline: boolean } {
+): { watchers: number; needsOutline: boolean; needsField: boolean } {
   const now = Date.now();
   expire(now);
   const previous = live.entries.get(user.id);
-  const { outline, ...rest } = update;
+  const { outline, field, inputs: newInputs, ...rest } = update;
   const trackKey = update.trackKey?.toLowerCase() ?? null;
   let kept = previous && previous.outlineTrackKey === trackKey ? previous.outline : null;
   if (outline) kept = outline;
+  let fieldDrivers = previous?.fieldDrivers ?? new Map<number, FieldDriverDetails>();
+  let fieldSubSession = previous?.fieldSubSession ?? null;
+  if (field?.drivers) {
+    fieldDrivers = new Map(field.drivers.map((d) => [d.idx, d]));
+    fieldSubSession = field.subSessionId;
+  } else if (field && field.subSessionId !== fieldSubSession) {
+    fieldDrivers = new Map();
+    fieldSubSession = null;
+  }
+  let inputs: InputSample[] = previous?.inputs ?? [];
+  if (newInputs?.length) {
+    const latest = newInputs[newInputs.length - 1][0];
+    // SessionTime starts again in a new session
+    inputs = [...inputs.filter((s) => s[0] < newInputs[0][0]), ...newInputs].filter((s) => s[0] > latest - INPUTS_KEPT_S);
+  } else if (!update.onTrack) {
+    inputs = [];
+  }
   live.entries.set(user.id, {
     userId: user.id,
     driver: user.userName,
     update: rest,
+    inputs,
+    field: field
+      ? {
+          subSessionId: field.subSessionId,
+          myCarIdx: field.myCarIdx ?? null,
+          cars: field.cars.map((car) => ({ ...car, details: fieldDrivers.get(car.idx) ?? null })),
+        }
+      : null,
+    fieldDrivers,
+    fieldSubSession,
     receivedAt: now,
     outline: kept,
     outlineTrackKey: kept ? trackKey : null,
   });
-  return { watchers: watcherCount(user.id, now), needsOutline: !!trackKey && !savedOutline && !kept };
+  return {
+    watchers: watcherCount(user.id, now),
+    needsOutline: !!trackKey && !savedOutline && !kept,
+    needsField: !!field && fieldSubSession === null,
+  };
 }
 
 // The collector stopped (closed, or iRacing closed)
@@ -128,7 +240,7 @@ export async function watchableDrivers(viewer: Pick<User, 'id' | 'role'>): Promi
   return new Set([viewer.id, ...rows.map((r) => r.id)]);
 }
 
-export type LiveDriver = Omit<LiveUpdate, 'outline'> & {
+export type LiveDriver = Omit<LiveUpdate, 'outline' | 'field' | 'inputs'> & {
   userId: number;
   driver: string;
   isMe: boolean;
@@ -137,10 +249,15 @@ export type LiveDriver = Omit<LiveUpdate, 'outline'> & {
   offline: boolean;
   // The collector sent an approximate outline of this driver's track (GET /api/live/outline?driver= gives it)
   hasApproximateOutline: boolean;
+  // Every car in the driver's session, with the driver's own as myCarIdx; null from collectors that don't send it
+  field: LiveField | null;
+  // The driver's inputs over the last few seconds, oldest first, the newest sampled ageMs ago; only for the driver
+  // asked for (inputsFor), else null
+  inputs: InputSample[] | null;
 };
 
-// The live drivers this viewer may watch, each counted as watched by them
-export async function readLiveDrivers(viewer: Pick<User, 'id' | 'role'>): Promise<LiveDriver[]> {
+// The live drivers this viewer may watch, each counted as watched by them, with the inputs of the driver inputsFor
+export async function readLiveDrivers(viewer: Pick<User, 'id' | 'role'>, inputsFor?: number | null): Promise<LiveDriver[]> {
   const now = Date.now();
   expire(now);
   if (live.entries.size === 0) return [];
@@ -160,6 +277,8 @@ export async function readLiveDrivers(viewer: Pick<User, 'id' | 'role'>): Promis
       ageMs,
       offline: ageMs > STALE_MS,
       hasApproximateOutline: !!entry.outline,
+      field: entry.field,
+      inputs: entry.userId === inputsFor ? entry.inputs : null,
     });
   }
   return drivers.sort((a, b) => Number(b.isMe) - Number(a.isMe) || a.driver.localeCompare(b.driver));

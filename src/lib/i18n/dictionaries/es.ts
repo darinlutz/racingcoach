@@ -287,8 +287,10 @@ export const es: Dictionary = {
     appBlurb:
       'Ejecútalo en la PC con la que corres. Graba cada vuelta de iRacing y la envía aquí. Ejecuta la descarga para instalarlo en Archivos de programa, con un acceso directo en el menú Inicio. Si Windows dice que protegió tu PC, haz clic en Más información y luego en Ejecutar de todas formas.',
     download: 'Descargar',
-    replaceConfirm: '¿Reemplazar tu clave de carga? El recolector dejará de subir vueltas hasta que ingreses la nueva.',
-    revokeConfirm: '¿Revocar tu clave de carga? El recolector dejará de subir vueltas.',
+    replaceConfirmTitle: '¿Reemplazar tu clave de carga?',
+    replaceConfirm: 'Tu clave actual deja de funcionar de inmediato. El recolector dejará de subir vueltas hasta que ingreses la nueva.',
+    revokeConfirmTitle: '¿Revocar tu clave de carga?',
+    revokeConfirm: 'El recolector dejará de subir vueltas hasta que crees una nueva clave y la ingreses.',
     failedCreate: 'No se pudo crear una clave de carga',
     failedRevoke: 'No se pudo revocar la clave de carga',
     couldNotCopy: 'No se pudo copiar; selecciona la clave y cópiala manualmente.',

@@ -287,8 +287,10 @@ export const pt: Dictionary = {
     appBlurb:
       'Execute no PC em que você corre. Ele grava cada volta do iRacing e envia para cá. Execute o download para instalá-lo em Arquivos de Programas, com um atalho no menu Iniciar. Se o Windows disser que protegeu seu PC, clique em Mais informações e depois em Executar assim mesmo.',
     download: 'Baixar',
-    replaceConfirm: 'Substituir sua chave de envio? O coletor vai parar de enviar até você inserir a nova.',
-    revokeConfirm: 'Revogar sua chave de envio? O coletor vai parar de enviar voltas.',
+    replaceConfirmTitle: 'Substituir sua chave de envio?',
+    replaceConfirm: 'Sua chave atual para de funcionar na hora. O coletor vai parar de enviar voltas até você inserir a nova.',
+    revokeConfirmTitle: 'Revogar sua chave de envio?',
+    revokeConfirm: 'O coletor vai parar de enviar voltas até você criar uma nova chave e inseri-la.',
     failedCreate: 'Não foi possível criar uma chave de envio',
     failedRevoke: 'Não foi possível revogar a chave de envio',
     couldNotCopy: 'Não foi possível copiar; selecione a chave e copie manualmente.',

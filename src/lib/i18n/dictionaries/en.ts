@@ -293,8 +293,10 @@ export const en = {
     appBlurb:
       'Run it on the PC you race on. It records every lap from iRacing and sends it here. Run the download to install it in Program Files, with a Start menu shortcut. If Windows says it protected your PC, click More info, then Run anyway.',
     download: 'Download',
-    replaceConfirm: 'Replace your upload key? The collector will stop uploading until you enter the new one.',
-    revokeConfirm: 'Revoke your upload key? The collector will stop uploading laps.',
+    replaceConfirmTitle: 'Replace your upload key?',
+    replaceConfirm: 'Your current key stops working right away. The collector will stop uploading laps until you enter the new one.',
+    revokeConfirmTitle: 'Revoke your upload key?',
+    revokeConfirm: 'The collector will stop uploading laps until you create a new key and enter it.',
     failedCreate: 'Failed to create an upload key',
     failedRevoke: 'Failed to revoke the upload key',
     couldNotCopy: 'Could not copy; select the key and copy it instead.',

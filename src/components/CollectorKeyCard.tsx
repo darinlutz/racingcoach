@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
+import ConfirmDialog from '@/components/ConfirmDialog';
 import { useLanguage } from '@/components/LanguageProvider';
 import { COLLECTOR_DOWNLOAD_URL } from '@/lib/collectorDownload';
 import type { CollectorKeyInfo } from '@/lib/collectorKeys';
@@ -9,7 +10,7 @@ const buttonClass =
   'shrink-0 px-4 py-2 text-sm font-semibold rounded-lg text-foreground bg-card border border-border hover:border-primary hover:text-primary transition-colors disabled:opacity-50';
 
 // The Account page's telemetry collector card: download the collector, and its upload key: create one
-// (shown once, to paste into the collector), replace it, or revoke it
+// (shown once, to paste into the collector), replace it, or revoke it. Replacing or revoking asks first in a ConfirmDialog
 export default function CollectorKeyCard({ initialKey }: { initialKey: CollectorKeyInfo | null }) {
   const { t, fmt, locale } = useLanguage();
   const [info, setInfo] = useState(initialKey);
@@ -17,14 +18,16 @@ export default function CollectorKeyCard({ initialKey }: { initialKey: Collector
   const [copied, setCopied] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  // Which confirmation is open, if any
+  const [confirming, setConfirming] = useState<'replace' | 'revoke' | null>(null);
+  // Stable, as ConfirmDialog's Escape listener depends on it
+  const closeConfirm = useCallback(() => setConfirming(null), []);
 
   const formatDate = (iso: string | null) =>
     iso ? new Date(iso).toLocaleDateString(locale, { dateStyle: 'long' }) : t.collectorCard.never;
 
   const createKey = async () => {
-    if (info && !window.confirm(t.collectorCard.replaceConfirm)) {
-      return;
-    }
+    setConfirming(null);
     setBusy(true);
     setError('');
     try {
@@ -42,7 +45,7 @@ export default function CollectorKeyCard({ initialKey }: { initialKey: Collector
   };
 
   const revokeKey = async () => {
-    if (!window.confirm(t.collectorCard.revokeConfirm)) return;
+    setConfirming(null);
     setBusy(true);
     setError('');
     try {
@@ -113,10 +116,10 @@ export default function CollectorKeyCard({ initialKey }: { initialKey: Collector
             </p>
           </div>
           <div className="flex shrink-0 flex-wrap justify-end gap-2">
-            <button type="button" onClick={createKey} disabled={busy} className={buttonClass}>
+            <button type="button" onClick={() => setConfirming('replace')} disabled={busy} className={buttonClass}>
               {t.collectorCard.replaceKey}
             </button>
-            <button type="button" onClick={revokeKey} disabled={busy} className={buttonClass}>
+            <button type="button" onClick={() => setConfirming('revoke')} disabled={busy} className={buttonClass}>
               {t.collectorCard.revoke}
             </button>
           </div>
@@ -134,6 +137,28 @@ export default function CollectorKeyCard({ initialKey }: { initialKey: Collector
           </button>
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirming === 'replace'}
+        title={t.collectorCard.replaceConfirmTitle}
+        confirmLabel={t.collectorCard.replaceKey}
+        cancelLabel={t.common.cancel}
+        onConfirm={() => void createKey()}
+        onCancel={closeConfirm}
+      >
+        {t.collectorCard.replaceConfirm}
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={confirming === 'revoke'}
+        title={t.collectorCard.revokeConfirmTitle}
+        confirmLabel={t.collectorCard.revoke}
+        cancelLabel={t.common.cancel}
+        onConfirm={() => void revokeKey()}
+        onCancel={closeConfirm}
+      >
+        {t.collectorCard.revokeConfirm}
+      </ConfirmDialog>
     </div>
   );
 }

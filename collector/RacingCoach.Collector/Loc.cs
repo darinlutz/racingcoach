@@ -221,6 +221,18 @@ internal static class Loc
         ["brake.press1"] = ("Press 1", "Pisada 1", "Pisada 1"),
         ["brake.press2"] = ("Press 2", "Pisada 2", "Pisada 2"),
         ["brake.complete"] = ("Calibration complete", "Calibração concluída", "Calibración completa"),
+        ["brake.start"] = ("Start", "Iniciar", "Iniciar"),
+        ["brake.playAgain"] = ("Play Again", "Jogar de novo", "Jugar de nuevo"),
+        ["brake.startTip"] = ("Practice three braking zones from your Target Lap, three times through, with the beeps",
+            "Treine três zonas de frenagem da sua Volta Alvo, três vezes seguidas, com os bipes",
+            "Practica tres zonas de frenada de tu Vuelta Objetivo, tres veces seguidas, con los pitidos"),
+        ["brake.playAgainPrompt"] = ("Done! Want to play again?", "Pronto! Quer jogar de novo?", "¡Listo! ¿Quieres jugar de nuevo?"),
+        ["brake.noZones"] = ("Your Target Lap has no heavy or medium braking zones.",
+            "Sua Volta Alvo não tem zonas de frenagem fortes ou médias.",
+            "Tu Vuelta Objetivo no tiene zonas de frenada fuertes o medias."),
+        ["brake.run"] = ("Run {0} of {1}", "Rodada {0} de {1}", "Ronda {0} de {1}"),
+        ["brake.heavy"] = ("Heavy braking", "Frenagem forte", "Frenada fuerte"),
+        ["brake.medium"] = ("Medium braking", "Frenagem média", "Frenada media"),
 
         // Target Telemetry window (and TargetLapSource)
         ["target.telemetryTitle"] = (" TARGET TELEMETRY", " TELEMETRIA ALVO", " TELEMETRÍA OBJETIVO"),

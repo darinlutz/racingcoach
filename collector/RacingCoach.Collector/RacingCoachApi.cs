@@ -459,10 +459,10 @@ internal sealed record TargetLapResponse(TargetLapTrace? TargetLap, double Track
 /// <summary>The Target Lap's file name, the track its file name names (null if it doesn't say), whether that's
 /// the track being driven (null when unknown), and per sample its LapDistPct (unwrapped: it keeps increasing past
 /// the start/finish line), Brake and Throttle (0-1) and SteeringWheelAngle (radians, positive to the left);
-/// Throttles and Steerings are null from sites before they were added; and where it changed gear (null from sites
-/// before that was added).</summary>
+/// Throttles and Steerings are null from sites before they were added; where it changed gear (null from sites
+/// before that was added); and Speed per sample (m/s; null from sites before it was added).</summary>
 internal sealed record TargetLapTrace(string FileName, string? Track, bool? SameTrack, double[] Pcts, double[] Brakes,
-    double[]? Throttles, double[]? Steerings, TargetGearChange[]? GearChanges);
+    double[]? Throttles, double[]? Steerings, TargetGearChange[]? GearChanges, double[]? Speeds);
 
 /// <summary>Where the Target Lap went into another forward gear: LapDistPct (unwrapped like Pcts), the gear it was in and the new gear.</summary>
 internal sealed record TargetGearChange(double Pct, int From, int Gear);

@@ -40,6 +40,10 @@
                         Width="26" Padding="0" />
                 <Button x:Name="RecalibrateButton" DockPanel.Dock="Right" Style="{StaticResource HeaderButton}" local:Loc.Key="brake.recalibrate"
                         Click="Recalibrate_Click" Padding="10,0" Margin="0,0,8,0" Visibility="Collapsed" />
+                <!-- The game: Start, then Play Again after each drill (its text is set in code) -->
+                <Button x:Name="StartButton" DockPanel.Dock="Right" Style="{StaticResource HeaderButton}" local:Loc.ToolTip="brake.startTip"
+                        Click="Start_Click" Padding="12,0" Margin="0,0,8,0" Visibility="Collapsed"
+                        Background="#3B8BFF" BorderBrush="#3B8BFF" Foreground="#FFFFFF" FontWeight="SemiBold" />
                 <!-- The exact brake percentage being applied -->
                 <TextBlock x:Name="BrakeReadout" DockPanel.Dock="Right" Margin="0,0,12,0" VerticalAlignment="Center"
                            FontSize="34" FontWeight="Bold" FontFamily="Consolas" Foreground="#EF4444" Text="—" Visibility="Collapsed" />
@@ -73,9 +77,23 @@
                     </StackPanel>
                 </Border>
 
-                <!-- Step 2: brake % over the last few seconds, newest on the right, with lines at 20, 40, 60, 80 and 100% -->
+                <!-- Step 2: brake % over the last few seconds, newest on the right, with lines at 20, 40, 60, 80 and 100%;
+                     in the game, the drill's brake scrolling past the line where the driver's brake is now -->
                 <Border x:Name="GraphPanel" Background="#1A1B1E" BorderBrush="#303136" BorderThickness="1" CornerRadius="6" Visibility="Collapsed">
-                    <Canvas x:Name="Graph" ClipToBounds="True" SizeChanged="Graph_SizeChanged" />
+                    <Grid>
+                        <Canvas x:Name="Graph" ClipToBounds="True" SizeChanged="Graph_SizeChanged" />
+                        <!-- Which run, and the zone coming up -->
+                        <Border x:Name="RunPanel" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,16,8,0" Padding="8,2"
+                                CornerRadius="4" Background="#232428" Visibility="Collapsed" IsHitTestVisible="False">
+                            <TextBlock x:Name="RunText" FontSize="12" FontWeight="SemiBold" />
+                        </Border>
+                        <TextBlock x:Name="CountdownText" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="72"
+                                   FontWeight="Bold" Foreground="#F3F4F6" Visibility="Collapsed" IsHitTestVisible="False" />
+                        <Border x:Name="GameMessagePanel" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="48,0,12,0"
+                                Padding="14,8" CornerRadius="6" Background="#232428" Visibility="Collapsed" IsHitTestVisible="False">
+                            <TextBlock x:Name="GameMessage" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap" TextAlignment="Center" />
+                        </Border>
+                    </Grid>
                 </Border>
             </Grid>
         </DockPanel>

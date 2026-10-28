@@ -17,11 +17,11 @@ namespace RacingCoach.Collector;
 internal sealed class BrakeBeeps(Func<RacingCoachApi?> api, Action<string> log)
 {
     /// <summary>Feet before the brakepoint that get a warning beep, farthest first.</summary>
-    private static readonly double[] WarningFeet = [300, 200, 100];
-    private const int WarningHz = 1000;
-    private const int BrakepointHz = 2000; // higher than the warnings
-    private const int BeepMs = 120;
-    private const int BrakepointBeepMs = 200;
+    internal static readonly double[] WarningFeet = [300, 200, 100];
+    internal const int WarningHz = 1000;
+    internal const int BrakepointHz = 2000; // higher than the warnings
+    internal const int BeepMs = 120;
+    internal const int BrakepointBeepMs = 200;
     private const double FeetPerMeter = 3.280839895;
     private static readonly TimeSpan ReloadEvery = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan RetryAfter = TimeSpan.FromMinutes(1);
@@ -53,8 +53,7 @@ internal sealed class BrakeBeeps(Func<RacingCoachApi?> api, Action<string> log)
     private float? _lastPct;
 
     // One beep at a time, in order, without holding up the telemetry thread
-    private readonly BlockingCollection<(int Hz, int Ms, double Volume)> _beeps = [];
-    private Thread? _player;
+    private readonly BeepQueue _beeps = new();
 
     /// <summary>The track being driven (the name the collector gives its laps) and iRacing's length for it
     /// (e.g. "4.0900 km", used when Track Data has no length), from each session info update.</summary>
@@ -252,13 +251,13 @@ internal sealed class BrakeBeeps(Func<RacingCoachApi?> api, Action<string> log)
                     if (after > before)
                     {
                         // Went past it: the distance ahead jumped from nothing to almost a lap
-                        Play(BrakepointHz, BrakepointBeepMs, loaded.Volume);
+                        _beeps.Brakepoint(loaded.Volume);
                         continue;
                     }
                     foreach (var feet in WarningFeet)
                     {
                         if (before > feet && after <= feet)
-                            Play(WarningHz, BeepMs, loaded.Volume);
+                            _beeps.Warning(loaded.Volume);
                     }
                 }
             }
@@ -272,9 +271,28 @@ internal sealed class BrakeBeeps(Func<RacingCoachApi?> api, Action<string> log)
         var ahead = brakepoint - position;
         return ahead < 0 ? ahead + 1 : ahead;
     }
+}
+
+/// <summary>
+/// Plays the brake beeps one at a time, in order, on their own thread, so the caller (the telemetry thread, or
+/// Brake Practice's game on the UI thread) isn't held up: a warning beep, or the higher one at the brakepoint, at
+/// a volume from BrakeBeeps.Gain.
+/// </summary>
+internal sealed class BeepQueue : IDisposable
+{
+    private readonly BlockingCollection<(int Hz, int Ms, double Volume)> _beeps = [];
+    private Thread? _player;
+
+    public void Warning(double volume) => Play(BrakeBeeps.WarningHz, BrakeBeeps.BeepMs, volume);
+
+    public void Brakepoint(double volume) => Play(BrakeBeeps.BrakepointHz, BrakeBeeps.BrakepointBeepMs, volume);
+
+    public void Dispose() => _beeps.CompleteAdding();
 
     private void Play(int hz, int ms, double volume)
     {
+        if (_beeps.IsAddingCompleted)
+            return;
         if (_player is null)
         {
             _player = new Thread(PlayAll) { IsBackground = true, Name = "Brake beeps" };

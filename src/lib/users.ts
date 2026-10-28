@@ -12,7 +12,7 @@ import {
   type MembershipLevel,
   type Plan,
 } from './accountStatus';
-import { addRacingDisciplines, copyDefaultCars, seedDefaultCars } from './defaultCars';
+import { addNewDefaultCars, addRacingDisciplines, copyDefaultCars, seedDefaultCars } from './defaultCars';
 import { seedDefaultTracks } from './defaultTracks';
 import { dropTrackLengthsTable } from './trackLengths';
 import { appendTrackCorners, categorizeTracks, removeLegacyTracks, seedTrackCorners } from './trackCorners';
@@ -492,6 +492,8 @@ export function ensureUserSchema(): Promise<void> {
       if (carsMissing) await seedDefaultCars(client);
       if (carsUsersMissing) await copyDefaultCars(client, null);
       if (!hasDiscipline) await addRacingDisciplines(client);
+      // Default cars added since (addNewDefaultCars)
+      await addNewDefaultCars(client);
       // Why each monthly subscriber canceled, one row per cancellation. The user's name and email are
       // copied in; Delete Account (deleteUser) clears them and keeps the feedback (user_id is then set NULL).
       // reason is one of CANCELLATION_REASONS' labels; stripe_subscription_id is the confirmation number.

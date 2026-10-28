@@ -1,9 +1,10 @@
 import type { PoolClient } from 'pg';
 import type { RacingDiscipline } from './racingDisciplines';
 
-// The cars every account starts with (the GT3 cars from GT3_Car_Data.xlsx, then one of each other
+// The cars every account starts with (the GT3 cars from GT3_Car_Data.xlsx, then a few of each other
 // discipline). They are seeded once into racingcoach."Cars"; each user gets their own copy in "CarsUsers"
-// on sign-up (copyDefaultCars) and can edit or delete them from the Car Data tab.
+// on sign-up (copyDefaultCars) and can edit or delete them from the Car Data tab. A car added here later reaches
+// existing databases once, from addNewDefaultCars.
 
 export type DefaultCar = {
   name: string;
@@ -306,6 +307,111 @@ export const DEFAULT_CARS: DefaultCar[] = [
     notes:
       'Front-engine 2.4L NA flat-four with 220 bhp and 188 lb-ft, revving to 7,500. Low center of gravity, rear-wheel drive and no aero, but fairly heavy for its power (2,996 lbs wet). Desirable: a balanced, playful chassis that rotates willingly and teaches weight transfer, with close racing. Undesirable: little power to make up for mistakes, the rear steps out on lift-off or early throttle, and the tires overheat when slid. Rewards smooth inputs, carrying speed and keeping the car straight on exit.',
   },
+  {
+    name: "NASCAR O'Reilly Chevrolet Camaro",
+    racingDiscipline: 'Oval',
+    lengthIn: 195,
+    widthIn: 71,
+    wheelbaseIn: 110,
+    dryWeightLbs: 3430,
+    wetWeightLbs: 3596,
+    displacementLiters: 5.86,
+    rpmLimit: 9000,
+    torqueLbFt: 500,
+    powerBhp: 675,
+    notes:
+      "Front-engine 5.86L (358 ci) pushrod V8 with 675 bhp and 500 lb-ft, revving to 9,000. Heavy steel tube-frame stock car (3,596 lbs wet) with less downforce than a Cup car, so it slides more and the driver does more of the work. Desirable: plenty of power, a big draft for passing, and a car that tells you clearly when it's at the limit. Undesirable: tight in the center on entry and loose on exit as the rear tires wear, and it loses front grip in dirty air behind other cars. Rewards a smooth entry that keeps the rolling speed up through the center, patient throttle on exit, and saving the tires over a long run.",
+  },
+  {
+    name: 'ARCA Chevrolet SS',
+    racingDiscipline: 'Oval',
+    lengthIn: 194,
+    widthIn: 77,
+    wheelbaseIn: 110,
+    dryWeightLbs: 3125,
+    wetWeightLbs: 3450,
+    displacementLiters: 6.49,
+    rpmLimit: 8000,
+    torqueLbFt: 525,
+    powerBhp: 700,
+    notes:
+      'Front-engine 6.49L pushrod V8 with 700 bhp and 525 lb-ft, revving to 8,000. A wide, heavy steel tube-frame stock car (3,450 lbs wet) with modest downforce and hard tires, so grip is limited and the car moves around. Desirable: lots of torque off the corners, a forgiving, predictable slide, and an ideal step up to learn stock car racecraft and drafting. Undesirable: slow to change direction, pushes up the track if you over-drive the entry, and the long runs wear the right-side tires. Rewards lifting early and rolling the corner rather than braking deep, hitting the bottom of the track, and smooth, gradual throttle on exit.',
+  },
+  {
+    name: 'NASCAR Truck Chevrolet Silverado',
+    racingDiscipline: 'Oval',
+    lengthIn: 192,
+    widthIn: 75,
+    wheelbaseIn: 110,
+    dryWeightLbs: 3330,
+    wetWeightLbs: 3600,
+    displacementLiters: 5.86,
+    rpmLimit: 8000,
+    torqueLbFt: 520,
+    powerBhp: 680,
+    notes:
+      'Front-engine 5.86L (358 ci) pushrod V8 with 680 bhp and 520 lb-ft, revving to 8,000. The heaviest car here (3,600 lbs wet), with a tall, boxy body that makes far more drag than a stock car. Desirable: the huge drag gives a powerful draft and big closing rates, so passing in packs is easy, and the weight makes it stable and predictable. Undesirable: any lift or scrub costs speed for the whole straight, it gets tight in dirty air, and the weight wears out tires and brakes. Rewards keeping momentum, a smooth, minimal-steering line, lifting rather than braking where possible, and timing runs in the draft.',
+  },
+  {
+    name: 'Porsche 718 Cayman GT4 Clubsport',
+    racingDiscipline: 'Sports Car',
+    lengthIn: 175.4,
+    widthIn: 70,
+    wheelbaseIn: 97.5,
+    dryWeightLbs: 2934,
+    wetWeightLbs: 3166,
+    displacementLiters: 3.8,
+    rpmLimit: 7800,
+    torqueLbFt: 313,
+    powerBhp: 425,
+    notes:
+      'Mid-engine 3.8L NA flat-six with 425 bhp and 313 lb-ft, revving to 7,800. Short 97.5 in wheelbase with the weight in the middle and little aero, so it rotates eagerly but has modest grip and power. Desirable: sharp turn-in, strong braking and traction, and a car that rewards trail braking into the apex. Undesirable: snappy lift-off oversteer when the rear goes light mid-corner, and too little power to make up for a slow exit. Rewards a smooth release of the brake to rotate the car, early, progressive throttle, and carrying speed rather than braking late.',
+  },
+  {
+    name: 'BMW M8 GTE',
+    racingDiscipline: 'Sports Car',
+    lengthIn: 196,
+    widthIn: 87.5,
+    wheelbaseIn: 113,
+    dryWeightLbs: 2896,
+    wetWeightLbs: 3044,
+    displacementLiters: 4,
+    rpmLimit: 7000,
+    torqueLbFt: 515,
+    powerBhp: 592,
+    notes:
+      'Front-mid 4.0L twin-turbo V8 with 592 bhp and 515 lb-ft and a low 7,000 rpm limit. A big, long and very wide car on a 113 in wheelbase, with more downforce than a GT3 car and no ABS. Desirable: very stable under braking and in fast corners, and huge torque that pulls hard out of slow corners. Undesirable: without ABS the fronts lock if you hit the brake too hard, it understeers in tight, slow corners, and the turbo torque can spin the rears on exit. Rewards threshold braking with a smooth release, getting the car turned before the throttle, and short-shifting to manage wheelspin.',
+  },
+  {
+    name: 'Cadillac V-Series.R GTP',
+    racingDiscipline: 'Prototype',
+    lengthIn: 201,
+    widthIn: 78.7,
+    wheelbaseIn: 124,
+    dryWeightLbs: 2270,
+    wetWeightLbs: 2535,
+    displacementLiters: 5.5,
+    rpmLimit: 8770,
+    torqueLbFt: 463,
+    powerBhp: 675,
+    notes:
+      'Mid-engine 5.5L NA V8 hybrid with 675 bhp and 463 lb-ft, revving to 8,770; the only GTP without turbos. Long, high-downforce prototype on a 124 in wheelbase (2,535 lbs wet). Desirable: a linear, predictable throttle that makes traction easy to judge, enormous high-speed grip and braking, and stability in fast sweepers. Undesirable: regenerative braking changes the brake balance, so the rears can lock on entry, and the length makes it slow to rotate in tight corners. Rewards a smooth brake release, getting the car turned early, using the revs out of slow corners and managing the hybrid over a lap.',
+  },
+  {
+    name: 'Super Formula SF23 - Toyota',
+    racingDiscipline: 'Formula Car',
+    lengthIn: 206,
+    widthIn: 75,
+    wheelbaseIn: 123,
+    dryWeightLbs: 1322,
+    wetWeightLbs: 1477,
+    displacementLiters: 2,
+    rpmLimit: 9400,
+    torqueLbFt: 354,
+    powerBhp: 550,
+    notes:
+      'Mid-engine 2.0L turbo four with 550 bhp and 354 lb-ft, revving to 9,400, with a push-to-pass Overtake System. The lightest car here (1,477 lbs wet), with high downforce designed to lose less grip when following another car. Desirable: extreme cornering speed and braking, quick changes of direction, and close racing. Undesirable: needs heat in the tires and brakes, snaps on cold tires or over kerbs, and the light car gets loose with wheelspin out of slow corners. Rewards very hard, late braking with a quick, precise release, full commitment in fast corners and smart use of the Overtake System.',
+  },
 ];
 
 // The cars added to DEFAULT_CARS with the racing_discipline column. Databases seeded before it get them
@@ -370,7 +476,9 @@ export async function copyDefaultCars(client: PoolClient, userId: number | null,
 // the GT3 cars already there become Sports Cars (in Cars and every user's copy; cars users added
 // themselves stay without one), and the cars added with the column go into Cars and every user's CarsUsers.
 export async function addRacingDisciplines(client: PoolClient): Promise<void> {
-  const gt3Names = DEFAULT_CARS.filter((c) => !CARS_ADDED_WITH_DISCIPLINES.includes(c.name)).map((c) => c.name.toLowerCase());
+  const gt3Names = DEFAULT_CARS.filter((c) => c.name.includes('GT3') && !CARS_ADDED_WITH_DISCIPLINES.includes(c.name)).map(
+    (c) => c.name.toLowerCase()
+  );
   for (const table of ['"Cars"', '"CarsUsers"']) {
     await client.query(
       `UPDATE racingcoach.${table} SET racing_discipline = 'Sports Car'
@@ -380,4 +488,19 @@ export async function addRacingDisciplines(client: PoolClient): Promise<void> {
   }
   await seedDefaultCars(client, DEFAULT_CARS.filter((c) => CARS_ADDED_WITH_DISCIPLINES.includes(c.name)));
   await copyDefaultCars(client, null, CARS_ADDED_WITH_DISCIPLINES);
+}
+
+// Cars added to DEFAULT_CARS after a database was seeded go into Cars and every user's CarsUsers, once: a car
+// already in Cars is left alone, so a user who deleted their copy doesn't get it back. Runs on the caller's
+// transaction.
+export async function addNewDefaultCars(client: PoolClient): Promise<void> {
+  const { rows } = await client.query<{ name: string }>(
+    `SELECT n.name FROM unnest($1::text[]) AS n(name)
+     WHERE NOT EXISTS (SELECT 1 FROM racingcoach."Cars" c WHERE lower(c.car_name) = lower(n.name))`,
+    [DEFAULT_CARS.map((c) => c.name)]
+  );
+  if (rows.length === 0) return;
+  const names = rows.map((r) => r.name);
+  await seedDefaultCars(client, DEFAULT_CARS.filter((c) => names.includes(c.name)));
+  await copyDefaultCars(client, null, names);
 }

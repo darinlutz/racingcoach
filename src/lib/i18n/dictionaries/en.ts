@@ -305,12 +305,10 @@ export const en = {
     listen: 'Listen',
     loadingSample: 'Loading…',
     voiceSaved: 'Coach voice saved.',
-    // Each voice in the list is its name, style and gender, e.g. "Charon: Informative (male)"
-    voiceGenders: { male: 'male', female: 'female' },
+    // Each voice in the list is its name and style, e.g. "Charon: Informative"
     voiceStyles: {
       informative: 'Informative', firm: 'Firm', clear: 'Clear', smooth: 'Smooth', knowledgeable: 'Knowledgeable',
-      upbeat: 'Upbeat', excitable: 'Excitable', warm: 'Warm', mature: 'Mature', bright: 'Bright', breezy: 'Breezy',
-      youthful: 'Youthful',
+      upbeat: 'Upbeat', excitable: 'Excitable',
     },
     // The accent the coach speaks Spanish with (only shown when the Preferred Language is Spanish)
     accentTitle: 'Spanish accent',

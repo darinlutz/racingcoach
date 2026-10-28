@@ -8,23 +8,17 @@ import { ensureUserSchema } from './users';
 // back to OpenAI's gpt-4o-mini-tts, told to speak with that accent. The collector gets its speech from
 // POST /api/collector/speech; the Account page's Listen button from GET /api/account/coach-voice/sample.
 
-// Chirp 3 HD's voices the driver can pick from (Google has 30; these suit a race engineer on the radio), each with
-// Google's description of its style. Every voice speaks every language as a native speaker would.
+// Chirp 3 HD's voices the driver can pick from (Google has 30; these male ones suit a race engineer on the radio),
+// each with Google's description of its style. Every voice speaks every language as a native speaker would. Accounts
+// that picked a voice no longer listed (e.g. the female ones that used to be) get DEFAULT_COACH_VOICE.
 export const COACH_VOICE_DETAILS = {
-  Charon: { gender: 'male', style: 'informative' },
-  Orus: { gender: 'male', style: 'firm' },
-  Iapetus: { gender: 'male', style: 'clear' },
-  Algieba: { gender: 'male', style: 'smooth' },
-  Sadaltager: { gender: 'male', style: 'knowledgeable' },
-  Puck: { gender: 'male', style: 'upbeat' },
-  Fenrir: { gender: 'male', style: 'excitable' },
-  Kore: { gender: 'female', style: 'firm' },
-  Despina: { gender: 'female', style: 'smooth' },
-  Sulafat: { gender: 'female', style: 'warm' },
-  Gacrux: { gender: 'female', style: 'mature' },
-  Zephyr: { gender: 'female', style: 'bright' },
-  Aoede: { gender: 'female', style: 'breezy' },
-  Leda: { gender: 'female', style: 'youthful' },
+  Charon: { style: 'informative' },
+  Orus: { style: 'firm' },
+  Iapetus: { style: 'clear' },
+  Algieba: { style: 'smooth' },
+  Sadaltager: { style: 'knowledgeable' },
+  Puck: { style: 'upbeat' },
+  Fenrir: { style: 'excitable' },
 } as const;
 export type CoachVoice = keyof typeof COACH_VOICE_DETAILS;
 export const COACH_VOICES = Object.keys(COACH_VOICE_DETAILS) as CoachVoice[];
@@ -45,9 +39,9 @@ function chirpLocale(language: Language, spanishAccent: SpanishAccent) {
   return 'en-US';
 }
 
-// The fallback: OpenAI's most natural voices, by the picked voice's gender
+// The fallback: OpenAI's most natural male voice
 const OPENAI_SPEECH_MODEL = 'gpt-4o-mini-tts';
-const OPENAI_VOICES = { male: 'cedar', female: 'marin' } as const;
+const OPENAI_VOICE = 'cedar';
 // Both answer raw PCM: 24 kHz, 16-bit, mono, little-endian
 const SAMPLE_RATE = 24000;
 
@@ -172,7 +166,7 @@ async function openAiSpeech(
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: OPENAI_SPEECH_MODEL,
-      voice: OPENAI_VOICES[COACH_VOICE_DETAILS[voice].gender],
+      voice: OPENAI_VOICE,
       input: text,
       response_format: 'pcm',
       instructions:

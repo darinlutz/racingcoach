@@ -7,8 +7,8 @@ import { useUnits } from '@/components/UnitsProvider';
 const selectClass =
   'min-w-0 flex-1 px-3 py-2 bg-secondary border border-border rounded-lg text-foreground text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors';
 
-// Each voice the coach can speak with, its gender and its style (COACH_VOICE_DETAILS in src/lib/coachVoice.ts)
-export type CoachVoiceDetails = Record<string, { gender: 'male' | 'female'; style: string }>;
+// Each voice the coach can speak with and its style (COACH_VOICE_DETAILS in src/lib/coachVoice.ts)
+export type CoachVoiceDetails = Record<string, { style: string }>;
 
 // The Account page's Coach voice: the Chirp 3 HD voice the In-Car AI Coach speaks with, and for Spanish its accent (Latin
 // American or Spain), each saved as soon as it's picked (PUT /api/account/coach-voice). Listen plays a sample callout
@@ -92,9 +92,9 @@ export default function CoachVoicePicker({
       <p className="text-sm text-muted-foreground mb-3">{c.voiceHint}</p>
       <div className="flex items-center gap-2">
         <select id="coach-voice" value={voice} onChange={(e) => chooseVoice(e.target.value)} className={selectClass}>
-          {Object.entries(voices).map(([name, { gender, style }]) => (
+          {Object.entries(voices).map(([name, { style }]) => (
             <option key={name} value={name}>
-              {name}: {c.voiceStyles[style as keyof typeof c.voiceStyles] ?? style} ({c.voiceGenders[gender]})
+              {name}: {c.voiceStyles[style as keyof typeof c.voiceStyles] ?? style}
             </option>
           ))}
         </select>

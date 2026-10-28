@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import DeckGL from '@deck.gl/react';
 import { COORDINATE_SYSTEM, WebMercatorViewport, type MapViewState, type PickingInfo } from '@deck.gl/core';
-import { LineLayer, PathLayer, SolidPolygonLayer } from '@deck.gl/layers';
+import { PathLayer, SolidPolygonLayer } from '@deck.gl/layers';
 import { SimpleMeshLayer } from '@deck.gl/mesh-layers';
 
 import { useLanguage } from '@/components/LanguageProvider';
@@ -29,7 +29,6 @@ import { DISTANCE_UNIT, SPEED_UNIT, distanceFromMeters, speedFromMetersPerSecond
 const LOSS_COLOR: [number, number, number, number] = [255, 64, 64, 110];
 const GAIN_COLOR: [number, number, number, number] = [38, 167, 100, 110];
 const EDGE_COLOR: [number, number, number, number] = [235, 235, 235, 200];
-const GRID_COLOR: [number, number, number, number] = [255, 255, 255, 22];
 
 const LINE_WIDTH = 0.3; // m; the lines are often only 1-3 m apart
 const LINE_LIFT = 0.06; // m the lines are drawn above the road, so they aren't hidden in it
@@ -39,11 +38,9 @@ const WALL_HALF_THICKNESS = 0.36; // m
 const WALL_SMOOTHING = 8;
 const WALL_MAX_HEIGHT = 12; // m, the wall's tallest point, at the area's largest time gap
 const WALL_MIN_HEIGHT = 0.3; // m, so the wall can still be pointed at where the gap is 0
-const GRID_SPACING = 10; // m between the ground grid's lines
-const GRID_MARGIN = 20; // m of grid beyond the road
 
 // How much taller than real the hills are drawn: elevation changes are small next to an area's length
-const HEIGHT_SCALES = [1, 2, 3, 5];
+const HEIGHT_SCALES = [1, 2, 3];
 const DEFAULT_HEIGHT_SCALE = 2;
 const PLAY_RATES = [0.25, 0.5, 1];
 
@@ -83,6 +80,11 @@ const MAX_FIT_ZOOM = 19.5;
 const CHASE_PITCH = 72;
 const CHASE_ZOOM = 19.6;
 const VIEW_LIMITS = { minZoom: 13, maxZoom: 22, maxPitch: 85 };
+// Each press of the camera arrows: up and down tilt (and zoom out or in a little, like a helicopter climbing or
+// descending), left and right turn the track
+const CAMERA_PITCH_STEP = 10; // degrees
+const CAMERA_ZOOM_STEP = 0.2;
+const CAMERA_BEARING_STEP = 15; // degrees
 
 type Rgba = [number, number, number, number];
 type Car = { key: 'base' | 'compare'; line: ModelLine; color: Rgba; title: string };
@@ -190,17 +192,6 @@ export default function TrackLineMap3D({
     });
     return { wall: pieces, largestGap: largest };
   }, [model, base.trace, compare.trace]);
-
-  const grid = useMemo(() => {
-    if (!model) return [];
-    const [x0, y0, x1, y1] = model.bounds.map((v, i) =>
-      i < 2 ? Math.floor((v - GRID_MARGIN) / GRID_SPACING) * GRID_SPACING : Math.ceil((v + GRID_MARGIN) / GRID_SPACING) * GRID_SPACING
-    );
-    const segments: { from: Vec3; to: Vec3 }[] = [];
-    for (let x = x0; x <= x1; x += GRID_SPACING) segments.push({ from: [x, y0, 0], to: [x, y1, 0] });
-    for (let y = y0; y <= y1; y += GRID_SPACING) segments.push({ from: [x0, y, 0], to: [x1, y, 0] });
-    return segments;
-  }, [model]);
 
   // Play: the longest of the laps' times through the area
   const duration = Math.max(
@@ -312,15 +303,6 @@ export default function TrackLineMap3D({
   };
 
   const layers = [
-    new LineLayer<{ from: Vec3; to: Vec3 }>({
-      id: 'ground-grid',
-      data: grid,
-      getSourcePosition: (d) => d.from,
-      getTargetPosition: (d) => d.to,
-      getColor: GRID_COLOR,
-      getWidth: 1,
-      ...offsets,
-    }),
     new SimpleMeshLayer({
       id: 'road',
       data: [{ position: [0, 0, 0] as Vec3 }],
@@ -384,10 +366,41 @@ export default function TrackLineMap3D({
     setPlaying(true);
   };
 
+  // Moves the camera from where it is now, centered on the cars so it keeps looking at them
+  const moveCamera = (pitch: number, zoom: number, bearing: number) => {
+    const from = viewState;
+    const [x, y, z] = [0, 1, 2].map((k) => poses.reduce((sum, p) => sum + p.position[k], 0) / poses.length);
+    const [longitude, latitude] = toLngLat(origin!, [x, y]);
+    setChase(false);
+    setSaved({
+      view: {
+        ...from,
+        longitude,
+        latitude,
+        position: [0, 0, z],
+        pitch: Math.min(VIEW_LIMITS.maxPitch, Math.max(0, (from.pitch ?? 0) + pitch)),
+        zoom: Math.min(VIEW_LIMITS.maxZoom, Math.max(VIEW_LIMITS.minZoom, from.zoom + zoom)),
+        bearing: ((((from.bearing ?? 0) + bearing + 180) % 360) + 360) % 360 - 180,
+      },
+      trace: base.trace,
+    });
+  };
+  const cameraArrows = [
+    { label: t.cameraUp, move: [-CAMERA_PITCH_STEP, -CAMERA_ZOOM_STEP, 0], points: '6,1 11,10 1,10', place: 'col-start-2' },
+    { label: t.cameraLeft, move: [0, 0, CAMERA_BEARING_STEP], points: '1,6 10,1 10,11', place: 'col-start-1 row-start-2' },
+    { label: t.cameraRight, move: [0, 0, -CAMERA_BEARING_STEP], points: '11,6 2,1 2,11', place: 'col-start-3 row-start-2' },
+    { label: t.cameraDown, move: [CAMERA_PITCH_STEP, CAMERA_ZOOM_STEP, 0], points: '6,11 11,2 1,2', place: 'col-start-2 row-start-3' },
+  ];
+
+  // Like the My Race Trends charts' range buttons (RaceRangePicker), on a card so they read over the model
+  const panelClass = 'flex items-center gap-1 rounded-lg border border-border bg-card/90 p-1 shadow';
   const buttonClass =
-    'h-8 px-2 flex items-center justify-center rounded-md bg-primary text-primary-foreground text-xs font-semibold shadow hover:bg-primary-strong transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-white';
+    'px-2 py-1 rounded text-xs font-semibold whitespace-nowrap text-muted-foreground hover:text-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-primary';
+  const pressedClass = 'bg-primary/15 text-primary hover:text-primary';
   const selectClass =
-    'h-8 rounded-md bg-primary px-1 text-xs font-semibold text-primary-foreground shadow hover:bg-primary-strong transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white';
+    'px-1 py-1 rounded bg-transparent text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary';
+  const arrowClass =
+    'w-6 h-6 flex items-center justify-center rounded text-muted-foreground hover:text-primary hover:bg-primary/15 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary';
   const number = (value: number, digits: number) =>
     value.toLocaleString(locale, { minimumFractionDigits: digits, maximumFractionDigits: digits });
   const distance = (meters: number) => `${number(distanceFromMeters(meters, units), 0)} ${DISTANCE_UNIT[units]}`;
@@ -434,8 +447,8 @@ export default function TrackLineMap3D({
         )}
 
         <div className="absolute top-2 right-2 flex flex-col items-end gap-1">
-          <div className="flex gap-1">
-            <button type="button" className={buttonClass} onClick={togglePlay}>
+          <div className={panelClass}>
+            <button type="button" aria-pressed={playing} className={`${buttonClass} ${playing ? pressedClass : ''}`} onClick={togglePlay}>
               {playing ? t.pause3d : t.play3d}
             </button>
             <select
@@ -445,44 +458,63 @@ export default function TrackLineMap3D({
               className={selectClass}
             >
               {PLAY_RATES.map((r) => (
-                <option key={r} value={r}>
+                <option key={r} value={r} className="bg-card text-foreground">
                   {fmt(t.playRateOption, { n: number(r, r < 1 ? 2 : 0) })}
                 </option>
               ))}
             </select>
           </div>
-          <button
-            type="button"
-            aria-pressed={chase}
-            title={t.chaseViewHelp}
-            className={`${buttonClass} ${chase ? 'bg-primary-strong ring-2 ring-white' : ''}`}
-            onClick={() => setChase(!chase)}
-          >
-            {t.chaseView}
-          </button>
-          <button
-            type="button"
-            className={buttonClass}
-            onClick={() => {
-              setChase(false);
-              setSaved(null);
-            }}
-          >
-            {t.resetView}
-          </button>
-          <select
-            aria-label={t.heightScale}
-            title={t.heightScaleHelp}
-            value={heightScale}
-            onChange={(e) => setHeightScale(Number(e.target.value))}
-            className={selectClass}
-          >
-            {HEIGHT_SCALES.map((s) => (
-              <option key={s} value={s}>
-                {fmt(t.heightScaleOption, { n: s })}
-              </option>
+          <div className={`${panelClass} flex-col items-stretch`}>
+            <button
+              type="button"
+              aria-pressed={chase}
+              title={t.chaseViewHelp}
+              className={`${buttonClass} ${chase ? pressedClass : ''}`}
+              onClick={() => setChase(!chase)}
+            >
+              {t.chaseView}
+            </button>
+            <button
+              type="button"
+              className={buttonClass}
+              onClick={() => {
+                setChase(false);
+                setSaved(null);
+              }}
+            >
+              {t.resetView}
+            </button>
+            <select
+              aria-label={t.heightScale}
+              title={t.heightScaleHelp}
+              value={heightScale}
+              onChange={(e) => setHeightScale(Number(e.target.value))}
+              className={selectClass}
+            >
+              {HEIGHT_SCALES.map((s) => (
+                <option key={s} value={s} className="bg-card text-foreground">
+                  {fmt(t.heightScaleOption, { n: s })}
+                </option>
+              ))}
+            </select>
+          </div>
+          {/* Camera arrows: up and down raise and lower the camera, left and right turn the track */}
+          <div className={`${panelClass} grid grid-cols-3 grid-rows-3 gap-0.5`} role="group" aria-label={t.cameraControls}>
+            {cameraArrows.map(({ label, move: [pitch, zoom, bearing], points, place }) => (
+              <button
+                key={label}
+                type="button"
+                aria-label={label}
+                title={label}
+                className={`${arrowClass} ${place}`}
+                onClick={() => moveCamera(pitch, zoom, bearing)}
+              >
+                <svg viewBox="0 0 12 12" className="w-3 h-3" aria-hidden="true">
+                  <polygon points={points} fill="currentColor" strokeLinejoin="round" stroke="currentColor" strokeWidth="1" />
+                </svg>
+              </button>
             ))}
-          </select>
+          </div>
         </div>
 
         {/* Each car's speed, gear and slide at this moment */}

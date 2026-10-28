@@ -88,7 +88,7 @@ export const MPH_PER_METER_PER_SECOND = 2.23694;
 
 // steerings is SteeringWheelAngle in radians, positive to the left (0 where the CSV has none).
 // lats/lons are the car's position in degrees; NaN where the CSV has none (laps the collector hasn't
-// added positions to yet, see IbtEnricher.cs). yaws is iRacing's Yaw (radians, NaN where the CSV has none).
+// added positions to yet, see IbtEnricher.cs). alts is the car's altitude (m), NaN where the CSV has none. yaws is iRacing's Yaw (radians, NaN where the CSV has none).
 export type LapSamples = {
   pcts: number[];
   brakes: number[];
@@ -97,6 +97,7 @@ export type LapSamples = {
   steerings: number[];
   lats: number[];
   lons: number[];
+  alts: number[];
   yaws: number[];
   // RPM and Gear (NaN when the lap file has no such column)
   rpms: number[];
@@ -144,7 +145,7 @@ const BRAKE_THRESHOLD = 0;
 // Throttle (0-1) at or above this counts as the driver being back on the power
 const THROTTLE_THRESHOLD = 0.1;
 
-// Reads the LapDistPct, Brake, Throttle, Speed, SteeringWheelAngle, Lat, Lon, Yaw, YawRate, VelocityX, VelocityY, RPM, Gear, tire temperature, tire pressure, ride height and engine columns. LapDistPct is unwrapped so it keeps
+// Reads the LapDistPct, Brake, Throttle, Speed, SteeringWheelAngle, Lat, Lon, Alt, Yaw, YawRate, VelocityX, VelocityY, RPM, Gear, tire temperature, tire pressure, ride height and engine columns. LapDistPct is unwrapped so it keeps
 // increasing past the start/finish line (e.g. 0.999 -> 1.001 instead of 0.001).
 export async function readLapSamples(file: File): Promise<LapSamples> {
   return lapSamplesFromText(await file.text());
@@ -161,6 +162,7 @@ export function lapSamplesFromText(text: string): LapSamples {
   const steeringColumn = header.indexOf('SteeringWheelAngle');
   const latColumn = header.indexOf('Lat');
   const lonColumn = header.indexOf('Lon');
+  const altColumn = header.indexOf('Alt');
   const yawColumn = header.indexOf('Yaw');
   const rpmColumn = header.indexOf('RPM');
   const gearColumn = header.indexOf('Gear');
@@ -174,6 +176,7 @@ export function lapSamplesFromText(text: string): LapSamples {
   const steerings: number[] = [];
   const lats: number[] = [];
   const lons: number[] = [];
+  const alts: number[] = [];
   const yaws: number[] = [];
   const rpms: number[] = [];
   const gears: number[] = [];
@@ -226,6 +229,7 @@ export function lapSamplesFromText(text: string): LapSamples {
     // parseFloat of a missing or empty cell is NaN
     lats.push(latColumn < 0 ? NaN : parseFloat(cells[latColumn]));
     lons.push(lonColumn < 0 ? NaN : parseFloat(cells[lonColumn]));
+    alts.push(altColumn < 0 ? NaN : parseFloat(cells[altColumn]));
     yaws.push(yawColumn < 0 ? NaN : parseFloat(cells[yawColumn]));
     rpms.push(rpmColumn < 0 ? NaN : parseFloat(cells[rpmColumn]));
     gears.push(gearColumn < 0 ? NaN : parseFloat(cells[gearColumn]));
@@ -237,7 +241,7 @@ export function lapSamplesFromText(text: string): LapSamples {
     engine.fuelKgs.push(fuelLiters[fuelLiters.length - 1] * (density > 0 ? density : DEFAULT_FUEL_KG_PER_LTR));
   }
   return {
-    pcts, brakes, speeds, throttles, steerings, lats, lons, yaws, rpms, gears, yawRates, velocityXs, velocityYs,
+    pcts, brakes, speeds, throttles, steerings, lats, lons, alts, yaws, rpms, gears, yawRates, velocityXs, velocityYs,
     tireTemps, tirePressures, rideHeights, engine,
   };
 }
@@ -259,6 +263,7 @@ export function crossingIndex(pcts: number[], target: number, from: number) {
 // times is each sample's time from the start of the lap (s), spaced like areaStats counts them.
 // steerings is the steering wheel angle at each sample (radians, positive to the left), speeds the speed (m/s).
 // positions is the car's [lat, lon] at each sample, or null if the lap has no track positions there.
+// altitudes is the car's altitude (m) at each sample, or null without positions or Alt there.
 // headings is where the car points at each sample, as a compass bearing (radians clockwise from north),
 // or null without positions or Yaw (see lapHeadings).
 // tireTemps is each tire's temperatures (°C) at each sample, or null if the lap has none there;
@@ -272,6 +277,7 @@ export type AreaTrace = {
   steerings: number[];
   speeds: number[];
   positions: [number, number][] | null;
+  altitudes: number[] | null;
   headings: number[] | null;
   tireTemps: Record<TireCorner, TireTemps> | null;
   tirePressures: Record<TireCorner, number[]> | null;
@@ -360,6 +366,7 @@ export function areaTrace(
   const positions = lats.slice(from, to).map((lat, i): [number, number] => [lat, lons[from + i]]);
   const sampleSeconds = lapSeconds / pcts.length;
   const hasPositions = positions.every(([lat, lon]) => Number.isFinite(lat) && Number.isFinite(lon));
+  const altitudes = samples.alts.slice(from, to);
   const headings = hasPositions ? lapHeadings(samples)?.slice(from, to) ?? null : null;
   const tireTemps = Object.fromEntries(
     TIRE_CORNERS.map((corner) => {
@@ -384,6 +391,7 @@ export function areaTrace(
     steerings: steerings.slice(from, to),
     speeds: speeds.slice(from, to),
     positions: hasPositions ? positions : null,
+    altitudes: hasPositions && altitudes.every(Number.isFinite) ? altitudes : null,
     headings: headings && headings.every(Number.isFinite) ? headings : null,
     tireTemps: hasTireTemps ? tireTemps : null,
     tirePressures: hasTirePressures ? tirePressures : null,

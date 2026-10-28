@@ -4,12 +4,14 @@ using System.Text.RegularExpressions;
 
 namespace RacingCoach.Collector;
 
-/// <summary>A track position from an .ibt file: Lat/Lon in degrees, Alt in meters.</summary>
-internal readonly record struct IbtPosition(double SessionTime, double Lat, double Lon, double Alt);
+/// <summary>A track position from an .ibt file: Lat/Lon in degrees, Alt in meters. Extras are the values of
+/// the other variables asked for, in the order asked.</summary>
+internal readonly record struct IbtPosition(double SessionTime, double Lat, double Lon, double Alt, double[] Extras);
 
 /// <summary>
 /// Reads the track positions out of an iRacing .ibt telemetry file. iRacing only writes Lat, Lon and Alt
-/// to these files, never to live telemetry, so this is how live laps get them. Reads the file directly
+/// to these files, never to live telemetry, so this is how live laps get them (and the tire and ride height
+/// values that live telemetry only updates in the pits, or never). Reads the file directly
 /// (header, variable headers, then one fixed-size record per 60 Hz sample) rather than through the SDK's
 /// playback, and only keeps the samples asked for: a file left recording for hours can be gigabytes.
 /// </summary>
@@ -87,14 +89,21 @@ internal sealed class IbtFile
         SubSessionId = subSession.Success && int.TryParse(subSession.Groups[1].Value, out var id) ? id : 0;
     }
 
+    /// <summary>Those of the variables the file has as numbers.</summary>
+    public List<string> Has(IEnumerable<string> names) =>
+        names.Where(name => _vars.TryGetValue(name, out var v) && v.Type is TypeInt or TypeFloat or TypeDouble).ToList();
+
     /// <summary>The positions of the wanted samples (by SessionNum and SessionTick, which live telemetry
-    /// has too) that the file has. Stops reading once it has found them all.</summary>
-    public Dictionary<(int SessionNum, int Tick), IbtPosition> ReadPositions(IReadOnlySet<(int SessionNum, int Tick)> wanted)
+    /// has too) that the file has, with the extras' values (which must be variables it Has). Stops reading
+    /// once it has found them all.</summary>
+    public Dictionary<(int SessionNum, int Tick), IbtPosition> ReadPositions(IReadOnlySet<(int SessionNum, int Tick)> wanted,
+        IReadOnlyList<string> extras)
     {
         var positions = new Dictionary<(int, int), IbtPosition>();
         if (!HasPositions || wanted.Count == 0)
             return positions;
         var (sessionNum, tick, time, lat, lon, alt) = (_vars["SessionNum"], _vars["SessionTick"], _vars["SessionTime"], _vars["Lat"], _vars["Lon"], _vars["Alt"]);
+        var extraVars = extras.Select(name => _vars[name]).ToArray();
 
         using var stream = new FileStream(_path, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 1 << 20, FileOptions.SequentialScan);
         var record = new byte[_bufLen];
@@ -107,8 +116,12 @@ internal sealed class IbtFile
                 continue;
             var latValue = Value(r, lat);
             var lonValue = Value(r, lon);
-            if (latValue != 0 || lonValue != 0)
-                positions[key] = new IbtPosition(Value(r, time), latValue, lonValue, Value(r, alt));
+            if (latValue == 0 && lonValue == 0)
+                continue;
+            var extraValues = new double[extraVars.Length];
+            for (var i = 0; i < extraVars.Length; i++)
+                extraValues[i] = Value(r, extraVars[i]);
+            positions[key] = new IbtPosition(Value(r, time), latValue, lonValue, Value(r, alt), extraValues);
         }
         return positions;
     }

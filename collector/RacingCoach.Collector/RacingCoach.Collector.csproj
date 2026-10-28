@@ -10,7 +10,7 @@
     <Nullable>enable</Nullable>
     <RootNamespace>RacingCoach.Collector</RootNamespace>
     <!-- The release workflow (.github/workflows/collector-release.yml) sets this from the collector-v* tag -->
-    <Version>1.45.0</Version>
+    <Version>1.46.0</Version>
     <!-- Shown in the exe's Properties; the same publisher as its signature (Clarivex LLC, via Azure Artifact Signing
          in the release workflow) and the installer (collector/installer) -->
     <Product>RacingCoach.app Collector</Product>

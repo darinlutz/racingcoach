@@ -94,8 +94,6 @@ type Chart = {
   minSpan: number;
   digits: number;
   diffLabel: string;
-  // Shown instead of the chart when neither lap has its data (otherwise lapDataNone)
-  none?: string;
 };
 
 function LineKey({ color, dotted = false }: { color: string; dotted?: boolean }) {
@@ -130,7 +128,7 @@ function yTicks(lo: number, hi: number, minSpan: number) {
 // no crosshair; under that each lap's own values.
 function LapDataChart({
   id,
-  chart: { title, series, unit, convert, minSpan, digits, diffLabel, none },
+  chart: { title, series, unit, convert, minSpan, digits, diffLabel },
   base,
   compare,
   axis,
@@ -225,7 +223,7 @@ function LapDataChart({
       </div>
 
       {all.length === 0 ? (
-        <p className="py-6 text-sm text-muted-foreground">{none ?? t.lapDataNone}</p>
+        <p className="py-6 text-sm text-muted-foreground">{t.lapDataNone}</p>
       ) : (
         <>
           {/* The difference, Compare minus Base, stands out; each lap's values are under it */}
@@ -318,9 +316,9 @@ function LapDataChart({
 
 // Under Lap Compare's charts for a focus area: Balance, Tire Temp, Tire Pressure, Ride Heights, Gear and Engine
 // tabs. The three tire and ride height tabs each have a chart per corner (left front and right front above, left rear and
-// right rear below) of both laps' tire carcass temperatures (outer, middle, inner), tire pressures or ride
+// right rear below) of both laps' tire temperatures (outer, middle, inner), tire pressures or ride
 // heights; Gear has the gear and RPM; Engine has RPM, water and oil temperatures, fuel left and fuel use;
-// Balance has the steering angle, yaw rate, front and rear wheel slip, front and rear tire slip angles and the
+// Balance has the steering angle, yaw rate, rear wheel slip, front and rear tire slip angles and the
 // car's balance. Two charts a row, or one on narrow screens. width is the container's. The tab is kept by Lap
 // Compare, so it stays the same when another focus area is picked.
 export default function LapDataTabs({
@@ -369,7 +367,7 @@ export default function LapDataTabs({
     values: (trace: AreaTrace) => number[] | null
   ): Chart => ({ key, title, series: lapLine(values), unit, convert, minSpan, digits, diffLabel: t.lapDataDiffLabel });
 
-  // Slip & Balance charts, in units that are the same for Standard and Metric; none explains a chart no lap can have
+  // Slip & Balance charts, in units that are the same for Standard and Metric
   const slipChart = (
     key: string,
     title: string,
@@ -377,9 +375,8 @@ export default function LapDataTabs({
     convert: (value: number) => number,
     minSpan: number,
     digits: number,
-    values: (trace: AreaTrace) => number[] | null,
-    none?: string
-  ): Chart => ({ ...engineChart(key, title, unit, convert, minSpan, digits, values), none });
+    values: (trace: AreaTrace) => number[] | null
+  ): Chart => engineChart(key, title, unit, convert, minSpan, digits, values);
   const asIs = (value: number) => value;
   const toDegrees = (radians: number) => radians * DEGREES_PER_RADIAN;
 
@@ -472,7 +469,6 @@ export default function LapDataTabs({
       charts: [
         slipChart('steering', t.slipCharts.steering, '°', toDegrees, 20, 1, (trace) => trace.steerings),
         slipChart('yawRate', t.slipCharts.yawRate, '°/s', toDegrees, 10, 1, (trace) => present(trace.handling.yawRates)),
-        slipChart('frontWheels', t.slipCharts.frontWheels, '%', asIs, 2, 1, () => null, t.frontWheelSlipNone),
         slipChart('rearWheels', t.slipCharts.rearWheels, '%', (ratio) => ratio * 100, 2, 1, (trace) =>
           present(trace.handling.rearWheelSlips)
         ),

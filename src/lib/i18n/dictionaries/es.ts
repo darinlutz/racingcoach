@@ -726,14 +726,11 @@ export const es: Dictionary = {
     slipCharts: {
       steering: 'Ángulo de dirección',
       yawRate: 'Velocidad de guiñada',
-      frontWheels: 'Deslizamiento de ruedas delanteras',
       rearWheels: 'Deslizamiento de ruedas traseras',
       frontTires: 'Deslizamiento de neumáticos delanteros',
       rearTires: 'Deslizamiento de neumáticos traseros',
       balance: 'Balance del auto',
     },
-    frontWheelSlipNone:
-      'iRacing no registra la velocidad de las ruedas, así que no se puede medir el deslizamiento de las ruedas delanteras. El de las traseras se calcula a partir de las RPM del motor en cada marcha.',
     slipNone: 'Ninguna vuelta tiene datos de velocidad de guiñada.',
     slipLapNone: 'No hay datos de velocidad de guiñada en la {lap}.',
     slipCaption:
@@ -758,7 +755,7 @@ export const es: Dictionary = {
     tirePressureCaption:
       'La presión de cada neumático. La línea azul continua es la vuelta base y la roja punteada la vuelta comparada; el número grande muestra cuánto más alta (+) o baja (−) fue la presión de la vuelta comparada.',
     tireTempCaption:
-      'Temperaturas de la carcasa a lo ancho de cada neumático. Las líneas continuas son la vuelta base y las punteadas la vuelta comparada; los números grandes muestran cuánto más caliente (+) o fría (−) estuvo la vuelta comparada.',
+      'Temperaturas de la superficie a lo ancho de cada neumático, o de la carcasa en vueltas grabadas antes de que se registraran las de la superficie. Las líneas continuas son la vuelta base y las punteadas la vuelta comparada; los números grandes muestran cuánto más caliente (+) o fría (−) estuvo la vuelta comparada.',
   },
 
   stint: {

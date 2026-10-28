@@ -107,7 +107,7 @@ export type LapSamples = {
   yawRates: number[];
   velocityXs: number[];
   velocityYs: number[];
-  // Each tire's carcass temperatures (°C, NaN when the lap file has no such columns)
+  // Each tire's surface temperatures, or carcass ones in laps without them (°C, NaN when the lap file has neither)
   tireTemps: Record<TireCorner, TireTemps>;
   // Each tire's pressure (kPa, NaN when the lap file has no such column)
   tirePressures: Record<TireCorner, number[]>;
@@ -125,14 +125,17 @@ const DEFAULT_FUEL_KG_PER_LTR = 0.75;
 export const TIRE_CORNERS = ['LF', 'RF', 'LR', 'RR'] as const;
 export type TireCorner = (typeof TIRE_CORNERS)[number];
 
-// A tire's outer, middle and inner carcass temperatures (°C), one per sample
+// A tire's outer, middle and inner temperatures (°C), one per sample
 export type TireTemps = { outer: number[]; middle: number[]; inner: number[] };
 
-// iRacing's carcass temperature columns (LFtempCL, LFtempCM, LFtempCR, ...) go left, middle, right across
-// the tire, so the outer edge is the left one on the left-side tires and the right one on the right-side tires
-function tireTempColumns(corner: TireCorner): Record<keyof TireTemps, string> {
+// iRacing's tire temperature columns go left, middle, right across the tire, so the outer edge is the left one
+// on the left-side tires and the right one on the right-side tires. The surface ones (LFtempL, LFtempM, LFtempR,
+// ...) are only in .ibt files, which the collector copies them from after each stint; laps without them use the
+// carcass ones (LFtempCL, LFtempCM, LFtempCR, ...), which live telemetry only updates in the pit stall.
+function tireTempColumns(corner: TireCorner, header: string[]): Record<keyof TireTemps, string> {
   const [outer, inner] = corner[0] === 'L' ? ['L', 'R'] : ['R', 'L'];
-  return { outer: `${corner}tempC${outer}`, middle: `${corner}tempCM`, inner: `${corner}tempC${inner}` };
+  const layer = header.includes(`${corner}tempM`) ? '' : 'C';
+  return { outer: `${corner}temp${layer}${outer}`, middle: `${corner}temp${layer}M`, inner: `${corner}temp${layer}${inner}` };
 }
 
 // Brake (0-1) above this counts as the driver being on the brakes
@@ -181,7 +184,7 @@ export function lapSamplesFromText(text: string): LapSamples {
     TIRE_CORNERS.map((corner): [TireCorner, TireTemps] => [corner, { outer: [], middle: [], inner: [] }])
   ) as Record<TireCorner, TireTemps>;
   const tireColumns = TIRE_CORNERS.flatMap((corner) =>
-    Object.entries(tireTempColumns(corner)).map(([edge, name]) => ({
+    Object.entries(tireTempColumns(corner, header)).map(([edge, name]) => ({
       values: tireTemps[corner][edge as keyof TireTemps],
       column: header.indexOf(name),
     }))
@@ -258,7 +261,7 @@ export function crossingIndex(pcts: number[], target: number, from: number) {
 // positions is the car's [lat, lon] at each sample, or null if the lap has no track positions there.
 // headings is where the car points at each sample, as a compass bearing (radians clockwise from north),
 // or null without positions or Yaw (see lapHeadings).
-// tireTemps is each tire's carcass temperatures (°C) at each sample, or null if the lap has none there;
+// tireTemps is each tire's temperatures (°C) at each sample, or null if the lap has none there;
 // tirePressures the same for each tire's pressure (kPa), and rideHeights for each corner's ride height (m). engine is RPM, Gear and the lap file's EngineSamples at each
 // sample, NaN where it has none. handling is what the Slip & Balance charts are worked out from (see HandlingSamples).
 export type AreaTrace = {

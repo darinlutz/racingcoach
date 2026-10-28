@@ -735,14 +735,11 @@ export const en = {
     slipCharts: {
       steering: 'Steering Angle',
       yawRate: 'Yaw Rate',
-      frontWheels: 'Front Wheels Slip',
       rearWheels: 'Rear Wheels Slip',
       frontTires: 'Front Tires Slip',
       rearTires: 'Rear Tires Slip',
       balance: 'Car Balance',
     },
-    frontWheelSlipNone:
-      'iRacing doesn’t record wheel speeds, so the front wheels’ slip can’t be measured. The rear wheels’ is worked out from the engine RPM in each gear.',
     slipNone: 'Neither lap has yaw rate data.',
     slipLapNone: 'No yaw rate data in the {lap}.',
     slipCaption:
@@ -767,7 +764,7 @@ export const en = {
     tirePressureCaption:
       'Each tire’s pressure. The solid blue line is the Base lap, the dotted red line the Compare lap; the large number shows how much higher (+) or lower (−) the Compare lap’s pressure was.',
     tireTempCaption:
-      'Carcass temperatures across each tire. Solid lines are the Base lap, dotted lines the Compare lap; the large numbers show how much hotter (+) or cooler (−) the Compare lap ran.',
+      'Temperatures across each tire’s surface, or its carcass for laps recorded before surface temperatures were. Solid lines are the Base lap, dotted lines the Compare lap; the large numbers show how much hotter (+) or cooler (−) the Compare lap ran.',
   },
 
   stint: {

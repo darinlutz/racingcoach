@@ -7,12 +7,25 @@ namespace RacingCoach.Collector;
 /// Adds track positions (Lat, Lon, Alt) to live laps once iRacing has finished the session's .ibt file.
 /// Live telemetry never has them, so laps are saved and uploaded without them first; this fills in the
 /// CSV's columns afterwards, matching each row to the .ibt by SessionNum, SessionTick and SessionTime.
+/// It also adds the tires' surface temperatures, which only .ibt files have, and replaces the carcass
+/// temperatures, tire pressures and ride heights with the .ibt's: live telemetry only updates the carcass
+/// temperatures in the pit stall and leaves the others empty.
 /// Runs on the LapWriter's task (it rewrites lap CSVs and session.json), which then uploads the laps again.
 /// </summary>
 internal sealed class IbtEnricher(string ibtFolder, Action<string> log)
 {
     private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
     private static readonly string[] PositionColumns = ["Lat", "Lon", "Alt"];
+    // Taken from the .ibt where it has them (LapWriter's columns of the same names, and the surface temperatures,
+    // which are added after the CSV's columns)
+    private static readonly string[] IbtColumns =
+    [
+        .. new[] { "LF", "RF", "LR", "RR" }.SelectMany(corner => new[]
+        {
+            $"{corner}tempL", $"{corner}tempM", $"{corner}tempR",
+            $"{corner}tempCL", $"{corner}tempCM", $"{corner}tempCR", $"{corner}pressure", $"{corner}rideHeight",
+        }),
+    ];
     // Older laps are left alone; iRacing's .ibt files may be long gone
     public static readonly TimeSpan MaxLapAge = TimeSpan.FromDays(14);
     // Slack around an .ibt file's start and last write times when deciding which laps it covers
@@ -88,12 +101,13 @@ internal sealed class IbtEnricher(string ibtFolder, Action<string> log)
                 foreach (var (w, csv) in csvs)
                     foreach (var (tick, _) in csv.Samples ?? [])
                         wanted.Add((w.Lap.SessionNum, tick));
-                var positions = ibt.ReadPositions(wanted);
+                var extras = ibt.Has(IbtColumns);
+                var positions = ibt.ReadPositions(wanted, extras);
 
                 var added = 0;
                 foreach (var (w, csv) in csvs)
                 {
-                    if (TryAddPositions(csv, w.Lap.SessionNum, positions))
+                    if (TryAddPositions(csv, w.Lap.SessionNum, positions, extras))
                     {
                         w.Lap.HasPosition = true;
                         enriched.Add(new EnrichedLap(w.Folder, w.Manifest, w.Lap));
@@ -140,9 +154,10 @@ internal sealed class IbtEnricher(string ibtFolder, Action<string> log)
         return new LapCsv(path, header, rows, samples);
     }
 
-    // Fills in the CSV's Lat/Lon/Alt columns (adding them to CSVs saved before they existed). False, with the
-    // CSV untouched, if the .ibt doesn't have every row.
-    private static bool TryAddPositions(LapCsv csv, int sessionNum, Dictionary<(int, int), IbtPosition> positions)
+    // Fills in the CSV's Lat/Lon/Alt columns and the extras (adding any the CSV was saved without). False, with
+    // the CSV untouched, if the .ibt doesn't have every row.
+    private static bool TryAddPositions(LapCsv csv, int sessionNum, Dictionary<(int, int), IbtPosition> positions,
+        IReadOnlyList<string> extras)
     {
         if (csv.Samples is not { Length: > 0 } samples)
             return false;
@@ -154,9 +169,10 @@ internal sealed class IbtEnricher(string ibtFolder, Action<string> log)
         }
 
         var header = csv.Header.ToList();
-        foreach (var name in PositionColumns.Where(n => !header.Contains(n)))
+        foreach (var name in PositionColumns.Concat(extras).Where(n => !header.Contains(n)))
             header.Add(name);
         var columns = PositionColumns.Select(name => header.IndexOf(name)).ToArray();
+        var extraColumns = extras.Select(name => header.IndexOf(name)).ToArray();
 
         var output = new StringBuilder(string.Join(',', header)).Append('\n');
         for (var i = 0; i < csv.Rows.Count; i++)
@@ -165,6 +181,8 @@ internal sealed class IbtEnricher(string ibtFolder, Action<string> log)
             cells[columns[0]] = found[i].Lat.ToString(Inv);
             cells[columns[1]] = found[i].Lon.ToString(Inv);
             cells[columns[2]] = ((float)found[i].Alt).ToString(Inv);
+            for (var e = 0; e < extraColumns.Length; e++)
+                cells[extraColumns[e]] = ((float)found[i].Extras[e]).ToString(Inv);
             output.AppendJoin(',', cells).Append('\n');
         }
 

@@ -286,6 +286,8 @@ export const en = {
     linkDiscord: 'Link your Discord account to RacingCoach.',
     connectDiscord: 'Connect Discord',
     viewPlans: 'View Membership Plans',
+    lapHistory: 'Lap History',
+    lapHistoryValue: '{days} days after each lap, then deleted automatically',
   },
 
   collectorCard: {
@@ -384,6 +386,7 @@ export const en = {
           'Detailed charts and graphs of speed, braking, throttle and steering',
           'Track Data with any number of focus areas per track',
           'My Race Trends: iRating and incidents synced from iRacePlan',
+          '30-day lap history: laps are deleted automatically 30 days after you drive them',
         ],
         limits: 'Limited time and activity on the site',
       },
@@ -395,6 +398,7 @@ export const en = {
           'Clear, prioritized advice on where you’re losing time',
           'Your debriefs saved to your account and on Discord',
           'Real-time AI coaching while you drive',
+          '60-day lap history',
         ],
       },
       Gold: {
@@ -403,6 +407,7 @@ export const en = {
           'Everything in Silver',
           'In-car overlay with live brake, throttle and speed targets for every focus area',
           'The full RacingCoach experience, on track and off',
+          '90-day lap history',
         ],
       },
     },
@@ -630,6 +635,11 @@ export const en = {
     bronzeStintLimit: 'Bronze users have limited stints. Upgrade to see more stints.',
     silverStintLimit: 'Upgrade to Gold to see more stints.',
     maxStintLimit: 'Your maximum is {n} stints, so only your {n} most recent stints are shown.',
+    retentionNotice:
+      'Your {level} membership keeps each lap’s telemetry for {days} days after you drive it. Expired laps are deleted automatically and can’t be recovered, even by upgrading, so download any lap you want to keep.',
+    privacyPolicy: 'Privacy Policy',
+    expires: 'deleted {date}',
+    lapDates: 'Completed {completed}. Deleted automatically {expires}.',
   },
 
   lapCompare: {
@@ -1278,6 +1288,24 @@ export const en = {
   // The Admin page's activity log (src/app/admin/page.tsx)
   admin: {
     pageTitle: 'Admin',
+    lapRetention: {
+      title: 'Lap Telemetry Retention',
+      intro: 'The hourly cleanup of expired laps and Debrief Coach runs: Bronze 30 days, Silver 60 and Gold 90 after completion, with a 7-day Gold grace period after a membership ends.',
+      dryRunMode: 'Dry run: expired laps are hidden but not deleted. Set LAP_RETENTION_MODE=delete on the server to delete them.',
+      deleteMode: 'Expired laps are deleted.',
+      started: 'Started',
+      mode: 'Mode',
+      dryRun: 'Dry run',
+      delete: 'Delete',
+      membershipsEnded: 'Memberships ended',
+      laps: 'Laps deleted / due',
+      debriefs: 'Debriefs deleted / due',
+      status: 'Status',
+      ok: 'OK',
+      running: 'Running',
+      failed: 'Failed: {error}',
+      none: 'No runs yet. The first runs a minute after the server starts.',
+    },
     settingsTitle: 'Site Settings',
     showPricing: 'Show Pricing',
     showPricingHint: 'Shows the Pricing link in the navigation bar and the View Membership Plans button on the Account page for everyone.',

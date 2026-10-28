@@ -22,6 +22,12 @@ internal sealed class LapWriter : IAsyncDisposable
     private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
     private const string UnknownTrack = "Unknown Track";
     private const string UnknownTrackError = "track and car unknown (iRacing hadn't sent session info yet)";
+    /// <summary>The upload error of a lap RacingCoach.app refused as past its retention period; its CSV is deleted at once.</summary>
+    public const string ExpiredError = "past its retention period on RacingCoach.app";
+    /// <summary>No lap stays on this PC longer than this after it was completed, uploaded or not: RacingCoach.app's
+    /// longest retention period (src/lib/lapRetentionRules.ts), so the PC never keeps telemetry longer than the site.
+    /// Its CSV and its entry in session.json are deleted, and the session's folder once it has no laps left.</summary>
+    public static readonly TimeSpan MaxLocalAge = TimeSpan.FromDays(90);
 
     // Same names and units as iRacing: Speed in m/s, pedals 0..1, LapDistPct 0..1.
     private static readonly (string Name, Func<TelemetryData, string> Value)[] Columns =
@@ -117,6 +123,11 @@ internal sealed class LapWriter : IAsyncDisposable
     /// <summary>Called on the writer's task with a copy of a session folder's laps whenever its session.json
     /// changes. NewLap is true when a lap was just saved there. Set before Start.</summary>
     public Action<SessionLaps>? LapsChanged { get; init; }
+
+    /// <summary>When a played-back .ibt file's session started (IbtFile.StartedAt). Its laps are stamped with when they
+    /// were driven, its start plus the lap's last SessionTime, not when they were played back, so uploading an old file
+    /// never restarts a lap's retention period on RacingCoach.app.</summary>
+    public DateTimeOffset? PlaybackStartedAt { get; init; }
 
     public void Start() => _worker = Task.Run(RunAsync);
 
@@ -254,7 +265,9 @@ internal sealed class LapWriter : IAsyncDisposable
             Incidents = lap.Incidents,
             PitRoad = lap.OnPitRoad,
             OffTrack = lap.OffTrack,
-            RecordedAt = DateTimeOffset.Now,
+            RecordedAt = PlaybackStartedAt is { } started && lap.Samples[^1].SessionTime is { } sessionTime
+                ? started + TimeSpan.FromSeconds(sessionTime)
+                : DateTimeOffset.Now,
             // Only played-back .ibt files have them already
             HasPosition = lap.Samples.All(s => s.Lat is { } lat && s.Lon is { } lon && (lat != 0 || lon != 0)),
             // Without session info the lap can't be matched to a track on RacingCoach.app; it's kept here only
@@ -347,7 +360,10 @@ internal sealed class LapWriter : IAsyncDisposable
             var manifest = SessionManifest.Load(folder);
             if (manifest is null)
                 continue;
-            var pending = manifest.Laps.Where(l => !l.Uploaded && l.UploadError != UnknownTrackError).ToList();
+            var pending = manifest.Laps
+                .Where(l => !l.Uploaded && !l.CsvDeleted && l.UploadError is not (UnknownTrackError or ExpiredError)
+                    && l.RecordedAt >= DateTimeOffset.UtcNow - MaxLocalAge)
+                .ToList();
             if (pending.Count == 0)
                 continue;
 
@@ -378,16 +394,19 @@ internal sealed class LapWriter : IAsyncDisposable
     }
 
     // Deletes the CSVs of the folder's laps that RacingCoach.app has and that won't change any more: they have
-    // their track positions, the .ibt didn't cover them, or they're too old to get them. Laps that haven't
-    // uploaded (including refused ones and laps without a known track) keep theirs. The caller saves the
-    // manifest when this returns true.
+    // their track positions, the .ibt didn't cover them, or they're too old to get them. Also those RacingCoach.app
+    // refused as past their retention period, and any lap older than MaxLocalAge. Other laps that haven't uploaded
+    // (refused for another reason, laps without a known track, uploads off) keep theirs until then. The caller saves
+    // the manifest when this returns true.
     private bool DeleteUploadedCsvs(string folder, SessionManifest manifest)
     {
-        var tooOld = DateTimeOffset.UtcNow - IbtEnricher.MaxLapAge;
+        var now = DateTimeOffset.UtcNow;
+        var tooOld = now - IbtEnricher.MaxLapAge;
         var deleted = 0;
         foreach (var lap in manifest.Laps)
         {
-            if (lap.CsvDeleted || !lap.Uploaded || !(lap.HasPosition || lap.PositionMissing || lap.RecordedAt < tooOld))
+            var settled = lap.Uploaded && (lap.HasPosition || lap.PositionMissing || lap.RecordedAt < tooOld);
+            if (lap.CsvDeleted || !(settled || lap.UploadError == ExpiredError || lap.RecordedAt < now - MaxLocalAge))
                 continue;
             File.Delete(Path.Combine(folder, lap.File));
             lap.CsvDeleted = true;
@@ -398,13 +417,33 @@ internal sealed class LapWriter : IAsyncDisposable
         return deleted > 0;
     }
 
+    // At startup: deletes the CSVs DeleteUploadedCsvs would, and the entries of laps older than MaxLocalAge, and
+    // then the folders of sessions with no laps left
     private void DeleteAllUploadedCsvs()
     {
         if (!Directory.Exists(_root))
             return;
+        var cutoff = DateTimeOffset.UtcNow - MaxLocalAge;
+        var removedLaps = 0;
+        var removedFolders = 0;
         foreach (var folder in Directory.GetDirectories(_root))
-            if (SessionManifest.Load(folder) is { } manifest && DeleteUploadedCsvs(folder, manifest))
+        {
+            if (SessionManifest.Load(folder) is not { } manifest)
+                continue;
+            var changed = DeleteUploadedCsvs(folder, manifest);
+            var old = manifest.Laps.RemoveAll(l => l.RecordedAt < cutoff);
+            removedLaps += old;
+            if (manifest.Laps.Count == 0 && (old > 0 || changed))
+            {
+                Directory.Delete(folder, recursive: true);
+                removedFolders++;
+            }
+            else if (changed || old > 0)
                 manifest.Save(folder);
+        }
+        if (removedLaps > 0)
+            _log($"Removed {removedLaps} lap(s) completed more than {MaxLocalAge.TotalDays:0} days ago from this PC"
+                + (removedFolders > 0 ? $", and {removedFolders} empty session folder(s)." : "."));
     }
 
     // One folder per iRacing session (track, car and session IDs); a new one when any of them changes.

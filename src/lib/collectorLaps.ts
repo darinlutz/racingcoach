@@ -6,6 +6,7 @@ import { saveTrackLength } from './trackLengths';
 import { lapCsvBounds, saveTrackBounds, saveTrackLocation, trackNeedsBounds } from './trackLocations';
 import { lapCsvOutline, saveTrackOutline, trackNeedsOutline } from './trackOutlines';
 import { ensureUserSchema } from './users';
+import { lapCompletedAt } from './lapRetentionRules';
 
 // Laps uploaded by the telemetry collector (collector/ in this repo), stored in
 // racingcoach."CollectorLaps". Each lap is one CSV as the collector writes it (iRacing variable names
@@ -86,6 +87,14 @@ function toLapConditions(conditions: CollectorLap['conditions']): LapConditions 
 
 export class InvalidLapCsvError extends Error {}
 
+// The lap's retention period has already ended (lapRetentionRules.ts), or the cleanup job deleted it before: it isn't
+// stored, and an upload never restarts the clock. The collector stops trying to upload it.
+export class LapExpiredError extends Error {
+  constructor() {
+    super('This lap is past its retention period and was not stored');
+  }
+}
+
 // Track position columns the collector adds from iRacing's .ibt file once the session's file is written
 // (iRacing's live telemetry doesn't include them). Lat/Lon in degrees, Alt in meters.
 const POSITION_COLUMNS = ['Lat', 'Lon'];
@@ -148,6 +157,9 @@ export type CollectorLapSummary = {
   pitRoad: boolean;
   offTrack: boolean;
   recordedAt: string;
+  // When the lap was completed, for its retention, and when it's deleted (lapRetentionRules.ts)
+  completedAt: string;
+  expiresAt: string;
   // null for laps from collectors before 1.40.0
   conditions: LapConditions | null;
 };
@@ -160,8 +172,10 @@ const LIST_LIMIT = 1000;
 export type LapViewer = { id: number; role: string | null | undefined };
 
 // The SQL condition for the laps the viewer can see, on "CollectorLaps" l joined to the uploader's "Users" u, with
-// lapViewerParam as parameter $n. ROLES.coach is a constant, not user input.
-const visibleTo = (n: number) => `($${n}::integer IS NULL OR l.user_id = $${n} OR u.role = '${ROLES.coach}')`;
+// lapViewerParam as parameter $n. ROLES.coach is a constant, not user input. Never an expired lap (lapRetentionDb.ts),
+// even before the cleanup job has deleted it.
+const visibleTo = (n: number) =>
+  `($${n}::integer IS NULL OR l.user_id = $${n} OR u.role = '${ROLES.coach}') AND l.expires_at > now()`;
 
 // The visibleTo parameter: null for a viewer who can see every driver's laps
 const lapViewerParam = (viewer: LapViewer) => (canSeeAllLaps(viewer.role) ? null : viewer.id);
@@ -191,11 +205,13 @@ export async function listCollectorLaps(viewer: LapViewer, driverIds: number[] |
     pit_road: boolean;
     off_track: boolean;
     recorded_at: Date;
+    completed_at: Date;
+    expires_at: Date;
     conditions: LapConditions | null;
   }>(
     `SELECT l.id, l.client_lap_id, l.track, l.track_key, l.car, l.user_id, u.user_name, l.driver, l.iracing_session_id,
             l.iracing_subsession_id, l.session_num, l.session_type, l.lap_number, l.lap_time_seconds, l.sample_count,
-            l.missing_samples, l.incidents, l.pit_road, l.off_track, l.recorded_at, l.conditions
+            l.missing_samples, l.incidents, l.pit_road, l.off_track, l.recorded_at, l.completed_at, l.expires_at, l.conditions
      FROM racingcoach."CollectorLaps" l JOIN racingcoach."Users" u ON u.id = l.user_id
      WHERE ${visibleTo(1)} AND ($2::integer[] IS NULL OR l.user_id = ANY($2::integer[]))
      ORDER BY l.recorded_at DESC, l.id DESC LIMIT $3`,
@@ -223,6 +239,8 @@ export async function listCollectorLaps(viewer: LapViewer, driverIds: number[] |
     pitRoad: row.pit_road,
     offTrack: row.off_track,
     recordedAt: row.recorded_at.toISOString(),
+    completedAt: row.completed_at.toISOString(),
+    expiresAt: row.expires_at.toISOString(),
     conditions: row.conditions,
   }));
 }
@@ -259,7 +277,7 @@ export async function readCollectorLapsById(
 }
 
 // The user's laps with these collector IDs (clientLapId), with their CSVs, in the order asked for. Laps
-// that aren't the user's or don't exist are left out.
+// that aren't the user's, don't exist or have expired are left out.
 export async function readCollectorLapsByClientId(
   userId: number,
   clientLapIds: string[]
@@ -289,7 +307,7 @@ export async function readCollectorLapsByClientId(
     csv_gzip: Buffer;
   }>(
     `SELECT client_lap_id, track, track_key, car, lap_number, lap_time_seconds, incidents, off_track, csv_gzip FROM racingcoach."CollectorLaps"
-     WHERE user_id = $1 AND client_lap_id = ANY($2::uuid[])`,
+     WHERE user_id = $1 AND client_lap_id = ANY($2::uuid[]) AND expires_at > now()`,
     [userId, clientLapIds]
   );
   return clientLapIds.flatMap((id) => {
@@ -330,6 +348,8 @@ export async function listLapOwners(viewer: LapViewer): Promise<LapOwner[]> {
 // Saves a lap for the user. Uploading the same clientLapId again (a retry) keeps the first copy and
 // reports it as a duplicate, unless the new CSV has track positions and the stored one doesn't: the
 // collector uploads each lap again once it has added them from the .ibt file, and that copy replaces it.
+// Either way the first copy's completion time and expiry stay. Throws LapExpiredError for a lap past its retention
+// period at the user's level, or one the cleanup job already deleted.
 export async function saveCollectorLap(
   userId: number,
   lap: CollectorLap,
@@ -338,13 +358,24 @@ export async function saveCollectorLap(
   hasPosition: boolean
 ): Promise<{ id: number; duplicate: boolean; replaced: boolean }> {
   await ensureUserSchema();
+  // The retention clock starts when the lap was completed, never later than now (lapCompletedAt)
+  const completedAt = lapCompletedAt(new Date(lap.recordedAt), new Date());
+  const [check] = await query<{ expired: boolean; deleted: boolean }>(
+    `SELECT racingcoach.lap_expires_at($3, u.membership_level) <= now() AS expired,
+            EXISTS (SELECT 1 FROM racingcoach."ExpiredLaps" e WHERE e.user_id = u.id AND e.client_lap_id = $2) AS deleted
+     FROM racingcoach."Users" u WHERE u.id = $1`,
+    [userId, lap.clientLapId, completedAt]
+  );
+  if (!check || check.expired || check.deleted) throw new LapExpiredError();
   try {
     const [row] = await query<{ id: number }>(
       `INSERT INTO racingcoach."CollectorLaps" (
          user_id, client_lap_id, track, car, driver, iracing_session_id, iracing_subsession_id, session_num,
          session_type, lap_number, lap_time_seconds, sample_count, missing_samples, incidents, pit_road,
-         off_track, recorded_at, csv_bytes, csv_gzip, has_position, track_key, conditions)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
+         off_track, recorded_at, csv_bytes, csv_gzip, has_position, track_key, conditions, completed_at, expires_at)
+       SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23,
+              racingcoach.lap_expires_at($23, membership_level)
+       FROM racingcoach."Users" WHERE id = $1
        RETURNING id`,
       [
         userId,
@@ -370,6 +401,7 @@ export async function saveCollectorLap(
         lap.trackKey ?? null,
         // pg would send a plain object as JSON anyway; stringified so null stays SQL NULL
         lap.conditions ? JSON.stringify(toLapConditions(lap.conditions)) : null,
+        completedAt,
       ]
     );
     await saveTrackLength(lap.trackKey ?? null, lap.trackLengthFeet ?? null);
@@ -383,7 +415,7 @@ export async function saveCollectorLap(
       const [replaced] = await query<{ id: number }>(
         `UPDATE racingcoach."CollectorLaps"
          SET csv_gzip = $3, csv_bytes = $4, has_position = true, uploaded_at = now()
-         WHERE user_id = $1 AND client_lap_id = $2 AND NOT has_position
+         WHERE user_id = $1 AND client_lap_id = $2 AND NOT has_position AND expires_at > now()
          RETURNING id`,
         [userId, lap.clientLapId, csvGzip, csvBytes]
       );
@@ -392,10 +424,12 @@ export async function saveCollectorLap(
         return { id: replaced.id, duplicate: true, replaced: true };
       }
     }
-    const [existing] = await query<{ id: number }>(
-      'SELECT id FROM racingcoach."CollectorLaps" WHERE user_id = $1 AND client_lap_id = $2',
+    const [existing] = await query<{ id: number; live: boolean }>(
+      'SELECT id, expires_at > now() AS live FROM racingcoach."CollectorLaps" WHERE user_id = $1 AND client_lap_id = $2',
       [userId, lap.clientLapId]
     );
+    // Expired since its first upload (e.g. the level went down) and not deleted yet
+    if (!existing?.live) throw new LapExpiredError();
     return { id: existing.id, duplicate: true, replaced: false };
   }
 }
@@ -431,12 +465,12 @@ export function backfillTrackBounds(): Promise<void> {
         `SELECT DISTINCT ON (lower(l.track_key)) l.id, l.track_key, NOT (l.pit_road OR l.off_track) AS clean
          FROM racingcoach."CollectorLaps" l
          JOIN racingcoach."Tracks" t ON lower(t.track_key) = lower(l.track_key)
-         WHERE l.has_position
+         WHERE l.has_position AND l.expires_at > now()
            AND (t.track_south IS NULL OR (t.track_outline IS NULL AND NOT (l.pit_road OR l.off_track)))
          ORDER BY lower(l.track_key), (l.pit_road OR l.off_track), l.recorded_at DESC`
       );
       for (const lap of laps) {
-        const [row] = await query<{ csv_gzip: Buffer }>('SELECT csv_gzip FROM racingcoach."CollectorLaps" WHERE id = $1', [lap.id]);
+        const [row] = await query<{ csv_gzip: Buffer }>('SELECT csv_gzip FROM racingcoach."CollectorLaps" WHERE id = $1 AND expires_at > now()', [lap.id]);
         if (row) await saveTrackShapeFromLap(lap.track_key, row.csv_gzip, lap.clean);
       }
     } catch (error) {

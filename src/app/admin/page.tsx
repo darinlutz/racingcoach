@@ -4,6 +4,7 @@ import AdminTimeZone from '@/components/AdminTimeZone';
 import AiModelCostTable from '@/components/AiModelCostTable';
 import AiModelManager from '@/components/AiModelManager';
 import CollectorLogsViewer from '@/components/CollectorLogsViewer';
+import LapRetentionRuns from '@/components/LapRetentionRuns';
 import RateLimitManager from '@/components/RateLimitManager';
 import SiteSettingsManager from '@/components/SiteSettingsManager';
 import SubscribersLinkCard from '@/components/SubscribersLinkCard';
@@ -21,6 +22,7 @@ import {
   readActivityReport,
 } from '@/lib/activityReport';
 import { getAiModels } from '@/lib/aiModels';
+import { lapRetentionDryRun, readLapRetentionRuns } from '@/lib/lapRetention';
 import { fmt, LANGUAGE_LOCALES } from '@/lib/i18n/languages';
 import { getRateLimitSettings, listOverrides, readAverageCallTokens } from '@/lib/rateLimits';
 import { getDictionary } from '@/lib/i18n/server';
@@ -53,7 +55,7 @@ export default async function AdminPage({
   const t = getDictionary(user.preferredLanguage);
   const a = t.admin;
   const locale = LANGUAGE_LOCALES[user.preferredLanguage];
-  const [report, users, showPricing, showProDriverLesson, enableAiFeatures, aiModels, rateLimits, rateLimitOverrides, averageCallTokens] = await Promise.all([
+  const [report, users, showPricing, showProDriverLesson, enableAiFeatures, aiModels, rateLimits, rateLimitOverrides, averageCallTokens, retentionRuns] = await Promise.all([
     readActivityReport(filters),
     listUsersForAdmin(),
     getShowPricing(),
@@ -63,6 +65,7 @@ export default async function AdminPage({
     getRateLimitSettings(),
     listOverrides(),
     readAverageCallTokens(),
+    readLapRetentionRuns(),
   ]);
   const { summary, topPages, topClicks, rows } = report;
 
@@ -108,6 +111,14 @@ export default async function AdminPage({
         <RateLimitManager settings={rateLimits} overrides={rateLimitOverrides} users={users} timeZone={filters.timeZone} />
 
         <UserRoleManager users={users} currentUserId={user.id} />
+
+        <LapRetentionRuns
+          t={a.lapRetention}
+          runs={retentionRuns}
+          dryRun={lapRetentionDryRun()}
+          locale={locale}
+          timeZone={filters.timeZone}
+        />
 
         <CollectorLogsViewer
           initialUser={typeof params.logUser === 'string' ? params.logUser : null}

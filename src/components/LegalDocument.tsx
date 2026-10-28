@@ -23,7 +23,7 @@ export default function LegalDocument({ doc, t }: { doc: LegalDocumentContent; t
           {doc.intro.map((block, i) => <Block key={i} block={block} />)}
         </div>
         {doc.sections.map((section) => (
-          <div key={section.heading} className="space-y-4 leading-relaxed">
+          <div key={section.heading} id={section.id} className="space-y-4 leading-relaxed scroll-mt-24">
             <h2 className="text-xl font-semibold pt-2">{section.heading}</h2>
             {section.blocks.map((block, i) => <Block key={i} block={block} />)}
           </div>

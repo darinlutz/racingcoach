@@ -86,7 +86,11 @@ internal sealed class CollectorEngine
         _enricher = options.Playback || options.NoPositions
             ? null
             : new IbtEnricher(Path.Combine(documents, "iRacing", "telemetry"), message => Log(message));
-        _writer = new LapWriter(LapsFolder, _enricher, message => Log(message)) { LapsChanged = lapsChanged };
+        _writer = new LapWriter(LapsFolder, _enricher, message => Log(message))
+        {
+            LapsChanged = lapsChanged,
+            PlaybackStartedAt = options.IbtFile is null ? null : PlaybackStart(options.IbtFile),
+        };
         _recorder = new LapRecorder(_writer.Enqueue, message => Log(message));
         _debrief = new SessionDebrief(() => Api, message => Log(message));
         _coach = new InCarCoach(() => Api, message => Log(message));
@@ -105,6 +109,19 @@ internal sealed class CollectorEngine
     /// <summary>Where iRacing's .ibt files are read from, or null when track positions are off.</summary>
     public string? IbtFolder => _enricher?.IbtFolder;
     public bool Playback => _options.Playback;
+
+    // When the played-back file's session started, for its laps' times; null if the file doesn't say (they get now)
+    private static DateTimeOffset? PlaybackStart(string ibtFile)
+    {
+        try
+        {
+            return new IbtFile(ibtFile).StartedAt;
+        }
+        catch (Exception e) when (e is IOException or InvalidDataException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
     public string? PlaybackFile => _options.IbtFile;
 
     public SimState State { get; private set; } = SimState.Waiting;
@@ -275,6 +292,12 @@ internal sealed class CollectorEngine
             State = SimState.PlayingBack;
         if (_enricher is not null)
             Log($"Track positions are added after each stint from iRacing's .ibt files in {_enricher.IbtFolder}");
+        // Not while playing a file back, which may be an old .ibt from that folder
+        if (ibtOptions is null)
+        {
+            var ibtFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "iRacing", "telemetry");
+            _ = Task.Run(() => IbtEnricher.DeleteOldIbtFiles(ibtFolder, message => Log(message)));
+        }
 
         var live = Live.RunAsync(cancel);
         try

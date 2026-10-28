@@ -18,6 +18,9 @@ internal enum UploadOutcome
     Rejected,
     /// <summary>RacingCoach.app doesn't accept the upload key.</summary>
     Unauthorized,
+    /// <summary>The lap is past its retention period on RacingCoach.app (or was deleted there), so it's never stored;
+    /// its local copy is deleted too.</summary>
+    Expired,
     /// <summary>No connection, a timeout or a server error; try again later.</summary>
     RetryLater,
 }
@@ -381,10 +384,11 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
             using var response = await _http.PostAsync("api/collector/laps", form, ct);
             if (response.IsSuccessStatusCode)
                 return (UploadOutcome.Uploaded, "");
-            var message = await ErrorMessageAsync(response, ct);
+            var (message, code) = await ErrorAsync(response, ct);
             return (int)response.StatusCode switch
             {
                 401 => (UploadOutcome.Unauthorized, message),
+                422 when code == "lapExpired" => (UploadOutcome.Expired, message),
                 400 or 413 or 422 => (UploadOutcome.Rejected, message),
                 _ => (UploadOutcome.RetryLater, message),
             };
@@ -434,19 +438,23 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
         return output.ToArray();
     }
 
-    private static async Task<string> ErrorMessageAsync(HttpResponseMessage response, CancellationToken ct)
+    private static async Task<string> ErrorMessageAsync(HttpResponseMessage response, CancellationToken ct) =>
+        (await ErrorAsync(response, ct)).Message;
+
+    // The error's message, and its code when the site sends one (e.g. "lapExpired")
+    private static async Task<(string Message, string? Code)> ErrorAsync(HttpResponseMessage response, CancellationToken ct)
     {
         try
         {
             var body = await response.Content.ReadFromJsonAsync<ErrorResponse>(JsonOptions, ct);
             if (!string.IsNullOrWhiteSpace(body?.Error))
-                return body.Error;
+                return (body.Error, body.Code);
         }
         catch (Exception e) when (e is JsonException or NotSupportedException)
         {
             // not JSON (e.g. a proxy's error page)
         }
-        return $"HTTP {(int)response.StatusCode}";
+        return ($"HTTP {(int)response.StatusCode}", null);
     }
 
     public void Dispose() => _http.Dispose();
@@ -456,7 +464,7 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
 
     private sealed record RecordedResponse(bool? Recorded);
 
-    private sealed record ErrorResponse(string? Error);
+    private sealed record ErrorResponse(string? Error, string? Code = null);
 
     private sealed record DebriefResponse(string? Message, DebriefArea? Area);
 

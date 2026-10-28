@@ -4,11 +4,13 @@ import {
   checkLapCsv,
   collectorLapSchema,
   InvalidLapCsvError,
+  LapExpiredError,
   listCollectorLaps,
   listLapOwners,
   MAX_UPLOAD_BYTES,
   saveCollectorLap,
 } from '@/lib/collectorLaps';
+import { retentionDays } from '@/lib/lapRetentionRules';
 import { recordedStintLimit } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
 import { apiText } from '@/lib/i18n/server';
@@ -20,7 +22,8 @@ const UNAUTHORIZED = { error: 'Missing or unknown upload key' };
 // user's own laps by default. Coaches and Admins can see every driver's laps; Users their own and Coaches' (see
 // LapViewer in collectorLaps.ts), and other drivers' are left out. Also answers `drivers`: every account with laps
 // the user can see, for the page's Driver box, and `stintLimit`, how many of the newest stints the page lists
-// (recordedStintLimit).
+// (recordedStintLimit), and `retention`: the user's membership level and how many days it keeps a lap
+// (lapRetentionRules.ts). Expired laps are never listed.
 export async function GET(request: Request) {
   const t = await apiText();
   try {
@@ -47,6 +50,7 @@ export async function GET(request: Request) {
       drivers,
       currentUserId: user.id,
       stintLimit: recordedStintLimit(user),
+      retention: { level: user.membershipLevel, days: retentionDays(user.membershipLevel) },
     });
   } catch (error) {
     console.error('Collector lap list error:', error);
@@ -59,7 +63,9 @@ export async function GET(request: Request) {
 //   lap: the lap's details as JSON (collectorLapSchema)
 //   csv: the lap CSV, gzip-compressed
 // Answers 201 with the lap's id, or 200 with duplicate: true if that lap was already uploaded (and
-// replaced: true if this copy's track positions replaced a stored copy without them).
+// replaced: true if this copy's track positions replaced a stored copy without them). Answers 422 with
+// code: 'lapExpired' for a lap past its retention period (LapExpiredError), which isn't stored; the collector
+// stops uploading it and deletes its local copy.
 export async function POST(request: Request) {
   try {
     const userId = await authenticateCollector(request);
@@ -103,6 +109,9 @@ export async function POST(request: Request) {
   } catch (error) {
     if (error instanceof InvalidLapCsvError) {
       return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+    if (error instanceof LapExpiredError) {
+      return NextResponse.json({ error: error.message, code: 'lapExpired' }, { status: 422 });
     }
     console.error('Collector lap upload error:', error);
     return NextResponse.json({ error: 'Failed to save the lap' }, { status: 500 });

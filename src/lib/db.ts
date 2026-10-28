@@ -45,6 +45,17 @@ export async function transaction<T>(fn: (client: PoolClient) => Promise<T>): Pr
   }
 }
 
+// Runs `fn` on one connection outside a transaction (each statement commits on its own), e.g. to hold a session-level
+// advisory lock across several statements.
+export async function withClient<T>(fn: (client: PoolClient) => Promise<T>): Promise<T> {
+  const client = await getPool().connect();
+  try {
+    return await fn(client);
+  } finally {
+    client.release();
+  }
+}
+
 // Postgres SQLSTATE for a unique constraint violation.
 export function isUniqueViolation(error: unknown): boolean {
   return (error as { code?: string } | null)?.code === '23505';

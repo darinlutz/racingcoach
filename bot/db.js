@@ -97,13 +97,14 @@ export async function getRecentRaces(userId, limit) {
 }
 
 // The user's most recent saved Debrief Coach runs, newest first. The website saves one each time a
-// signed-in user runs Debrief Coach (src/lib/debriefHistory.ts). `debrief` is the coach's
+// signed-in user runs Debrief Coach (src/lib/debriefHistory.ts); expired ones (src/lib/lapRetentionDb.ts) are left
+// out, even before the website's cleanup job deletes them. `debrief` is the coach's
 // { headline, fixes: [{ area, timeGainSeconds, problem, fix, evidence }], keepDoing }.
 export async function getRecentDebriefs(userId, limit) {
   const rows = await query(
     `SELECT track, car, lap_count, best_lap_seconds, debrief, created_at
      FROM racingcoach."DebriefSessions"
-     WHERE user_id = $1
+     WHERE user_id = $1 AND expires_at > now()
      ORDER BY created_at DESC
      LIMIT $2`,
     [userId, limit],

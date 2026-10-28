@@ -21,6 +21,7 @@ import { DEFAULT_THEME, isTheme, type Theme } from './theme';
 import { DEFAULT_BRAKE_BEEPS_VOLUME, isBrakeBeepsVolume } from './brakeBeepsVolume';
 import { DEFAULT_UNITS, isUnits, type Units } from './units';
 import type { PolicyVersions } from './policyVersions';
+import { END_LAPSED_MEMBERSHIPS_SQL, LAP_RETENTION_SCHEMA } from './lapRetentionDb';
 
 const scryptAsync = promisify(scrypt) as (password: string, salt: Buffer, keylen: number) => Promise<Buffer>;
 
@@ -613,6 +614,9 @@ export function ensureUserSchema(): Promise<void> {
       await client.query(
         'CREATE INDEX IF NOT EXISTS collector_laps_user_id_recorded_at_idx ON racingcoach."CollectorLaps" (user_id, recorded_at)'
       );
+      // Lap telemetry retention: each lap's and Debrief Coach run's expiry, kept in step with the owner's membership
+      // level, and the cleanup job's tables (lapRetentionDb.ts)
+      for (const statement of LAP_RETENTION_SCHEMA) await client.query(statement);
       // The telemetry collector's activity log, sent as it's written (src/lib/collectorLogs.ts). A run is one start
       // of the collector; seq numbers its lines, so a batch sent twice is stored once
       await client.query(`CREATE TABLE IF NOT EXISTS racingcoach."CollectorLogs" (
@@ -1111,21 +1115,9 @@ export async function updatePassword(userId: number, password: string): Promise<
 export async function getUserById(id: number): Promise<User | null> {
   await ensureUserSchema();
   // A subscription whose end date has passed (e.g. a failed renewal) is expired, and the account is back
-  // at Bronze. A canceled one keeps its level until the end of the period it paid for.
-  await query(
-    `UPDATE racingcoach."Users"
-     SET account_status = CASE WHEN account_status = $4 THEN $3 ELSE account_status END, membership_level = $5
-     WHERE id = $1 AND subscription_end_date < $2
-       AND (account_status = $4 OR (account_status = $6 AND membership_level <> $5))`,
-    [
-      id,
-      new Date().toISOString(),
-      ACCOUNT_STATUS.expired,
-      ACCOUNT_STATUS.subscribed,
-      MEMBERSHIP_LEVEL.bronze,
-      ACCOUNT_STATUS.canceled,
-    ]
-  );
+  // at Bronze. A canceled one keeps its level until the end of the period it paid for. The lap retention job
+  // (lapRetention.ts) does the same for every account each hour.
+  await query(END_LAPSED_MEMBERSHIPS_SQL, [new Date().toISOString(), id]);
   const [row] = await query(`SELECT ${USER_COLUMNS} FROM racingcoach."Users" WHERE id = $1`, [id]);
   return row ? rowToUser(row) : null;
 }

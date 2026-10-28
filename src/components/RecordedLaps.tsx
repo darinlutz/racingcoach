@@ -48,6 +48,9 @@ function groupSessions(laps: CollectorLapSummary[]): Session[] {
   return sessions.reverse();
 }
 
+// A session's deletion date (lapRetentionRules.ts) is highlighted this long before it
+const EXPIRY_WARNING_MS = 3 * 24 * 60 * 60 * 1000;
+
 // A clean lap: no pit road, no off-track, no incidents
 const isClean = (lap: CollectorLapSummary) => !lap.pitRoad && !lap.offTrack && lap.incidents === 0;
 
@@ -139,6 +142,10 @@ export default function RecordedLaps({
   // How many of the newest stints are listed (recordedStintLimit: 8 for Bronze, 20 for Silver, 50 for Gold, Coaches
   // and Admins); it picks the message shown when there are more
   const [stintLimit, setStintLimit] = useState<number | null>(null);
+  // The signed-in user's membership level and how many days it keeps each lap
+  const [retention, setRetention] = useState<{ level: string; days: number } | null>(null);
+  // When the laps were loaded, to tell which are about to be deleted
+  const [loadedAt, setLoadedAt] = useState(0);
 
   useEffect(() => {
     // A slower answer for drivers picked earlier mustn't replace the ones picked last
@@ -153,6 +160,8 @@ export default function RecordedLaps({
         if (!res.ok) throw new Error(data.error || t.failedLoad);
         setLaps(data.laps);
         setStintLimit(data.stintLimit ?? null);
+        setRetention(data.retention ?? null);
+        setLoadedAt(Date.now());
         if (data.drivers) {
           setDrivers(data.drivers);
           setCurrentUserId(data.currentUserId);
@@ -400,6 +409,17 @@ export default function RecordedLaps({
         onConfirm={() => void setTarget()}
         onClose={closeSetTarget}
       />
+      {retention && (
+        <p className="text-xs text-muted-foreground">
+          {fmt(t.retentionNotice, {
+            level: dictionary.pricing.levelNames[retention.level] ?? retention.level,
+            days: retention.days,
+          })}{' '}
+          <a href="/privacy#lap-telemetry-retention" className="text-primary hover:underline">
+            {t.privacyPolicy}
+          </a>
+        </p>
+      )}
       {moreStints && (
         <p className="px-4 py-3 rounded-lg border text-sm bg-yellow-500/10 border-yellow-500/40 text-yellow-200">
           {stintLimit === STINT_LIMITS.bronze
@@ -421,6 +441,9 @@ export default function RecordedLaps({
         const inTrackData = tracks.length === 0 || lapTrack(tracks, first) !== undefined;
         // How the session ended: its last lap with conditions (none for laps from collectors before 1.40.0)
         const endConditions = session.laps.findLast((lap) => lap.conditions !== null)?.conditions;
+        // When the session's first lap is deleted
+        const firstExpiry = Math.min(...session.laps.map((lap) => Date.parse(lap.expiresAt)));
+        const expiresSoon = firstExpiry - loadedAt < EXPIRY_WARNING_MS;
         return (
           <details key={session.key} open={index === 0} className="bg-card border border-border rounded-lg">
             <summary className="cursor-pointer px-4 py-3 text-sm">
@@ -430,7 +453,10 @@ export default function RecordedLaps({
               <span className="block text-xs text-muted-foreground">
                 {new Date(first.recordedAt).toLocaleString(locale, { dateStyle: 'medium', timeStyle: 'short' })} •{' '}
                 {dictionary.laps.sessionTypes[first.sessionType] ?? first.sessionType} •{' '}
-                {plural(session.laps.length, t.lapCount)} • {fmt(t.best, { time: formatLapTime(secondsToLapTime(best)) })}
+                {plural(session.laps.length, t.lapCount)} • {fmt(t.best, { time: formatLapTime(secondsToLapTime(best)) })} •{' '}
+                <span className={expiresSoon ? 'text-yellow-300' : undefined}>
+                  {fmt(t.expires, { date: new Date(firstExpiry).toLocaleDateString(locale, { dateStyle: 'medium' }) })}
+                </span>
                 {pickedCount > 0 && <span className="text-primary"> • {fmt(t.selectedCount, { n: pickedCount })}</span>}
               </span>
               {endConditions && <SessionConditions conditions={endConditions} />}
@@ -546,7 +572,14 @@ export default function RecordedLaps({
                         />
                       </span>
                     )}
-                    <label htmlFor={`debrief-lap-${lap.id}`} className="flex items-center gap-3 cursor-pointer">
+                    <label
+                      htmlFor={`debrief-lap-${lap.id}`}
+                      title={fmt(t.lapDates, {
+                        completed: new Date(lap.completedAt).toLocaleString(locale, { dateStyle: 'medium', timeStyle: 'short' }),
+                        expires: new Date(lap.expiresAt).toLocaleString(locale, { dateStyle: 'medium', timeStyle: 'short' }),
+                      })}
+                      className="flex items-center gap-3 cursor-pointer"
+                    >
                       <span className="w-14 text-muted-foreground">{fmt(t.lapN, { lap: lap.lapNumber })}</span>
                       <span className={`font-semibold ${lap.lapTimeSeconds === best ? 'text-purple-400' : 'text-foreground'}`}>
                         {formatLapTime(secondsToLapTime(lap.lapTimeSeconds))}

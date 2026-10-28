@@ -14,6 +14,7 @@ import { getCollectorKey } from '@/lib/collectorKeys';
 import { DISCORD_INVITE_URL, getDiscordConnection } from '@/lib/discord';
 import { fmt, LANGUAGE_LOCALES } from '@/lib/i18n/languages';
 import { getDictionary } from '@/lib/i18n/server';
+import { retentionDays } from '@/lib/lapRetentionRules';
 import { readOwnAiLimits, readOwnAiUsage } from '@/lib/rateLimits';
 import { canUseInCarCoach, isAdmin } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
@@ -102,6 +103,14 @@ export default async function AccountPage({
               >
                 {t.pricing.levelNames[user.membershipLevel] ?? user.membershipLevel}
               </span>
+            </dd>
+          </div>
+          <div className="flex justify-between gap-4 px-4 py-3">
+            <dt className="text-sm font-medium text-muted-foreground">{t.account.lapHistory}</dt>
+            <dd className="text-foreground font-medium text-right">
+              <Link href="/privacy#lap-telemetry-retention" className="hover:text-primary hover:underline">
+                {fmt(t.account.lapHistoryValue, { days: retentionDays(user.membershipLevel) })}
+              </Link>
             </dd>
           </div>
           <div className="flex justify-between gap-4 px-4 py-3">

@@ -112,6 +112,11 @@ internal sealed class LapUploader : IAsyncDisposable
                             _onFinished(item, message);
                             _log($"RacingCoach.app did not accept lap {item.Lap.LapNumber}: {message}. It will be tried again the next time the collector starts.");
                             break;
+                        case UploadOutcome.Expired:
+                            Interlocked.Decrement(ref _waiting);
+                            _onFinished(item, LapWriter.ExpiredError);
+                            _log($"Lap {item.Lap.LapNumber} ({item.Session.Track}, {item.Lap.RecordedAt:yyyy-MM-dd}) is past its retention period on RacingCoach.app, so it wasn't stored; deleting it from this PC.");
+                            break;
                         case UploadOutcome.Unauthorized:
                             _keyRejected = true;
                             _log("RacingCoach.app no longer accepts your upload key. Laps are still saved; "

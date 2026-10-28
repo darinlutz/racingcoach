@@ -280,6 +280,8 @@ export const pt: Dictionary = {
     linkDiscord: 'Vincule sua conta do Discord ao RacingCoach.',
     connectDiscord: 'Conectar Discord',
     viewPlans: 'Ver planos de assinatura',
+    lapHistory: 'Histórico de voltas',
+    lapHistoryValue: '{days} dias após cada volta, depois excluídas automaticamente',
   },
 
   collectorCard: {
@@ -371,6 +373,7 @@ export const pt: Dictionary = {
           'Tabelas e gráficos detalhados de velocidade, frenagem, acelerador e direção',
           'Dados de pista com quantas áreas de foco cada pista precisar',
           'Minhas tendências: iRating e incidentes sincronizados do iRacePlan',
+          'Histórico de voltas de 30 dias: as voltas são excluídas automaticamente 30 dias depois de pilotadas',
         ],
         limits: 'Tempo e atividade limitados no site',
       },
@@ -382,6 +385,7 @@ export const pt: Dictionary = {
           'Conselhos claros e priorizados sobre onde você perde tempo',
           'Seus debriefs salvos na sua conta e no Discord',
           'Coaching com IA em tempo real enquanto você pilota',
+          'Histórico de voltas de 60 dias',
         ],
       },
       Gold: {
@@ -390,6 +394,7 @@ export const pt: Dictionary = {
           'Tudo do Prata',
           'Overlay no carro com metas ao vivo de frenagem, acelerador e velocidade para cada área de foco',
           'A experiência RacingCoach completa, dentro e fora da pista',
+          'Histórico de voltas de 90 dias',
         ],
       },
     },
@@ -618,6 +623,11 @@ export const pt: Dictionary = {
     bronzeStintLimit: 'Usuários Bronze têm stints limitados. Faça upgrade para ver mais stints.',
     silverStintLimit: 'Faça upgrade para Gold para ver mais stints.',
     maxStintLimit: 'Seu máximo é de {n} stints, então apenas seus {n} stints mais recentes são mostrados.',
+    retentionNotice:
+      'Sua assinatura {level} guarda a telemetria de cada volta por {days} dias depois de pilotada. Voltas expiradas são excluídas automaticamente e não podem ser recuperadas, nem com um upgrade, então baixe as voltas que quiser guardar.',
+    privacyPolicy: 'Política de Privacidade',
+    expires: 'excluída em {date}',
+    lapDates: 'Concluída em {completed}. Excluída automaticamente em {expires}.',
   },
 
   lapCompare: {
@@ -1256,6 +1266,24 @@ export const pt: Dictionary = {
 
   admin: {
     pageTitle: 'Administração',
+    lapRetention: {
+      title: 'Retenção da telemetria de voltas',
+      intro: 'A limpeza de hora em hora das voltas e debriefs do Debrief Coach expirados: Bronze 30 dias, Prata 60 e Ouro 90 após a conclusão, com 7 dias de carência para o Ouro após o fim de uma assinatura.',
+      dryRunMode: 'Simulação: voltas expiradas ficam ocultas, mas não são excluídas. Defina LAP_RETENTION_MODE=delete no servidor para excluí-las.',
+      deleteMode: 'Voltas expiradas são excluídas.',
+      started: 'Início',
+      mode: 'Modo',
+      dryRun: 'Simulação',
+      delete: 'Excluir',
+      membershipsEnded: 'Assinaturas encerradas',
+      laps: 'Voltas excluídas / vencidas',
+      debriefs: 'Debriefs excluídos / vencidos',
+      status: 'Status',
+      ok: 'OK',
+      running: 'Em execução',
+      failed: 'Falhou: {error}',
+      none: 'Nenhuma execução ainda. A primeira roda um minuto após o servidor iniciar.',
+    },
     settingsTitle: 'Configurações do site',
     showPricing: 'Mostrar preços',
     showPricingHint: 'Mostra o link de Preços na barra de navegação e o botão Ver planos de assinatura na página da Conta para todos.',

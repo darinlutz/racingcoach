@@ -33,6 +33,38 @@ internal sealed class IbtEnricher(string ibtFolder, Action<string> log)
 
     public string IbtFolder => ibtFolder;
 
+    /// <summary>iRacing telemetry files older than this are deleted from iRacing's telemetry folder: the collector turns
+    /// iRacing's recording on, and they hold the same telemetry as the laps, which aren't kept longer than
+    /// LapWriter.MaxLocalAge either.</summary>
+    public static readonly TimeSpan MaxIbtAge = LapWriter.MaxLocalAge;
+
+    /// <summary>Deletes the .ibt files in the folder last written more than MaxIbtAge ago; answers how many. A file
+    /// that can't be deleted (e.g. open in another program) is left for the next time.</summary>
+    public static int DeleteOldIbtFiles(string folder, Action<string> log)
+    {
+        if (!Directory.Exists(folder))
+            return 0;
+        var cutoff = DateTime.UtcNow - MaxIbtAge;
+        var deleted = 0;
+        foreach (var path in Directory.EnumerateFiles(folder, "*.ibt"))
+        {
+            try
+            {
+                if (File.GetLastWriteTimeUtc(path) >= cutoff)
+                    continue;
+                File.Delete(path);
+                deleted++;
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                log($"Could not delete the old iRacing telemetry file {Path.GetFileName(path)}: {e.Message}");
+            }
+        }
+        if (deleted > 0)
+            log($"Deleted {deleted} iRacing telemetry (.ibt) file(s) more than {MaxIbtAge.TotalDays:0} days old from {folder}.");
+        return deleted;
+    }
+
     /// <summary>A lap that now has track positions; its session.json is already saved.</summary>
     public sealed record EnrichedLap(string Folder, SessionManifest Manifest, ManifestLap Lap);
 

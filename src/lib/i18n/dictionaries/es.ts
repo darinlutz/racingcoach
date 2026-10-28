@@ -280,6 +280,8 @@ export const es: Dictionary = {
     linkDiscord: 'Vincula tu cuenta de Discord a RacingCoach.',
     connectDiscord: 'Conectar Discord',
     viewPlans: 'Ver planes de membresía',
+    lapHistory: 'Historial de vueltas',
+    lapHistoryValue: '{days} días después de cada vuelta, luego se eliminan automáticamente',
   },
 
   collectorCard: {
@@ -371,6 +373,7 @@ export const es: Dictionary = {
           'Tablas y gráficos detallados de velocidad, frenado, acelerador y dirección',
           'Datos de pistas con todas las zonas de enfoque que necesite cada pista',
           'Mis tendencias: iRating e incidentes sincronizados desde iRacePlan',
+          'Historial de vueltas de 30 días: las vueltas se eliminan automáticamente 30 días después de manejarlas',
         ],
         limits: 'Tiempo y actividad limitados en el sitio',
       },
@@ -382,6 +385,7 @@ export const es: Dictionary = {
           'Consejos claros y priorizados sobre dónde pierdes tiempo',
           'Tus debriefs guardados en tu cuenta y en Discord',
           'Coaching con IA en tiempo real mientras manejas',
+          'Historial de vueltas de 60 días',
         ],
       },
       Gold: {
@@ -390,6 +394,7 @@ export const es: Dictionary = {
           'Todo lo de Plata',
           'Overlay en el auto con objetivos de frenado, acelerador y velocidad en vivo para cada zona de enfoque',
           'La experiencia RacingCoach completa, dentro y fuera de la pista',
+          'Historial de vueltas de 90 días',
         ],
       },
     },
@@ -618,6 +623,11 @@ export const es: Dictionary = {
     bronzeStintLimit: 'Los usuarios Bronze tienen stints limitados. Mejora tu plan para ver más stints.',
     silverStintLimit: 'Mejora a Gold para ver más stints.',
     maxStintLimit: 'Tu máximo es de {n} stints, así que solo se muestran tus {n} stints más recientes.',
+    retentionNotice:
+      'Tu membresía {level} guarda la telemetría de cada vuelta durante {days} días después de manejarla. Las vueltas vencidas se eliminan automáticamente y no se pueden recuperar, ni siquiera mejorando tu membresía, así que descarga las vueltas que quieras conservar.',
+    privacyPolicy: 'Política de Privacidad',
+    expires: 'se elimina el {date}',
+    lapDates: 'Completada el {completed}. Se elimina automáticamente el {expires}.',
   },
 
   lapCompare: {
@@ -1256,6 +1266,24 @@ export const es: Dictionary = {
 
   admin: {
     pageTitle: 'Administración',
+    lapRetention: {
+      title: 'Retención de la telemetría de vueltas',
+      intro: 'La limpieza cada hora de las vueltas y debriefs del Debrief Coach vencidos: Bronce 30 días, Plata 60 y Oro 90 después de completarse, con 7 días de gracia para Oro cuando termina una membresía.',
+      dryRunMode: 'Simulación: las vueltas vencidas se ocultan pero no se eliminan. Configura LAP_RETENTION_MODE=delete en el servidor para eliminarlas.',
+      deleteMode: 'Las vueltas vencidas se eliminan.',
+      started: 'Inicio',
+      mode: 'Modo',
+      dryRun: 'Simulación',
+      delete: 'Eliminar',
+      membershipsEnded: 'Membresías terminadas',
+      laps: 'Vueltas eliminadas / vencidas',
+      debriefs: 'Debriefs eliminados / vencidos',
+      status: 'Estado',
+      ok: 'OK',
+      running: 'En curso',
+      failed: 'Falló: {error}',
+      none: 'Aún no hay ejecuciones. La primera corre un minuto después de iniciar el servidor.',
+    },
     settingsTitle: 'Ajustes del sitio',
     showPricing: 'Mostrar precios',
     showPricingHint: 'Muestra el enlace de Precios en la barra de navegación y el botón Ver planes de membresía en la página de Cuenta para todos.',

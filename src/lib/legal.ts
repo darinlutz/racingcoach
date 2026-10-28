@@ -11,7 +11,8 @@ export type LegalBlock =
   | { subheading: string }
   | { contact: { label?: string; text: string; href?: string }[] };
 
-export type LegalSection = { heading: string; blocks: LegalBlock[] };
+// id, when given, is the section's anchor (e.g. /privacy#lap-telemetry-retention)
+export type LegalSection = { heading: string; id?: string; blocks: LegalBlock[] };
 
 export type LegalDocumentContent = {
   title: string;
@@ -25,7 +26,7 @@ const BUSINESS_OPERATOR = 'Clarivex, LLC';
 
 export const privacyPolicy: LegalDocumentContent = {
   title: 'RacingCoach.app Privacy Policy',
-  effectiveDate: 'October 26, 2026',
+  effectiveDate: 'October 28, 2026',
   intro: [
     'RacingCoach.app ("RacingCoach," "we," "our," or "us") respects your privacy and is committed to protecting your personal information.',
     'This Privacy Policy explains how we collect, use, store, share, and protect information when you use our website, applications, telemetry collection software, coaching features, Discord integrations, and related services (collectively, the "Services").',
@@ -139,11 +140,64 @@ export const privacyPolicy: LegalDocumentContent = {
       heading: '7. Data Retention',
       blocks: [
         'We retain personal information for as long as reasonably necessary to provide the Services, fulfill the purposes described in this policy, meet legal obligations, resolve disputes, and enforce our agreements.',
-        'Telemetry, racing history, and coaching records may be retained while your account is active and for a limited period afterward.',
+        'Different categories of information are kept for different periods:',
+        {
+          list: [
+            'Lap telemetry and the Debrief Coach analyses saved from it are kept only for the limited periods described in Section 8.',
+            'Account records, settings, racing results, and coaching instructions are kept while your account is open.',
+            'Activity logs sent by the RacingCoach collector are kept for 90 days.',
+            'Billing, subscription, and cancellation records are kept as long as reasonably necessary for accounting, tax, and legal obligations, including after an account is deleted.',
+            'Website activity and security logs are kept as long as reasonably necessary for security, fraud prevention, and improving the Services.',
+          ],
+        },
+        'Deleting your account from My Settings deletes your lap telemetry and the other information tied to your account, except the billing records, cancellation feedback (without your name and email address), and activity and security logs described above.',
       ],
     },
     {
-      heading: '8. Your Privacy Rights',
+      heading: '8. Lap Telemetry Retention and Deletion',
+      id: 'lap-telemetry-retention',
+      blocks: [
+        `RacingCoach.app, operated by ${BUSINESS_OPERATOR}, retains identifiable lap telemetry for a limited period based on the user's membership level. Lap telemetry means the laps recorded by the RacingCoach collector and uploaded to your account, which include measurements such as speed, pedal, steering, gear, tire, fuel, and track position for every sample of a lap, and the Debrief Coach analyses saved from them.`,
+        {
+          list: [
+            'Bronze (free) members: up to thirty (30) days after the lap was completed.',
+            'Silver members: up to sixty (60) days after the lap was completed.',
+            'Gold members: up to ninety (90) days after the lap was completed.',
+          ],
+        },
+        { strong: 'Under no circumstances will identifiable lap telemetry remain in active application storage for more than ninety (90) days after the lap was completed.' },
+        'Retention periods are calculated from the original completion time of each lap as recorded by the RacingCoach collector (or the time we received the lap, if that is earlier), not the date on which telemetry is uploaded, imported, analyzed, or reprocessed. Uploading a lap again never restarts its retention period. Saved Debrief Coach analyses are subject to the same periods, calculated from the time the analysis was saved.',
+        'When a lap\'s applicable retention period expires, RacingCoach.app automatically makes the associated telemetry unavailable throughout the Services, including the website, coaching and AI analysis features, and integrations, and schedules its permanent deletion from active application storage. Each lap\'s scheduled deletion date is shown with your recorded laps.',
+        'These periods reflect the amount of lap history each membership level provides for lap comparison and coaching. We do not keep lap telemetry longer than needed for that purpose.',
+        { subheading: 'Membership Changes' },
+        {
+          list: [
+            'Upgrading extends the retention period of laps that have not yet expired to the new level\'s period.',
+            'Downgrading shortens the retention period of laps that have not yet expired to the new level\'s period. Laps older than the new period become unavailable immediately and are deleted.',
+            'When a paid membership is canceled or not renewed, it remains in effect until the end of the paid period. The account then becomes a Bronze membership, and the Bronze period applies to its laps.',
+            'As a grace period and a measure of goodwill, when a Gold membership ends, laps that were within the Gold period remain available for seven (7) days after the end of the paid period, but never more than ninety (90) days after they were completed.',
+          ],
+        },
+        'Previously deleted or expired telemetry cannot be recovered by upgrading, renewing, or resubscribing, or by uploading the lap again from the RacingCoach collector. You can download a lap from your recorded laps before its deletion date if you wish to keep a copy.',
+        { subheading: 'Laps Stored on Your Computer' },
+        'The RacingCoach collector keeps a local copy of each lap on your computer only until the lap has been uploaded and its track positions have been added. Laps that are not uploaded are deleted from your computer ninety (90) days after they were completed, and laps that RacingCoach.app refuses because their retention period has already expired are deleted from your computer immediately. To capture track positions, the collector turns on the iRacing simulator\'s telemetry recording; the collector deletes iRacing telemetry (.ibt) files in your iRacing telemetry folder that are more than ninety (90) days old.',
+        { subheading: 'Information Not Covered by These Periods' },
+        {
+          list: [
+            'A lap you select as your Target Lap is reference content you choose. It is kept until you replace or remove it, or delete your account.',
+            'Expert Laps provided by RacingCoach coaches are coaching content made available to all users and are not subject to these periods.',
+            'Track maps and outlines derived from laps do not identify you and are kept.',
+          ],
+        },
+        { subheading: 'Deletion on Request, Backups, and Service Providers' },
+        `You may delete your account at any time from My Settings, which immediately deletes your lap telemetry from active application storage, or request deletion of your personal data before the applicable retention period expires by contacting ${SUPPORT_EMAIL}, subject to any lawful exceptions.`,
+        'Limited copies of information may remain temporarily in database backups kept by our hosting provider for disaster recovery under its backup retention schedule. Such backups are not used for ordinary application access, and expired lap telemetry in data restored from a backup is made unavailable automatically and deleted under these rules before the restored data is used.',
+        'When you use AI coaching features, measurements derived from your laps are sent to the technology providers that generate coaching responses. Those providers handle that information under their own terms and retention practices, and deletion of lap telemetry from RacingCoach.app does not delete copies such providers may hold.',
+        'Other categories of personal information, including account records, payment information, security logs, and racing results, are subject to the separate retention periods described in Section 7.',
+      ],
+    },
+    {
+      heading: '9. Your Privacy Rights',
       blocks: [
         'Depending on your location and applicable law, you may have rights to:',
         {
@@ -162,36 +216,36 @@ export const privacyPolicy: LegalDocumentContent = {
       ],
     },
     {
-      heading: '9. Cookies and Similar Technologies',
+      heading: '10. Cookies and Similar Technologies',
       blocks: [
         'RacingCoach may use cookies and similar technologies to maintain login sessions, remember preferences, support security, measure usage, and improve the Services.',
         'Where required by law, we will obtain consent before placing nonessential cookies or activating certain tracking technologies.',
       ],
     },
     {
-      heading: "10. Children's Privacy",
+      heading: "11. Children's Privacy",
       blocks: [
         'RacingCoach is not directed to children under the age of 13, and we do not knowingly collect personal information from children under 13.',
-        'If we learn that a user is under 13, we will delete their account and the personal information associated with it. If you believe a child under 13 has created an account, please contact us using the details in Section 13.',
+        'If we learn that a user is under 13, we will delete their account and the personal information associated with it. If you believe a child under 13 has created an account, please contact us using the details in Section 14.',
         'Users under the age of majority in their jurisdiction should obtain permission from a parent or legal guardian before using the Services.',
       ],
     },
     {
-      heading: '11. International Data Processing',
+      heading: '12. International Data Processing',
       blocks: [
         'Your information may be processed in countries other than the country where you reside.',
         'Where applicable, we will use legally required safeguards for international transfers of personal information.',
       ],
     },
     {
-      heading: '12. Changes to This Policy',
+      heading: '13. Changes to This Policy',
       blocks: [
         'We may update this Privacy Policy periodically to reflect changes to our Services, legal requirements, or information practices.',
         'We will publish the updated policy with a revised effective date and provide additional notice when required by law.',
       ],
     },
     {
-      heading: '13. Contact Us',
+      heading: '14. Contact Us',
       blocks: [
         'For privacy questions, data requests, or concerns, contact:',
         {
@@ -209,7 +263,7 @@ export const privacyPolicy: LegalDocumentContent = {
 
 export const termsOfService: LegalDocumentContent = {
   title: 'RacingCoach.app Terms of Service',
-  effectiveDate: 'October 26, 2026',
+  effectiveDate: 'October 28, 2026',
   intro: [
     'Welcome to RacingCoach.app.',
     'These Terms of Service ("Terms") govern your access to and use of the RacingCoach website, applications, telemetry collection software, coaching tools, analytics, integrations, and related services (collectively, the "Services").',
@@ -288,6 +342,13 @@ export const termsOfService: LegalDocumentContent = {
         'You represent that you have the necessary rights or permissions to submit and authorize processing of the data.',
         'You acknowledge that simulator telemetry, track information, and racing results may also be subject to third-party intellectual property rights, licenses, and terms.',
         'RacingCoach does not claim ownership of third-party simulator data or content merely because it processes or displays that information.',
+        { subheading: 'Telemetry Storage and Retention' },
+        'Lap telemetry storage is a time-limited feature of the RacingCoach.app membership levels.',
+        'The Bronze (free) membership provides up to thirty (30) days of lap telemetry retention, Silver memberships up to sixty (60) days, and Gold memberships up to ninety (90) days, measured from the original completion time of each lap.',
+        'Lap telemetry is automatically made unavailable and removed when its applicable retention period expires. No membership level permits retention of identifiable lap telemetry in active application storage beyond ninety (90) days.',
+        'Membership changes may shorten or extend the retention period for existing, unexpired laps, but will not restore telemetry that has already expired or been deleted. When a paid membership is canceled or not renewed, the Bronze retention period applies once the paid period ends, except that laps covered by a Gold membership remain available for a seven (7) day grace period after the paid period ends, as described in the Privacy Policy.',
+        'You are responsible for downloading any lap telemetry you wish to preserve before its deletion date, using the download feature available with your recorded laps.',
+        'The retention and deletion of lap telemetry, including after a membership is canceled or expires, is further described in the "Lap Telemetry Retention and Deletion" section of our Privacy Policy.',
       ],
     },
     {

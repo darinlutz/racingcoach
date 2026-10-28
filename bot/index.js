@@ -66,12 +66,20 @@ function notLinkedMessage() {
   return `Your Discord account isn't linked to RacingCoach yet. Sign in and click **Connect Discord** on ${accountPage}.`;
 }
 
+// e.g. "Silver Member since March 2026"
+function membershipText(user) {
+  const level = `${user.membershipLevel} Member`;
+  if (!user.memberSince) return level;
+  const since = user.memberSince.toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+  return `${level} since ${since}`;
+}
+
 // Only the person who ran it sees the reply, since it names their account
 async function handleWhoami(interaction) {
   const user = await getLinkedUser(interaction.user.id);
   await interaction.reply({
     content: user
-      ? `You're linked to the RacingCoach account **${user.userName}** (${user.accountStatus}).`
+      ? `You're linked to the RacingCoach account **${user.userName}**, ${membershipText(user)}.`
       : notLinkedMessage(),
     flags: MessageFlags.Ephemeral,
   });

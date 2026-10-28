@@ -25,7 +25,7 @@ export default function CoachVoicePicker({
   spanishAccents: readonly string[];
 }) {
   const { t, language } = useLanguage();
-  // Only in the sample's URL, so a sample cached in the other units isn't played
+  // Units and language are only in the sample's URL, so a sample cached in other units or another language isn't played
   const units = useUnits();
   const c = t.inCarCoach;
   const [voice, setVoice] = useState(initial);
@@ -71,7 +71,7 @@ export default function CoachVoicePicker({
   const listen = () => {
     audio.current?.pause();
     const sample = new Audio(
-      `/api/account/coach-voice/sample?voice=${encodeURIComponent(voice)}&accent=${encodeURIComponent(accent)}&units=${units}`
+      `/api/account/coach-voice/sample?voice=${encodeURIComponent(voice)}&accent=${encodeURIComponent(accent)}&units=${units}&language=${language}`
     );
     audio.current = sample;
     setLoading(true);

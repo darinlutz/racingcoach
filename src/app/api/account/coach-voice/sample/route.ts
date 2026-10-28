@@ -8,8 +8,8 @@ import { distanceFromFeet } from '@/lib/units';
 
 // The Account page's Listen button: a sample callout (the dictionary's inCarCoach.sample) in a coach voice and the
 // signed-in user's Preferred Language and Units, as a WAV file. ?voice= one of COACH_VOICES in src/lib/coachVoice.ts,
-// ?accent= one of SPANISH_ACCENTS for Spanish (the page also adds ?units=, so the browser doesn't play a cached
-// sample in the old units).
+// ?accent= one of SPANISH_ACCENTS for Spanish (the page also adds ?units= and ?language=, so the browser
+// doesn't play a sample cached in the old units or language).
 export async function GET(request: Request) {
   const user = await getCurrentUser();
   const t = await apiText(user);

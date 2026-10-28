@@ -67,3 +67,27 @@ export async function authenticateCollector(request: Request): Promise<number | 
   );
   return row ? row.user_id : null;
 }
+
+// authenticateCollector for requests the collector sends often (its live position, twice a second, liveRacing.ts):
+// a key seen in the last minute isn't looked up (or its last_used_at updated) again, so a replaced or revoked key
+// can keep working here for up to a minute
+const recentKeys = new Map<string, { userId: number; until: number }>();
+const RECENT_KEY_MS = 60_000;
+
+export async function authenticateCollectorCached(request: Request): Promise<number | null> {
+  const match = KEY_PATTERN.exec(request.headers.get('authorization') ?? '');
+  if (!match) return null;
+  const hash = hashKey(match[1]);
+  const now = Date.now();
+  const recent = recentKeys.get(hash);
+  if (recent && recent.until > now) return recent.userId;
+  const userId = await authenticateCollector(request);
+  if (userId === null) recentKeys.delete(hash);
+  else {
+    if (recentKeys.size > 1000) {
+      for (const [key, entry] of recentKeys) if (entry.until <= now) recentKeys.delete(key);
+    }
+    recentKeys.set(hash, { userId, until: now + RECENT_KEY_MS });
+  }
+  return userId;
+}

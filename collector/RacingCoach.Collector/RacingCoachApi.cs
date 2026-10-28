@@ -202,6 +202,43 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
             ?? throw new HttpRequestException("the site sent no Target Lap");
     }
 
+    /// <summary>Live Racing: the driver's live position and lap details (LiveRacing.cs). Answers how many others are
+    /// watching, whether to send the approximate outline next time, and whether the track has a saved outline.
+    /// Throws UnauthorizedAccessException if the key isn't accepted, HttpRequestException (also for a server error) or
+    /// TaskCanceledException.</summary>
+    public async Task<LiveAnswer> SendLiveAsync(object update, CancellationToken ct)
+    {
+        using var response = await _http.PostAsJsonAsync("api/collector/live", update, JsonOptions, ct);
+        if (response.StatusCode == HttpStatusCode.Unauthorized)
+            throw new UnauthorizedAccessException("RacingCoach.app doesn't accept the upload key");
+        if (!response.IsSuccessStatusCode)
+            throw new HttpRequestException(await ErrorMessageAsync(response, ct));
+        return await response.Content.ReadFromJsonAsync<LiveAnswer>(JsonOptions, ct)
+            ?? throw new HttpRequestException("the site sent no answer");
+    }
+
+    /// <summary>Live Racing: the driver has gone (closing, or iRacing closed). Throws like SendLiveAsync.</summary>
+    public async Task ClearLiveAsync(CancellationToken ct)
+    {
+        using var response = await _http.DeleteAsync("api/collector/live", ct);
+        if (response.StatusCode == HttpStatusCode.Unauthorized)
+            throw new UnauthorizedAccessException("RacingCoach.app doesn't accept the upload key");
+        response.EnsureSuccessStatusCode();
+    }
+
+    /// <summary>Live Racing: the outline and focus areas of the track with this iRacing track key, or null when the
+    /// site has no such track. Throws like SendLiveAsync.</summary>
+    public async Task<LiveTrackInfo?> GetTrackOutlineAsync(string trackKey, CancellationToken ct)
+    {
+        using var response = await _http.GetAsync($"api/collector/track-outline?key={Uri.EscapeDataString(trackKey)}", ct);
+        if (response.StatusCode == HttpStatusCode.Unauthorized)
+            throw new UnauthorizedAccessException("RacingCoach.app doesn't accept the upload key");
+        if (!response.IsSuccessStatusCode)
+            throw new HttpRequestException(await ErrorMessageAsync(response, ct));
+        var body = await response.Content.ReadFromJsonAsync<TrackOutlineResponse>(JsonOptions, ct);
+        return body?.Track;
+    }
+
     /// <summary>The in-session debrief for uploaded laps (by clientLapId): what to say, e.g. "Area 1 average
     /// time was 12.3 seconds", and the focus area's name; or the reason there's none as Error.</summary>
     public async Task<(string? Message, string? AreaName, string? Error)> GetDebriefAsync(IEnumerable<Guid> clientLapIds, CancellationToken ct)
@@ -426,7 +463,20 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
     private sealed record DebriefArea(string? Name);
 
     private sealed record CalloutsResponse(List<CoachCallout>? Callouts);
+
+    private sealed record TrackOutlineResponse(LiveTrackInfo? Track);
 }
+
+/// <summary>POST /api/collector/live: how many others are watching the driver, whether the site wants the collector's
+/// approximate outline of the track, and whether it has a saved one.</summary>
+internal sealed record LiveAnswer(int Watchers, bool NeedsOutline, bool SavedOutline);
+
+/// <summary>GET /api/collector/track-outline: the track's name, iRacing's length (null when unknown), its outline
+/// (null until a clean lap of it has been uploaded with track positions) and its focus areas.</summary>
+internal sealed record LiveTrackInfo(string Name, double? LengthFeet, TrackOutlineData? Outline, List<CoachArea>? Areas);
+
+/// <summary>"latlon": each point [latitude, longitude] in degrees, point i at LapDistPct i / Points.Length.</summary>
+internal sealed record TrackOutlineData(string Kind, double[][] Points);
 
 /// <summary>The account's preferences from GET /api/collector/me, and whether it has accepted the current Terms of
 /// Service and Privacy Policy (null from a site from before it was sent).</summary>

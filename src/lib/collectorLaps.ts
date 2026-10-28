@@ -4,6 +4,7 @@ import { isUniqueViolation, query } from './db';
 import { canSeeAllLaps, ROLES } from './roles';
 import { saveTrackLength } from './trackLengths';
 import { lapCsvBounds, saveTrackBounds, saveTrackLocation, trackNeedsBounds } from './trackLocations';
+import { lapCsvOutline, saveTrackOutline, trackNeedsOutline } from './trackOutlines';
 import { ensureUserSchema } from './users';
 
 // Laps uploaded by the telemetry collector (collector/ in this repo), stored in
@@ -373,7 +374,7 @@ export async function saveCollectorLap(
     );
     await saveTrackLength(lap.trackKey ?? null, lap.trackLengthFeet ?? null);
     await saveTrackLocation(lap.trackKey ?? null, lap.trackLatitude ?? null, lap.trackLongitude ?? null);
-    if (hasPosition) await saveTrackBoundsFromLap(lap.trackKey ?? null, csvGzip);
+    if (hasPosition) await saveTrackShapeFromLap(lap.trackKey ?? null, csvGzip, !lap.pitRoad && !lap.offTrack);
     return { id: row.id, duplicate: false, replaced: false };
   } catch (error) {
     if (!isUniqueViolation(error)) throw error;
@@ -387,7 +388,7 @@ export async function saveCollectorLap(
         [userId, lap.clientLapId, csvGzip, csvBytes]
       );
       if (replaced) {
-        await saveTrackBoundsFromLap(lap.trackKey ?? null, csvGzip);
+        await saveTrackShapeFromLap(lap.trackKey ?? null, csvGzip, !lap.pitRoad && !lap.offTrack);
         return { id: replaced.id, duplicate: true, replaced: true };
       }
     }
@@ -399,39 +400,47 @@ export async function saveCollectorLap(
   }
 }
 
-// Gives the lap's track its bounds (trackLocations.ts) from the lap's Lat/Lon, when it has none yet. A failure
+// Gives the lap's track its bounds (trackLocations.ts) from the lap's Lat/Lon, when it has none yet, and its outline
+// for Live Racing (trackOutlines.ts) when it has none and the lap is clean (no pit road, no off-track). A failure
 // is only logged: the lap is saved either way.
-async function saveTrackBoundsFromLap(trackKey: string | null, csvGzip: Buffer): Promise<void> {
+async function saveTrackShapeFromLap(trackKey: string | null, csvGzip: Buffer, clean: boolean): Promise<void> {
   try {
-    if (!trackKey || !(await trackNeedsBounds(trackKey))) return;
-    await saveTrackBounds(trackKey, lapCsvBounds(gunzipSync(csvGzip, { maxOutputLength: MAX_CSV_BYTES }).toString('utf8')));
+    if (!trackKey) return;
+    const needsBounds = await trackNeedsBounds(trackKey);
+    const needsOutline = clean && (await trackNeedsOutline(trackKey));
+    if (!needsBounds && !needsOutline) return;
+    const csv = gunzipSync(csvGzip, { maxOutputLength: MAX_CSV_BYTES }).toString('utf8');
+    if (needsBounds) await saveTrackBounds(trackKey, lapCsvBounds(csv));
+    if (needsOutline) await saveTrackOutline(trackKey, lapCsvOutline(csv));
   } catch (error) {
-    console.error('Save track bounds error:', error);
+    console.error('Save track shape error:', error);
   }
 }
 
-// Gives tracks without bounds theirs from laps already stored with track positions: the latest lap of each,
-// preferring ones without pit road or off-track. Runs once per server start (Track Data's /api/tracks waits
-// for it), so tracks driven before bounds were kept get them; after that each new lap with positions does.
+// Gives tracks without bounds or an outline theirs from laps already stored with track positions: the latest lap of
+// each, preferring ones without pit road or off-track (only those give an outline). Runs once per server start (Track
+// Data's /api/tracks and Live Racing wait for it), so tracks driven before bounds and outlines were kept get them;
+// after that each new lap with positions does.
 let backfill: Promise<void> | null = null;
 export function backfillTrackBounds(): Promise<void> {
   backfill ??= (async () => {
     try {
       await ensureUserSchema();
       // Ids first, so the sort doesn't carry every lap's CSV
-      const laps = await query<{ id: number; track_key: string }>(
-        `SELECT DISTINCT ON (lower(l.track_key)) l.id, l.track_key
+      const laps = await query<{ id: number; track_key: string; clean: boolean }>(
+        `SELECT DISTINCT ON (lower(l.track_key)) l.id, l.track_key, NOT (l.pit_road OR l.off_track) AS clean
          FROM racingcoach."CollectorLaps" l
          JOIN racingcoach."Tracks" t ON lower(t.track_key) = lower(l.track_key)
-         WHERE l.has_position AND t.track_south IS NULL
+         WHERE l.has_position
+           AND (t.track_south IS NULL OR (t.track_outline IS NULL AND NOT (l.pit_road OR l.off_track)))
          ORDER BY lower(l.track_key), (l.pit_road OR l.off_track), l.recorded_at DESC`
       );
       for (const lap of laps) {
         const [row] = await query<{ csv_gzip: Buffer }>('SELECT csv_gzip FROM racingcoach."CollectorLaps" WHERE id = $1', [lap.id]);
-        if (row) await saveTrackBoundsFromLap(lap.track_key, row.csv_gzip);
+        if (row) await saveTrackShapeFromLap(lap.track_key, row.csv_gzip, lap.clean);
       }
     } catch (error) {
-      console.error('Backfill track bounds error:', error);
+      console.error('Backfill track shapes error:', error);
     }
   })();
   return backfill;

@@ -11,8 +11,9 @@ using SVappsLAB.iRacingTelemetrySDK;
 namespace RacingCoach.Collector;
 
 /// <summary>
-/// The collector's window: status of iRacing, lap recording, uploads and track positions; the session,
-/// car and conditions; live inputs; this session's laps; and the activity log. It runs a CollectorEngine
+/// The collector's window. Its Dashboard tab has the status of iRacing, lap recording, uploads and track positions;
+/// the session, car and conditions; live inputs; this session's laps; and the activity log. Its Live Racing tab has
+/// the track's map with the car going round it, and whether the driving is shared live with the website (LiveRacing.cs). It runs a CollectorEngine
 /// and reads its state ten times a second. Also asks for the upload key the first time, or when
 /// RacingCoach.app stops accepting it.
 /// </summary>
@@ -349,7 +350,92 @@ public partial class MainWindow : Window
         RefreshStatus();
         RefreshSession();
         RefreshLive();
+        if (LivePanel.Visibility == Visibility.Visible)
+            RefreshLiveRacing();
     }
+
+    // ---------------------------------------------------------------- Live Racing tab
+
+    private void Tab_Checked(object sender, RoutedEventArgs e)
+    {
+        // Checked fires for the default tab inside InitializeComponent, before the panels exist
+        if (DashboardPanel is null || LivePanel is null)
+            return;
+        var live = LiveRacingTab.IsChecked == true;
+        DashboardPanel.Visibility = live ? Visibility.Collapsed : Visibility.Visible;
+        LivePanel.Visibility = live ? Visibility.Visible : Visibility.Collapsed;
+        // The map's dot moves every frame while the tab shows
+        CompositionTarget.Rendering -= OnLiveRacingFrame;
+        if (live)
+        {
+            CompositionTarget.Rendering += OnLiveRacingFrame;
+            RefreshLiveRacing();
+        }
+    }
+
+    private void OnLiveRacingFrame(object? sender, EventArgs e)
+    {
+        TrackMap.Map = _engine.Live.Map;
+        TrackMap.CarPct = _engine.TryGetLatest(out var d) && d.IsOnTrack == true && d.LapDistPct is { } pct and >= 0 ? pct : null;
+    }
+
+    private void RefreshLiveRacing()
+    {
+        var live = _engine.Live;
+        var session = _engine.Session;
+        MapTrackText.Text = session is null ? "—" : session.TrackConfig is null ? session.Track : $"{session.Track} · {session.TrackConfig}";
+        var map = live.Map;
+        MapKindText.Text = map is null ? "" : map.Exact ? "" : "Approximate map";
+        MapEmptyText.Text = map is not null ? ""
+            : session is null ? "Start iRacing and get in the car to see the track here."
+            : "Drive one clean lap and the track is drawn here. The exact map comes once a lap of this track has been uploaded with track positions, after your stint.";
+        MapNoteText.Text = map is { Exact: false }
+            ? "Drawn from your own lap's speed and yaw rate, so it's close but not exact. The exact map replaces it once a lap of this track has been uploaded with track positions, after your stint."
+            : "";
+
+        if (live.Sharing)
+            SetTile(ShareDot, ShareText, ShareDetail, Green, "Sharing live",
+                live.Watchers switch { 0 => "Nobody is watching right now", 1 => "1 person is watching", var n => $"{n} people are watching" });
+        else if (_engine.State is SimState.Waiting or SimState.PlaybackFinished || session is null)
+            SetTile(ShareDot, ShareText, ShareDetail, Grey, "Not sharing", live.Problem ?? "Starts when you're in iRacing");
+        else
+            SetTile(ShareDot, ShareText, ShareDetail, live.Problem is null ? Amber : Red, "Not sharing", live.Problem ?? "Connecting…");
+
+        if (!_engine.TryGetLatest(out var d) || d.IsOnTrack != true)
+        {
+            LiveSpeedText.Text = LiveGearText.Text = LiveCurrentText.Text = LiveLastText.Text = LiveBestText.Text = LiveDeltaText.Text = LiveAreaText.Text = "—";
+            LiveDeltaText.Foreground = Fg;
+            LiveLapText.Text = session is null ? "Lap —" : "In the garage";
+            return;
+        }
+        var metric = _engine.Metric;
+        LiveSpeedUnitText.Text = metric ? " KPH" : " MPH";
+        LiveSpeedText.Text = d.Speed is { } speed
+            ? Math.Round(speed * (metric ? MetersPerSecondToKph : MetersPerSecondToMph)).ToString("0", Culture)
+            : "—";
+        LiveGearText.Text = d.Gear switch { null => "—", -1 => "R", 0 => "N", var g => g.Value.ToString(Culture) };
+        var pct = Math.Clamp(d.LapDistPct ?? 0, 0, 1);
+        LiveLapText.Text = (d.Lap is { } lap ? $"Lap {lap}" : "Lap —")
+            + (d.PlayerCarPosition is > 0 and var p ? $" · P{p}" : "")
+            + $" · {pct * 100:0}% around"
+            + (d.OnPitRoad == true ? " · pit road" : "");
+        LiveCurrentText.Text = LapTime(d.LapCurrentLapTime);
+        LiveLastText.Text = LapTime(d.LapLastLapTime);
+        LiveBestText.Text = LapTime(d.LapBestLapTime);
+        if (d.LapBestLapTime is > 0 && d.LapDeltaToBestLap is { } delta)
+        {
+            LiveDeltaText.Text = $"{(delta > 0 ? "+" : delta < 0 ? "−" : "")}{Math.Abs(delta):0.000}";
+            LiveDeltaText.Foreground = delta > 0.0005 ? Red : delta < -0.0005 ? Green : Fg;
+        }
+        else
+        {
+            LiveDeltaText.Text = "—";
+            LiveDeltaText.Foreground = Fg;
+        }
+        LiveAreaText.Text = TrackMap.AreaAt(pct)?.Name ?? (map is { Areas.Count: > 0 } ? "Between areas" : "—");
+    }
+
+    private void OpenLiveRacing_Click(object sender, RoutedEventArgs e) => Open($"{_siteUrl}/live-racing");
 
     private void RefreshStatus()
     {
@@ -784,6 +870,7 @@ public partial class MainWindow : Window
         _targetTelemetryWindow?.Close();
         ClosingOverlay.Visibility = Visibility.Visible;
         _timer.Stop();
+        CompositionTarget.Rendering -= OnLiveRacingFrame;
         _stop.Cancel();
         if (_run is not null)
             await Task.WhenAny(_run, Task.Delay(TimeSpan.FromSeconds(30)));

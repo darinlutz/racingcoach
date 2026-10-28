@@ -96,6 +96,7 @@ internal sealed class CollectorEngine
             ? null
             : new RaceResultTracker(Path.Combine(documents, "RacingCoach", "Races"), message => Log(message));
         Rotation = new RotationMonitor(message => Log(message));
+        Live = new LiveRacing(() => Api, message => Log(message));
         Voice.UseSite(() => Api, message => Log(message)); // speech in the user's coach voice
         _logs = new LogUploader(() => Api); // the activity log, to the user's account
     }
@@ -119,6 +120,8 @@ internal sealed class CollectorEngine
     public InCarCoach Coach => _coach;
     /// <summary>The Rotation Model on live telemetry: understeer and oversteer for the overlay and Rotation window.</summary>
     public RotationMonitor Rotation { get; }
+    /// <summary>Live Racing: the driver's live position, sent to the website, and the track's map for the Live Racing tab.</summary>
+    public LiveRacing Live { get; }
     /// <summary>The user's Preferred Units on the Account page are Metric (meters, kph, °C, liters) rather than
     /// Standard (feet, mph, °F, gallons). Loaded with the upload key, and again at each new track or car so a
     /// change on the Account page shows from the next session; Standard without a key.</summary>
@@ -168,6 +171,7 @@ internal sealed class CollectorEngine
         _races?.UseApi(api);
         _coach.Refresh(); // the plan comes from the account the key belongs to
         _brakeBeeps.Refresh(); // and so do the brakepoints and the beeps setting
+        Live.Refresh(); // and the track's map
         RefreshUnits(); // and the units and language
         if (old is not null)
             _ = old.DisposeAsync().AsTask(); // its queued laps are queued again on the new one
@@ -272,6 +276,7 @@ internal sealed class CollectorEngine
         if (_enricher is not null)
             Log($"Track positions are added after each stint from iRacing's .ibt files in {_enricher.IbtFolder}");
 
+        var live = Live.RunAsync(cancel);
         try
         {
             await using var client = TelemetryClient<TelemetryData>.Create(NullLogger.Instance, ibtOptions, clientOptions);
@@ -299,6 +304,7 @@ internal sealed class CollectorEngine
             if (_uploader is not null)
                 await _uploader.DisposeAsync(); // give queued uploads a few seconds; the rest go next run
             await _writer.DisposeAsync(); // record the last upload results in session.json
+            await Task.WhenAny(live, Task.Delay(TimeSpan.FromSeconds(5))); // Live Racing: the driver has gone
             await _logs.DisposeAsync(); // the last activity log lines
         }
     }
@@ -327,6 +333,7 @@ internal sealed class CollectorEngine
                 Log("Disconnected from iRacing. Waiting for iRacing…");
                 _writer.AddPositionsFromIbt(); // iRacing closed its .ibt file
                 _races?.SaveUnfinished(); // left a race before its result was official
+                Live.OnDisconnected();
             }
             return Task.CompletedTask;
         },
@@ -372,6 +379,7 @@ internal sealed class CollectorEngine
             _brakeBeeps.SetTrack(_recorder.Session.Track, Session.TrackLength);
             _races?.OnSessionInfo(session, _recorder.Session.Track, Session.Car);
             Rotation.SetCar(string.IsNullOrWhiteSpace(driver?.CarPath) ? null : driver.CarPath, Session.Car);
+            Live.SetTrack(_recorder.Session.Track, TrackKeys.For(_recorder.Session.Track), Session.Car, sessionTypes);
 
             // iRacing re-sends session info every few seconds (flags, driver list, ...); only log changes
             if (previous is null || previous.Track != Session.Track || previous.TrackConfig != Session.TrackConfig || previous.Car != Session.Car)
@@ -390,6 +398,7 @@ internal sealed class CollectorEngine
                 _brakeBeeps.OnSample(data); // a played-back file can run far faster than real time
             _races?.OnSample(data.SessionNum, data.SessionTime);
             Rotation.OnSample(data);
+            Live.OnSample(data);
             lock (_sampleLock)
             {
                 _latest = data;

@@ -3,12 +3,12 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
 
 import DrivingLineDiffTrace from '@/components/DrivingLineDiffTrace';
+import DrivingLineMap from '@/components/DrivingLineMap';
 import SteeringTrace from '@/components/SteeringTrace';
 import SteeringWheel from '@/components/SteeringWheel';
 import { useLanguage } from '@/components/LanguageProvider';
 import TimeDeltaTrace from '@/components/TimeDeltaTrace';
 import LapDataTabs, { type Tab as LapDataTab } from '@/components/LapDataTabs';
-import TrackLineMap from '@/components/TrackLineMap';
 import { useUnits } from '@/components/UnitsProvider';
 import { CHART_MARGIN as MARGIN, clamp, nearestIndex, positionLabel, xTicks, type Axis } from '@/lib/lapCharts';
 import type { AreaTrace } from '@/lib/lapData';
@@ -224,8 +224,8 @@ function TraceChart({
 }
 
 // Two columns, with a crosshair that follows the pointer (or arrow keys) on all the charts at once. On the
-// left, the Base and Compare laps' driving lines on a map (TrackLineMap) with the crosshair's
-// position marked on each, and under it a steering wheel turned to both laps' angles at the crosshair,
+// left, the Base and Compare laps' driving lines on a map (DrivingLineMap: flat, or 3D over Google's
+// Photorealistic 3D Tiles) with the crosshair's position marked on each, and under it a steering wheel turned to both laps' angles at the crosshair,
 // with their gears (SteeringWheel). On the right, top to bottom: the time the Compare lap gains or loses
 // through one focus area (TimeDeltaTrace), brake and throttle for the Base (solid) and Compare (lighter,
 // dotted) laps on one chart (TraceChart), how far left or right of the Base lap's line the Compare lap was
@@ -276,7 +276,7 @@ export default function PedalTraces({
         <>
           <div className={sideBySide ? 'flex items-start gap-4' : 'space-y-4'}>
             <div className="space-y-4" style={sideBySide ? { width: half, flexShrink: 0 } : undefined}>
-              <TrackLineMap base={base} compare={compare} width={half} height={Math.round(half * MAP_ASPECT)} hoverPct={hoverPct} onHover={setHoverPct} />
+              <DrivingLineMap base={base} compare={compare} width={half} height={Math.round(half * MAP_ASPECT)} hoverPct={hoverPct} onHover={setHoverPct} />
               <SteeringWheel base={base} compare={compare} axis={axis} hoverPct={hoverPct} />
               {steeringLeft && steering}
             </div>

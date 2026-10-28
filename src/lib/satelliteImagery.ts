@@ -41,14 +41,18 @@ export function viewTiles(centerX: number, centerY: number, scale: number, width
   return { zoom, size, tiles };
 }
 
-export type MapSettings = { available: boolean; attribution: string | null };
+// google3dKey: the browser key for Google's Photorealistic 3D Tiles (Lap Compare's 3D view), null when not set up
+export type MapSettings = { available: boolean; attribution: string | null; google3dKey: string | null };
+
+const NO_SETTINGS: MapSettings = { available: false, attribution: null, google3dKey: null };
 
 // Fetched once per page load and shared by every map
 let settingsPromise: Promise<MapSettings> | null = null;
 function loadSettings() {
   settingsPromise ??= fetch('/api/map-tiles')
-    .then((res) => (res.ok ? (res.json() as Promise<MapSettings>) : { available: false, attribution: null }))
-    .catch(() => ({ available: false, attribution: null }));
+    .then((res) => (res.ok ? (res.json() as Promise<MapSettings>) : NO_SETTINGS))
+    .then((settings) => ({ ...NO_SETTINGS, ...settings }))
+    .catch(() => NO_SETTINGS);
   return settingsPromise;
 }
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useRef, useState, type MouseEvent, type PointerEvent } from 'react';
+import { useEffect, useId, useRef, useState, type MouseEvent, type PointerEvent, type ReactNode } from 'react';
 
 import { useLanguage } from '@/components/LanguageProvider';
 import type { PedalTraceLap } from '@/components/PedalTraces';
@@ -86,6 +86,7 @@ type Line = { key: 'base' | 'compare'; lap: PedalTraceLap; color: string; positi
 // when it's set up (SATELLITE_TILE_URL, see src/lib/mapTiles.ts), otherwise on a plain background.
 // Shares the pedal traces' crosshair: hoverPct puts a dot on each line, and pointing at the map moves it.
 // Opens fitted to the area; the mouse wheel, a pinch, double-click or the +/- buttons zoom, dragging pans.
+// headerExtra goes at the end of the legend row (DrivingLineMap's Map / 3D switch).
 export default function TrackLineMap({
   base,
   compare,
@@ -93,6 +94,7 @@ export default function TrackLineMap({
   height = DEFAULT_HEIGHT,
   hoverPct,
   onHover,
+  headerExtra,
 }: {
   base: PedalTraceLap;
   compare: PedalTraceLap;
@@ -100,6 +102,7 @@ export default function TrackLineMap({
   height?: number;
   hoverPct: number | null;
   onHover: (pct: number | null) => void;
+  headerExtra?: ReactNode;
 }) {
   const { t: dictionary, fmt, locale } = useLanguage();
   const units = useUnits();
@@ -271,6 +274,7 @@ export default function TrackLineMap({
             {line.lap.title}
           </span>
         ))}
+        {headerExtra}
       </div>
 
       <div

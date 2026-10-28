@@ -18,7 +18,7 @@ public partial class OverlayAreaRow : UserControl
     private static readonly (string Heading, double Width)[] Columns =
     [
         ("overlay.focusArea", 95), ("overlay.brakePoint", 115), ("overlay.brakePressure", 105),
-        ("overlay.time", 115), ("overlay.exit", 120), ("overlay.coast", 64), ("overlay.overlap", 64),
+        ("overlay.time", 115), ("overlay.exit", 120), ("overlay.coast", 67), ("overlay.overlap", 67),
     ];
     private static readonly Brush BoxBackground = Frozen(Color.FromRgb(0x1A, 0x1B, 0x1E));
     internal static readonly Brush LightText = Frozen(Color.FromRgb(0xF3, 0xF4, 0xF6));

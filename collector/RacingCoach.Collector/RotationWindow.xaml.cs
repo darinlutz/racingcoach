@@ -71,8 +71,10 @@ public partial class RotationWindow : Window
         }
 
         var session = _engine.Session;
-        StatusText.Text = session is null ? Loc.T(_language, "live") : session.TrackConfig is null ? session.Track : $"{session.Track} ({session.TrackConfig})";
-        TrackIdText.Text = session is null ? "" : TrackKeys.For(session.Track) ?? "";
+        // The recorder's track name, "Track (Config)", which is what TrackKeys is keyed by
+        var track = session is null ? null : session.TrackConfig is null ? session.Track : $"{session.Track} ({session.TrackConfig})";
+        StatusText.Text = track ?? Loc.T(_language, "live");
+        TrackIdText.Text = track is null ? "" : TrackKeys.For(track) ?? "";
         LapPctText.Text = d.LapDistPct is { } pct && float.IsFinite(pct) && pct >= 0 ? $"{N(pct * 100, "0.00")}%" : "";
 
         // iRacing's angles are radians, positive to the left (counterclockwise)

@@ -297,6 +297,12 @@ export const es: Dictionary = {
     listen: 'Escuchar',
     loadingSample: 'Cargando…',
     voiceSaved: 'Voz del entrenador guardada.',
+    voiceGenders: { male: 'masculina', female: 'femenina' },
+    voiceStyles: {
+      informative: 'Informativa', firm: 'Firme', clear: 'Clara', smooth: 'Suave', knowledgeable: 'Experta',
+      upbeat: 'Alegre', excitable: 'Enérgica', warm: 'Cálida', mature: 'Madura', bright: 'Brillante', breezy: 'Desenfadada',
+      youthful: 'Juvenil',
+    },
     accentTitle: 'Acento del español',
     accents: { latinAmerica: 'Latinoamericano', spain: 'España' },
     accentSaved: 'Acento guardado.',

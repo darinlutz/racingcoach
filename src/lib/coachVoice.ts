@@ -2,15 +2,34 @@ import { query } from './db';
 import { AI_LANGUAGE_NAMES, DEFAULT_LANGUAGE, type Language } from './i18n/languages';
 import { ensureUserSchema } from './users';
 
-// The In-Car AI Coach's voice: OpenAI text-to-speech in the voice the driver picks on the Account page
-// ("Users".coach_voice), with a native accent in their Preferred Language; for Spanish, the Latin American or Spain
-// accent they pick beside it ("Users".coach_spanish_accent). The collector gets its speech from
+// The In-Car AI Coach's voice: Google Cloud Text-to-Speech's Chirp 3 HD voices, in the voice the driver picks on the
+// Account page ("Users".coach_voice), spoken by a native voice of their Preferred Language (en-US, pt-BR, and es-US or
+// es-ES by the Spanish accent they pick beside it, "Users".coach_spanish_accent). Without GOOGLE_TTS_API_KEY it falls
+// back to OpenAI's gpt-4o-mini-tts, told to speak with that accent. The collector gets its speech from
 // POST /api/collector/speech; the Account page's Listen button from GET /api/account/coach-voice/sample.
 
-// OpenAI's built-in voices for gpt-4o-mini-tts; marin and cedar are its most natural
-export const COACH_VOICES = ['marin', 'cedar', 'alloy', 'ash', 'ballad', 'coral', 'echo', 'fable', 'nova', 'onyx', 'sage', 'shimmer', 'verse'] as const;
-export type CoachVoice = (typeof COACH_VOICES)[number];
-export const DEFAULT_COACH_VOICE: CoachVoice = 'fable';
+// Chirp 3 HD's voices the driver can pick from (Google has 30; these suit a race engineer on the radio), each with
+// Google's description of its style. Every voice speaks every language as a native speaker would.
+export const COACH_VOICE_DETAILS = {
+  Charon: { gender: 'male', style: 'informative' },
+  Orus: { gender: 'male', style: 'firm' },
+  Iapetus: { gender: 'male', style: 'clear' },
+  Algieba: { gender: 'male', style: 'smooth' },
+  Sadaltager: { gender: 'male', style: 'knowledgeable' },
+  Puck: { gender: 'male', style: 'upbeat' },
+  Fenrir: { gender: 'male', style: 'excitable' },
+  Kore: { gender: 'female', style: 'firm' },
+  Despina: { gender: 'female', style: 'smooth' },
+  Sulafat: { gender: 'female', style: 'warm' },
+  Gacrux: { gender: 'female', style: 'mature' },
+  Zephyr: { gender: 'female', style: 'bright' },
+  Aoede: { gender: 'female', style: 'breezy' },
+  Leda: { gender: 'female', style: 'youthful' },
+} as const;
+export type CoachVoice = keyof typeof COACH_VOICE_DETAILS;
+export const COACH_VOICES = Object.keys(COACH_VOICE_DETAILS) as CoachVoice[];
+// Older accounts' OpenAI voice names aren't Chirp voices, so they get this one
+export const DEFAULT_COACH_VOICE: CoachVoice = 'Charon';
 
 // Spanish is spoken with a Latin American accent (the default, like the site's Spanish) or Spain's
 export const SPANISH_ACCENTS = ['latinAmerica', 'spain'] as const;
@@ -19,12 +38,21 @@ export const DEFAULT_SPANISH_ACCENT: SpanishAccent = 'latinAmerica';
 
 export const MAX_SPEECH_CHARS = 500;
 
-const SPEECH_MODEL = 'gpt-4o-mini-tts';
-// OpenAI's raw PCM: 24 kHz, 16-bit, mono, little-endian
+// Chirp 3 HD has no Portugal Portuguese, so Portuguese is Brazil's, like the site's
+function chirpLocale(language: Language, spanishAccent: SpanishAccent) {
+  if (language === 'es') return spanishAccent === 'spain' ? 'es-ES' : 'es-US';
+  if (language === 'pt') return 'pt-BR';
+  return 'en-US';
+}
+
+// The fallback: OpenAI's most natural voices, by the picked voice's gender
+const OPENAI_SPEECH_MODEL = 'gpt-4o-mini-tts';
+const OPENAI_VOICES = { male: 'cedar', female: 'marin' } as const;
+// Both answer raw PCM: 24 kHz, 16-bit, mono, little-endian
 const SAMPLE_RATE = 24000;
 
 export function isCoachVoice(value: unknown): value is CoachVoice {
-  return typeof value === 'string' && (COACH_VOICES as readonly string[]).includes(value);
+  return typeof value === 'string' && (COACH_VOICES as string[]).includes(value);
 }
 
 export function isSpanishAccent(value: unknown): value is SpanishAccent {
@@ -89,27 +117,63 @@ export function spokenTurnNames(text: string, language: Language = DEFAULT_LANGU
     .replace(/\bT(\d+)\b/g, `${words.one} $1`);
 }
 
-// The text spoken in the voice, as a WAV file (PCM wrapped in a WAV header, which Windows plays without any
-// codec, and so do browsers). The text is already in the driver's language; the instructions give it a native
-// accent (Spain's or Latin American for Spanish) and a race engineer's delivery.
+// The text spoken in the voice, as a WAV file (PCM with a WAV header, which Windows plays without any codec, and so
+// do browsers). The text is already in the driver's language.
 export async function synthesizeSpeech(
   text: string,
   voice: CoachVoice,
   language: Language = DEFAULT_LANGUAGE,
   spanishAccent: SpanishAccent = DEFAULT_SPANISH_ACCENT
 ): Promise<Buffer> {
+  const input = spokenTurnNames(text, language);
+  return process.env.GOOGLE_TTS_API_KEY
+    ? chirpSpeech(input, voice, chirpLocale(language, spanishAccent))
+    : openAiSpeech(input, voice, language, spanishAccent);
+}
+
+async function chirpSpeech(text: string, voice: CoachVoice, locale: string): Promise<Buffer> {
+  const response = await fetch('https://texttospeech.googleapis.com/v1/text:synthesize', {
+    method: 'POST',
+    headers: { 'X-Goog-Api-Key': process.env.GOOGLE_TTS_API_KEY!, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      input: { text },
+      voice: { languageCode: locale, name: `${locale}-Chirp3-HD-${voice}` },
+      audioConfig: { audioEncoding: 'LINEAR16', sampleRateHertz: SAMPLE_RATE },
+    }),
+    signal: AbortSignal.timeout(30_000),
+  });
+  if (!response.ok) {
+    const detail = await response.text().catch(() => '');
+    throw new SpeechError(`Google speech failed (HTTP ${response.status}): ${detail.slice(0, 300)}`);
+  }
+  const { audioContent } = (await response.json()) as { audioContent?: string };
+  if (!audioContent) {
+    throw new SpeechError('Google speech answered no audio');
+  }
+  // LINEAR16 normally comes with its WAV header already
+  const audio = Buffer.from(audioContent, 'base64');
+  return audio.subarray(0, 4).toString('ascii') === 'RIFF' ? audio : wav(audio);
+}
+
+// The instructions give it a native accent (Spain's or Latin American for Spanish) and a race engineer's delivery
+async function openAiSpeech(
+  text: string,
+  voice: CoachVoice,
+  language: Language,
+  spanishAccent: SpanishAccent
+): Promise<Buffer> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    throw new SpeechError('OPENAI_API_KEY is not configured');
+    throw new SpeechError('Neither GOOGLE_TTS_API_KEY nor OPENAI_API_KEY is configured');
   }
 
   const response = await fetch('https://api.openai.com/v1/audio/speech', {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: SPEECH_MODEL,
-      voice,
-      input: spokenTurnNames(text, language),
+      model: OPENAI_SPEECH_MODEL,
+      voice: OPENAI_VOICES[COACH_VOICE_DETAILS[voice].gender],
+      input: text,
       response_format: 'pcm',
       instructions:
         `Speak as a native ${nativeSpeaker(language, spanishAccent)} pronouncing everything the way a native speaker ` +

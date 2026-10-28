@@ -9,7 +9,7 @@ import LanguageSelect from '@/components/LanguageSelect';
 import MyAiUsageCard from '@/components/MyAiUsageCard';
 import ThemeToggle from '@/components/ThemeToggle';
 import UnitsToggle from '@/components/UnitsToggle';
-import { COACH_VOICES, getCoachVoice, SPANISH_ACCENTS } from '@/lib/coachVoice';
+import { COACH_VOICE_DETAILS, getCoachVoice, SPANISH_ACCENTS } from '@/lib/coachVoice';
 import { getCollectorKey } from '@/lib/collectorKeys';
 import { DISCORD_INVITE_URL, getDiscordConnection } from '@/lib/discord';
 import { fmt, LANGUAGE_LOCALES } from '@/lib/i18n/languages';
@@ -208,7 +208,7 @@ export default async function AccountPage({
             instructions={inCarCoachInstructions}
             maxLength={MAX_IN_CAR_COACH_INSTRUCTIONS}
             voice={coachVoice.voice}
-            voices={COACH_VOICES}
+            voices={COACH_VOICE_DETAILS}
             spanishAccent={coachVoice.spanishAccent}
             spanishAccents={SPANISH_ACCENTS}
             available={canUseInCarCoach(user)}

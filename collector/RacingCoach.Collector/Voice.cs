@@ -7,7 +7,7 @@ namespace RacingCoach.Collector;
 /// <summary>
 /// Speaks to the driver (the In-Car AI Coach, the in-session debrief) in the coach
 /// voice they picked on the Account page, with a native accent in their Preferred Language: RacingCoach.app makes
-/// the speech with OpenAI (POST /api/collector/speech) and it's played here. One thing at a time, in order. Speech
+/// the speech with Google Chirp 3 HD (POST /api/collector/speech) and it's played here. One thing at a time, in order. Speech
 /// is kept for a while, so things said often (e.g. a rule's callout) play straight away after the first time.
 /// Without an upload key, or when the site can't make it, Windows' own voice says it instead.
 /// </summary>

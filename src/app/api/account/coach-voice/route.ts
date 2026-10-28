@@ -3,7 +3,7 @@ import { isCoachVoice, isSpanishAccent, setCoachVoice, setSpanishAccent } from '
 import { apiText } from '@/lib/i18n/server';
 import { getCurrentUser } from '@/lib/session';
 
-// The Account page's Coach voice: the OpenAI voice the signed-in user's In-Car AI Coach speaks with
+// The Account page's Coach voice: the Chirp 3 HD voice the signed-in user's In-Car AI Coach speaks with
 // (racingcoach."Users".coach_voice), and its accent for Spanish (coach_spanish_accent).
 // Body: { voice } (one of COACH_VOICES in src/lib/coachVoice.ts) or { spanishAccent } (one of SPANISH_ACCENTS).
 export async function PUT(request: Request) {

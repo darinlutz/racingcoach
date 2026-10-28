@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import CoachVoicePicker from '@/components/CoachVoicePicker';
+import CoachVoicePicker, { type CoachVoiceDetails } from '@/components/CoachVoicePicker';
 import { useLanguage } from '@/components/LanguageProvider';
 
 // The Account page's My In-Car AI Coach Instructions box: what the user's own In-Car AI Coach should do
@@ -23,7 +23,7 @@ export default function InCarCoachInstructionsCard({
   instructions: string;
   maxLength: number;
   voice: string;
-  voices: readonly string[];
+  voices: CoachVoiceDetails;
   spanishAccent: string;
   spanishAccents: readonly string[];
   available: boolean;

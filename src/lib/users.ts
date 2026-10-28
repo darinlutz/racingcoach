@@ -177,7 +177,7 @@ export function ensureUserSchema(): Promise<void> {
       await client.query(
         `ALTER TABLE racingcoach."Users" ALTER COLUMN brake_beeps_volume SET DEFAULT ${DEFAULT_BRAKE_BEEPS_VOLUME}`
       );
-      // The OpenAI voice the In-Car AI Coach speaks with (src/lib/coachVoice.ts); empty for the default one
+      // The Chirp 3 HD voice the In-Car AI Coach speaks with (src/lib/coachVoice.ts); empty for the default one
       await client.query(`ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS coach_voice TEXT NOT NULL DEFAULT ''`);
       // Its accent for Spanish: latinAmerica or spain (src/lib/coachVoice.ts); empty for the default one
       await client.query(`ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS coach_spanish_accent TEXT NOT NULL DEFAULT ''`);

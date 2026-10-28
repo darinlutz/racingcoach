@@ -14,7 +14,7 @@ import { getCollectorKey } from '@/lib/collectorKeys';
 import { DISCORD_INVITE_URL, getDiscordConnection } from '@/lib/discord';
 import { fmt, LANGUAGE_LOCALES } from '@/lib/i18n/languages';
 import { getDictionary } from '@/lib/i18n/server';
-import { readOwnAiUsage } from '@/lib/rateLimits';
+import { readOwnAiLimits, readOwnAiUsage } from '@/lib/rateLimits';
 import { canUseInCarCoach, isAdmin } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
 import { getEnableAiFeatures, getShowPricing } from '@/lib/siteSettings';
@@ -53,7 +53,7 @@ export default async function AccountPage({
   const { discord: discordResult } = await searchParams;
   const discordText = typeof discordResult === 'string' ? t.account.discordMessages[discordResult] : undefined;
   const discordOk = typeof discordResult === 'string' && DISCORD_OK.has(discordResult);
-  const [discord, collectorKey, inCarCoachInstructions, coachVoice, showPricing, enableAiFeatures, aiUsage] = await Promise.all([
+  const [discord, collectorKey, inCarCoachInstructions, coachVoice, showPricing, enableAiFeatures, aiUsage, aiLimits] = await Promise.all([
     getDiscordConnection(user.id),
     getCollectorKey(user.id),
     getInCarCoachInstructions(user.id),
@@ -61,6 +61,7 @@ export default async function AccountPage({
     getShowPricing(),
     getEnableAiFeatures(),
     readOwnAiUsage(user.id),
+    readOwnAiLimits(user),
   ]);
   const isSubscribed = user.accountStatus === ACCOUNT_STATUS.subscribed;
   // A canceled subscription keeps its end date: the end of the last paid period
@@ -216,7 +217,7 @@ export default async function AccountPage({
           />
         )}
 
-        {enableAiFeatures && <MyAiUsageCard day={aiUsage.day} week={aiUsage.week} />}
+        {enableAiFeatures && <MyAiUsageCard day={aiUsage.day} week={aiUsage.week} limits={aiLimits} />}
 
         {showViewPlans && (
           <Link

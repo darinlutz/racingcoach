@@ -351,6 +351,9 @@ export const en = {
     inputTokens: 'Input tokens',
     outputTokens: 'Output tokens',
     blocked: 'Blocked',
+    limitHeader: { hour: '{level} hourly limit', day: '{level} daily limit', week: '{level} weekly limit', month: '{level} monthly limit' },
+    perMinuteHeader: '{level} per-minute limit',
+    unlimited: 'Unlimited',
   },
 
   // Fixed things the collector says out loud (POST /api/collector/speech, the in-session debrief)

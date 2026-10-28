@@ -339,6 +339,9 @@ export const pt: Dictionary = {
     inputTokens: 'Tokens de entrada',
     outputTokens: 'Tokens de saída',
     blocked: 'Bloqueadas',
+    limitHeader: { hour: 'Limite por hora {level}', day: 'Limite diário {level}', week: 'Limite semanal {level}', month: 'Limite mensal {level}' },
+    perMinuteHeader: 'Limite por minuto {level}',
+    unlimited: 'Ilimitado',
   },
 
   coachSpeech: {

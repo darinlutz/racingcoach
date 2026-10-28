@@ -38,6 +38,14 @@ export function googleConfig(): { clientId: string; clientSecret: string } | nul
   return clientId && clientSecret ? { clientId, clientSecret } : null;
 }
 
+// Hidden while Google verifies the OAuth app; set to true to show the Log in / Sign up with Google
+// buttons again (they also need GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET)
+const SHOW_GOOGLE_SIGN_IN = false;
+
+export function googleSignInEnabled(): boolean {
+  return SHOW_GOOGLE_SIGN_IN && googleConfig() !== null;
+}
+
 // Must match an Authorized redirect URI on the Google Cloud OAuth client exactly
 export function googleRedirectUri(request: Request): string {
   return `${getPublicSiteUrl(request)}/api/auth/google/callback`;

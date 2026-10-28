@@ -493,6 +493,30 @@ export async function readOwnAiUsage(userId: number): Promise<{ day: OwnAiUsage;
   return { day: toUsage('day'), week: toUsage('week') };
 }
 
+// The limits on the user's AI calls, as aiRateLimit applies them: their membership level's (or their override's)
+// limit in weighted calls per period, and its limit on calls in any minute. null is unlimited: rate limiting is
+// off, the user's role is exempt, or an override makes them unlimited
+export type OwnAiLimits = { level: LimitTier; limit: number | null; period: Period; perMinute: number | null };
+
+export async function readOwnAiLimits(user: User): Promise<OwnAiLimits> {
+  const settings = await getRateLimitSettings();
+  const level = tierOf(user.membershipLevel);
+  const rule = settings.tiers[level];
+  if (!settings.enabled || isExempt(settings, user)) return { level, limit: null, period: rule.period, perMinute: null };
+  const [override] = await query(
+    `SELECT mode, limit_count, period FROM racingcoach."RateLimitOverrides"
+     WHERE user_id = $1 AND (expires_at IS NULL OR expires_at > now())`,
+    [user.id]
+  );
+  if (override?.mode === 'unlimited') return { level, limit: null, period: rule.period, perMinute: null };
+  if (override?.mode === 'blocked') return { level, limit: 0, period: rule.period, perMinute: 0 };
+  if (override) {
+    const limit = override.limit_count === null ? null : Number(override.limit_count);
+    return { level, limit, period: override.period as Period, perMinute: settings.burst[level] };
+  }
+  return { level, limit: rule.limit, period: rule.period, perMinute: settings.burst[level] };
+}
+
 // ---- Usage report ----
 
 export type UsageCurrent = { used: number; limit: number | null; period: Period; unlimited: boolean; exempt: boolean };

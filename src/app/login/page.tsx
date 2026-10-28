@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import LoginForm from '@/components/LoginForm';
-import { googleConfig } from '@/lib/googleAuth';
+import { googleSignInEnabled } from '@/lib/googleAuth';
 import { getDictionary, getLanguage } from '@/lib/i18n/server';
 import { safeReturnTo } from '@/lib/returnTo';
 import { getCurrentUser } from '@/lib/session';
@@ -26,7 +26,7 @@ export default async function LoginPage({
           {t.logInTitle}
         </h1>
         <p className="text-muted-foreground mb-8">{t.logInIntro}</p>
-        <LoginForm next={next} googleEnabled={googleConfig() !== null} googleMessage={googleMessage} />
+        <LoginForm next={next} googleEnabled={googleSignInEnabled()} googleMessage={googleMessage} />
       </div>
     </section>
   );

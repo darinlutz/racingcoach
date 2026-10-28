@@ -11,19 +11,18 @@ import {
   type Plan,
 } from '@/lib/accountStatus';
 import type { Dictionary } from '@/lib/i18n/dictionaries/en';
-import { fmt } from '@/lib/i18n/languages';
 import { getDictionary, getLanguage } from '@/lib/i18n/server';
 import { withReturnTo } from '@/lib/returnTo';
 import { getCurrentUser } from '@/lib/session';
-import { annualDiscountPercent, formatPrice, getPlanPrice, getStripeConfig } from '@/lib/stripePlans';
+import { formatPrice, getPlanPrice, getStripeConfig } from '@/lib/stripePlans';
 import { canBuy, type User } from '@/lib/users';
 
 type PaidLevel = typeof MEMBERSHIP_LEVEL.silver | typeof MEMBERSHIP_LEVEL.gold;
 
-// Each paid level's Monthly and Annual plans
-const LEVEL_PLANS: Record<PaidLevel, { monthly: Plan; annual: Plan }> = {
-  Silver: { monthly: 'silver_monthly', annual: 'silver_annual' },
-  Gold: { monthly: 'gold_monthly', annual: 'gold_annual' },
+// Each paid level's Monthly plan (Annual plans are no longer offered; existing annual subscriptions still renew)
+const LEVEL_PLANS: Record<PaidLevel, Plan> = {
+  Silver: 'silver_monthly',
+  Gold: 'gold_monthly',
 };
 
 const MEDAL_COLOR: Record<MembershipLevel, string> = {
@@ -61,59 +60,34 @@ function BronzeAction({ user, t }: { user: User | null; t: Dictionary['pricing']
   return <DisabledButton label={user.membershipLevel === MEMBERSHIP_LEVEL.bronze ? t.currentPlan : t.included} />;
 }
 
-// Monthly and Annual buttons, or why there's nothing to buy at this level
+// The Monthly button, or why there's nothing to buy at this level
 function PaidActions({ level, user, t }: { level: PaidLevel; user: User | null; t: Dictionary['pricing'] }) {
-  const plans = LEVEL_PLANS[level];
+  const plan = LEVEL_PLANS[level];
   if (user && user.accountStatus === ACCOUNT_STATUS.subscribed && levelRank(user.membershipLevel) >= levelRank(level)) {
     return <DisabledButton label={user.membershipLevel === level ? t.currentPlan : t.included} />;
   }
   if (!user) {
-    return (
-      <div className="grid grid-cols-2 gap-3">
-        <Link href="/signup" className={buttonClass}>{t.monthly}</Link>
-        <Link href="/signup" className={buttonClass}>{t.annual}</Link>
-      </div>
-    );
+    return <Link href="/signup" className={buttonClass}>{t.monthly}</Link>;
   }
   return (
-    <form action="/api/create-checkout-session" method="POST" className="grid grid-cols-2 gap-3">
-      {(['monthly', 'annual'] as const).map((period) => (
-        <button
-          key={period}
-          type="submit"
-          name="plan"
-          value={plans[period]}
-          disabled={!canBuy(user, plans[period])}
-          className={buttonClass}
-        >
-          {t[period]}
-        </button>
-      ))}
+    <form action="/api/create-checkout-session" method="POST">
+      <button type="submit" name="plan" value={plan} disabled={!canBuy(user, plan)} className={buttonClass}>
+        {t.monthly}
+      </button>
     </form>
   );
 }
 
 export default async function PricingPage() {
-  const [user, silverMonthly, silverAnnual, goldMonthly, goldAnnual] = await Promise.all([
+  const [user, silverMonthly, goldMonthly] = await Promise.all([
     getCurrentUser(),
     loadPrice('silver_monthly'),
-    loadPrice('silver_annual'),
     loadPrice('gold_monthly'),
-    loadPrice('gold_annual'),
   ]);
   // Like Coaching & Analysis, signed-out visitors log in first and come back here
   if (!user) redirect(withReturnTo('/login', '/pricing'));
   const t = getDictionary(await getLanguage(user)).pricing;
-  const prices: Record<PaidLevel, { monthly: Stripe.Price | null; annual: Stripe.Price | null }> = {
-    Silver: { monthly: silverMonthly, annual: silverAnnual },
-    Gold: { monthly: goldMonthly, annual: goldAnnual },
-  };
-  // Each level's Annual price compared with 12 months of its Monthly price
-  const discounts: Record<PaidLevel, number | null> = {
-    Silver: silverMonthly && silverAnnual ? annualDiscountPercent(silverMonthly, silverAnnual) : null,
-    Gold: goldMonthly && goldAnnual ? annualDiscountPercent(goldMonthly, goldAnnual) : null,
-  };
-  const bestDiscount = Math.max(0, ...Object.values(discounts).map((d) => d ?? 0));
+  const prices: Record<PaidLevel, Stripe.Price | null> = { Silver: silverMonthly, Gold: goldMonthly };
   // Bronze, or the level of a current (or canceled but still paid for) subscription
   const level = user?.membershipLevel ?? null;
   // A Silver subscriber buying Gold replaces their Silver subscription
@@ -130,9 +104,6 @@ export default async function PricingPage() {
             {t.title}
           </h1>
           <p className="text-lg text-muted-foreground">{t.intro}</p>
-          {bestDiscount > 0 && (
-            <p className="mt-3 text-base font-semibold text-primary">{fmt(t.saveUpTo, { discount: bestDiscount })}</p>
-          )}
         </div>
       </section>
 
@@ -143,9 +114,7 @@ export default async function PricingPage() {
             const highlighted = cardLevel === MEMBERSHIP_LEVEL.silver;
             const isCurrent = level === cardLevel;
             const paid = cardLevel === MEMBERSHIP_LEVEL.bronze ? null : cardLevel;
-            const monthly = paid && prices[paid].monthly;
-            const annual = paid && prices[paid].annual;
-            const discount = paid && discounts[paid];
+            const monthly = paid && prices[paid];
             return (
               <div
                 key={cardLevel}
@@ -175,14 +144,6 @@ export default async function PricingPage() {
                       <span className="text-4xl font-bold text-foreground">{(monthly && formatPrice(monthly)) ?? '—'}</span>
                       <span className="text-muted-foreground">{t.perMonth}</span>
                     </div>
-                    <p className="mt-2 text-sm text-muted-foreground flex flex-wrap items-center gap-2">
-                      <span>{fmt(t.orAnnual, { price: (annual && formatPrice(annual)) ?? '—' })}</span>
-                      {discount ? (
-                        <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-primary/15 text-primary">
-                          {fmt(t.save, { discount })}
-                        </span>
-                      ) : null}
-                    </p>
                   </div>
                 ) : (
                   <div className="mb-6">
@@ -190,7 +151,6 @@ export default async function PricingPage() {
                       <span className="text-4xl font-bold text-foreground">{t.free}</span>
                       <span className="text-muted-foreground">{t.forever}</span>
                     </div>
-                    <p className="mt-2 text-sm text-muted-foreground">&nbsp;</p>
                   </div>
                 )}
 

@@ -4,6 +4,9 @@ import Link from 'next/link';
 import { ArrowDown, ArrowRight, Check, GitCompareArrows, Radio, ShieldCheck, Sparkles } from 'lucide-react';
 import { buttonVariants } from '@/components/Button';
 import CoachingWorkbench from '@/components/CoachingWorkbench';
+import LearnAndInstallSection from '@/components/LearnAndInstallSection';
+import OverlaySection from '@/components/OverlaySection';
+import PersonalCoachSection from '@/components/PersonalCoachSection';
 import { getDictionary, getLanguage } from '@/lib/i18n/server';
 import { getCurrentUser } from '@/lib/session';
 import { getEnableAiFeatures } from '@/lib/siteSettings';
@@ -86,19 +89,10 @@ export default async function Home() {
         <CoachingWorkbench />
       </section>
 
-      <section className="method" id="how-it-works">
-        <div className="site-container method-layout">
-          <div>
-            <div className="eyebrow">{t.methodEyebrow}</div>
-            <h2>{t.methodLine1}<br />{t.methodLine2}</h2>
-          </div>
-          <div className="steps">
-            {t.steps.map((step, i) => (
-              <div key={step.title}><span className="step-number">{String(i + 1).padStart(2, '0')}</span><h3>{step.title}</h3><p>{step.copy}</p></div>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* The personal AI coach is left out while the Admin page's Enable AI Features is off */}
+      {enableAiFeatures && <PersonalCoachSection />}
+      <OverlaySection />
+      <LearnAndInstallSection t={t} installHref={user ? '/installing' : '/signup'} />
 
       <section className="site-container bottom-cta">
         <div>

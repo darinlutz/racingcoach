@@ -314,10 +314,10 @@ function LapDataChart({
   );
 }
 
-// Under Lap Compare's charts for a focus area: Balance, Tire Temp, Tire Pressure, Ride Heights, Gear and Engine
-// tabs. The three tire and ride height tabs each have a chart per corner (left front and right front above, left rear and
+// Under Lap Compare's charts for a focus area: Balance, Tire Temp, Tire Pressure, Ride Heights, Gear and Engine &
+// Fuel tabs. The three tire and ride height tabs each have a chart per corner (left front and right front above, left rear and
 // right rear below) of both laps' tire temperatures (outer, middle, inner), tire pressures or ride
-// heights; Gear has the gear and RPM; Engine has RPM, water and oil temperatures, fuel left and fuel use;
+// heights; Gear has the gear and RPM; Engine & Fuel has water and oil temperatures above, fuel use and fuel left below;
 // Balance has the steering angle, yaw rate, rear wheel slip, front and rear tire slip angles and the
 // car's balance. Two charts a row, or one on narrow screens. width is the container's. The tab is kept by Lap
 // Compare, so it stays the same when another focus area is picked.
@@ -446,19 +446,19 @@ export default function LapDataTabs({
       caption: t.gearCaption,
     },
     engine: {
-      has: ({ engine }: AreaTrace) => Object.values(engine).some((values) => present(values)),
+      has: ({ engine: { waterTemps, oilTemps, fuelKgs, fuelKgPerHour } }: AreaTrace) =>
+        [waterTemps, oilTemps, fuelKgs, fuelKgPerHour].some((values) => present(values)),
       charts: [
-        engineChart('rpm', t.engineCharts.rpm, 'rpm', asIs, 500, 0, (trace) => present(trace.engine.rpms)),
         engineChart('water', t.engineCharts.waterTemp, TEMPERATURE_UNIT[units], toTemperature, 1, 1, (trace) =>
           present(trace.engine.waterTemps)
         ),
         engineChart('oil', t.engineCharts.oilTemp, TEMPERATURE_UNIT[units], toTemperature, 1, 1, (trace) =>
           present(trace.engine.oilTemps)
         ),
-        engineChart('fuel', t.engineCharts.fuelLevel, MASS_UNIT[units], toMass, 0.5, 2, (trace) => present(trace.engine.fuelKgs)),
         engineChart('fuelUse', t.engineCharts.fuelUsage, MASS_RATE_UNIT[units], toMass, 5, 1, (trace) =>
           present(trace.engine.fuelKgPerHour)
         ),
+        engineChart('fuel', t.engineCharts.fuelLevel, MASS_UNIT[units], toMass, 0.5, 2, (trace) => present(trace.engine.fuelKgs)),
       ],
       none: t.engineNone,
       lapNone: t.engineLapNone,

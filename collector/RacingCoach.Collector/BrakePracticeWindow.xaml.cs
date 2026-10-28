@@ -16,7 +16,9 @@ namespace RacingCoach.Collector;
 /// user's Preferred Language.
 /// Then a game, with the Start button: three of the Target Lap's braking zones (BrakeDrill), smoothed, scroll past
 /// a line at the Target Lap's pace, three times through, with the brake beeps before each brakepoint, while the
-/// driver's own brake is drawn up to the line; then Play Again counts down from 3 and plays three other zones.
+/// driver's own brake is drawn up to the line. Each time through a zone is scored by how closely the driver
+/// followed it, shown for a moment after it, and the drill ends with the average as a final score; then Play Again
+/// counts down from 3 and plays three other zones.
 /// </summary>
 public partial class BrakePracticeWindow : Window
 {
@@ -32,6 +34,7 @@ public partial class BrakePracticeWindow : Window
     private const double BrakeBarHalfWidth = 14;
     private const double LabelWidth = 40; // left margin for the 20%..100% labels
     private const double TopPad = 10;     // so the 100% line isn't on the edge
+    private const double ScoreShownFor = 2.5;
     private static readonly Brush TraceBrush = Frozen(Color.FromRgb(0xEF, 0x44, 0x44));
     private static readonly Brush FillBrush = Frozen(Color.FromArgb(0x40, 0xEF, 0x44, 0x44));
     private static readonly Brush GuideBrush = Frozen(Color.FromRgb(0x48, 0x4A, 0x52));
@@ -43,6 +46,10 @@ public partial class BrakePracticeWindow : Window
     private static readonly Brush DriverTraceBrush = Frozen(Color.FromRgb(0xFF, 0x2D, 0x2D));
     private static readonly Brush NowBrush = Frozen(Color.FromRgb(0xF3, 0xF4, 0xF6));
     private static readonly Brush BrakeBarBrush = Frozen(Color.FromRgb(0xFA, 0xCC, 0x15));
+    // A trace's score: good, so-so, far off
+    private static readonly Brush GoodScoreBrush = Frozen(Color.FromRgb(0x22, 0xC5, 0x5E));
+    private static readonly Brush FairScoreBrush = Frozen(Color.FromRgb(0xF5, 0x9E, 0x0B));
+    private static readonly Brush PoorScoreBrush = Frozen(Color.FromRgb(0xEF, 0x44, 0x44));
 
     private readonly Stopwatch _clock = Stopwatch.StartNew();
     // (seconds since opening, brake %), oldest first
@@ -74,6 +81,12 @@ public partial class BrakePracticeWindow : Window
     private double _drillStart;  // when it starts, in seconds since opening (later than now while counting down)
     private double _drillTime;   // how far into it the last frame was, so each beep plays once
     private bool _played;        // a drill was played through, so the button says Play Again
+    // The drill's traces, the next one to finish and its score so far, and the scores of those finished
+    private IReadOnlyList<BrakeDrill.Trace> _traces = [];
+    private int _traceIndex;
+    private BrakeDrill.TraceScore _traceScore = new();
+    private readonly List<int> _scores = [];
+    private double _scoreUntil;  // the last trace's score shows until then
     // Shown over the graph (e.g. no Target Lap, or Play Again?); null shows nothing
     private Func<string?>? _message;
 
@@ -186,6 +199,8 @@ public partial class BrakePracticeWindow : Window
         while (_samples.Count > 0 && _samples.Peek().Time < now - Behind)
             _samples.Dequeue();
         UpdateGame(now);
+        if (now >= _scoreUntil)
+            ScorePanel.Visibility = Visibility.Collapsed;
         DrawTrace(now);
     }
 
@@ -218,6 +233,10 @@ public partial class BrakePracticeWindow : Window
         var now = _clock.Elapsed.TotalSeconds;
         _drillStart = now + (_played ? CountdownSeconds : 0);
         _drillTime = now - _drillStart;
+        _traces = _drill.Traces;
+        _traceIndex = 0;
+        _traceScore = new();
+        _scores.Clear();
         ShowGame(true);
         ActivityLog.Shared.Write($"Brake Practice: playing {string.Join(", ", picked.Select(z => $"{(z.Heavy ? "heavy" : "medium")} {z.Peak:P0}"))} braking from {lap.FileName}");
     }
@@ -246,12 +265,22 @@ public partial class BrakePracticeWindow : Window
                 _beeps.Warning(volume);
         }
         _drillTime = time;
+        ScoreTraces(drill, time, now);
 
         if (time >= drill.Seconds)
         {
             _played = true;
             ShowGame(false);
-            _message = () => Loc.T(_language, "brake.playAgainPrompt");
+            if (_scores.Count > 0)
+            {
+                var final = (int)Math.Round(_scores.Average());
+                _message = () => Loc.T(_language, "brake.finalScore", final);
+                ActivityLog.Shared.Write($"Brake Practice: final score {final}% ({string.Join(", ", _scores.Select(s => $"{s}%"))})");
+            }
+            else
+            {
+                _message = () => Loc.T(_language, "brake.playAgainPrompt");
+            }
             return;
         }
         var run = Math.Clamp((int)Math.Floor(Math.Max(time, 0) / drill.RunSeconds), 0, BrakeDrill.Runs - 1);
@@ -259,6 +288,24 @@ public partial class BrakePracticeWindow : Window
         var zone = (drill.Segments.FirstOrDefault(s => s.End >= inRun) ?? drill.Segments[^1]).Zone;
         RunText.Text = $"{Loc.T(_language, "brake.run", run + 1, BrakeDrill.Runs)} · " +
             $"{Loc.T(_language, zone.Heavy ? "brake.heavy" : "brake.medium")} {(zone.Peak * 100).ToString("0", Loc.Culture(_language))}%";
+    }
+
+    // Adds this frame to the trace being driven, and scores each trace as its stretch ends
+    private void ScoreTraces(BrakeDrill drill, double time, double now)
+    {
+        while (_traceIndex < _traces.Count && time >= _traces[_traceIndex].To)
+        {
+            var score = _traceScore.Percent ?? 0;
+            _scores.Add(score);
+            ScoreText.Text = $"{score}%";
+            ScoreText.Foreground = score >= 85 ? GoodScoreBrush : score >= 60 ? FairScoreBrush : PoorScoreBrush;
+            ScorePanel.Visibility = Visibility.Visible;
+            _scoreUntil = now + ScoreShownFor;
+            _traceIndex++;
+            _traceScore = new();
+        }
+        if (_traceIndex < _traces.Count && time >= _traces[_traceIndex].From)
+            _traceScore.Add(drill.BrakeAt(time), Math.Clamp((_calibration.Percent ?? 0) / 100, 0, 1));
     }
 
     // Switches the graph between the game and the driver's brake alone, and the buttons with it
@@ -271,6 +318,8 @@ public partial class BrakePracticeWindow : Window
         RecalibrateButton.Visibility = !show && _graphing ? Visibility.Visible : Visibility.Collapsed;
         RunPanel.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
         CountdownText.Visibility = Visibility.Collapsed;
+        if (show)
+            _scoreUntil = 0;
         _fill.Visibility = show ? Visibility.Collapsed : Visibility.Visible;
         _drillTrace.Visibility = _drillFill.Visibility = _now.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
         if (!show)

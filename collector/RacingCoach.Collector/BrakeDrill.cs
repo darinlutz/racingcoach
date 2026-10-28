@@ -5,7 +5,8 @@ namespace RacingCoach.Collector;
 /// a stretch of no brake before it and its trail off smoothed, played back at the Target Lap's own pace (one row
 /// per 60 Hz sample) <see cref="Runs"/> times in a row, with the brake beeps 300, 200 and 100 ft before each
 /// brakepoint and at it, like BrakeBeeps on track. The beeps are placed from the Target Lap's speeds, or from its
-/// LapDistPct and the track's length from sites before it sent speeds. No I/O or UI.
+/// LapDistPct and the track's length from sites before it sent speeds. Each time through a zone is a trace, scored
+/// by how closely the driver's brake followed it (<see cref="TraceScore"/>). No I/O or UI.
 /// </summary>
 internal sealed class BrakeDrill
 {
@@ -26,6 +27,10 @@ internal sealed class BrakeDrill
     private const double FeetPerMeter = 3.280839895;
     // Without speeds or a track length, warnings this far apart, like the window's Test button
     private const double FallbackBeepSpacing = 0.6;
+    // A trace is scored from this long before its brakepoint to this long after its braking ends, so braking early
+    // or late counts against it
+    private const double ScoreLead = 0.5;
+    private const double ScoreTail = 0.5;
 
     /// <summary>A braking zone of the Target Lap: its first and last braking samples, its highest brake (0-1) and
     /// whether that makes it heavy (else medium).</summary>
@@ -45,6 +50,16 @@ internal sealed class BrakeDrill
     public IReadOnlyList<Segment> Segments { get; }
 
     public double RunSeconds { get; }
+
+    /// <summary>One time through a zone: which run, which zone of it, and the stretch it's scored over, in seconds
+    /// from the start.</summary>
+    public sealed record Trace(int Run, Segment Segment, double From, double To);
+
+    /// <summary>Every zone of every run, in order: what the driver is scored on.</summary>
+    public IReadOnlyList<Trace> Traces => Enumerable.Range(0, Runs)
+        .SelectMany(r => Segments.Select(s => new Trace(r, s,
+            r * RunSeconds + s.Brakepoint - ScoreLead, r * RunSeconds + s.End + ScoreTail)))
+        .ToList();
 
     public double Seconds => Brakes.Length / (double)SampleRate;
 
@@ -225,6 +240,27 @@ internal sealed class BrakeDrill
         }
         var perSecond = Step(0) * SampleRate;
         return perSecond > 0 ? start / (double)SampleRate + (feet - covered) / perSecond : null;
+    }
+
+    /// <summary>How closely the driver's brake followed a trace, from the drill's brake and the driver's sampled
+    /// every frame over its stretch: 100% less the driver's distance from the drill's brake (beyond a small
+    /// tolerance) as a share of the drill's braking, so following it closely scores in the 90s, a little off in the
+    /// 70s, and far off (or not braking) near 0.</summary>
+    public sealed class TraceScore
+    {
+        private const double Tolerance = 0.02; // 2% either side counts as on it
+        private double _error;
+        private double _target;
+
+        /// <summary>One frame: the drill's brake and the driver's, 0-1.</summary>
+        public void Add(double target, double driver)
+        {
+            _error += Math.Max(0, Math.Abs(driver - target) - Tolerance);
+            _target += target;
+        }
+
+        /// <summary>0-100, or null before any braking was sampled.</summary>
+        public int? Percent => _target > 0 ? (int)Math.Round(100 * Math.Clamp(1 - _error / _target, 0, 1)) : null;
     }
 
     private static List<Zone> Shuffle(List<Zone> zones, Random random) => zones.OrderBy(_ => random.Next()).ToList();

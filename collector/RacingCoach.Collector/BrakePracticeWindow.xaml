@@ -87,6 +87,15 @@
                                 CornerRadius="4" Background="#232428" Visibility="Collapsed" IsHitTestVisible="False">
                             <TextBlock x:Name="RunText" FontSize="12" FontWeight="SemiBold" />
                         </Border>
+                        <!-- The score of the trace just finished, for a moment -->
+                        <Border x:Name="ScorePanel" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="48,16,0,0" Padding="10,4"
+                                CornerRadius="4" Background="#232428" Visibility="Collapsed" IsHitTestVisible="False">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock local:Loc.Key="brake.score" Foreground="#9A9CA3" FontSize="12" FontWeight="SemiBold"
+                                           VerticalAlignment="Center" Margin="0,0,8,0" />
+                                <TextBlock x:Name="ScoreText" FontSize="24" FontWeight="Bold" FontFamily="Consolas" />
+                            </StackPanel>
+                        </Border>
                         <TextBlock x:Name="CountdownText" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="72"
                                    FontWeight="Bold" Foreground="#F3F4F6" Visibility="Collapsed" IsHitTestVisible="False" />
                         <Border x:Name="GameMessagePanel" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="48,0,12,0"

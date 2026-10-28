@@ -25,6 +25,7 @@ const DOTTED = '0 4'; // zero-length dashes with round caps draw dots
 
 const HEIGHT = 220;
 const SIDE_BY_SIDE_MIN_WIDTH = 768; // narrower containers stack the charts in one column
+const STEERING_RIGHT_MIN_WIDTH = 1500; // narrower side-by-side containers (laptops) put the steering chart under the wheel
 const ROW_GAP = 16; // gap-4
 const MAP_ASPECT = 0.69; //the map's height as a share of its width
 const Y_TICKS = [0, 0.25, 0.5, 0.75, 1];
@@ -229,7 +230,8 @@ function TraceChart({
 // through one focus area (TimeDeltaTrace), brake and throttle for the Base (solid) and Compare (lighter,
 // dotted) laps on one chart (TraceChart), how far left or right of the Base lap's line the Compare lap was
 // (DrivingLineDiffTrace) and their steering angle on one chart (SteeringTrace).
-// The columns stack when the container is narrower than SIDE_BY_SIDE_MIN_WIDTH.
+// The columns stack when the container is narrower than SIDE_BY_SIDE_MIN_WIDTH, and between that and
+// STEERING_RIGHT_MIN_WIDTH (e.g. a laptop) the steering chart moves under the wheel to even out the columns.
 // Last, the Balance, Tire Temp, Tire Pressure, Ride Heights, Gear and Engine tabs (LapDataTabs).
 // id must be unique on
 // the page (the charts' clip paths are named after it). Charts only draw once the container has a width,
@@ -265,6 +267,8 @@ export default function PedalTraces({
   // under it, on the right the charts stacked; narrower, everything stacks at full width
   const sideBySide = width >= SIDE_BY_SIDE_MIN_WIDTH;
   const half = sideBySide ? (width - ROW_GAP) / 2 : width;
+  const steeringLeft = sideBySide && width < STEERING_RIGHT_MIN_WIDTH;
+  const steering = <SteeringTrace id={`${id}-steering`} base={base} compare={compare} axis={axis} width={half} hoverPct={hoverPct} onHover={setHoverPct} />;
 
   return (
     <div ref={containerRef} className="space-y-4">
@@ -274,12 +278,13 @@ export default function PedalTraces({
             <div className="space-y-4" style={sideBySide ? { width: half, flexShrink: 0 } : undefined}>
               <TrackLineMap base={base} compare={compare} width={half} height={Math.round(half * MAP_ASPECT)} hoverPct={hoverPct} onHover={setHoverPct} />
               <SteeringWheel base={base} compare={compare} axis={axis} hoverPct={hoverPct} />
+              {steeringLeft && steering}
             </div>
             <div className="space-y-4" style={sideBySide ? { width: half, flexShrink: 0 } : undefined}>
               <TimeDeltaTrace id={`${id}-delta`} base={base} compare={compare} axis={axis} width={half} hoverPct={hoverPct} onHover={setHoverPct} />
               <TraceChart id={`${id}-pedals`} base={base} compare={compare} axis={axis} width={half} hoverPct={hoverPct} onHover={setHoverPct} />
               <DrivingLineDiffTrace id={`${id}-line`} base={base} compare={compare} axis={axis} width={half} hoverPct={hoverPct} onHover={setHoverPct} />
-              <SteeringTrace id={`${id}-steering`} base={base} compare={compare} axis={axis} width={half} hoverPct={hoverPct} onHover={setHoverPct} />
+              {!steeringLeft && steering}
             </div>
           </div>
           <LapDataTabs id={`${id}-data`} base={base} compare={compare} axis={axis} width={width} hoverPct={hoverPct} onHover={setHoverPct} tab={dataTab} onTabChange={onDataTabChange} />

@@ -11,9 +11,9 @@ import type { PedalTraceLap } from '@/components/PedalTraces';
 import { useUnits } from '@/components/UnitsProvider';
 import { BASE_LAP_COLOR as BASE_COLOR, COMPARE_LAP_COLOR as COMPARE_COLOR, nearestIndex } from '@/lib/lapCharts';
 import { timeAtPosition } from '@/lib/lapData';
+import { BRAKE_LIGHT_MESH, CAR_BODY_MESH, CAR_DETAIL_MESH, HEADLIGHT_MESH, WHEEL_MESH } from '@/lib/carModel3d';
+import type { Mesh } from '@/lib/mesh3d';
 import {
-  CAR_MESH,
-  WHEEL_MESH,
   buildRoadModel,
   poseAt,
   toLngLat,
@@ -46,6 +46,28 @@ const DEFAULT_HEIGHT_SCALE = 2;
 const PLAY_RATES = [0.25, 0.5, 1];
 
 const MATERIAL = { ambient: 0.45, diffuse: 0.65, shininess: 24, specularColor: [50, 50, 50] as [number, number, number] };
+// Glossy paint
+const PAINT = { ambient: 0.4, diffuse: 0.6, shininess: 64, specularColor: [140, 140, 140] as [number, number, number] };
+const WHITE: Rgba = [255, 255, 255, 255];
+const HEADLIGHT_COLOR: Rgba = [255, 247, 222, 255];
+// Above this (0-1) the brake lights are on
+const BRAKE_LIGHT_THRESHOLD = 0.02;
+const BRAKE_LIGHT_ON: Rgba = [255, 36, 36, 255];
+const BRAKE_LIGHT_OFF: Rgba = [105, 14, 14, 255];
+
+// The car's meshes (carModel3d.ts) and how each is colored: the body in the lap's color, the details in
+// their own, the lights unlit (material false) so they glow, the brake lights only while that lap brakes
+const CAR_PARTS: { id: string; mesh: Mesh; color: (car: Car, pose: CarPose) => Rgba; material: typeof MATERIAL | false }[] = [
+  { id: 'car-bodies', mesh: CAR_BODY_MESH, color: (car) => car.color, material: PAINT },
+  { id: 'car-details', mesh: CAR_DETAIL_MESH, color: () => WHITE, material: MATERIAL },
+  { id: 'car-headlights', mesh: HEADLIGHT_MESH, color: () => HEADLIGHT_COLOR, material: false },
+  {
+    id: 'car-brake-lights',
+    mesh: BRAKE_LIGHT_MESH,
+    color: (_, pose) => (pose.brake > BRAKE_LIGHT_THRESHOLD ? BRAKE_LIGHT_ON : BRAKE_LIGHT_OFF),
+    material: false,
+  },
+];
 
 // Opening view: tilted, looking along the area the way the car drives through it
 const FIT_PITCH = 55;
@@ -299,16 +321,19 @@ export default function TrackLineMap3D({
       updateTriggers: { getElevation: largestGap },
       ...offsets,
     }),
-    new SimpleMeshLayer<(typeof carData)[number]>({
-      id: 'cars',
-      data: carData,
-      mesh: CAR_MESH,
-      getPosition: (d) => d.pose.position,
-      getOrientation: (d) => [d.pose.pitch, d.pose.yaw, 0],
-      getColor: (d) => d.car.color,
-      material: MATERIAL,
-      ...offsets,
-    }),
+    ...CAR_PARTS.map(
+      ({ id, mesh, color, material }) =>
+        new SimpleMeshLayer<(typeof carData)[number]>({
+          id,
+          data: carData,
+          mesh,
+          getPosition: (d) => d.pose.position,
+          getOrientation: (d) => [d.pose.pitch, d.pose.yaw, 0],
+          getColor: (d) => color(d.car, d.pose),
+          material,
+          ...offsets,
+        })
+    ),
     new SimpleMeshLayer<{ position: Vec3; orientation: Vec3 }>({
       id: 'wheels',
       data: poses.flatMap(wheelsOf),

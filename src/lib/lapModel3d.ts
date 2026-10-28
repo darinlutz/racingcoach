@@ -1,12 +1,16 @@
 // Lap Compare's 3D model of a focus area (TrackLineMap3D), built only from the laps themselves: a road
-// following the lead lap's line at its altitude (Alt), the laps' lines on it, and a simple car per lap posed
-// from its telemetry. Everything is in meters east, north and up from the lead lap's first position
+// following the lead lap's line at its altitude (Alt), the laps' lines on it, and a car per lap (carModel3d.ts)
+// posed from its telemetry. Everything is in meters east, north and up from the lead lap's first position
 // (deck.gl's METER_OFFSETS), the height above the area's lowest point and multiplied by the height scale.
 // The lap files have no Pitch or Roll and nothing tells where the track's edges are, so the road is a fixed
 // width around the lead line (wider when the other lap strays further), flat across, and each car pitches
 // with the road's slope but doesn't roll.
 
+import { WHEEL_RADIUS, WHEELS } from '@/lib/carModel3d';
 import type { AreaTrace } from '@/lib/lapData';
+import { MeshBuilder, type Mesh, type Vec3 } from '@/lib/mesh3d';
+
+export type { Vec3 };
 
 // The road's half-width (m) around the lead line: a typical road course is 12-15 m wide
 const MIN_HALF_WIDTH = 6.5;
@@ -21,127 +25,6 @@ const HEIGHT_SMOOTHING = 4;
 const TRAVEL_SPAN = 4;
 // Steering wheel angle / front wheel angle, as LapDataTabs estimates it for a typical GT3 car
 const STEERING_RATIO = 11;
-
-export type Vec3 = [number, number, number];
-
-// A mesh as deck.gl's SimpleMeshLayer takes it: non-indexed triangles, with each vertex's normal and color
-// (multiplied by the layer's color)
-export type Mesh = {
-  attributes: {
-    positions: { size: 3; value: Float32Array };
-    normals: { size: 3; value: Float32Array };
-    colors: { size: 3; value: Float32Array };
-  };
-};
-
-class MeshBuilder {
-  positions: number[] = [];
-  normals: number[] = [];
-  colors: number[] = [];
-
-  triangle(a: Vec3, b: Vec3, c: Vec3, normal: Vec3, color: Vec3) {
-    for (const p of [a, b, c]) {
-      this.positions.push(...p);
-      this.normals.push(...normal);
-      this.colors.push(...color);
-    }
-  }
-
-  // A flat four-sided face, its normal pointing away from `inside`
-  quad(a: Vec3, b: Vec3, c: Vec3, d: Vec3, color: Vec3, inside: Vec3) {
-    let n = normalize(cross(sub(b, a), sub(d, a)));
-    const center: Vec3 = [0, 1, 2].map((k) => (a[k] + b[k] + c[k] + d[k]) / 4) as Vec3;
-    if (dot(n, sub(center, inside)) < 0) n = [-n[0], -n[1], -n[2]];
-    this.triangle(a, b, c, n, color);
-    this.triangle(a, c, d, n, color);
-  }
-
-  // A six-sided solid from its bottom and top rectangles, each given as [xMin, xMax, yMin, yMax] at height z
-  block(bottom: [number, number, number, number], z0: number, top: [number, number, number, number], z1: number, color: Vec3) {
-    const corners = ([x0, x1, y0, y1]: number[], z: number): Vec3[] => [[x0, y0, z], [x1, y0, z], [x1, y1, z], [x0, y1, z]];
-    const [b, t] = [corners(bottom, z0), corners(top, z1)];
-    const inside: Vec3 = [(bottom[0] + bottom[1] + top[0] + top[1]) / 4, (bottom[2] + bottom[3] + top[2] + top[3]) / 4, (z0 + z1) / 2];
-    this.quad(b[0], b[1], b[2], b[3], color, inside);
-    this.quad(t[0], t[1], t[2], t[3], color, inside);
-    for (let i = 0; i < 4; i++) {
-      const j = (i + 1) % 4;
-      this.quad(b[i], b[j], t[j], t[i], color, inside);
-    }
-  }
-
-  build(): Mesh {
-    return {
-      attributes: {
-        positions: { size: 3, value: new Float32Array(this.positions) },
-        normals: { size: 3, value: new Float32Array(this.normals) },
-        colors: { size: 3, value: new Float32Array(this.colors) },
-      },
-    };
-  }
-}
-
-function sub(a: Vec3, b: Vec3): Vec3 {
-  return [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-}
-function cross(a: Vec3, b: Vec3): Vec3 {
-  return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-}
-function dot(a: Vec3, b: Vec3) {
-  return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-}
-function normalize(v: Vec3): Vec3 {
-  const length = Math.hypot(...v) || 1;
-  return [v[0] / length, v[1] / length, v[2] / length];
-}
-
-// A GT-style car about 4.6 m long and 2 m wide, facing +x with its left side to +y, standing on z = 0.
-// The body is white so the layer's color paints it; glass and the wing stay dark. Wheels are separate
-// (WHEEL_MESH), so the front ones can steer.
-const BODY: Vec3 = [1, 1, 1];
-const GLASS: Vec3 = [0.16, 0.18, 0.2];
-const TRIM: Vec3 = [0.22, 0.22, 0.24];
-
-export const CAR_MESH: Mesh = (() => {
-  const m = new MeshBuilder();
-  // Floor to beltline, the nose sloping down to the splitter
-  m.block([-2.3, 2.3, -1.0, 1.0], 0.12, [-2.25, 1.55, -0.96, 0.96], 0.66, BODY);
-  // Nose below the hood line
-  m.block([1.55, 2.3, -1.0, 1.0], 0.12, [1.55, 2.25, -0.96, 0.96], 0.4, BODY);
-  // Cabin and glass
-  m.block([-1.25, 0.95, -0.86, 0.86], 0.66, [-0.75, 0.15, -0.62, 0.62], 1.16, GLASS);
-  // Rear wing on two posts
-  m.block([-2.12, -2.04, 0.45, 0.53], 0.66, [-2.12, -2.04, 0.45, 0.53], 1.06, TRIM);
-  m.block([-2.12, -2.04, -0.53, -0.45], 0.66, [-2.12, -2.04, -0.53, -0.45], 1.06, TRIM);
-  m.block([-2.4, -1.95, -0.98, 0.98], 1.06, [-2.4, -1.98, -0.98, 0.98], 1.13, TRIM);
-  return m.build();
-})();
-
-export const WHEEL_RADIUS = 0.34;
-const WHEEL_WIDTH = 0.32;
-const TIRE: Vec3 = [0.1, 0.1, 0.11];
-
-// A wheel: a 12-sided cylinder around the y axis, centered on the origin
-export const WHEEL_MESH: Mesh = (() => {
-  const m = new MeshBuilder();
-  const sides = 12;
-  const y = WHEEL_WIDTH / 2;
-  for (let i = 0; i < sides; i++) {
-    const [a0, a1] = [(i / sides) * 2 * Math.PI, ((i + 1) / sides) * 2 * Math.PI];
-    const p = (a: number, side: number): Vec3 => [WHEEL_RADIUS * Math.cos(a), side, WHEEL_RADIUS * Math.sin(a)];
-    m.quad(p(a0, -y), p(a1, -y), p(a1, y), p(a0, y), TIRE, [0, 0, 0]);
-    m.triangle([0, y, 0], p(a0, y), p(a1, y), [0, 1, 0], TIRE);
-    m.triangle([0, -y, 0], p(a1, -y), p(a0, -y), [0, -1, 0], TIRE);
-  }
-  return m.build();
-})();
-
-// Wheel centers in the car's frame: front and rear axles 2.7 m apart, 1.66 m track
-const WHEELS: { x: number; y: number; front: boolean }[] = [
-  { x: 1.49, y: 0.83, front: true },
-  { x: 1.49, y: -0.83, front: true },
-  { x: -1.21, y: 0.83, front: false },
-  { x: -1.21, y: -0.83, front: false },
-];
 
 // One lap's line in the model: each sample's position (m east, north) and height on the road (m, scaled)
 export type ModelLine = { trace: AreaTrace; points: [number, number][]; heights: number[] };
@@ -290,7 +173,7 @@ export function buildRoadModel(traces: AreaTrace[], origin: [number, number], he
 // Where a car is and how it's turned at one moment. yaw is where the nose points and travel where the car is
 // going (degrees counterclockwise from east, as deck.gl orients meshes); pitch is nose down (degrees, as
 // deck.gl's), from the road's scaled slope. slip is the sideslip (degrees, + travelling left of the nose),
-// steer the front wheels' angle (degrees, + left)
+// steer the front wheels' angle (degrees, + left), brake the brake pedal (0-1)
 export type CarPose = {
   position: Vec3;
   yaw: number;
@@ -298,6 +181,7 @@ export type CarPose = {
   pitch: number;
   slip: number | null;
   steer: number;
+  brake: number;
   speed: number;
   gear: number;
   pct: number;
@@ -335,6 +219,7 @@ export function poseAt(line: ModelLine, f: number): CarPose {
     pitch: -Math.atan(slope) * DEGREES,
     slip: Number.isFinite(sideslip) ? sideslip * DEGREES : null,
     steer: (trace.steerings[i] / STEERING_RATIO) * DEGREES,
+    brake: trace.brakes[i],
     speed: trace.speeds[i],
     gear: trace.engine.gears[i],
     pct: lerp(trace.pcts, index),

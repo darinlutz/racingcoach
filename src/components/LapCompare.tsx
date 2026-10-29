@@ -476,6 +476,8 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
   const t = dictionary.lapCompare;
   const [tracks, setTracks] = useState<Track[]>([]);
   const [trackName, setTrackName] = useState('');
+  // Whether the track name is hovered, which shows its satellite picture
+  const [trackHovered, setTrackHovered] = useState(false);
   const [error, setError] = useState('');
   const [baseLap, setBaseLap] = useState<LapFile | null>(initialLaps?.base ?? null);
   const [compareLap, setCompareLap] = useState<LapFile | null>(initialLaps?.compare ?? null);
@@ -658,25 +660,30 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
       {(baseLap || compareLap || error) && (
         <div>
           {(baseLap || compareLap) && (
-            <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+            // The satellite picture shows at the right while the track name is hovered, over what's below it
+            <div className="relative">
               <h2
+                onMouseEnter={() => setTrackHovered(true)}
+                onMouseLeave={() => setTrackHovered(false)}
                 className={
-                  lapsTrack ? 'text-3xl font-bold tracking-tight text-foreground' : 'text-xl font-semibold text-muted-foreground'
+                  lapsTrack ? 'inline-block text-2xl font-bold tracking-tight text-foreground' : 'text-xl font-semibold text-muted-foreground'
                 }
               >
                 {lapsTrack?.fileName ??
                   (tracks.length === 0 ? (error ? dictionary.laps.unavailable : dictionary.common.loading) : dictionary.laps.notInTrackData)}
               </h2>
-              {lapsTrack && (
-                <TrackSatellite
-                  track={{
-                    name: lapsTrack.fileName,
-                    lengthFeet: lapsTrack.lengthFeet,
-                    location: lapsTrack.location ?? null,
-                    bounds: lapsTrack.bounds ?? null,
-                  }}
-                  scale={1 / 3}
-                />
+              {lapsTrack && trackHovered && (
+                <div className="absolute right-0 top-0 z-10">
+                  <TrackSatellite
+                    track={{
+                      name: lapsTrack.fileName,
+                      lengthFeet: lapsTrack.lengthFeet,
+                      location: lapsTrack.location ?? null,
+                      bounds: lapsTrack.bounds ?? null,
+                    }}
+                    scale={1 / 3}
+                  />
+                </div>
               )}
             </div>
           )}

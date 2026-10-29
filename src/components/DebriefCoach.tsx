@@ -46,6 +46,8 @@ export default function DebriefCoach({ onCompare }: { onCompare?: (base: LapFile
   const { t, fmt, plural, number } = useLanguage();
   const [tracks, setTracks] = useState<Track[]>([]);
   const [trackName, setTrackName] = useState('');
+  // Whether the track name is hovered, which shows its satellite picture
+  const [trackHovered, setTrackHovered] = useState(false);
   const [error, setError] = useState('');
   const [lapFiles, setLapFiles] = useState<LapFile[]>([]);
   // Laps picked from the RacingCoach collector's uploads
@@ -198,25 +200,30 @@ export default function DebriefCoach({ onCompare }: { onCompare?: (base: LapFile
       {(allLaps.length > 0 || error) && (
         <div>
           {allLaps.length > 0 && (
-            <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+            // The satellite picture shows at the right while the track name is hovered, over what's below it
+            <div className="relative">
               <h2
+                onMouseEnter={() => setTrackHovered(true)}
+                onMouseLeave={() => setTrackHovered(false)}
                 className={
-                  selectedTrack ? 'text-3xl font-bold tracking-tight text-foreground' : 'text-xl font-semibold text-muted-foreground'
+                  selectedTrack ? 'inline-block text-2xl font-bold tracking-tight text-foreground' : 'text-xl font-semibold text-muted-foreground'
                 }
               >
                 {selectedTrack?.fileName ??
                   (tracks.length === 0 ? (error ? t.laps.unavailable : t.common.loading) : t.laps.notInTrackData)}
               </h2>
-              {selectedTrack && (
-                <TrackSatellite
-                  track={{
-                    name: selectedTrack.fileName,
-                    lengthFeet: selectedTrack.lengthFeet,
-                    location: selectedTrack.location ?? null,
-                    bounds: selectedTrack.bounds ?? null,
-                  }}
-                  scale={1 / 3}
-                />
+              {selectedTrack && trackHovered && (
+                <div className="absolute right-0 top-0 z-10">
+                  <TrackSatellite
+                    track={{
+                      name: selectedTrack.fileName,
+                      lengthFeet: selectedTrack.lengthFeet,
+                      location: selectedTrack.location ?? null,
+                      bounds: selectedTrack.bounds ?? null,
+                    }}
+                    scale={1 / 3}
+                  />
+                </div>
               )}
             </div>
           )}

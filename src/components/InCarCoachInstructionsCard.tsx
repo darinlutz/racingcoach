@@ -7,7 +7,7 @@ import { useLanguage } from '@/components/LanguageProvider';
 
 // The Account page's My In-Car AI Coach Instructions box: what the user's own In-Car AI Coach should do
 // and not do, saved for them only (PUT /api/account/in-car-coach-instructions) with the Save button; and
-// below it the voice the coach speaks with (and its accent, for Spanish). The In-Car AI Coach is for Silver and Gold
+// above it the voice the coach speaks with (its Spanish accent is in User Preferences). The In-Car AI Coach is for Silver and Gold
 // members (canUseInCarCoach); anyone else sees why in place of the box, with View Membership Plans when viewPlans, and still
 // picks the voice, which the collector's in-session debrief speaks with too.
 export default function InCarCoachInstructionsCard({
@@ -16,7 +16,6 @@ export default function InCarCoachInstructionsCard({
   voice,
   voices,
   spanishAccent,
-  spanishAccents,
   available,
   viewPlans,
 }: {
@@ -25,7 +24,6 @@ export default function InCarCoachInstructionsCard({
   voice: string;
   voices: CoachVoiceDetails;
   spanishAccent: string;
-  spanishAccents: readonly string[];
   available: boolean;
   viewPlans: boolean;
 }) {
@@ -62,6 +60,7 @@ export default function InCarCoachInstructionsCard({
 
   return (
     <div className="mt-6 bg-card rounded-lg border border-border px-4 py-4">
+      <CoachVoicePicker voice={voice} voices={voices} spanishAccent={spanishAccent} />
       <h2 className="text-sm font-medium text-muted-foreground mb-1">
         <label htmlFor="in-car-coach-instructions">{c.title}</label>
       </h2>
@@ -117,7 +116,6 @@ export default function InCarCoachInstructionsCard({
           )}
         </div>
       )}
-      <CoachVoicePicker voice={voice} voices={voices} spanishAccent={spanishAccent} spanishAccents={spanishAccents} />
     </div>
   );
 }

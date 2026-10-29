@@ -10,22 +10,21 @@ const selectClass =
 // Each voice the coach can speak with and its style (coachVoicesFor in src/lib/coachVoice.ts)
 export type CoachVoiceDetails = Record<string, { style: string }>;
 
-// The Account page's Coach voice: the Chirp 3 HD voice the In-Car AI Coach speaks with, and for Spanish its accent (Latin
-// American or Spain), each saved as soon as it's picked (PUT /api/account/coach-voice). Listen plays a sample callout
-// in the picked voice and accent and the user's Preferred Language (GET /api/account/coach-voice/sample). The
+// The Account page's Coach voice: the Chirp 3 HD voice the In-Car AI Coach speaks with, saved as soon as it's picked
+// (PUT /api/account/coach-voice). Listen plays a sample callout in the picked voice, the user's Preferred Language and,
+// for Spanish, the accent picked under it in User Preferences (SpanishAccentSelect, which reloads the page with the
+// new one) (GET /api/account/coach-voice/sample). The
 // ElevenLabs voice is only listed for English; in another language an account with it is shown (and hears) Charon.
 const ELEVENLABS_VOICE = 'ElevenLabs';
 const DEFAULT_VOICE = 'Charon';
 export default function CoachVoicePicker({
   voice: initial,
   voices,
-  spanishAccent: initialAccent,
-  spanishAccents,
+  spanishAccent: accent,
 }: {
   voice: string;
   voices: CoachVoiceDetails;
   spanishAccent: string;
-  spanishAccents: readonly string[];
 }) {
   const { t, language } = useLanguage();
   // Units and language are only in the sample's URL, so a sample cached in other units or another language isn't played
@@ -34,13 +33,12 @@ export default function CoachVoicePicker({
   const listed = Object.entries(voices).filter(([name]) => language === 'en' || name !== ELEVENLABS_VOICE);
   const [picked, setVoice] = useState(initial);
   const voice = listed.some(([name]) => name === picked) ? picked : DEFAULT_VOICE;
-  const [accent, setAccent] = useState(initialAccent);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const audio = useRef<HTMLAudioElement | null>(null);
 
-  // Saves one choice; a failed save puts the old one back
-  const save = async (body: { voice: string } | { spanishAccent: string }, saved: string, undo: () => void) => {
+  // Saves the voice; a failed save puts the old one back
+  const save = async (body: { voice: string }, saved: string, undo: () => void) => {
     setMessage(null);
     try {
       const res = await fetch('/api/account/coach-voice', {
@@ -67,12 +65,6 @@ export default function CoachVoicePicker({
     save({ voice: next }, c.voiceSaved, () => setVoice(previous));
   };
 
-  const chooseAccent = (next: string) => {
-    const previous = accent;
-    setAccent(next);
-    save({ spanishAccent: next }, c.accentSaved, () => setAccent(previous));
-  };
-
   const listen = () => {
     audio.current?.pause();
     const sample = new Audio(
@@ -90,7 +82,7 @@ export default function CoachVoicePicker({
   };
 
   return (
-    <div className="mt-5 pt-4 border-t border-border">
+    <div className="mb-5 pb-4 border-b border-border">
       <label htmlFor="coach-voice" className="block text-sm font-medium text-muted-foreground mb-1">
         {c.voiceTitle}
       </label>
@@ -112,23 +104,6 @@ export default function CoachVoicePicker({
           {loading ? c.loadingSample : c.listen}
         </button>
       </div>
-      {/* Only Spanish has a choice of accent */}
-      {language === 'es' && (
-        <div className="mt-4">
-          <label htmlFor="coach-accent" className="block text-sm font-medium text-muted-foreground mb-1">
-            {c.accentTitle}
-          </label>
-          <div className="flex">
-            <select id="coach-accent" value={accent} onChange={(e) => chooseAccent(e.target.value)} className={selectClass}>
-              {spanishAccents.map((a) => (
-                <option key={a} value={a}>
-                  {c.accents[a as keyof typeof c.accents] ?? a}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-      )}
       {message && (
         <p
           role="status"

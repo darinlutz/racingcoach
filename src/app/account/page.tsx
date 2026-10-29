@@ -7,6 +7,7 @@ import DeleteAccountButton from '@/components/DeleteAccountButton';
 import InCarCoachInstructionsCard from '@/components/InCarCoachInstructionsCard';
 import LanguageSelect from '@/components/LanguageSelect';
 import MyAiUsageCard from '@/components/MyAiUsageCard';
+import SpanishAccentSelect from '@/components/SpanishAccentSelect';
 import ThemeToggle from '@/components/ThemeToggle';
 import UnitsToggle from '@/components/UnitsToggle';
 import { coachVoicesFor, getCoachVoice, SPANISH_ACCENTS } from '@/lib/coachVoice';
@@ -143,6 +144,14 @@ export default async function AccountPage({
           <h2 className="text-sm font-medium text-muted-foreground mb-3">{t.preferences.title}</h2>
           <LanguageSelect id="preferredLanguage" className={selectClass} />
           <p className="mt-2 text-sm text-muted-foreground">{t.preferences.languageHint}</p>
+          {/* The coach voice's Spanish accent, only for Spanish; hidden with the Coach voice when Enable AI Features is off */}
+          {enableAiFeatures && (
+            <SpanishAccentSelect
+              spanishAccent={coachVoice.spanishAccent}
+              spanishAccents={SPANISH_ACCENTS}
+              className={selectClass}
+            />
+          )}
           <div className="mt-5">
             <UnitsToggle />
           </div>
@@ -220,7 +229,6 @@ export default async function AccountPage({
             voice={coachVoice.voice}
             voices={coachVoicesFor(user.preferredLanguage)}
             spanishAccent={coachVoice.spanishAccent}
-            spanishAccents={SPANISH_ACCENTS}
             available={canUseInCarCoach(user)}
             viewPlans={showViewPlans}
           />

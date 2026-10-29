@@ -25,7 +25,7 @@ const TAB_ROWS: Tab[][] = [
 export default function CoachingAnalysis() {
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<Tab>('debrief');
-  // Laps sent from Debrief Coach's Compare button, opened in Lap Compare (Base = the faster one)
+  // Laps sent from Debrief Coach's Compare button, opened in Lap Compare (Target = the faster one)
   const [lapsToCompare, setLapsToCompare] = useState<{ base: LapFile; compare: LapFile } | null>(null);
   const compareLaps = (base: LapFile, compare: LapFile) => {
     setLapsToCompare({ base, compare });

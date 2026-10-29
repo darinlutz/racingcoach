@@ -95,8 +95,8 @@ const smallButtonClass =
 // Each lap also has a Target checkbox: Set Target saves the one ticked lap as the user's Target Lap
 // (/api/account/target-lap, shown on the Account page).
 // A Compare column takes up to two laps; Compare sends them to onCompare, fastest first (the Racing
-// page opens them in Lap Compare as the Base and Compare laps). With one lap ticked there, Compare to Target sends
-// the user's Target Lap as the Base lap and that lap as the Compare lap; it says No Target Set without a Target Lap.
+// page opens them in Lap Compare as the Target and Compare laps). With one lap ticked there, Compare to Target sends
+// the user's Target Lap as the Target lap and that lap as the Compare lap; it says No Target Set without a Target Lap.
 // A Driver box picks whose laps are listed (their own at first), any number of drivers or All Drivers. Coaches and
 // Admins can pick every account with laps; Users only themselves and Coaches (the API enforces it).
 export default function RecordedLaps({
@@ -287,7 +287,7 @@ export default function RecordedLaps({
     return file;
   };
 
-  // Sends the two Compare laps to Lap Compare: the faster one as the Base lap
+  // Sends the two Compare laps to Lap Compare: the faster one as the Target lap
   const compare = async () => {
     const picked = laps.filter((lap) => comparePicks.includes(lap.id));
     if (picked.length !== 2 || !onCompare) return;
@@ -303,7 +303,7 @@ export default function RecordedLaps({
     }
   };
 
-  // Sends the user's Target Lap (as the Base lap) and the one Compare lap to Lap Compare. A Target Lap whose file
+  // Sends the user's Target Lap (as the Target lap) and the one Compare lap to Lap Compare. A Target Lap whose file
   // name isn't a lap file name takes the Compare lap's car and track, and its time from its 60 Hz rows.
   const compareToTarget = async () => {
     const lap = laps.find((l) => comparePicks.includes(l.id));

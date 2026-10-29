@@ -686,9 +686,9 @@ export const es: Dictionary = {
   },
 
   lapCompare: {
-    baseLap: 'Vuelta base',
+    baseLap: 'Vuelta objetivo',
     compareLap: 'Vuelta comparada',
-    uploadBase: 'Sube el CSV de la vuelta base',
+    uploadBase: 'Sube el CSV de la vuelta objetivo',
     uploadCompare: 'Sube el CSV de la vuelta comparada',
     dropOne: 'Arrastra y suelta 1 archivo aquí • Límite de 25MB • CSV',
     onlyOne: 'Aquí solo se puede subir 1 archivo CSV (se seleccionaron {n}).',
@@ -698,7 +698,7 @@ export const es: Dictionary = {
     provideSummary: 'Incluir resumen',
     analyzing: 'Analizando…',
     summary: 'Resumen',
-    summaryPlaceholderNoLaps: 'Sube una vuelta base y una vuelta comparada, y presiona Analizar vueltas.',
+    summaryPlaceholderNoLaps: 'Sube una vuelta objetivo y una vuelta comparada, y presiona Analizar vueltas.',
     summaryPlaceholder: 'Presiona Analizar vueltas.',
     noFocusAreas: 'No hay zonas de enfoque para la pista seleccionada.',
     bothFrom: 'Las dos vueltas deben ser de {track}.',
@@ -707,9 +707,9 @@ export const es: Dictionary = {
     summaryUnavailable: 'Resumen no disponible: {error}',
     failedSummary: 'No se pudieron resumir las vueltas',
     missingStartEnd: 'faltan inicio/fin en Datos de pistas',
-    noDataBase: 'no hay datos de la vuelta base',
+    noDataBase: 'no hay datos de la vuelta objetivo',
     noDataCompare: 'no hay datos de la vuelta comparada',
-    lapTitleBase: 'Vuelta base · {time}',
+    lapTitleBase: 'Vuelta objetivo · {time}',
     lapTitleCompare: 'Vuelta comparada · {time}',
     focusArea: 'Zona de enfoque',
     groups: {
@@ -720,7 +720,7 @@ export const es: Dictionary = {
       minSpeed: 'Vel. mínima',
       exitSpeed: 'Vel. de salida',
     },
-    base: 'Base',
+    base: 'Objetivo',
     compare: 'Comparada',
     diff: 'Dif.',
     same: 'igual',
@@ -750,10 +750,10 @@ export const es: Dictionary = {
   charts: {
     brake: 'Freno',
     throttle: 'Acelerador',
-    pedalDelta: 'Comparada − Base',
+    pedalDelta: 'Comparada − Objetivo',
     pedalHoverHint: 'Pasa el cursor sobre el gráfico para ver los valores',
     timeTitle: 'Tiempo ganado/perdido',
-    timeVs: 'Vuelta comparada vs. vuelta base',
+    timeVs: 'Vuelta comparada vs. vuelta objetivo',
     lapSpeed: 'Velocidad {lap} ({unit})',
     compareBehind: 'Comparada atrás',
     compareAhead: 'Comparada adelante',
@@ -774,7 +774,7 @@ export const es: Dictionary = {
     and: ' y ',
     steeringCaption: 'Las curvas a la izquierda van arriba y las de la derecha, abajo.',
     wheelAria: 'Volante en {position}: {angles}',
-    wheelHint: 'El volante gira con la vuelta Base en la cruz; los arcos muestran el ángulo de cada vuelta desde el centro, y las pantallas a su lado la marcha de cada vuelta.',
+    wheelHint: 'El volante gira con la vuelta Objetivo en la cruz; los arcos muestran el ángulo de cada vuelta desde el centro, y las pantallas a su lado la marcha de cada vuelta.',
     drivingLine: 'Trazada',
     drivingLinesAria: 'Trazadas en la zona de enfoque: {laps}',
     noPositions:
@@ -819,17 +819,17 @@ export const es: Dictionary = {
     modelNote: 'Construido a partir de las vueltas: una pista de {width} alrededor de la primera trazada, con alturas {n}× las reales (la zona sube {rise} y baja {fall}). Cada coche apunta hacia donde iRacing registró que apuntaba, así que un derrape se ve como el morro fuera de la trazada; el peralte y el balanceo no se registran. ',
     modelFlat: 'Ninguna vuelta tiene altitudes aquí, así que la zona se dibuja plana. ',
     lineDiffTitle: 'Diferencia de trazada',
-    lineDiffAria: 'Cuánto se desvió la vuelta comparada a la izquierda o a la derecha de la trazada de la vuelta base. {summary}',
+    lineDiffAria: 'Cuánto se desvió la vuelta comparada a la izquierda o a la derecha de la trazada de la vuelta objetivo. {summary}',
     lineLeft: '{n} {unit} I',
     lineRight: '{n} {unit} D',
-    lineOfBase: 'de la trazada base',
-    lineDiffSame: 'La vuelta comparada se mantiene a menos de {n} {unit} de la trazada de la vuelta base',
-    lineDiffLeft: 'La vuelta comparada va hasta {n} {unit} a la izquierda de la trazada de la vuelta base, en {where}',
-    lineDiffRight: 'La vuelta comparada va hasta {n} {unit} a la derecha de la trazada de la vuelta base, en {where}',
-    lineDiffCaption: 'La vuelta base es la línea azul plana; la línea roja muestra cuánto se desvió la vuelta comparada a la izquierda (arriba) o a la derecha (abajo).',
+    lineOfBase: 'de la trazada objetivo',
+    lineDiffSame: 'La vuelta comparada se mantiene a menos de {n} {unit} de la trazada de la vuelta objetivo',
+    lineDiffLeft: 'La vuelta comparada va hasta {n} {unit} a la izquierda de la trazada de la vuelta objetivo, en {where}',
+    lineDiffRight: 'La vuelta comparada va hasta {n} {unit} a la derecha de la trazada de la vuelta objetivo, en {where}',
+    lineDiffCaption: 'La vuelta objetivo es la línea azul plana; la línea roja muestra cuánto se desvió la vuelta comparada a la izquierda (arriba) o a la derecha (abajo).',
     tireDataLabel: 'Datos de neumáticos, suspensión y motor',
     tireTabs: { temp: 'Temp. de neumáticos', pressure: 'Presión de neumáticos', rideHeights: 'Alturas de manejo', gear: 'Marcha', engine: 'Motor y combustible', slip: 'Balance' },
-    lapDataDiffLabel: 'Comparada menos base',
+    lapDataDiffLabel: 'Comparada menos objetivo',
     lapDataNone: 'Ninguna vuelta tiene este dato.',
     engineCharts: {
       rpm: 'RPM',
@@ -842,12 +842,12 @@ export const es: Dictionary = {
       'Ninguna vuelta tiene datos del motor. Las vueltas grabadas con un colector de RacingCoach actualizado los tienen; las vueltas anteriores y las exportaciones de Garage 61 no.',
     engineLapNone: 'No hay datos del motor en la {lap}.',
     engineCaption:
-      'La línea azul continua es la vuelta base y la roja punteada la vuelta comparada; el número grande muestra cuánto más alta (+) o baja (−) fue la vuelta comparada. El consumo de combustible es el ritmo al que el motor quemaba combustible.',
+      'La línea azul continua es la vuelta objetivo y la roja punteada la vuelta comparada; el número grande muestra cuánto más alta (+) o baja (−) fue la vuelta comparada. El consumo de combustible es el ritmo al que el motor quemaba combustible.',
     gearCharts: { gear: 'Marcha' },
     gearNone: 'Ninguna vuelta tiene datos de marchas.',
     gearLapNone: 'No hay datos de marchas en la {lap}.',
     gearCaption:
-      'La marcha en la que iba cada vuelta y las RPM del motor. La línea azul continua es la vuelta base y la roja punteada la vuelta comparada; el número grande muestra cuánto más alta (+) o baja (−) fue la vuelta comparada.',
+      'La marcha en la que iba cada vuelta y las RPM del motor. La línea azul continua es la vuelta objetivo y la roja punteada la vuelta comparada; el número grande muestra cuánto más alta (+) o baja (−) fue la vuelta comparada.',
     slipCharts: {
       steering: 'Ángulo de dirección',
       yawRate: 'Velocidad de guiñada',
@@ -865,12 +865,12 @@ export const es: Dictionary = {
     tireMiddle: 'MED',
     tireInner: 'INT',
     tireAreaAverage: 'Promedio del área de enfoque',
-    tireDiffLabel: 'Comparada menos base: exterior, medio, interior',
+    tireDiffLabel: 'Comparada menos objetivo: exterior, medio, interior',
     rideHeightNone:
       'Ninguna vuelta tiene alturas de manejo. Las vueltas grabadas con un colector de RacingCoach actualizado las tienen; las vueltas anteriores y las exportaciones de Garage 61 no.',
     rideHeightLapNone: 'No hay alturas de manejo en la {lap}.',
     rideHeightCaption:
-      'La altura de manejo de cada esquina. La línea azul continua es la vuelta base y la roja punteada la vuelta comparada; el número grande muestra cuánto más alto (+) o bajo (−) iba el auto en la vuelta comparada.',
+      'La altura de manejo de cada esquina. La línea azul continua es la vuelta objetivo y la roja punteada la vuelta comparada; el número grande muestra cuánto más alto (+) o bajo (−) iba el auto en la vuelta comparada.',
     tireNoTemps:
       'Ninguna vuelta tiene temperaturas de neumáticos. Las vueltas grabadas con un colector de RacingCoach actualizado las tienen; las vueltas anteriores y las exportaciones de Garage 61 no.',
     tireLapNoTemps: 'No hay temperaturas de neumáticos en la {lap}.',
@@ -878,9 +878,9 @@ export const es: Dictionary = {
       'Ninguna vuelta tiene presiones de neumáticos. Las vueltas grabadas con un colector de RacingCoach actualizado las tienen; las vueltas anteriores y las exportaciones de Garage 61 no.',
     tireLapNoPressures: 'No hay presiones de neumáticos en la {lap}.',
     tirePressureCaption:
-      'La presión de cada neumático. La línea azul continua es la vuelta base y la roja punteada la vuelta comparada; el número grande muestra cuánto más alta (+) o baja (−) fue la presión de la vuelta comparada.',
+      'La presión de cada neumático. La línea azul continua es la vuelta objetivo y la roja punteada la vuelta comparada; el número grande muestra cuánto más alta (+) o baja (−) fue la presión de la vuelta comparada.',
     tireTempCaption:
-      'Temperaturas de la superficie a lo ancho de cada neumático, o de la carcasa en vueltas grabadas antes de que se registraran las de la superficie. Las líneas continuas son la vuelta base y las punteadas la vuelta comparada; los números grandes muestran cuánto más caliente (+) o fría (−) estuvo la vuelta comparada.',
+      'Temperaturas de la superficie a lo ancho de cada neumático, o de la carcasa en vueltas grabadas antes de que se registraran las de la superficie. Las líneas continuas son la vuelta objetivo y las punteadas la vuelta comparada; los números grandes muestran cuánto más caliente (+) o fría (−) estuvo la vuelta comparada.',
   },
 
   stint: {

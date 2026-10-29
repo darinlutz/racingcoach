@@ -35,7 +35,7 @@ function LineKey({ color }: { color: string }) {
   return <span className="inline-block w-3 h-0.5 rounded-full align-middle" style={{ backgroundColor: color }} />;
 }
 
-// The Base (blue) and Compare (red) laps' steering wheel angle through one focus area on one chart,
+// The Target (blue) and Compare (red) laps' steering wheel angle through one focus area on one chart,
 // sharing the pedal traces' horizontal axis and crosshair. Left turns are up, right turns down.
 export default function SteeringTrace({
   id,

@@ -18,20 +18,20 @@ import {
 import { DISTANCE_UNIT, distanceFromMeters } from '@/lib/units';
 
 const HEIGHT = 200;
-// Points along the area the Compare lap's distance from the Base line is measured at
+// Points along the area the Compare lap's distance from the Target line is measured at
 const SAMPLES = 201;
 // The vertical axis runs from -limit to +limit (feet or meters), the smallest of these that fits the Compare lap
 const LIMITS = [1, 2, 3, 5, 10, 15, 20, 30, 50, 75, 100, 150, 200, 300, 500];
-// The Compare lap within this much (feet or meters, as shown) of the Base line counts as on it
+// The Compare lap within this much (feet or meters, as shown) of the Target line counts as on it
 const SAME_LINE = 0.5;
 
 function LineKey({ color }: { color: string }) {
   return <span className="inline-block w-3 h-0.5 rounded-full align-middle" style={{ backgroundColor: color }} />;
 }
 
-// How far left or right of the Base lap's line the Compare lap was through one focus area, sharing the pedal
-// traces' horizontal axis and crosshair: the Base lap is the flat blue line at zero, the Compare lap the red
-// line, left of the Base line up and right of it down (measured across the Base line's direction of travel,
+// How far left or right of the Target lap's line the Compare lap was through one focus area, sharing the pedal
+// traces' horizontal axis and crosshair: the Target lap is the flat blue line at zero, the Compare lap the red
+// line, left of the Target line up and right of it down (measured across the Target line's direction of travel,
 // at the same lap position, by lineOffsets). Nothing is drawn when either lap has no track positions here;
 // the map above already says so.
 export default function DrivingLineDiffTrace({
@@ -60,7 +60,7 @@ export default function DrivingLineDiffTrace({
   const unit = DISTANCE_UNIT[units];
   const [d0, d1] = axis.domain;
   const span = d1 - d0;
-  // lineOffsets measures along the Base lap's domain; the chart's axis is the same domain
+  // lineOffsets measures along the Target lap's domain; the chart's axis is the same domain
   const [from, to] = base.trace.domain;
   const offsetAtPct = (pct: number) => distanceFromMeters(offsetAt(clamp((pct - from) / (to - from), 0, 1)), units);
   const pcts = Array.from({ length: SAMPLES }, (_, i) => from + (i / (SAMPLES - 1)) * (to - from));
@@ -85,7 +85,7 @@ export default function DrivingLineDiffTrace({
     return fmt(value > 0 ? t.lineLeft : t.lineRight, { n, unit });
   };
 
-  // Text version of the chart: the Compare lap's largest distance from the Base line, and where it was
+  // Text version of the chart: the Compare lap's largest distance from the Target line, and where it was
   const widest = offsets.reduce((best, value, i) => (Math.abs(value) > Math.abs(offsets[best]) ? i : best), 0);
   const summary =
     Math.abs(offsets[widest]) < SAME_LINE
@@ -141,7 +141,7 @@ export default function DrivingLineDiffTrace({
           </clipPath>
         </defs>
 
-        {/* Recessive hairline grid; the Base line at zero is drawn in blue below */}
+        {/* Recessive hairline grid; the Target line at zero is drawn in blue below */}
         {yTicks.map((tick) => (
           <g key={tick}>
             {tick !== 0 && (

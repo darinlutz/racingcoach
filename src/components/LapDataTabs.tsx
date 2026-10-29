@@ -122,9 +122,9 @@ function yTicks(lo: number, hi: number, minSpan: number) {
   return ticks;
 }
 
-// One chart through the focus area: the Base lap in solid lines and the Compare lap in lighter dotted ones,
+// One chart through the focus area: the Target lap in solid lines and the Compare lap in lighter dotted ones,
 // sharing the crosshair with the charts above. Over it, in large type, how much higher (+) or lower (-) the
-// Compare lap's values were than the Base lap's, at the crosshair, or on average through the area when there's
+// Compare lap's values were than the Target lap's, at the crosshair, or on average through the area when there's
 // no crosshair; under that each lap's own values.
 function LapDataChart({
   id,
@@ -226,7 +226,7 @@ function LapDataChart({
         <p className="py-6 text-sm text-muted-foreground">{t.lapDataNone}</p>
       ) : (
         <>
-          {/* The difference, Compare minus Base, stands out; each lap's values are under it */}
+          {/* The difference, Compare minus Target, stands out; each lap's values are under it */}
           <p className="flex flex-wrap items-baseline gap-x-4 gap-y-1" aria-label={diffLabel}>
             {series.map((s, i) => (
               <span key={s.key} className="text-2xl font-bold tabular-nums" style={{ color: s.colors.base }}>
@@ -281,7 +281,7 @@ function LapDataChart({
               </text>
             ))}
 
-            {/* Base lap underneath, Compare lap's dots on top so they stay visible where the lines meet */}
+            {/* Target lap underneath, Compare lap's dots on top so they stay visible where the lines meet */}
             <g clipPath={`url(#${id}-plot)`} fill="none" strokeLinejoin="round" strokeLinecap="round">
               {laps.map(({ key, lap }) => (
                 <g key={key} strokeDasharray={key === 'compare' ? DOTTED : undefined} strokeWidth={key === 'compare' ? 2.5 : 2}>

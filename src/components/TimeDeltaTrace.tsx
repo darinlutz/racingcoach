@@ -54,10 +54,10 @@ function speedTicks(lo: number, hi: number) {
   return ticks;
 }
 
-// The Compare lap's time gained or lost against the Base lap through one focus area: at each position,
-// how much longer the Compare lap has taken since the area's start than the Base lap. Above zero the
+// The Compare lap's time gained or lost against the Target lap through one focus area: at each position,
+// how much longer the Compare lap has taken since the area's start than the Target lap. Above zero the
 // Compare lap is behind, below zero ahead; the end value is the area's difference in the table. Behind it,
-// each lap's speed on its own axis on the right (mph or kph): Base solid blue, Compare dotted red. Shares
+// each lap's speed on its own axis on the right (mph or kph): Target solid blue, Compare dotted red. Shares
 // the pedal traces' horizontal axis and crosshair.
 export default function TimeDeltaTrace({
   id,

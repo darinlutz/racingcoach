@@ -53,7 +53,7 @@ const HEADLIGHT_COLOR: Rgba = [255, 247, 222, 255];
 const BRAKE_LIGHT_THRESHOLD = 0.02;
 const BRAKE_LIGHT_ON: Rgba = [255, 36, 36, 255];
 const BRAKE_LIGHT_OFF: Rgba = [105, 14, 14, 255];
-// The Base lap's car is a ghost: drawn see-through, after everything solid
+// The Target lap's car is a ghost: drawn see-through, after everything solid
 const GHOST_ALPHA = 140;
 // See-through layers blend over what's behind them without hiding it
 const SEE_THROUGH = { depthWriteEnabled: false };
@@ -76,7 +76,7 @@ const CAR_PARTS: { id: string; mesh: Mesh; color: (car: Car, pose: CarPose) => R
 const FIT_PITCH = 55;
 const FIT_PADDING = 40; // px
 const MAX_FIT_ZOOM = 19.5;
-// Chase views: low behind the Base lap's car, Far (the first there was) or Near, zoomed in closer
+// Chase views: low behind the Target lap's car, Far (the first there was) or Near, zoomed in closer
 type ChaseKind = 'near' | 'far';
 const CHASE_VIEWS: Record<ChaseKind, { pitch: number; zoom: number }> = {
   far: { pitch: 72, zoom: 19.6 },
@@ -113,14 +113,14 @@ function indexAtTime(line: ModelLine, seconds: number) {
   return step > 0 ? (areaStart(line) + seconds - times[0]) / step : 0;
 }
 
-// The Base (blue) and Compare (red) laps through one focus area as a 3D model built from the laps alone
+// The Target (blue) and Compare (red) laps through one focus area as a 3D model built from the laps alone
 // (lapModel3d.ts): a road following the first line at its altitude, both driving lines on it, a car for each
 // lap posed from its telemetry (heading from Yaw, so a slide shows as the nose pointing off the line, front
 // wheels steered, pitched with the road), and a wall beside the road as tall as the Compare lap's time gap:
 // red where it's behind, green where it's ahead. The cars sit at the pedal traces' crosshair (hoverPct), both
 // at the same point; Play (or Reverse, backward) drives them through the area at their real pace, moving the
-// crosshair with the Base car, once or with Loop over and over. Pointing at the wall moves the crosshair; the Near and
-// Far Chase views follow the Base car from behind, and the camera arrows move the camera around it there. Loaded with
+// crosshair with the Target car, once or with Loop over and over. Pointing at the wall moves the crosshair; the Near and
+// Far Chase views follow the Target car from behind, and the camera arrows move the camera around it there. Loaded with
 // next/dynamic (DrivingLineMap) so deck.gl only downloads when the 3D view is picked.
 export default function TrackLineMap3D({
   base,
@@ -267,7 +267,7 @@ export default function TrackLineMap3D({
       ...VIEW_LIMITS,
     };
   };
-  // Low behind the Base car, looking the way it's going, moved by the camera arrows
+  // Low behind the Target car, looking the way it's going, moved by the camera arrows
   const chaseView = (kind: ChaseKind): MapViewState => {
     const [longitude, latitude] = toLngLat(origin!, [lead.position[0], lead.position[1]]);
     return {
@@ -285,7 +285,7 @@ export default function TrackLineMap3D({
   const offsets = { coordinateSystem: COORDINATE_SYSTEM.METER_OFFSETS, coordinateOrigin: [origin![1], origin![0], 0] as Vec3 };
   const linePath = ({ points, heights }: ModelLine) => points.map(([x, y], i): Vec3 => [x, y, heights[i] + LINE_LIFT]);
   const carData = cars.map((car, i) => ({ car, pose: poses[i] }));
-  // The solid (Compare) car's layers, or the ghost (Base) car's
+  // The solid (Compare) car's layers, or the ghost (Target) car's
   const carLayers = (ghosts: boolean) => {
     const data = carData.filter((d) => (d.car.key === 'base') === ghosts);
     const seeThrough = ghosts ? { parameters: SEE_THROUGH } : {};

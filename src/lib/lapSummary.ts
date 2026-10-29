@@ -29,7 +29,7 @@ function partOfArea(pct: number) {
 }
 
 // The Racing Coach's analyze_driving_line tool: how far, and which way, the Compare lap's line was from the
-// Base lap's through one focus area, with a verdict worked out here so left and right can't get flipped.
+// Target lap's through one focus area, with a verdict worked out here so left and right can't get flipped.
 // Directions are always left or right, never inside or outside. Distances are in the user's units.
 function analyzeDrivingLineTool(lines: LapDrivingLine[], areaNames: string[], units: Units) {
   const unit = DISTANCE_UNIT[units];
@@ -50,11 +50,11 @@ function analyzeDrivingLineTool(lines: LapDrivingLine[], areaNames: string[], un
         );
       }
 
-      // Left of the Base line is positive. Always left or right, never inside or outside of the corner.
+      // Left of the Target line is positive. Always left or right, never inside or outside of the corner.
       const side = (meters: number) => (meters >= 0 ? 'left' : 'right');
-      // 0.62 -> "2 ft left", -0.62 -> "2 ft right", rounding to 0 -> "on the Base line"
+      // 0.62 -> "2 ft left", -0.62 -> "2 ft right", rounding to 0 -> "on the Target line"
       const offset = (meters: number) =>
-        Number.parseFloat(distance(meters)) === 0 ? 'on the Base line' : `${distance(meters)} ${side(meters)}`;
+        Number.parseFloat(distance(meters)) === 0 ? 'on the Target line' : `${distance(meters)} ${side(meters)}`;
       const time = `${line.secondsDiff >= 0 ? '+' : '-'}${Math.abs(line.secondsDiff).toFixed(3)}s`;
       const where = `${partOfArea(line.maxOffsetAtPct)} (${line.maxOffsetAtPct}% through the area)`;
 
@@ -66,20 +66,20 @@ function analyzeDrivingLineTool(lines: LapDrivingLine[], areaNames: string[], un
       } else if (line.secondsDiff <= 0) {
         verdict =
           `Line verdict: the Compare lap was faster here while running up to ${distance(line.maxOffsetM)} further ` +
-          `${side(line.maxOffsetM)} at ${where}, so it should keep its line; do not tell it to copy the Base lap's line.`;
+          `${side(line.maxOffsetM)} at ${where}, so it should keep its line; do not tell it to copy the Target lap's line.`;
       } else {
         verdict =
           `Line verdict: the Compare lap was ${distance(line.maxOffsetM)} further ${side(line.maxOffsetM)} than the faster ` +
-          `Base lap at ${where}. Any driving line advice for this area must say to move the car about ` +
+          `Target lap at ${where}. Any driving line advice for this area must say to move the car about ` +
           `${distance(line.maxOffsetM)} to the ${side(-line.maxOffsetM)} there, in those words: left or right, never ` +
           'inside or outside.';
       }
 
       return [
-        `${line.area} driving line: the Compare lap against the Base lap's line (the Compare lap was ${time} here). ` +
+        `${line.area} driving line: the Compare lap against the Target lap's line (the Compare lap was ${time} here). ` +
           "Left and right are as seen from the driver's seat, facing the direction of travel" +
           (line.turn ? ` (it is a ${line.turn}-hand corner).` : '.'),
-        "Compare lap's distance from the Base line every 10% through the area: " +
+        "Compare lap's distance from the Target line every 10% through the area: " +
           line.offsetsM.map((m, i) => `${i * 10}% ${offset(m)}`).join(', ') +
           '.',
         `Largest difference: ${offset(line.maxOffsetM)} at ${where}.`,
@@ -89,8 +89,8 @@ function analyzeDrivingLineTool(lines: LapDrivingLine[], areaNames: string[], un
     {
       name: 'analyze_driving_line',
       description:
-        "Compares the Compare lap's driving line with the Base lap's through one focus area: how many " +
-        `${DISTANCE_NAME[units]} the Compare lap was to the left or right of the Base line every 10% through ` +
+        "Compares the Compare lap's driving line with the Target lap's through one focus area: how many " +
+        `${DISTANCE_NAME[units]} the Compare lap was to the left or right of the Target line every 10% through ` +
         'the area, the largest difference and a line verdict. ' +
         (lines.length > 0
           ? `Both laps have track positions in: ${lines.map((l) => l.area).join(', ')}.`
@@ -106,9 +106,9 @@ const lapSummarySchema = z.object({
 
 const lapSummaryPrompt = (track: string, units: Units) =>
   'You are a sim racing driving coach. The user will give you a focus-area comparison of two laps ' +
-  `of ${track}: a Base lap and a Compare lap. Each focus area lists the time through the area for ` +
-  'both laps with the difference (Compare minus Base; negative means the Compare lap was faster), ' +
-  `how many ${DISTANCE_NAME[units]} later or earlier the Compare lap first touched the brake than the Base lap (the ` +
+  `of ${track}: a Target lap and a Compare lap. Each focus area lists the time through the area for ` +
+  'both laps with the difference (Compare minus Target; negative means the Compare lap was faster), ' +
+  `how many ${DISTANCE_NAME[units]} later or earlier the Compare lap first touched the brake than the Target lap (the ` +
   'reference brakepoint), and the peak brake pressure for each lap (harder or lighter for the ' +
   `Compare lap), the minimum speed through the area (min speed, in ${SPEED_UNIT[units]}) for each lap, and the ` +
   `speed at the end of the area (exit speed, in ${SPEED_UNIT[units]}) for each lap. After the focus areas, a ` +

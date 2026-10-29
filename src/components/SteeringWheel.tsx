@@ -21,7 +21,7 @@ const degrees = (radians: number) => (radians * 180) / Math.PI;
 export const gearLabel = (gear: number) => (!Number.isFinite(gear) ? '–' : gear < 0 ? 'R' : gear === 0 ? 'N' : String(gear));
 
 // A dash display of one lap's gear: the number large in the lap's color, the lap's name under it, and on
-// the Compare lap how many gears higher (+) or lower (−) than the Base lap it is, when they differ. Also Live Racing's.
+// the Compare lap how many gears higher (+) or lower (−) than the Target lap it is, when they differ. Also Live Racing's.
 export function GearDisplay({ gear, label, color, diff }: { gear: number; label: string; color: string; diff?: number }) {
   return (
     <div
@@ -197,8 +197,8 @@ export function WheelGraphic({
   );
 }
 
-// A wheel turned by the Base lap's steering angle at the crosshair (the start of the area without one),
-// with an arc for each lap from straight ahead (the top) to its own angle: Base inside, Compare outside,
+// A wheel turned by the Target lap's steering angle at the crosshair (the start of the area without one),
+// with an arc for each lap from straight ahead (the top) to its own angle: Target inside, Compare outside,
 // then the caption, and to its right each lap's gear there side by side under "Gear" (GearDisplay).
 // iRacing's angle is positive to the left, so a positive angle turns the wheel counterclockwise.
 export default function SteeringWheel({

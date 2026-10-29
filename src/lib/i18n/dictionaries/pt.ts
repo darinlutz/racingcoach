@@ -686,9 +686,9 @@ export const pt: Dictionary = {
   },
 
   lapCompare: {
-    baseLap: 'Volta base',
+    baseLap: 'Volta alvo',
     compareLap: 'Volta comparada',
-    uploadBase: 'Envie o CSV da volta base',
+    uploadBase: 'Envie o CSV da volta alvo',
     uploadCompare: 'Envie o CSV da volta comparada',
     dropOne: 'Arraste e solte 1 arquivo aqui • Limite de 25MB • CSV',
     onlyOne: 'Só é possível enviar 1 arquivo CSV aqui ({n} foram selecionados).',
@@ -698,7 +698,7 @@ export const pt: Dictionary = {
     provideSummary: 'Incluir resumo',
     analyzing: 'Analisando…',
     summary: 'Resumo',
-    summaryPlaceholderNoLaps: 'Envie uma volta base e uma volta comparada e clique em Analisar voltas.',
+    summaryPlaceholderNoLaps: 'Envie uma volta alvo e uma volta comparada e clique em Analisar voltas.',
     summaryPlaceholder: 'Clique em Analisar voltas.',
     noFocusAreas: 'Não há áreas de foco para a pista selecionada.',
     bothFrom: 'As duas voltas precisam ser de {track}.',
@@ -707,9 +707,9 @@ export const pt: Dictionary = {
     summaryUnavailable: 'Resumo indisponível: {error}',
     failedSummary: 'Não foi possível resumir as voltas',
     missingStartEnd: 'início/fim ausentes nos Dados de pistas',
-    noDataBase: 'sem dados da volta base',
+    noDataBase: 'sem dados da volta alvo',
     noDataCompare: 'sem dados da volta comparada',
-    lapTitleBase: 'Volta base · {time}',
+    lapTitleBase: 'Volta alvo · {time}',
     lapTitleCompare: 'Volta comparada · {time}',
     focusArea: 'Área de foco',
     groups: {
@@ -720,7 +720,7 @@ export const pt: Dictionary = {
       minSpeed: 'Vel. mínima',
       exitSpeed: 'Vel. de saída',
     },
-    base: 'Base',
+    base: 'Alvo',
     compare: 'Comparada',
     diff: 'Dif.',
     same: 'igual',
@@ -750,10 +750,10 @@ export const pt: Dictionary = {
   charts: {
     brake: 'Freio',
     throttle: 'Acelerador',
-    pedalDelta: 'Comparada − Base',
+    pedalDelta: 'Comparada − Alvo',
     pedalHoverHint: 'Passe o cursor sobre o gráfico para ver os valores',
     timeTitle: 'Tempo ganho/perdido',
-    timeVs: 'Volta comparada vs. volta base',
+    timeVs: 'Volta comparada vs. volta alvo',
     lapSpeed: 'Velocidade {lap} ({unit})',
     compareBehind: 'Comparada atrás',
     compareAhead: 'Comparada à frente',
@@ -774,7 +774,7 @@ export const pt: Dictionary = {
     and: ' e ',
     steeringCaption: 'Curvas à esquerda para cima, à direita para baixo.',
     wheelAria: 'Volante em {position}: {angles}',
-    wheelHint: 'O volante gira com a volta Base na mira; os arcos mostram o ângulo de cada volta a partir do centro, e os mostradores ao lado a marcha de cada volta.',
+    wheelHint: 'O volante gira com a volta Alvo na mira; os arcos mostram o ângulo de cada volta a partir do centro, e os mostradores ao lado a marcha de cada volta.',
     drivingLine: 'Traçado',
     drivingLinesAria: 'Traçados na área de foco: {laps}',
     noPositions:
@@ -819,17 +819,17 @@ export const pt: Dictionary = {
     modelNote: 'Construído a partir das voltas: uma pista de {width} em torno do primeiro traçado, com alturas {n}× as reais (a área sobe {rise} e desce {fall}). Cada carro aponta para onde o iRacing registrou que apontava, então uma derrapagem aparece como o bico fora do traçado; a inclinação da pista e a rolagem não são registradas. ',
     modelFlat: 'Nenhuma volta tem altitudes aqui, então a área é desenhada plana. ',
     lineDiffTitle: 'Diferença de traçado',
-    lineDiffAria: 'Quanto a volta comparada ficou à esquerda ou à direita do traçado da volta base. {summary}',
+    lineDiffAria: 'Quanto a volta comparada ficou à esquerda ou à direita do traçado da volta alvo. {summary}',
     lineLeft: '{n} {unit} E',
     lineRight: '{n} {unit} D',
-    lineOfBase: 'do traçado base',
-    lineDiffSame: 'A volta comparada fica a menos de {n} {unit} do traçado da volta base',
-    lineDiffLeft: 'A volta comparada fica até {n} {unit} à esquerda do traçado da volta base, em {where}',
-    lineDiffRight: 'A volta comparada fica até {n} {unit} à direita do traçado da volta base, em {where}',
-    lineDiffCaption: 'A volta base é a linha azul reta; a linha vermelha mostra quanto a volta comparada ficou à esquerda (para cima) ou à direita (para baixo) dela.',
+    lineOfBase: 'do traçado alvo',
+    lineDiffSame: 'A volta comparada fica a menos de {n} {unit} do traçado da volta alvo',
+    lineDiffLeft: 'A volta comparada fica até {n} {unit} à esquerda do traçado da volta alvo, em {where}',
+    lineDiffRight: 'A volta comparada fica até {n} {unit} à direita do traçado da volta alvo, em {where}',
+    lineDiffCaption: 'A volta alvo é a linha azul reta; a linha vermelha mostra quanto a volta comparada ficou à esquerda (para cima) ou à direita (para baixo) dela.',
     tireDataLabel: 'Dados de pneus, suspensão e motor',
     tireTabs: { temp: 'Temp. dos pneus', pressure: 'Pressão dos pneus', rideHeights: 'Alturas de rodagem', gear: 'Marcha', engine: 'Motor e combustível', slip: 'Equilíbrio' },
-    lapDataDiffLabel: 'Comparada menos base',
+    lapDataDiffLabel: 'Comparada menos alvo',
     lapDataNone: 'Nenhuma volta tem este dado.',
     engineCharts: {
       rpm: 'RPM',
@@ -842,12 +842,12 @@ export const pt: Dictionary = {
       'Nenhuma volta tem dados do motor. As voltas gravadas por um coletor RacingCoach atualizado os têm; voltas mais antigas e exportações do Garage 61 não.',
     engineLapNone: 'Sem dados do motor na {lap}.',
     engineCaption:
-      'A linha azul contínua é a volta base e a vermelha pontilhada a volta comparada; o número grande mostra quanto mais alta (+) ou baixa (−) ficou a volta comparada. O consumo de combustível é o ritmo em que o motor queimava combustível.',
+      'A linha azul contínua é a volta alvo e a vermelha pontilhada a volta comparada; o número grande mostra quanto mais alta (+) ou baixa (−) ficou a volta comparada. O consumo de combustível é o ritmo em que o motor queimava combustível.',
     gearCharts: { gear: 'Marcha' },
     gearNone: 'Nenhuma volta tem dados de marcha.',
     gearLapNone: 'Sem dados de marcha na {lap}.',
     gearCaption:
-      'A marcha em que cada volta estava e o RPM do motor. A linha azul contínua é a volta base e a vermelha pontilhada a volta comparada; o número grande mostra quanto mais alta (+) ou baixa (−) ficou a volta comparada.',
+      'A marcha em que cada volta estava e o RPM do motor. A linha azul contínua é a volta alvo e a vermelha pontilhada a volta comparada; o número grande mostra quanto mais alta (+) ou baixa (−) ficou a volta comparada.',
     slipCharts: {
       steering: 'Ângulo de direção',
       yawRate: 'Taxa de guinada',
@@ -865,12 +865,12 @@ export const pt: Dictionary = {
     tireMiddle: 'MEIO',
     tireInner: 'INT',
     tireAreaAverage: 'Média da área de foco',
-    tireDiffLabel: 'Comparada menos base: externo, meio, interno',
+    tireDiffLabel: 'Comparada menos alvo: externo, meio, interno',
     rideHeightNone:
       'Nenhuma volta tem alturas de rodagem. As voltas gravadas por um coletor RacingCoach atualizado as têm; voltas mais antigas e exportações do Garage 61 não.',
     rideHeightLapNone: 'Sem alturas de rodagem na {lap}.',
     rideHeightCaption:
-      'A altura de rodagem de cada canto. A linha azul contínua é a volta base e a vermelha pontilhada a volta comparada; o número grande mostra quanto mais alto (+) ou baixo (−) o carro ficou na volta comparada.',
+      'A altura de rodagem de cada canto. A linha azul contínua é a volta alvo e a vermelha pontilhada a volta comparada; o número grande mostra quanto mais alto (+) ou baixo (−) o carro ficou na volta comparada.',
     tireNoTemps:
       'Nenhuma volta tem temperaturas dos pneus. As voltas gravadas por um coletor RacingCoach atualizado as têm; voltas mais antigas e exportações do Garage 61 não.',
     tireLapNoTemps: 'Sem temperaturas dos pneus na {lap}.',
@@ -878,9 +878,9 @@ export const pt: Dictionary = {
       'Nenhuma volta tem pressões dos pneus. As voltas gravadas por um coletor RacingCoach atualizado as têm; voltas mais antigas e exportações do Garage 61 não.',
     tireLapNoPressures: 'Sem pressões dos pneus na {lap}.',
     tirePressureCaption:
-      'A pressão de cada pneu. A linha azul contínua é a volta base e a vermelha pontilhada a volta comparada; o número grande mostra quanto mais alta (+) ou baixa (−) ficou a pressão da volta comparada.',
+      'A pressão de cada pneu. A linha azul contínua é a volta alvo e a vermelha pontilhada a volta comparada; o número grande mostra quanto mais alta (+) ou baixa (−) ficou a pressão da volta comparada.',
     tireTempCaption:
-      'Temperaturas da superfície ao longo de cada pneu, ou da carcaça em voltas gravadas antes de as da superfície serem registradas. As linhas contínuas são a volta base e as pontilhadas a volta comparada; os números grandes mostram quanto mais quente (+) ou fria (−) a volta comparada ficou.',
+      'Temperaturas da superfície ao longo de cada pneu, ou da carcaça em voltas gravadas antes de as da superfície serem registradas. As linhas contínuas são a volta alvo e as pontilhadas a volta comparada; os números grandes mostram quanto mais quente (+) ou fria (−) a volta comparada ficou.',
   },
 
   stint: {

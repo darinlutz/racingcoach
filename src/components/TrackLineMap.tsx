@@ -22,7 +22,7 @@ const MAX_USER_ZOOM = 21;
 const ZOOM_STEP = 1.6;
 // A press that moves less than this (px) is a click, not a drag
 const DRAG_THRESHOLD = 4;
-// Pointer within this many px of the Base line moves the crosshair
+// Pointer within this many px of the Target line moves the crosshair
 const HOVER_DISTANCE = 40;
 // Length (px) of the arrow from each crosshair dot showing where the car points
 const HEADING_ARROW = 40;
@@ -82,7 +82,7 @@ function panView(view: View, frame: Frame, dx: number, dy: number): View {
 
 type Line = { key: 'base' | 'compare'; lap: PedalTraceLap; color: string; positions: [number, number][] };
 
-// The Base (blue) and Compare (red) laps' driving lines through one focus area, over satellite imagery
+// The Target (blue) and Compare (red) laps' driving lines through one focus area, over satellite imagery
 // when it's set up (SATELLITE_TILE_URL, see src/lib/mapTiles.ts), otherwise on a plain background.
 // Shares the pedal traces' crosshair: hoverPct puts a dot on each line, and pointing at the map moves it.
 // Opens fitted to the area; the mouse wheel, a pinch, double-click or the +/- buttons zoom, dragging pans.
@@ -201,7 +201,7 @@ export default function TrackLineMap({
     return { x: event.clientX - box.left, y: event.clientY - box.top };
   };
 
-  // Moves the crosshair to the nearest point on the first line (Base when it has one)
+  // Moves the crosshair to the nearest point on the first line (Target when it has one)
   const hoverAt = ({ x: px, y: py }: { x: number; y: number }) => {
     let best = -1;
     let bestDistance = HOVER_DISTANCE ** 2;

@@ -1,7 +1,7 @@
 // Shared by Lap Compare's per-focus-area charts (PedalTraces, SteeringTrace, TrackLineMap): the lap
 // colors, the horizontal lap position axis and the crosshair's sample lookup.
 
-// The user asked for Base in blue and Compare in red; bright variants so both read on the dark panel
+// The user asked for Target in blue and Compare in red; bright variants so both read on the dark panel
 // and on satellite imagery
 export const BASE_LAP_COLOR = '#3b8bff';
 export const COMPARE_LAP_COLOR = '#ff4040';

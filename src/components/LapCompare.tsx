@@ -69,7 +69,7 @@ function formatSecondsDiff(diff: number, locale = 'en-US') {
   return `${diff >= 0 ? '+' : '-'}${Math.abs(diff).toLocaleString(locale, { minimumFractionDigits: 3, maximumFractionDigits: 3, useGrouping: false })}`;
 }
 
-// Compare brakepoint minus Base brakepoint, in feet. Positive = Compare brakes later.
+// Compare brakepoint minus Target brakepoint, in feet. Positive = Compare brakes later.
 // Uses the rounded feet shown on the line so the numbers add up, wrapped to
 // +/- half a lap so an area crossing the start/finish line compares correctly.
 function brakeDiffFeet(basePct: number, comparePct: number, lengthFeet: number) {
@@ -77,7 +77,7 @@ function brakeDiffFeet(basePct: number, comparePct: number, lengthFeet: number) 
   return diff - Math.round(diff / lengthFeet) * lengthFeet;
 }
 
-// One focus area's numbers for both laps; each diff is Compare minus Base. Brakepoints are in the
+// One focus area's numbers for both laps; each diff is Compare minus Target. Brakepoints are in the
 // user's units (feet or meters) and speeds too (mph or kph).
 // Brakepoints are null when that lap didn't brake (or the track has no length).
 type AreaComparison = {
@@ -166,9 +166,9 @@ function formatSpeedDiffCell(diff: number, speed: string) {
   return diff === 0 ? '—' : `${formatSignedDiff(diff)} ${speed}`;
 }
 
-// "T 7: Base 8.345 s, Compare 8.465 s (+0.120).  Base brakes (the reference brakepoint) at 65% peak, Compare
-// brakes 150 ft later than Base at 68% (3% harder).  Base exit 98 mph, Compare exit 101 mph (+3 mph)."
-// In meters and kph for Metric. Only for the summary's AI, so the brakepoints are against the Base lap's, never
+// "T 7: Target 8.345 s, Compare 8.465 s (+0.120).  Target brakes (the reference brakepoint) at 65% peak, Compare
+// brakes 150 ft later than Target at 68% (3% harder).  Target exit 98 mph, Compare exit 101 mph (+3 mph)."
+// In meters and kph for Metric. Only for the summary's AI, so the brakepoints are against the Target lap's, never
 // where on the track: it can't repeat a place on the track it never sees (src/lib/trackPositions.ts).
 function formatAreaLine(areaName: string, c: AreaComparison, lengthFeet: number | null, units: Units) {
   const speed = SPEED_UNIT[units];
@@ -178,18 +178,18 @@ function formatAreaLine(areaName: string, c: AreaComparison, lengthFeet: number 
     c.compareBrake === null
       ? noBrake
       : c.brakeDiff === null
-        ? 'brakes (the Base lap did not brake)'
+        ? 'brakes (the Target lap did not brake)'
         : c.brakeDiff === 0
-          ? 'brakes at the same point as Base'
-          : `brakes ${formatBrakeDiff(c.brakeDiff, units)} than Base`;
+          ? 'brakes at the same point as Target'
+          : `brakes ${formatBrakeDiff(c.brakeDiff, units)} than Target`;
 
   return (
-    `${areaName}: Base ${c.baseSeconds.toFixed(3)} s, Compare ${c.compareSeconds.toFixed(3)} s (${formatSecondsDiff(c.secondsDiff)}).  ` +
-    `Base ${baseBrake} at ${c.basePressure}% peak, ` +
+    `${areaName}: Target ${c.baseSeconds.toFixed(3)} s, Compare ${c.compareSeconds.toFixed(3)} s (${formatSecondsDiff(c.secondsDiff)}).  ` +
+    `Target ${baseBrake} at ${c.basePressure}% peak, ` +
     `Compare ${compareBrake} at ${c.comparePressure}% (${formatPressureDiff(c.pressureDiff)}).  ` +
-    `Base entry ${c.baseEntry} ${speed}, Compare entry ${c.compareEntry} ${speed} (${formatSignedDiff(c.entryDiff)} ${speed}).  ` +
-    `Base Min speed ${c.baseMin} ${speed}, Compare Min speed ${c.compareMin} ${speed} (${formatSignedDiff(c.minDiff)} ${speed}).  ` +
-    `Base exit ${c.baseExit} ${speed}, Compare exit ${c.compareExit} ${speed} (${formatSignedDiff(c.exitDiff)} ${speed}).`
+    `Target entry ${c.baseEntry} ${speed}, Compare entry ${c.compareEntry} ${speed} (${formatSignedDiff(c.entryDiff)} ${speed}).  ` +
+    `Target Min speed ${c.baseMin} ${speed}, Compare Min speed ${c.compareMin} ${speed} (${formatSignedDiff(c.minDiff)} ${speed}).  ` +
+    `Target exit ${c.baseExit} ${speed}, Compare exit ${c.compareExit} ${speed} (${formatSignedDiff(c.exitDiff)} ${speed}).`
   );
 }
 
@@ -201,7 +201,7 @@ const ADVICE_PRESSURE_PCT = 3;
 // model so "later"/"earlier" and "harder"/"lighter" can't get flipped. Only sent to the summary.
 function formatAreaAdvice(areaName: string, c: AreaComparison, units: Units) {
   if (c.secondsDiff <= 0) {
-    return `${areaName} advice: the Compare lap was faster here, so it should keep its braking; do not tell it to copy the Base lap.`;
+    return `${areaName} advice: the Compare lap was faster here, so it should keep its braking; do not tell it to copy the Target lap.`;
   }
   const changes = [];
   if (c.brakeDiff !== null && Math.abs(c.brakeDiff) >= distanceFromFeet(SAME_BRAKE_FEET, units)) {
@@ -218,7 +218,7 @@ function formatAreaAdvice(areaName: string, c: AreaComparison, units: Units) {
     );
   }
   return changes.length > 0
-    ? `${areaName} advice: to match the faster Base lap, the Compare lap should ${changes.join(' and ')}.`
+    ? `${areaName} advice: to match the faster Target lap, the Compare lap should ${changes.join(' and ')}.`
     : `${areaName} advice: braking is about the same on both laps, so the time is in the speeds; do not give braking advice here.`;
 }
 
@@ -244,7 +244,7 @@ function formatTopLosses(areas: { name: string; secondsDiff: number }[]) {
 type AreaRow = { name: string; comparison: AreaComparison | null; note: string };
 
 // Diff cell background: green when the Compare lap is better, red when worse.
-// A difference of more than 1% of the Base value gets the darker green, and the
+// A difference of more than 1% of the Target value gets the darker green, and the
 // dark red (the fainter red reads darker on the dark page). `diff` is the value
 // as shown, so a displayed zero stays uncolored.
 function diffBackground(diff: number, base: number, higherIsBetter: boolean) {
@@ -254,7 +254,7 @@ function diffBackground(diff: number, base: number, higherIsBetter: boolean) {
   return bigger ? 'bg-primary/15' : 'bg-primary/35';
 }
 
-// Brake Diff text: blue when the Compare lap is more than `threshold` below Base
+// Brake Diff text: blue when the Compare lap is more than `threshold` below Target
 // (brakes earlier / lighter), red when more than `threshold` above (later / harder),
 // green when within `threshold` either way
 function brakeDiffText(diff: number | null, threshold: number) {
@@ -264,8 +264,8 @@ function brakeDiffText(diff: number | null, threshold: number) {
   return 'text-positive';
 }
 
-// Focus areas down the left, Base / Compare / Diff for each data point across the top
-// (Max Brake shows Base and Diff; everything else shows only its Diff)
+// Focus areas down the left, Target / Compare / Diff for each data point across the top
+// (Max Brake shows Target and Diff; everything else shows only its Diff)
 function AreaTable({ rows }: { rows: AreaRow[] }) {
   const { t: dictionary, locale } = useLanguage();
   const units = useUnits();
@@ -485,7 +485,7 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
   const [compareError, setCompareError] = useState('');
   const [analysis, setAnalysis] = useState('');
   const [areaRows, setAreaRows] = useState<AreaRow[]>([]);
-  // Brake/throttle charts for every measured focus area, in track order; diff is Compare minus Base (s)
+  // Brake/throttle charts for every measured focus area, in track order; diff is Compare minus Target (s)
   const [traces, setTraces] = useState<
     { name: string; diff: number; base: PedalTraceLap; compare: PedalTraceLap }[]
   >([]);
@@ -613,7 +613,7 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
               });
             }
           } else {
-            lines.push(`${area.name}: no data for the ${!base ? 'Base' : 'Compare'} lap`, '');
+            lines.push(`${area.name}: no data for the ${!base ? 'Target' : 'Compare'} lap`, '');
             rows.push({ name: area.name, comparison: null, note: !base ? t.noDataBase : t.noDataCompare });
           }
         }

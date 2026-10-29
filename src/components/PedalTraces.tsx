@@ -31,7 +31,7 @@ const MAP_ASPECT = 0.69; //the map's height as a share of its width
 const Y_TICKS = [0, 0.25, 0.5, 0.75, 1];
 
 export type PedalTraceLap = {
-  title: string; // e.g. "Base lap · 1:25.488"
+  title: string; // e.g. "Target lap · 1:25.488"
   trace: AreaTrace;
   summary: string; // text version of the chart, e.g. "Brakes at 812 ft (max 80%), throttle at 1,299 ft"
 };
@@ -57,7 +57,7 @@ function LineKey({ color, dotted = false }: { color: string; dotted?: boolean })
   );
 }
 
-// Both laps' brake and throttle on one chart: the Base lap in solid lines, the Compare lap in
+// Both laps' brake and throttle on one chart: the Target lap in solid lines, the Compare lap in
 // lighter dotted ones
 function TraceChart({
   id,
@@ -127,7 +127,7 @@ function TraceChart({
         ))}
       </div>
       {/* The values at the crosshair in a fixed place above the plot rather than a pop-up, with the
-          Compare lap's minus the Base lap's; dashes while nothing is hovered so the chart doesn't move */}
+          Compare lap's minus the Target lap's; dashes while nothing is hovered so the chart doesn't move */}
       <div className="flex flex-wrap items-start gap-x-8 gap-y-2 mb-2 text-xs">
         {channels.map(({ key, label, values }) => {
           const lapValues = hoverIndexes === null ? null : values.map((v, i) => Math.round(v[hoverIndexes[i]] * 100));
@@ -186,7 +186,7 @@ function TraceChart({
           </text>
         ))}
 
-        {/* Base lap underneath, Compare lap's dots on top so they stay visible where the lines meet */}
+        {/* Target lap underneath, Compare lap's dots on top so they stay visible where the lines meet */}
         <g clipPath={`url(#${id}-plot)`} fill="none" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round">
           {laps.map(({ key, lap, brakeColor, throttleColor, dotted }) => (
             <g key={key} strokeDasharray={dotted ? DOTTED : undefined} strokeWidth={dotted ? 2.5 : 2}>
@@ -224,11 +224,11 @@ function TraceChart({
 }
 
 // Two columns, with a crosshair that follows the pointer (or arrow keys) on all the charts at once. On the
-// left, the Base and Compare laps' driving lines on a map (DrivingLineMap: flat, or a 3D model built
+// left, the Target and Compare laps' driving lines on a map (DrivingLineMap: flat, or a 3D model built
 // from the laps) with the crosshair's position marked on each, and under it a steering wheel turned to both laps' angles at the crosshair,
 // with their gears (SteeringWheel). On the right, top to bottom: the time the Compare lap gains or loses
-// through one focus area (TimeDeltaTrace), brake and throttle for the Base (solid) and Compare (lighter,
-// dotted) laps on one chart (TraceChart), how far left or right of the Base lap's line the Compare lap was
+// through one focus area (TimeDeltaTrace), brake and throttle for the Target (solid) and Compare (lighter,
+// dotted) laps on one chart (TraceChart), how far left or right of the Target lap's line the Compare lap was
 // (DrivingLineDiffTrace) and their steering angle on one chart (SteeringTrace).
 // The columns stack when the container is narrower than SIDE_BY_SIDE_MIN_WIDTH, and between that and
 // STEERING_RIGHT_MIN_WIDTH (e.g. a laptop) the steering chart moves under the wheel to even out the columns.

@@ -2,12 +2,15 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useLanguage } from '@/components/LanguageProvider';
+import LiveIncidents from '@/components/LiveIncidents';
+import { steeringLabel } from '@/components/SteeringTrace';
+import { BASE_ARC_R, GearDisplay, WheelGraphic } from '@/components/SteeringWheel';
 import { useUnits } from '@/components/UnitsProvider';
 import type { InputSample } from '@/lib/liveRacing';
 import { SPEED_UNIT, speedFromMetersPerSecond } from '@/lib/units';
 
-// Live Racing's Driver Inputs panel: one driver's delta to their best lap, throttle, brake, steering wheel, gear and
-// speed, and a trace of the throttle and brake over the last few seconds. The collector records the inputs 20 times a
+// Live Racing's Driver Inputs panel: one driver's delta to their best lap, throttle, brake, steering wheel (Lap
+// Compare's, with an arc in the driver's color), gear (Lap Compare's gear display), speed and incidents, and a trace of the throttle and brake over the last few seconds. The collector records the inputs 20 times a
 // second and sends them twice a second, and the page fetches them once a second, so they're played back PLAYBACK_DELAY_MS
 // behind, smoothly, rather than jumping once a second.
 
@@ -55,22 +58,6 @@ function valuesAt(samples: TimedSample[], at: number): Omit<Shown, 'trace'> | nu
   };
 }
 
-function SteeringWheel({ radians }: { radians: number }) {
-  // + is to the left, counterclockwise
-  const degrees = (-radians * 180) / Math.PI;
-  return (
-    <svg viewBox="-50 -50 100 100" className="size-24" aria-hidden>
-      <g transform={`rotate(${degrees})`}>
-        <circle r={40} fill="none" className="stroke-foreground" strokeWidth={8} />
-        <path d="M -40 0 L -12 6 L 12 6 L 40 0" fill="none" className="stroke-foreground" strokeWidth={7} strokeLinejoin="round" />
-        <path d="M 0 8 L 0 40" className="stroke-foreground" strokeWidth={7} />
-        <circle r={12} className="fill-foreground" />
-        <rect x={-3} y={-46} width={6} height={12} rx={2} fill="#F59E0B" />
-      </g>
-    </svg>
-  );
-}
-
 function PedalBar({ label, value, color }: { label: string; value: number | null; color: string }) {
   const pct = value == null ? 0 : Math.round(value * 100);
   return (
@@ -107,7 +94,20 @@ function DeltaBar({ delta, label }: { delta: number | null; label: string }) {
   );
 }
 
-export default function LiveInputs({ driver, samples }: { driver: string; samples: TimedSample[] }) {
+export default function LiveInputs({
+  driver,
+  driverId,
+  color,
+  incidents,
+  samples,
+}: {
+  driver: string;
+  driverId: number;
+  // The driver's dot color, for the wheel's arc and the gear
+  color: string;
+  incidents: number | null;
+  samples: TimedSample[];
+}) {
   const { t, fmt } = useLanguage();
   const units = useUnits();
   const samplesRef = useRef(samples);
@@ -132,6 +132,7 @@ export default function LiveInputs({ driver, samples }: { driver: string; sample
     return () => cancelAnimationFrame(id);
   }, []);
 
+  const wheelDegrees = ((shown?.steering ?? 0) * 180) / Math.PI;
   const line = (key: 'throttle' | 'brake') =>
     shown?.trace.map((p, i) => `${i === 0 ? 'M' : 'L'}${(p.x * 100).toFixed(2)},${((1 - p[key]) * 40).toFixed(2)}`).join(' ') ?? '';
 
@@ -142,29 +143,38 @@ export default function LiveInputs({ driver, samples }: { driver: string; sample
         <span className="text-xs text-muted-foreground truncate">{fmt(t.liveRacing.inputsOf, { name: driver })}</span>
       </div>
       {!shown ? (
-        <p className="text-sm text-muted-foreground">{t.liveRacing.inputsWaiting}</p>
+        <>
+          <p className="text-sm text-muted-foreground">{t.liveRacing.inputsWaiting}</p>
+          <div className="flex justify-center">
+            <LiveIncidents driverId={driverId} incidents={incidents} />
+          </div>
+        </>
       ) : (
         <>
           <DeltaBar delta={shown.delta} label={t.liveRacing.deltaToBest} />
-          <div className="flex flex-wrap items-end justify-around gap-4">
+          <div className="flex items-end justify-center gap-3">
             <PedalBar label={t.liveRacing.throttle} value={shown.throttle} color={THROTTLE_COLOR} />
-            <PedalBar label={t.liveRacing.brake} value={shown.brake} color={BRAKE_COLOR} />
-            <div className="flex flex-col items-center gap-1">
-              <SteeringWheel radians={shown.steering ?? 0} />
-              <span className="text-xs font-semibold text-foreground tabular-nums">
-                {shown.steering == null ? '—' : `${Math.round((shown.steering * 180) / Math.PI)}°`}
-              </span>
+            <div className="flex flex-col items-center gap-1 flex-1 min-w-0 max-w-52">
+              <WheelGraphic
+                angle={wheelDegrees}
+                arcs={[{ key: 'live', color, r: BASE_ARC_R, angle: wheelDegrees }]}
+                readout={steeringLabel(wheelDegrees, t.charts)}
+                ariaLabel={`${t.liveRacing.steering} ${steeringLabel(wheelDegrees, t.charts)}`}
+                fill
+              />
               <span className="text-xs text-muted-foreground">{t.liveRacing.steering}</span>
             </div>
+            <PedalBar label={t.liveRacing.brake} value={shown.brake} color={BRAKE_COLOR} />
+          </div>
+          <div className="flex flex-wrap items-center justify-around gap-4">
+            <GearDisplay gear={shown.gear ?? NaN} label={t.liveRacing.gear} color={color} />
             <div className="flex flex-col items-center gap-1 min-w-16">
-              <span className="text-5xl font-bold text-foreground tabular-nums leading-none">
-                {shown.gear == null ? '—' : shown.gear === -1 ? 'R' : shown.gear === 0 ? 'N' : shown.gear}
+              <span className="text-3xl font-bold text-foreground tabular-nums leading-none">
+                {shown.speed == null ? '—' : Math.round(speedFromMetersPerSecond(shown.speed, units))}
               </span>
-              <span className="text-sm font-semibold text-foreground tabular-nums">
-                {shown.speed == null ? '—' : `${Math.round(speedFromMetersPerSecond(shown.speed, units))} ${SPEED_UNIT[units]}`}
-              </span>
-              <span className="text-xs text-muted-foreground">{t.liveRacing.gear}</span>
+              <span className="text-xs text-muted-foreground">{SPEED_UNIT[units]}</span>
             </div>
+            <LiveIncidents driverId={driverId} incidents={incidents} />
           </div>
           <svg viewBox="0 0 100 40" preserveAspectRatio="none" className="w-full h-20 rounded bg-muted/50 border border-border" aria-hidden>
             {[0.25, 0.5, 0.75].map((y) => (

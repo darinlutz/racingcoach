@@ -22,6 +22,10 @@ import { ensureUserSchema, getUserById, type User } from './users';
 // when they change, or when this server doesn't have them (needsField), and are kept with the driver's live state.
 // Anyone who may watch the driver sees their field, other drivers' names included, as anyone spectating in iRacing
 // would.
+//
+// Watchers can also message a driver (queueDriverMessage, the page's Message Driver box): the message waits here
+// until the driver's collector's next live update, whose answer carries it, and the collector says it in the
+// driver's In-Car AI Coach voice. Only collectors that say they take messages (acceptsMessages, from 1.53.0) get them.
 
 const lapSeconds = z.number().min(0).max(86_400).nullish();
 
@@ -97,6 +101,12 @@ export const liveUpdateSchema = z.object({
   incidents: z.number().int().min(0).max(10_000).nullish(),
   // Steering wheel angle in radians, + left
   steering: z.number().min(-20).max(20).nullish(),
+  // The session's time and laps left, and its laps in all; null when unlimited (from collectors from 1.53.0)
+  sessionTimeRemain: z.number().min(0).max(604_800).nullish(),
+  sessionLapsRemain: z.number().int().min(0).max(100_000).nullish(),
+  sessionLapsTotal: z.number().int().min(1).max(100_000).nullish(),
+  // The collector says watchers' messages to the driver (from 1.53.0)
+  acceptsMessages: z.boolean().nullish(),
   // The inputs since the last update (from collectors from 1.52.0)
   inputs: z.array(inputSampleSchema).max(200).nullish(),
   // The collector's approximate outline (meters east and north), sent while the track has no saved one
@@ -124,6 +134,15 @@ export type FieldCar = FieldCarUpdate & { details: FieldDriverDetails | null };
 
 export type LiveField = { subSessionId: number; myCarIdx: number | null; cars: FieldCar[] };
 
+// A watcher's message to the driver, waiting for their collector's next update
+type DriverMessage = { from: string; text: string; at: number };
+export const MAX_MESSAGE_CHARS = 200;
+// At most this many messages wait for a driver, a watcher sends one every MESSAGE_INTERVAL_MS, and an undelivered one
+// is dropped after MESSAGE_EXPIRE_MS (the collector stopped sending updates)
+const MAX_QUEUED_MESSAGES = 5;
+const MESSAGE_INTERVAL_MS = 2000;
+const MESSAGE_EXPIRE_MS = 60_000;
+
 type LiveEntry = {
   userId: number;
   driver: string;
@@ -138,6 +157,8 @@ type LiveEntry = {
   // The collector's approximate outline, and the track key it's for
   outline: TrackOutline | null;
   outlineTrackKey: string | null;
+  // Watchers' messages for the collector's next update
+  messages: DriverMessage[];
 };
 
 // After this long without an update a driver is shown as offline, and after EXPIRE_MS left out
@@ -148,9 +169,15 @@ const WATCHING_MS = 10_000;
 
 // Kept on globalThis so the dev server's reloads don't lose it
 const store = globalThis as unknown as {
-  liveRacing?: { entries: Map<number, LiveEntry>; viewers: Map<number, Map<number, number>> };
+  liveRacing?: {
+    entries: Map<number, LiveEntry>;
+    viewers: Map<number, Map<number, number>>;
+    // When each watcher last sent a driver a message
+    messagedAt?: Map<number, number>;
+  };
 };
-const live = (store.liveRacing ??= { entries: new Map(), viewers: new Map() });
+const live = (store.liveRacing ??= { entries: new Map<number, LiveEntry>(), viewers: new Map<number, Map<number, number>>() });
+const messagedAt = (live.messagedAt ??= new Map<number, number>());
 
 function expire(now: number) {
   for (const [userId, entry] of live.entries) if (now - entry.receivedAt > EXPIRE_MS) live.entries.delete(userId);
@@ -162,7 +189,7 @@ export function recordLiveUpdate(
   user: Pick<User, 'id' | 'userName' | 'role'>,
   update: LiveUpdate,
   savedOutline: boolean
-): { watchers: number; needsOutline: boolean; needsField: boolean } {
+): { watchers: number; needsOutline: boolean; needsField: boolean; messages: { from: string; text: string }[] } {
   const now = Date.now();
   expire(now);
   const previous = live.entries.get(user.id);
@@ -204,11 +231,17 @@ export function recordLiveUpdate(
     receivedAt: now,
     outline: kept,
     outlineTrackKey: kept ? trackKey : null,
+    // delivered with this answer
+    messages: [],
   });
+  const messages = update.acceptsMessages
+    ? (previous?.messages ?? []).filter((m) => now - m.at <= MESSAGE_EXPIRE_MS).map(({ from, text }) => ({ from, text }))
+    : [];
   return {
     watchers: watcherCount(user.id, now),
     needsOutline: !!trackKey && !savedOutline && !kept,
     needsField: !!field && fieldSubSession === null,
+    messages,
   };
 }
 
@@ -282,6 +315,29 @@ export async function readLiveDrivers(viewer: Pick<User, 'id' | 'role'>, inputsF
     });
   }
   return drivers.sort((a, b) => Number(b.isMe) - Number(a.isMe) || a.driver.localeCompare(b.driver));
+}
+
+// A watcher's message to a live driver, said by their collector in the driver's In-Car AI Coach voice once its next
+// update arrives (within a second in the car, a few seconds otherwise)
+export async function queueDriverMessage(
+  viewer: Pick<User, 'id' | 'role' | 'userName'>,
+  driverId: number,
+  text: string
+): Promise<'queued' | 'notLive' | 'notAllowed' | 'collectorTooOld' | 'tooMany'> {
+  const now = Date.now();
+  expire(now);
+  const allowed = await watchableDrivers(viewer);
+  if (allowed !== 'all' && !allowed.has(driverId)) return 'notAllowed';
+  const entry = live.entries.get(driverId);
+  if (!entry || now - entry.receivedAt > STALE_MS) return 'notLive';
+  if (!entry.update.acceptsMessages) return 'collectorTooOld';
+  entry.messages = entry.messages.filter((m) => now - m.at <= MESSAGE_EXPIRE_MS);
+  if (now - (messagedAt.get(viewer.id) ?? 0) < MESSAGE_INTERVAL_MS || entry.messages.length >= MAX_QUEUED_MESSAGES) {
+    return 'tooMany';
+  }
+  messagedAt.set(viewer.id, now);
+  entry.messages.push({ from: viewer.userName, text: text.slice(0, MAX_MESSAGE_CHARS), at: now });
+  return 'queued';
 }
 
 // A driver's approximate outline of the track with this key, if this viewer may watch them

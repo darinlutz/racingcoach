@@ -476,8 +476,12 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
 }
 
 /// <summary>POST /api/collector/live: how many others are watching the driver, whether the site wants the collector's
-/// approximate outline of the track, and whether it has a saved one.</summary>
-internal sealed record LiveAnswer(int Watchers, bool NeedsOutline, bool SavedOutline, bool NeedsField = false);
+/// approximate outline of the track, whether it has a saved one, and watchers' messages to say to the driver.</summary>
+internal sealed record LiveAnswer(int Watchers, bool NeedsOutline, bool SavedOutline, bool NeedsField = false,
+    List<LiveMessage>? Messages = null);
+
+/// <summary>A watcher's message to the driver from the website's Live Racing page, said in the coach voice.</summary>
+internal sealed record LiveMessage(string From, string Text);
 
 /// <summary>GET /api/collector/track-outline: the track's name, iRacing's length (null when unknown), its outline
 /// (null until a clean lap of it has been uploaded with track positions) and its focus areas.</summary>

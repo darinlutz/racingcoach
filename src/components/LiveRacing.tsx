@@ -2,8 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLanguage } from '@/components/LanguageProvider';
+import LiveDriverMessage from '@/components/LiveDriverMessage';
 import LiveInputs, { type TimedSample } from '@/components/LiveInputs';
-import LiveLeaderboard, { type LeaderboardDriver } from '@/components/LiveLeaderboard';
+import LiveLeaderboard, { type LeaderboardDriver, runningOrder } from '@/components/LiveLeaderboard';
+import LiveSessionStatus from '@/components/LiveSessionStatus';
 import LiveTrackMap, { type MapCar } from '@/components/LiveTrackMap';
 import { useUnits } from '@/components/UnitsProvider';
 import type { LiveDriver, LiveField } from '@/lib/liveRacing';
@@ -12,11 +14,12 @@ import { reportRateLimit } from '@/lib/rateLimitClient';
 import type { TrackOutline } from '@/lib/trackOutlines';
 import { METERS_PER_FOOT, SPEED_UNIT, speedFromMetersPerSecond } from '@/lib/units';
 
-// The Live Racing page's tracks: each track someone the user may watch is driving, as a map with a dot per car, and
-// beside it each of those drivers' lap details; and, from collectors that send it, every other car in their session
-// on the map and in a leaderboard under it. One driver (the user, until they pick another in the list) has the
-// Driver Inputs panel, and with Announce lap times on, their lap times are said in the site's ElevenLabs voice as
-// each lap ends (POST /api/live/lap-speech). Asks GET /api/live every second while the page is showing, and each
+// The Live Racing page's tracks: each track someone the user may watch is driving, in three columns. On the left the
+// session's lap and time remaining over a leaderboard of every car in it (from collectors that send the field); in
+// the middle the map, with a dot per car, and under it each watched driver's lap details; on the right one driver's
+// (the user, until they pick another in the list) Driver Inputs and incidents, Announce lap times (said in the site's
+// ElevenLabs voice as each lap ends, POST /api/live/lap-speech) and Message Driver, which their In-Car AI Coach says
+// in their car (POST /api/live/message). Narrower than xl, the columns stack: map, inputs, leaderboard. Asks GET /api/live every second while the page is showing, and each
 // track's map from GET /api/live/outline (again every minute while it's missing or approximate, as an exact one
 // appears once a lap with track positions uploads).
 
@@ -296,121 +299,157 @@ export default function LiveRacing() {
             });
           }
         }
+        // The lap and time left: each session's, from the driver whose field it is, else the group's first driver's
+        const statusOf = (from: Received, field: LiveField | null) => {
+          const leader = field ? runningOrder(field.cars)[0] : undefined;
+          return (
+            <LiveSessionStatus
+              lap={leader?.lap ?? from.lap ?? null}
+              totalLaps={from.sessionLapsTotal ?? null}
+              timeRemain={from.sessionTimeRemain ?? null}
+              sampledAt={from.sampledAt}
+              counting={!from.offline}
+            />
+          );
+        };
+        const focusedHere = focused && group.includes(focused) ? focused : null;
         return (
           <div key={key} className="bg-card rounded-lg border border-border overflow-hidden">
             <div className="px-4 py-3 border-b border-border">
               <h2 className="text-lg font-semibold text-foreground">{track?.name ?? group[0].track}</h2>
             </div>
-            <div className="grid lg:grid-cols-3">
-              <div className="lg:col-span-2 p-4">
-                <div className="aspect-[4/3] w-full">
-                  <LiveTrackMap
-                    outline={track?.outline ?? null}
-                    areas={track?.areas ?? []}
-                    cars={cars}
-                    startFinishLabel={t.liveRacing.startFinish}
-                    lengthMeters={track?.lengthFeet ? track.lengthFeet * METERS_PER_FOOT : null}
-                  />
+            <div className="grid xl:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,1fr)]">
+              <div className="order-3 xl:order-1 border-t xl:border-t-0 xl:border-r border-border divide-y divide-border">
+                {sessions.length === 0 && <div className="p-3">{statusOf(group[0], null)}</div>}
+                {sessions.map((session) => {
+                  const ours = driversInSession(group, session);
+                  const racingCoachDrivers = new Map<number, LeaderboardDriver>(
+                    [...ours].map(([idx, d]) => [idx, { name: d.driver, color: colors.get(d.userId) ?? COLORS[0], isMe: d.isMe }])
+                  );
+                  return (
+                    <div key={session.key} className="py-3 space-y-3">
+                      <div className="px-3">{statusOf(session.from, session.field)}</div>
+                      <div className="px-3 flex items-baseline gap-2">
+                        <h3 className="text-sm font-semibold text-foreground">{t.liveRacing.leaderboard}</h3>
+                        <span className="text-xs text-muted-foreground">
+                          {[session.from.sessionType, fmt(t.liveRacing.cars, { n: session.field.cars.length })].filter(Boolean).join(' · ')}
+                        </span>
+                      </div>
+                      <LiveLeaderboard field={session.field} isRace={session.isRace} racingCoachDrivers={racingCoachDrivers} />
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="order-1 xl:order-2 min-w-0">
+                <div className="p-4">
+                  <div className="aspect-[4/3] w-full">
+                    <LiveTrackMap
+                      outline={track?.outline ?? null}
+                      areas={track?.areas ?? []}
+                      cars={cars}
+                      startFinishLabel={t.liveRacing.startFinish}
+                      lengthMeters={track?.lengthFeet ? track.lengthFeet * METERS_PER_FOOT : null}
+                    />
+                  </div>
+                  {(!track?.outline || track.approximate) && (
+                    <p className="mt-2 text-xs text-muted-foreground">{track?.outline ? t.liveRacing.approximateMap : t.liveRacing.noMap}</p>
+                  )}
                 </div>
-                {(!track?.outline || track.approximate) && (
-                  <p className="mt-2 text-xs text-muted-foreground">{track?.outline ? t.liveRacing.approximateMap : t.liveRacing.noMap}</p>
+                <ul className="grid sm:grid-cols-2 border-t border-border divide-y sm:divide-y-0 divide-border">
+                  {group.map((d) => (
+                    <li
+                      key={d.userId}
+                      onClick={() => setPicked(d.userId)}
+                      title={t.liveRacing.showInputs}
+                      className={`px-4 py-3 cursor-pointer sm:border-b border-border ${d.offline ? 'opacity-60' : ''} ${
+                        d.userId === focus ? 'bg-primary/10' : 'hover:bg-muted/40'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="size-3 rounded-full shrink-0" style={{ backgroundColor: colors.get(d.userId) }} />
+                        <span className="font-semibold text-foreground truncate">{d.driver}</span>
+                        {d.isMe && <span className="text-xs text-primary font-semibold">{t.liveRacing.you}</span>}
+                        <span className="ml-auto text-xs text-muted-foreground">{status(d)}</span>
+                      </div>
+                      <p className="mt-0.5 text-sm text-muted-foreground truncate">
+                        {[d.car, d.sessionType, d.lap != null && d.lap > 0 ? fmt(t.liveRacing.lap, { n: d.lap }) : null,
+                          d.position ? fmt(t.liveRacing.position, { n: d.position }) : null].filter(Boolean).join(' · ')}
+                      </p>
+                      <dl className="mt-2 grid grid-cols-3 gap-x-3 gap-y-1 text-sm">
+                        <div>
+                          <dt className="text-xs text-muted-foreground">{t.liveRacing.speed}</dt>
+                          <dd className="font-semibold text-foreground tabular-nums">
+                            {d.speed != null && d.onTrack ? `${Math.round(speedFromMetersPerSecond(d.speed, units))} ${SPEED_UNIT[units]}` : '—'}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-xs text-muted-foreground">{t.liveRacing.gear}</dt>
+                          <dd className="font-semibold text-foreground">
+                            {d.gear == null || !d.onTrack ? '—' : d.gear === -1 ? 'R' : d.gear === 0 ? 'N' : d.gear}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-xs text-muted-foreground">{t.liveRacing.vsBest}</dt>
+                          <dd
+                            className={`font-semibold tabular-nums ${
+                              d.deltaToBest == null || !d.bestLapTime || d.bestLapTime <= 0
+                                ? 'text-foreground'
+                                : d.deltaToBest > 0
+                                  ? 'text-red-400'
+                                  : 'text-green-500'
+                            }`}
+                          >
+                            {d.deltaToBest == null || !d.bestLapTime || d.bestLapTime <= 0
+                              ? '—'
+                              : `${d.deltaToBest > 0 ? '+' : d.deltaToBest < 0 ? '−' : ''}${Math.abs(d.deltaToBest).toFixed(3)}`}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-xs text-muted-foreground">{t.liveRacing.current}</dt>
+                          <dd className="font-mono text-foreground">{lapTime(d.currentLapTime)}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-xs text-muted-foreground">{t.liveRacing.last}</dt>
+                          <dd className="font-mono text-foreground">{lapTime(d.lastLapTime)}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-xs text-muted-foreground">{t.liveRacing.best}</dt>
+                          <dd className="font-mono text-foreground">{lapTime(d.bestLapTime)}</dd>
+                        </div>
+                      </dl>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="order-2 xl:order-3 border-t xl:border-t-0 xl:border-l border-border divide-y divide-border">
+                {focusedHere ? (
+                  <>
+                    <LiveInputs
+                      driver={focusedHere.isMe ? t.liveRacing.you : focusedHere.driver}
+                      driverId={focusedHere.userId}
+                      color={colors.get(focusedHere.userId) ?? COLORS[0]}
+                      incidents={focusedHere.incidents ?? null}
+                      samples={samples}
+                    />
+                    <div className="px-4 py-3">
+                      <label className="inline-flex items-center gap-2 text-sm text-foreground cursor-pointer">
+                        <input type="checkbox" checked={announce} onChange={(e) => toggleAnnounce(e.target.checked)} />
+                        {t.liveRacing.announceLaps}
+                      </label>
+                      {announceError && <p className="mt-1 text-xs text-red-300">{announceError}</p>}
+                    </div>
+                    <LiveDriverMessage
+                      key={focusedHere.userId}
+                      driverId={focusedHere.userId}
+                      driver={focusedHere.driver}
+                      disabled={!!focusedHere.offline}
+                    />
+                  </>
+                ) : (
+                  <p className="px-4 py-3 text-sm text-muted-foreground">{t.liveRacing.showInputs}</p>
                 )}
               </div>
-              <ul className="border-t lg:border-t-0 lg:border-l border-border divide-y divide-border">
-                {group.map((d) => (
-                  <li
-                    key={d.userId}
-                    onClick={() => setPicked(d.userId)}
-                    title={t.liveRacing.showInputs}
-                    className={`px-4 py-3 cursor-pointer ${d.offline ? 'opacity-60' : ''} ${
-                      d.userId === focus ? 'bg-primary/10' : 'hover:bg-muted/40'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="size-3 rounded-full shrink-0" style={{ backgroundColor: colors.get(d.userId) }} />
-                      <span className="font-semibold text-foreground truncate">{d.driver}</span>
-                      {d.isMe && <span className="text-xs text-primary font-semibold">{t.liveRacing.you}</span>}
-                      <span className="ml-auto text-xs text-muted-foreground">{status(d)}</span>
-                    </div>
-                    <p className="mt-0.5 text-sm text-muted-foreground truncate">
-                      {[d.car, d.sessionType, d.lap != null && d.lap > 0 ? fmt(t.liveRacing.lap, { n: d.lap }) : null,
-                        d.position ? fmt(t.liveRacing.position, { n: d.position }) : null].filter(Boolean).join(' · ')}
-                    </p>
-                    <dl className="mt-2 grid grid-cols-3 gap-x-3 gap-y-1 text-sm">
-                      <div>
-                        <dt className="text-xs text-muted-foreground">{t.liveRacing.speed}</dt>
-                        <dd className="font-semibold text-foreground tabular-nums">
-                          {d.speed != null && d.onTrack ? `${Math.round(speedFromMetersPerSecond(d.speed, units))} ${SPEED_UNIT[units]}` : '—'}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="text-xs text-muted-foreground">{t.liveRacing.gear}</dt>
-                        <dd className="font-semibold text-foreground">
-                          {d.gear == null || !d.onTrack ? '—' : d.gear === -1 ? 'R' : d.gear === 0 ? 'N' : d.gear}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="text-xs text-muted-foreground">{t.liveRacing.vsBest}</dt>
-                        <dd
-                          className={`font-semibold tabular-nums ${
-                            d.deltaToBest == null || !d.bestLapTime || d.bestLapTime <= 0
-                              ? 'text-foreground'
-                              : d.deltaToBest > 0
-                                ? 'text-red-400'
-                                : 'text-green-500'
-                          }`}
-                        >
-                          {d.deltaToBest == null || !d.bestLapTime || d.bestLapTime <= 0
-                            ? '—'
-                            : `${d.deltaToBest > 0 ? '+' : d.deltaToBest < 0 ? '−' : ''}${Math.abs(d.deltaToBest).toFixed(3)}`}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="text-xs text-muted-foreground">{t.liveRacing.current}</dt>
-                        <dd className="font-mono text-foreground">{lapTime(d.currentLapTime)}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-xs text-muted-foreground">{t.liveRacing.last}</dt>
-                        <dd className="font-mono text-foreground">{lapTime(d.lastLapTime)}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-xs text-muted-foreground">{t.liveRacing.best}</dt>
-                        <dd className="font-mono text-foreground">{lapTime(d.bestLapTime)}</dd>
-                      </div>
-                    </dl>
-                  </li>
-                ))}
-              </ul>
             </div>
-            {focused && group.includes(focused) && (
-              <div className="border-t border-border">
-                <LiveInputs driver={focused.isMe ? t.liveRacing.you : focused.driver} samples={samples} />
-                <div className="px-4 pb-3 -mt-1">
-                  <label className="inline-flex items-center gap-2 text-sm text-foreground cursor-pointer">
-                    <input type="checkbox" checked={announce} onChange={(e) => toggleAnnounce(e.target.checked)} />
-                    {t.liveRacing.announceLaps}
-                  </label>
-                  {announceError && <p className="mt-1 text-xs text-red-300">{announceError}</p>}
-                </div>
-              </div>
-            )}
-            {sessions.map((session) => {
-              const ours = driversInSession(group, session);
-              const racingCoachDrivers = new Map<number, LeaderboardDriver>(
-                [...ours].map(([idx, d]) => [idx, { name: d.driver, color: colors.get(d.userId) ?? COLORS[0], isMe: d.isMe }])
-              );
-              return (
-                <div key={session.key} className="border-t border-border">
-                  <div className="px-4 py-2 flex items-baseline gap-2">
-                    <h3 className="text-sm font-semibold text-foreground">{t.liveRacing.leaderboard}</h3>
-                    <span className="text-xs text-muted-foreground">
-                      {[session.from.sessionType, fmt(t.liveRacing.cars, { n: session.field.cars.length })].filter(Boolean).join(' · ')}
-                    </span>
-                  </div>
-                  <LiveLeaderboard field={session.field} isRace={session.isRace} racingCoachDrivers={racingCoachDrivers} />
-                </div>
-              );
-            })}
           </div>
         );
       })}

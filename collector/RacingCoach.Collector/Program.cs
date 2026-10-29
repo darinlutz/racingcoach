@@ -50,6 +50,8 @@ namespace RacingCoach.Collector;
     TelemetryVar.WindDir,
     TelemetryVar.SessionTimeRemain,
     TelemetryVar.SessionLapsRemainEx,
+    // with the two above, sent to Live Racing (the session's lap and time remaining)
+    TelemetryVar.SessionLapsTotal,
     TelemetryVar.LapCurrentLapTime,
     TelemetryVar.LapLastLapTime,
     TelemetryVar.LapBestLapTime,

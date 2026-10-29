@@ -143,6 +143,23 @@ body {
   background: var(--primary);
 }
 
+/* Live Racing's incident count when it goes up: big, flashing three times, then back to normal (LiveRacing.tsx) */
+@keyframes incident-flash {
+  0% { transform: scale(1); opacity: 1; }
+  10% { transform: scale(2.2); opacity: 1; }
+  22% { opacity: 0.15; }
+  34% { opacity: 1; }
+  46% { opacity: 0.15; }
+  58% { opacity: 1; }
+  70% { opacity: 0.15; }
+  82% { transform: scale(2.2); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@utility animate-incident-flash {
+  animation: incident-flash 1.4s ease-in-out;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   * { transition: none !important; }

@@ -32,6 +32,9 @@ internal sealed record FieldDriver(int CarIdx, string Name, string? Number, stri
 /// Each update also carries the field: every car in the session (iRacing's CarIdx telemetry covers all of them), so
 /// the website shows the whole race, not just RacingCoach.app drivers. The drivers' names, cars and classes change
 /// rarely, so they're sent only when they change or the site asks for them (needsField).
+///
+/// Watchers can message the driver from the website (Message Driver): the answer to an update carries the messages,
+/// and they're said in the driver's In-Car AI Coach voice.
 /// </summary>
 internal sealed class LiveRacing(Func<RacingCoachApi?> api, Action<string> log)
 {
@@ -45,6 +48,9 @@ internal sealed class LiveRacing(Func<RacingCoachApi?> api, Action<string> log)
     // How often to ask again for the site's outline while there isn't one
     private static readonly TimeSpan OutlineRetry = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(5);
+    // iRacing's SessionTimeRemain and SessionLapsRemainEx/SessionLapsTotal for a session without a limit
+    private const double UnlimitedSeconds = 86400 * 7 - 1;
+    private const int UnlimitedLaps = 32767;
 
     private readonly object _lock = new();
     private TelemetryData _latest;
@@ -374,6 +380,10 @@ internal sealed class LiveRacing(Func<RacingCoachApi?> api, Action<string> log)
                 position = d.PlayerCarPosition is >= 0 and <= 1000 ? d.PlayerCarPosition : null,
                 incidents = d.PlayerCarMyIncidentCount is >= 0 ? d.PlayerCarMyIncidentCount : null,
                 steering = d.SteeringWheelAngle is { } steer ? Math.Round(Math.Clamp(steer, -20, 20), 3) : (double?)null,
+                sessionTimeRemain = d.SessionTimeRemain is >= 0 and < UnlimitedSeconds and var remain ? Math.Round(remain, 1) : (double?)null,
+                sessionLapsRemain = d.SessionLapsRemainEx is >= 0 and < UnlimitedLaps and var lapsLeft ? lapsLeft : (int?)null,
+                sessionLapsTotal = d.SessionLapsTotal is > 0 and < UnlimitedLaps and var lapsTotal ? lapsTotal : (int?)null,
+                acceptsMessages = true,
                 inputs = TakeInputs(),
                 outline = _sendOutline && _map is { Exact: false } map
                     ? new { kind = "meters", points = map.Points.Select(p => new[] { p.X, p.Y }).ToArray() }
@@ -394,6 +404,11 @@ internal sealed class LiveRacing(Func<RacingCoachApi?> api, Action<string> log)
             Problem = null;
             Watchers = answer.Watchers;
             _clearedFor = null;
+            foreach (var message in answer.Messages ?? [])
+            {
+                log($"Live Racing: message from {message.From}: {message.Text}");
+                Voice.Say(message.Text);
+            }
             lock (_lock)
             {
                 _sendOutline = answer.NeedsOutline;

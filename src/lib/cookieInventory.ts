@@ -126,13 +126,13 @@ export const COOKIE_INVENTORY: InventoryItem[] = [
     purpose: 'Keeps a paired TV signed in to RacingCoach.app TV, for watching Live Racing and its commentary only. Holds a random token; the server stores only a hash of it.',
   },
   {
-    name: 'tv.screenEdges, tv.commentary, tv.leadAnnouncer, tv.colorAnnouncer, tv.volume, tv.muted',
+    name: 'tv.screenEdges, tv.commentary, tv.leadAnnouncer, tv.colorAnnouncer, tv.volume, tv.muted, tv.satellite',
     kind: 'localStorage',
     category: 'necessary',
     provider: 'RacingCoach.app',
     firstParty: true,
     duration: 'Until you clear your browser data',
-    purpose: 'On a TV using RacingCoach.app TV: the screen edges, commentary, announcer, volume and mute choices made with the remote.',
+    purpose: 'On a TV using RacingCoach.app TV: the screen edges, commentary, announcer, volume, mute and satellite map choices made with the remote.',
   },
   {
     name: 'visitor_id',

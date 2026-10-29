@@ -50,12 +50,15 @@ export default function TvApp({
     } catch {
       // storage blocked: the default margin
     }
-    // The page under the stage doesn't scroll
+    // The page under the stage doesn't scroll, and the shared parts (the map, the wheel) take Dark Mode's colors,
+    // whatever theme this browser last had
     const html = document.documentElement;
-    const before = html.style.overflow;
+    const before = { overflow: html.style.overflow, theme: html.dataset.theme };
     html.style.overflow = 'hidden';
+    html.dataset.theme = 'dark';
     return () => {
-      html.style.overflow = before;
+      html.style.overflow = before.overflow;
+      if (before.theme) html.dataset.theme = before.theme;
     };
   }, []);
 

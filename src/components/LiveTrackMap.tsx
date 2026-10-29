@@ -106,6 +106,8 @@ export default function LiveTrackMap({
   startFinishLabel,
   lengthMeters,
   imageryOpacity,
+  maxFps,
+  sharpen = true,
 }: {
   outline: TrackOutline | null;
   areas: Area[];
@@ -115,6 +117,10 @@ export default function LiveTrackMap({
   lengthMeters: number | null;
   // The satellite imagery's opacity (0-1, 0 hides it), under an exact outline
   imageryOpacity: number;
+  // At most this many redraws a second (every frame without it): TV Broadcast Mode's low-powered TVs
+  maxFps?: number;
+  // Sharpen the imagery (an SVG filter, costly to redraw on low-powered TVs)
+  sharpen?: boolean;
 }) {
   const { points, mercator } = useMemo(
     () => (outline ? planePoints(outline) : { points: placeholderPoints(), mercator: null }),
@@ -140,11 +146,16 @@ export default function LiveTrackMap({
     lengthRef.current = length;
   }, [cars, length]);
   const [shown, setShown] = useState<Record<string, number>>({});
+  const frameMs = maxFps ? 1000 / maxFps : 0;
   useEffect(() => {
     const positions = new Map<string, number>();
     let last = 0;
     let id = 0;
     const tick = (now: number) => {
+      if (frameMs && last && now - last < frameMs - 1) {
+        id = requestAnimationFrame(tick);
+        return;
+      }
       const dt = last ? Math.min((now - last) / 1000, 0.25) : 0;
       last = now;
       const seen = new Set<string>();
@@ -168,7 +179,7 @@ export default function LiveTrackMap({
     };
     id = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(id);
-  }, []);
+  }, [frameMs]);
 
   // The imagery: the tiles covering all the SVG shows (wider or taller than the viewBox when its shape differs), at
   // the zoom its size on screen needs, placed in the outline's meters
@@ -218,11 +229,13 @@ export default function LiveTrackMap({
       <svg ref={svgRef} viewBox={view.box} className="w-full h-full" role="img" aria-label={cars.map((c) => c.label).join(', ')}>
         {imagery && (
           <>
-            <filter id={sharpenId} colorInterpolationFilters="sRGB">
-              <feConvolveMatrix order="3" kernelMatrix={SHARPEN_KERNEL} edgeMode="duplicate" preserveAlpha="true" />
-            </filter>
+            {sharpen && (
+              <filter id={sharpenId} colorInterpolationFilters="sRGB">
+                <feConvolveMatrix order="3" kernelMatrix={SHARPEN_KERNEL} edgeMode="duplicate" preserveAlpha="true" />
+              </filter>
+            )}
             {/* One layer, so the filter sharpens across tile seams rather than tile by tile */}
-            <g filter={`url(#${sharpenId})`} opacity={imageryOpacity}>
+            <g filter={sharpen ? `url(#${sharpenId})` : undefined} opacity={imageryOpacity}>
               {imagery.map((tile) => (
                 <image key={tile.key} href={tile.href} x={tile.x} y={tile.y} width={tile.size} height={tile.size}
                   preserveAspectRatio="none" onError={(event) => (event.currentTarget.style.visibility = 'hidden')} />

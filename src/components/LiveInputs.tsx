@@ -17,14 +17,14 @@ import { SPEED_UNIT, speedFromMetersPerSecond } from '@/lib/units';
 // A sample: its time on this page's clock (performance.now()) and its values
 export type TimedSample = { at: number; sample: InputSample };
 
-const PLAYBACK_DELAY_MS = 1600;
+export const PLAYBACK_DELAY_MS = 1600;
 const TRACE_MS = 8000;
 // The delta bar's full width, each way, in seconds
-const DELTA_RANGE_S = 1;
-const THROTTLE_COLOR = '#22C55E';
-const BRAKE_COLOR = '#EF4444';
+export const DELTA_RANGE_S = 1;
+export const THROTTLE_COLOR = '#22C55E';
+export const BRAKE_COLOR = '#EF4444';
 
-type Shown = {
+export type Shown = {
   throttle: number | null;
   brake: number | null;
   steering: number | null;
@@ -37,8 +37,8 @@ type Shown = {
 
 const lerp = (a: number | null, b: number | null, t: number) => (a == null || b == null ? (b ?? a) : a + (b - a) * t);
 
-// The values at this time, between the samples either side of it
-function valuesAt(samples: TimedSample[], at: number): Omit<Shown, 'trace'> | null {
+// The values at this time, between the samples either side of it (also TV Broadcast Mode's, TvInputs)
+export function valuesAt(samples: TimedSample[], at: number): Omit<Shown, 'trace'> | null {
   if (samples.length === 0) return null;
   let i = samples.findIndex((s) => s.at > at);
   if (i === -1) i = samples.length;

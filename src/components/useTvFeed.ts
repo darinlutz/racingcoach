@@ -25,8 +25,12 @@ async function stillPaired(): Promise<boolean> {
   }
 }
 
-export function useTvFeed(driver: number | null, onUnpaired: () => void): { state: TvState | null; status: FeedStatus } {
-  const [state, setState] = useState<TvState | null>(null);
+// A picture of the race with when this page received it (performance.now()), which the map's dots and the inputs
+// count their ages from
+export type ReceivedTvState = TvState & { receivedAt: number };
+
+export function useTvFeed(driver: number | null, onUnpaired: () => void): { state: ReceivedTvState | null; status: FeedStatus } {
+  const [state, setState] = useState<ReceivedTvState | null>(null);
   const [status, setStatus] = useState<FeedStatus>('connecting');
   const unpaired = useRef(onUnpaired);
   useEffect(() => {
@@ -46,7 +50,7 @@ export function useTvFeed(driver: number | null, onUnpaired: () => void): { stat
 
     const receive = (text: string) => {
       try {
-        setState(JSON.parse(text) as TvState);
+        setState({ ...(JSON.parse(text) as TvState), receivedAt: performance.now() });
       } catch {
         // a broken message: the next one replaces it
       }

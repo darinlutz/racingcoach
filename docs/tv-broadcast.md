@@ -30,8 +30,12 @@ iRacing ─► Collector ─POST /api/collector/live─► liveRacing.ts (memory
 | `src/app/tv/link/page.tsx`, `src/components/TvLink.tsx` | The TV Link page: type the TV's code, list and unpair TVs (signed-in users) |
 | `src/components/TvApp.tsx` | The 1920×1080 stage scaled to the window, with the screen edges (overscan) margin |
 | `src/components/TvPairing.tsx` | The pairing code, its countdown, a new code when it expires |
-| `src/components/TvBroadcast.tsx` | The broadcast: header, leaderboard, followed driver, announcer lower third, race events, controls, Settings |
-| `src/components/TvLeaderboard.tsx`, `TvEventFeed.tsx` | The leaderboard (memoized rows) and event feed |
+| `src/components/TvBroadcast.tsx` | The broadcast: header; on the left the leaderboard (15 rows) with the announcer lower third and race events under it; on the right the followed driver, the map and the inputs strip; controls; Settings |
+| `src/components/TvLeaderboard.tsx` | The leaderboard: Live Racing's look (country flags, car maker logos, watched drivers' dots, fastest-lap stopwatch, You) at TV size, memoized rows |
+| `src/components/TvMap.tsx` | The track map: Live Racing's `LiveTrackMap` at 20 redraws a second, no imagery sharpening, satellite on/off in Settings |
+| `src/components/TvInputs.tsx` | The followed driver's inputs (delta, pedals, wheel, gear, speed, trace) at TV size, 20 redraws a second |
+| `src/components/TvEventFeed.tsx` | The race events |
+| `src/lib/liveMapTrack.ts` | A map's track (outline, length, focus areas), shared by `/api/live/outline` and `/api/tv/outline` |
 | `src/components/useTvFeed.ts` | SSE with watchdog and reconnects; falls back to polling |
 | `src/components/useTvCommentary.ts` | Asks for commentary, queues and plays it, hands off with the In-Car AI Coach |
 | `src/components/useTvRemote.ts`, `src/lib/tvRemote.ts` | D-pad navigation, Back, Play/Pause |
@@ -53,6 +57,8 @@ iRacing ─► Collector ─POST /api/collector/live─► liveRacing.ts (memory
 | `GET /api/tv/session`, `DELETE /api/tv/session` | `tv_session` | Whether the TV is paired; the TV unpairs itself |
 | `GET /api/tv/stream?driver=` | `tv_session` | Server-Sent Events: the race on change (checked each second), `ping` every 15 s, `unpaired` when revoked; ends after 10 min and the browser reconnects |
 | `GET /api/tv/state?driver=` | `tv_session` | The same picture once (polling fallback) |
+| `GET /api/tv/outline?key=&driver=` | `tv_session` | The map's track, as `/api/live/outline` gives the Live Racing page |
+| `GET /api/map-tiles`, `/api/map-tiles/[z]/[x]/[y]` | site session or `tv_session` | Satellite imagery settings and tiles (existing routes, now also open to paired TVs) |
 | `POST /api/tv/announcer` | `tv_session` | `{ driverId, after, lead, color }` → `{ seq, lines: [{ speaker, text, audio }] }`, audio base64 MP3. Rate limited as `raceAnnouncer`, against the paired account |
 | `POST /api/tv/announcing` | `tv_session` | Holds the account's own In-Car AI Coach while a line plays |
 
@@ -79,6 +85,17 @@ Created by `ensureUserSchema` (`src/lib/users.ts`) on first use; no migration st
 - Revocation: the TV Link page's Unpair ends the session at once; an open stream notices within 15 s and the TV goes
   back to its pairing screen. Expiry: 30 days.
 - ElevenLabs, OpenAI and Google keys stay on the server; the TV receives finished MP3 audio only.
+
+## Map, inputs and leaderboard on a low-powered TV
+
+- The map and the inputs are the Live Racing page's, but redrawn at most 20 times a second instead of every frame,
+  and the satellite imagery isn't sharpened (an SVG filter that is costly to redraw). The satellite imagery can be
+  turned off in Settings if the TV struggles.
+- Each picture of the race carries the map's dots with how old their positions are; the TV moves them on between
+  pictures at each car's pace, as the Live Racing map does.
+- Each picture carries only the last 3 seconds of the followed driver's inputs (rounded); the TV keeps 12 seconds
+  itself and plays them back 1.6 s behind live, like the Live Racing page.
+- A picture is about 10-20 KB with a full field, once a second.
 
 ## Commentary behaviour
 
@@ -177,6 +194,20 @@ practice or race session; an online race tests the leaderboard and race events b
       afresh, with nothing from the previous session.
 - [ ] Close iRacing: after ~15 s the TV says the driver is offline; restart it and the TV picks them up again.
 - [ ] With two RacingCoach.app drivers you can watch live, *Next driver* switches who the TV follows.
+
+**Map, inputs and leaderboard**
+- [ ] The map shows the track (over satellite imagery where it's set up), your car as a large dot in your color and
+      the other cars as small numbered dots in their class colors, moving smoothly round the lap, in step with iRacing.
+- [ ] On a track with no saved map yet, the map is a dashed approximate outline (or a placeholder oval) with a note.
+- [ ] Settings → Satellite map → Off hides the imagery; the choice survives a reload.
+- [ ] The Driver Inputs panel shows the delta to best, throttle and brake bars, wheel, gear and speed (in your
+      Preferred Units), about 2 s behind live, moving smoothly; the trace scrolls.
+- [ ] *Next driver* moves the map highlight, the inputs and the leaderboard highlight to the new driver.
+- [ ] The leaderboard shows 15 rows; further back than P15, it shows the first 7 and the cars around you.
+- [ ] The leaderboard shows each driver's country flag and car maker logo, the purple stopwatch on the fastest lap,
+      watched drivers' colored dots, and "You" on your row.
+- [ ] **Performance**: watch for 10 minutes in a full race. The dots and inputs should move without stutter and the
+      remote should respond at once. If it lags, turn the satellite map off and note whether that fixes it.
 
 **Layout and readability**
 - [ ] The whole picture fits the screen with nothing cut off. If the edges are cropped, Settings → Screen edges →

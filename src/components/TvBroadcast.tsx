@@ -4,7 +4,9 @@ import { Maximize, Minimize, Mic, Minus, Play, Plus, Settings, SkipForward, Volu
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLanguage } from '@/components/LanguageProvider';
 import TvEventFeed from '@/components/TvEventFeed';
+import TvInputs from '@/components/TvInputs';
 import TvLeaderboard from '@/components/TvLeaderboard';
+import TvMap from '@/components/TvMap';
 import { useTvCommentary } from '@/components/useTvCommentary';
 import { useTvFeed, type FeedStatus } from '@/components/useTvFeed';
 import { useTvRemote } from '@/components/useTvRemote';
@@ -13,13 +15,14 @@ import type { FlagKind } from '@/lib/raceFlags';
 import { toneWav } from '@/lib/tvAudio';
 
 // TV Broadcast Mode's broadcast (src/app/tv/): the race the paired account may watch, as a TV graphics package on a
-// 1920×1080 stage. Across the top the session, its flag, lap and time left; on the left the leaderboard; on the right
-// the followed driver (the account's own driving, else the first live driver; Next driver changes it), the Race
-// Announcer speaking with their line, and the race events. Along the bottom the controls, worked with the remote's
-// D-pad and Select: Start Broadcast (the TV's browser only plays sound after a button press, so commentary waits for
-// it), Test sound, commentary and each announcer on or off, volume, mute, next driver, full screen where the browser
-// allows it, and Settings (screen edges, unpair), which the remote's Back closes. The choices are kept in the
-// browser. While the broadcast runs the screen is kept awake (Wake Lock) where the browser allows it.
+// 1920×1080 stage. Across the top the session, its flag, lap and time left; on the left the leaderboard (TvLeaderboard,
+// 15 rows) with the Race Announcer speaking and their line, and the race events, under it; on the right the followed
+// driver (the account's own driving, else the first live driver; Next driver changes it), the track map with every
+// car going round it (TvMap) and, under it, their Driver Inputs (TvInputs). Along the bottom the controls, worked with the remote's D-pad and Select:
+// Start Broadcast (the TV's browser only plays sound after a button press, so commentary waits for it), Test sound,
+// commentary and each announcer on or off, volume, mute, next driver, full screen where the browser allows it, and
+// Settings (the map's satellite imagery, screen edges, unpair), which the remote's Back closes. The choices are kept
+// in the browser. While the broadcast runs the screen is kept awake (Wake Lock) where the browser allows it.
 
 const KEYS = {
   commentary: 'tv.commentary',
@@ -27,6 +30,7 @@ const KEYS = {
   color: 'tv.colorAnnouncer',
   volume: 'tv.volume',
   muted: 'tv.muted',
+  satellite: 'tv.satellite',
 } as const;
 const DEFAULT_VOLUME = 80;
 const VOLUME_STEP = 10;
@@ -113,6 +117,7 @@ export default function TvBroadcast({
   const [color, setColor] = useState(true);
   const [volume, setVolume] = useState(DEFAULT_VOLUME);
   const [muted, setMuted] = useState(false);
+  const [satellite, setSatellite] = useState(true);
   const [panelOpen, setPanelOpen] = useState(false);
   const [fullScreenSupported, setFullScreenSupported] = useState(false);
   const [fullScreen, setFullScreen] = useState(false);
@@ -130,6 +135,7 @@ export default function TvBroadcast({
     const savedVolume = Number(readStored(KEYS.volume) ?? NaN);
     if (Number.isFinite(savedVolume)) setVolume(Math.min(Math.max(Math.round(savedVolume), 0), 100));
     setMuted(readStored(KEYS.muted) === '1');
+    setSatellite(readStored(KEYS.satellite) !== '0');
     const doc = document as FullscreenDocument;
     setFullScreenSupported(!!(doc.fullscreenEnabled || doc.webkitFullscreenEnabled));
     /* eslint-enable react-hooks/set-state-in-effect */
@@ -301,93 +307,122 @@ export default function TvBroadcast({
           )}
         </header>
 
-        {/* Leaderboard and the followed driver */}
+        {/* On the left the leaderboard, with the commentary and race events under it; on the right the followed driver,
+            the track map and their inputs */}
         <div className="flex min-h-0 flex-1 gap-5">
-          <section className="min-w-0 flex-1 overflow-hidden rounded-2xl bg-[#0a0d12] py-2">
-            {!state ? (
-              <p className="p-8 text-[32px] text-[#a7b0bd]">{t.tv.connecting}</p>
-            ) : !focus ? (
-              <div className="p-10">
-                <p className="font-display text-[48px] font-bold">{t.tv.nobodyLive}</p>
-                <p className="mt-4 max-w-[900px] text-[28px] leading-snug text-[#a7b0bd]">{t.tv.nobodyLiveHint}</p>
-              </div>
-            ) : focus.rows ? (
-              <TvLeaderboard rows={focus.rows} multiClass={focus.multiClass} isRace={focus.isRace} />
-            ) : (
-              <p className="p-8 text-[28px] text-[#a7b0bd]">{t.tv.noField}</p>
-            )}
-          </section>
+          <div className="flex w-[880px] shrink-0 flex-col gap-5">
+            <section className="shrink-0 overflow-hidden rounded-2xl bg-[#0a0d12] py-2">
+              {!state ? (
+                <p className="p-8 text-[32px] text-[#a7b0bd]">{t.tv.connecting}</p>
+              ) : !focus ? (
+                <div className="p-10">
+                  <p className="font-display text-[48px] font-bold">{t.tv.nobodyLive}</p>
+                  <p className="mt-4 text-[28px] leading-snug text-[#a7b0bd]">{t.tv.nobodyLiveHint}</p>
+                </div>
+              ) : focus.rows ? (
+                <TvLeaderboard rows={focus.rows} multiClass={focus.multiClass} isRace={focus.isRace} />
+              ) : (
+                <p className="p-8 text-[28px] text-[#a7b0bd]">{t.tv.noField}</p>
+              )}
+            </section>
 
-          <aside className="flex w-[600px] shrink-0 flex-col gap-5">
-            <div className="rounded-2xl bg-[#10141b] p-6">
+            <div className="flex min-h-0 flex-1 gap-5">
+              {/* The announcer speaking, as a lower third */}
+              <div
+                className="w-[470px] shrink-0 overflow-hidden rounded-2xl border-l-[10px] bg-[#10141b] px-4 py-3"
+                style={{ borderColor: speaking ? ANNOUNCER_COLORS[speaking.speaker] : '#2a313c' }}
+                aria-live="polite"
+              >
+                {speaking ? (
+                  <>
+                    <p className="flex items-center gap-2 text-[18px] font-bold uppercase tracking-wide" style={{ color: ANNOUNCER_COLORS[speaking.speaker] }}>
+                      <Mic size={22} aria-hidden />
+                      {speaking.speaker === 'lead' ? t.tv.leadAnnouncer : t.tv.colorAnnouncer}
+                      {muted && <span className="text-[#8b95a3]">· {t.tv.muted}</span>}
+                    </p>
+                    <p className="mt-1 line-clamp-4 text-[22px] leading-snug">{speaking.text}</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-[18px] font-bold uppercase tracking-wide text-[#8b95a3]">{t.tv.commentary}</p>
+                    <p className="mt-1 line-clamp-4 text-[20px] leading-snug text-[#c9d1dc]">{audioError || commentaryLine}</p>
+                  </>
+                )}
+              </div>
+
+              <div className="min-w-0 flex-1 overflow-hidden rounded-2xl bg-[#10141b] px-4 py-3">
+                <p className="mb-2 text-[18px] font-bold uppercase tracking-wide text-[#8b95a3]">{t.tv.events}</p>
+                {focus && state && <TvEventFeed events={focus.events} driver={focus.driver} now={state.at} />}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex min-w-0 flex-1 flex-col gap-5">
+            {/* The followed driver */}
+            <div className="flex h-[76px] shrink-0 items-center gap-6 rounded-2xl bg-[#10141b] px-5">
               {focus ? (
                 <>
-                  <p className="text-[20px] uppercase tracking-wide text-[#8b95a3]">{t.tv.following}</p>
-                  <p className="truncate font-display text-[48px] font-bold leading-tight">{focus.driver}</p>
-                  <p className="truncate text-[24px] text-[#a7b0bd]">{focus.car}</p>
+                  <span className="size-5 shrink-0 rounded-full border-2 border-white" style={{ backgroundColor: focus.color }} aria-hidden />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-display text-[34px] font-bold leading-none">{focus.driver}</p>
+                    <p className="mt-1 truncate text-[18px] text-[#a7b0bd]">{focus.car}</p>
+                  </div>
                   {focus.offline ? (
-                    <p className="mt-4 text-[26px] text-[#ffd400]">{fmt(t.tv.driverOffline, { name: focus.driver })}</p>
+                    <p className="text-[22px] text-[#ffd400]">{fmt(t.tv.driverOffline, { name: focus.driver })}</p>
                   ) : (
-                    <div className="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 text-[24px]">
-                      <div>
-                        <p className="text-[18px] uppercase text-[#8b95a3]">{t.tv.position}</p>
-                        <p className="font-display text-[48px] font-bold leading-none">
-                          {focus.position == null ? '—' : focus.carsInSession ? fmt(t.tv.positionOf, { n: focus.position, total: focus.carsInSession }) : `P${focus.position}`}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-[18px] uppercase text-[#8b95a3]">{t.tv.incidents}</p>
-                        <p className="font-display text-[48px] font-bold leading-none">
-                          {focus.incidents == null ? '—' : fmt(t.tv.incidentsValue, { n: focus.incidents })}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-[18px] uppercase text-[#8b95a3]">{t.tv.lastLap}</p>
-                        <p className="tabular-nums text-[32px] font-semibold">{formatLapTime(focus.lastLapTime)}</p>
-                      </div>
-                      <div>
-                        <p className="text-[18px] uppercase text-[#8b95a3]">{t.tv.bestLap}</p>
-                        <p className="tabular-nums text-[32px] font-semibold">{formatLapTime(focus.bestLapTime)}</p>
-                      </div>
+                    <>
                       {(focus.onPitRoad || !focus.onTrack) && (
-                        <p className="col-span-2 text-[24px] font-semibold text-[#ffd400]">{focus.onPitRoad ? t.tv.pitRoad : t.tv.inGarage}</p>
+                        <span className="rounded bg-[#ffd400] px-3 py-1 text-[20px] font-bold text-black">
+                          {focus.onPitRoad ? t.tv.pitRoad : t.tv.inGarage}
+                        </span>
                       )}
-                    </div>
+                      {[
+                        [t.tv.position, focus.position == null ? '—' : focus.carsInSession ? fmt(t.tv.positionOf, { n: focus.position, total: focus.carsInSession }) : `P${focus.position}`],
+                        [t.tv.lastLap, formatLapTime(focus.lastLapTime)],
+                        [t.tv.bestLap, formatLapTime(focus.bestLapTime)],
+                        [t.tv.incidents, focus.incidents == null ? '—' : fmt(t.tv.incidentsValue, { n: focus.incidents })],
+                      ].map(([label, value]) => (
+                        <div key={label} className="shrink-0 text-right">
+                          <p className="text-[15px] uppercase tracking-wide text-[#8b95a3]">{label}</p>
+                          <p className="text-[26px] font-bold leading-tight tabular-nums">{value}</p>
+                        </div>
+                      ))}
+                    </>
                   )}
                 </>
               ) : (
-                <p className="text-[26px] text-[#a7b0bd]">{fmt(t.tv.pairedTo, { name: userName })}</p>
+                <p className="text-[24px] text-[#a7b0bd]">{fmt(t.tv.pairedTo, { name: userName })}</p>
               )}
             </div>
 
-            {/* The announcer speaking, as a lower third */}
-            <div
-              className="min-h-[150px] rounded-2xl border-l-[10px] bg-[#10141b] p-5"
-              style={{ borderColor: speaking ? ANNOUNCER_COLORS[speaking.speaker] : '#2a313c' }}
-              aria-live="polite"
-            >
-              {speaking ? (
-                <>
-                  <p className="flex items-center gap-3 text-[22px] font-bold uppercase tracking-wide" style={{ color: ANNOUNCER_COLORS[speaking.speaker] }}>
-                    <Mic size={26} aria-hidden />
-                    {speaking.speaker === 'lead' ? t.tv.leadAnnouncer : t.tv.colorAnnouncer}
-                    {muted && <span className="text-[#8b95a3]">· {t.tv.muted}</span>}
-                  </p>
-                  <p className="mt-2 line-clamp-3 text-[28px] leading-snug">{speaking.text}</p>
-                </>
+            {/* The track map */}
+            <div className="min-h-0 flex-1 overflow-hidden rounded-2xl bg-[#0a0d12] p-2">
+              {focus && state && (
+                <TvMap
+                  trackKey={focus.trackKey}
+                  approximateFrom={focus.approximateOutlineFrom}
+                  cars={focus.mapCars}
+                  receivedAt={state.receivedAt}
+                  satellite={satellite}
+                />
+              )}
+            </div>
+
+            {/* The followed driver's inputs, in a strip under the map */}
+            <div className="h-[212px] shrink-0 rounded-2xl bg-[#10141b] px-5 py-4">
+              {focus && state && !focus.offline ? (
+                <TvInputs
+                  driverId={focus.driverId}
+                  color={focus.color}
+                  inputs={focus.inputs}
+                  inputsAgeMs={focus.inputsAgeMs}
+                  receivedAt={state.receivedAt}
+                />
               ) : (
-                <>
-                  <p className="text-[22px] font-bold uppercase tracking-wide text-[#8b95a3]">{t.tv.commentary}</p>
-                  <p className="mt-2 text-[24px] leading-snug text-[#c9d1dc]">{audioError || commentaryLine}</p>
-                </>
+                <p className="text-[22px] leading-snug text-[#a7b0bd]">{t.liveRacing.inputsWaiting}</p>
               )}
             </div>
-
-            <div className="min-h-0 flex-1 overflow-hidden rounded-2xl bg-[#10141b] p-5">
-              <p className="mb-3 text-[22px] font-bold uppercase tracking-wide text-[#8b95a3]">{t.tv.events}</p>
-              {focus && state && <TvEventFeed events={focus.events} driver={focus.driver} now={state.at} />}
-            </div>
-          </aside>
+          </div>
         </div>
 
         {/* Controls */}
@@ -457,6 +492,21 @@ export default function TvBroadcast({
               </button>
             </div>
             <p className="mt-2 text-[24px] text-[#a7b0bd]">{fmt(t.tv.pairedTo, { name: userName })}</p>
+            <p className="mt-8 text-[22px] uppercase tracking-wide text-[#8b95a3]">{t.tv.satellite}</p>
+            <div className="mt-3 flex gap-3">
+              {[true, false].map((on) => (
+                <button
+                  key={String(on)}
+                  type="button"
+                  data-tv-focus
+                  onClick={() => toggle(KEYS.satellite, on, setSatellite)}
+                  aria-pressed={satellite === on}
+                  className={`${controlClass} ${satellite === on ? 'bg-[#e10600]' : 'bg-[#1b222d]'}`}
+                >
+                  {on ? t.tv.satelliteOn : t.tv.satelliteOff}
+                </button>
+              ))}
+            </div>
             <p className="mt-8 text-[22px] uppercase tracking-wide text-[#8b95a3]">{t.tv.screenEdges}</p>
             <div className="mt-3 flex gap-3">
               {t.tv.screenEdgeValues.map((label, i) => (

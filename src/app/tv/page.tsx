@@ -1,22 +1,27 @@
 import type { Metadata } from 'next';
 import { headers } from 'next/headers';
+// The leaderboard's country flags (`fi fi-<code>`, src/lib/countryFlags.ts)
+import 'flag-icons/css/flag-icons.min.css';
 import LanguageProvider from '@/components/LanguageProvider';
 import TvApp from '@/components/TvApp';
+import UnitsProvider from '@/components/UnitsProvider';
 import { getDictionary, getLanguage } from '@/lib/i18n/server';
 import { getEnableAiFeatures } from '@/lib/siteSettings';
 import { getTvSession } from '@/lib/tvAuth';
+import { getUnits } from '@/lib/unitsServer';
 
 export const metadata: Metadata = { title: 'RacingCoach.app TV' };
 
 // TV Broadcast Mode (docs/tv-broadcast.md): Live Racing for a TV's web browser (Amazon Silk on Fire TV), worked with
 // the remote. An unpaired TV shows a pairing code to type on the TV Link page (src/app/tv/link/) of a signed-in
 // browser (src/lib/tvAuth.ts); a paired one shows the race its account may watch, live, with the Race Announcers.
-// Covers the site's navigation and footer, as the TV shows nothing else. In the account's Preferred Language once
-// paired, the browser's before.
+// Covers the site's navigation and footer, as the TV shows nothing else. In the account's Preferred Language and
+// Units once paired, the browser's before.
 export default async function TvPage() {
   const session = await getTvSession();
-  const [language, enableAiFeatures] = await Promise.all([
+  const [language, units, enableAiFeatures] = await Promise.all([
     session ? session.user.preferredLanguage : getLanguage(null),
+    getUnits(session?.user ?? null),
     getEnableAiFeatures(),
   ]);
   // Where to type the code: the site's own address, without https://
@@ -25,11 +30,13 @@ export default async function TvPage() {
 
   return (
     <LanguageProvider language={language} dictionary={getDictionary(language)}>
-      <TvApp
-        paired={session ? { userName: session.user.userName } : null}
-        announcers={enableAiFeatures}
-        linkAddress={linkAddress}
-      />
+      <UnitsProvider units={units}>
+        <TvApp
+          paired={session ? { userName: session.user.userName } : null}
+          announcers={enableAiFeatures}
+          linkAddress={linkAddress}
+        />
+      </UnitsProvider>
     </LanguageProvider>
   );
 }

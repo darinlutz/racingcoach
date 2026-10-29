@@ -5,6 +5,7 @@ import { useLanguage } from '@/components/LanguageProvider';
 import LiveDriverMessage from '@/components/LiveDriverMessage';
 import LiveInputs, { type TimedSample } from '@/components/LiveInputs';
 import LiveLeaderboard, { type LeaderboardDriver, runningOrder } from '@/components/LiveLeaderboard';
+import LiveSessionBanner from '@/components/LiveSessionBanner';
 import LiveSessionStatus from '@/components/LiveSessionStatus';
 import LiveTrackMap, { type MapCar } from '@/components/LiveTrackMap';
 import { useUnits } from '@/components/UnitsProvider';
@@ -14,7 +15,8 @@ import { reportRateLimit } from '@/lib/rateLimitClient';
 import type { TrackOutline } from '@/lib/trackOutlines';
 import { METERS_PER_FOOT, SPEED_UNIT, speedFromMetersPerSecond } from '@/lib/units';
 
-// The Live Racing page's tracks: each track someone the user may watch is driving, in three columns. On the left the
+// The Live Racing page's tracks: each track someone the user may watch is driving, headed by each session's flag,
+// session and weather (LiveSessionBanner), then in three columns. On the left the
 // session's lap and time remaining over a leaderboard of every car in it (from collectors that send the field); in
 // the middle the map, with a dot per car, and under it each watched driver's lap details; on the right one driver's
 // (the user, until they pick another in the list) Driver Inputs and incidents, Announce lap times (said in the site's
@@ -318,6 +320,9 @@ export default function LiveRacing() {
             <div className="px-4 py-3 border-b border-border">
               <h2 className="text-lg font-semibold text-foreground">{track?.name ?? group[0].track}</h2>
             </div>
+            {(sessions.length > 0 ? sessions.map((session) => session.from) : [group.find((d) => !d.offline) ?? group[0]]).map((d) => (
+              <LiveSessionBanner key={d.userId} driver={d} driverName={d.isMe ? t.liveRacing.you : d.driver} />
+            ))}
             <div className="grid xl:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,1fr)]">
               <div className="order-3 xl:order-1 border-t xl:border-t-0 xl:border-r border-border divide-y divide-border">
                 {sessions.length === 0 && <div className="p-3">{statusOf(group[0], null)}</div>}

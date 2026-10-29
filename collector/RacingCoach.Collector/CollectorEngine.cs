@@ -402,7 +402,11 @@ internal sealed class CollectorEngine
             _brakeBeeps.SetTrack(_recorder.Session.Track, Session.TrackLength);
             _races?.OnSessionInfo(session, _recorder.Session.Track, Session.Car);
             Rotation.SetCar(string.IsNullOrWhiteSpace(driver?.CarPath) ? null : driver.CarPath, Session.Car);
-            Live.SetTrack(_recorder.Session.Track, TrackKeys.For(_recorder.Session.Track), Session.Car, sessionTypes);
+            var sessionNames = session.SessionInfo?.Sessions?
+                .Where(s => !string.IsNullOrWhiteSpace(s.SessionName))
+                .ToDictionary(s => s.SessionNum, s => s.SessionName!.Trim()) ?? [];
+            Live.SetTrack(_recorder.Session.Track, TrackKeys.For(_recorder.Session.Track), Session.Car, sessionTypes, sessionNames,
+                string.IsNullOrWhiteSpace(weekend?.TrackWeatherType) ? null : weekend.TrackWeatherType.Trim());
             Live.SetField(weekend?.SubSessionID ?? 0, driverIdx, FieldDrivers(session));
 
             // iRacing re-sends session info every few seconds (flags, driver list, ...); only log changes
@@ -490,6 +494,7 @@ internal sealed class CollectorEngine
                 string.IsNullOrWhiteSpace(d.CarClassShortName) ? null : d.CarClassShortName.Trim(),
                 d.CarClassColor > 0 ? $"#{d.CarClassColor & 0xFFFFFF:x6}" : null,
                 d.IRating > 0 ? d.IRating : null,
-                string.IsNullOrWhiteSpace(d.LicString) ? null : d.LicString.Trim()))
+                string.IsNullOrWhiteSpace(d.LicString) ? null : d.LicString.Trim(),
+                string.IsNullOrWhiteSpace(d.FlairName) ? null : d.FlairName.Trim()))
             .ToList() ?? [];
 }

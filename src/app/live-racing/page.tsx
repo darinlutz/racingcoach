@@ -1,4 +1,6 @@
 import { redirect } from 'next/navigation';
+// The leaderboard's country flags (`fi fi-<code>`, src/lib/countryFlags.ts)
+import 'flag-icons/css/flag-icons.min.css';
 import LiveRacing from '@/components/LiveRacing';
 import LiveRacingWatchers from '@/components/LiveRacingWatchers';
 import { getDictionary, getLanguage } from '@/lib/i18n/server';

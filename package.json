@@ -23,6 +23,7 @@
     "@langchain/core": "^1.2.1",
     "@langchain/openai": "^1.5.2",
     "axios": "^1.16.1",
+    "flag-icons": "7.5.0",
     "langchain": "^1.5.1",
     "langsmith": "^0.7.11",
     "lucide-react": "^1.44.0",

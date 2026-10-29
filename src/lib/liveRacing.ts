@@ -1,5 +1,7 @@
 import { z } from 'zod';
+import { flagCodeForFlair } from './countryFlags';
 import { query } from './db';
+import { WEATHER_SAMPLE_MS, TREND_MS, weatherSample, weatherTrend, type WeatherSample, type WeatherTrend } from './liveWeather';
 import { canSeeAllLaps, ROLES } from './roles';
 import { OUTLINE_POINTS, type TrackOutline } from './trackOutlines';
 import { ensureUserSchema, getUserById, type User } from './users';
@@ -47,7 +49,8 @@ const fieldCarSchema = z.object({
   gear: z.number().int().min(-1).max(20).nullish(),
 });
 
-// A car's details from session info: driver, car number, car, class and class color ("#ffda59"), iRating, license
+// A car's details from session info: driver, car number, car, class and class color ("#ffda59"), iRating, license,
+// and the flair the driver picked in iRacing, normally their country (from collectors from 1.54.0)
 const fieldDriverSchema = z.object({
   idx: z.number().int().min(0).max(255),
   name: z.string().trim().min(1).max(100),
@@ -57,6 +60,22 @@ const fieldDriverSchema = z.object({
   classColor: z.string().regex(/^#[0-9a-f]{6}$/i).nullish(),
   iRating: z.number().int().min(0).max(20_000).nullish(),
   license: z.string().trim().max(20).nullish(),
+  flair: z.string().trim().max(100).nullish(),
+});
+
+// The weather now (src/lib/liveWeather.ts says what each value is), from collectors from 1.54.0
+const weatherSchema = z.object({
+  type: z.string().trim().max(50).nullish(),
+  airTemp: z.number().min(-200).max(300).nullish(),
+  trackTemp: z.number().min(-200).max(300).nullish(),
+  humidity: z.number().min(0).max(1).nullish(),
+  windSpeed: z.number().min(0).max(200).nullish(),
+  windDir: z.number().min(-1000).max(1000).nullish(),
+  skies: z.number().int().min(0).max(3).nullish(),
+  precipitation: z.number().min(0).max(1).nullish(),
+  wetness: z.number().int().min(0).max(20).nullish(),
+  declaredWet: z.boolean().nullish(),
+  solarAltitude: z.number().min(-1000).max(1000).nullish(),
 });
 
 // The driver's inputs 20 times a second: [SessionTime, throttle 0-1, brake 0-1, steering (radians, + left), gear,
@@ -76,7 +95,8 @@ export type InputSample = z.infer<typeof inputSampleSchema>;
 const INPUTS_KEPT_S = 12;
 
 export type FieldCarUpdate = z.infer<typeof fieldCarSchema>;
-export type FieldDriverDetails = z.infer<typeof fieldDriverSchema>;
+// countryCode: the flag-icons code of the driver's flair (src/lib/countryFlags.ts), or null
+export type FieldDriverDetails = z.infer<typeof fieldDriverSchema> & { countryCode: string | null };
 
 // The collector's live update. Speeds in m/s, pedals 0-1, times in seconds, pct is LapDistPct (0-1)
 export const liveUpdateSchema = z.object({
@@ -84,6 +104,12 @@ export const liveUpdateSchema = z.object({
   trackKey: z.string().trim().min(1).max(200).nullish(),
   car: z.string().trim().min(1).max(200),
   sessionType: z.string().trim().min(1).max(100).nullish(),
+  // The session's name (e.g. "RACE", "HEAT 1"), iRacing's SessionFlags bits (src/lib/raceFlags.ts), its
+  // SessionState and the weather now (from collectors from 1.54.0)
+  sessionName: z.string().trim().min(1).max(100).nullish(),
+  sessionFlags: z.number().int().min(0).max(0xffffffff).nullish(),
+  sessionState: z.number().int().min(0).max(20).nullish(),
+  weather: weatherSchema.nullish(),
   onTrack: z.boolean(),
   onPitRoad: z.boolean().nullish(),
   lap: z.number().int().min(-1).max(100_000).nullish(),
@@ -159,6 +185,10 @@ type LiveEntry = {
   outlineTrackKey: string | null;
   // Watchers' messages for the collector's next update
   messages: DriverMessage[];
+  // The weather every WEATHER_SAMPLE_MS over the last TREND_MS or so, oldest first, for the outlook; and the track
+  // it's for
+  weatherHistory: WeatherSample[];
+  weatherTrack: string | null;
 };
 
 // After this long without an update a driver is shown as offline, and after EXPIRE_MS left out
@@ -200,7 +230,7 @@ export function recordLiveUpdate(
   let fieldDrivers = previous?.fieldDrivers ?? new Map<number, FieldDriverDetails>();
   let fieldSubSession = previous?.fieldSubSession ?? null;
   if (field?.drivers) {
-    fieldDrivers = new Map(field.drivers.map((d) => [d.idx, d]));
+    fieldDrivers = new Map(field.drivers.map((d) => [d.idx, { ...d, countryCode: flagCodeForFlair(d.flair) }]));
     fieldSubSession = field.subSessionId;
   } else if (field && field.subSessionId !== fieldSubSession) {
     fieldDrivers = new Map();
@@ -213,6 +243,14 @@ export function recordLiveUpdate(
     inputs = [...inputs.filter((s) => s[0] < newInputs[0][0]), ...newInputs].filter((s) => s[0] > latest - INPUTS_KEPT_S);
   } else if (!update.onTrack) {
     inputs = [];
+  }
+  const weatherTrack = trackKey ?? update.track;
+  let weatherHistory = previous && previous.weatherTrack === weatherTrack ? previous.weatherHistory : [];
+  if (update.weather) {
+    const last = weatherHistory[weatherHistory.length - 1];
+    if (!last || now - last.at >= WEATHER_SAMPLE_MS) {
+      weatherHistory = [...weatherHistory, weatherSample(update.weather, now)].filter((s) => now - s.at <= TREND_MS + 2 * WEATHER_SAMPLE_MS);
+    }
   }
   live.entries.set(user.id, {
     userId: user.id,
@@ -233,6 +271,8 @@ export function recordLiveUpdate(
     outlineTrackKey: kept ? trackKey : null,
     // delivered with this answer
     messages: [],
+    weatherHistory,
+    weatherTrack,
   });
   const messages = update.acceptsMessages
     ? (previous?.messages ?? []).filter((m) => now - m.at <= MESSAGE_EXPIRE_MS).map(({ from, text }) => ({ from, text }))
@@ -287,6 +327,8 @@ export type LiveDriver = Omit<LiveUpdate, 'outline' | 'field' | 'inputs'> & {
   // The driver's inputs over the last few seconds, oldest first, the newest sampled ageMs ago; only for the driver
   // asked for (inputsFor), else null
   inputs: InputSample[] | null;
+  // How the weather changed over the last few minutes (src/lib/liveWeather.ts), or null without enough of it
+  weatherTrend: WeatherTrend | null;
 };
 
 // The live drivers this viewer may watch, each counted as watched by them, with the inputs of the driver inputsFor
@@ -312,6 +354,7 @@ export async function readLiveDrivers(viewer: Pick<User, 'id' | 'role'>, inputsF
       hasApproximateOutline: !!entry.outline,
       field: entry.field,
       inputs: entry.userId === inputsFor ? entry.inputs : null,
+      weatherTrend: entry.update.weather ? weatherTrend(entry.weatherHistory, weatherSample(entry.update.weather, entry.receivedAt)) : null,
     });
   }
   return drivers.sort((a, b) => Number(b.isMe) - Number(a.isMe) || a.driver.localeCompare(b.driver));

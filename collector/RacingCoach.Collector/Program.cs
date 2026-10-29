@@ -101,6 +101,15 @@ namespace RacingCoach.Collector;
     TelemetryVar.CarIdxBestLapTime,
     TelemetryVar.CarIdxF2Time,
     TelemetryVar.CarIdxGear,
+    // the session's flag and the weather now, for Live Racing (with TrackTempCrew, AirTemp, RelativeHumidity and
+    // WindVel/WindDir, above)
+    TelemetryVar.SessionFlags,
+    TelemetryVar.SessionState,
+    TelemetryVar.Skies,
+    TelemetryVar.Precipitation,
+    TelemetryVar.TrackWetness,
+    TelemetryVar.WeatherDeclaredWet,
+    TelemetryVar.SolarAltitude,
 ])]
 public static class Program
 {

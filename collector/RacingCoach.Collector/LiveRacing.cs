@@ -13,9 +13,10 @@ internal sealed record TrackMapArea(string Name, double Start, double End);
 internal sealed record TrackMap(IReadOnlyList<(double X, double Y)> Points, bool Exact, IReadOnlyList<TrackMapArea> Areas);
 
 /// <summary>A car in the session from session info, for Live Racing's field: iRacing's car index, the driver, car
-/// number, car, class and class color (hex, e.g. "#ffda59"), and the driver's iRating and license (e.g. "A 3.41").</summary>
+/// number, car, class and class color (hex, e.g. "#ffda59"), the driver's iRating and license (e.g. "A 3.41"), and
+/// the flair they picked in iRacing, normally their country (e.g. "Brazil"; the website shows its flag).</summary>
 internal sealed record FieldDriver(int CarIdx, string Name, string? Number, string? Car, string? CarClass, string? ClassColor,
-    int? IRating, string? License);
+    int? IRating, string? License, string? Flair);
 
 /// <summary>
 /// Live Racing (src/lib/liveRacing.ts in the website): sends the driver's live position and lap details to
@@ -59,6 +60,9 @@ internal sealed class LiveRacing(Func<RacingCoachApi?> api, Action<string> log)
     private string? _trackKey;
     private string? _car;
     private IReadOnlyDictionary<int, string> _sessionTypes = new Dictionary<int, string>();
+    // Each session's name (e.g. "QUALIFY", "HEAT 1") and the weekend's weather type (e.g. "Static", "Dynamic")
+    private IReadOnlyDictionary<int, string> _sessionNames = new Dictionary<int, string>();
+    private string? _weatherType;
     private TrackMap? _map;
     // The site wants this run's approximate outline (it has none saved, and hasn't been sent one)
     private bool _sendOutline = true;
@@ -98,14 +102,17 @@ internal sealed class LiveRacing(Func<RacingCoachApi?> api, Action<string> log)
     /// <summary>Why the last live update didn't reach the site, or null.</summary>
     public string? Problem { get; private set; }
 
-    /// <summary>Session info: the track being driven (as the laps name it), iRacing's key for it, the car, and each
-    /// session's type. A new track starts its map again.</summary>
-    public void SetTrack(string track, string? trackKey, string car, IReadOnlyDictionary<int, string> sessionTypes)
+    /// <summary>Session info: the track being driven (as the laps name it), iRacing's key for it, the car, each
+    /// session's type and name, and the weather type. A new track starts its map again.</summary>
+    public void SetTrack(string track, string? trackKey, string car, IReadOnlyDictionary<int, string> sessionTypes,
+        IReadOnlyDictionary<int, string> sessionNames, string? weatherType)
     {
         lock (_lock)
         {
             _car = car;
             _sessionTypes = sessionTypes;
+            _sessionNames = sessionNames;
+            _weatherType = weatherType;
             if (_track == track && _trackKey == trackKey)
                 return;
             _track = track;
@@ -364,6 +371,12 @@ internal sealed class LiveRacing(Func<RacingCoachApi?> api, Action<string> log)
                 trackKey,
                 car = _car,
                 sessionType = d.SessionNum is { } num ? _sessionTypes.GetValueOrDefault(num) : null,
+                sessionName = d.SessionNum is { } nameNum ? _sessionNames.GetValueOrDefault(nameNum) : null,
+                // iRacing's bits: the session's flag (green, yellow, checkered, ...) and the driver's own (blue, black,
+                // ...); unsigned, as StartGo is the top bit
+                sessionFlags = d.SessionFlags is { } flags ? (long)(uint)flags : (long?)null,
+                sessionState = d.SessionState is { } state ? (int)state : (int?)null,
+                weather = Weather(d),
                 onTrack,
                 onPitRoad = d.OnPitRoad,
                 lap = d.Lap,
@@ -482,10 +495,32 @@ internal sealed class LiveRacing(Func<RacingCoachApi?> api, Action<string> log)
                 classColor = f.ClassColor,
                 iRating = f.IRating,
                 license = f.License,
+                flair = f.Flair,
             }).ToArray()
             : null;
         return new { subSessionId = _subSessionId, myCarIdx = _myCarIdx, cars, drivers };
     }
+
+    // The weather now: temperatures in °C, humidity and rain 0-1, wind in m/s and radians, skies 0 clear to 3
+    // overcast, wetness iRacing's 0 unknown, 1 dry to 7 extremely wet, the sun's height in radians (below 0 at night).
+    // Called under the lock.
+    private object Weather(in TelemetryData d) => new
+    {
+        type = _weatherType,
+        airTemp = Rounded(d.AirTemp, 1),
+        trackTemp = Rounded(d.TrackTempCrew, 1),
+        humidity = d.RelativeHumidity is >= 0 and <= 1 and var humidity ? Math.Round(humidity, 3) : (double?)null,
+        windSpeed = d.WindVel is >= 0 and < 200 and var wind ? Math.Round(wind, 2) : (double?)null,
+        windDir = Rounded(d.WindDir, 3),
+        skies = d.Skies is >= 0 and <= 3 ? d.Skies : null,
+        precipitation = d.Precipitation is >= 0 and <= 1 and var rain ? Math.Round(rain, 3) : (double?)null,
+        wetness = d.TrackWetness is { } wetness ? (int)wetness : (int?)null,
+        declaredWet = d.WeatherDeclaredWet,
+        solarAltitude = Rounded(d.SolarAltitude, 3),
+    };
+
+    private static double? Rounded(float? value, int digits) =>
+        value is { } v && float.IsFinite(v) && Math.Abs(v) < 1000 ? Math.Round(v, digits) : null;
 
     // The inputs recorded since the last update, or null when there are none. Called under the lock.
     private double?[][]? TakeInputs()

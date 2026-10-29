@@ -9,7 +9,8 @@ import { formatGap, formatLapTime } from '@/lib/liveRacingFormat';
 // in running order, with each car's gap to the leader and to the car ahead, its last and best laps, and whether it's
 // on pit road or off track. In a race the gaps are race time (iRacing's CarIdxF2Time, or laps when a car is a lap or
 // more down); in practice and qualifying they're between best laps. RacingCoach.app drivers the user is watching are
-// shown with their name and dot color, and the driver with the session's fastest lap with a purple stopwatch. It sits
+// shown with their name and dot color, the driver with the session's fastest lap with a purple stopwatch, and each
+// driver's country flag (their iRacing flair, src/lib/countryFlags.ts, drawn by flag-icons) before their name. It sits
 // in a quarter of the page's width, so each car's lap, interval to the car ahead and iRating are in its row's tooltip.
 
 export type LeaderboardDriver = { name: string; color: string; isMe: boolean };
@@ -92,8 +93,8 @@ export default function LiveLeaderboard({
                 title={tooltip}
                 className={`${ours?.isMe ? 'bg-primary/10' : ours ? 'bg-muted/40' : ''} ${car.pct == null ? 'opacity-50' : ''}`}
               >
-                <td className="pl-2 pr-1 py-1 font-semibold text-foreground tabular-nums">{car.position ?? i + 1}</td>
-                {multiClass && <td className="px-1 py-1 text-muted-foreground tabular-nums">{car.classPosition ?? '—'}</td>}
+                <td className="pl-2 pr-1 py-2 font-semibold text-foreground tabular-nums">{car.position ?? i + 1}</td>
+                {multiClass && <td className="px-1 py-2 text-muted-foreground tabular-nums">{car.classPosition ?? '—'}</td>}
                 <td className="px-1 py-1">
                   <span
                     className="inline-block min-w-7 rounded px-1 py-0.5 text-center text-[11px] font-bold text-black"
@@ -103,9 +104,20 @@ export default function LiveLeaderboard({
                     {details.number ?? '—'}
                   </span>
                 </td>
-                <td className="px-1 py-1 max-w-40">
+                <td className="px-1 py-2 max-w-40">
                   <div className="flex items-center gap-1.5 min-w-0">
-                    {ours && <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: ours.color }} />}
+                    {details.countryCode ? (
+                      <span
+                        className={`fi fi-${details.countryCode} shrink-0 rounded-[2px] shadow-[0_0_0_1px_rgba(0,0,0,0.15)]`}
+                        style={{ width: 20, height: 15 }}
+                        role="img"
+                        aria-label={details.flair ?? details.countryCode}
+                        title={details.flair ? fmt(t.liveRacing.countryFlag, { name: details.flair }) : undefined}
+                      />
+                    ) : (
+                      <span className="shrink-0" style={{ width: 20, height: 15 }} aria-hidden />
+                    )}
+                    {ours &&<span className="size-2 rounded-full shrink-0" style={{ backgroundColor: ours.color }} />}
                     <span className={`truncate ${ours ? 'font-semibold text-foreground' : 'text-foreground'}`}>{details.name}</span>
                     {isFastest && (
                       <span className="shrink-0" role="img" aria-label={t.liveRacing.fastestLap} title={t.liveRacing.fastestLap}>
@@ -124,9 +136,9 @@ export default function LiveLeaderboard({
                     )}
                   </div>
                 </td>
-                <td className="px-1 py-1 text-right font-mono text-foreground whitespace-nowrap">{leaderGap(car)}</td>
-                <td className="px-1 py-1 text-right font-mono text-foreground">{formatLapTime(car.lastLapTime)}</td>
-                <td className={`pl-1 pr-2 py-1 text-right font-mono ${isFastest ? `${FASTEST_COLOR} font-semibold` : 'text-foreground'}`}>
+                <td className="px-1 py-2 text-right font-mono text-foreground whitespace-nowrap">{leaderGap(car)}</td>
+                <td className="px-1 py-2 text-right font-mono text-foreground">{formatLapTime(car.lastLapTime)}</td>
+                <td className={`pl-1 pr-2 py-2 text-right font-mono ${isFastest ? `${FASTEST_COLOR} font-semibold` : 'text-foreground'}`}>
                   {formatLapTime(car.bestLapTime)}
                 </td>
               </tr>

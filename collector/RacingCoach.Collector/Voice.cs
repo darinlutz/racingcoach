@@ -10,6 +10,10 @@ namespace RacingCoach.Collector;
 /// the speech with Google Chirp 3 HD (POST /api/collector/speech) and it's played here. One thing at a time, in order. Speech
 /// is kept for a while, so things said often (e.g. a rule's callout) play straight away after the first time.
 /// Without an upload key, or when the site can't make it, Windows' own voice says it instead.
+///
+/// The driver's own Race Announcers on the Live Racing page never talk over it: Busy goes to the site with each live
+/// update, and the page waits for it before each line; and while a line plays the site has LiveRacing hold this
+/// (HoldFor), so anything said meanwhile waits for it to end.
 /// </summary>
 internal static class Voice
 {
@@ -28,6 +32,10 @@ internal static class Voice
     private static long _generation;
     private static SoundPlayer? _playing;
     private static DateTime _problemReportedAt = DateTime.MinValue;
+    // Things waiting to be said or being said, and until when the Race Announcers have the floor
+    private static int _pending;
+    private static DateTime _holdUntil = DateTime.MinValue;
+    private static readonly TimeSpan MaxHold = TimeSpan.FromSeconds(30);
 
     // Windows' voice, created on first use and kept for the app's lifetime (null if Windows has no voice)
     private static readonly Lazy<SpeechSynthesizer?> Synthesizer = new(() =>
@@ -65,8 +73,26 @@ internal static class Voice
     public static void SayPhrase(string phrase, string fallback, bool interrupt = false) =>
         Enqueue(new Item(null, phrase, fallback, 0), interrupt);
 
+    /// <summary>Something is being said, or waiting to be.</summary>
+    public static bool Busy => Volatile.Read(ref _pending) > 0;
+
+    /// <summary>Holds speech for this long (the driver's Race Announcers are speaking): what's playing finishes, and
+    /// the rest waits. A later hold replaces it.</summary>
+    public static void HoldFor(TimeSpan time)
+    {
+        lock (Lock)
+            _holdUntil = DateTime.UtcNow + (time > MaxHold ? MaxHold : time);
+    }
+
+    private static bool Held()
+    {
+        lock (Lock)
+            return DateTime.UtcNow < _holdUntil;
+    }
+
     private static void Enqueue(Item item, bool interrupt)
     {
+        Interlocked.Increment(ref _pending);
         long generation;
         lock (Lock)
         {
@@ -96,6 +122,8 @@ internal static class Voice
                 if (!Current(item))
                     continue;
                 var wav = await GetSpeechAsync(item);
+                while (Held() && Current(item))
+                    await Task.Delay(100);
                 if (!Current(item))
                     continue;
                 if (wav is not null)
@@ -118,6 +146,10 @@ internal static class Voice
             {
                 // anything else would end this loop, and the coach would never speak again until a restart
                 _log($"The coach couldn't say \"{item.Fallback}\" ({e.GetType().Name}: {e.Message}).");
+            }
+            finally
+            {
+                Interlocked.Decrement(ref _pending);
             }
         }
     }

@@ -22,7 +22,8 @@ import { METERS_PER_FOOT, SPEED_UNIT, speedFromMetersPerSecond } from '@/lib/uni
 // (the user, until they pick another in the list) Driver Inputs and incidents, Announce lap times (said in the site's
 // ElevenLabs voice as each lap ends, POST /api/live/lap-speech), the Lead and Color Announcer checkboxes (the Race
 // Announcers commentate on what happens in that driver's session, POST /api/live/announcer, in the voices picked on
-// the Account page; shown while the Admin page's Enable AI Features is on, announcers) and Message Driver, which
+// the Account page; shown while the Admin page's Enable AI Features is on, announcers; both on until turned off, and
+// about the user's own driving never over their In-Car AI Coach, see coachQuiet) and Message Driver, which
 // their In-Car AI Coach says in their car (POST /api/live/message). Narrower than xl, the columns stack: map, inputs, leaderboard. Asks GET /api/live every second while the page is showing, and each
 // track's map from GET /api/live/outline (again every minute while it's missing or approximate, as an exact one
 // appears once a lap with track positions uploads).
@@ -87,6 +88,33 @@ function playWav(base64: string): Promise<void> {
   });
 }
 
+// How long a base64 WAV plays, in ms, from its header's byte rate (a guess when it has no header)
+function wavDurationMs(base64: string): number {
+  const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+  if (bytes.length <= 44) return 0;
+  const byteRate = new DataView(bytes.buffer).getUint32(28, true);
+  return byteRate > 0 ? Math.round(((bytes.length - 44) / byteRate) * 1000) : 8000;
+}
+
+const delay = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
+
+// Before an announcer line about the user's own driving: how long the collector has to hear of it (its next live
+// update, within half a second in the car) before it plays, and a little extra on the hold after it ends
+const HOLD_LEAD_MS = 700;
+const HOLD_MARGIN_MS = 300;
+// How long a line waits for the In-Car AI Coach to finish before it's dropped, the moment having passed
+const COACH_WAIT_MS = 15_000;
+
+// Resolves true once the user's In-Car AI Coach isn't speaking (as their collector last said), false after COACH_WAIT_MS
+async function coachQuiet(me: { current: Received | null }): Promise<boolean> {
+  const until = Date.now() + COACH_WAIT_MS;
+  while (me.current?.coachSpeaking && !me.current.offline) {
+    if (Date.now() > until) return false;
+    await delay(200);
+  }
+  return true;
+}
+
 // The car index of each watched driver in this session
 function driversInSession(group: Received[], session: SessionField): Map<number, Received> {
   const cars = new Map<number, Received>();
@@ -114,21 +142,24 @@ export default function LiveRacing({ announcers: showAnnouncers }: { announcers:
   const announced = useRef<{ driver: number; lapTime: number | null; best: number | null } | null>(null);
   // The Race Announcers turned on, and the focused driver's newest race event already commentated (or there when the
   // page started watching them); one commentary at a time, its lines played before the next is asked for
-  const [announcers, setAnnouncers] = useState<Record<Announcer, boolean>>({ lead: false, color: false });
+  const [announcers, setAnnouncers] = useState<Record<Announcer, boolean>>({ lead: true, color: true });
   const [announcerError, setAnnouncerError] = useState('');
   const commentated = useRef<{ driver: number; seq: number } | null>(null);
   const commentating = useRef(false);
+  // The user's own live state as last polled, for whether their In-Car AI Coach is speaking
+  const meRef = useRef<Received | null>(null);
 
   useEffect(() => {
     try {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- read once from browser storage after hydration
       setAnnounce(window.localStorage.getItem(ANNOUNCE_KEY) === '1');
+      // The announcers are on unless turned off
       setAnnouncers({
-        lead: window.localStorage.getItem(ANNOUNCER_KEYS.lead) === '1',
-        color: window.localStorage.getItem(ANNOUNCER_KEYS.color) === '1',
+        lead: window.localStorage.getItem(ANNOUNCER_KEYS.lead) !== '0',
+        color: window.localStorage.getItem(ANNOUNCER_KEYS.color) !== '0',
       });
     } catch {
-      // storage blocked: off
+      // storage blocked: lap times off, announcers on
     }
   }, []);
   const toggleAnnouncer = (announcer: Announcer, on: boolean) => {
@@ -168,6 +199,7 @@ export default function LiveRacing({ announcers: showAnnouncers }: { announcers:
           if (!stopped) {
             const received = (data.drivers as LiveDriver[]).map((d) => ({ ...d, sampledAt: now - d.ageMs }));
             setDrivers(received);
+            meRef.current = received.find((d) => d.isMe) ?? null;
             setError('');
             const focused = received.find((d) => d.userId === focus);
             const inputs = focused?.inputs;
@@ -262,6 +294,7 @@ export default function LiveRacing({ announcers: showAnnouncers }: { announcers:
     if (focused.eventSeq <= seen.seq || commentating.current) return;
     commentating.current = true;
     const driver = focused.userId;
+    const mine = focused.isMe;
     const latest = focused.eventSeq;
     (async () => {
       try {
@@ -279,7 +312,21 @@ export default function LiveRacing({ announcers: showAnnouncers }: { announcers:
           throw new Error(data.error || t.liveRacing.announcerFailed);
         }
         setAnnouncerError('');
-        for (const line of (data.lines ?? []) as { audio: string }[]) await playWav(line.audio);
+        for (const line of (data.lines ?? []) as { audio: string }[]) {
+          // Watching themselves, the driver hears their In-Car AI Coach too: wait for it to finish (a line it held
+          // up too long is dropped), then hold it while the line plays
+          if (mine) {
+            if (!(await coachQuiet(meRef))) continue;
+            const ms = wavDurationMs(line.audio);
+            await fetch('/api/live/announcing', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ms: ms + HOLD_LEAD_MS + HOLD_MARGIN_MS }),
+            }).catch(() => undefined);
+            await delay(HOLD_LEAD_MS);
+          }
+          await playWav(line.audio);
+        }
       } catch (err) {
         setAnnouncerError(err instanceof Error ? err.message : t.liveRacing.announcerFailed);
       } finally {

@@ -182,6 +182,23 @@ export function spokenTimeGaps(text: string, language: Language = DEFAULT_LANGUA
     );
 }
 
+// How distance units are said in each language, for one and for more
+const UNIT_WORDS: Record<Language, { foot: [string, string]; meter: [string, string] }> = {
+  en: { foot: ['foot', 'feet'], meter: ['meter', 'meters'] },
+  pt: { foot: ['pé', 'pés'], meter: ['metro', 'metros'] },
+  es: { foot: ['pie', 'pies'], meter: ['metro', 'metros'] },
+};
+
+// The text with distances' unit abbreviations written out, so the voice says "15 feet" rather than "15 ef tee" and
+// "5 meters" rather than "5 em": "ft" and "m" only right after a number, and not "m/s"
+export function spokenUnits(text: string, language: Language = DEFAULT_LANGUAGE): string {
+  const words = UNIT_WORDS[language];
+  const say = (number: string, [one, many]: [string, string]) => `${number} ${number === '1' ? one : many}`;
+  return text
+    .replace(/(?<![\w.,])(\d+(?:[.,]\d+)?)\s?ft\b/gi, (_, number: string) => say(number, words.foot))
+    .replace(/(?<![\w.,])(\d+(?:[.,]\d+)?)\s?m\b(?![/²³])/g, (_, number: string) => say(number, words.meter));
+}
+
 // The text spoken in the voice, as a WAV file (PCM with a WAV header, which Windows plays without any codec, and so
 // do browsers). The text is already in the driver's language. role picks the ElevenLabs voice (the coach's RaceCoach
 // voice, or a Race Announcer's) and how the OpenAI fallback delivers it.
@@ -192,7 +209,8 @@ export async function synthesizeSpeech(
   spanishAccent: SpanishAccent = DEFAULT_SPANISH_ACCENT,
   role: ElevenLabsRole = 'raceCoach'
 ): Promise<Buffer> {
-  const input = spokenTimeGaps(spokenTurnNames(text, language), language);
+  // Units after time gaps, which leave "+1.5 ft" alone by its "ft"
+  const input = spokenUnits(spokenTimeGaps(spokenTurnNames(text, language), language), language);
   if (voice === ELEVENLABS_COACH_VOICE) {
     const voiceId = elevenLabsVoiceId(role, language, spanishAccent);
     if (voiceId) return wav(await elevenLabsSpeech(input, voiceId, 'pcm'));

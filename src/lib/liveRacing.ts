@@ -33,7 +33,10 @@ import { ensureUserSchema, getUserById, type User } from './users';
 // Each update is also compared with the one before for race events (detectRaceEvents: a lap completed, a pass, pit
 // road, an incident, a flag, a new leader, the session's fastest lap), kept a couple of minutes with the driver's live
 // state and numbered (eventSeq), for the Live Racing page's Race Announcers (POST /api/live/announcer,
-// src/lib/raceAnnouncer.ts).
+// src/lib/raceAnnouncer.ts). The announcers and the In-Car AI Coach never talk at once for a driver watching
+// themselves: the collector says when its coach is speaking (coachSpeaking), which the page waits out before each
+// line, and the page says how long each line lasts (markAnnouncing), which the answer to the collector's next update
+// carries (announcerSpeakingMs) so it holds its coach till then.
 
 const lapSeconds = z.number().min(0).max(86_400).nullish();
 
@@ -139,6 +142,9 @@ export const liveUpdateSchema = z.object({
   sessionLapsTotal: z.number().int().min(1).max(100_000).nullish(),
   // The collector says watchers' messages to the driver (from 1.53.0)
   acceptsMessages: z.boolean().nullish(),
+  // The In-Car AI Coach is speaking, or has something waiting to be said (from 1.55.0); the driver's own Race
+  // Announcers wait for it
+  coachSpeaking: z.boolean().nullish(),
   // The inputs since the last update (from collectors from 1.52.0)
   inputs: z.array(inputSampleSchema).max(200).nullish(),
   // The collector's approximate outline (meters east and north), sent while the track has no saved one
@@ -219,6 +225,9 @@ type LiveEntry = {
   events: NumberedRaceEvent[];
   eventSeq: number;
   lastOffTrackAt: number;
+  // Until when (ms since the epoch) the driver's own Race Announcers are speaking on their Live Racing page, so their
+  // collector holds the In-Car AI Coach's speech till then
+  announcingUntil: number;
 };
 
 // After this long without an update a driver is shown as offline, and after EXPIRE_MS left out
@@ -249,7 +258,13 @@ export function recordLiveUpdate(
   user: Pick<User, 'id' | 'userName' | 'role'>,
   update: LiveUpdate,
   savedOutline: boolean
-): { watchers: number; needsOutline: boolean; needsField: boolean; messages: { from: string; text: string }[] } {
+): {
+  watchers: number;
+  needsOutline: boolean;
+  needsField: boolean;
+  messages: { from: string; text: string }[];
+  announcerSpeakingMs: number;
+} {
   const now = Date.now();
   expire(now);
   const previous = live.entries.get(user.id);
@@ -318,6 +333,7 @@ export function recordLiveUpdate(
     events: events.slice(-MAX_EVENTS),
     eventSeq,
     lastOffTrackAt,
+    announcingUntil: previous?.announcingUntil ?? 0,
   });
   const messages = update.acceptsMessages
     ? (previous?.messages ?? []).filter((m) => now - m.at <= MESSAGE_EXPIRE_MS).map(({ from, text }) => ({ from, text }))
@@ -327,7 +343,21 @@ export function recordLiveUpdate(
     needsOutline: !!trackKey && !savedOutline && !kept,
     needsField: !!field && fieldSubSession === null,
     messages,
+    announcerSpeakingMs: Math.max(0, (previous?.announcingUntil ?? 0) - now),
   };
+}
+
+// The longest one announcer line can hold the In-Car AI Coach
+const MAX_ANNOUNCING_MS = 30_000;
+
+// The driver's own Live Racing page is about to play a Race Announcer line ms long: their collector's next live
+// update is told to hold the In-Car AI Coach till it ends, so the two never talk at once. Only the driver's own page
+// counts, as only the driver hears both. False when the driver isn't live.
+export function markAnnouncing(viewer: Pick<User, 'id'>, ms: number): boolean {
+  const entry = live.entries.get(viewer.id);
+  if (!entry || Date.now() - entry.receivedAt > STALE_MS) return false;
+  entry.announcingUntil = Date.now() + Math.min(Math.max(ms, 0), MAX_ANNOUNCING_MS);
+  return true;
 }
 
 type UpdateState = Omit<LiveUpdate, 'outline' | 'field' | 'inputs'>;
@@ -542,7 +572,9 @@ export type RaceEventContext = {
   bestLapTime: number | null;
   incidents: number | null;
   // The first few cars in the running order
-  leaders: { position: number; name: string }[];
+  leaders: { position: number; name: string; car: string | null }[];
+  // The car each driver in the session is in, by their name, for the cars of the drivers in its events
+  carsByDriver: Record<string, string>;
 };
 
 // A live driver's race events newer than after (their numbers), and their session as it is now, if this viewer may
@@ -564,7 +596,11 @@ export async function readRaceEvents(
     .filter((c) => c.position != null && c.details)
     .sort((a, b) => a.position! - b.position!)
     .slice(0, 5)
-    .map((c) => ({ position: c.position!, name: c.details!.name }));
+    .map((c) => ({ position: c.position!, name: c.details!.name, car: c.details!.car ?? null }));
+  const carsByDriver: Record<string, string> = {};
+  for (const c of entry.field?.cars ?? []) {
+    if (c.details?.car) carsByDriver[c.details.name] = c.details.car;
+  }
   return {
     events: entry.events.filter((e) => e.seq > after),
     seq: entry.eventSeq,
@@ -584,6 +620,7 @@ export async function readRaceEvents(
       bestLapTime: positive(u.bestLapTime),
       incidents: u.incidents ?? null,
       leaders,
+      carsByDriver,
     },
   };
 }

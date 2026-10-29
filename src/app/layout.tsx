@@ -102,7 +102,7 @@ export default async function RootLayout({
                   {children}
                 </main>
                 <footer className="border-t border-border py-6">
-                  <div className="site-container flex items-center justify-end gap-5">
+                  <div className="w-full px-4 flex items-center justify-end gap-5">
                     <div className="text-[10px] text-muted-foreground text-right max-sm:max-w-[140px]">
                       <p>© 2026 RacingCoach.app<br />{t.footer.tagline}</p>
                       <nav aria-label={t.legal.pageTitle} className="mt-1.5 flex flex-wrap justify-end gap-x-2">

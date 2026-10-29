@@ -64,8 +64,9 @@ export async function setRaceAnnouncerInstructions(userId: number, instructions:
   await query('UPDATE racingcoach."Users" SET race_announcer_instructions = $1 WHERE id = $2', [instructions, userId]);
 }
 
-// One event as the agent reads it, about the driver it's watching
-function describeEvent(event: RaceEvent, driver: string): string {
+// One event as the agent reads it, about the driver it's watching, with the other drivers' cars
+function describeEvent(event: RaceEvent, driver: string, carsByDriver: Record<string, string>): string {
+  const inCar = (name: string) => (carsByDriver[name] ? `${name} (${carsByDriver[name]})` : name);
   switch (event.type) {
     case 'lapComplete':
       return (
@@ -82,16 +83,16 @@ function describeEvent(event: RaceEvent, driver: string): string {
       return `${driver} picked up ${event.added} incident point${event.added === 1 ? '' : 's'} (${event.total} in the session)`;
     case 'positionGained':
       return `${driver} gained ${event.from - event.to === 1 ? 'a place' : `${event.from - event.to} places`}, P${event.from} to P${event.to}` +
-        (event.passed && event.from - event.to === 1 ? `, passing ${event.passed}` : '');
+        (event.passed && event.from - event.to === 1 ? `, passing ${inCar(event.passed)}` : '');
     case 'positionLost':
       return `${driver} lost ${event.to - event.from === 1 ? 'a place' : `${event.to - event.from} places`}, P${event.from} to P${event.to}` +
-        (event.passedBy && event.to - event.from === 1 ? `, passed by ${event.passedBy}` : '');
+        (event.passedBy && event.to - event.from === 1 ? `, passed by ${inCar(event.passedBy)}` : '');
     case 'flag':
       return `The ${event.flag} flag is out` + (event.notes.length > 0 ? ` (${event.notes.join(', ')})` : '');
     case 'leaderChange':
-      return `${event.leader} takes the lead of the race` + (event.previous ? ` from ${event.previous}` : '');
+      return `${inCar(event.leader)} takes the lead of the race` + (event.previous ? ` from ${inCar(event.previous)}` : '');
     case 'sessionFastestLap':
-      return `${event.isDriver ? driver : event.driver} set the fastest lap of the session, ${formatSeconds(event.lapTime)}`;
+      return `${event.isDriver ? driver : inCar(event.driver)} set the fastest lap of the session, ${formatSeconds(event.lapTime)}`;
   }
 }
 
@@ -105,7 +106,10 @@ function describeContext(c: RaceEventContext): string {
     c.bestLapTime ? `best lap ${formatSeconds(c.bestLapTime)}` : null,
     c.incidents != null ? `${c.incidents} incident points` : null,
   ].filter(Boolean);
-  const leaders = c.leaders.length > 0 ? `\nRunning order: ${c.leaders.map((l) => `P${l.position} ${l.name}`).join(', ')}` : '';
+  const leaders =
+    c.leaders.length > 0
+      ? `\nRunning order: ${c.leaders.map((l) => `P${l.position} ${l.name}${l.car ? ` (${l.car})` : ''}`).join(', ')}`
+      : '';
   return `${parts.join('; ')}.${leaders}`;
 }
 
@@ -143,6 +147,9 @@ const announcerPrompt = (speakers: Announcer[]) =>
       'something routine (an ordinary lap) one line from the Lead Announcer is enough. At most 2 lines. '
     : `Only ${speakers[0] === 'lead' ? 'the Lead Announcer' : 'the Color Announcer'} is on air, so give them every line: one line, or two for something big. `) +
   'When several things happened, talk about the most exciting or important first and leave out the routine ones. ' +
+  'You know the car each driver is in (in brackets after their name): mention it now and then, the way a ' +
+  'broadcast does (the maker or model, e.g. "the Porsche", "that McLaren"), especially in a battle between ' +
+  'different cars, but not in every line. ' +
   'Use only the facts given; never invent a pass, a gap, a time or a reason. Write numbers the way an announcer ' +
   'says them aloud, and time gaps rounded to the tenth (e.g. "four tenths"). Plain text, no markdown, no stage ' +
   'directions, no speaker names before the line.' +
@@ -182,7 +189,7 @@ export async function raceAnnouncerLines(input: {
     describeContext(input.context),
     '',
     'Just happened, oldest first:',
-    ...events.map((e) => `- ${describeEvent(e.event, input.context.driver)}`),
+    ...events.map((e) => `- ${describeEvent(e.event, input.context.driver, input.context.carsByDriver)}`),
     '',
     input.recentLines.length > 0
       ? `Said on air recently, so don't repeat it: ${input.recentLines.map((l) => `"${l}"`).join(' ')}`

@@ -36,6 +36,10 @@ internal sealed record FieldDriver(int CarIdx, string Name, string? Number, stri
 ///
 /// Watchers can message the driver from the website (Message Driver): the answer to an update carries the messages,
 /// and they're said in the driver's In-Car AI Coach voice.
+///
+/// The driver's own Race Announcers on the page and the In-Car AI Coach take turns: each update says whether the
+/// coach is speaking (coachSpeaking), and its answer how long an announcer line about to play lasts
+/// (announcerSpeakingMs), for which the coach's speech is held.
 /// </summary>
 internal sealed class LiveRacing(Func<RacingCoachApi?> api, Action<string> log)
 {
@@ -397,6 +401,7 @@ internal sealed class LiveRacing(Func<RacingCoachApi?> api, Action<string> log)
                 sessionLapsRemain = d.SessionLapsRemainEx is >= 0 and < UnlimitedLaps and var lapsLeft ? lapsLeft : (int?)null,
                 sessionLapsTotal = d.SessionLapsTotal is > 0 and < UnlimitedLaps and var lapsTotal ? lapsTotal : (int?)null,
                 acceptsMessages = true,
+                coachSpeaking = Voice.Busy,
                 inputs = TakeInputs(),
                 outline = _sendOutline && _map is { Exact: false } map
                     ? new { kind = "meters", points = map.Points.Select(p => new[] { p.X, p.Y }).ToArray() }
@@ -417,6 +422,8 @@ internal sealed class LiveRacing(Func<RacingCoachApi?> api, Action<string> log)
             Problem = null;
             Watchers = answer.Watchers;
             _clearedFor = null;
+            if (answer.AnnouncerSpeakingMs > 0)
+                Voice.HoldFor(TimeSpan.FromMilliseconds(answer.AnnouncerSpeakingMs));
             foreach (var message in answer.Messages ?? [])
             {
                 log($"Live Racing: message from {message.From}: {message.Text}");

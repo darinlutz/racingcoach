@@ -1,7 +1,8 @@
 'use client';
 
-import { Timer } from 'lucide-react';
+import { CarFront, Timer } from 'lucide-react';
 import { useLanguage } from '@/components/LanguageProvider';
+import { carBrand } from '@/lib/carBrands';
 import type { FieldCar, LiveField } from '@/lib/liveRacing';
 import { formatGap, formatLapTime } from '@/lib/liveRacingFormat';
 
@@ -10,7 +11,8 @@ import { formatGap, formatLapTime } from '@/lib/liveRacingFormat';
 // on pit road or off track. In a race the gaps are race time (iRacing's CarIdxF2Time, or laps when a car is a lap or
 // more down); in practice and qualifying they're between best laps. RacingCoach.app drivers the user is watching are
 // shown with their name and dot color, the driver with the session's fastest lap with a purple stopwatch, and each
-// driver's country flag (their iRacing flair, src/lib/countryFlags.ts, drawn by flag-icons) before their name. It sits
+// driver's country flag (their iRacing flair, src/lib/countryFlags.ts, drawn by flag-icons) and the logo of their car's
+// maker (src/lib/carBrands.ts; a plain car for makers without one) before their name. It sits
 // in a quarter of the page's width, so each car's lap, interval to the car ahead and iRating are in its row's tooltip.
 
 export type LeaderboardDriver = { name: string; color: string; isMe: boolean };
@@ -117,6 +119,7 @@ export default function LiveLeaderboard({
                     ) : (
                       <span className="shrink-0" style={{ width: 20, height: 15 }} aria-hidden />
                     )}
+                    <CarLogo car={details.car} />
                     {ours &&<span className="size-2 rounded-full shrink-0" style={{ backgroundColor: ours.color }} />}
                     <span className={`truncate ${ours ? 'font-semibold text-foreground' : 'text-foreground'}`}>{details.name}</span>
                     {isFastest && (
@@ -147,5 +150,22 @@ export default function LiveLeaderboard({
         </tbody>
       </table>
     </div>
+  );
+}
+
+// The logo of the car's maker, with its name and the car's in the tooltip
+function CarLogo({ car }: { car: string | null | undefined }) {
+  const brand = carBrand(car);
+  const label = [brand?.name, car].filter(Boolean).join(' · ') || undefined;
+  return (
+    <span className="shrink-0 inline-flex" role="img" aria-label={label} title={label}>
+      {brand ? (
+        <svg viewBox="0 0 24 24" className="size-4 fill-current text-foreground" aria-hidden>
+          <path d={brand.path} />
+        </svg>
+      ) : (
+        <CarFront className="size-4 text-muted-foreground" aria-hidden />
+      )}
+    </span>
   );
 }

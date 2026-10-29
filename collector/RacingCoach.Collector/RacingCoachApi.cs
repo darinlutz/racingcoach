@@ -476,9 +476,10 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
 }
 
 /// <summary>POST /api/collector/live: how many others are watching the driver, whether the site wants the collector's
-/// approximate outline of the track, whether it has a saved one, and watchers' messages to say to the driver.</summary>
+/// approximate outline of the track, whether it has a saved one, watchers' messages to say to the driver, and how
+/// long the driver's own Race Announcers are speaking, to hold the coach for.</summary>
 internal sealed record LiveAnswer(int Watchers, bool NeedsOutline, bool SavedOutline, bool NeedsField = false,
-    List<LiveMessage>? Messages = null);
+    List<LiveMessage>? Messages = null, int AnnouncerSpeakingMs = 0);
 
 /// <summary>A watcher's message to the driver from the website's Live Racing page, said in the coach voice.</summary>
 internal sealed record LiveMessage(string From, string Text);

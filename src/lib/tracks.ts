@@ -93,6 +93,8 @@ export function toLapTrack(track: TrackData): Track {
     name: track.key,
     fileName: track.name,
     lengthFeet: track.lengthFeet,
+    location: track.location,
+    bounds: track.bounds,
     areas: track.areas.map((area) => ({
       name: area.name,
       start: area.startPoint,

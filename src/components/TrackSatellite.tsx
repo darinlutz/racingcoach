@@ -16,7 +16,9 @@ const FEET_PER_METER = 3.280839895;
 // Where the picture looks: pixels per zoom-0 pixel, and the zoom-0 point at its center. Fitted to the extent of a
 // lap's track positions when there are some; otherwise centered on iRacing's location of the track, showing
 // about a third of its length across (a circuit's extent is roughly that), or 2 km without a length.
-function trackView(track: TrackData) {
+type SatelliteTrack = Pick<TrackData, 'name' | 'lengthFeet' | 'location' | 'bounds'>;
+
+function trackView(track: SatelliteTrack) {
   if (track.bounds) {
     const [west, north] = project([track.bounds.north, track.bounds.west]);
     const [east, south] = project([track.bounds.south, track.bounds.east]);
@@ -38,9 +40,10 @@ function trackView(track: TrackData) {
   return null;
 }
 
-// Track Data's satellite picture of a track (shown while its name is hovered), from the same sharpened imagery as
-// Lap Compare's driving line maps. Nothing when the track's location isn't known yet or imagery isn't set up.
-export default function TrackSatellite({ track }: { track: TrackData }) {
+// A satellite picture of a track (Track Data's, shown while its name is hovered, and Lap Compare's, beside the track
+// name), from the same sharpened imagery as Lap Compare's driving line maps. Nothing when the track's location isn't
+// known yet or imagery isn't set up.
+export default function TrackSatellite({ track }: { track: SatelliteTrack }) {
   const { t, fmt } = useLanguage();
   const settings = useMapSettings();
   const sharpenId = useId();

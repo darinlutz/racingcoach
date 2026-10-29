@@ -6,6 +6,7 @@ import FocusAreaTabs from '@/components/FocusAreaTabs';
 import type { Tab as LapDataTab } from '@/components/LapDataTabs';
 import PedalTraces, { type PedalTraceLap } from '@/components/PedalTraces';
 import SummaryPanel from '@/components/SummaryPanel';
+import TrackSatellite from '@/components/TrackSatellite';
 import type { Dictionary } from '@/lib/i18n/dictionaries/en';
 import { fmt } from '@/lib/i18n/languages';
 import { measureDrivingLine, type LapDrivingLine } from '@/lib/lapDrivingLine';
@@ -657,13 +658,26 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
       {(baseLap || compareLap || error) && (
         <div>
           {(baseLap || compareLap) && (
-            <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <span className="text-sm font-medium text-foreground">{dictionary.laps.trackName}</span>
-              <span className={`font-semibold ${lapsTrack ? 'text-foreground' : 'text-muted-foreground'}`}>
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+              <h2
+                className={
+                  lapsTrack ? 'text-3xl font-bold tracking-tight text-foreground' : 'text-xl font-semibold text-muted-foreground'
+                }
+              >
                 {lapsTrack?.fileName ??
                   (tracks.length === 0 ? (error ? dictionary.laps.unavailable : dictionary.common.loading) : dictionary.laps.notInTrackData)}
-              </span>
-            </p>
+              </h2>
+              {lapsTrack && (
+                <TrackSatellite
+                  track={{
+                    name: lapsTrack.fileName,
+                    lengthFeet: lapsTrack.lengthFeet,
+                    location: lapsTrack.location ?? null,
+                    bounds: lapsTrack.bounds ?? null,
+                  }}
+                />
+              )}
+            </div>
           )}
           {error && <p className="mt-2 text-sm text-primary">{error}</p>}
         </div>

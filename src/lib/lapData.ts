@@ -1,6 +1,8 @@
 // Shared helpers for reading Garage 61 lap CSVs and measuring focus areas
 // (used by the Multi-Lap Analysis and Lap Compare tabs).
 
+import type { TrackBounds } from './trackLocations';
+
 // start/end are fractions of a lap (LapDistPct); brakepointTarget and throttlePickupTarget are in
 // feet; maxBrakeTarget is a percent. The targets come only from the user's Target Lap (targetLapTargets.ts);
 // each is null without one of this track, or when it has none in the area
@@ -12,7 +14,15 @@ export type Area = {
   maxBrakeTarget: number | null;
   throttlePickupTarget: number | null;
 };
-export type Track = { name: string; fileName: string; lengthFeet: number | null; areas: Area[] };
+// location and bounds: where the track is, for Lap Compare's satellite picture (TrackSatellite)
+export type Track = {
+  name: string;
+  fileName: string;
+  lengthFeet: number | null;
+  areas: Area[];
+  location?: { latitude: number; longitude: number } | null;
+  bounds?: TrackBounds | null;
+};
 
 export type LapFile = {
   file: File;

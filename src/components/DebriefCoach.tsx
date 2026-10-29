@@ -6,6 +6,7 @@ import { useLanguage } from '@/components/LanguageProvider';
 import RecordedLaps from '@/components/RecordedLaps';
 import SetTargetLapDialog, { type SetTargetLapStep } from '@/components/SetTargetLapDialog';
 import TargetLapCard from '@/components/TargetLapCard';
+import TrackSatellite from '@/components/TrackSatellite';
 
 import type { Debrief } from '@/lib/debriefCoach';
 import { buildDebriefSession, lapId } from '@/lib/debriefSession';
@@ -197,13 +198,26 @@ export default function DebriefCoach({ onCompare }: { onCompare?: (base: LapFile
       {(allLaps.length > 0 || error) && (
         <div>
           {allLaps.length > 0 && (
-            <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <span className="text-sm font-medium text-foreground">{t.laps.trackName}</span>
-              <span className={`font-semibold ${selectedTrack ? 'text-foreground' : 'text-muted-foreground'}`}>
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+              <h2
+                className={
+                  selectedTrack ? 'text-3xl font-bold tracking-tight text-foreground' : 'text-xl font-semibold text-muted-foreground'
+                }
+              >
                 {selectedTrack?.fileName ??
                   (tracks.length === 0 ? (error ? t.laps.unavailable : t.common.loading) : t.laps.notInTrackData)}
-              </span>
-            </p>
+              </h2>
+              {selectedTrack && (
+                <TrackSatellite
+                  track={{
+                    name: selectedTrack.fileName,
+                    lengthFeet: selectedTrack.lengthFeet,
+                    location: selectedTrack.location ?? null,
+                    bounds: selectedTrack.bounds ?? null,
+                  }}
+                />
+              )}
+            </div>
           )}
           {error && <p className="mt-2 text-sm text-primary">{error}</p>}
         </div>

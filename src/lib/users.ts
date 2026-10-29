@@ -103,7 +103,7 @@ let schemaReady: Promise<void> | null = null;
 // Users, Track Data's Tracks and their TrackFocusAreas (shared by every user), each user's own Friends and LiveRacingWatchers,
 // the default Cars and each user's CarsUsers, IRacePlanConnections and RaceResults (from iRacePlan and the collector), DiscordConnections, GoogleConnections, saved
 // DebriefSessions, the telemetry collector's CollectorKeys, uploaded CollectorLaps, CollectorLogs and CollectorLogReviews, sign-in Sessions,
-// PasswordResets links, CancellationReason feedback, the ActivityLog of page views and clicks, and the
+// PasswordResets links, TV Broadcast Mode's TvPairings and TvSessions, CancellationReason feedback, the ActivityLog of page views and clicks, and the
 // PolicyAcceptances of the Terms of Service and Privacy Policy, the CookieConsents audit trail, and the Subscribers
 // page's copy of Stripe (StripeSubscriptions, StripeDiscounts and StripeWebhookEvents, see stripeBilling.ts).
 export function ensureUserSchema(): Promise<void> {
@@ -231,6 +231,29 @@ export function ensureUserSchema(): Promise<void> {
         expires_at BIGINT NOT NULL
       )`);
       await client.query('CREATE INDEX IF NOT EXISTS sessions_user_id_idx ON racingcoach."Sessions" (user_id)');
+      // TV Broadcast Mode (tvAuth.ts): a TV's pairing code waiting for a signed-in user to enter it, and the paired
+      // TVs' own limited sessions (only the /api/tv routes accept them)
+      await client.query(`CREATE TABLE IF NOT EXISTS racingcoach."TvPairings" (
+        id SERIAL PRIMARY KEY,
+        code_hash TEXT NOT NULL UNIQUE,
+        device_hash TEXT NOT NULL,
+        label TEXT NOT NULL,
+        user_id INTEGER REFERENCES racingcoach."Users"(id) ON DELETE CASCADE,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        expires_at TIMESTAMPTZ NOT NULL,
+        approved_at TIMESTAMPTZ
+      )`);
+      await client.query(`CREATE TABLE IF NOT EXISTS racingcoach."TvSessions" (
+        id SERIAL PRIMARY KEY,
+        token_hash TEXT NOT NULL UNIQUE,
+        user_id INTEGER NOT NULL REFERENCES racingcoach."Users"(id) ON DELETE CASCADE,
+        label TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        expires_at TIMESTAMPTZ NOT NULL,
+        last_seen_at TIMESTAMPTZ,
+        revoked_at TIMESTAMPTZ
+      )`);
+      await client.query('CREATE INDEX IF NOT EXISTS tv_sessions_user_id_idx ON racingcoach."TvSessions" (user_id)');
       await client.query(`CREATE TABLE IF NOT EXISTS racingcoach."PasswordResets" (
         token_hash TEXT PRIMARY KEY,
         user_id INTEGER NOT NULL REFERENCES racingcoach."Users"(id) ON DELETE CASCADE,

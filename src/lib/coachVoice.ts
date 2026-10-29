@@ -200,26 +200,30 @@ export function spokenUnits(text: string, language: Language = DEFAULT_LANGUAGE)
 }
 
 // The text spoken in the voice, as a WAV file (PCM with a WAV header, which Windows plays without any codec, and so
-// do browsers). The text is already in the driver's language. role picks the ElevenLabs voice (the coach's RaceCoach
-// voice, or a Race Announcer's) and how the OpenAI fallback delivers it.
+// do browsers), or with format 'mp3' an MP3 (a tenth of the size, for TV Broadcast Mode on low-powered TVs). The text
+// is already in the driver's language. role picks the ElevenLabs voice (the coach's RaceCoach voice, or a Race
+// Announcer's) and how the OpenAI fallback delivers it.
 export async function synthesizeSpeech(
   text: string,
   voice: CoachVoice,
   language: Language = DEFAULT_LANGUAGE,
   spanishAccent: SpanishAccent = DEFAULT_SPANISH_ACCENT,
-  role: ElevenLabsRole = 'raceCoach'
+  role: ElevenLabsRole = 'raceCoach',
+  format: SpeechFormat = 'wav'
 ): Promise<Buffer> {
   // Units after time gaps, which leave "+1.5 ft" alone by its "ft"
   const input = spokenUnits(spokenTimeGaps(spokenTurnNames(text, language), language), language);
   if (voice === ELEVENLABS_COACH_VOICE) {
     const voiceId = elevenLabsVoiceId(role, language, spanishAccent);
-    if (voiceId) return wav(await elevenLabsSpeech(input, voiceId, 'pcm'));
+    if (voiceId) return format === 'mp3' ? elevenLabsSpeech(input, voiceId, 'mp3') : wav(await elevenLabsSpeech(input, voiceId, 'pcm'));
     voice = DEFAULT_COACH_VOICE;
   }
   return process.env.GOOGLE_TTS_API_KEY
-    ? chirpSpeech(input, voice, chirpLocale(language, spanishAccent))
-    : openAiSpeech(input, language, spanishAccent, role);
+    ? chirpSpeech(input, voice, chirpLocale(language, spanishAccent), format)
+    : openAiSpeech(input, language, spanishAccent, role, format);
 }
+
+export type SpeechFormat = 'wav' | 'mp3';
 
 // How the OpenAI fallback speaks each role
 const DELIVERY: Record<ElevenLabsRole, string> = {
@@ -233,14 +237,14 @@ const DELIVERY: Record<ElevenLabsRole, string> = {
     'conversational and knowing.',
 };
 
-async function chirpSpeech(text: string, voice: ChirpVoice, locale: string): Promise<Buffer> {
+async function chirpSpeech(text: string, voice: ChirpVoice, locale: string, format: SpeechFormat): Promise<Buffer> {
   const response = await fetch('https://texttospeech.googleapis.com/v1/text:synthesize', {
     method: 'POST',
     headers: { 'X-Goog-Api-Key': process.env.GOOGLE_TTS_API_KEY!, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       input: { text },
       voice: { languageCode: locale, name: `${locale}-Chirp3-HD-${voice}` },
-      audioConfig: { audioEncoding: 'LINEAR16', sampleRateHertz: SAMPLE_RATE },
+      audioConfig: format === 'mp3' ? { audioEncoding: 'MP3' } : { audioEncoding: 'LINEAR16', sampleRateHertz: SAMPLE_RATE },
     }),
     signal: AbortSignal.timeout(30_000),
   });
@@ -254,6 +258,7 @@ async function chirpSpeech(text: string, voice: ChirpVoice, locale: string): Pro
   }
   // LINEAR16 normally comes with its WAV header already
   const audio = Buffer.from(audioContent, 'base64');
+  if (format === 'mp3') return audio;
   return audio.subarray(0, 4).toString('ascii') === 'RIFF' ? audio : wav(audio);
 }
 
@@ -262,7 +267,8 @@ async function openAiSpeech(
   text: string,
   language: Language,
   spanishAccent: SpanishAccent,
-  role: ElevenLabsRole
+  role: ElevenLabsRole,
+  format: SpeechFormat
 ): Promise<Buffer> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
@@ -276,7 +282,7 @@ async function openAiSpeech(
       model: OPENAI_SPEECH_MODEL,
       voice: OPENAI_VOICE,
       input: text,
-      response_format: 'pcm',
+      response_format: format === 'mp3' ? 'mp3' : 'pcm',
       instructions:
         `Speak as a native ${nativeSpeaker(language, spanishAccent)} pronouncing everything the way a native speaker ` +
         `would, numbers included (keep track, corner and car names as written). ${DELIVERY[role]}`,
@@ -287,7 +293,8 @@ async function openAiSpeech(
     const detail = await response.text().catch(() => '');
     throw new SpeechError(`OpenAI speech failed (HTTP ${response.status}): ${detail.slice(0, 300)}`);
   }
-  return wav(Buffer.from(await response.arrayBuffer()));
+  const audio = Buffer.from(await response.arrayBuffer());
+  return format === 'mp3' ? audio : wav(audio);
 }
 
 function wav(pcm: Buffer): Buffer {

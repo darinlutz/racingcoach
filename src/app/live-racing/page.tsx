@@ -1,3 +1,5 @@
+import { Tv } from 'lucide-react';
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 // The leaderboard's country flags (`fi fi-<code>`, src/lib/countryFlags.ts)
 import 'flag-icons/css/flag-icons.min.css';
@@ -10,6 +12,7 @@ import { getEnableAiFeatures } from '@/lib/siteSettings';
 
 // The nav bar's Live Racing page: the drivers running the telemetry collector right now whom the user may watch
 // (src/lib/liveRacing.ts), as dots going round each track's map, and who may watch the user. Signed-in users only.
+// Watch on a TV leads to the TV Link page, which pairs a TV for TV Broadcast Mode (src/app/tv/).
 export default async function LiveRacingPage() {
   const user = await getCurrentUser();
   if (!user) redirect(withReturnTo('/login', '/live-racing'));
@@ -24,7 +27,13 @@ export default async function LiveRacingPage() {
           <h1 className="text-3xl font-bold bg-gradient-to-r from-primary-strong via-primary to-primary-strong bg-clip-text text-transparent">
             {dictionary.nav.liveRacing}
           </h1>
-          <p className="mt-2 text-muted-foreground">{dictionary.liveRacing.intro}</p>
+          <p className="mt-2 text-muted-foreground">
+            {dictionary.liveRacing.intro}{' '}
+            <Link href="/tv/link" className="inline-flex items-center gap-1 text-primary hover:underline">
+              <Tv size={16} aria-hidden />
+              {dictionary.tv.watchOnTv}
+            </Link>
+          </p>
         </div>
         <LiveRacing announcers={enableAiFeatures} />
         <LiveRacingWatchers />

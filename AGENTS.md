@@ -63,6 +63,7 @@ src/
 │   │   └── ...           # Racing, auth and Stripe routes
 │   ├── racing/       # Racing page (friends, lap/stint analysis, debrief coach)
 │   ├── live-racing/  # Live Racing page (drivers going round each track's map, live, and who can watch me)
+│   ├── tv/           # TV Broadcast Mode (Live Racing on a Fire TV, with the Race Announcers); tv/link pairs a TV
 │   ├── cars-tracks/  # Cars & Tracks page (Cars, Tracks and Racecar Analysis tabs)
 │   ├── track-data/   # Redirects to the Cars & Tracks page's Tracks tab
 │   ├── car-data/     # Redirects to the Cars & Tracks page's Cars tab
@@ -126,6 +127,17 @@ Uploaded laps (`"CollectorLaps"`) and saved Debrief Coach runs (`"DebriefSession
 - **Collector** (from 1.51.0): deletes a lap's CSV once it's uploaded and has its track positions (as before), at once when the site answers `lapExpired`, and any lap's CSV and `session.json` entry 90 days after completion (`LapWriter.MaxLocalAge`), uploaded or not, then empty session folders; and at startup deletes `.ibt` files over 90 days old in `Documents\iRacing\telemetry` (not while playing a file back). Played-back laps are stamped with when they were driven (the `.ibt`'s start plus `SessionTime`)
 - **Not covered**: the Target Lap (the user's choice, kept until replaced or removed), Expert Laps (coaching content) and track bounds and outlines (no user in them)
 - **Tests**: `npm run test:lap-retention` (rules at exact UTC boundaries; then the real modules against a local Postgres when `LAP_RETENTION_TEST_DATABASE_URL` is set, see the test's header; it refuses a database that isn't local)
+
+## TV Broadcast Mode
+
+Live Racing on a TV's browser (built for Amazon Silk on Fire TV), worked with the remote, with the Race Announcers' commentary. Design, endpoints, Render deployment and the Fire TV test checklist in `docs/tv-broadcast.md`.
+
+- **Pages**: `/tv` (`src/app/tv/page.tsx`, `src/components/TvApp.tsx`: a 1920×1080 stage scaled to the window, fixed over the site's nav and footer, with a Screen edges margin for overscan) shows a pairing code (`TvPairing.tsx`) until paired, then the broadcast (`TvBroadcast.tsx`: session header, leaderboard, followed driver, announcer lower third, race events, controls). `/tv/link` (signed-in users, linked from the Live Racing page's Watch on a TV) takes the code and lists the account's TVs with Unpair (`TvLink.tsx`)
+- **Auth** (`src/lib/tvAuth.ts`, `src/lib/tvPairingCode.ts`): `"TvPairings"` (hashed 8-character code, 10 minutes, single use, claimable only by the TV holding the HttpOnly `tv_pairing` secret) and `"TvSessions"` (hashed token in the HttpOnly `tv_session` cookie, 30 days, revocable, at most 10 per account, `ON DELETE CASCADE`). Only `/api/tv/*` and `/tv` read `tv_session` (`getTvSession`); `getCurrentUser` never does, so a TV can only watch what its account may watch on Live Racing and ask for commentary. Code entry is limited per account and IP (`overAttemptLimit`, in memory)
+- **Live data** (`src/lib/tvBroadcast.ts`): `readTvState` builds the TV's picture (leaderboard rows, gaps, flag, events) from `readLiveDrivers`/`readRaceEvents`, nulls where the collector sent nothing. `GET /api/tv/stream` sends it as Server-Sent Events when it changes (`ping` every 15 s, `unpaired` when revoked, ends after 10 minutes for the browser to reconnect; `Cache-Control: no-transform` so it isn't gzipped and held back); `GET /api/tv/state` is the polling fallback `useTvFeed.ts` switches to when the stream never delivers
+- **Commentary**: `commentate` (`src/lib/announcerCommentary.ts`) is the Race Announcer call shared by `POST /api/live/announcer` (WAV, unchanged) and `POST /api/tv/announcer` (MP3, via `synthesizeSpeech`'s `format`), which also remembers the newest event each TV session heard so reconnects don't repeat it. `useTvCommentary.ts` plays lines one at a time on the audio element Start Broadcast unlocked (`CommentaryQueue` in `src/lib/tvAudio.ts`), skips events from before it followed the driver/session or while off or hidden, stops when the TV goes to the background, and takes turns with the account's own In-Car AI Coach (`POST /api/tv/announcing`)
+- **Remote** (`src/lib/tvRemote.ts`, `useTvRemote.ts`): controls marked `data-tv-focus` are reached with the D-pad (nearest in that direction); Settings is a history entry so Back closes it; Play/Pause mutes
+- **Tests**: `npm run test:tv`
 
 ## Cookie Consent
 

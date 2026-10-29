@@ -223,6 +223,8 @@ describe('source guards', () => {
     const allowed = new Set([
       'components/ActivityTracker.tsx', // activitySessionId (analytics, inside ConsentGate)
       'components/LiveRacing.tsx', // liveRacing.* checkboxes
+      'components/TvApp.tsx', // tv.screenEdges
+      'components/TvBroadcast.tsx', // tv.* commentary and volume choices
       'components/Navigation.tsx', // nav
       'components/CookieConsentProvider.tsx', // removes withdrawn storage
     ]);

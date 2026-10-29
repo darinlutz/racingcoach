@@ -406,6 +406,8 @@ export const pt: Dictionary = {
 
   coachSpeech: {
     newLap: 'Começando nova volta',
+    lapTime: 'Tempo de volta, {lapTime}',
+    newBest: 'Nova melhor volta!',
     areaAverage: 'O tempo médio na área {n} foi de {seconds} segundos',
   },
 
@@ -1826,8 +1828,6 @@ export const pt: Dictionary = {
     throttle: 'Acelerador',
     brake: 'Freio',
     steering: 'Volante',
-    announceLaps: 'Anunciar tempos de volta (voz)',
-    announceFailed: 'Não foi possível tocar o tempo de volta.',
     announcerFailed: 'Os narradores da corrida não conseguiram narrar.',
     radioTitle: 'Rádio do piloto',
     radioEmpty: 'Nada dito no rádio ainda. O piloto segura o botão do rádio no iRacing e fala.',
@@ -1836,9 +1836,6 @@ export const pt: Dictionary = {
     radioJustNow: 'agora mesmo',
     radioSecondsAgo: 'há {n} s',
     radioMinutesAgo: 'há {n} min',
-    lapTimeSpeech: 'Tempo de volta, {minutes} {seconds}, vírgula {thousandths}.',
-    lapTimeSpeechSeconds: 'Tempo de volta, {seconds}, vírgula {thousandths}.',
-    newBestSpeech: 'Nova melhor volta!',
     leaderboard: 'Classificação',
     cars: '{n} carros',
     pos: 'Pos',

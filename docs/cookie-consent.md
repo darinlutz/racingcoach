@@ -46,7 +46,7 @@ pixel, social plugin, embedded video or third-party script.
 | `theme` | cookie | `/api/preferences` | Secure (prod), Lax | 1 year | Strictly necessary (UI customization) | Dark / Light Mode the user chose |
 | `units` | cookie | `/api/preferences` | Secure (prod), Lax | 1 year | Strictly necessary (UI customization) | Standard / Metric the user chose |
 | `nav` | cookie | `Navigation.tsx` (client) | Lax, Secure on HTTPS (added) | 1 year | Strictly necessary (UI customization) | Sidebar collapsed or not, as the user set it |
-| `liveRacing.announceLaps`, `liveRacing.leadAnnouncer`, `liveRacing.colorAnnouncer` | localStorage | `LiveRacing.tsx` | - | Until cleared | Strictly necessary (UI customization) | Checkboxes the user ticked, signed-in page |
+| `liveRacing.leadAnnouncer`, `liveRacing.colorAnnouncer` | localStorage | `LiveRacing.tsx` | - | Until cleared | Strictly necessary (UI customization) | Checkboxes the user ticked, signed-in page |
 | `visitor_id` | cookie | `/api/activity` | HttpOnly, Secure (prod), Lax | 1 year | **Analytics (consent)** | Recognizes the browser across visits in the activity log |
 | `activitySessionId` | sessionStorage | `ActivityTracker.tsx` | - | Tab | **Analytics (consent)** | Groups one tab's events in the activity log |
 

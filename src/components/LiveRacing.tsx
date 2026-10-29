@@ -21,8 +21,7 @@ import { METERS_PER_FOOT, SPEED_UNIT, speedFromMetersPerSecond } from '@/lib/uni
 // session and weather (LiveSessionBanner), then in three columns. On the left the
 // session's lap and time remaining over a leaderboard of every car in it (from collectors that send the field); in
 // the middle the map, with a dot per car, and under it each watched driver's lap details; on the right one driver's
-// (the user, until they pick another in the list) Driver Inputs and incidents, Announce lap times (said in the site's
-// ElevenLabs voice as each lap ends, POST /api/live/lap-speech), the Lead and Color Announcer checkboxes (the Race
+// (the user, until they pick another in the list) Driver Inputs and incidents, the Lead and Color Announcer checkboxes (the Race
 // Announcers commentate on what happens in that driver's session, POST /api/live/announcer, in the voices picked on
 // the Account page; shown while the Admin page's Enable AI Features is on, announcers; both on until turned off, and
 // about the user's own driving never over their In-Car AI Coach, see coachQuiet) and Message Driver, which
@@ -33,7 +32,6 @@ import { METERS_PER_FOOT, SPEED_UNIT, speedFromMetersPerSecond } from '@/lib/uni
 // appears once a lap with track positions uploads).
 
 const POLL_MS = 1000;
-const ANNOUNCE_KEY = 'liveRacing.announceLaps';
 const ANNOUNCER_KEYS = { lead: 'liveRacing.leadAnnouncer', color: 'liveRacing.colorAnnouncer' } as const;
 const RADIO_KEY = 'liveRacing.playRadio';
 // The satellite imagery's opacity under the maps (0-100), kept in the browser
@@ -175,10 +173,6 @@ export default function LiveRacing({ announcers: showAnnouncers }: { announcers:
   const [samples, setSamples] = useState<TimedSample[]>([]);
   // Page clock (ms) minus the collector's SessionTime (ms), for the focused driver's samples
   const offset = useRef<{ driver: number; ms: number } | null>(null);
-  const [announce, setAnnounce] = useState(false);
-  const [announceError, setAnnounceError] = useState('');
-  // The focused driver's last lap time already announced (or there when the page started watching them)
-  const announced = useRef<{ driver: number; lapTime: number | null; best: number | null } | null>(null);
   // The Race Announcers turned on, and the focused driver's newest race event already commentated (or there when the
   // page started watching them); one commentary at a time, its lines played before the next is asked for
   const [announcers, setAnnouncers] = useState<Record<Announcer, boolean>>({ lead: true, color: true });
@@ -198,9 +192,8 @@ export default function LiveRacing({ announcers: showAnnouncers }: { announcers:
 
   useEffect(() => {
     try {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- read once from browser storage after hydration
-      setAnnounce(window.localStorage.getItem(ANNOUNCE_KEY) === '1');
       // The announcers are on unless turned off
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- read once from browser storage after hydration
       setAnnouncers({
         lead: window.localStorage.getItem(ANNOUNCER_KEYS.lead) !== '0',
         color: window.localStorage.getItem(ANNOUNCER_KEYS.color) !== '0',
@@ -209,7 +202,7 @@ export default function LiveRacing({ announcers: showAnnouncers }: { announcers:
       const opacity = Number(window.localStorage.getItem(IMAGERY_KEY) ?? NaN);
       if (Number.isFinite(opacity)) setImageryOpacity(Math.min(Math.max(opacity, 0), 100));
     } catch {
-      // storage blocked: lap times off, announcers and radio on, the imagery at its default
+      // storage blocked: announcers and radio on, the imagery at its default
     }
   }, []);
   const changeImageryOpacity = (opacity: number) => {
@@ -234,15 +227,6 @@ export default function LiveRacing({ announcers: showAnnouncers }: { announcers:
     setAnnouncerError('');
     try {
       window.localStorage.setItem(ANNOUNCER_KEYS[announcer], on ? '1' : '0');
-    } catch {
-      // kept for this visit only
-    }
-  };
-  const toggleAnnounce = (on: boolean) => {
-    setAnnounce(on);
-    setAnnounceError('');
-    try {
-      window.localStorage.setItem(ANNOUNCE_KEY, on ? '1' : '0');
     } catch {
       // kept for this visit only
     }
@@ -312,38 +296,6 @@ export default function LiveRacing({ announcers: showAnnouncers }: { announcers:
     focusRef.current = focus;
   }, [focus]);
   const focused = drivers?.find((d) => d.userId === focus) ?? null;
-
-  // Announce the focused driver's lap times as their laps end
-  useEffect(() => {
-    if (!focused) return;
-    const lapTimeNow = focused.lastLapTime ?? null;
-    const previous = announced.current;
-    announced.current = { driver: focused.userId, lapTime: lapTimeNow, best: focused.bestLapTime ?? null };
-    if (!announce || !previous || previous.driver !== focused.userId || lapTimeNow == null || lapTimeNow <= 0) return;
-    if (previous.lapTime === lapTimeNow) return;
-    const newBest = previous.best != null && focused.bestLapTime === lapTimeNow;
-    (async () => {
-      try {
-        const response = await fetch('/api/live/lap-speech', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ lapTime: lapTimeNow, newBest }),
-        });
-        if (!response.ok) {
-          const data = await response.json().catch(() => ({}));
-          reportRateLimit(response, data);
-          throw new Error(data.error || t.liveRacing.announceFailed);
-        }
-        const url = URL.createObjectURL(await response.blob());
-        const audio = new Audio(url);
-        audio.onended = () => URL.revokeObjectURL(url);
-        await audio.play();
-        setAnnounceError('');
-      } catch (err) {
-        setAnnounceError(err instanceof Error ? err.message : t.liveRacing.announceFailed);
-      }
-    })();
-  }, [focused, announce, t]);
 
   // The Race Announcers commentate on the focused driver's race events as they happen
   useEffect(() => {
@@ -699,13 +651,6 @@ export default function LiveRacing({ announcers: showAnnouncers }: { announcers:
                       samples={samples}
                     />
                     <LiveDriverRadio radio={focusedHere.radio ?? []} play={playRadio} onPlayChange={togglePlayRadio} error={radioError} />
-                    <div className="px-4 py-3">
-                      <label className="inline-flex items-center gap-2 text-sm text-foreground cursor-pointer">
-                        <input type="checkbox" checked={announce} onChange={(e) => toggleAnnounce(e.target.checked)} />
-                        {t.liveRacing.announceLaps}
-                      </label>
-                      {announceError && <p className="mt-1 text-xs text-red-300">{announceError}</p>}
-                    </div>
                     {showAnnouncers && (
                       <div className="px-4 py-3">
                         <p className="text-sm font-semibold text-foreground">{t.raceAnnouncers.title}</p>

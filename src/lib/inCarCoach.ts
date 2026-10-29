@@ -5,6 +5,7 @@ import { brakeChangeRule, createTools, type DebriefSession } from './debriefCoac
 import { hasTrackPosition } from './trackPositions';
 import { DEFAULT_UNITS, DISTANCE_NAME, DISTANCE_UNIT, SPEED_UNIT, type Units } from './units';
 import { aiLanguageRule, DEFAULT_LANGUAGE, type Language } from './i18n/languages';
+import { getDictionary } from './i18n/server';
 import { LAP_TIME_RULE } from './lapData';
 import { coachInstructionsRule, getHeadCoachInCarInstructions } from './siteSettings';
 import { formatSeconds } from './stintExport';
@@ -16,7 +17,8 @@ import { chatModel, getAiModel } from '@/lib/aiModels';
 // from the Coach page (getHeadCoachInCarInstructions) that every driver's In-Car AI Coach follows. It works in two parts:
 //   - Plan (inCarCoachPlan): at the start of a session the collector fetches the instructions turned into rules
 //     it runs itself on live telemetry (e.g. play a sound at the start/finish line), and how to deliver what the
-//     coach says. No laps needed; no AI call without instructions.
+//     coach says. No laps needed; no AI call without instructions. Every plan also says each lap time and New
+//     best lap (builtInRules), without the driver having to ask.
 //   - Lap feedback (inCarCoachCallouts): after laps upload, the agent looks through the session's laps so far with
 //     the Debrief Coach's tools (debriefCoach.ts) and answers what to tell the driver now, if anything. Laps
 //     driven live have no track positions until after the stint, so the driving line usually can't be compared.
@@ -67,6 +69,26 @@ export type InCarCoachPlan = z.infer<typeof planSchema>;
 
 const DEFAULT_PLAN: InCarCoachPlan = { rules: [], speak: true, show: true, holdInFocusAreas: false, lapFeedback: true, feedbackEveryLaps: 1 };
 const MAX_RULES = 20;
+
+// Rules every driver's coach runs, in their language: the lap time as each lap ends, and New best lap. Left out
+// when the instructions ask the coach not to talk (speak false)
+function builtInRules(language: Language): CoachRule[] {
+  const words = getDictionary(language).coachSpeech;
+  return [
+    { event: 'lapComplete', area: null, action: 'say', text: words.lapTime, sound: null },
+    { event: 'newBestLap', area: null, action: 'say', text: words.newBest, sound: null },
+  ];
+}
+
+const withBuiltInRules = (plan: InCarCoachPlan, language: Language): InCarCoachPlan => ({
+  ...plan,
+  rules: plan.speak ? [...builtInRules(language), ...plan.rules] : plan.rules,
+});
+
+// What the built-in rules already say, so the plan doesn't say it twice
+const BUILT_IN_RULES_PROMPT =
+  ' The coach already says the lap time as each lap ends and "New best lap" on a new best, for every driver, so ' +
+  'never make a rule that says or shows the lap time on lapComplete, or that announces a new best lap.';
 const MAX_FEEDBACK_EVERY_LAPS = 20;
 
 const calloutsSchema = z.object({
@@ -146,7 +168,7 @@ export async function inCarCoachPlan(
   units: Units = DEFAULT_UNITS
 ): Promise<InCarCoachPlan> {
   const headCoach = await readHeadCoachInCarInstructions();
-  if (!instructions.trim() && !headCoach) return DEFAULT_PLAN;
+  if (!instructions.trim() && !headCoach) return withBuiltInRules(DEFAULT_PLAN, language);
   if (!process.env.OPENAI_API_KEY) {
     throw new Error('OPENAI_API_KEY is not configured');
   }
@@ -157,12 +179,12 @@ export async function inCarCoachPlan(
     .update(JSON.stringify([headCoach, instructions.trim(), areaNames, language, units, model]))
     .digest('hex');
   const cached = planCache.get(key);
-  if (cached) return cached;
+  if (cached) return withBuiltInRules(cached, language);
 
   const agent = createAgent({
     model: await chatModel('inCarCoachPlan', 0),
     tools: [],
-    systemPrompt: PLAN_PROMPT + unitsRule(units) + aiLanguageRule(language),
+    systemPrompt: PLAN_PROMPT + BUILT_IN_RULES_PROMPT + unitsRule(units) + aiLanguageRule(language),
     responseFormat: planSchema,
   });
   const result = await agent.invoke({
@@ -180,7 +202,7 @@ export async function inCarCoachPlan(
   const plan = cleanPlan(result.structuredResponse, areaNames);
   if (planCache.size >= PLAN_CACHE_SIZE) planCache.delete(planCache.keys().next().value!);
   planCache.set(key, plan);
-  return plan;
+  return withBuiltInRules(plan, language);
 }
 
 // Drops rules the collector couldn't run (a say or message with no text, a sound with none, an unknown area), and
@@ -193,6 +215,8 @@ function cleanPlan(plan: InCarCoachPlan, areaNames: string[]): InCarCoachPlan {
       if (isAreaEvent && rule.area && !area) return [];
       if (rule.action === 'sound') return [{ ...rule, area: area ?? null, text: null, sound: rule.sound ?? 'beep' }];
       if (!rule.text?.trim() || hasTrackPosition(rule.text)) return [];
+      // the built-in rules already say these
+      if (rule.action === 'say' && (rule.event === 'newBestLap' || (rule.event === 'lapComplete' && rule.text.includes('{lapTime}')))) return [];
       return [{ ...rule, area: area ?? null, text: rule.text.trim(), sound: null }];
     })
     .slice(0, MAX_RULES);

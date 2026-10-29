@@ -425,6 +425,8 @@ export const en = {
   // Fixed things the collector says out loud (POST /api/collector/speech, the in-session debrief)
   coachSpeech: {
     newLap: 'Starting new lap',
+    lapTime: 'Lap time, {lapTime}',
+    newBest: 'New best lap!',
     areaAverage: 'Area {n} average time was {seconds} seconds',
   },
 
@@ -1865,8 +1867,6 @@ export const en = {
     throttle: 'Throttle',
     brake: 'Brake',
     steering: 'Steering',
-    announceLaps: 'Announce lap times (voice)',
-    announceFailed: 'Couldn’t play the lap time.',
     announcerFailed: 'The Race Announcers couldn’t commentate.',
     radioTitle: 'Driver radio',
     radioEmpty: 'Nothing said on the radio yet. The driver holds the radio button in iRacing and speaks.',
@@ -1875,9 +1875,6 @@ export const en = {
     radioJustNow: 'just now',
     radioSecondsAgo: '{n} s ago',
     radioMinutesAgo: '{n} min ago',
-    lapTimeSpeech: 'Lap time, {minutes} {seconds}, point {thousandths}.',
-    lapTimeSpeechSeconds: 'Lap time, {seconds}, point {thousandths}.',
-    newBestSpeech: 'New best lap!',
     leaderboard: 'Leaderboard',
     cars: '{n} cars',
     pos: 'Pos',

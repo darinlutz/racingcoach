@@ -1,17 +1,18 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ChevronRight, FileText, Lock, ShieldCheck } from 'lucide-react';
+import { ChevronRight, Cookie, FileText, Lock, ShieldCheck } from 'lucide-react';
 import { getDictionary, getLanguage } from '@/lib/i18n/server';
 import { getCurrentUser } from '@/lib/session';
 
 export const metadata: Metadata = { title: 'Legal | RacingCoach.app' };
 
-// The Legal page: links to the Privacy Policy (/privacy) and Terms of Service (/terms)
+// The Legal page: links to the Privacy Policy (/privacy), Terms of Service (/terms) and Cookie Policy (/cookies)
 export default async function LegalPage() {
   const t = getDictionary(await getLanguage(await getCurrentUser())).legal;
   const docs = [
     { href: '/privacy', title: t.privacyTitle, description: t.privacyDescription, Icon: Lock },
     { href: '/terms', title: t.termsTitle, description: t.termsDescription, Icon: FileText },
+    { href: '/cookies', title: t.cookiesTitle, description: t.cookiesDescription, Icon: Cookie },
   ];
 
   return (

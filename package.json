@@ -10,7 +10,9 @@
     "lint": "eslint",
     "test:rotation": "node --test scripts/rotation-model.test.mjs",
     "test:track-positions": "node --test scripts/track-positions.test.mjs",
-    "test:lap-retention": "node --test scripts/lap-retention.test.mjs && node --experimental-transform-types --no-warnings --test scripts/lap-retention-db.test.mjs"
+    "test:lap-retention": "node --test scripts/lap-retention.test.mjs && node --experimental-transform-types --no-warnings --test scripts/lap-retention-db.test.mjs",
+    "test:cookie-consent": "node --test scripts/cookie-consent.test.mjs && node --experimental-transform-types --no-warnings --test scripts/cookie-consent-db.test.mjs",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.187",
@@ -36,6 +38,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@playwright/test": "1.56.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/pg": "^8.23.1",

@@ -104,8 +104,8 @@ let schemaReady: Promise<void> | null = null;
 // the default Cars and each user's CarsUsers, IRacePlanConnections and RaceResults (from iRacePlan and the collector), DiscordConnections, GoogleConnections, saved
 // DebriefSessions, the telemetry collector's CollectorKeys, uploaded CollectorLaps, CollectorLogs and CollectorLogReviews, sign-in Sessions,
 // PasswordResets links, CancellationReason feedback, the ActivityLog of page views and clicks, and the
-// PolicyAcceptances of the Terms of Service and Privacy Policy, and the Subscribers page's copy of Stripe
-// (StripeSubscriptions, StripeDiscounts and StripeWebhookEvents, see stripeBilling.ts).
+// PolicyAcceptances of the Terms of Service and Privacy Policy, the CookieConsents audit trail, and the Subscribers
+// page's copy of Stripe (StripeSubscriptions, StripeDiscounts and StripeWebhookEvents, see stripeBilling.ts).
 export function ensureUserSchema(): Promise<void> {
   if (!schemaReady) {
     schemaReady = transaction(async (client) => {
@@ -885,6 +885,28 @@ export function ensureUserSchema(): Promise<void> {
       await client.query(
         'CREATE INDEX IF NOT EXISTS stripe_webhook_events_received_at_idx ON racingcoach."StripeWebhookEvents" (received_at)'
       );
+      // The cookie consent audit trail (src/lib/cookieConsentRecords.ts): one row per choice, never overwritten. No IP
+      // address or user agent. Consent evidence outlives the account (like CancellationReason), so user_id is set NULL
+      // when it's deleted; rows are purged after the retention period instead.
+      await client.query(`CREATE TABLE IF NOT EXISTS racingcoach."CookieConsents" (
+        id UUID PRIMARY KEY,
+        browser_id UUID NOT NULL,
+        user_id INTEGER REFERENCES racingcoach."Users"(id) ON DELETE SET NULL,
+        user_linked_at TIMESTAMPTZ,
+        recorded_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        action TEXT NOT NULL CHECK (action IN ('accepted', 'rejected', 'customized', 'withdrawn', 'updated')),
+        categories JSONB NOT NULL,
+        cookie_policy_version TEXT NOT NULL,
+        banner_version TEXT NOT NULL,
+        purposes_version INTEGER NOT NULL,
+        notice_language TEXT NOT NULL,
+        region TEXT NOT NULL,
+        country TEXT,
+        method TEXT NOT NULL CHECK (method IN ('banner', 'preferenceCenter'))
+      )`);
+      await client.query('CREATE INDEX IF NOT EXISTS cookie_consents_browser_idx ON racingcoach."CookieConsents" (browser_id)');
+      await client.query('CREATE INDEX IF NOT EXISTS cookie_consents_user_idx ON racingcoach."CookieConsents" (user_id)');
+      await client.query('CREATE INDEX IF NOT EXISTS cookie_consents_recorded_at_idx ON racingcoach."CookieConsents" (recorded_at)');
     }).catch((error) => {
       schemaReady = null;
       throw error;

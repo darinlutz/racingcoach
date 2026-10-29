@@ -80,7 +80,7 @@ export default function Navigation({ user, showPricing, showProDriverLesson, ena
     // globals.css narrows --nav-width, which the layout pads the page by, from <html data-nav>
     if (next) document.documentElement.dataset.nav = NAV_COLLAPSED;
     else delete document.documentElement.dataset.nav;
-    document.cookie = `${NAV_COOKIE}=${next ? NAV_COLLAPSED : 'expanded'}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
+    document.cookie = `${NAV_COOKIE}=${next ? NAV_COLLAPSED : 'expanded'}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax${location.protocol === 'https:' ? '; secure' : ''}`;
   };
 
   const showTip = (label: string) => (e: MouseEvent<HTMLElement> | FocusEvent<HTMLElement>) => {

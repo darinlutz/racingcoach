@@ -84,6 +84,8 @@ export const es: Dictionary = {
     privacy: 'Privacidad',
     terms: 'Términos',
     contact: 'Contacto',
+    cookies: 'Cookies',
+    cookieSettings: 'Configuración de cookies',
   },
 
   legal: {
@@ -96,6 +98,8 @@ export const es: Dictionary = {
     effectiveDate: 'Fecha de entrada en vigor',
     englishOnly: 'Este documento solo está disponible en inglés.',
     backToLegal: 'Todos los documentos legales',
+    cookiesTitle: 'Política de cookies',
+    cookiesDescription: 'Las cookies y el almacenamiento del navegador que usamos, y cómo cambiar tus elecciones.',
   },
 
   policyUpdate: {
@@ -104,6 +108,42 @@ export const es: Dictionary = {
     checkbox: 'He leído y acepto los {terms} de RacingCoach.app y reconozco la {privacy}.',
     accept: 'Aceptar',
     saving: 'Guardando…',
+  },
+
+  cookieConsent: {
+    bannerLabel: 'Consentimiento de cookies',
+    title: 'Tus elecciones de cookies',
+    reconsentTitle: 'Cambió nuestro uso de cookies',
+    body: 'RacingCoach.app usa cookies esenciales para operar nuestro sitio web y cookies opcionales para entender el uso del sitio y mejorar tu experiencia. Puedes aceptar todas las cookies opcionales, rechazarlas o personalizar tus preferencias. Puedes cambiar tus elecciones en cualquier momento.',
+    reconsentBody: 'Cambiamos la forma en que usamos las cookies opcionales, o tu elección anterior venció, así que vuelve a elegir. Las cookies opcionales siguen desactivadas hasta entonces.',
+    links: 'Lee nuestra {privacy} y nuestra {cookies}.',
+    privacyLink: 'Política de privacidad',
+    cookiesLink: 'Política de cookies',
+    acceptAll: 'Aceptar todas',
+    rejectAll: 'Rechazar todas',
+    customize: 'Personalizar',
+    preferencesTitle: 'Configuración de cookies',
+    preferencesIntro: 'Elige qué cookies opcionales puede usar RacingCoach.app. Las cookies estrictamente necesarias están siempre activas, porque el sitio no funciona sin ellas. Las cookies opcionales siguen desactivadas a menos que las actives, y puedes cambiar de opinión aquí en cualquier momento.',
+    savePreferences: 'Guardar preferencias',
+    close: 'Cerrar',
+    alwaysActive: 'Siempre activas',
+    technologies: 'Qué usa',
+    saving: 'Guardando…',
+    saved: 'Se guardaron tus elecciones de cookies.',
+    saveFailed: 'No se pudieron guardar tus elecciones, así que las cookies opcionales siguen desactivadas. Vuelve a intentarlo.',
+    kinds: { cookie: 'cookie', localStorage: 'almacenamiento local', sessionStorage: 'almacenamiento de sesión' },
+    categories: {
+      necessary: {
+        name: 'Estrictamente necesarias',
+        description: 'Necesarias para que el sitio funcione y sea seguro: mantener tu sesión iniciada, proteger el inicio de sesión con Google o Discord, recordar tus elecciones de cookies y el idioma, tema, unidades y diseño que elijas. No se pueden desactivar.',
+      },
+      functional: { name: 'Funcionales', description: 'Comodidades y personalización opcionales.' },
+      analytics: {
+        name: 'Analítica',
+        description: 'Nuestro propio registro de actividad de las páginas que visitas y los enlaces y botones en los que haces clic, que usamos para entender cómo se usa el sitio y mejorarlo. Nunca registra lo que escribes, se queda en nuestros servidores y no se comparte con anunciantes.',
+      },
+      marketing: { name: 'Marketing', description: 'Publicidad, remarketing y seguimiento en otros sitios web.' },
+    },
   },
 
   home: {

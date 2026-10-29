@@ -1,5 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { cookies } from 'next/headers';
+import { CONSENT_COOKIE, parseConsent } from './cookieConsent';
+import { linkConsentToUser } from './cookieConsentRecords';
 import { query } from './db';
 import { ensureUserSchema, getUserById, type User } from './users';
 
@@ -30,6 +32,13 @@ export async function createSession(userId: number): Promise<void> {
     path: '/',
     expires: new Date(expiresAt),
   });
+
+  // This browser's cookie choices made before signing in are tied to the account in the consent records. The
+  // choice itself stays with this browser; it isn't applied to the account's other devices.
+  const consent = parseConsent(cookieStore.get(CONSENT_COOKIE)?.value);
+  if (consent) {
+    await linkConsentToUser(consent.browserId, userId).catch((error) => console.error('Consent link error:', error));
+  }
 }
 
 export async function getCurrentUser(): Promise<User | null> {

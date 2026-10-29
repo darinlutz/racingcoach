@@ -6,7 +6,8 @@ import { redactUrl } from '@/lib/redactUrl';
 
 // Records every page view and every click on a link, button or other control, and sends them in batches
 // to /api/activity (racingcoach."ActivityLog", see src/lib/activityLog.ts). Rendered once by the root
-// layout. Clicks on plain text or empty space aren't recorded, and neither is anything typed into a field:
+// layout, inside <ConsentGate category="analytics">: it only exists while the visitor has consented to analytics
+// cookies, and /api/activity checks that consent again. Clicks on plain text or empty space aren't recorded, and neither is anything typed into a field:
 // only which control was clicked and its visible label. Put data-no-track on an element to leave it and
 // everything inside it out, and data-track="name" to give a control a stable name in the log.
 
@@ -122,6 +123,8 @@ export default function ActivityTracker() {
   const timer = useRef<number | null>(null);
   const sessionId = useRef<string | null>(null);
   const lastPath = useRef<string | null>(null);
+  // Requests still on their way, aborted if consent is withdrawn so a late answer can't set the visitor_id cookie
+  const inFlight = useRef(new Set<AbortController>());
 
   // Sends what's queued. While the page is closing, sendBeacon is used: the browser delivers it even after
   // the page is gone.
@@ -137,14 +140,19 @@ export default function ActivityTracker() {
       if (closing && typeof navigator.sendBeacon === 'function') {
         navigator.sendBeacon(ENDPOINT, new Blob([body], { type: 'application/json' }));
       } else {
+        const controller = new AbortController();
+        inFlight.current.add(controller);
         fetch(ENDPOINT, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body,
           keepalive: true,
-        }).catch(() => {
-          // Logging must never get in the way of using the site
-        });
+          signal: controller.signal,
+        })
+          .catch(() => {
+            // Logging must never get in the way of using the site
+          })
+          .finally(() => inFlight.current.delete(controller));
       }
     }
   });
@@ -191,6 +199,8 @@ export default function ActivityTracker() {
       if (document.visibilityState === 'hidden') flush.current(true);
     };
     const onPageHide = () => flush.current(true);
+    // The same Set for the component's life; taken here for the cleanup below
+    const pending = inFlight.current;
 
     document.addEventListener('click', onClick, true);
     document.addEventListener('visibilitychange', onHide);
@@ -199,6 +209,13 @@ export default function ActivityTracker() {
       document.removeEventListener('click', onClick, true);
       document.removeEventListener('visibilitychange', onHide);
       window.removeEventListener('pagehide', onPageHide);
+      // Unmounted when analytics consent is withdrawn (ConsentGate): nothing more is sent, not even what's queued,
+      // and requests still on their way are abandoned
+      if (timer.current !== null) window.clearTimeout(timer.current);
+      timer.current = null;
+      queue.current = [];
+      for (const controller of pending) controller.abort();
+      pending.clear();
     };
   }, []);
 

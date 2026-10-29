@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { activityBatchSchema, logActivity, VISITOR_COOKIE } from '@/lib/activityLog';
+import { deleteRefusedCookies, isCategoryGranted } from '@/lib/cookieConsentServer';
 import { getCurrentUser } from '@/lib/session';
 
 // A batch of 50 events is a few KB; anything much bigger isn't from the tracker
@@ -14,6 +15,12 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 // so errors are logged here rather than shown to anyone.
 export async function POST(request: Request) {
   try {
+    // The tracker only runs with analytics consent (CookieConsentProvider), but the server decides too: without it,
+    // nothing is logged and no visitor_id cookie is set (an open tab from before a withdrawal, an old page, a script)
+    if (!(await isCategoryGranted('analytics'))) {
+      await deleteRefusedCookies({ analytics: false });
+      return new NextResponse(null, { status: 204 });
+    }
     const body = await request.text();
     if (body.length > MAX_BODY_BYTES) {
       return NextResponse.json({ error: 'Batch is too large' }, { status: 413 });

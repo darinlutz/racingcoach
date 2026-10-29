@@ -1,15 +1,22 @@
-// The Privacy Policy (/privacy) and Terms of Service (/terms), rendered by src/components/LegalDocument.tsx.
-// English only: a legal text shouldn't change meaning in translation, so the other languages show a notice
-// (legal.englishOnly) above it. When a document's wording changes, change its effective date and its version in
-// src/lib/policyVersions.ts together.
+// The Privacy Policy (/privacy), Terms of Service (/terms) and Cookie Policy (/cookies), rendered by
+// src/components/LegalDocument.tsx. English only: a legal text shouldn't change meaning in translation, so the other
+// languages show a notice (legal.englishOnly) above it. When the Privacy Policy's or Terms' wording changes, change
+// its effective date and its version in src/lib/policyVersions.ts together; for the Cookie Policy, its effective date
+// and COOKIE_POLICY_VERSION in src/lib/cookieConsent.ts (it isn't something users accept, so it isn't in
+// policyVersions.ts). Imports only plain .ts files, so Node runs it directly (scripts/exportLegal.mjs).
+import { COOKIE_POLICY_VERSION, DEFAULT_CONSENT_REVIEW_DAYS } from './cookieConsent.ts';
+import { COOKIE_INVENTORY, type InventoryItem } from './cookieInventory.ts';
 
-// A paragraph, a bold paragraph, a bulleted list, a subheading, or contact lines with links
+// A paragraph, a bold paragraph, a bulleted list, a subheading, contact lines with links, a table, or a button that
+// opens Cookie Settings (a plain sentence pointing to the footer where there's no page to open it on)
 export type LegalBlock =
   | string
   | { strong: string }
   | { list: string[] }
   | { subheading: string }
-  | { contact: { label?: string; text: string; href?: string }[] };
+  | { contact: { label?: string; text: string; href?: string }[] }
+  | { table: { caption: string; headers: string[]; rows: string[][] } }
+  | { cookieSettings: string };
 
 // id, when given, is the section's anchor (e.g. /privacy#lap-telemetry-retention)
 export type LegalSection = { heading: string; id?: string; blocks: LegalBlock[] };
@@ -26,7 +33,7 @@ const BUSINESS_OPERATOR = 'Clarivex, LLC';
 
 export const privacyPolicy: LegalDocumentContent = {
   title: 'RacingCoach.app Privacy Policy',
-  effectiveDate: 'October 28, 2026',
+  effectiveDate: 'October 29, 2026',
   intro: [
     'RacingCoach.app ("RacingCoach," "we," "our," or "us") respects your privacy and is committed to protecting your personal information.',
     'This Privacy Policy explains how we collect, use, store, share, and protect information when you use our website, applications, telemetry collection software, coaching features, Discord integrations, and related services (collectively, the "Services").',
@@ -76,6 +83,9 @@ export const privacyPolicy: LegalDocumentContent = {
         'We may use third-party service providers to process this information and generate coaching responses.',
         { subheading: 'Technical and Usage Information' },
         'We may automatically collect information such as IP addresses, browser type, operating system, device information, application version, feature usage, diagnostic information, error logs, and security events.',
+        'Only if you accept analytics cookies, our website also keeps its own activity log of the pages you view and the links and buttons you click, with your IP address, browser user agent, screen size, and language, and your account when you are signed in. It never records what you type into forms. See our Cookie Policy for details.',
+        { subheading: 'Cookie Choices' },
+        'When you make a choice in our cookie banner or Cookie Settings, we keep a record of it: a random identifier for your browser, your account if you are signed in, the date and time, the choices you made, the versions of the notice and Cookie Policy you were shown, and your region when it is known. We do not store your IP address or browser details with it.',
         { subheading: 'Payment Information' },
         'Subscription payments may be handled by third-party payment processors. We may receive transaction identifiers, payment status, subscription details, and limited billing information.',
         'We do not intentionally collect or store complete payment card numbers or card security codes on RacingCoach servers.',
@@ -101,6 +111,16 @@ export const privacyPolicy: LegalDocumentContent = {
           ],
         },
         'We may analyze aggregated or de-identified information to understand service performance and improve our products, provided that the information is handled in accordance with applicable law.',
+        { subheading: 'Legal Bases for Processing' },
+        'Where the GDPR, the UK GDPR, or similar laws apply, we rely on the following legal bases. Consent is not the basis for most of our processing; it applies only where stated below.',
+        {
+          list: [
+            'Performance of a contract: to create and run your account, record, store, and analyze your laps and telemetry, provide coaching and the other features you use, process subscriptions, and respond to your support requests.',
+            'Legitimate interests: to keep the Services secure, prevent fraud and misuse, limit abuse of AI features, diagnose problems through security and collector logs, use the strictly necessary cookies the website needs, and improve the Services using aggregated information. You may object to processing based on legitimate interests.',
+            'Consent: for optional cookies and our website activity log (see Section 10 and our Cookie Policy). You can withdraw consent at any time in Cookie Settings, without affecting processing that took place before you withdrew it.',
+            'Legal obligations: to keep billing and tax records, respond to lawful requests, and keep records showing the cookie choices you made.',
+          ],
+        },
       ],
     },
     {
@@ -148,9 +168,10 @@ export const privacyPolicy: LegalDocumentContent = {
             'Activity logs sent by the RacingCoach collector are kept for 90 days.',
             'Billing, subscription, and cancellation records are kept as long as reasonably necessary for accounting, tax, and legal obligations, including after an account is deleted.',
             'Website activity and security logs are kept as long as reasonably necessary for security, fraud prevention, and improving the Services.',
+            `Records of your cookie choices are kept for 3 years after each choice, to show the choices you made, and then deleted. Your choice itself is remembered in your browser for ${DEFAULT_CONSENT_REVIEW_DAYS} days, after which we ask again.`,
           ],
         },
-        'Deleting your account from My Settings deletes your lap telemetry and the other information tied to your account, except the billing records, cancellation feedback (without your name and email address), and activity and security logs described above.',
+        'Deleting your account from My Settings deletes your lap telemetry and the other information tied to your account, except the billing records, cancellation feedback (without your name and email address), activity and security logs, and records of your cookie choices (no longer linked to your account) described above.',
       ],
     },
     {
@@ -205,10 +226,11 @@ export const privacyPolicy: LegalDocumentContent = {
             'Access personal information we maintain about you.',
             'Request correction of inaccurate information.',
             'Request deletion of eligible personal information.',
-            'Obtain a copy of certain personal information.',
-            'Withdraw consent where processing depends on consent.',
-            'Object to or restrict certain processing activities.',
+            'Obtain a copy of certain personal information, including in a portable format.',
+            'Withdraw consent where processing depends on consent. For cookies, use the Cookie Settings link at the bottom of every page.',
+            'Object to or restrict certain processing activities, including processing based on legitimate interests.',
             'Appeal certain privacy request decisions.',
+            'Lodge a complaint with the data protection supervisory authority where you live or work, if you are in the EEA, the UK, or Switzerland.',
           ],
         },
         `To submit a request, contact ${SUPPORT_EMAIL}.`,
@@ -217,9 +239,13 @@ export const privacyPolicy: LegalDocumentContent = {
     },
     {
       heading: '10. Cookies and Similar Technologies',
+      id: 'cookies',
       blocks: [
-        'RacingCoach may use cookies and similar technologies to maintain login sessions, remember preferences, support security, measure usage, and improve the Services.',
-        'Where required by law, we will obtain consent before placing nonessential cookies or activating certain tracking technologies.',
+        'Our website uses strictly necessary cookies and browser storage to keep you signed in, protect sign-ins, remember your cookie choices, and remember the language, theme, units, and layout you pick. These are needed to provide the website and are used on the basis of our legitimate interest in providing it as you request.',
+        'With your consent only, the website also uses analytics cookies for our own activity log of page views and clicks. They are off until you choose Accept All, or turn Analytics on in Customize. Choosing Reject All, or closing or ignoring the banner, leaves them off, and you can use the website either way.',
+        'We do not use advertising cookies, remarketing pixels, third-party analytics, or social media plugins.',
+        'Accepting the Terms of Service or acknowledging this Privacy Policy is not consent to optional cookies; we ask about those separately in the cookie banner.',
+        'You can change or withdraw your choice at any time with the Cookie Settings link at the bottom of every page. Withdrawing takes effect immediately and deletes the analytics cookie and browser storage. Our Cookie Policy at https://racingcoach.app/cookies lists every cookie we use, what it is for, and how long it lasts.',
       ],
     },
     {
@@ -233,8 +259,9 @@ export const privacyPolicy: LegalDocumentContent = {
     {
       heading: '12. International Data Processing',
       blocks: [
-        'Your information may be processed in countries other than the country where you reside.',
-        'Where applicable, we will use legally required safeguards for international transfers of personal information.',
+        `RacingCoach.app is operated by ${BUSINESS_OPERATOR} from the United States, and our servers and database are hosted in the United States. If you use the Services from another country, including from the European Economic Area, the United Kingdom, or Switzerland, your information is transferred to and processed in the United States.`,
+        'Some of our service providers, for example for hosting, payments, email delivery, speech, and AI coaching, may also process information in the United States or other countries.',
+        'Where the law of your country requires a transfer mechanism, we rely on mechanisms recognized under that law, such as the Standard Contractual Clauses approved by the European Commission (with the UK Addendum where applicable) in our service providers’ data processing terms, or a provider’s certification under the EU-U.S. Data Privacy Framework and its UK and Swiss extensions where it participates. You can ask us for more information about these safeguards using the contact details in Section 14.',
       ],
     },
     {
@@ -465,6 +492,130 @@ export const termsOfService: LegalDocumentContent = {
           contact: [
             { text: 'RacingCoach.app' },
             { label: 'Website', text: 'https://racingcoach.app', href: '/' },
+            { label: 'Email', text: SUPPORT_EMAIL, href: `mailto:${SUPPORT_EMAIL}` },
+            { label: 'Business Operator', text: BUSINESS_OPERATOR },
+          ],
+        },
+      ],
+    },
+  ],
+};
+
+const KIND_NAMES: Record<InventoryItem['kind'], string> = {
+  cookie: 'Cookie',
+  localStorage: 'Local storage',
+  sessionStorage: 'Session storage',
+};
+
+// One category's rows of src/lib/cookieInventory.ts as a table, so the policy always lists what the site sets
+function inventoryTable(category: InventoryItem['category'], caption: string): LegalBlock {
+  return {
+    table: {
+      caption,
+      headers: ['Name', 'Type', 'Provider', 'Purpose', 'Duration'],
+      rows: COOKIE_INVENTORY.filter((item) => item.category === category).map((item) => [
+        item.name,
+        `${KIND_NAMES[item.kind]}, ${item.firstParty ? 'first-party' : 'third-party'}${item.httpOnly ? ', not readable by page scripts (HttpOnly)' : ''}`,
+        item.provider,
+        item.purpose,
+        item.duration,
+      ]),
+    },
+  };
+}
+
+export const cookiePolicy: LegalDocumentContent = {
+  title: 'RacingCoach.app Cookie Policy',
+  effectiveDate: 'October 29, 2026',
+  intro: [
+    `This Cookie Policy explains how RacingCoach.app, operated by ${BUSINESS_OPERATOR}, a company based in Kentucky, United States ("we," "our," or "us"), uses cookies and similar technologies on the racingcoach.app website. It should be read together with our Privacy Policy, which explains how we handle personal information more generally.`,
+    `Version ${COOKIE_POLICY_VERSION}.`,
+  ],
+  sections: [
+    {
+      heading: '1. What Cookies and Similar Technologies Are',
+      blocks: [
+        'Cookies are small text files that a website asks your browser to store and send back on later visits. Websites can also store information in your browser in other ways, such as local storage, which stays until it is cleared, and session storage, which is cleared when you close the browser tab. In this policy, "cookies" includes these similar technologies.',
+        'First-party cookies are set by the website you are visiting. Third-party cookies are set by a different website, for example an advertising or analytics provider. Every cookie and storage item on racingcoach.app is first-party.',
+      ],
+    },
+    {
+      heading: '2. How We Use Them',
+      blocks: [
+        'We use two kinds:',
+        {
+          list: [
+            'Strictly necessary cookies, which the website needs to work and stay secure, or to provide something you asked for, such as staying signed in or showing pages in the language you chose. They do not require consent and cannot be turned off in Cookie Settings.',
+            'Analytics cookies, which are optional and only used if you agree.',
+          ],
+        },
+        'We do not use functional cookies beyond those listed as strictly necessary, and we do not use advertising cookies, remarketing pixels, cross-site tracking, third-party analytics services, or social media plugins. If that changes, we will update this policy and ask for your consent before using them.',
+      ],
+    },
+    {
+      heading: '3. Strictly Necessary Cookies',
+      blocks: [
+        'The cookies below that remember your language, theme, units, layout, and Live Racing options store only a choice you made yourself, so the website can show itself as you asked. The sign-in cookies for Google and Discord are only set when you choose to use those services.',
+        inventoryTable('necessary', 'Strictly necessary cookies and browser storage'),
+      ],
+    },
+    {
+      heading: '4. Analytics Cookies (Optional)',
+      blocks: [
+        'With your consent, our website keeps its own activity log: the address and title of each page you view (with any secret values removed from the address), the page you came from, each link, button, or other control you click and its visible label, your screen size and language, and, added by our server when the information arrives, your IP address, your browser user agent, and your account if you are signed in. It never records anything you type into a form. We use it to understand how the website is used and to improve it. It is stored in our own database and is not shared with advertisers or analytics companies.',
+        'Until you consent, the activity log does not run: no analytics cookie or storage is set and no activity is sent, and our server refuses activity from browsers that have not consented.',
+        inventoryTable('analytics', 'Analytics cookies and browser storage'),
+      ],
+    },
+    {
+      heading: '5. Third-Party Services',
+      blocks: [
+        'No third party sets cookies or loads scripts on racingcoach.app pages. Our fonts are served from our own website, and satellite map images are fetched by our server rather than your browser.',
+        'Some features take you to another company’s website when you choose to use them. That website may set its own cookies under its own policies, which we do not control and cannot delete:',
+        {
+          list: [
+            'Stripe, when you subscribe or pay (Stripe Checkout): https://stripe.com/privacy',
+            'Google, when you choose to sign in with Google: https://policies.google.com/privacy',
+            'Discord, when you choose to connect your Discord account: https://discord.com/privacy',
+            'GitHub, when you download the RacingCoach collector: https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement',
+          ],
+        },
+        'You can manage or delete those cookies in your browser or through those companies’ own settings.',
+      ],
+    },
+    {
+      heading: '6. How We Ask for and Record Consent',
+      id: 'consent',
+      blocks: [
+        'The first time you visit, a banner offers Accept All, Reject All, and Customize, presented equally. No optional cookie is used before you choose, and scrolling, browsing, or closing the page is not taken as consent. You can use the website whichever you choose.',
+        `Your choice is stored in the cookie_consent cookie for ${DEFAULT_CONSENT_REVIEW_DAYS} days. After that, or sooner if we make a significant change to how we use optional cookies, we ask again; until you answer, optional cookies stay off. A choice applies to the browser you made it in, so you may be asked again on another device, even if you are signed in.`,
+        'To be able to show the choices you made, we keep a record of each one: a random identifier for your browser, your account if you are signed in (or sign in later on that browser), the date and time (UTC), the choices you made and whether you accepted, rejected, customized, updated, or withdrew consent, the versions of this policy and of the banner you were shown, the language they were shown in, whether you made the choice in the banner or in Cookie Settings, and the region your visit came from when our hosting network provides it. We do not store your IP address, browser details, or precise location with it. These records are kept for 3 years after each choice and then deleted.',
+      ],
+    },
+    {
+      heading: '7. Changing or Withdrawing Your Consent',
+      id: 'cookie-settings',
+      blocks: [
+        'You can change your choice at any time, as easily as you made it, with the Cookie Settings link at the bottom of every page, or here:',
+        { cookieSettings: 'Open Cookie Settings' },
+        'Withdrawing consent takes effect immediately: the activity log stops, nothing further is sent, and the visitor_id cookie and activitySessionId storage are deleted. It does not sign you out or affect any other feature. Withdrawing does not affect activity recorded while you had consented; to have that deleted, contact us.',
+        'You can also block or delete cookies in your browser settings. If you block strictly necessary cookies, signing in and some other features will not work.',
+      ],
+    },
+    {
+      heading: '8. Changes to This Policy',
+      blocks: [
+        'We will update this policy when the cookies we use change, with a new version and effective date. If we start using a new kind of optional cookie or use one for a new purpose, we will ask for your consent again before using it.',
+      ],
+    },
+    {
+      heading: '9. Contact Us',
+      blocks: [
+        'For questions about this policy or our use of cookies, contact:',
+        {
+          contact: [
+            { text: 'RacingCoach.app' },
+            { label: 'Website', text: 'https://racingcoach.app/support', href: '/support' },
             { label: 'Email', text: SUPPORT_EMAIL, href: `mailto:${SUPPORT_EMAIL}` },
             { label: 'Business Operator', text: BUSINESS_OPERATOR },
           ],

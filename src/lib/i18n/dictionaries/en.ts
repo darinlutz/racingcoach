@@ -85,6 +85,8 @@ export const en = {
     privacy: 'Privacy',
     terms: 'Terms',
     contact: 'Contact',
+    cookies: 'Cookies',
+    cookieSettings: 'Cookie Settings',
   },
 
   // The Legal page and the Privacy Policy and Terms of Service pages around them; the documents
@@ -99,6 +101,8 @@ export const en = {
     effectiveDate: 'Effective Date',
     englishOnly: '',
     backToLegal: 'All legal documents',
+    cookiesTitle: 'Cookie Policy',
+    cookiesDescription: 'The cookies and browser storage we use, and how to change your choices.',
   },
 
   // The notice above every page for a signed-in user who hasn’t accepted the current Terms of Service and Privacy
@@ -109,6 +113,45 @@ export const en = {
     checkbox: 'I have read and agree to the RacingCoach.app {terms} and acknowledge the {privacy}.',
     accept: 'Accept',
     saving: 'Saving…',
+  },
+
+  // The cookie banner and Cookie Settings (src/components/CookieConsentProvider.tsx). {privacy} and {cookies} become
+  // links. The banner's body is the wording recorded as CONSENT_BANNER_VERSION (src/lib/cookieConsent.ts): change
+  // that version when changing it, in any language.
+  cookieConsent: {
+    bannerLabel: 'Cookie consent',
+    title: 'Your cookie choices',
+    reconsentTitle: 'Our use of cookies has changed',
+    body: 'RacingCoach.app uses essential cookies to operate our website and optional cookies to understand site usage and improve your experience. You can accept all optional cookies, reject them, or customize your preferences. You can change your choices at any time.',
+    reconsentBody: 'We have changed how we use optional cookies, or your earlier choice has expired, so please choose again. Optional cookies stay off until you do.',
+    links: 'Read our {privacy} and {cookies}.',
+    privacyLink: 'Privacy Policy',
+    cookiesLink: 'Cookie Policy',
+    acceptAll: 'Accept All',
+    rejectAll: 'Reject All',
+    customize: 'Customize',
+    preferencesTitle: 'Cookie Settings',
+    preferencesIntro: 'Choose which optional cookies RacingCoach.app may use. Strictly necessary cookies are always on, because the site can’t work without them. Optional cookies stay off unless you turn them on, and you can change your mind here at any time.',
+    savePreferences: 'Save Preferences',
+    close: 'Close',
+    alwaysActive: 'Always active',
+    technologies: 'What it uses',
+    saving: 'Saving…',
+    saved: 'Your cookie choices were saved.',
+    saveFailed: 'Your choices couldn’t be saved, so optional cookies stay off. Please try again.',
+    kinds: { cookie: 'cookie', localStorage: 'local storage', sessionStorage: 'session storage' },
+    categories: {
+      necessary: {
+        name: 'Strictly Necessary',
+        description: 'Needed for the site to work and stay secure: keeping you signed in, protecting sign-ins with Google or Discord, remembering your cookie choices, and the language, theme, units and layout you pick. They can’t be turned off.',
+      },
+      functional: { name: 'Functional', description: 'Optional conveniences and personalization.' },
+      analytics: {
+        name: 'Analytics',
+        description: 'Our own activity log of the pages you view and the links and buttons you click, used to understand how the site is used and to improve it. It never records what you type, stays on our servers and isn’t shared with advertisers.',
+      },
+      marketing: { name: 'Marketing', description: 'Advertising, remarketing and tracking across other websites.' },
+    },
   },
 
   home: {

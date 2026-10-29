@@ -29,6 +29,13 @@ function block(b) {
   if ('strong' in b) return `<p><strong>${escape(b.strong)}</strong></p>`;
   if ('list' in b) return `<ul>${b.list.map((item) => `<li>${escape(item)}</li>`).join('')}</ul>`;
   if ('subheading' in b) return `<h3>${escape(b.subheading)}</h3>`;
+  // Cookie Settings is a button on the website; offline, say where it is
+  if ('cookieSettings' in b) return `<p>Use the Cookie Settings link at the bottom of any page on <a href="${SITE}">${SITE}</a>.</p>`;
+  if ('table' in b) {
+    const head = b.table.headers.map((h) => `<th>${escape(h)}</th>`).join('');
+    const rows = b.table.rows.map((row) => `<tr>${row.map((cell) => `<td>${escape(cell)}</td>`).join('')}</tr>`).join('');
+    return `<table><caption>${escape(b.table.caption)}</caption><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table>`;
+  }
   return `<p class="contact">${b.contact
     .map(({ label, text, href }) => {
       const value = href ? `<a href="${escape(absolute(href))}">${escape(text)}</a>` : escape(text);

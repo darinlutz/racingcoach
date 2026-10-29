@@ -1,8 +1,10 @@
 import Link from 'next/link';
+import { buttonVariants } from '@/components/Button';
+import CookieSettingsButton from '@/components/CookieSettingsButton';
 import type { Dictionary } from '@/lib/i18n/dictionaries/en';
 import type { LegalBlock, LegalDocumentContent } from '@/lib/legal';
 
-// A Privacy Policy or Terms of Service page (src/lib/legal.ts), in English whatever the Preferred Language
+// A Privacy Policy, Terms of Service or Cookie Policy page (src/lib/legal.ts), in English whatever the Preferred Language
 export default function LegalDocument({ doc, t }: { doc: LegalDocumentContent; t: Dictionary['legal'] }) {
   return (
     <section className="py-10 px-4">
@@ -42,6 +44,43 @@ function Block({ block }: { block: LegalBlock }) {
       <ul className="list-disc pl-6 space-y-1">
         {block.list.map((item) => <li key={item}>{item}</li>)}
       </ul>
+    );
+  }
+  if ('cookieSettings' in block) {
+    return (
+      <p>
+        <CookieSettingsButton label={block.cookieSettings} className={buttonVariants({ variant: 'racingOutline', size: 'sm' })} />
+      </p>
+    );
+  }
+  if ('table' in block) {
+    // Scrolls sideways on its own on a narrow screen, so the page doesn't
+    return (
+      <div className="overflow-x-auto rounded-lg border border-border">
+        <table className="w-full min-w-[40rem] text-sm text-left">
+          <caption className="sr-only">{block.table.caption}</caption>
+          <thead className="bg-card">
+            <tr>
+              {block.table.headers.map((header) => (
+                <th key={header} scope="col" className="px-3 py-2 font-semibold">{header}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {block.table.rows.map((row) => (
+              <tr key={row[0]} className="align-top">
+                {row.map((cell, i) =>
+                  i === 0 ? (
+                    <th key={i} scope="row" className="px-3 py-2 font-mono text-xs font-normal break-words max-w-[12rem]">{cell}</th>
+                  ) : (
+                    <td key={i} className="px-3 py-2">{cell}</td>
+                  )
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     );
   }
   return (

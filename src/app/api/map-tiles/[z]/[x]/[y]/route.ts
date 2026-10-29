@@ -2,19 +2,20 @@ import { NextResponse } from 'next/server';
 import { MAX_TILE_ZOOM, satelliteTileUrl } from '@/lib/mapTiles';
 import { getCurrentUser } from '@/lib/session';
 import { getTvSession } from '@/lib/tvAuth';
+import { authenticateCollectorCached } from '@/lib/collectorKeys';
 import { apiText } from '@/lib/i18n/server';
 
 // One satellite imagery tile (Web Mercator z/x/y) for Lap Compare's track position maps, fetched from
 // the provider in SATELLITE_TILE_URL (src/lib/mapTiles.ts). Signed-in users and paired TVs (TV Broadcast Mode's
 // map, src/lib/tvAuth.ts) only, so the provider key can't be used through here by anyone else.
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ z: string; x: string; y: string }> }
 ) {
   const t = await apiText();
   try {
-    const user = (await getCurrentUser()) ?? (await getTvSession())?.user ?? null;
-    if (!user) {
+    const user = (await getCurrentUser())?.id ?? (await getTvSession())?.user.id ?? (await authenticateCollectorCached(request));
+    if (user == null) {
       return NextResponse.json({ error: t.logInMaps }, { status: 401 });
     }
     const { z, x, y } = await params;

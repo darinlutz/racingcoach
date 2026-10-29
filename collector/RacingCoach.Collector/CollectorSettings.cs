@@ -25,6 +25,8 @@ internal sealed class CollectorSettings
     public string? EncryptedUploadKey { get; set; }
     /// <summary>Driver Radio's push to talk button on a wheel or button box, or null for iRacing's radio button only.</summary>
     public WheelButton? RadioButton { get; set; }
+    /// <summary>The Live Racing tab's satellite imagery opacity under the map, 0-100 (the website's default, 60).</summary>
+    public int SatelliteOpacity { get; set; } = 60;
 
     public static CollectorSettings Load()
     {

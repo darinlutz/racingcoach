@@ -49,6 +49,8 @@ public partial class MainWindow : Window
     // long before its value is saved, so dragging it saves once
     private int _beepsShown = -1;
     private readonly DispatcherTimer _beepsVolumeSave = new() { Interval = TimeSpan.FromMilliseconds(400) };
+    private readonly DispatcherTimer _satelliteSave = new() { Interval = TimeSpan.FromMilliseconds(400) };
+    private int _satelliteSaved;
     private readonly ObservableCollection<LapRow> _laps = [];
     private readonly ObservableCollection<ActivityRow> _activity = [];
     private Task? _run;
@@ -94,6 +96,11 @@ public partial class MainWindow : Window
 
         _timer.Tick += (_, _) => Refresh();
         _beepsVolumeSave.Tick += (_, _) => SaveBeepsVolume();
+        TrackMap.Imagery = new SatelliteTiles(() => _engine.Api);
+        _satelliteSaved = Math.Clamp(CollectorSettings.Load().SatelliteOpacity, 0, 100);
+        SatelliteSlider.Value = _satelliteSaved;
+        TrackMap.ImageryOpacity = SatelliteSlider.Value / 100;
+        _satelliteSave.Tick += (_, _) => SaveSatelliteOpacity();
         Loaded += async (_, _) => await StartAsync();
         SourceInitialized += (_, _) => UseDarkTitleBar();
     }
@@ -469,6 +476,7 @@ public partial class MainWindow : Window
         MapEmptyText.Text = map is not null ? ""
             : session is null ? "Start iRacing and get in the car to see the track here."
             : "Drive one clean lap and the track is drawn here. The exact map comes once a lap of this track has been uploaded with track positions, after your stint.";
+        SatelliteRow.Visibility = map is { Mercator: not null } && TrackMap.Imagery?.Available is not null ? Visibility.Visible : Visibility.Collapsed;
         MapNoteText.Text = map is { Exact: false }
             ? "Drawn from your own lap's speed and yaw rate, so it's close but not exact. The exact map replaces it once a lap of this track has been uploaded with track positions, after your stint."
             : "";
@@ -513,6 +521,27 @@ public partial class MainWindow : Window
             LiveDeltaText.Foreground = Fg;
         }
         LiveAreaText.Text = TrackMap.AreaAt(pct)?.Name ?? (map is { Areas.Count: > 0 } ? "Between areas" : "—");
+    }
+
+    private void Satellite_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        // XAML sets Value inside InitializeComponent, before the map exists
+        if (SatelliteText is null || TrackMap is null)
+            return;
+        SatelliteText.Text = $"{(int)SatelliteSlider.Value}%";
+        TrackMap.ImageryOpacity = SatelliteSlider.Value / 100;
+        _satelliteSave.Stop();
+        if ((int)SatelliteSlider.Value != _satelliteSaved)
+            _satelliteSave.Start();
+    }
+
+    private void SaveSatelliteOpacity()
+    {
+        _satelliteSave.Stop();
+        _satelliteSaved = (int)SatelliteSlider.Value;
+        var settings = CollectorSettings.Load();
+        settings.SatelliteOpacity = _satelliteSaved;
+        settings.Save();
     }
 
     private void OpenLiveRacing_Click(object sender, RoutedEventArgs e) => Open($"{_siteUrl}/live-racing");
@@ -952,6 +981,8 @@ public partial class MainWindow : Window
         ClosingOverlay.Visibility = Visibility.Visible;
         _timer.Stop();
         CompositionTarget.Rendering -= OnLiveRacingFrame;
+        if (_satelliteSave.IsEnabled)
+            SaveSatelliteOpacity();
         _stop.Cancel();
         if (_run is not null)
             await Task.WhenAny(_run, Task.Delay(TimeSpan.FromSeconds(30)));

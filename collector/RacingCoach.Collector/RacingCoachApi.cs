@@ -242,6 +242,26 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
         return body?.Track;
     }
 
+    /// <summary>Live Racing: whether the site has satellite imagery set up for the map, and its credit line (null when
+    /// not). Throws like SendLiveAsync.</summary>
+    public async Task<MapSettings> GetMapSettingsAsync(CancellationToken ct)
+    {
+        using var response = await _http.GetAsync("api/map-tiles", ct);
+        if (response.StatusCode == HttpStatusCode.Unauthorized)
+            throw new UnauthorizedAccessException("RacingCoach.app doesn't accept the upload key");
+        if (!response.IsSuccessStatusCode)
+            throw new HttpRequestException(await ErrorMessageAsync(response, ct));
+        return await response.Content.ReadFromJsonAsync<MapSettings>(JsonOptions, ct) ?? new MapSettings(false, null);
+    }
+
+    /// <summary>Live Racing: one satellite imagery tile (Web Mercator zoom/x/y, a 256 px image), or null when the site
+    /// can't give it.</summary>
+    public async Task<byte[]?> GetMapTileAsync(int zoom, int x, int y, CancellationToken ct)
+    {
+        using var response = await _http.GetAsync($"api/map-tiles/{zoom}/{x}/{y}", ct);
+        return response.IsSuccessStatusCode ? await response.Content.ReadAsByteArrayAsync(ct) : null;
+    }
+
     /// <summary>The in-session debrief for uploaded laps (by clientLapId): what to say, e.g. "Area 1 average
     /// time was 12.3 seconds", and the focus area's name; or the reason there's none as Error.</summary>
     public async Task<(string? Message, string? AreaName, string? Error)> GetDebriefAsync(IEnumerable<Guid> clientLapIds, CancellationToken ct)
@@ -510,6 +530,9 @@ internal sealed record LiveTrackInfo(string Name, double? LengthFeet, TrackOutli
 
 /// <summary>"latlon": each point [latitude, longitude] in degrees, point i at LapDistPct i / Points.Length.</summary>
 internal sealed record TrackOutlineData(string Kind, double[][] Points);
+
+/// <summary>GET /api/map-tiles: whether satellite imagery is set up, and the provider's credit line.</summary>
+internal sealed record MapSettings(bool Available, string? Attribution);
 
 /// <summary>The account's preferences from GET /api/collector/me, and whether it has accepted the current Terms of
 /// Service and Privacy Policy (null from a site from before it was sent).</summary>

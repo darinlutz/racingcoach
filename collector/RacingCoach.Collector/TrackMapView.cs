@@ -6,8 +6,10 @@ namespace RacingCoach.Collector;
 
 /// <summary>
 /// The Live Racing tab's map: the track's outline (LiveRacing.Map) fitted to the control, its focus areas in red
-/// (the one the car is in brighter), the start/finish line, and the car as a dot at its live LapDistPct. The window
-/// sets Map and CarPct every frame while the tab is showing; it redraws only when they change.
+/// (the one the car is in brighter), the start/finish line, and the car as a dot at its live LapDistPct. Under an
+/// exact outline, the satellite imagery (SatelliteTiles), as see-through as ImageryOpacity says, like the website's
+/// Live Racing page. The window sets Map and CarPct every frame while the tab is showing; it redraws only when they
+/// change, or a tile arrives.
 /// </summary>
 internal sealed class TrackMapView : FrameworkElement
 {
@@ -22,12 +24,52 @@ internal sealed class TrackMapView : FrameworkElement
     private static readonly Brush Dot = FrozenBrush("#DE3341");
     private static readonly Brush Label = FrozenBrush("#9A9CA3");
     private static readonly Typeface LabelFace = new("Segoe UI");
+    private static readonly Brush AttributionText = FrozenBrush("#CCFFFFFF");
+    private static readonly Brush AttributionBackground = FrozenBrush("#73000000");
 
     private TrackMap? _map;
     private double? _carPct;
     // The outline in the control's pixels, for the current map and size
     private Point[]? _pixels;
     private Size _pixelsFor;
+    // How the outline's meters were fitted: screen pixels per meter, and the screen's top left in meters
+    private double _perMeter, _leftMeters, _topMeters;
+    private SatelliteTiles? _imagery;
+    private double _imageryOpacity;
+
+    public TrackMapView() => ClipToBounds = true;
+
+    /// <summary>Where the satellite imagery comes from, or null for none.</summary>
+    public SatelliteTiles? Imagery
+    {
+        get => _imagery;
+        set
+        {
+            if (_imagery == value)
+                return;
+            if (_imagery is not null)
+                _imagery.Changed -= OnImageryChanged;
+            _imagery = value;
+            if (_imagery is not null)
+                _imagery.Changed += OnImageryChanged;
+            InvalidateVisual();
+        }
+    }
+
+    /// <summary>The satellite imagery's opacity (0-1, 0 hides it).</summary>
+    public double ImageryOpacity
+    {
+        get => _imageryOpacity;
+        set
+        {
+            if (_imageryOpacity == value)
+                return;
+            _imageryOpacity = value;
+            InvalidateVisual();
+        }
+    }
+
+    private void OnImageryChanged() => Dispatcher.BeginInvoke(InvalidateVisual);
 
     public TrackMap? Map
     {
@@ -65,13 +107,16 @@ internal sealed class TrackMapView : FrameworkElement
             return;
         var pixels = Pixels(map);
         var n = pixels.Length;
+        var dpi = VisualTreeHelper.GetDpi(this).PixelsPerDip;
+
+        if (map.Mercator is { } mercator && _imageryOpacity > 0 && _imagery?.Available is { } settings)
+            DrawImagery(dc, mercator, settings, dpi);
 
         var outline = Geometry(pixels, 0, n);
         dc.DrawGeometry(null, Casing, outline);
         dc.DrawGeometry(null, map.Exact ? Track : ApproximateTrack, outline);
 
         var current = _carPct is { } carPct ? AreaAt(carPct) : null;
-        var dpi = VisualTreeHelper.GetDpi(this).PixelsPerDip;
         foreach (var area in map.Areas)
         {
             var from = (int)Math.Floor(area.Start * n);
@@ -96,6 +141,39 @@ internal sealed class TrackMapView : FrameworkElement
             dc.DrawEllipse(Dot, DotOutline, PointAt(pixels, pct), 8, 8);
     }
 
+    // The tiles covering the whole control, at the zoom its size on screen needs, placed by the outline's meters (the
+    // website's viewTiles), then the provider's credit line in the bottom right
+    private void DrawImagery(DrawingContext dc, MercatorOrigin mercator, MapSettings settings, double dpi)
+    {
+        var (width, height) = (ActualWidth, ActualHeight);
+        var scale = _perMeter * mercator.K; // screen pixels per zoom-0 pixel
+        var left = mercator.X0 + _leftMeters / mercator.K;
+        var top = mercator.Y0 - _topMeters / mercator.K;
+        var zoom = Math.Clamp((int)Math.Ceiling(Math.Log2(scale)), 0, SatelliteTiles.MaxZoom);
+        var tileWorld = (double)SatelliteTiles.TileSize / (1 << zoom);
+        // Half a pixel over, so no seams show between tiles
+        var size = tileWorld * scale + 0.5;
+        var count = 1 << zoom;
+        dc.PushOpacity(_imageryOpacity);
+        for (var tx = (int)Math.Floor(left / tileWorld); tx <= (int)Math.Floor((left + width / scale) / tileWorld); tx++)
+            for (var ty = (int)Math.Floor(top / tileWorld); ty <= (int)Math.Floor((top + height / scale) / tileWorld); ty++)
+            {
+                if (tx < 0 || ty < 0 || tx >= count || ty >= count || _imagery!.Tile(zoom, tx, ty) is not { } tile)
+                    continue;
+                dc.DrawImage(tile, new Rect((tx * tileWorld - left) * scale, (ty * tileWorld - top) * scale, size, size));
+            }
+        dc.Pop();
+
+        if (settings.Attribution is { Length: > 0 } attribution)
+        {
+            var text = new FormattedText(attribution, CultureInfo.CurrentUICulture, FlowDirection.LeftToRight, LabelFace, 10,
+                AttributionText, dpi);
+            var box = new Rect(width - text.Width - 12, height - text.Height - 4, text.Width + 12, text.Height + 4);
+            dc.DrawRectangle(AttributionBackground, null, box);
+            dc.DrawText(text, new Point(box.X + 6, box.Y + 2));
+        }
+    }
+
     // The outline fitted into the control, north (or the drawn lap's start) up
     private Point[] Pixels(TrackMap map)
     {
@@ -107,6 +185,7 @@ internal sealed class TrackMapView : FrameworkElement
         var scale = Math.Min((size.Width - 2 * Inset) / Math.Max(maxX - minX, 1), (size.Height - 2 * Inset) / Math.Max(maxY - minY, 1));
         var offsetX = (size.Width - (maxX - minX) * scale) / 2;
         var offsetY = (size.Height - (maxY - minY) * scale) / 2;
+        (_perMeter, _leftMeters, _topMeters) = (scale, minX - offsetX / scale, maxY + offsetY / scale);
         _pixels = map.Points.Select(p => new Point(offsetX + (p.X - minX) * scale, offsetY + (maxY - p.Y) * scale)).ToArray();
         _pixelsFor = size;
         return _pixels;

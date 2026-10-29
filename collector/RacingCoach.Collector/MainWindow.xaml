@@ -514,6 +514,15 @@
                             <TextBlock x:Name="MapTrackText" Style="{StaticResource Value}" FontSize="17" Text="—" />
                         </DockPanel>
                         <TextBlock x:Name="MapNoteText" DockPanel.Dock="Bottom" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,8,0,0" />
+                        <!-- The satellite imagery's opacity under an exact map, 0-100% (as on the website's Live Racing page),
+                             shown when the site has imagery set up; saved in collector.json -->
+                        <StackPanel x:Name="SatelliteRow" DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,8,0,0" Visibility="Collapsed">
+                            <TextBlock Style="{StaticResource Muted}" Text="Satellite" VerticalAlignment="Center" />
+                            <Slider x:Name="SatelliteSlider" Width="128" Minimum="0" Maximum="100" Value="60" SmallChange="5" LargeChange="5"
+                                    IsSnapToTickEnabled="True" TickFrequency="5" VerticalAlignment="Center" Margin="8,0"
+                                    ToolTip="How see-through the satellite imagery under the map is" ValueChanged="Satellite_ValueChanged" />
+                            <TextBlock x:Name="SatelliteText" Style="{StaticResource Muted}" Width="36" VerticalAlignment="Center" Text="60%" />
+                        </StackPanel>
                         <Grid>
                             <local:TrackMapView x:Name="TrackMap" />
                             <TextBlock x:Name="MapEmptyText" Style="{StaticResource Muted}" FontSize="15" TextWrapping="Wrap" TextAlignment="Center"

@@ -9,8 +9,14 @@ internal sealed record TrackMapArea(string Name, double Start, double End);
 
 /// <summary>A track's outline for the Live Racing tab, in meters east and north (point i at LapDistPct i / Count).
 /// Exact when it's the site's (from a lap uploaded with track positions; north up), otherwise drawn from the car's
-/// own speed and yaw rate over a clean lap (turned an arbitrary way). Areas are the track's focus areas.</summary>
-internal sealed record TrackMap(IReadOnlyList<(double X, double Y)> Points, bool Exact, IReadOnlyList<TrackMapArea> Areas);
+/// own speed and yaw rate over a clean lap (turned an arbitrary way). Areas are the track's focus areas. An exact one
+/// has Mercator, where it sits in Web Mercator, for the satellite imagery under it.</summary>
+internal sealed record TrackMap(IReadOnlyList<(double X, double Y)> Points, bool Exact, IReadOnlyList<TrackMapArea> Areas,
+    MercatorOrigin? Mercator = null);
+
+/// <summary>Where an exact outline's meters sit in Web Mercator: (X0, Y0) in zoom-0 pixels (the world 256 px across) at
+/// its origin, and K meters per zoom-0 pixel there (LiveTrackMap.tsx's Mercator in the website).</summary>
+internal sealed record MercatorOrigin(double X0, double Y0, double K);
 
 /// <summary>A car in the session from session info, for Live Racing's field: iRacing's car index, the driver, car
 /// number, car, class and class color (hex, e.g. "#ffda59"), the driver's iRating and license (e.g. "A 3.41"), and
@@ -569,7 +575,8 @@ internal sealed class LiveRacing(Func<RacingCoachApi?> api, Action<string> log)
                 if (track?.Outline is { Kind: "latlon", Points.Length: > 0 } outline)
                 {
                     var wasExact = _map is { Exact: true };
-                    _map = new TrackMap(FromLatLon(outline.Points), Exact: true, areas);
+                    var (points, mercator) = FromLatLon(outline.Points);
+                    _map = new TrackMap(points, Exact: true, areas, mercator);
                     _sendOutline = false;
                     if (!wasExact)
                         log($"Live Racing: loaded the map of {track.Name}.");
@@ -594,14 +601,18 @@ internal sealed class LiveRacing(Func<RacingCoachApi?> api, Action<string> log)
     // The focus areas of a track without a map yet, for the approximate one once it's drawn
     private List<TrackMapArea>? _pendingAreas;
 
-    // [lat, lon] in degrees as meters east and north of their middle
-    private static IReadOnlyList<(double X, double Y)> FromLatLon(double[][] points)
+    // [lat, lon] in degrees as meters east and north of their middle: Web Mercator scaled to meters at the track's
+    // latitude (true to within a fraction of a percent across a circuit), as the website does, so the satellite
+    // tiles line up with it exactly
+    private static (IReadOnlyList<(double X, double Y)> Points, MercatorOrigin Mercator) FromLatLon(double[][] points)
     {
         var valid = points.Where(p => p.Length >= 2).ToArray();
         var lat0 = valid.Average(p => p[0]);
-        var lon0 = valid.Average(p => p[1]);
-        var cos = Math.Cos(lat0 * Math.PI / 180);
-        return valid.Select(p => ((p[1] - lon0) * cos * 111_320, (p[0] - lat0) * 110_574)).ToArray();
+        var projected = valid.Select(p => SatelliteTiles.Project(p[0], p[1])).ToArray();
+        var x0 = projected.Average(p => p.X);
+        var y0 = projected.Average(p => p.Y);
+        var k = SatelliteTiles.MetersPerPixelZ0 * Math.Cos(lat0 * Math.PI / 180);
+        return (projected.Select(p => ((p.X - x0) * k, -(p.Y - y0) * k)).ToArray(), new MercatorOrigin(x0, y0, k));
     }
 
     // Tells the site the driver has gone (closing, or iRacing closed), so they leave Live Racing at once

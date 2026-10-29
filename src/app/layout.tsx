@@ -3,7 +3,6 @@ import { Barlow, Barlow_Condensed } from "next/font/google";
 import { cookies } from "next/headers";
 import Link from "next/link";
 import ActivityTracker from "@/components/ActivityTracker";
-import Brand from "@/components/Brand";
 import LanguageProvider from "@/components/LanguageProvider";
 import Navigation from "@/components/Navigation";
 import PolicyUpdateNotice from "@/components/PolicyUpdateNotice";
@@ -92,8 +91,7 @@ export default async function RootLayout({
                 {children}
               </main>
               <footer className="border-t border-border py-6">
-                <div className="site-container flex items-center justify-between gap-5">
-                  <Brand aiFeatures={enableAiFeatures} />
+                <div className="site-container flex items-center justify-end gap-5">
                   <div className="text-[10px] text-muted-foreground text-right max-sm:max-w-[140px]">
                     <p>© 2026 RacingCoach.app<br />{t.footer.tagline}</p>
                     <nav aria-label={t.legal.pageTitle} className="mt-1.5 flex flex-wrap justify-end gap-x-2">

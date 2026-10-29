@@ -34,12 +34,12 @@ export default function CoachingAnalysis() {
 
   return (
     <div className="w-full">
-      <section className="py-16 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-background to-background border-b border-border">
-        <div className="max-w-4xl mx-auto text-center">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4 pb-2 bg-gradient-to-r from-primary-strong via-primary to-primary-strong bg-clip-text text-transparent">
+      <section className="py-10 px-3 sm:px-4 bg-gradient-to-b from-background to-background border-b border-border">
+        <div className="w-full">
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-primary-strong via-primary to-primary-strong bg-clip-text text-transparent">
             {t.racing.title}
           </h1>
-          <p className="text-lg text-muted-foreground">{t.racing.intro}</p>
+          <p className="mt-2 text-muted-foreground">{t.racing.intro}</p>
         </div>
       </section>
 

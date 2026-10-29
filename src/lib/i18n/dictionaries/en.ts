@@ -1856,6 +1856,7 @@ export const en = {
     approximateMap: 'Approximate map, drawn by the collector from a lap. The exact one appears once a lap of this track has been uploaded with track positions, after the stint.',
     noMap: 'No map of this track yet. It appears once the collector has seen a full clean lap, or a lap of this track has been uploaded with track positions.',
     startFinish: 'Start/finish',
+    satellite: 'Satellite',
     inputsTitle: 'Driver inputs',
     inputsOf: '{name}, about 2 seconds behind live',
     inputsWaiting: 'Inputs appear here while the driver is on track, from RacingCoach.app Collector 1.52.0.',

@@ -97,13 +97,13 @@ export const COOKIE_INVENTORY: InventoryItem[] = [
     purpose: 'Whether you collapsed the navigation sidebar, so pages open at the width you chose.',
   },
   {
-    name: 'liveRacing.announceLaps, liveRacing.leadAnnouncer, liveRacing.colorAnnouncer',
+    name: 'liveRacing.announceLaps, liveRacing.leadAnnouncer, liveRacing.colorAnnouncer, liveRacing.satelliteOpacity',
     kind: 'localStorage',
     category: 'necessary',
     provider: 'RacingCoach.app',
     firstParty: true,
     duration: 'Until you clear your browser data',
-    purpose: 'The Announce lap times, Lead Announcer and Color Announcer checkboxes you ticked on the Live Racing page (signed-in users only).',
+    purpose: 'The Announce lap times, Lead Announcer and Color Announcer checkboxes you ticked, and how see-through you set the satellite map, on the Live Racing page (signed-in users only).',
   },
   {
     name: 'visitor_id',

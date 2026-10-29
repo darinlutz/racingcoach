@@ -13,6 +13,7 @@ import { useUnits } from '@/components/UnitsProvider';
 import type { LiveDriver, LiveField } from '@/lib/liveRacing';
 import { formatLapTime as lapTime } from '@/lib/liveRacingFormat';
 import { reportRateLimit } from '@/lib/rateLimitClient';
+import { useMapSettings } from '@/lib/satelliteImagery';
 import type { TrackOutline } from '@/lib/trackOutlines';
 import { METERS_PER_FOOT, SPEED_UNIT, speedFromMetersPerSecond } from '@/lib/units';
 
@@ -35,6 +36,9 @@ const POLL_MS = 1000;
 const ANNOUNCE_KEY = 'liveRacing.announceLaps';
 const ANNOUNCER_KEYS = { lead: 'liveRacing.leadAnnouncer', color: 'liveRacing.colorAnnouncer' } as const;
 const RADIO_KEY = 'liveRacing.playRadio';
+// The satellite imagery's opacity under the maps (0-100), kept in the browser
+const IMAGERY_KEY = 'liveRacing.satelliteOpacity';
+const DEFAULT_IMAGERY_OPACITY = 60;
 type Announcer = keyof typeof ANNOUNCER_KEYS;
 // A new clock offset this close to the last is noise (network timing), and the samples keep the old one
 const OFFSET_TOLERANCE_MS = 400;
@@ -186,6 +190,8 @@ export default function LiveRacing({ announcers: showAnnouncers }: { announcers:
   // Driver Radio: played while on, the focused driver's newest radio message already played (or there when the page
   // started watching them), one at a time
   const [playRadio, setPlayRadio] = useState(true);
+  const [imageryOpacity, setImageryOpacity] = useState(DEFAULT_IMAGERY_OPACITY);
+  const mapSettings = useMapSettings();
   const [radioError, setRadioError] = useState('');
   const radioHeard = useRef<{ driver: number; seq: number } | null>(null);
   const radioPlaying = useRef(false);
@@ -200,10 +206,20 @@ export default function LiveRacing({ announcers: showAnnouncers }: { announcers:
         color: window.localStorage.getItem(ANNOUNCER_KEYS.color) !== '0',
       });
       setPlayRadio(window.localStorage.getItem(RADIO_KEY) !== '0');
+      const opacity = Number(window.localStorage.getItem(IMAGERY_KEY) ?? NaN);
+      if (Number.isFinite(opacity)) setImageryOpacity(Math.min(Math.max(opacity, 0), 100));
     } catch {
-      // storage blocked: lap times off, announcers and radio on
+      // storage blocked: lap times off, announcers and radio on, the imagery at its default
     }
   }, []);
+  const changeImageryOpacity = (opacity: number) => {
+    setImageryOpacity(opacity);
+    try {
+      window.localStorage.setItem(IMAGERY_KEY, String(opacity));
+    } catch {
+      // kept for this visit only
+    }
+  };
   const togglePlayRadio = (on: boolean) => {
     setPlayRadio(on);
     setRadioError('');
@@ -583,8 +599,25 @@ export default function LiveRacing({ announcers: showAnnouncers }: { announcers:
                       cars={cars}
                       startFinishLabel={t.liveRacing.startFinish}
                       lengthMeters={track?.lengthFeet ? track.lengthFeet * METERS_PER_FOOT : null}
+                      imageryOpacity={imageryOpacity / 100}
                     />
                   </div>
+                  {track?.outline?.kind === 'latlon' && mapSettings?.available && (
+                    <label className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                      {t.liveRacing.satellite}
+                      <input
+                        type="range"
+                        min={0}
+                        max={100}
+                        step={5}
+                        value={imageryOpacity}
+                        onChange={(event) => changeImageryOpacity(Number(event.target.value))}
+                        data-track="liveRacing.satelliteOpacity"
+                        className="w-32 accent-primary"
+                      />
+                      <span className="w-9 tabular-nums">{imageryOpacity}%</span>
+                    </label>
+                  )}
                   {(!track?.outline || track.approximate) && (
                     <p className="mt-2 text-xs text-muted-foreground">{track?.outline ? t.liveRacing.approximateMap : t.liveRacing.noMap}</p>
                   )}

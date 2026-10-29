@@ -1817,6 +1817,7 @@ export const pt: Dictionary = {
     approximateMap: 'Mapa aproximado, desenhado pelo collector a partir de uma volta. O exato aparece quando uma volta desta pista for enviada com as posições na pista, depois do stint.',
     noMap: 'Ainda não há mapa desta pista. Ele aparece quando o collector registrar uma volta completa e limpa, ou quando uma volta desta pista for enviada com as posições na pista.',
     startFinish: 'Largada/chegada',
+    satellite: 'Satélite',
     inputsTitle: 'Comandos do piloto',
     inputsOf: '{name}, cerca de 2 segundos atrás do ao vivo',
     inputsWaiting: 'Os comandos aparecem aqui enquanto o piloto está na pista, a partir do RacingCoach.app Collector 1.52.0.',

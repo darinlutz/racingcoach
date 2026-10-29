@@ -1817,6 +1817,7 @@ export const es: Dictionary = {
     approximateMap: 'Mapa aproximado, dibujado por el collector a partir de una vuelta. El exacto aparece cuando se sube una vuelta de esta pista con las posiciones en pista, después del stint.',
     noMap: 'Todavía no hay mapa de esta pista. Aparece cuando el collector haya registrado una vuelta completa y limpia, o cuando se suba una vuelta de esta pista con las posiciones en pista.',
     startFinish: 'Salida/meta',
+    satellite: 'Satélite',
     inputsTitle: 'Controles del piloto',
     inputsOf: '{name}, unos 2 segundos detrás del directo',
     inputsWaiting: 'Los controles aparecen aquí mientras el piloto está en pista, desde RacingCoach.app Collector 1.52.0.',

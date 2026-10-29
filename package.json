@@ -13,6 +13,7 @@
     "test:lap-retention": "node --test scripts/lap-retention.test.mjs && node --experimental-transform-types --no-warnings --test scripts/lap-retention-db.test.mjs",
     "test:cookie-consent": "node --test scripts/cookie-consent.test.mjs && node --experimental-transform-types --no-warnings --test scripts/cookie-consent-db.test.mjs",
     "test:tv": "node --test scripts/tv-broadcast.test.mjs",
+    "test:broadcast": "node --test scripts/race-broadcast.test.mjs",
     "test:e2e": "playwright test"
   },
   "dependencies": {

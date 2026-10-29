@@ -228,19 +228,35 @@ export async function synthesizeSpeech(
   language: Language = DEFAULT_LANGUAGE,
   spanishAccent: SpanishAccent = DEFAULT_SPANISH_ACCENT,
   role: ElevenLabsRole = 'raceCoach',
-  format: SpeechFormat = 'wav'
+  format: SpeechFormat = 'wav',
+  // A Race Announcer line's intensity, 1 calm to 5 race-deciding (src/lib/broadcastDirector.ts): ElevenLabs and
+  // OpenAI deliver it more or less excitedly; Chirp has no such control, so only the words carry it
+  intensity: number | null = null
 ): Promise<Buffer> {
   // Units after time gaps, which leave "+1.5 ft" alone by its "ft"
   const input = spokenUnits(spokenTimeGaps(spokenTurnNames(text, language), language), language);
   if (voice === ELEVENLABS_COACH_VOICE) {
     const voiceId = elevenLabsVoiceId(role, language, spanishAccent);
-    if (voiceId) return format === 'mp3' ? elevenLabsSpeech(input, voiceId, 'mp3') : wav(await elevenLabsSpeech(input, voiceId, 'pcm'));
+    if (voiceId) {
+      return format === 'mp3'
+        ? elevenLabsSpeech(input, voiceId, 'mp3', intensity)
+        : wav(await elevenLabsSpeech(input, voiceId, 'pcm', intensity));
+    }
     voice = DEFAULT_COACH_VOICE;
   }
   return process.env.GOOGLE_TTS_API_KEY
     ? chirpSpeech(input, voice, chirpLocale(language, spanishAccent), format)
-    : openAiSpeech(input, language, spanishAccent, role, format);
+    : openAiSpeech(input, language, spanishAccent, role, format, intensity);
 }
+
+// How the OpenAI fallback delivers a Race Announcer line at each intensity
+const INTENSITY_DELIVERY: Record<number, string> = {
+  1: 'Deliver this calmly and professionally, in a relaxed motorsport broadcast tone.',
+  2: 'Use mild anticipation and conversational energy: interested but composed.',
+  3: 'Use clear excitement and urgency, as in an active racing battle, while staying easy to understand.',
+  4: 'Deliver with strong motorsport broadcast excitement, faster pacing and emphatic delivery, without shouting.',
+  5: 'Deliver with maximum controlled excitement for a race-deciding moment: high emotional energy, impactful, still clear.',
+};
 
 export type SpeechFormat = 'wav' | 'mp3';
 
@@ -287,7 +303,8 @@ async function openAiSpeech(
   language: Language,
   spanishAccent: SpanishAccent,
   role: ElevenLabsRole,
-  format: SpeechFormat
+  format: SpeechFormat,
+  intensity: number | null = null
 ): Promise<Buffer> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
@@ -304,7 +321,8 @@ async function openAiSpeech(
       response_format: format === 'mp3' ? 'mp3' : 'pcm',
       instructions:
         `Speak as a native ${nativeSpeaker(language, spanishAccent)} pronouncing everything the way a native speaker ` +
-        `would, numbers included (keep track, corner and car names as written). ${DELIVERY[role]}`,
+        `would, numbers included (keep track, corner and car names as written). ${DELIVERY[role]}` +
+        (intensity != null ? ` ${INTENSITY_DELIVERY[Math.min(Math.max(Math.round(intensity), 1), 5)]}` : ''),
     }),
     signal: AbortSignal.timeout(30_000),
   });

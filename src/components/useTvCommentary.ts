@@ -7,12 +7,15 @@ import { CommentaryQueue } from '@/lib/tvAudio';
 import type { TvFocus } from '@/lib/tvBroadcast';
 
 // TV Broadcast Mode's Race Announcers: when the followed driver's race events move on (eventSeq), the TV asks
-// POST /api/tv/announcer for commentary on the new ones, one request at a time, and plays the MP3 lines one after
-// another on the one audio element Start Broadcast unlocked (CommentaryQueue: never two at once, a line that waited
-// too long dropped). Events from before the TV started following the driver or session, or while the commentary was
-// off or the TV showed something else, are skipped, never commentated late; the server also remembers what each TV
-// heard, so a reconnect or reload doesn't repeat it. When the TV follows its own account's driving, a line waits for
-// their In-Car AI Coach to finish and holds it while it plays (POST /api/tv/announcing), as on the Live Racing page.
+// POST /api/tv/announcer for commentary on the new ones (the Commentary Director, src/lib/broadcastDirector.ts,
+// decides what's said), one request at a time, and plays the MP3 lines one after another on the one audio element
+// Start Broadcast unlocked (CommentaryQueue: never two at once, a line that waited too long or outlived its moment
+// dropped, a more important commentary replacing less important lines still waiting), each at the TV's volume times
+// the account's announcer volume. Events from before the TV started following the driver or session, or while the
+// commentary was off or the TV showed something else, are skipped, never commentated late; the server also remembers
+// what each TV heard, so a reconnect or reload doesn't repeat it. When the TV follows its own account's driving, a
+// line waits for their In-Car AI Coach to finish and holds it while it plays (POST /api/tv/announcing), as on the
+// Live Racing page.
 
 export type CommentarySettings = { started: boolean; enabled: boolean; lead: boolean; color: boolean; volume: number; muted: boolean };
 
@@ -81,8 +84,10 @@ export function useTvCommentary(
   const pausedUntil = useRef(0);
   const disabled = useRef(false);
   const focusRef = useRef(focus);
+  const settingsRef = useRef(settings);
   useEffect(() => {
     focusRef.current = focus;
+    settingsRef.current = settings;
   });
 
   const stop = useCallback(() => {
@@ -122,6 +127,7 @@ export function useTvCommentary(
             if (run !== generation.current) break;
           }
           setSpeaking({ speaker: line.speaker, text: line.text });
+          audio.volume = (Math.min(Math.max(settingsRef.current.volume, 0), 100) / 100) * (line.volume ?? 1);
           await playToEnd(audio);
         } finally {
           URL.revokeObjectURL(url);
@@ -200,7 +206,13 @@ export function useTvCommentary(
         }
         setProblem('');
         if (seen.current?.driverId !== driverId) return;
-        queue.current.push(data.lines ?? [], Date.now());
+        const now = Date.now();
+        type Line = { speaker: Announcer; text: string; audio: string; priority?: number; ttlMs?: number; volume?: number };
+        queue.current.push(
+          ((data.lines ?? []) as Line[]).map((l) => ({ ...l, expiresAt: l.ttlMs != null ? now + l.ttlMs : undefined })),
+          now,
+          !!data.replaceQueued
+        );
         playQueue();
       } catch {
         pausedUntil.current = Date.now() + ERROR_PAUSE_MS;

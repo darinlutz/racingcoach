@@ -55,12 +55,72 @@ export function elevenLabsConfigured(role: ElevenLabsRole, language: Language, s
   return elevenLabsVoiceId(role, language, spanishAccent) !== null;
 }
 
-// The text spoken in an ElevenLabs voice (a Voice ID from elevenLabsVoiceId), as an MP3 or raw PCM
-export async function elevenLabsSpeech(text: string, voiceId: string, format: keyof typeof OUTPUT_FORMATS = 'mp3'): Promise<Buffer> {
+type VoiceSettings = { stability: number; similarity_boost: number; style: number; use_speaker_boost: boolean; speed: number };
+const FALLBACK_SETTINGS: VoiceSettings = { stability: 0.5, similarity_boost: 0.75, style: 0, use_speaker_boost: true, speed: 1 };
+// Each voice's own settings, as saved in the ElevenLabs account, fetched once per server start
+const voiceSettings = new Map<string, Promise<VoiceSettings>>();
+
+function savedSettings(voiceId: string, key: string): Promise<VoiceSettings> {
+  let settings = voiceSettings.get(voiceId);
+  if (!settings) {
+    settings = fetch(`https://api.elevenlabs.io/v1/voices/${encodeURIComponent(voiceId)}/settings`, {
+      headers: { 'xi-api-key': key },
+      signal: AbortSignal.timeout(5000),
+    })
+      .then(async (r) => (r.ok ? { ...FALLBACK_SETTINGS, ...((await r.json()) as Partial<VoiceSettings>) } : FALLBACK_SETTINGS))
+      .catch(() => FALLBACK_SETTINGS);
+    voiceSettings.set(voiceId, settings);
+  }
+  return settings;
+}
+
+// How a Race Announcer's line is delivered at each intensity (1 calm to 5 race-deciding), relative to the voice's own
+// settings so it stays the same voice: less stability and more style are more expressive, and the pace picks up
+const INTENSITY_DELIVERY: Record<number, { stability: number; style: number; speed: number }> = {
+  1: { stability: 0.1, style: 0, speed: 0.98 },
+  2: { stability: 0, style: 0.1, speed: 1 },
+  3: { stability: -0.1, style: 0.25, speed: 1.04 },
+  4: { stability: -0.2, style: 0.4, speed: 1.08 },
+  5: { stability: -0.28, style: 0.55, speed: 1.12 },
+};
+const clamp = (n: number, min: number, max: number) => Math.min(Math.max(n, min), max);
+
+// Eleven v3 takes audio tags in the text and only three stabilities (0 creative, 0.5 natural, 1 robust); the v2 and
+// flash models take the voice settings above
+async function delivery(text: string, voiceId: string, key: string, model: string, intensity: number) {
+  const level = clamp(Math.round(intensity), 1, 5);
+  const saved = await savedSettings(voiceId, key);
+  if (model.startsWith('eleven_v3')) {
+    return { text: level >= 4 ? `[excited] ${text}` : text, settings: { ...saved, stability: level >= 4 ? 0 : 0.5 } };
+  }
+  const d = INTENSITY_DELIVERY[level];
+  return {
+    text,
+    settings: {
+      ...saved,
+      stability: clamp(saved.stability + d.stability, 0.15, 0.9),
+      style: clamp((saved.style ?? 0) + d.style, 0, 1),
+      speed: clamp((saved.speed ?? 1) * d.speed, 0.7, 1.2),
+    },
+  };
+}
+
+// Characters sent to ElevenLabs since the server started (cache hits not counted), for the broadcast's cost metrics
+let charactersSent = 0;
+export const elevenLabsCharacters = () => charactersSent;
+
+// The text spoken in an ElevenLabs voice (a Voice ID from elevenLabsVoiceId), as an MP3 or raw PCM. intensity (1-5)
+// delivers a Race Announcer's line more calmly or more excitedly; without it the voice's own settings are used.
+export async function elevenLabsSpeech(
+  text: string,
+  voiceId: string,
+  format: keyof typeof OUTPUT_FORMATS = 'mp3',
+  intensity: number | null = null
+): Promise<Buffer> {
   const key = apiKey();
   if (!key) throw new Error('ELEVENLABS_API_KEY must be set');
   const model = process.env.ELEVENLABS_MODEL_ID || DEFAULT_MODEL;
-  const cacheKey = `${voiceId}\n${model}\n${format}\n${text}`;
+  const cacheKey = `${voiceId}\n${model}\n${format}\n${intensity ?? ''}\n${text}`;
   const cached = cache.get(cacheKey);
   if (cached) {
     cache.delete(cacheKey);
@@ -68,10 +128,12 @@ export async function elevenLabsSpeech(text: string, voiceId: string, format: ke
     return cached;
   }
 
+  const spoken = intensity != null ? await delivery(text, voiceId, key, model, intensity) : { text, settings: null };
+  charactersSent += spoken.text.length;
   const response = await fetch(`${API_URL}/${encodeURIComponent(voiceId)}?output_format=${OUTPUT_FORMATS[format]}`, {
     method: 'POST',
     headers: { 'xi-api-key': key, 'Content-Type': 'application/json', Accept: format === 'mp3' ? 'audio/mpeg' : '*/*' },
-    body: JSON.stringify({ text, model_id: model }),
+    body: JSON.stringify({ text: spoken.text, model_id: model, ...(spoken.settings ? { voice_settings: spoken.settings } : {}) }),
     signal: AbortSignal.timeout(TIMEOUT_MS),
   });
   if (!response.ok) {

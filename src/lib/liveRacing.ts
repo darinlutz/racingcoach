@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { BroadcastTracker, type BroadcastEvent, type TrackerSnapshot } from './broadcastTracker';
 import { flagCodeForFlair } from './countryFlags';
 import { query } from './db';
 import { WEATHER_SAMPLE_MS, TREND_MS, weatherSample, weatherTrend, type WeatherSample, type WeatherTrend } from './liveWeather';
@@ -38,6 +39,10 @@ import { ensureUserSchema, getUserById, type User } from './users';
 // themselves: the collector says when its coach is speaking (coachSpeaking), which the page waits out before each
 // line, and the page says how long each line lasts (markAnnouncing), which the answer to the collector's next update
 // carries (announcerSpeakingMs) so it holds its coach till then.
+//
+// The Race Broadcast's BroadcastTracker (src/lib/broadcastTracker.ts) also follows the whole field from each update,
+// adding events from anywhere in the race (passes, battles, pit stops, incidents, the start and finish, storylines)
+// to the same numbered list; the Commentary Director (src/lib/broadcastDirector.ts) decides what's said about them.
 //
 // Driver Radio (src/lib/driverRadio.ts): what the driver says over the radio, turned into text, is kept a few
 // minutes with their live state and numbered (radioSeq), so watchers' pages show it and play it in the Driver Radio
@@ -201,13 +206,15 @@ export type RaceEvent =
   // Another car near the driver went off track, or slowed suddenly on track (a spin or crash, by its pace round the
   // lap); idx is its car index, pct where it happened, and place the focus area there (trackPlace), filled in by
   // readRaceEvents, null when the track has no Track Data
-  | { type: 'nearbyIncident'; idx: number; driver: string; kind: 'offTrack' | 'slowed'; ahead: boolean; pct: number; place?: string | null };
+  | { type: 'nearbyIncident'; idx: number; driver: string; kind: 'offTrack' | 'slowed'; ahead: boolean; pct: number; place?: string | null }
+  // From anywhere in the field (src/lib/broadcastTracker.ts)
+  | BroadcastEvent;
 
 export type NumberedRaceEvent = { seq: number; at: number; event: RaceEvent };
 
 // Events are kept this long, at most MAX_EVENTS of them, and an off track counts once in OFF_TRACK_INTERVAL_MS
 const EVENTS_KEPT_MS = 2 * 60_000;
-const MAX_EVENTS = 20;
+const MAX_EVENTS = 40;
 const OFF_TRACK_INTERVAL_MS = 15_000;
 // A car this close on the lap (either way) is near the driver; a car whose pace round the lap drops below this share of
 // what it was, from at least MIN_SLOWED_RATE (a lap in 250 s), slowed suddenly
@@ -243,6 +250,9 @@ type LiveEntry = {
   weatherTrack: string | null;
   // Race events in the driver's session, oldest first, and the number of the newest
   events: NumberedRaceEvent[];
+  // The whole field as the Race Broadcast follows it, and the session it's for
+  broadcast: BroadcastTracker;
+  broadcastSession: string;
   eventSeq: number;
   lastOffTrackAt: number;
   // Until when (ms since the epoch) the driver's own Race Announcers are speaking on their Live Racing page, so their
@@ -345,6 +355,14 @@ export function recordLiveUpdate(
     }
     events.push({ seq: ++eventSeq, at: now, event });
   }
+  // The field-wide events; a failure there never stops the live position being kept
+  const broadcastSession = [field?.subSessionId ?? `u${user.id}`, rest.sessionType, rest.sessionName, trackKey ?? rest.track].join('|');
+  const broadcast = previous && previous.broadcastSession === broadcastSession ? previous.broadcast : new BroadcastTracker();
+  try {
+    for (const event of broadcast.update(trackerSnapshot(rest, liveField, now))) events.push({ seq: ++eventSeq, at: now, event });
+  } catch (error) {
+    console.error('Race Broadcast tracker error:', error);
+  }
   live.entries.set(user.id, {
     userId: user.id,
     driver: user.userName,
@@ -362,6 +380,8 @@ export function recordLiveUpdate(
     weatherTrack,
     events: events.slice(-MAX_EVENTS),
     eventSeq,
+    broadcast,
+    broadcastSession,
     lastOffTrackAt,
     announcingUntil: previous?.announcingUntil ?? 0,
     radio: (previous?.radio ?? []).filter((r) => now - r.at <= RADIO_KEPT_MS),
@@ -376,6 +396,25 @@ export function recordLiveUpdate(
     needsField: !!field && fieldSubSession === null,
     messages,
     announcerSpeakingMs: Math.max(0, (previous?.announcingUntil ?? 0) - now),
+  };
+}
+
+// What the BroadcastTracker reads from a live update
+function trackerSnapshot(update: UpdateState, field: LiveField | null, at: number): TrackerSnapshot {
+  return {
+    at,
+    sessionType: update.sessionType ?? null,
+    sessionState: update.sessionState ?? null,
+    lapsTotal: update.sessionLapsTotal ?? null,
+    timeRemain: update.sessionTimeRemain ?? null,
+    myCarIdx: field?.myCarIdx ?? null,
+    cars: (field?.cars ?? []).map((c) => ({
+      ...c,
+      name: c.details?.name ?? null,
+      number: c.details?.number ?? null,
+      car: c.details?.car ?? null,
+      carClass: c.details?.carClass ?? null,
+    })),
   };
 }
 
@@ -674,7 +713,7 @@ export async function readRaceEvents(
   viewer: Pick<User, 'id' | 'role'>,
   driverId: number,
   after: number
-): Promise<{ events: NumberedRaceEvent[]; seq: number; context: RaceEventContext } | null> {
+): Promise<{ events: NumberedRaceEvent[]; seq: number; context: RaceEventContext; broadcast: BroadcastTracker; sessionKey: string } | null> {
   const now = Date.now();
   expire(now);
   const entry = live.entries.get(driverId);
@@ -701,6 +740,8 @@ export async function readRaceEvents(
       e.event.type === 'nearbyIncident' ? { ...e, event: { ...e.event, place: trackPlace(areas, e.event.pct) } } : e
     ),
     seq: entry.eventSeq,
+    broadcast: entry.broadcast,
+    sessionKey: entry.broadcastSession,
     context: {
       driver: entry.driver,
       track: u.track,

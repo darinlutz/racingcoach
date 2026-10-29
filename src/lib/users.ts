@@ -194,6 +194,10 @@ export function ensureUserSchema(): Promise<void> {
       await client.query(
         `ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS race_announcer_instructions TEXT NOT NULL DEFAULT ''`
       );
+      // The Race Broadcast preferences (src/lib/broadcastSettings.ts); missing keys are the defaults
+      await client.query(
+        `ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS broadcast_settings JSONB NOT NULL DEFAULT '{}'::jsonb`
+      );
       // The optional promo code typed on the Create an Account page (src/lib/promoCode.ts); NULL for none
       await client.query('ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS promo_code TEXT');
       // False until an account made through Google sign-in (or another such service) sets a password of its own

@@ -1,8 +1,10 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import BroadcastSettingsPanel from '@/components/BroadcastSettings';
 import type { CoachVoiceDetails } from '@/components/CoachVoicePicker';
 import { useLanguage } from '@/components/LanguageProvider';
+import type { BroadcastSettings } from '@/lib/broadcastSettings';
 
 const selectClass =
   'min-w-0 flex-1 px-3 py-2 bg-secondary border border-border rounded-lg text-foreground text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors';
@@ -112,7 +114,8 @@ function AnnouncerVoice({
 // The Account page's Race Announcers, under the Coach voice: the Lead Announcer's and Color Announcer's voices (each
 // announcer's ElevenLabs voice of the user's language first, and the default) and the Race Announcer Instructions the
 // RaceAnnouncer agent follows when it commentates on the Live Racing page (src/lib/raceAnnouncer.ts), saved with the
-// Save button (PUT /api/account/race-announcers).
+// Save button (PUT /api/account/race-announcers), and under them the Race Broadcast preferences
+// (src/components/BroadcastSettings.tsx).
 export default function RaceAnnouncersSection({
   leadVoice,
   colorVoice,
@@ -120,6 +123,7 @@ export default function RaceAnnouncersSection({
   colorVoices,
   instructions: initial,
   maxLength,
+  broadcast,
 }: {
   leadVoice: string;
   colorVoice: string;
@@ -127,6 +131,7 @@ export default function RaceAnnouncersSection({
   colorVoices: CoachVoiceDetails;
   instructions: string;
   maxLength: number;
+  broadcast: BroadcastSettings;
 }) {
   const { t, fmt } = useLanguage();
   const r = t.raceAnnouncers;
@@ -200,6 +205,8 @@ export default function RaceAnnouncersSection({
         </span>
       </div>
       <StatusMessage message={message} />
+
+      <BroadcastSettingsPanel initial={broadcast} />
     </div>
   );
 }

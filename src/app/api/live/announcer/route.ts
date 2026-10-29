@@ -14,12 +14,14 @@ const bodySchema = z.object({
 });
 
 // Live Racing's Race Announcers (src/lib/raceAnnouncer.ts): the race events of a driver the signed-in user may watch
-// that are newer than after (src/lib/liveRacing.ts), commentated by the RaceAnnouncer agent in the user's Preferred
-// Language, following their Race Announcer Instructions, and each line spoken by the Lead or Color Announcer (only
+// that are newer than after (src/lib/liveRacing.ts), commentated as the Commentary Director decides
+// (src/lib/broadcastDirector.ts) by the RaceAnnouncer agent in the user's Preferred Language, following their Race
+// Announcer Instructions and Race Broadcast preferences, and each line spoken by the Lead or Color Announcer (only
 // those turned on, lead and color) in the voices picked on the Account page (commentate in
-// src/lib/announcerCommentary.ts, shared with TV Broadcast Mode). Answers { seq, lines: [{ speaker, text, audio }] },
-// audio a base64 WAV; seq is the newest event's number, to send as after next time. No AI call when nothing new
-// happened. 404 when the driver isn't live or can't be watched.
+// src/lib/announcerCommentary.ts, shared with TV Broadcast Mode). Answers
+// { seq, lines: [{ speaker, text, audio, intensity, priority, ttlMs, durationMs, volume }], replaceQueued }, audio a
+// base64 WAV; seq is the newest event's number, to send as after next time. No AI call when the Director picks
+// nothing. 404 when the driver isn't live or can't be watched.
 export async function POST(request: Request) {
   const user = await getCurrentUser();
   const t = await apiText(user);
@@ -39,7 +41,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: t.driverNotLive }, { status: 404 });
     }
     if (result.kind === 'refused') return result.response;
-    return NextResponse.json({ seq: result.seq, lines: result.lines });
+    return NextResponse.json({ seq: result.seq, lines: result.lines, replaceQueued: result.replaceQueued });
   } catch (error) {
     console.error('Race Announcer error:', error);
     return NextResponse.json({ error: t.failedRaceAnnouncer }, { status: 502 });

@@ -1,19 +1,42 @@
-// TV Broadcast Mode's commentary playback (src/components/TvBroadcast.tsx): the Race Announcers' lines wait in a
-// queue and play one at a time, in order, so two never overlap. A line that waited too long is dropped, as the race
-// has moved on, and the same words aren't played twice in a row (a repeated answer after a reconnect). No imports, so
-// Node runs it directly (npm run test:tv).
+// The Race Announcers' commentary playback, on TV Broadcast Mode (src/components/useTvCommentary.ts) and the Live
+// Racing page (src/components/LiveRacing.tsx): the lines wait in a queue and play one at a time, in order, so two
+// never overlap. A line that waited too long, or past the moment it was about (expiresAt, from the Commentary
+// Director), is dropped, as the race has moved on; a more important commentary (replaceQueued) drops the less
+// important lines still waiting, never the one playing; and the same words aren't played twice in a row (a repeated
+// answer after a reconnect). No imports, so Node runs it directly (npm run test:tv).
 
-export type QueuedLine = { speaker: 'lead' | 'color'; text: string; audio: string; queuedAt: number };
+export type QueuedLine = {
+  speaker: 'lead' | 'color';
+  text: string;
+  audio: string;
+  queuedAt: number;
+  // 0 critical to 4 background (the Commentary Director's priority); lines without one count as 2
+  priority?: number;
+  // When the line is no longer worth playing, on this clock
+  expiresAt?: number;
+  // 0-1, the listener's master and announcer volume
+  volume?: number;
+};
 
 // A line waiting longer than this isn't played
 export const MAX_LINE_WAIT_MS = 20_000;
 const RECENT_TEXTS = 8;
+const DEFAULT_PRIORITY = 2;
 
 export class CommentaryQueue {
   private lines: QueuedLine[] = [];
   private recent: string[] = [];
+  // Lines dropped unplayed (expired or replaced), for the diagnostics
+  dropped = 0;
 
-  push(lines: Omit<QueuedLine, 'queuedAt'>[], now: number): void {
+  // replaceQueued: these lines are important enough to drop waiting lines of lower priority (a higher number)
+  push(lines: Omit<QueuedLine, 'queuedAt'>[], now: number, replaceQueued = false): void {
+    if (replaceQueued && lines.length > 0) {
+      const priority = Math.min(...lines.map((l) => l.priority ?? DEFAULT_PRIORITY));
+      const kept = this.lines.filter((l) => (l.priority ?? DEFAULT_PRIORITY) <= priority);
+      this.dropped += this.lines.length - kept.length;
+      this.lines = kept;
+    }
     for (const line of lines) {
       const text = line.text.trim();
       if (!text || this.recent.includes(text) || this.lines.some((l) => l.text === text)) continue;
@@ -21,11 +44,14 @@ export class CommentaryQueue {
     }
   }
 
-  // The next line to play, or null; lines past MAX_LINE_WAIT_MS are dropped on the way
+  // The next line to play, or null; lines past MAX_LINE_WAIT_MS or their expiresAt are dropped on the way
   next(now: number): QueuedLine | null {
     while (this.lines.length > 0) {
       const line = this.lines.shift()!;
-      if (now - line.queuedAt > MAX_LINE_WAIT_MS) continue;
+      if (now - line.queuedAt > MAX_LINE_WAIT_MS || (line.expiresAt != null && now > line.expiresAt)) {
+        this.dropped++;
+        continue;
+      }
       this.recent = [...this.recent, line.text].slice(-RECENT_TEXTS);
       return line;
     }

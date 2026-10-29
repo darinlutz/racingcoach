@@ -242,6 +242,7 @@ export default async function AccountPage({
               colorVoices={announcerVoicesFor('color', user.preferredLanguage, coachVoice.spanishAccent)}
               instructions={raceAnnouncers.instructions}
               maxLength={MAX_RACE_ANNOUNCER_INSTRUCTIONS}
+              broadcast={raceAnnouncers.broadcast}
             />
           </InCarCoachInstructionsCard>
         )}

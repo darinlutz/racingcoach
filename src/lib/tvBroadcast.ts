@@ -320,7 +320,12 @@ export async function readTvState(viewer: User, driverId: number | null): Promis
       eventSeq: focused.eventSeq,
       rows: board?.rows ?? null,
       multiClass: board?.multiClass ?? false,
-      events: (found?.events ?? []).slice(-TV_EVENTS).reverse(),
+      // the Race Broadcast's prompts and gap updates aren't events to list
+      events: (found?.events ?? [])
+        .filter((e) => !['preRace', 'storyline', 'raceSummary', 'statsUpdate'].includes(e.event.type))
+        .filter((e) => e.event.type !== 'battle' || e.event.phase === 'start' || e.event.phase === 'veryClose')
+        .slice(-TV_EVENTS)
+        .reverse(),
       mapCars: mapCars(focused, drivers, colors),
       inputs: recentInputs(focused.inputs),
       inputsAgeMs: focused.ageMs,

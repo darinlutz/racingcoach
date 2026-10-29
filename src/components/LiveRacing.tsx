@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLanguage } from '@/components/LanguageProvider';
 import LiveDriverMessage from '@/components/LiveDriverMessage';
 import LiveDriverRadio from '@/components/LiveDriverRadio';
@@ -14,6 +14,7 @@ import type { LiveDriver, LiveField } from '@/lib/liveRacing';
 import { formatLapTime as lapTime } from '@/lib/liveRacingFormat';
 import { reportRateLimit } from '@/lib/rateLimitClient';
 import { useMapSettings } from '@/lib/satelliteImagery';
+import { CommentaryQueue } from '@/lib/tvAudio';
 import type { TrackOutline } from '@/lib/trackOutlines';
 import { METERS_PER_FOOT, SPEED_UNIT, speedFromMetersPerSecond } from '@/lib/units';
 
@@ -78,12 +79,13 @@ function sessionFields(group: Received[]): SessionField[] {
   }));
 }
 
-// Plays a base64 WAV (a Race Announcer's line), resolving when it ends or can't play
-function playWav(base64: string): Promise<void> {
+// Plays a base64 WAV (a Race Announcer's line) at volume (0-1), resolving when it ends or can't play
+function playWav(base64: string, volume = 1): Promise<void> {
   return new Promise((resolve) => {
     const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
     const url = URL.createObjectURL(new Blob([bytes], { type: 'audio/wav' }));
     const audio = new Audio(url);
+    audio.volume = Math.min(Math.max(volume, 0), 1);
     const done = () => {
       URL.revokeObjectURL(url);
       resolve();
@@ -174,11 +176,15 @@ export default function LiveRacing({ announcers: showAnnouncers }: { announcers:
   // Page clock (ms) minus the collector's SessionTime (ms), for the focused driver's samples
   const offset = useRef<{ driver: number; ms: number } | null>(null);
   // The Race Announcers turned on, and the focused driver's newest race event already commentated (or there when the
-  // page started watching them); one commentary at a time, its lines played before the next is asked for
+  // page started watching them); one request at a time, its lines queued (CommentaryQueue: one at a time, a more
+  // important commentary replacing less important lines still waiting, lines past their moment dropped) and played
+  // while the next is asked for
   const [announcers, setAnnouncers] = useState<Record<Announcer, boolean>>({ lead: true, color: true });
   const [announcerError, setAnnouncerError] = useState('');
   const commentated = useRef<{ driver: number; seq: number } | null>(null);
   const commentating = useRef(false);
+  const commentary = useRef(new CommentaryQueue());
+  const commentaryPlaying = useRef(false);
   // The user's own live state as last polled, for whether their In-Car AI Coach is speaking
   const meRef = useRef<Received | null>(null);
   // Driver Radio: played while on, the focused driver's newest radio message already played (or there when the page
@@ -297,23 +303,47 @@ export default function LiveRacing({ announcers: showAnnouncers }: { announcers:
   }, [focus]);
   const focused = drivers?.find((d) => d.userId === focus) ?? null;
 
+  // Plays the queued announcer lines one after another. Watching themselves, the driver hears their In-Car AI Coach
+  // too: each line waits for it to finish (a line it held up too long is dropped), then holds it while it plays
+  const playCommentary = useCallback(async () => {
+    if (commentaryPlaying.current) return;
+    commentaryPlaying.current = true;
+    try {
+      for (let line = commentary.current.next(Date.now()); line; line = commentary.current.next(Date.now())) {
+        if (meRef.current && focusRef.current === meRef.current.userId) {
+          if (!(await coachQuiet(meRef))) continue;
+          await fetch('/api/live/announcing', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ms: wavDurationMs(line.audio) + HOLD_LEAD_MS + HOLD_MARGIN_MS }),
+          }).catch(() => undefined);
+          await delay(HOLD_LEAD_MS);
+        }
+        await playWav(line.audio, line.volume ?? 1);
+      }
+    } finally {
+      commentaryPlaying.current = false;
+    }
+  }, []);
+
   // The Race Announcers commentate on the focused driver's race events as they happen
   useEffect(() => {
     if (!focused) return;
     const seen = commentated.current;
     if (!seen || seen.driver !== focused.userId) {
       commentated.current = { driver: focused.userId, seq: focused.eventSeq };
+      commentary.current.clear();
       return;
     }
     const on = showAnnouncers && (announcers.lead || announcers.color);
     if (!on || focused.offline) {
       seen.seq = focused.eventSeq;
+      if (!on) commentary.current.clear();
       return;
     }
     if (focused.eventSeq <= seen.seq || commentating.current) return;
     commentating.current = true;
     const driver = focused.userId;
-    const mine = focused.isMe;
     const latest = focused.eventSeq;
     (async () => {
       try {
@@ -331,28 +361,22 @@ export default function LiveRacing({ announcers: showAnnouncers }: { announcers:
           throw new Error(data.error || t.liveRacing.announcerFailed);
         }
         setAnnouncerError('');
-        for (const line of (data.lines ?? []) as { audio: string }[]) {
-          // Watching themselves, the driver hears their In-Car AI Coach too: wait for it to finish (a line it held
-          // up too long is dropped), then hold it while the line plays
-          if (mine) {
-            if (!(await coachQuiet(meRef))) continue;
-            const ms = wavDurationMs(line.audio);
-            await fetch('/api/live/announcing', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ ms: ms + HOLD_LEAD_MS + HOLD_MARGIN_MS }),
-            }).catch(() => undefined);
-            await delay(HOLD_LEAD_MS);
-          }
-          await playWav(line.audio);
-        }
+        if (commentated.current?.driver !== driver) return;
+        const now = Date.now();
+        type Line = { speaker: Announcer; text: string; audio: string; priority?: number; ttlMs?: number; volume?: number };
+        commentary.current.push(
+          ((data.lines ?? []) as Line[]).map((l) => ({ ...l, expiresAt: l.ttlMs != null ? now + l.ttlMs : undefined })),
+          now,
+          !!data.replaceQueued
+        );
+        playCommentary();
       } catch (err) {
         setAnnouncerError(err instanceof Error ? err.message : t.liveRacing.announcerFailed);
       } finally {
         commentating.current = false;
       }
     })();
-  }, [focused, announcers, showAnnouncers, t]);
+  }, [focused, announcers, showAnnouncers, t, playCommentary]);
 
   // Driver Radio: each of the focused driver's new radio messages, said in the Driver Radio voice
   useEffect(() => {

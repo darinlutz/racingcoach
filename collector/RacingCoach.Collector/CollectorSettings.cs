@@ -23,6 +23,8 @@ internal sealed class CollectorSettings
     public string SiteUrl { get; set; } = DefaultSiteUrl;
     /// <summary>The upload key, DPAPI-encrypted and base64-encoded.</summary>
     public string? EncryptedUploadKey { get; set; }
+    /// <summary>Driver Radio's push to talk button on a wheel or button box, or null for iRacing's radio button only.</summary>
+    public WheelButton? RadioButton { get; set; }
 
     public static CollectorSettings Load()
     {

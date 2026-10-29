@@ -110,6 +110,9 @@ namespace RacingCoach.Collector;
     TelemetryVar.TrackWetness,
     TelemetryVar.WeatherDeclaredWet,
     TelemetryVar.SolarAltitude,
+    // Driver Radio (DriverRadio.cs): the car transmitting on iRacing's radio, the driver's own while they hold its button
+    TelemetryVar.RadioTransmitCarIdx,
+    TelemetryVar.PlayerCarIdx,
 ])]
 public static class Program
 {

@@ -535,6 +535,19 @@
 
                         <Border Height="1" Background="{StaticResource BorderBrush}" Margin="0,16" />
 
+                        <!-- Driver Radio (DriverRadio.cs): hold iRacing's radio button, or the wheel button set here, and speak -->
+                        <TextBlock Style="{StaticResource Label}" Text="DRIVER RADIO" />
+                        <TextBlock x:Name="RadioText" Style="{StaticResource Muted}" TextWrapping="Wrap"
+                                   Text="Hold iRacing's radio (push to talk) button and speak. It's shown over the sim and on Live Racing." />
+                        <TextBlock x:Name="RadioButtonText" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,6,0,0" />
+                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                            <Button x:Name="SetRadioButton" Style="{StaticResource Button}" Content="Set Wheel Button" Click="SetRadioButton_Click"
+                                    ToolTip="Press a button on your wheel or button box to talk with it too, e.g. offline, where iRacing's radio doesn't transmit" />
+                            <Button x:Name="ClearRadioButton" Style="{StaticResource Button}" Content="Clear" Click="ClearRadioButton_Click" Margin="8,0,0,0" />
+                        </StackPanel>
+
+                        <Border Height="1" Background="{StaticResource BorderBrush}" Margin="0,16" />
+
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />

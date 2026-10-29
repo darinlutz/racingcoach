@@ -28,9 +28,6 @@ import { useUnits } from '@/components/UnitsProvider';
 import { DISTANCE_UNIT, distanceFromFeet, roundBrakeChange, SPEED_UNIT, speedFromMetersPerSecond, type Units } from '@/lib/units';
 import { reportRateLimit } from '@/lib/rateLimitClient';
 
-const inputClass =
-  'w-full px-4 py-3 bg-card border border-border rounded-lg text-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors';
-
 type Words = Dictionary['lapCompare'];
 
 // The comparison lines and braking advice are only read by the summary's AI, which is told the
@@ -548,6 +545,8 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
         (lap) => lap && !sameTrackName(lap.trackName, selectedTrack.fileName)
       )
     : [];
+  // The track shown above the laps: the selected one, when a loaded lap is from it
+  const lapsTrack = selectedTrack && mismatchedLaps.length < [baseLap, compareLap].filter(Boolean).length ? selectedTrack : undefined;
 
   const analyzeLaps = async () => {
     if (!baseLap || !compareLap) return;
@@ -654,26 +653,21 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
 
   return (
     <div className="bg-secondary rounded-xl border border-border p-8 space-y-6">
-      <div>
-        <label htmlFor="compare-track-name" className="block text-sm font-medium text-foreground mb-2">
-          {dictionary.laps.trackName}
-        </label>
-        <select
-          id="compare-track-name"
-          value={trackName}
-          onChange={(e) => setTrackName(e.target.value)}
-          disabled={tracks.length === 0}
-          className={inputClass}
-        >
-          {tracks.length === 0 && <option value="">{error ? dictionary.laps.unavailable : dictionary.common.loading}</option>}
-          {tracks.map((track) => (
-            <option key={track.name} value={track.name}>
-              {track.fileName}
-            </option>
-          ))}
-        </select>
-        {error && <p className="mt-2 text-sm text-primary">{error}</p>}
-      </div>
+      {/* The Target and Compare laps set the track; nothing is shown until one is loaded */}
+      {(baseLap || compareLap || error) && (
+        <div>
+          {(baseLap || compareLap) && (
+            <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <span className="text-sm font-medium text-foreground">{dictionary.laps.trackName}</span>
+              <span className={`font-semibold ${lapsTrack ? 'text-foreground' : 'text-muted-foreground'}`}>
+                {lapsTrack?.fileName ??
+                  (tracks.length === 0 ? (error ? dictionary.laps.unavailable : dictionary.common.loading) : dictionary.laps.notInTrackData)}
+              </span>
+            </p>
+          )}
+          {error && <p className="mt-2 text-sm text-primary">{error}</p>}
+        </div>
+      )}
 
       <LapUploader
         id="base-lap-file"

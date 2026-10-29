@@ -37,6 +37,10 @@ import { ensureUserSchema, getUserById, type User } from './users';
 // themselves: the collector says when its coach is speaking (coachSpeaking), which the page waits out before each
 // line, and the page says how long each line lasts (markAnnouncing), which the answer to the collector's next update
 // carries (announcerSpeakingMs) so it holds its coach till then.
+//
+// Driver Radio (src/lib/driverRadio.ts): what the driver says over the radio, turned into text, is kept a few
+// minutes with their live state and numbered (radioSeq), so watchers' pages show it and play it in the Driver Radio
+// voice (GET /api/live/radio-speech).
 
 const lapSeconds = z.number().min(0).max(86_400).nullish();
 
@@ -201,6 +205,12 @@ const EVENTS_KEPT_MS = 2 * 60_000;
 const MAX_EVENTS = 20;
 const OFF_TRACK_INTERVAL_MS = 15_000;
 
+// A driver's radio message, as text; at is ms since the epoch
+export type RadioMessage = { seq: number; at: number; text: string };
+// Radio messages are kept this long, at most MAX_RADIO of them
+const RADIO_KEPT_MS = 5 * 60_000;
+const MAX_RADIO = 10;
+
 type LiveEntry = {
   userId: number;
   driver: string;
@@ -228,6 +238,9 @@ type LiveEntry = {
   // Until when (ms since the epoch) the driver's own Race Announcers are speaking on their Live Racing page, so their
   // collector holds the In-Car AI Coach's speech till then
   announcingUntil: number;
+  // The driver's radio messages, oldest first, and the number of the newest
+  radio: RadioMessage[];
+  radioSeq: number;
 };
 
 // After this long without an update a driver is shown as offline, and after EXPIRE_MS left out
@@ -334,6 +347,8 @@ export function recordLiveUpdate(
     eventSeq,
     lastOffTrackAt,
     announcingUntil: previous?.announcingUntil ?? 0,
+    radio: (previous?.radio ?? []).filter((r) => now - r.at <= RADIO_KEPT_MS),
+    radioSeq: previous?.radioSeq ?? 0,
   });
   const messages = update.acceptsMessages
     ? (previous?.messages ?? []).filter((m) => now - m.at <= MESSAGE_EXPIRE_MS).map(({ from, text }) => ({ from, text }))
@@ -454,6 +469,25 @@ export function detectRaceEvents(
   return events;
 }
 
+// What the driver just said over the radio, for their watchers; null when they aren't live (nobody can watch them)
+export function recordDriverRadio(driverId: number, text: string): RadioMessage | null {
+  const now = Date.now();
+  const entry = live.entries.get(driverId);
+  if (!entry || now - entry.receivedAt > STALE_MS) return null;
+  const message = { seq: ++entry.radioSeq, at: now, text };
+  entry.radio = [...entry.radio.filter((r) => now - r.at <= RADIO_KEPT_MS), message].slice(-MAX_RADIO);
+  return message;
+}
+
+// One of a live driver's radio messages, if this viewer may watch them
+export async function readDriverRadio(viewer: Pick<User, 'id' | 'role'>, driverId: number, seq: number): Promise<RadioMessage | null> {
+  const entry = live.entries.get(driverId);
+  const message = entry?.radio.find((r) => r.seq === seq);
+  if (!message) return null;
+  const allowed = await watchableDrivers(viewer);
+  return allowed === 'all' || allowed.has(driverId) ? message : null;
+}
+
 // The collector stopped (closed, or iRacing closed)
 export function clearLiveUpdate(userId: number): void {
   live.entries.delete(userId);
@@ -500,6 +534,9 @@ export type LiveDriver = Omit<LiveUpdate, 'outline' | 'field' | 'inputs'> & {
   weatherTrend: WeatherTrend | null;
   // The number of the driver's newest race event (readRaceEvents gives them), 0 for none yet
   eventSeq: number;
+  // The driver's radio messages of the last few minutes, oldest first, each agoMs old, and the newest's number
+  radio: { seq: number; agoMs: number; text: string }[];
+  radioSeq: number;
 };
 
 // The live drivers this viewer may watch, each counted as watched by them, with the inputs of the driver inputsFor
@@ -527,6 +564,8 @@ export async function readLiveDrivers(viewer: Pick<User, 'id' | 'role'>, inputsF
       inputs: entry.userId === inputsFor ? entry.inputs : null,
       weatherTrend: entry.update.weather ? weatherTrend(entry.weatherHistory, weatherSample(entry.update.weather, entry.receivedAt)) : null,
       eventSeq: entry.eventSeq,
+      radio: entry.radio.filter((r) => now - r.at <= RADIO_KEPT_MS).map((r) => ({ seq: r.seq, agoMs: now - r.at, text: r.text })),
+      radioSeq: entry.radioSeq,
     });
   }
   return drivers.sort((a, b) => Number(b.isMe) - Number(a.isMe) || a.driver.localeCompare(b.driver));

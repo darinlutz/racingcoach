@@ -188,36 +188,26 @@ export default function DebriefCoach({ onCompare }: { onCompare?: (base: LapFile
     }
   };
 
-  const inputClass =
-    'w-full px-4 py-3 bg-card border border-border rounded-lg text-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors';
 
   return (
     <div className="bg-secondary rounded-xl border border-border p-8 space-y-6">
       <TargetLapCard version={targetLapVersion} onChange={() => setTargetLapVersion((v) => v + 1)} />
 
-      <div>
-        <label htmlFor="debrief-track-name" className="block text-sm font-medium text-foreground mb-2">
-          {t.laps.trackName}
-        </label>
-        {/* Set by the laps picked or dropped below, so it isn't editable */}
-        <input
-          id="debrief-track-name"
-          type="text"
-          readOnly
-          value={selectedTrack?.fileName ?? ''}
-          placeholder={
-            tracks.length === 0
-              ? error
-                ? t.laps.unavailable
-                : t.common.loading
-              : allLaps.length > 0
-                ? t.laps.notInTrackData
-                : t.laps.setByLaps
-          }
-          className={`${inputClass} cursor-default`}
-        />
-        {error && <p className="mt-2 text-sm text-primary">{error}</p>}
-      </div>
+      {/* The laps picked or dropped below set the track; nothing is shown until there are some */}
+      {(allLaps.length > 0 || error) && (
+        <div>
+          {allLaps.length > 0 && (
+            <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <span className="text-sm font-medium text-foreground">{t.laps.trackName}</span>
+              <span className={`font-semibold ${selectedTrack ? 'text-foreground' : 'text-muted-foreground'}`}>
+                {selectedTrack?.fileName ??
+                  (tracks.length === 0 ? (error ? t.laps.unavailable : t.common.loading) : t.laps.notInTrackData)}
+              </span>
+            </p>
+          )}
+          {error && <p className="mt-2 text-sm text-primary">{error}</p>}
+        </div>
+      )}
 
       {/* Above the lap list, so it's in reach without scrolling past the stints */}
       <div className="space-y-4">

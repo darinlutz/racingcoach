@@ -3,7 +3,8 @@
 // Each is a voice set up in the ElevenLabs account (Voice Library, Voice Design or a cloned voice), one per language
 // and accent, named by its Voice ID in ELEVENLABS_<LANGUAGE>_<ROLE>_VOICE_ID, e.g.
 // ELEVENLABS_ENGLISH_RACECOACH_VOICE_ID or ELEVENLABS_ESPANA_ANNOUNCER_COLOR_VOICE_ID (ENGLISH, PORTUGUESE, LATINO for
-// Latin American Spanish, ESPANA for Spain's). ELEVENLABS_MODEL_ID picks the model (ElevenLabs' default,
+// Latin American Spanish, ESPANA for Spain's). ELEVENLABS_MY_VOICE_ID is the site owner's own Driver Radio voice, the
+// same in every language (GET /api/live/radio-speech); other drivers' radio is in their RaceCoach voice. ELEVENLABS_MODEL_ID picks the model (ElevenLabs' default,
 // eleven_multilingual_v2, without it). The API key is ELEVENLABS_API_KEY, or ELEVEN_LABS_API_KEY.
 
 import type { Language } from './i18n/languages';
@@ -41,6 +42,13 @@ const apiKey = () => process.env.ELEVENLABS_API_KEY || process.env.ELEVEN_LABS_A
 export function elevenLabsVoiceId(role: ElevenLabsRole, language: Language, spanishAccent: Accent = 'latinAmerica'): string | null {
   if (!apiKey()) return null;
   return process.env[`ELEVENLABS_${languageName(language, spanishAccent)}_${ROLE_NAMES[role]}_VOICE_ID`]?.trim() || null;
+}
+
+// The site owner's own Driver Radio voice (src/lib/driverRadio.ts, only for their accounts): one voice for every
+// language, ELEVENLABS_MY_VOICE_ID, or null
+export function elevenLabsRadioVoiceId(): string | null {
+  if (!apiKey()) return null;
+  return process.env.ELEVENLABS_MY_VOICE_ID?.trim() || null;
 }
 
 export function elevenLabsConfigured(role: ElevenLabsRole, language: Language, spanishAccent: Accent = 'latinAmerica'): boolean {

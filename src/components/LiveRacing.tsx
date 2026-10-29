@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLanguage } from '@/components/LanguageProvider';
 import LiveDriverMessage from '@/components/LiveDriverMessage';
+import LiveDriverRadio from '@/components/LiveDriverRadio';
 import LiveInputs, { type TimedSample } from '@/components/LiveInputs';
 import LiveLeaderboard, { type LeaderboardDriver, runningOrder } from '@/components/LiveLeaderboard';
 import LiveSessionBanner from '@/components/LiveSessionBanner';
@@ -24,13 +25,16 @@ import { METERS_PER_FOOT, SPEED_UNIT, speedFromMetersPerSecond } from '@/lib/uni
 // Announcers commentate on what happens in that driver's session, POST /api/live/announcer, in the voices picked on
 // the Account page; shown while the Admin page's Enable AI Features is on, announcers; both on until turned off, and
 // about the user's own driving never over their In-Car AI Coach, see coachQuiet) and Message Driver, which
-// their In-Car AI Coach says in their car (POST /api/live/message). Narrower than xl, the columns stack: map, inputs, leaderboard. Asks GET /api/live every second while the page is showing, and each
+// their In-Car AI Coach says in their car (POST /api/live/message), and Driver Radio: what that driver said over the
+// radio, as text, each new message played in the site's Driver Radio voice (GET /api/live/radio-speech) while Play
+// driver radio is on (on until turned off; for the user's own, never over their In-Car AI Coach). Narrower than xl, the columns stack: map, inputs, leaderboard. Asks GET /api/live every second while the page is showing, and each
 // track's map from GET /api/live/outline (again every minute while it's missing or approximate, as an exact one
 // appears once a lap with track positions uploads).
 
 const POLL_MS = 1000;
 const ANNOUNCE_KEY = 'liveRacing.announceLaps';
 const ANNOUNCER_KEYS = { lead: 'liveRacing.leadAnnouncer', color: 'liveRacing.colorAnnouncer' } as const;
+const RADIO_KEY = 'liveRacing.playRadio';
 type Announcer = keyof typeof ANNOUNCER_KEYS;
 // A new clock offset this close to the last is noise (network timing), and the samples keep the old one
 const OFFSET_TOLERANCE_MS = 400;
@@ -85,6 +89,37 @@ function playWav(base64: string): Promise<void> {
     audio.onended = done;
     audio.onerror = done;
     audio.play().catch(done);
+  });
+}
+
+// Plays an MP3 (a Driver Radio message), resolving when it ends or can't play
+function playMp3(blob: Blob): Promise<void> {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    const done = () => {
+      URL.revokeObjectURL(url);
+      resolve();
+    };
+    audio.onended = done;
+    audio.onerror = done;
+    audio.play().catch(done);
+  });
+}
+
+// How long an MP3 plays, in ms, read from the browser before it's played
+function mp3DurationMs(blob: Blob): Promise<number> {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio();
+    const done = (ms: number) => {
+      URL.revokeObjectURL(url);
+      resolve(ms);
+    };
+    audio.onloadedmetadata = () => done(Number.isFinite(audio.duration) ? Math.round(audio.duration * 1000) : 8000);
+    audio.onerror = () => done(8000);
+    audio.preload = 'metadata';
+    audio.src = url;
   });
 }
 
@@ -148,6 +183,12 @@ export default function LiveRacing({ announcers: showAnnouncers }: { announcers:
   const commentating = useRef(false);
   // The user's own live state as last polled, for whether their In-Car AI Coach is speaking
   const meRef = useRef<Received | null>(null);
+  // Driver Radio: played while on, the focused driver's newest radio message already played (or there when the page
+  // started watching them), one at a time
+  const [playRadio, setPlayRadio] = useState(true);
+  const [radioError, setRadioError] = useState('');
+  const radioHeard = useRef<{ driver: number; seq: number } | null>(null);
+  const radioPlaying = useRef(false);
 
   useEffect(() => {
     try {
@@ -158,10 +199,20 @@ export default function LiveRacing({ announcers: showAnnouncers }: { announcers:
         lead: window.localStorage.getItem(ANNOUNCER_KEYS.lead) !== '0',
         color: window.localStorage.getItem(ANNOUNCER_KEYS.color) !== '0',
       });
+      setPlayRadio(window.localStorage.getItem(RADIO_KEY) !== '0');
     } catch {
-      // storage blocked: lap times off, announcers on
+      // storage blocked: lap times off, announcers and radio on
     }
   }, []);
+  const togglePlayRadio = (on: boolean) => {
+    setPlayRadio(on);
+    setRadioError('');
+    try {
+      window.localStorage.setItem(RADIO_KEY, on ? '1' : '0');
+    } catch {
+      // kept for this visit only
+    }
+  };
   const toggleAnnouncer = (announcer: Announcer, on: boolean) => {
     setAnnouncers((current) => ({ ...current, [announcer]: on }));
     setAnnouncerError('');
@@ -334,6 +385,56 @@ export default function LiveRacing({ announcers: showAnnouncers }: { announcers:
       }
     })();
   }, [focused, announcers, showAnnouncers, t]);
+
+  // Driver Radio: each of the focused driver's new radio messages, said in the Driver Radio voice
+  useEffect(() => {
+    if (!focused) return;
+    const heard = radioHeard.current;
+    if (!heard || heard.driver !== focused.userId) {
+      radioHeard.current = { driver: focused.userId, seq: focused.radioSeq };
+      return;
+    }
+    if (!playRadio || focused.offline) {
+      heard.seq = focused.radioSeq;
+      return;
+    }
+    if (focused.radioSeq <= heard.seq || radioPlaying.current) return;
+    radioPlaying.current = true;
+    const driver = focused.userId;
+    const mine = focused.isMe;
+    const waiting = focused.radio.filter((r) => r.seq > heard.seq);
+    heard.seq = focused.radioSeq;
+    (async () => {
+      try {
+        for (const message of waiting) {
+          const response = await fetch(`/api/live/radio-speech?driverId=${driver}&seq=${message.seq}`);
+          if (!response.ok) {
+            const data = await response.json().catch(() => ({}));
+            reportRateLimit(response, data);
+            throw new Error(data.error || t.liveRacing.radioFailed);
+          }
+          const blob = await response.blob();
+          // Watching themselves, the driver hears their In-Car AI Coach too, so the two take turns, as for the announcers
+          if (mine) {
+            if (!(await coachQuiet(meRef))) continue;
+            const ms = await mp3DurationMs(blob);
+            await fetch('/api/live/announcing', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ms: ms + HOLD_LEAD_MS + HOLD_MARGIN_MS }),
+            }).catch(() => undefined);
+            await delay(HOLD_LEAD_MS);
+          }
+          await playMp3(blob);
+        }
+        setRadioError('');
+      } catch (err) {
+        setRadioError(err instanceof Error ? err.message : t.liveRacing.radioFailed);
+      } finally {
+        radioPlaying.current = false;
+      }
+    })();
+  }, [focused, playRadio, t]);
 
   // Each car keeps its color while it's listed
   const colors = useMemo(() => {
@@ -564,6 +665,7 @@ export default function LiveRacing({ announcers: showAnnouncers }: { announcers:
                       incidents={focusedHere.incidents ?? null}
                       samples={samples}
                     />
+                    <LiveDriverRadio radio={focusedHere.radio ?? []} play={playRadio} onPlayChange={togglePlayRadio} error={radioError} />
                     <div className="px-4 py-3">
                       <label className="inline-flex items-center gap-2 text-sm text-foreground cursor-pointer">
                         <input type="checkbox" checked={announce} onChange={(e) => toggleAnnounce(e.target.checked)} />

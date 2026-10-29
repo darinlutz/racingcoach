@@ -70,6 +70,11 @@ public partial class MainWindow : Window
     private RotationWindow? _rotationWindow;
     private BrakePracticeWindow? _brakePracticeWindow;
     private TargetTelemetryWindow? _targetTelemetryWindow;
+    // Driver Radio over the sim, while it's recording and for a few seconds after; and Set Wheel Button waiting for a press
+    private RadioWindow? _radioWindow;
+    private bool _pickingRadioButton;
+    private static readonly TimeSpan RadioSaidShownFor = TimeSpan.FromSeconds(8);
+    private static readonly TimeSpan RadioProblemShownFor = TimeSpan.FromSeconds(6);
     // TelemetryEngine.js for the Target Telemetry window's overlay boxes, while it's open
     private OverlayFeed? _overlayFeed;
 
@@ -350,8 +355,83 @@ public partial class MainWindow : Window
         RefreshStatus();
         RefreshSession();
         RefreshLive();
+        RefreshRadio();
         if (LivePanel.Visibility == Visibility.Visible)
             RefreshLiveRacing();
+    }
+
+    // ---------------------------------------------------------------- Driver Radio
+
+    // The Radio window over the sim while Driver Radio records, sends, and for a few seconds after; and the Live
+    // Racing tab's Driver Radio section
+    private void RefreshRadio()
+    {
+        var status = _engine.Radio.Status;
+        var age = DateTime.UtcNow - status.Since;
+        var show = status.State switch
+        {
+            RadioState.Recording or RadioState.Sending => true,
+            RadioState.Said => age < RadioSaidShownFor,
+            RadioState.Problem => age < RadioProblemShownFor,
+            _ => false,
+        };
+        if (show && !_closing)
+        {
+            if (_radioWindow is null)
+            {
+                _radioWindow = new RadioWindow();
+                _radioWindow.Left = Math.Max(0, (SystemParameters.PrimaryScreenWidth - _radioWindow.Width) / 2);
+                _radioWindow.Closed += (_, _) => _radioWindow = null;
+            }
+            _radioWindow.Display(status);
+        }
+        else
+            _radioWindow?.Hide();
+
+        RadioText.Text = status.State switch
+        {
+            RadioState.Recording => "Recording… let go of the button when you're done.",
+            RadioState.Sending => "Sending…",
+            RadioState.Said => $"You said: “{status.Text}”",
+            RadioState.Problem => status.Text ?? "",
+            _ => "Hold iRacing's radio (push to talk) button and speak. It's shown over the sim and on Live Racing.",
+        };
+        var button = _engine.Radio.Button;
+        RadioButtonText.Text = _pickingRadioButton ? "Press the wheel or button box button to talk with (10 s)…"
+            : button is null ? "Wheel button: none (iRacing's radio button only)"
+            : $"Wheel button: {button}";
+        SetRadioButton.IsEnabled = !_pickingRadioButton;
+        ClearRadioButton.IsEnabled = !_pickingRadioButton && button is not null;
+    }
+
+    private void SetRadioButton_Click(object sender, RoutedEventArgs e)
+    {
+        _pickingRadioButton = true;
+        _engine.Radio.PickButton(picked => Dispatcher.BeginInvoke(() =>
+        {
+            _pickingRadioButton = false;
+            if (picked is null)
+            {
+                ActivityLog.Shared.Write("Driver Radio: no button was pressed, so the wheel button wasn't changed.");
+                return;
+            }
+            SaveRadioButton(picked);
+            ActivityLog.Shared.Write($"Driver Radio: hold {picked} to talk.");
+        }));
+    }
+
+    private void ClearRadioButton_Click(object sender, RoutedEventArgs e)
+    {
+        SaveRadioButton(null);
+        ActivityLog.Shared.Write("Driver Radio: wheel button cleared; iRacing's radio button still works.");
+    }
+
+    private void SaveRadioButton(WheelButton? button)
+    {
+        _engine.Radio.Button = button;
+        var settings = CollectorSettings.Load();
+        settings.RadioButton = button;
+        settings.Save();
     }
 
     // ---------------------------------------------------------------- Live Racing tab
@@ -868,6 +948,7 @@ public partial class MainWindow : Window
         _rotationWindow?.Close();
         _brakePracticeWindow?.Close();
         _targetTelemetryWindow?.Close();
+        _radioWindow?.Close();
         ClosingOverlay.Visibility = Visibility.Visible;
         _timer.Stop();
         CompositionTarget.Rendering -= OnLiveRacingFrame;

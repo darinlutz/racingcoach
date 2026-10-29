@@ -101,6 +101,7 @@ internal sealed class CollectorEngine
             : new RaceResultTracker(Path.Combine(documents, "RacingCoach", "Races"), message => Log(message));
         Rotation = new RotationMonitor(message => Log(message));
         Live = new LiveRacing(() => Api, message => Log(message));
+        Radio = new DriverRadio(() => Api, Log, CollectorSettings.Load().RadioButton);
         Voice.UseSite(() => Api, message => Log(message)); // speech in the user's coach voice
         _logs = new LogUploader(() => Api); // the activity log, to the user's account
     }
@@ -139,6 +140,8 @@ internal sealed class CollectorEngine
     public RotationMonitor Rotation { get; }
     /// <summary>Live Racing: the driver's live position, sent to the website, and the track's map for the Live Racing tab.</summary>
     public LiveRacing Live { get; }
+    /// <summary>Driver Radio: hold the radio button and speak, and it's shown as text in the sim and on Live Racing.</summary>
+    public DriverRadio Radio { get; }
     /// <summary>The user's Preferred Units on the Account page are Metric (meters, kph, °C, liters) rather than
     /// Standard (feet, mph, °F, gallons). Loaded with the upload key, and again at each new track or car so a
     /// change on the Account page shows from the next session; Standard without a key.</summary>
@@ -328,6 +331,7 @@ internal sealed class CollectorEngine
                 await _uploader.DisposeAsync(); // give queued uploads a few seconds; the rest go next run
             await _writer.DisposeAsync(); // record the last upload results in session.json
             await Task.WhenAny(live, Task.Delay(TimeSpan.FromSeconds(5))); // Live Racing: the driver has gone
+            Radio.Dispose();
             await _logs.DisposeAsync(); // the last activity log lines
         }
     }
@@ -427,6 +431,7 @@ internal sealed class CollectorEngine
             _races?.OnSample(data.SessionNum, data.SessionTime);
             Rotation.OnSample(data);
             Live.OnSample(data);
+            Radio.OnSample(data);
             lock (_sampleLock)
             {
                 _latest = data;

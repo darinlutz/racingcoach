@@ -224,7 +224,11 @@ const calloutPrompt = (units: Units) =>
   'Only repeat earlier advice word for word when nothing else in the data is worth saying. ' +
   'Use the numbers from the data, never ' +
   'invent data, talk to the driver as "you", and use plain text with no markdown.' +
-  LAP_TIME_RULE;
+  LAP_TIME_RULE +
+  ' Your callouts are spoken, though, so round every time difference (a gap between laps, or time lost or gained in ' +
+  'a focus area) to the nearest tenth of a second and write it the way a race engineer says it on the radio, never ' +
+  'with "s" for seconds: under a second in tenths (e.g. "two tenths slower" for 0.213 s), otherwise in seconds with ' +
+  'one decimal (e.g. "2.3 seconds faster" for 2.319 s).';
 
 export type InCarLap = { id: string; lapNumber: number; lapSeconds: number; incidents: number; offTrack: boolean };
 

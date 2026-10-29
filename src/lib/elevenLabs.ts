@@ -5,7 +5,8 @@
 
 const API_URL = 'https://api.elevenlabs.io/v1/text-to-speech';
 const DEFAULT_MODEL = 'eleven_multilingual_v2';
-const OUTPUT_FORMAT = 'mp3_44100_128';
+// MP3 for the browser; raw PCM (24 kHz, 16-bit, mono) for the In-Car AI Coach, which coachVoice.ts makes a WAV file
+const OUTPUT_FORMATS = { mp3: 'mp3_44100_128', pcm: 'pcm_24000' } as const;
 const TIMEOUT_MS = 15_000;
 // Recent speech, so the same words play again without another call
 const CACHE_SIZE = 64;
@@ -17,13 +18,13 @@ export function elevenLabsConfigured(): boolean {
   return !!apiKey() && !!process.env.ELEVENLABS_VOICE_ID;
 }
 
-// The text spoken in the ElevenLabs voice, as an MP3
-export async function elevenLabsSpeech(text: string): Promise<Buffer> {
+// The text spoken in the ElevenLabs voice, as an MP3 or raw PCM
+export async function elevenLabsSpeech(text: string, format: keyof typeof OUTPUT_FORMATS = 'mp3'): Promise<Buffer> {
   const key = apiKey();
   const voiceId = process.env.ELEVENLABS_VOICE_ID;
   if (!key || !voiceId) throw new Error('ELEVENLABS_API_KEY and ELEVENLABS_VOICE_ID must be set');
   const model = process.env.ELEVENLABS_MODEL_ID || DEFAULT_MODEL;
-  const cacheKey = `${voiceId}\n${model}\n${text}`;
+  const cacheKey = `${voiceId}\n${model}\n${format}\n${text}`;
   const cached = cache.get(cacheKey);
   if (cached) {
     cache.delete(cacheKey);
@@ -31,9 +32,9 @@ export async function elevenLabsSpeech(text: string): Promise<Buffer> {
     return cached;
   }
 
-  const response = await fetch(`${API_URL}/${encodeURIComponent(voiceId)}?output_format=${OUTPUT_FORMAT}`, {
+  const response = await fetch(`${API_URL}/${encodeURIComponent(voiceId)}?output_format=${OUTPUT_FORMATS[format]}`, {
     method: 'POST',
-    headers: { 'xi-api-key': key, 'Content-Type': 'application/json', Accept: 'audio/mpeg' },
+    headers: { 'xi-api-key': key, 'Content-Type': 'application/json', Accept: format === 'mp3' ? 'audio/mpeg' : '*/*' },
     body: JSON.stringify({ text, model_id: model }),
     signal: AbortSignal.timeout(TIMEOUT_MS),
   });

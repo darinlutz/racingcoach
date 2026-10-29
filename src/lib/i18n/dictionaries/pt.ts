@@ -327,6 +327,7 @@ export const pt: Dictionary = {
     voiceStyles: {
       informative: 'Informativa', firm: 'Firme', clear: 'Clara', smooth: 'Suave', knowledgeable: 'Experiente',
       upbeat: 'Animada', excitable: 'Empolgada',
+      website: 'Voz do site',
     },
     accentTitle: 'Sotaque do espanhol',
     accents: { latinAmerica: 'Latino-americano', spain: 'Espanha' },

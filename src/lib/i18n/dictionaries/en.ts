@@ -336,6 +336,7 @@ export const en = {
     voiceStyles: {
       informative: 'Informative', firm: 'Firm', clear: 'Clear', smooth: 'Smooth', knowledgeable: 'Knowledgeable',
       upbeat: 'Upbeat', excitable: 'Excitable',
+      website: 'Website voice',
     },
     // The accent the coach speaks Spanish with (only shown when the Preferred Language is Spanish)
     accentTitle: 'Spanish accent',

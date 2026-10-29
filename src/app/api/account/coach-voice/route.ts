@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
-import { isCoachVoice, isSpanishAccent, setCoachVoice, setSpanishAccent } from '@/lib/coachVoice';
+import { coachVoicesFor, isCoachVoice, isSpanishAccent, setCoachVoice, setSpanishAccent } from '@/lib/coachVoice';
 import { apiText } from '@/lib/i18n/server';
 import { getCurrentUser } from '@/lib/session';
 
 // The Account page's Coach voice: the Chirp 3 HD voice the signed-in user's In-Car AI Coach speaks with
 // (racingcoach."Users".coach_voice), and its accent for Spanish (coach_spanish_accent).
-// Body: { voice } (one of COACH_VOICES in src/lib/coachVoice.ts) or { spanishAccent } (one of SPANISH_ACCENTS).
+// Body: { voice } (one of coachVoicesFor the user's language in src/lib/coachVoice.ts) or { spanishAccent } (one of SPANISH_ACCENTS).
 export async function PUT(request: Request) {
   const user = await getCurrentUser();
   const t = await apiText(user);
@@ -21,7 +21,8 @@ export async function PUT(request: Request) {
       await setSpanishAccent(user.id, body.spanishAccent);
       return NextResponse.json({ spanishAccent: body.spanishAccent });
     }
-    if (!isCoachVoice(body.voice)) {
+    // The ElevenLabs voice is for English only
+    if (!isCoachVoice(body.voice) || !(body.voice in coachVoicesFor(user.preferredLanguage))) {
       return NextResponse.json({ error: t.unknownCoachVoice }, { status: 400 });
     }
     await setCoachVoice(user.id, body.voice);

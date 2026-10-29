@@ -76,9 +76,15 @@ const CAR_PARTS: { id: string; mesh: Mesh; color: (car: Car, pose: CarPose) => R
 const FIT_PITCH = 55;
 const FIT_PADDING = 40; // px
 const MAX_FIT_ZOOM = 19.5;
-// Chase view: low behind the Base lap's car
-const CHASE_PITCH = 72;
-const CHASE_ZOOM = 19.6;
+// Chase views: low behind the Base lap's car, Far (the first there was) or Near, zoomed in closer
+type ChaseKind = 'near' | 'far';
+const CHASE_VIEWS: Record<ChaseKind, { pitch: number; zoom: number }> = {
+  far: { pitch: 72, zoom: 19.6 },
+  near: { pitch: 75, zoom: 20.9 },
+};
+// How the camera arrows have moved a chase view from where it starts (degrees, zoom levels, degrees)
+type CameraOffset = { pitch: number; zoom: number; bearing: number };
+const NO_OFFSET: CameraOffset = { pitch: 0, zoom: 0, bearing: 0 };
 const VIEW_LIMITS = { minZoom: 13, maxZoom: 22, maxPitch: 85 };
 // Each press of the camera arrows: up and down tilt (and zoom out or in a little, like a helicopter climbing or
 // descending), left and right turn the track
@@ -112,8 +118,9 @@ function indexAtTime(line: ModelLine, seconds: number) {
 // lap posed from its telemetry (heading from Yaw, so a slide shows as the nose pointing off the line, front
 // wheels steered, pitched with the road), and a wall beside the road as tall as the Compare lap's time gap:
 // red where it's behind, green where it's ahead. The cars sit at the pedal traces' crosshair (hoverPct), both
-// at the same point; Play drives them through the area at their real pace, moving the crosshair with the Base
-// car. Pointing at the wall moves the crosshair; the chase view follows the Base car from behind. Loaded with
+// at the same point; Play (or Reverse, backward) drives them through the area at their real pace, moving the
+// crosshair with the Base car, once or with Loop over and over. Pointing at the wall moves the crosshair; the Near and
+// Far Chase views follow the Base car from behind, and the camera arrows move the camera around it there. Loaded with
 // next/dynamic (DrivingLineMap) so deck.gl only downloads when the 3D view is picked.
 export default function TrackLineMap3D({
   base,
@@ -137,11 +144,20 @@ export default function TrackLineMap3D({
   const units = useUnits();
   // The moved view, and the laps it was set for: analyzing other laps opens fitted again
   const [saved, setSaved] = useState<{ view: MapViewState; trace: unknown } | null>(null);
-  const [chase, setChase] = useState(false);
+  const [chase, setChaseKind] = useState<ChaseKind | null>(null);
+  // The camera arrows' moves in the chase view, kept while it follows the car
+  const [chaseOffset, setChaseOffset] = useState<CameraOffset>(NO_OFFSET);
+  const setChase = (kind: ChaseKind | null) => {
+    setChaseKind(kind);
+    setChaseOffset(NO_OFFSET);
+  };
   const [failed, setFailed] = useState(false);
   const [heightScale, setHeightScale] = useState(DEFAULT_HEIGHT_SCALE);
   const [rate, setRate] = useState(1);
   const [playing, setPlaying] = useState(false);
+  // 1 forward (Play), -1 backward (Reverse); with loop, the end (or the start, backward) goes round again
+  const [direction, setDirection] = useState<1 | -1>(1);
+  const [loop, setLoop] = useState(false);
   // Seconds since the start of the area that the cars are driven to by Play, and the crosshair position Play
   // last set: once the crosshair moves anywhere else, the cars go back to it
   const [play, setPlay] = useState<{ seconds: number; pct: number } | null>(null);
@@ -205,19 +221,22 @@ export default function TrackLineMap3D({
     let frame = 0;
     let last: number | null = null; // the first frame's time
     const step = (now: number) => {
-      clock.current = Math.min(duration, clock.current + ((now - (last ?? now)) / 1000) * rate);
+      let seconds = clock.current + ((now - (last ?? now)) / 1000) * rate * direction;
       last = now;
+      const ended = direction > 0 ? seconds >= duration : seconds <= 0;
+      if (ended && loop && duration > 0) seconds = ((seconds % duration) + duration) % duration;
+      clock.current = Math.min(duration, Math.max(0, seconds));
       const pct = poseAt(cars[0].line, indexAtTime(cars[0].line, clock.current)).pct;
       setPlay({ seconds: clock.current, pct });
       onHover(pct);
-      if (clock.current >= duration) setPlaying(false);
+      if (ended && !loop) setPlaying(false);
       else frame = requestAnimationFrame(step);
     };
     frame = requestAnimationFrame(step);
     return () => cancelAnimationFrame(frame);
     // cars and onHover are new each render; the loop only needs the ones it started with
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playing, rate, duration, model]);
+  }, [playing, rate, duration, model, direction, loop]);
 
   if (!model || cars.length === 0) {
     return <p className="text-xs text-muted-foreground">{t.noPositions}</p>;
@@ -248,20 +267,20 @@ export default function TrackLineMap3D({
       ...VIEW_LIMITS,
     };
   };
-  // Low behind the Base car, looking the way it's going
-  const chaseView = (): MapViewState => {
+  // Low behind the Base car, looking the way it's going, moved by the camera arrows
+  const chaseView = (kind: ChaseKind): MapViewState => {
     const [longitude, latitude] = toLngLat(origin!, [lead.position[0], lead.position[1]]);
     return {
       longitude,
       latitude,
-      zoom: CHASE_ZOOM,
-      pitch: CHASE_PITCH,
-      bearing: 90 - lead.travel,
+      zoom: CHASE_VIEWS[kind].zoom + chaseOffset.zoom,
+      pitch: CHASE_VIEWS[kind].pitch + chaseOffset.pitch,
+      bearing: 90 - lead.travel + chaseOffset.bearing,
       position: [0, 0, lead.position[2] + 1],
       ...VIEW_LIMITS,
     };
   };
-  const viewState = chase ? chaseView() : saved && saved.trace === base.trace ? saved.view : fitView();
+  const viewState = chase ? chaseView(chase) : saved && saved.trace === base.trace ? saved.view : fitView();
 
   const offsets = { coordinateSystem: COORDINATE_SYSTEM.METER_OFFSETS, coordinateOrigin: [origin![1], origin![0], 0] as Vec3 };
   const linePath = ({ points, heights }: ModelLine) => points.map(([x, y], i): Vec3 => [x, y, heights[i] + LINE_LIFT]);
@@ -356,22 +375,38 @@ export default function TrackLineMap3D({
     onHover(info.layer?.id === 'gap-wall' && info.object ? info.object.pct : null);
   };
 
-  const togglePlay = () => {
-    if (playing) {
+  // Play (forward) or Reverse: pauses when already going that way, turns round when going the other
+  const togglePlay = (way: 1 | -1) => {
+    if (playing && direction === way) {
       setPlaying(false);
       return;
     }
-    // Carry on from a pause, or start again from the start of the area
-    clock.current = timed && play.seconds < duration ? play.seconds : 0;
+    if (!playing) {
+      // Carry on from a pause, or start again from the start of the area (the end, backward)
+      const paused = timed ? play.seconds : null;
+      if (way > 0) clock.current = paused !== null && paused < duration ? paused : 0;
+      else clock.current = paused !== null && paused > 0 ? paused : duration;
+    }
+    setDirection(way);
     setPlaying(true);
   };
 
   // Moves the camera from where it is now, centered on the cars so it keeps looking at them
+  // In a chase view they move the camera around the car it follows, and it keeps following
   const moveCamera = (pitch: number, zoom: number, bearing: number) => {
+    if (chase) {
+      // Kept within the view's limits, so presses past one don't have to be undone
+      const { pitch: pitch0, zoom: zoom0 } = CHASE_VIEWS[chase];
+      setChaseOffset((o) => ({
+        pitch: Math.min(VIEW_LIMITS.maxPitch, Math.max(0, pitch0 + o.pitch + pitch)) - pitch0,
+        zoom: Math.min(VIEW_LIMITS.maxZoom, Math.max(VIEW_LIMITS.minZoom, zoom0 + o.zoom + zoom)) - zoom0,
+        bearing: o.bearing + bearing,
+      }));
+      return;
+    }
     const from = viewState;
     const [x, y, z] = [0, 1, 2].map((k) => poses.reduce((sum, p) => sum + p.position[k], 0) / poses.length);
     const [longitude, latitude] = toLngLat(origin!, [x, y]);
-    setChase(false);
     setSaved({
       view: {
         ...from,
@@ -433,7 +468,7 @@ export default function TrackLineMap3D({
           controller={{ dragRotate: true, touchRotate: true }}
           onViewStateChange={({ viewState: next, interactionState }) => {
             // Moving the view by hand leaves the chase view
-            if (interactionState.isDragging || interactionState.isZooming || interactionState.isRotating) setChase(false);
+            if (interactionState.isDragging || interactionState.isZooming || interactionState.isRotating) setChase(null);
             setSaved({ view: next as MapViewState, trace: base.trace });
           }}
           onHover={onPick}
@@ -448,8 +483,22 @@ export default function TrackLineMap3D({
 
         <div className="absolute top-2 right-2 flex flex-col items-end gap-1">
           <div className={panelClass}>
-            <button type="button" aria-pressed={playing} className={`${buttonClass} ${playing ? pressedClass : ''}`} onClick={togglePlay}>
-              {playing ? t.pause3d : t.play3d}
+            <button
+              type="button"
+              aria-pressed={playing && direction < 0}
+              title={t.reverse3dHelp}
+              className={`${buttonClass} ${playing && direction < 0 ? pressedClass : ''}`}
+              onClick={() => togglePlay(-1)}
+            >
+              {playing && direction < 0 ? t.pause3d : t.reverse3d}
+            </button>
+            <button
+              type="button"
+              aria-pressed={playing && direction > 0}
+              className={`${buttonClass} ${playing && direction > 0 ? pressedClass : ''}`}
+              onClick={() => togglePlay(1)}
+            >
+              {playing && direction > 0 ? t.pause3d : t.play3d}
             </button>
             <select
               aria-label={t.playRate}
@@ -463,22 +512,39 @@ export default function TrackLineMap3D({
                 </option>
               ))}
             </select>
-          </div>
-          <div className={`${panelClass} flex-col items-stretch`}>
             <button
               type="button"
-              aria-pressed={chase}
-              title={t.chaseViewHelp}
-              className={`${buttonClass} ${chase ? pressedClass : ''}`}
-              onClick={() => setChase(!chase)}
+              aria-pressed={loop}
+              title={t.loop3dHelp}
+              className={`${buttonClass} ${loop ? pressedClass : ''}`}
+              onClick={() => setLoop(!loop)}
             >
-              {t.chaseView}
+              {t.loop3d}
             </button>
+          </div>
+          <div className={`${panelClass} flex-col items-stretch`}>
+            {(
+              [
+                ['near', t.nearChaseView, t.nearChaseViewHelp],
+                ['far', t.chaseView, t.chaseViewHelp],
+              ] as const
+            ).map(([kind, label, help]) => (
+              <button
+                key={kind}
+                type="button"
+                aria-pressed={chase === kind}
+                title={help}
+                className={`${buttonClass} ${chase === kind ? pressedClass : ''}`}
+                onClick={() => setChase(chase === kind ? null : kind)}
+              >
+                {label}
+              </button>
+            ))}
             <button
               type="button"
               className={buttonClass}
               onClick={() => {
-                setChase(false);
+                setChase(null);
                 setSaved(null);
               }}
             >

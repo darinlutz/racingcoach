@@ -14,9 +14,8 @@ export type CoachVoiceDetails = Record<string, { style: string }>;
 // (PUT /api/account/coach-voice). Listen plays a sample callout in the picked voice, the user's Preferred Language and,
 // for Spanish, the accent picked under it in User Preferences (SpanishAccentSelect, which reloads the page with the
 // new one) (GET /api/account/coach-voice/sample). The
-// ElevenLabs voice is only listed for English; in another language an account with it is shown (and hears) Charon.
-const ELEVENLABS_VOICE = 'ElevenLabs';
-const DEFAULT_VOICE = 'Charon';
+// ElevenLabs RaceCoach voice of the user's language is listed first while it's set up, and is the default; an
+// account with a voice that isn't listed is shown (and hears) the first one.
 export default function CoachVoicePicker({
   voice: initial,
   voices,
@@ -30,9 +29,9 @@ export default function CoachVoicePicker({
   // Units and language are only in the sample's URL, so a sample cached in other units or another language isn't played
   const units = useUnits();
   const c = t.inCarCoach;
-  const listed = Object.entries(voices).filter(([name]) => language === 'en' || name !== ELEVENLABS_VOICE);
+  const listed = Object.entries(voices);
   const [picked, setVoice] = useState(initial);
-  const voice = listed.some(([name]) => name === picked) ? picked : DEFAULT_VOICE;
+  const voice = listed.some(([name]) => name === picked) ? picked : listed[0][0];
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const audio = useRef<HTMLAudioElement | null>(null);

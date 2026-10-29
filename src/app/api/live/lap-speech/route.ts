@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { elevenLabsConfigured, elevenLabsSpeech } from '@/lib/elevenLabs';
+import { getCoachVoice } from '@/lib/coachVoice';
+import { elevenLabsSpeech, elevenLabsVoiceId } from '@/lib/elevenLabs';
 import { apiText, getDictionary } from '@/lib/i18n/server';
 import { aiRateLimit, type AiRateLimit } from '@/lib/rateLimits';
 import { getCurrentUser } from '@/lib/session';
@@ -26,8 +27,8 @@ function lapTimeText(seconds: number, words: { lapTimeSpeech: string; lapTimeSpe
   return newBest ? `${text} ${words.newBestSpeech}` : text;
 }
 
-// Live Racing's lap time announcement: the lap time (and whether it's a new best) said in the ElevenLabs voice
-// (src/lib/elevenLabs.ts), as an MP3, in the user's Preferred Language. Signed-in users only; the page asks once per
+// Live Racing's lap time announcement: the lap time (and whether it's a new best) said in the ElevenLabs RaceCoach
+// voice of the user's Preferred Language and Spanish accent (src/lib/elevenLabs.ts), as an MP3. Signed-in users only; the page asks once per
 // completed lap while Announce lap times is on. The text is made here from the number, never taken from the request.
 export async function POST(request: Request) {
   const user = await getCurrentUser();
@@ -37,7 +38,9 @@ export async function POST(request: Request) {
     if (!user) {
       return NextResponse.json({ error: t.logInLiveRacing }, { status: 401 });
     }
-    if (!elevenLabsConfigured()) {
+    const { spanishAccent } = await getCoachVoice(user.id);
+    const voiceId = elevenLabsVoiceId('raceCoach', user.preferredLanguage, spanishAccent);
+    if (!voiceId) {
       return NextResponse.json({ error: 'Lap time announcements are not set up on this site (ElevenLabs)' }, { status: 503 });
     }
     const parsed = bodySchema.safeParse(await request.json().catch(() => null));
@@ -47,7 +50,7 @@ export async function POST(request: Request) {
     limit = await aiRateLimit(request, 'speech', user);
     if (limit.response) return limit.response;
     const words = getDictionary(user.preferredLanguage).liveRacing;
-    const audio = await elevenLabsSpeech(lapTimeText(parsed.data.lapTime, words, !!parsed.data.newBest));
+    const audio = await elevenLabsSpeech(lapTimeText(parsed.data.lapTime, words, !!parsed.data.newBest), voiceId);
     return new NextResponse(new Uint8Array(audio), { headers: { 'Content-Type': 'audio/mpeg', 'Cache-Control': 'no-store' } });
   } catch (error) {
     console.error('Lap time speech error:', error);

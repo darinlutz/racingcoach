@@ -182,6 +182,13 @@ export function ensureUserSchema(): Promise<void> {
       await client.query(`ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS coach_voice TEXT NOT NULL DEFAULT ''`);
       // Its accent for Spanish: latinAmerica or spain (src/lib/coachVoice.ts); empty for the default one
       await client.query(`ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS coach_spanish_accent TEXT NOT NULL DEFAULT ''`);
+      // The Race Announcers' voices (Lead and Color; empty for the default, their ElevenLabs voices) and the user's
+      // Race Announcer Instructions, which the RaceAnnouncer agent follows on the Live Racing page (src/lib/raceAnnouncer.ts)
+      await client.query(`ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS announcer_lead_voice TEXT NOT NULL DEFAULT ''`);
+      await client.query(`ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS announcer_color_voice TEXT NOT NULL DEFAULT ''`);
+      await client.query(
+        `ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS race_announcer_instructions TEXT NOT NULL DEFAULT ''`
+      );
       // The optional promo code typed on the Create an Account page (src/lib/promoCode.ts); NULL for none
       await client.query('ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS promo_code TEXT');
       // False until an account made through Google sign-in (or another such service) sets a password of its own

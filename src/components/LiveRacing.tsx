@@ -20,13 +20,17 @@ import { METERS_PER_FOOT, SPEED_UNIT, speedFromMetersPerSecond } from '@/lib/uni
 // session's lap and time remaining over a leaderboard of every car in it (from collectors that send the field); in
 // the middle the map, with a dot per car, and under it each watched driver's lap details; on the right one driver's
 // (the user, until they pick another in the list) Driver Inputs and incidents, Announce lap times (said in the site's
-// ElevenLabs voice as each lap ends, POST /api/live/lap-speech) and Message Driver, which their In-Car AI Coach says
-// in their car (POST /api/live/message). Narrower than xl, the columns stack: map, inputs, leaderboard. Asks GET /api/live every second while the page is showing, and each
+// ElevenLabs voice as each lap ends, POST /api/live/lap-speech), the Lead and Color Announcer checkboxes (the Race
+// Announcers commentate on what happens in that driver's session, POST /api/live/announcer, in the voices picked on
+// the Account page; shown while the Admin page's Enable AI Features is on, announcers) and Message Driver, which
+// their In-Car AI Coach says in their car (POST /api/live/message). Narrower than xl, the columns stack: map, inputs, leaderboard. Asks GET /api/live every second while the page is showing, and each
 // track's map from GET /api/live/outline (again every minute while it's missing or approximate, as an exact one
 // appears once a lap with track positions uploads).
 
 const POLL_MS = 1000;
 const ANNOUNCE_KEY = 'liveRacing.announceLaps';
+const ANNOUNCER_KEYS = { lead: 'liveRacing.leadAnnouncer', color: 'liveRacing.colorAnnouncer' } as const;
+type Announcer = keyof typeof ANNOUNCER_KEYS;
 // A new clock offset this close to the last is noise (network timing), and the samples keep the old one
 const OFFSET_TOLERANCE_MS = 400;
 const OUTLINE_RETRY_MS = 60_000;
@@ -67,6 +71,22 @@ function sessionFields(group: Received[]): SessionField[] {
   }));
 }
 
+// Plays a base64 WAV (a Race Announcer's line), resolving when it ends or can't play
+function playWav(base64: string): Promise<void> {
+  return new Promise((resolve) => {
+    const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+    const url = URL.createObjectURL(new Blob([bytes], { type: 'audio/wav' }));
+    const audio = new Audio(url);
+    const done = () => {
+      URL.revokeObjectURL(url);
+      resolve();
+    };
+    audio.onended = done;
+    audio.onerror = done;
+    audio.play().catch(done);
+  });
+}
+
 // The car index of each watched driver in this session
 function driversInSession(group: Received[], session: SessionField): Map<number, Received> {
   const cars = new Map<number, Received>();
@@ -78,7 +98,7 @@ function driversInSession(group: Received[], session: SessionField): Map<number,
   return cars;
 }
 
-export default function LiveRacing() {
+export default function LiveRacing({ announcers: showAnnouncers }: { announcers: boolean }) {
   const { t, fmt } = useLanguage();
   const units = useUnits();
   const [drivers, setDrivers] = useState<Received[] | null>(null);
@@ -92,15 +112,34 @@ export default function LiveRacing() {
   const [announceError, setAnnounceError] = useState('');
   // The focused driver's last lap time already announced (or there when the page started watching them)
   const announced = useRef<{ driver: number; lapTime: number | null; best: number | null } | null>(null);
+  // The Race Announcers turned on, and the focused driver's newest race event already commentated (or there when the
+  // page started watching them); one commentary at a time, its lines played before the next is asked for
+  const [announcers, setAnnouncers] = useState<Record<Announcer, boolean>>({ lead: false, color: false });
+  const [announcerError, setAnnouncerError] = useState('');
+  const commentated = useRef<{ driver: number; seq: number } | null>(null);
+  const commentating = useRef(false);
 
   useEffect(() => {
     try {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- read once from browser storage after hydration
       setAnnounce(window.localStorage.getItem(ANNOUNCE_KEY) === '1');
+      setAnnouncers({
+        lead: window.localStorage.getItem(ANNOUNCER_KEYS.lead) === '1',
+        color: window.localStorage.getItem(ANNOUNCER_KEYS.color) === '1',
+      });
     } catch {
       // storage blocked: off
     }
   }, []);
+  const toggleAnnouncer = (announcer: Announcer, on: boolean) => {
+    setAnnouncers((current) => ({ ...current, [announcer]: on }));
+    setAnnouncerError('');
+    try {
+      window.localStorage.setItem(ANNOUNCER_KEYS[announcer], on ? '1' : '0');
+    } catch {
+      // kept for this visit only
+    }
+  };
   const toggleAnnounce = (on: boolean) => {
     setAnnounce(on);
     setAnnounceError('');
@@ -206,6 +245,48 @@ export default function LiveRacing() {
       }
     })();
   }, [focused, announce, t]);
+
+  // The Race Announcers commentate on the focused driver's race events as they happen
+  useEffect(() => {
+    if (!focused) return;
+    const seen = commentated.current;
+    if (!seen || seen.driver !== focused.userId) {
+      commentated.current = { driver: focused.userId, seq: focused.eventSeq };
+      return;
+    }
+    const on = showAnnouncers && (announcers.lead || announcers.color);
+    if (!on || focused.offline) {
+      seen.seq = focused.eventSeq;
+      return;
+    }
+    if (focused.eventSeq <= seen.seq || commentating.current) return;
+    commentating.current = true;
+    const driver = focused.userId;
+    const latest = focused.eventSeq;
+    (async () => {
+      try {
+        const response = await fetch('/api/live/announcer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ driverId: driver, after: seen.seq, lead: announcers.lead, color: announcers.color }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (commentated.current?.driver === driver) {
+          commentated.current.seq = Math.max(commentated.current.seq, latest, data.seq ?? 0);
+        }
+        if (!response.ok) {
+          reportRateLimit(response, data);
+          throw new Error(data.error || t.liveRacing.announcerFailed);
+        }
+        setAnnouncerError('');
+        for (const line of (data.lines ?? []) as { audio: string }[]) await playWav(line.audio);
+      } catch (err) {
+        setAnnouncerError(err instanceof Error ? err.message : t.liveRacing.announcerFailed);
+      } finally {
+        commentating.current = false;
+      }
+    })();
+  }, [focused, announcers, showAnnouncers, t]);
 
   // Each car keeps its color while it's listed
   const colors = useMemo(() => {
@@ -443,6 +524,24 @@ export default function LiveRacing() {
                       </label>
                       {announceError && <p className="mt-1 text-xs text-red-300">{announceError}</p>}
                     </div>
+                    {showAnnouncers && (
+                      <div className="px-4 py-3">
+                        <p className="text-sm font-semibold text-foreground">{t.raceAnnouncers.title}</p>
+                        <div className="mt-1 flex flex-wrap gap-x-5 gap-y-1">
+                          {(['lead', 'color'] as const).map((announcer) => (
+                            <label key={announcer} className="inline-flex items-center gap-2 text-sm text-foreground cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={announcers[announcer]}
+                                onChange={(e) => toggleAnnouncer(announcer, e.target.checked)}
+                              />
+                              {t.raceAnnouncers[announcer]}
+                            </label>
+                          ))}
+                        </div>
+                        {announcerError && <p className="mt-1 text-xs text-red-300">{announcerError}</p>}
+                      </div>
+                    )}
                     <LiveDriverMessage
                       key={focusedHere.userId}
                       driverId={focusedHere.userId}

@@ -6,13 +6,15 @@ import LiveRacingWatchers from '@/components/LiveRacingWatchers';
 import { getDictionary, getLanguage } from '@/lib/i18n/server';
 import { withReturnTo } from '@/lib/returnTo';
 import { getCurrentUser } from '@/lib/session';
+import { getEnableAiFeatures } from '@/lib/siteSettings';
 
 // The nav bar's Live Racing page: the drivers running the telemetry collector right now whom the user may watch
 // (src/lib/liveRacing.ts), as dots going round each track's map, and who may watch the user. Signed-in users only.
 export default async function LiveRacingPage() {
   const user = await getCurrentUser();
   if (!user) redirect(withReturnTo('/login', '/live-racing'));
-  const dictionary = getDictionary(await getLanguage(user));
+  const [language, enableAiFeatures] = await Promise.all([getLanguage(user), getEnableAiFeatures()]);
+  const dictionary = getDictionary(language);
 
   return (
     // The full width, with a small margin, like the Coaching & Analysis page, so the map and both side columns fit
@@ -24,7 +26,7 @@ export default async function LiveRacingPage() {
           </h1>
           <p className="mt-2 text-muted-foreground">{dictionary.liveRacing.intro}</p>
         </div>
-        <LiveRacing />
+        <LiveRacing announcers={enableAiFeatures} />
         <LiveRacingWatchers />
       </div>
     </section>

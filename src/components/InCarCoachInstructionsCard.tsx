@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import CoachVoicePicker, { type CoachVoiceDetails } from '@/components/CoachVoicePicker';
 import { useLanguage } from '@/components/LanguageProvider';
 
@@ -9,7 +9,8 @@ import { useLanguage } from '@/components/LanguageProvider';
 // and not do, saved for them only (PUT /api/account/in-car-coach-instructions) with the Save button; and
 // above it the voice the coach speaks with (its Spanish accent is in User Preferences). The In-Car AI Coach is for Silver and Gold
 // members (canUseInCarCoach); anyone else sees why in place of the box, with View Membership Plans when viewPlans, and still
-// picks the voice, which the collector's in-session debrief speaks with too.
+// picks the voice, which the collector's in-session debrief speaks with too. children go under the voice (the Race
+// Announcers, RaceAnnouncersSection).
 export default function InCarCoachInstructionsCard({
   instructions: initial,
   maxLength,
@@ -18,6 +19,7 @@ export default function InCarCoachInstructionsCard({
   spanishAccent,
   available,
   viewPlans,
+  children,
 }: {
   instructions: string;
   maxLength: number;
@@ -26,6 +28,7 @@ export default function InCarCoachInstructionsCard({
   spanishAccent: string;
   available: boolean;
   viewPlans: boolean;
+  children?: ReactNode;
 }) {
   const { t, fmt } = useLanguage();
   const c = t.inCarCoach;
@@ -61,6 +64,7 @@ export default function InCarCoachInstructionsCard({
   return (
     <div className="mt-6 bg-card rounded-lg border border-border px-4 py-4">
       <CoachVoicePicker voice={voice} voices={voices} spanishAccent={spanishAccent} />
+      {children}
       <h2 className="text-sm font-medium text-muted-foreground mb-1">
         <label htmlFor="in-car-coach-instructions">{c.title}</label>
       </h2>

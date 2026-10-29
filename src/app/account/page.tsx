@@ -7,6 +7,7 @@ import DeleteAccountButton from '@/components/DeleteAccountButton';
 import InCarCoachInstructionsCard from '@/components/InCarCoachInstructionsCard';
 import LanguageSelect from '@/components/LanguageSelect';
 import MyAiUsageCard from '@/components/MyAiUsageCard';
+import RaceAnnouncersSection from '@/components/RaceAnnouncersSection';
 import SpanishAccentSelect from '@/components/SpanishAccentSelect';
 import ThemeToggle from '@/components/ThemeToggle';
 import UnitsToggle from '@/components/UnitsToggle';
@@ -15,6 +16,7 @@ import { getCollectorKey } from '@/lib/collectorKeys';
 import { DISCORD_INVITE_URL, getDiscordConnection } from '@/lib/discord';
 import { fmt, LANGUAGE_LOCALES } from '@/lib/i18n/languages';
 import { getDictionary } from '@/lib/i18n/server';
+import { announcerVoicesFor, getRaceAnnouncerSettings, MAX_RACE_ANNOUNCER_INSTRUCTIONS } from '@/lib/raceAnnouncer';
 import { retentionDays } from '@/lib/lapRetentionRules';
 import { readOwnAiLimits, readOwnAiUsage } from '@/lib/rateLimits';
 import { canUseInCarCoach, isAdmin } from '@/lib/roles';
@@ -55,11 +57,12 @@ export default async function AccountPage({
   const { discord: discordResult } = await searchParams;
   const discordText = typeof discordResult === 'string' ? t.account.discordMessages[discordResult] : undefined;
   const discordOk = typeof discordResult === 'string' && DISCORD_OK.has(discordResult);
-  const [discord, collectorKey, inCarCoachInstructions, coachVoice, showPricing, enableAiFeatures, aiUsage, aiLimits] = await Promise.all([
+  const [discord, collectorKey, inCarCoachInstructions, coachVoice, raceAnnouncers, showPricing, enableAiFeatures, aiUsage, aiLimits] = await Promise.all([
     getDiscordConnection(user.id),
     getCollectorKey(user.id),
     getInCarCoachInstructions(user.id),
     getCoachVoice(user.id),
+    getRaceAnnouncerSettings(user.id),
     getShowPricing(),
     getEnableAiFeatures(),
     readOwnAiUsage(user.id),
@@ -227,11 +230,20 @@ export default async function AccountPage({
             instructions={inCarCoachInstructions}
             maxLength={MAX_IN_CAR_COACH_INSTRUCTIONS}
             voice={coachVoice.voice}
-            voices={coachVoicesFor(user.preferredLanguage)}
+            voices={coachVoicesFor(user.preferredLanguage, coachVoice.spanishAccent)}
             spanishAccent={coachVoice.spanishAccent}
             available={canUseInCarCoach(user)}
             viewPlans={showViewPlans}
-          />
+          >
+            <RaceAnnouncersSection
+              leadVoice={raceAnnouncers.leadVoice}
+              colorVoice={raceAnnouncers.colorVoice}
+              leadVoices={announcerVoicesFor('lead', user.preferredLanguage, coachVoice.spanishAccent)}
+              colorVoices={announcerVoicesFor('color', user.preferredLanguage, coachVoice.spanishAccent)}
+              instructions={raceAnnouncers.instructions}
+              maxLength={MAX_RACE_ANNOUNCER_INSTRUCTIONS}
+            />
+          </InCarCoachInstructionsCard>
         )}
 
         {enableAiFeatures && <MyAiUsageCard day={aiUsage.day} week={aiUsage.week} limits={aiLimits} />}

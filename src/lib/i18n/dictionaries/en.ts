@@ -336,7 +336,7 @@ export const en = {
     voiceStyles: {
       informative: 'Informative', firm: 'Firm', clear: 'Clear', smooth: 'Smooth', knowledgeable: 'Knowledgeable',
       upbeat: 'Upbeat', excitable: 'Excitable',
-      website: 'Website voice',
+      raceCoach: 'RaceCoach', leadAnnouncer: 'Lead Announcer', colorAnnouncer: 'Color Announcer',
     },
     // The accent the coach speaks Spanish with (only shown when the Preferred Language is Spanish)
     accentTitle: 'Spanish accent',
@@ -344,6 +344,23 @@ export const en = {
     accentSaved: 'Spanish accent saved.',
     // What the Listen button says, in the chosen voice
     sample: 'Turn 1: brake about {later} {units} later, near {near} {units}. Nice lap, two tenths quicker.',
+  },
+
+  // The Account page's Race Announcers, under the Coach voice (src/components/RaceAnnouncersSection.tsx), and their
+  // checkboxes on the Live Racing page
+  raceAnnouncers: {
+    title: 'Race Announcers',
+    intro: 'The voices that commentate on the races you watch on the Live Racing page, in your Preferred Language: the Lead Announcer calls the action and the Color Announcer adds insight. Turn them on with the Lead Announcer and Color Announcer checkboxes on the Live Racing page.',
+    lead: 'Lead Announcer',
+    color: 'Color Announcer',
+    voiceSaved: 'Announcer voice saved.',
+    instructionsTitle: 'Race Announcer Instructions',
+    instructionsIntro: 'Tell your Race Announcers how to commentate: what to talk about, what to leave out, and their style.',
+    placeholder: 'For example: Get really excited about passes, and keep lap times short.',
+    instructionsSaved: 'Race Announcer Instructions saved.',
+    // What each announcer's Listen button says
+    sampleLead: 'And they go side by side into the braking zone... he makes it stick! Up into third place!',
+    sampleColor: 'That was patience. He set that move up for two laps, and the tires are still in great shape.',
   },
 
   // The Account page's My AI Usage (src/components/MyAiUsageCard.tsx)
@@ -1381,6 +1398,7 @@ export const en = {
       collectorLogReview: 'Collector log review',
       speech: 'Coach voice (speech)',
       racecarAnalysis: 'Racecar Analysis',
+      raceAnnouncer: 'Live Racing: Race Announcers',
     } as Record<string, string>,
     // The Rate Limiting section (src/components/RateLimitManager.tsx, src/components/AiUsageReport.tsx)
     rateLimits: {
@@ -1805,6 +1823,7 @@ export const en = {
     steering: 'Steering',
     announceLaps: 'Announce lap times (voice)',
     announceFailed: 'Couldn’t play the lap time.',
+    announcerFailed: 'The Race Announcers couldn’t commentate.',
     lapTimeSpeech: 'Lap time, {minutes} {seconds}, point {thousandths}.',
     lapTimeSpeechSeconds: 'Lap time, {seconds}, point {thousandths}.',
     newBestSpeech: 'New best lap!',
@@ -1961,6 +1980,11 @@ export const en = {
     unknownSpanishAccent: 'Unknown Spanish accent',
     failedSaveCoachVoice: 'Failed to save the coach voice',
     failedCoachVoiceSample: 'Couldn’t play the sample',
+    logInRaceAnnouncers: 'Log in to save your Race Announcers',
+    raceAnnouncersDisabled: 'The Race Announcers are turned off right now',
+    failedSaveRaceAnnouncers: 'Failed to save the Race Announcers',
+    raceAnnouncerInstructionsTooLong: 'The Race Announcer Instructions are too long',
+    failedRaceAnnouncer: 'The Race Announcers couldn’t commentate',
     // General
     notConfigured: 'This feature isn’t available right now. Please try again later.',
     aiNotConfigured: 'The AI coach isn’t available right now. Please try again later.',

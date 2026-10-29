@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { coachVoicesFor, isCoachVoice, isSpanishAccent, setCoachVoice, setSpanishAccent } from '@/lib/coachVoice';
+import { coachVoicesFor, getCoachVoice, isCoachVoice, isSpanishAccent, setCoachVoice, setSpanishAccent } from '@/lib/coachVoice';
 import { apiText } from '@/lib/i18n/server';
 import { getCurrentUser } from '@/lib/session';
 
@@ -21,8 +21,9 @@ export async function PUT(request: Request) {
       await setSpanishAccent(user.id, body.spanishAccent);
       return NextResponse.json({ spanishAccent: body.spanishAccent });
     }
-    // The ElevenLabs voice is for English only
-    if (!isCoachVoice(body.voice) || !(body.voice in coachVoicesFor(user.preferredLanguage))) {
+    // The ElevenLabs voice only while it's set up for the user's language and accent
+    const { spanishAccent } = await getCoachVoice(user.id);
+    if (!isCoachVoice(body.voice) || !(body.voice in coachVoicesFor(user.preferredLanguage, spanishAccent))) {
       return NextResponse.json({ error: t.unknownCoachVoice }, { status: 400 });
     }
     await setCoachVoice(user.id, body.voice);

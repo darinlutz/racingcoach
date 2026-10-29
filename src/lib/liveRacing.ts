@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { flagCodeForFlair } from './countryFlags';
 import { query } from './db';
 import { WEATHER_SAMPLE_MS, TREND_MS, weatherSample, weatherTrend, type WeatherSample, type WeatherTrend } from './liveWeather';
+import { sessionFlag, type FlagKind, type FlagNote } from './raceFlags';
 import { canSeeAllLaps, ROLES } from './roles';
 import { OUTLINE_POINTS, type TrackOutline } from './trackOutlines';
 import { ensureUserSchema, getUserById, type User } from './users';
@@ -28,6 +29,11 @@ import { ensureUserSchema, getUserById, type User } from './users';
 // Watchers can also message a driver (queueDriverMessage, the page's Message Driver box): the message waits here
 // until the driver's collector's next live update, whose answer carries it, and the collector says it in the
 // driver's In-Car AI Coach voice. Only collectors that say they take messages (acceptsMessages, from 1.53.0) get them.
+//
+// Each update is also compared with the one before for race events (detectRaceEvents: a lap completed, a pass, pit
+// road, an incident, a flag, a new leader, the session's fastest lap), kept a couple of minutes with the driver's live
+// state and numbered (eventSeq), for the Live Racing page's Race Announcers (POST /api/live/announcer,
+// src/lib/raceAnnouncer.ts).
 
 const lapSeconds = z.number().min(0).max(86_400).nullish();
 
@@ -169,6 +175,26 @@ const MAX_QUEUED_MESSAGES = 5;
 const MESSAGE_INTERVAL_MS = 2000;
 const MESSAGE_EXPIRE_MS = 60_000;
 
+// Something that happened in the driver's session, for the Race Announcers. Lap times in seconds.
+export type RaceEvent =
+  | { type: 'lapComplete'; lap: number | null; lapTime: number; bestLapTime: number | null; newBest: boolean }
+  | { type: 'pitEntry' }
+  | { type: 'pitExit' }
+  | { type: 'offTrack' }
+  | { type: 'incident'; added: number; total: number }
+  | { type: 'positionGained'; from: number; to: number; passed: string | null }
+  | { type: 'positionLost'; from: number; to: number; passedBy: string | null }
+  | { type: 'flag'; flag: FlagKind; notes: FlagNote[] }
+  | { type: 'leaderChange'; leader: string; previous: string | null }
+  | { type: 'sessionFastestLap'; driver: string; lapTime: number; isDriver: boolean };
+
+export type NumberedRaceEvent = { seq: number; at: number; event: RaceEvent };
+
+// Events are kept this long, at most MAX_EVENTS of them, and an off track counts once in OFF_TRACK_INTERVAL_MS
+const EVENTS_KEPT_MS = 2 * 60_000;
+const MAX_EVENTS = 20;
+const OFF_TRACK_INTERVAL_MS = 15_000;
+
 type LiveEntry = {
   userId: number;
   driver: string;
@@ -189,6 +215,10 @@ type LiveEntry = {
   // it's for
   weatherHistory: WeatherSample[];
   weatherTrack: string | null;
+  // Race events in the driver's session, oldest first, and the number of the newest
+  events: NumberedRaceEvent[];
+  eventSeq: number;
+  lastOffTrackAt: number;
 };
 
 // After this long without an update a driver is shown as offline, and after EXPIRE_MS left out
@@ -252,18 +282,30 @@ export function recordLiveUpdate(
       weatherHistory = [...weatherHistory, weatherSample(update.weather, now)].filter((s) => now - s.at <= TREND_MS + 2 * WEATHER_SAMPLE_MS);
     }
   }
+  const liveField: LiveField | null = field
+    ? {
+        subSessionId: field.subSessionId,
+        myCarIdx: field.myCarIdx ?? null,
+        cars: field.cars.map((car) => ({ ...car, details: fieldDrivers.get(car.idx) ?? null })),
+      }
+    : null;
+  let eventSeq = previous?.eventSeq ?? 0;
+  let lastOffTrackAt = previous?.lastOffTrackAt ?? 0;
+  const found = previous ? detectRaceEvents(previous.update, previous.field, rest, liveField) : [];
+  const events = (previous?.events ?? []).filter((e) => now - e.at <= EVENTS_KEPT_MS);
+  for (const event of found) {
+    if (event.type === 'offTrack') {
+      if (now - lastOffTrackAt < OFF_TRACK_INTERVAL_MS) continue;
+      lastOffTrackAt = now;
+    }
+    events.push({ seq: ++eventSeq, at: now, event });
+  }
   live.entries.set(user.id, {
     userId: user.id,
     driver: user.userName,
     update: rest,
     inputs,
-    field: field
-      ? {
-          subSessionId: field.subSessionId,
-          myCarIdx: field.myCarIdx ?? null,
-          cars: field.cars.map((car) => ({ ...car, details: fieldDrivers.get(car.idx) ?? null })),
-        }
-      : null,
+    field: liveField,
     fieldDrivers,
     fieldSubSession,
     receivedAt: now,
@@ -273,6 +315,9 @@ export function recordLiveUpdate(
     messages: [],
     weatherHistory,
     weatherTrack,
+    events: events.slice(-MAX_EVENTS),
+    eventSeq,
+    lastOffTrackAt,
   });
   const messages = update.acceptsMessages
     ? (previous?.messages ?? []).filter((m) => now - m.at <= MESSAGE_EXPIRE_MS).map(({ from, text }) => ({ from, text }))
@@ -283,6 +328,100 @@ export function recordLiveUpdate(
     needsField: !!field && fieldSubSession === null,
     messages,
   };
+}
+
+type UpdateState = Omit<LiveUpdate, 'outline' | 'field' | 'inputs'>;
+
+const isRace = (update: UpdateState) => update.sessionType?.toLowerCase() === 'race';
+const carName = (field: LiveField, idx: number) => field.cars.find((c) => c.idx === idx)?.details?.name ?? null;
+const carAt = (field: LiveField | null, position: number) => field?.cars.find((c) => c.position === position);
+
+// The session's fastest lap so far: its time and car index
+function fastestLap(field: LiveField | null): { time: number; idx: number } | null {
+  let best: { time: number; idx: number } | null = null;
+  for (const car of field?.cars ?? []) {
+    if (car.bestLapTime != null && car.bestLapTime > 0 && (!best || car.bestLapTime < best.time)) {
+      best = { time: car.bestLapTime, idx: car.idx };
+    }
+  }
+  return best;
+}
+
+// What happened between two updates from the same driver; nothing across a change of track or session
+export function detectRaceEvents(
+  before: UpdateState,
+  beforeField: LiveField | null,
+  now: UpdateState,
+  field: LiveField | null
+): RaceEvent[] {
+  if (
+    before.track !== now.track ||
+    before.sessionType !== now.sessionType ||
+    before.sessionName !== now.sessionName ||
+    (beforeField && field && beforeField.subSessionId !== field.subSessionId)
+  ) {
+    return [];
+  }
+  const events: RaceEvent[] = [];
+
+  const flagBefore = sessionFlag(before.sessionFlags, before.sessionState);
+  const flagNow = sessionFlag(now.sessionFlags, now.sessionState);
+  if (flagBefore && flagNow && flagNow.flag !== flagBefore.flag && flagNow.flag !== 'none') {
+    events.push({ type: 'flag', flag: flagNow.flag, notes: flagNow.notes });
+  }
+
+  if (now.onTrack && before.onTrack) {
+    const lapTime = now.lastLapTime;
+    if (lapTime != null && lapTime > 0 && lapTime !== before.lastLapTime) {
+      const best = now.bestLapTime != null && now.bestLapTime > 0 ? now.bestLapTime : null;
+      const hadBest = before.bestLapTime != null && before.bestLapTime > 0;
+      events.push({
+        type: 'lapComplete',
+        lap: now.lap != null && now.lap > 1 ? now.lap - 1 : null,
+        lapTime,
+        bestLapTime: best,
+        newBest: hadBest && best === lapTime,
+      });
+    }
+    if (!before.onPitRoad && now.onPitRoad) events.push({ type: 'pitEntry' });
+    if (before.onPitRoad && !now.onPitRoad) events.push({ type: 'pitExit' });
+  }
+
+  if (before.incidents != null && now.incidents != null && now.incidents > before.incidents) {
+    events.push({ type: 'incident', added: now.incidents - before.incidents, total: now.incidents });
+  }
+
+  if (field?.myCarIdx != null) {
+    const mine = field.cars.find((c) => c.idx === field.myCarIdx);
+    const mineBefore = beforeField?.cars.find((c) => c.idx === field.myCarIdx);
+    if (mine?.offTrack && mineBefore && !mineBefore.offTrack && !mine.onPitRoad) events.push({ type: 'offTrack' });
+  }
+
+  if (isRace(now)) {
+    const from = before.position ?? 0;
+    const to = now.position ?? 0;
+    if (from > 0 && to > 0 && from !== to) {
+      events.push(
+        to < from
+          ? { type: 'positionGained', from, to, passed: carAt(field, to + 1)?.details?.name ?? null }
+          : { type: 'positionLost', from, to, passedBy: carAt(field, to - 1)?.details?.name ?? null }
+      );
+    }
+    const leader = carAt(field, 1);
+    const leaderBefore = carAt(beforeField, 1);
+    if (field && beforeField && leader && leaderBefore && leader.idx !== leaderBefore.idx) {
+      const name = carName(field, leader.idx);
+      if (name) events.push({ type: 'leaderChange', leader: name, previous: carName(beforeField, leaderBefore.idx) });
+    }
+  }
+
+  const fastest = fastestLap(field);
+  const fastestBefore = fastestLap(beforeField);
+  if (field && fastest && fastestBefore && fastest.time < fastestBefore.time - 0.0005) {
+    const name = carName(field, fastest.idx);
+    if (name) events.push({ type: 'sessionFastestLap', driver: name, lapTime: fastest.time, isDriver: fastest.idx === field.myCarIdx });
+  }
+  return events;
 }
 
 // The collector stopped (closed, or iRacing closed)
@@ -329,6 +468,8 @@ export type LiveDriver = Omit<LiveUpdate, 'outline' | 'field' | 'inputs'> & {
   inputs: InputSample[] | null;
   // How the weather changed over the last few minutes (src/lib/liveWeather.ts), or null without enough of it
   weatherTrend: WeatherTrend | null;
+  // The number of the driver's newest race event (readRaceEvents gives them), 0 for none yet
+  eventSeq: number;
 };
 
 // The live drivers this viewer may watch, each counted as watched by them, with the inputs of the driver inputsFor
@@ -355,6 +496,7 @@ export async function readLiveDrivers(viewer: Pick<User, 'id' | 'role'>, inputsF
       field: entry.field,
       inputs: entry.userId === inputsFor ? entry.inputs : null,
       weatherTrend: entry.update.weather ? weatherTrend(entry.weatherHistory, weatherSample(entry.update.weather, entry.receivedAt)) : null,
+      eventSeq: entry.eventSeq,
     });
   }
   return drivers.sort((a, b) => Number(b.isMe) - Number(a.isMe) || a.driver.localeCompare(b.driver));
@@ -381,6 +523,69 @@ export async function queueDriverMessage(
   messagedAt.set(viewer.id, now);
   entry.messages.push({ from: viewer.userName, text: text.slice(0, MAX_MESSAGE_CHARS), at: now });
   return 'queued';
+}
+
+// What the Race Announcers know about a driver's session when an event happens
+export type RaceEventContext = {
+  driver: string;
+  track: string;
+  car: string;
+  sessionType: string | null;
+  sessionName: string | null;
+  lap: number | null;
+  lapsTotal: number | null;
+  lapsRemain: number | null;
+  timeRemain: number | null;
+  position: number | null;
+  carsInSession: number | null;
+  lastLapTime: number | null;
+  bestLapTime: number | null;
+  incidents: number | null;
+  // The first few cars in the running order
+  leaders: { position: number; name: string }[];
+};
+
+// A live driver's race events newer than after (their numbers), and their session as it is now, if this viewer may
+// watch them; null when they're not live or can't be watched
+export async function readRaceEvents(
+  viewer: Pick<User, 'id' | 'role'>,
+  driverId: number,
+  after: number
+): Promise<{ events: NumberedRaceEvent[]; seq: number; context: RaceEventContext } | null> {
+  const now = Date.now();
+  expire(now);
+  const entry = live.entries.get(driverId);
+  if (!entry || now - entry.receivedAt > STALE_MS) return null;
+  const allowed = await watchableDrivers(viewer);
+  if (allowed !== 'all' && !allowed.has(driverId)) return null;
+  const u = entry.update;
+  const positive = (n: number | null | undefined) => (n != null && n > 0 ? n : null);
+  const leaders = (entry.field?.cars ?? [])
+    .filter((c) => c.position != null && c.details)
+    .sort((a, b) => a.position! - b.position!)
+    .slice(0, 5)
+    .map((c) => ({ position: c.position!, name: c.details!.name }));
+  return {
+    events: entry.events.filter((e) => e.seq > after),
+    seq: entry.eventSeq,
+    context: {
+      driver: entry.driver,
+      track: u.track,
+      car: u.car,
+      sessionType: u.sessionType ?? null,
+      sessionName: u.sessionName ?? null,
+      lap: positive(u.lap),
+      lapsTotal: u.sessionLapsTotal ?? null,
+      lapsRemain: u.sessionLapsRemain ?? null,
+      timeRemain: u.sessionTimeRemain ?? null,
+      position: positive(u.position),
+      carsInSession: entry.field?.cars.length ?? null,
+      lastLapTime: positive(u.lastLapTime),
+      bestLapTime: positive(u.bestLapTime),
+      incidents: u.incidents ?? null,
+      leaders,
+    },
+  };
 }
 
 // A driver's approximate outline of the track with this key, if this viewer may watch them

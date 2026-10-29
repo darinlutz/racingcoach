@@ -1,5 +1,5 @@
 import { query } from './db';
-import { elevenLabsConfigured, elevenLabsSpeech } from './elevenLabs';
+import { elevenLabsConfigured, elevenLabsSpeech, elevenLabsVoiceId, type ElevenLabsRole } from './elevenLabs';
 import { AI_LANGUAGE_NAMES, DEFAULT_LANGUAGE, type Language } from './i18n/languages';
 import { ensureUserSchema } from './users';
 
@@ -7,8 +7,10 @@ import { ensureUserSchema } from './users';
 // Account page ("Users".coach_voice), spoken by a native voice of their Preferred Language (en-US, pt-BR, and es-US or
 // es-ES by the Spanish accent they pick beside it, "Users".coach_spanish_accent). Without GOOGLE_TTS_API_KEY it falls
 // back to OpenAI's gpt-4o-mini-tts, told to speak with that accent. The collector gets its speech from
-// POST /api/collector/speech; the Account page's Listen button from GET /api/account/coach-voice/sample. English
-// speakers can also pick the website's ElevenLabs voice (ELEVENLABS_COACH_VOICE, src/lib/elevenLabs.ts).
+// POST /api/collector/speech; the Account page's Listen button from GET /api/account/coach-voice/sample. The
+// ElevenLabs RaceCoach voice of the user's language (ELEVENLABS_COACH_VOICE, src/lib/elevenLabs.ts) is listed first
+// and is the default. The Race Announcers (src/lib/raceAnnouncer.ts) pick from the same voices, with their own
+// ElevenLabs voices (Lead and Color) first.
 
 // Chirp 3 HD's voices the driver can pick from (Google has 30; these male ones suit a race engineer on the radio),
 // each with Google's description of its style. Every voice speaks every language as a native speaker would. Accounts
@@ -23,20 +25,29 @@ export const COACH_VOICE_DETAILS = {
   Fenrir: { style: 'excitable' },
 } as const;
 type ChirpVoice = keyof typeof COACH_VOICE_DETAILS;
-// The voice set up in the ElevenLabs account (ELEVENLABS_VOICE_ID), Live Racing's Announce lap times voice. English
-// only, and only offered while ElevenLabs is configured; in another language, or without it, the coach speaks with
-// DEFAULT_COACH_VOICE instead
+// The ElevenLabs voice of the speaker's role in the user's language and accent (src/lib/elevenLabs.ts): for the coach,
+// the RaceCoach voice, also Live Racing's Announce lap times voice. The default, and listed first, while that voice is
+// set up; without it the coach speaks with DEFAULT_COACH_VOICE instead
 export const ELEVENLABS_COACH_VOICE = 'ElevenLabs';
 export type CoachVoice = ChirpVoice | typeof ELEVENLABS_COACH_VOICE;
 export const COACH_VOICES = [...Object.keys(COACH_VOICE_DETAILS), ELEVENLABS_COACH_VOICE] as CoachVoice[];
-// Older accounts' OpenAI voice names aren't Chirp voices, so they get this one
+// The Chirp voice spoken when the ElevenLabs voice isn't set up for the language
 export const DEFAULT_COACH_VOICE: ChirpVoice = 'Charon';
 
-// The voices the Account page offers in a language: the Chirp voices, and the ElevenLabs one for English
-export function coachVoicesFor(language: Language): Record<string, { style: string }> {
-  return language === 'en' && elevenLabsConfigured()
-    ? { ...COACH_VOICE_DETAILS, [ELEVENLABS_COACH_VOICE]: { style: 'website' } }
+// The voices the Account page offers a role in a language: its ElevenLabs voice first, while it's set up for the
+// language and accent (styled by the role, e.g. "ElevenLabs: Lead Announcer"), then the Chirp voices
+export function voicesFor(
+  role: ElevenLabsRole,
+  language: Language,
+  spanishAccent: SpanishAccent = DEFAULT_SPANISH_ACCENT
+): Record<string, { style: string }> {
+  return elevenLabsConfigured(role, language, spanishAccent)
+    ? { [ELEVENLABS_COACH_VOICE]: { style: role }, ...COACH_VOICE_DETAILS }
     : COACH_VOICE_DETAILS;
+}
+
+export function coachVoicesFor(language: Language, spanishAccent: SpanishAccent = DEFAULT_SPANISH_ACCENT): Record<string, { style: string }> {
+  return voicesFor('raceCoach', language, spanishAccent);
 }
 
 // Spanish is spoken with a Latin American accent (the default, like the site's Spanish) or Spain's
@@ -76,8 +87,10 @@ export async function getCoachVoice(userId: number): Promise<CoachVoiceSettings>
     [userId]
   );
   const { coach_voice: voice, coach_spanish_accent: accent } = rows[0] ?? {};
+  // Accounts that never picked one (or picked a voice no longer offered) get the ElevenLabs voice, which falls back to
+  // DEFAULT_COACH_VOICE where it isn't set up
   return {
-    voice: isCoachVoice(voice) ? voice : DEFAULT_COACH_VOICE,
+    voice: isCoachVoice(voice) ? voice : ELEVENLABS_COACH_VOICE,
     spanishAccent: isSpanishAccent(accent) ? accent : DEFAULT_SPANISH_ACCENT,
   };
 }
@@ -170,22 +183,37 @@ export function spokenTimeGaps(text: string, language: Language = DEFAULT_LANGUA
 }
 
 // The text spoken in the voice, as a WAV file (PCM with a WAV header, which Windows plays without any codec, and so
-// do browsers). The text is already in the driver's language.
+// do browsers). The text is already in the driver's language. role picks the ElevenLabs voice (the coach's RaceCoach
+// voice, or a Race Announcer's) and how the OpenAI fallback delivers it.
 export async function synthesizeSpeech(
   text: string,
   voice: CoachVoice,
   language: Language = DEFAULT_LANGUAGE,
-  spanishAccent: SpanishAccent = DEFAULT_SPANISH_ACCENT
+  spanishAccent: SpanishAccent = DEFAULT_SPANISH_ACCENT,
+  role: ElevenLabsRole = 'raceCoach'
 ): Promise<Buffer> {
   const input = spokenTimeGaps(spokenTurnNames(text, language), language);
   if (voice === ELEVENLABS_COACH_VOICE) {
-    if (language === 'en' && elevenLabsConfigured()) return wav(await elevenLabsSpeech(input, 'pcm'));
+    const voiceId = elevenLabsVoiceId(role, language, spanishAccent);
+    if (voiceId) return wav(await elevenLabsSpeech(input, voiceId, 'pcm'));
     voice = DEFAULT_COACH_VOICE;
   }
   return process.env.GOOGLE_TTS_API_KEY
     ? chirpSpeech(input, voice, chirpLocale(language, spanishAccent))
-    : openAiSpeech(input, language, spanishAccent);
+    : openAiSpeech(input, language, spanishAccent, role);
 }
+
+// How the OpenAI fallback speaks each role
+const DELIVERY: Record<ElevenLabsRole, string> = {
+  raceCoach:
+    'You are a race engineer on the team radio talking to a driver at speed: calm, clear, confident and a little brisk.',
+  leadAnnouncer:
+    'You are the lead (play-by-play) announcer of a televised motor race, calling the action: energetic, ' +
+    'quick and rising with the excitement of the moment.',
+  colorAnnouncer:
+    'You are the color commentator of a televised motor race, a former racing driver adding insight: warm, ' +
+    'conversational and knowing.',
+};
 
 async function chirpSpeech(text: string, voice: ChirpVoice, locale: string): Promise<Buffer> {
   const response = await fetch('https://texttospeech.googleapis.com/v1/text:synthesize', {
@@ -211,11 +239,12 @@ async function chirpSpeech(text: string, voice: ChirpVoice, locale: string): Pro
   return audio.subarray(0, 4).toString('ascii') === 'RIFF' ? audio : wav(audio);
 }
 
-// The instructions give it a native accent (Spain's or Latin American for Spanish) and a race engineer's delivery
+// The instructions give it a native accent (Spain's or Latin American for Spanish) and the role's delivery
 async function openAiSpeech(
   text: string,
   language: Language,
-  spanishAccent: SpanishAccent
+  spanishAccent: SpanishAccent,
+  role: ElevenLabsRole
 ): Promise<Buffer> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
@@ -232,8 +261,7 @@ async function openAiSpeech(
       response_format: 'pcm',
       instructions:
         `Speak as a native ${nativeSpeaker(language, spanishAccent)} pronouncing everything the way a native speaker ` +
-        'would, numbers included (keep track, corner and car names as written). You are a race engineer on the ' +
-        'team radio talking to a driver at speed: calm, clear, confident and a little brisk.',
+        `would, numbers included (keep track, corner and car names as written). ${DELIVERY[role]}`,
     }),
     signal: AbortSignal.timeout(30_000),
   });

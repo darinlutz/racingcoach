@@ -16,6 +16,7 @@ export const RATE_LIMITED_FEATURES = [
   'inCarCoachCallouts',
   'speech',
   'racecarAnalysis',
+  'raceAnnouncer',
 ] as const;
 
 export type RateLimitedFeature = (typeof RATE_LIMITED_FEATURES)[number];
@@ -145,6 +146,8 @@ export const DEFAULT_RATE_LIMITS: RateLimitSettings = {
     inCarCoachCallouts: 1,
     speech: 0,
     racecarAnalysis: 1,
+    // Live Racing's Race Announcers: a call per race event while they're on, so free by default like the coach voice
+    raceAnnouncer: 0,
   },
 };
 

@@ -198,7 +198,7 @@ export default function DebriefCoach({ onCompare }: { onCompare?: (base: LapFile
       {(allLaps.length > 0 || error) && (
         <div>
           {allLaps.length > 0 && (
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
               <h2
                 className={
                   selectedTrack ? 'text-3xl font-bold tracking-tight text-foreground' : 'text-xl font-semibold text-muted-foreground'
@@ -215,6 +215,7 @@ export default function DebriefCoach({ onCompare }: { onCompare?: (base: LapFile
                     location: selectedTrack.location ?? null,
                     bounds: selectedTrack.bounds ?? null,
                   }}
+                  scale={1 / 3}
                 />
               )}
             </div>

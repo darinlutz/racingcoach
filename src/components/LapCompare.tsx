@@ -658,7 +658,7 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
       {(baseLap || compareLap || error) && (
         <div>
           {(baseLap || compareLap) && (
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
               <h2
                 className={
                   lapsTrack ? 'text-3xl font-bold tracking-tight text-foreground' : 'text-xl font-semibold text-muted-foreground'
@@ -675,6 +675,7 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
                     location: lapsTrack.location ?? null,
                     bounds: lapsTrack.bounds ?? null,
                   }}
+                  scale={1 / 3}
                 />
               )}
             </div>

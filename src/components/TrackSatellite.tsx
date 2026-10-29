@@ -18,13 +18,14 @@ const FEET_PER_METER = 3.280839895;
 // about a third of its length across (a circuit's extent is roughly that), or 2 km without a length.
 type SatelliteTrack = Pick<TrackData, 'name' | 'lengthFeet' | 'location' | 'bounds'>;
 
-function trackView(track: SatelliteTrack) {
+function trackView(track: SatelliteTrack, width: number, height: number) {
   if (track.bounds) {
+    const padding = PADDING * (height / SATELLITE_HEIGHT);
     const [west, north] = project([track.bounds.north, track.bounds.west]);
     const [east, south] = project([track.bounds.south, track.bounds.east]);
     const scale = Math.min(
-      (SATELLITE_WIDTH - 2 * PADDING) / Math.max(east - west, 1e-9),
-      (SATELLITE_HEIGHT - 2 * PADDING) / Math.max(south - north, 1e-9),
+      (width - 2 * padding) / Math.max(east - west, 1e-9),
+      (height - 2 * padding) / Math.max(south - north, 1e-9),
       2 ** MAX_FIT_ZOOM
     );
     return { scale, centerX: (west + east) / 2, centerY: (north + south) / 2 };
@@ -33,7 +34,7 @@ function trackView(track: SatelliteTrack) {
     const { latitude, longitude } = track.location;
     const lengthMeters = track.lengthFeet ? track.lengthFeet / FEET_PER_METER : 6000;
     const spanMeters = Math.min(Math.max(lengthMeters / 3, 800), 5000);
-    const metersPerPixel = spanMeters / SATELLITE_HEIGHT;
+    const metersPerPixel = spanMeters / height;
     const [centerX, centerY] = project([latitude, longitude]);
     return { scale: (METERS_PER_PIXEL_Z0 * Math.cos((latitude * Math.PI) / 180)) / metersPerPixel, centerX, centerY };
   }
@@ -43,20 +44,23 @@ function trackView(track: SatelliteTrack) {
 // A satellite picture of a track (Track Data's, shown while its name is hovered, and Lap Compare's, beside the track
 // name), from the same sharpened imagery as Lap Compare's driving line maps. Nothing when the track's location isn't
 // known yet or imagery isn't set up.
-export default function TrackSatellite({ track }: { track: SatelliteTrack }) {
+// scale: its size as a share of the full SATELLITE_WIDTH x SATELLITE_HEIGHT, showing the same view
+export default function TrackSatellite({ track, scale = 1 }: { track: SatelliteTrack; scale?: number }) {
   const { t, fmt } = useLanguage();
   const settings = useMapSettings();
   const sharpenId = useId();
-  const view = trackView(track);
+  const width = Math.round(SATELLITE_WIDTH * scale);
+  const height = Math.round(SATELLITE_HEIGHT * scale);
+  const view = trackView(track, width, height);
   if (!view || !settings?.available) return null;
 
-  const { zoom, size, tiles } = viewTiles(view.centerX, view.centerY, view.scale, SATELLITE_WIDTH, SATELLITE_HEIGHT);
+  const { zoom, size, tiles } = viewTiles(view.centerX, view.centerY, view.scale, width, height);
   return (
     <div
       role="img"
       aria-label={fmt(t.tracks.satellite, { track: track.name })}
       className="relative overflow-hidden rounded-lg border border-border bg-slate-800 shadow-xl"
-      style={{ width: SATELLITE_WIDTH, height: SATELLITE_HEIGHT }}
+      style={{ width, height }}
     >
       <svg width="0" height="0" className="absolute" aria-hidden="true">
         <filter id={sharpenId} colorInterpolationFilters="sRGB">
@@ -79,7 +83,12 @@ export default function TrackSatellite({ track }: { track: SatelliteTrack }) {
         ))}
       </div>
       {settings.attribution && (
-        <p className="absolute bottom-0 right-0 px-1.5 py-0.5 text-[10px] text-white/80 bg-black/45 rounded-tl">
+        // Smaller on a small picture, so the credit fits across it
+        <p
+          className={`absolute bottom-0 right-0 text-white/80 bg-black/45 rounded-tl ${
+            scale < 1 ? 'px-1 text-[6px] leading-tight' : 'px-1.5 py-0.5 text-[10px]'
+          }`}
+        >
           {settings.attribution}
         </p>
       )}

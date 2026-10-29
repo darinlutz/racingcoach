@@ -182,6 +182,11 @@ export function ensureUserSchema(): Promise<void> {
       await client.query(`ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS coach_voice TEXT NOT NULL DEFAULT ''`);
       // Its accent for Spanish: latinAmerica or spain (src/lib/coachVoice.ts); empty for the default one
       await client.query(`ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS coach_spanish_accent TEXT NOT NULL DEFAULT ''`);
+      // How the In-Car AI Coach's voice says names, from the user's In-Car AI Coach Instructions (inCarCoachPlan,
+      // src/lib/inCarCoach.ts): [{ written, spoken }], applied by /api/collector/speech (src/lib/coachVoice.ts)
+      await client.query(
+        `ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS coach_pronunciations JSONB NOT NULL DEFAULT '[]'::jsonb`
+      );
       // The Race Announcers' voices (Lead and Color; empty for the default, their ElevenLabs voices) and the user's
       // Race Announcer Instructions, which the RaceAnnouncer agent follows on the Live Racing page (src/lib/raceAnnouncer.ts)
       await client.query(`ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS announcer_lead_voice TEXT NOT NULL DEFAULT ''`);

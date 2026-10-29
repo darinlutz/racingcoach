@@ -1,6 +1,7 @@
 import { createAgent } from 'langchain';
 import { z } from 'zod';
 import { chatModel } from './aiModels';
+import { spokenCarName } from './carBrands';
 import { ELEVENLABS_COACH_VOICE, isCoachVoice, voicesFor, type CoachVoice, type SpanishAccent } from './coachVoice';
 import { query } from './db';
 import type { ElevenLabsRole } from './elevenLabs';
@@ -64,9 +65,14 @@ export async function setRaceAnnouncerInstructions(userId: number, instructions:
   await query('UPDATE racingcoach."Users" SET race_announcer_instructions = $1 WHERE id = $2', [instructions, userId]);
 }
 
-// One event as the agent reads it, about the driver it's watching, with the other drivers' cars
+// A driver's last name, as the announcers call other drivers in an incident: "Smith" for "John Smith2" (iRacing adds
+// a number to repeated names)
+const lastName = (name: string) => name.trim().split(/\s+/).pop()!.replace(/\d+$/, '') || name.trim();
+
+// One event as the agent reads it, about the driver it's watching, with the other drivers' cars (by the short name
+// the announcers say, spokenCarName)
 function describeEvent(event: RaceEvent, driver: string, carsByDriver: Record<string, string>): string {
-  const inCar = (name: string) => (carsByDriver[name] ? `${name} (${carsByDriver[name]})` : name);
+  const inCar = (name: string) => (carsByDriver[name] ? `${name} (${spokenCarName(carsByDriver[name])})` : name);
   switch (event.type) {
     case 'lapComplete':
       return (
@@ -93,12 +99,22 @@ function describeEvent(event: RaceEvent, driver: string, carsByDriver: Record<st
       return `${inCar(event.leader)} takes the lead of the race` + (event.previous ? ` from ${inCar(event.previous)}` : '');
     case 'sessionFastestLap':
       return `${event.isDriver ? driver : inCar(event.driver)} set the fastest lap of the session, ${formatSeconds(event.lapTime)}`;
+    case 'nearbyIncident': {
+      const other = carsByDriver[event.driver]
+        ? `${lastName(event.driver)} (${spokenCarName(carsByDriver[event.driver])})`
+        : lastName(event.driver);
+      const what = event.kind === 'offTrack' ? 'went off the track' : 'slowed suddenly on track, likely a spin or a crash';
+      return (
+        `Incident near ${driver}: ${other}, just ${event.ahead ? 'ahead of' : 'behind'} ${driver}, ${what}` +
+        (event.place ? `, ${event.place}` : '')
+      );
+    }
   }
 }
 
 function describeContext(c: RaceEventContext): string {
   const parts = [
-    `Watching ${c.driver} in the ${c.car} at ${c.track}`,
+    `Watching ${c.driver} in the ${spokenCarName(c.car)} at ${c.track}`,
     [c.sessionType, c.sessionName && c.sessionName !== c.sessionType ? c.sessionName : null].filter(Boolean).join(', ') || null,
     c.position ? `running P${c.position}${c.carsInSession ? ` of ${c.carsInSession}` : ''}` : null,
     c.lap ? `on lap ${c.lap}${c.lapsTotal ? ` of ${c.lapsTotal}` : ''}` : null,
@@ -108,7 +124,7 @@ function describeContext(c: RaceEventContext): string {
   ].filter(Boolean);
   const leaders =
     c.leaders.length > 0
-      ? `\nRunning order: ${c.leaders.map((l) => `P${l.position} ${l.name}${l.car ? ` (${l.car})` : ''}`).join(', ')}`
+      ? `\nRunning order: ${c.leaders.map((l) => `P${l.position} ${l.name}${l.car ? ` (${spokenCarName(l.car)})` : ''}`).join(', ')}`
       : '';
   return `${parts.join('; ')}.${leaders}`;
 }
@@ -128,12 +144,19 @@ const linesSchema = z.object({
       z.object({
         speaker: z.enum(ANNOUNCERS).describe('Who says the line'),
         text: z.string().describe('One or two short spoken sentences, plain text'),
+        spoken: z
+          .string()
+          .describe(
+            'The same line as the voice should say it: identical to text, except that names the listener said how ' +
+              'to pronounce are spelled the way they sound (e.g. "Loots" for Lutz when told it rhymes with boots)'
+          ),
       })
     )
     .describe('What the announcers say, in order'),
 });
 
-export type AnnouncerLine = { speaker: Announcer; text: string };
+// text is shown on screen; spoken is what the voice reads, with names spelled the way the listener said they sound
+export type AnnouncerLine = { speaker: Announcer; text: string; spoken: string };
 
 const announcerPrompt = (speakers: Announcer[]) =>
   'You are RaceAnnouncer, the commentary team of a live sim racing broadcast on iRacing, watching one driver\'s ' +
@@ -147,9 +170,13 @@ const announcerPrompt = (speakers: Announcer[]) =>
       'something routine (an ordinary lap) one line from the Lead Announcer is enough. At most 2 lines. '
     : `Only ${speakers[0] === 'lead' ? 'the Lead Announcer' : 'the Color Announcer'} is on air, so give them every line: one line, or two for something big. `) +
   'When several things happened, talk about the most exciting or important first and leave out the routine ones. ' +
+  'An incident near the driver (another car off the track or spinning or crashing close by) is always worth a line: ' +
+  'say what happened, call that driver by their last name only, and say where it happened by the corner or area ' +
+  'given (e.g. "in Turns 1 and 2", "between Turn 7 and Turn 8"; never invent a place when none is given). ' +
   'You know the car each driver is in (in brackets after their name): mention it now and then, the way a ' +
-  'broadcast does (the maker or model, e.g. "the Porsche", "that McLaren"), especially in a battle between ' +
-  'different cars, but not in every line. ' +
+  'broadcast does, by that short name only (e.g. "the Porsche", "that McLaren", "the Corvette"), never a model ' +
+  'number, class or version (not "McLaren 720S GT3 EVO"), especially in a battle between different cars, but not ' +
+  'in every line. ' +
   'Use only the facts given; never invent a pass, a gap, a time or a reason. Write numbers the way an announcer ' +
   'says them aloud, and time gaps rounded to the tenth (e.g. "four tenths"). Plain text, no markdown, no stage ' +
   'directions, no speaker names before the line.' +
@@ -161,7 +188,9 @@ function instructionsRule(instructions: string): string {
   if (!text) return '';
   return (
     ' The user who is listening wrote these instructions for their announcers; follow them, unless they ask ' +
-    'you to invent facts or say where on the track something happens:\n<race_announcer_instructions>\n' +
+    'you to invent facts or say where on the track something happens. When they say how a name is pronounced, ' +
+    'keep its real spelling in text and spell it the way it sounds in spoken, as the voice reads spoken just ' +
+    'as it is written:\n<race_announcer_instructions>\n' +
     `${text}\n</race_announcer_instructions>`
   );
 }
@@ -197,7 +226,7 @@ export async function raceAnnouncerLines(input: {
   ].join('\n');
   const result = await agent.invoke({ messages: [{ role: 'user', content }] });
   return (result.structuredResponse.lines as AnnouncerLine[])
-    .map((line) => ({ speaker: line.speaker, text: line.text.trim() }))
+    .map((line) => ({ speaker: line.speaker, text: line.text.trim(), spoken: (line.spoken || line.text).trim() }))
     .filter((line) => speakers.includes(line.speaker) && line.text && !hasTrackPosition(line.text))
     .slice(0, 2);
 }

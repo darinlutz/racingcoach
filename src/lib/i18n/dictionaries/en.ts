@@ -2059,6 +2059,8 @@ export const en = {
     eventPitEntry: '{driver} into the pit lane',
     eventPitExit: '{driver} rejoins from the pits',
     eventOffTrack: '{driver} goes off track',
+    eventNearbyOffTrack: '{other} goes off track nearby',
+    eventNearbySlowed: '{other} spins or crashes nearby',
     eventIncident: '{driver} +{n}x incident ({total}x)',
     eventGained: '{driver} up to P{to}',
     eventGainedPassing: '{driver} passes {other} for P{to}',

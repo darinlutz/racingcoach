@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { aiErrorResponse } from '@/lib/aiErrors';
 import { carRpmLimit } from '@/lib/carData';
 import { authenticateCollector } from '@/lib/collectorKeys';
+import { setCoachPronunciations } from '@/lib/coachVoice';
 import { readCollectorLapsByClientId } from '@/lib/collectorLaps';
 import { measureDebriefSession } from '@/lib/debriefSession';
 import { DEFAULT_LANGUAGE, LANGUAGE_LOCALES } from '@/lib/i18n/languages';
@@ -71,7 +72,7 @@ export async function GET(request: Request) {
 
     limit = await aiRateLimit(request, 'inCarCoachPlan', user.user);
     if (limit.response) return limit.response;
-    const plan = await limit.track(() =>
+    const { pronunciations, ...plan } = await limit.track(() =>
       inCarCoachPlan(
         user.instructions,
         areas.map((area) => area.name),
@@ -79,6 +80,7 @@ export async function GET(request: Request) {
         user.units
       )
     );
+    await setCoachPronunciations(user.userId, pronunciations);
     // The locale formats the numbers the collector puts in rule texts (e.g. 1:23,456 in pt-BR) for the voice
     return NextResponse.json({ instructions: user.instructions, plan, areas, locale: LANGUAGE_LOCALES[user.language] });
   } catch (error) {

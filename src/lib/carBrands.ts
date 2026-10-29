@@ -64,8 +64,30 @@ const BRANDS: [RegExp, CarBrand][] = [
   [/\bbentley\b/, icon(siBentley)],
 ];
 
+const plainName = (car: string) => car.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
 export function carBrand(car: string | null | undefined): CarBrand | null {
   if (!car) return null;
-  const name = car.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  const name = plainName(car);
   return BRANDS.find(([pattern]) => pattern.test(name))?.[1] ?? null;
+}
+
+// Cars a broadcast calls by the model rather than the maker; checked before the maker
+const SPOKEN_MODELS: [RegExp, string][] = [
+  [/\bcorvette\b/, 'Corvette'],
+  [/\bcamaro\b/, 'Camaro'],
+  [/\bmustang\b/, 'Mustang'],
+];
+// Makers whose simple-icons title isn't what a broadcast says
+const SPOKEN_MAKERS: Record<string, string> = { 'Mercedes-Benz': 'Mercedes', MINI: 'Mini' };
+
+// What the Race Announcers call a car: "McLaren" for the McLaren 720S GT3 EVO, "Corvette" for the Chevrolet Corvette
+// Z06 GT3.R, else the maker, else the first word of the name (e.g. "Dallara" for the Dallara P217)
+export function spokenCarName(car: string): string {
+  const name = plainName(car);
+  const model = SPOKEN_MODELS.find(([pattern]) => pattern.test(name))?.[1];
+  if (model) return model;
+  const maker = carBrand(car)?.name;
+  if (maker) return SPOKEN_MAKERS[maker] ?? maker;
+  return car.trim().split(/\s+/)[0] ?? car;
 }

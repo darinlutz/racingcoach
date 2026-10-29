@@ -59,8 +59,8 @@ export async function commentate(input: {
     const spoken = await Promise.all(
       lines.map(async (line) => {
         const voice = line.speaker === 'lead' ? settings.leadVoice : settings.colorVoice;
-        const audio = await synthesizeSpeech(line.text, voice, user.preferredLanguage, spanishAccent, ANNOUNCER_ROLES[line.speaker], format);
-        return { ...line, audio: audio.toString('base64') };
+        const audio = await synthesizeSpeech(line.spoken, voice, user.preferredLanguage, spanishAccent, ANNOUNCER_ROLES[line.speaker], format);
+        return { speaker: line.speaker, text: line.text, audio: audio.toString('base64') };
       })
     );
     return { kind: 'lines', seq: found.seq, lines: spoken };

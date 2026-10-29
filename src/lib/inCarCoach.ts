@@ -62,13 +62,30 @@ const planSchema = z.object({
   holdInFocusAreas: z.boolean().describe('Wait until the car is out of a focus area before speaking the lap feedback (true only when asked not to talk in corners or focus areas)'),
   lapFeedback: z.boolean().describe('Give coaching feedback from the laps at all (true unless the instructions say not to coach or only want the rules)'),
   feedbackEveryLaps: z.number().int().describe('How many laps between lap feedback: 1 for every lap unless the instructions ask for less often'),
+  pronunciations: z
+    .array(
+      z.object({
+        written: z.string().describe('The name as it is spelled, e.g. Lutz'),
+        spoken: z.string().describe('Spelled the way it sounds, so a voice reading it says it right, e.g. Loots (rhymes with boots)'),
+      })
+    )
+    .describe('Every name the instructions say how to pronounce; empty when they say none'),
 });
 
 export type CoachRule = z.infer<typeof ruleSchema>;
 export type InCarCoachPlan = z.infer<typeof planSchema>;
 
-const DEFAULT_PLAN: InCarCoachPlan = { rules: [], speak: true, show: true, holdInFocusAreas: false, lapFeedback: true, feedbackEveryLaps: 1 };
+const DEFAULT_PLAN: InCarCoachPlan = {
+  rules: [],
+  speak: true,
+  show: true,
+  holdInFocusAreas: false,
+  lapFeedback: true,
+  feedbackEveryLaps: 1,
+  pronunciations: [],
+};
 const MAX_RULES = 20;
+const MAX_PRONUNCIATIONS = 10;
 
 // Rules every driver's coach runs, in their language: the lap time as each lap ends, and New best lap. Left out
 // when the instructions ask the coach not to talk (speak false)
@@ -148,7 +165,8 @@ const PLAN_PROMPT =
   'that setup. Make a rule only for something the instructions ask to happen at one of the listed moments; ' +
   'coaching advice, analysis and things to avoid are not rules (they steer the lap feedback, which follows the ' +
   'same instructions). When an instruction asks for something the coach cannot detect or do, leave it out. Keep ' +
-  'rule texts short and write them in the language below. The head coach\'s instructions, when given, apply to ' +
+  'rule texts short and write them in the language below, with names spelled normally: when the instructions ' +
+  'say how a name is pronounced, list it in pronunciations, and the voice will say it that way. The head coach\'s instructions, when given, apply to ' +
   'every driver; the driver\'s own instructions come after them and win where the two disagree.';
 
 // Rule texts are spoken and shown as they are, so any distance or speed in them is in the user's units, and no
@@ -223,6 +241,7 @@ function cleanPlan(plan: InCarCoachPlan, areaNames: string[]): InCarCoachPlan {
   return {
     ...plan,
     rules,
+    pronunciations: (plan.pronunciations ?? []).filter((p) => p.written.trim() && p.spoken.trim()).slice(0, MAX_PRONUNCIATIONS),
     feedbackEveryLaps: Math.min(MAX_FEEDBACK_EVERY_LAPS, Math.max(1, Math.round(plan.feedbackEveryLaps || 1))),
   };
 }

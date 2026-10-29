@@ -38,6 +38,8 @@ export function eventText(event: RaceEvent, driver: string, t: Text, fmt: Fmt): 
       return fmt(t.eventFlag, { flag: t.flags[event.flag] });
     case 'leaderChange':
       return fmt(t.eventLeader, { leader: event.leader });
+    case 'nearbyIncident':
+      return fmt(event.kind === 'offTrack' ? t.eventNearbyOffTrack : t.eventNearbySlowed, { other: event.driver });
     case 'sessionFastestLap':
       return fmt(t.eventFastest, { driver: event.isDriver ? driver : event.driver, time: formatLapTime(event.lapTime) });
   }

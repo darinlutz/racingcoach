@@ -78,21 +78,40 @@ export function isSpanishAccent(value: unknown): value is SpanishAccent {
   return typeof value === 'string' && (SPANISH_ACCENTS as readonly string[]).includes(value);
 }
 
-export type CoachVoiceSettings = { voice: CoachVoice; spanishAccent: SpanishAccent };
+// pronunciations: how the coach's voice says names, e.g. { written: 'Lutz', spoken: 'Loots' } (withPronunciations)
+export type Pronunciation = { written: string; spoken: string };
+export type CoachVoiceSettings = { voice: CoachVoice; spanishAccent: SpanishAccent; pronunciations: Pronunciation[] };
 
 export async function getCoachVoice(userId: number): Promise<CoachVoiceSettings> {
   await ensureUserSchema();
-  const rows = await query<{ coach_voice: string; coach_spanish_accent: string }>(
-    'SELECT coach_voice, coach_spanish_accent FROM racingcoach."Users" WHERE id = $1',
+  const rows = await query<{ coach_voice: string; coach_spanish_accent: string; coach_pronunciations: Pronunciation[] }>(
+    'SELECT coach_voice, coach_spanish_accent, coach_pronunciations FROM racingcoach."Users" WHERE id = $1',
     [userId]
   );
-  const { coach_voice: voice, coach_spanish_accent: accent } = rows[0] ?? {};
+  const { coach_voice: voice, coach_spanish_accent: accent, coach_pronunciations: pronunciations } = rows[0] ?? {};
   // Accounts that never picked one (or picked a voice no longer offered) get the ElevenLabs voice, which falls back to
   // DEFAULT_COACH_VOICE where it isn't set up
   return {
     voice: isCoachVoice(voice) ? voice : ELEVENLABS_COACH_VOICE,
     spanishAccent: isSpanishAccent(accent) ? accent : DEFAULT_SPANISH_ACCENT,
+    pronunciations: Array.isArray(pronunciations) ? pronunciations : [],
   };
+}
+
+// Saved each time the In-Car AI Coach's plan is fetched, so a change to the instructions takes effect with it
+export async function setCoachPronunciations(userId: number, pronunciations: Pronunciation[]): Promise<void> {
+  await ensureUserSchema();
+  await query('UPDATE racingcoach."Users" SET coach_pronunciations = $1 WHERE id = $2', [JSON.stringify(pronunciations), userId]);
+}
+
+// The text with each written name, as a whole word and ignoring case, swapped for how it's said, just before it's
+// spoken: the texts themselves (shown on screen, in the activity log) keep the real spelling
+export function withPronunciations(text: string, pronunciations: Pronunciation[]): string {
+  return pronunciations.reduce((spoken, { written, spoken: sound }) => {
+    if (!written.trim() || !sound.trim()) return spoken;
+    const escaped = written.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return spoken.replace(new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, 'giu'), () => sound.trim());
+  }, text);
 }
 
 export async function setSpanishAccent(userId: number, accent: SpanishAccent): Promise<void> {

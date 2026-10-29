@@ -2017,6 +2017,8 @@ export const es: Dictionary = {
     eventPitEntry: '{driver} entra al pit lane',
     eventPitExit: '{driver} sale de boxes',
     eventOffTrack: '{driver} se sale de la pista',
+    eventNearbyOffTrack: '{other} se sale de la pista cerca',
+    eventNearbySlowed: '{other} trompea o choca cerca',
     eventIncident: '{driver} +{n}x incidente ({total}x)',
     eventGained: '{driver} sube a P{to}',
     eventGainedPassing: '{driver} adelanta a {other} y es P{to}',

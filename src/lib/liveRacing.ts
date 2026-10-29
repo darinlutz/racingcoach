@@ -4,6 +4,7 @@ import { query } from './db';
 import { WEATHER_SAMPLE_MS, TREND_MS, weatherSample, weatherTrend, type WeatherSample, type WeatherTrend } from './liveWeather';
 import { sessionFlag, type FlagKind, type FlagNote } from './raceFlags';
 import { canSeeAllLaps, ROLES } from './roles';
+import { findTrackByKey, readTracks, type FocusArea } from './tracks';
 import { OUTLINE_POINTS, type TrackOutline } from './trackOutlines';
 import { ensureUserSchema, getUserById, type User } from './users';
 
@@ -196,7 +197,11 @@ export type RaceEvent =
   | { type: 'positionLost'; from: number; to: number; passedBy: string | null }
   | { type: 'flag'; flag: FlagKind; notes: FlagNote[] }
   | { type: 'leaderChange'; leader: string; previous: string | null }
-  | { type: 'sessionFastestLap'; driver: string; lapTime: number; isDriver: boolean };
+  | { type: 'sessionFastestLap'; driver: string; lapTime: number; isDriver: boolean }
+  // Another car near the driver went off track, or slowed suddenly on track (a spin or crash, by its pace round the
+  // lap); idx is its car index, pct where it happened, and place the focus area there (trackPlace), filled in by
+  // readRaceEvents, null when the track has no Track Data
+  | { type: 'nearbyIncident'; idx: number; driver: string; kind: 'offTrack' | 'slowed'; ahead: boolean; pct: number; place?: string | null };
 
 export type NumberedRaceEvent = { seq: number; at: number; event: RaceEvent };
 
@@ -204,6 +209,11 @@ export type NumberedRaceEvent = { seq: number; at: number; event: RaceEvent };
 const EVENTS_KEPT_MS = 2 * 60_000;
 const MAX_EVENTS = 20;
 const OFF_TRACK_INTERVAL_MS = 15_000;
+// A car this close on the lap (either way) is near the driver; a car whose pace round the lap drops below this share of
+// what it was, from at least MIN_SLOWED_RATE (a lap in 250 s), slowed suddenly
+const NEARBY_PCT = 0.03;
+const SLOWED_SHARE = 0.35;
+const MIN_SLOWED_RATE = 0.004;
 
 // A driver's radio message, as text; at is ms since the epoch
 export type RadioMessage = { seq: number; at: number; text: string };
@@ -326,6 +336,13 @@ export function recordLiveUpdate(
       if (now - lastOffTrackAt < OFF_TRACK_INTERVAL_MS) continue;
       lastOffTrackAt = now;
     }
+    // each other car counts once in OFF_TRACK_INTERVAL_MS too
+    if (
+      event.type === 'nearbyIncident' &&
+      events.some((e) => e.event.type === 'nearbyIncident' && e.event.idx === event.idx && now - e.at < OFF_TRACK_INTERVAL_MS)
+    ) {
+      continue;
+    }
     events.push({ seq: ++eventSeq, at: now, event });
   }
   live.entries.set(user.id, {
@@ -392,6 +409,37 @@ function fastestLap(field: LiveField | null): { time: number; idx: number } | nu
   return best;
 }
 
+// Other cars within NEARBY_PCT of the driver's (at myPct) that went off track or slowed suddenly since the update before
+function nearbyIncidents(beforeField: LiveField, field: LiveField, myCarIdx: number, myPct: number): RaceEvent[] {
+  const events: RaceEvent[] = [];
+  for (const car of field.cars) {
+    const before = beforeField.cars.find((c) => c.idx === car.idx);
+    const name = car.details?.name;
+    if (car.idx === myCarIdx || !before || !name || car.pct == null || car.onPitRoad || before.onPitRoad) continue;
+    // the short way round the lap from the driver's car, + ahead
+    const gap = ((car.pct - myPct) % 1 + 1.5) % 1 - 0.5;
+    if (Math.abs(gap) > NEARBY_PCT) continue;
+    const wentOff = !!car.offTrack && !before.offTrack;
+    const slowed =
+      !car.offTrack && before.rate != null && car.rate != null && before.rate >= MIN_SLOWED_RATE && car.rate < before.rate * SLOWED_SHARE;
+    if (wentOff || slowed) {
+      events.push({ type: 'nearbyIncident', idx: car.idx, driver: name, kind: wentOff ? 'offTrack' : 'slowed', ahead: gap > 0, pct: car.pct });
+    }
+  }
+  return events;
+}
+
+// Where on the track pct is, by the track's focus areas: "in T 7", "between T 7 and T 8"; null without any
+export function trackPlace(areas: Pick<FocusArea, 'name' | 'startPoint' | 'endPoint'>[], pct: number): string | null {
+  if (areas.length === 0) return null;
+  const sorted = [...areas].sort((a, b) => a.startPoint - b.startPoint);
+  const inside = sorted.find((a) => (a.startPoint <= a.endPoint ? pct >= a.startPoint && pct <= a.endPoint : pct >= a.startPoint || pct <= a.endPoint));
+  if (inside) return `in ${inside.name}`;
+  const next = sorted.find((a) => a.startPoint > pct) ?? sorted[0];
+  const previous = [...sorted].reverse().find((a) => a.endPoint < pct) ?? sorted[sorted.length - 1];
+  return previous === next ? `near ${next.name}` : `between ${previous.name} and ${next.name}`;
+}
+
 // What happened between two updates from the same driver; nothing across a change of track or session
 export function detectRaceEvents(
   before: UpdateState,
@@ -440,6 +488,10 @@ export function detectRaceEvents(
     const mine = field.cars.find((c) => c.idx === field.myCarIdx);
     const mineBefore = beforeField?.cars.find((c) => c.idx === field.myCarIdx);
     if (mine?.offTrack && mineBefore && !mineBefore.offTrack && !mine.onPitRoad) events.push({ type: 'offTrack' });
+    const myPct = mine?.pct ?? now.pct;
+    if (now.onTrack && !now.onPitRoad && myPct != null && beforeField) {
+      events.push(...nearbyIncidents(beforeField, field, field.myCarIdx, myPct));
+    }
   }
 
   if (isRace(now)) {
@@ -640,8 +692,14 @@ export async function readRaceEvents(
   for (const c of entry.field?.cars ?? []) {
     if (c.details?.car) carsByDriver[c.details.name] = c.details.car;
   }
+  const events = entry.events.filter((e) => e.seq > after);
+  const areas = events.some((e) => e.event.type === 'nearbyIncident')
+    ? (findTrackByKey(await readTracks(), u.trackKey)?.areas ?? [])
+    : [];
   return {
-    events: entry.events.filter((e) => e.seq > after),
+    events: events.map((e) =>
+      e.event.type === 'nearbyIncident' ? { ...e, event: { ...e.event, place: trackPlace(areas, e.event.pct) } } : e
+    ),
     seq: entry.eventSeq,
     context: {
       driver: entry.driver,

@@ -126,7 +126,7 @@ export type Callout = z.infer<typeof calloutsSchema>['callouts'][number];
 const MAX_CALLOUTS = 1; // the coach talks once per lap; the model gives 2, the second a spare in case one is dropped
 
 // The Coach page's In-Car AI Coach Instructions, for every driver; a failed read only loses them, not the coaching
-async function readHeadCoachInCarInstructions(): Promise<string> {
+export async function readHeadCoachInCarInstructions(): Promise<string> {
   try {
     return (await getHeadCoachInCarInstructions()).trim();
   } catch (error) {
@@ -139,7 +139,7 @@ const headCoachInCarBlock = (instructions: string) =>
   instructions ? `<head_coach_in_car_instructions>\n${instructions}\n</head_coach_in_car_instructions>` : '';
 
 // The head coach's In-Car AI Coach Instructions, for every driver's In-Car AI Coach, before the driver's own
-function headCoachInCarRule(instructions: string): string {
+export function headCoachInCarRule(instructions: string): string {
   if (!instructions) return '';
   return (
     '\n\nThe head coach has given these instructions for every driver\'s In-Car AI Coach. Follow them, unless the ' +
@@ -149,7 +149,7 @@ function headCoachInCarRule(instructions: string): string {
 }
 
 // The driver's own instructions, after the head coach's: the driver's say what this coach does in their car
-function driverInstructionsRule(instructions: string): string {
+export function driverInstructionsRule(instructions: string): string {
   if (!instructions.trim()) return '';
   return (
     "\n\nThe driver has given these instructions for their own In-Car AI Coach. Follow them: they decide what you " +

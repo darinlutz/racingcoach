@@ -1473,6 +1473,7 @@ export const en = {
       racecarAnalysis: 'Racecar Analysis',
       raceAnnouncer: 'Live Racing: Race Announcers',
       driverRadio: 'Live Racing: Driver Radio (speech to text)',
+      raceEngineer: 'Live Racing: Race Engineer (radio answers)',
     } as Record<string, string>,
     // The Rate Limiting section (src/components/RateLimitManager.tsx, src/components/AiUsageReport.tsx)
     rateLimits: {
@@ -1904,6 +1905,7 @@ export const en = {
     radioJustNow: 'just now',
     radioSecondsAgo: '{n} s ago',
     radioMinutesAgo: '{n} min ago',
+    radioEngineer: 'Engineer',
     leaderboard: 'Leaderboard',
     cars: '{n} cars',
     pos: 'Pos',
@@ -1942,6 +1944,13 @@ export const en = {
     messageSending: 'Sending…',
     messageSent: 'Sent. {name}’s In-Car AI Coach will say it.',
     messageFailed: 'Couldn’t send the message.',
+    holdToTalk: 'Hold to Talk',
+    talkRecording: 'Recording… let go to send',
+    voiceSent: 'Sent: “{text}”. {name} hears your voice in their car.',
+    micBlocked: 'The microphone is blocked. Allow it for this site in your browser’s settings.',
+    micUnavailable: 'Couldn’t record from the microphone.',
+    talkTooShort: 'Hold the button while you speak.',
+    messageOr: 'or',
     // The session's flag (src/lib/raceFlags.ts) and what's said under it
     flags: {
       green: 'Green flag',
@@ -2234,6 +2243,9 @@ export const en = {
     driverNotLive: 'That driver isn’t live right now',
     collectorTooOldForMessages: 'That driver’s RacingCoach.app Collector is too old for messages; it needs 1.53.0 or later',
     tooManyDriverMessages: 'Too many messages; wait a moment and try again',
+    voiceMessagesOff: 'Voice messages are turned off on RacingCoach.app',
+    voiceMessageTooLong: 'That voice message is too long; keep it under 30 seconds',
+    voiceMessageEmpty: 'Didn’t catch that. Hold the button while you speak.',
     failedSendDriverMessage: 'Couldn’t send the message',
     failedSaveLiveWatchers: 'Failed to save who can watch you',
     liveWatcherNotFound: 'No RacingCoach.app account has that email address',

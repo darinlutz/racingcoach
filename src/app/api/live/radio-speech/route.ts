@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
+import { getCoachVoice, synthesizeSpeech, withPronunciations } from '@/lib/coachVoice';
 import { radioVoiceId } from '@/lib/driverRadio';
+import { DEFAULT_LANGUAGE } from '@/lib/i18n/languages';
 import { elevenLabsSpeech } from '@/lib/elevenLabs';
 import { apiText } from '@/lib/i18n/server';
 import { readDriverRadio } from '@/lib/liveRacing';
@@ -12,6 +14,8 @@ import { getUserById } from '@/lib/users';
 // accounts, else the ElevenLabs RaceCoach voice of the driver's Preferred Language), as an MP3, for anyone who may
 // watch the driver. The text is the driver's own words, never taken from the request; every watcher's page asks, and
 // the same words are made once (elevenLabsSpeech caches them). 404 once the message is gone, 503 without the voice.
+// The Race Engineer's answers (src/lib/raceEngineer.ts) are said in the driver's coach voice instead, as their
+// collector says them.
 export async function GET(request: Request) {
   const user = await getCurrentUser();
   const t = await apiText(user);
@@ -30,6 +34,20 @@ export async function GET(request: Request) {
     const driver = message ? await getUserById(driverId) : null;
     if (!message || !driver) {
       return NextResponse.json({ error: t.driverNotLive }, { status: 404 });
+    }
+    if (message.from === 'engineer') {
+      limit = await aiRateLimit(request, 'speech', user);
+      if (limit.response) return limit.response;
+      const { voice, spanishAccent, pronunciations } = await getCoachVoice(driverId);
+      const audio = await synthesizeSpeech(
+        withPronunciations(message.text, pronunciations),
+        voice,
+        driver.preferredLanguage ?? DEFAULT_LANGUAGE,
+        spanishAccent,
+        'raceCoach',
+        'mp3'
+      );
+      return new NextResponse(new Uint8Array(audio), { headers: { 'Content-Type': 'audio/mpeg', 'Cache-Control': 'no-store' } });
     }
     const voiceId = await radioVoiceId(driver);
     if (!voiceId) {

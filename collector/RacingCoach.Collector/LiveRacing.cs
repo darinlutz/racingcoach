@@ -41,7 +41,8 @@ internal sealed record FieldDriver(int CarIdx, string Name, string? Number, stri
 /// rarely, so they're sent only when they change or the site asks for them (needsField).
 ///
 /// Watchers can message the driver from the website (Message Driver): the answer to an update carries the messages,
-/// and they're said in the driver's In-Car AI Coach voice.
+/// and typed ones are said in the driver's In-Car AI Coach voice, while ones spoken with Hold to Talk are played in
+/// the watcher's own voice.
 ///
 /// The driver's own Race Announcers on the page and the In-Car AI Coach take turns: each update says whether the
 /// coach is speaking (coachSpeaking), and its answer how long an announcer line about to play lasts
@@ -180,8 +181,48 @@ internal sealed class LiveRacing(Func<RacingCoachApi?> api, Action<string> log)
             _hasLatest = true;
             TrackPath(d);
             RecordInputs(d);
+            TrackFuel(d);
         }
     }
+
+    // ---------------------------------------------------------------- Fuel
+
+    // The fuel used on each of the last few green laps (no pit road, no refuel), for the Race Engineer's fuel numbers
+    private const int FuelLapsKept = 3;
+    private readonly Queue<double> _fuelUses = [];
+    private int? _fuelSession;
+    private int? _fuelLap;
+    private float? _fuelAtLapStart;
+    private bool _fuelLapClean;
+
+    private void TrackFuel(in TelemetryData d)
+    {
+        if (d.IsReplayPlaying == true || d.FuelLevel is not { } fuel || d.Lap is not { } lap)
+            return;
+        if (d.SessionNum != _fuelSession)
+        {
+            _fuelSession = d.SessionNum;
+            _fuelUses.Clear();
+            _fuelLap = null;
+        }
+        if (_fuelAtLapStart is { } before && fuel > before + 0.2f)
+            _fuelLap = null; // refuelled: this lap doesn't count
+        if (d.OnPitRoad == true || d.IsOnTrack != true)
+            _fuelLapClean = false;
+        if (lap == _fuelLap)
+            return;
+        if (_fuelLap is { } previous && lap == previous + 1 && _fuelLapClean && _fuelAtLapStart is { } start && start - fuel > 0)
+        {
+            _fuelUses.Enqueue(start - fuel);
+            while (_fuelUses.Count > FuelLapsKept)
+                _fuelUses.Dequeue();
+        }
+        _fuelLap = lap;
+        _fuelAtLapStart = fuel;
+        _fuelLapClean = d.OnPitRoad != true && d.IsOnTrack == true;
+    }
+
+    private double? FuelPerLap() => _fuelUses.Count > 0 ? Math.Round(_fuelUses.Average(), 3) : null;
 
     // ---------------------------------------------------------------- The driver's inputs
 
@@ -407,7 +448,10 @@ internal sealed class LiveRacing(Func<RacingCoachApi?> api, Action<string> log)
                 sessionLapsRemain = d.SessionLapsRemainEx is >= 0 and < UnlimitedLaps and var lapsLeft ? lapsLeft : (int?)null,
                 sessionLapsTotal = d.SessionLapsTotal is > 0 and < UnlimitedLaps and var lapsTotal ? lapsTotal : (int?)null,
                 acceptsMessages = true,
+                acceptsVoiceMessages = true,
                 coachSpeaking = Voice.Busy,
+                fuelLevel = d.FuelLevel is { } fuelLevel && fuelLevel >= 0 ? Math.Round(fuelLevel, 2) : (double?)null,
+                fuelPerLap = FuelPerLap(),
                 inputs = TakeInputs(),
                 outline = _sendOutline && _map is { Exact: false } map
                     ? new { kind = "meters", points = map.Points.Select(p => new[] { p.X, p.Y }).ToArray() }
@@ -432,8 +476,16 @@ internal sealed class LiveRacing(Func<RacingCoachApi?> api, Action<string> log)
                 Voice.HoldFor(TimeSpan.FromMilliseconds(answer.AnnouncerSpeakingMs));
             foreach (var message in answer.Messages ?? [])
             {
-                log($"Live Racing: message from {message.From}: {message.Text}");
-                Voice.Say(message.Text);
+                if (message.AudioId is { } audioId)
+                {
+                    log($"Live Racing: voice message from {message.From}: {message.Text}");
+                    Voice.PlayRecording(() => client.GetVoiceMessageAsync(audioId, CancellationToken.None), message.Text);
+                }
+                else
+                {
+                    log($"Live Racing: message from {message.From}: {message.Text}");
+                    Voice.Say(message.Text);
+                }
             }
             lock (_lock)
             {

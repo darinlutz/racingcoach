@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { BroadcastTracker, type BroadcastEvent, type TrackerSnapshot } from './broadcastTracker';
 import { flagCodeForFlair } from './countryFlags';
@@ -44,9 +45,13 @@ import { ensureUserSchema, getUserById, type User } from './users';
 // adding events from anywhere in the race (passes, battles, pit stops, incidents, the start and finish, storylines)
 // to the same numbered list; the Commentary Director (src/lib/broadcastDirector.ts) decides what's said about them.
 //
-// Driver Radio (src/lib/driverRadio.ts): what the driver says over the radio, turned into text, is kept a few
-// minutes with their live state and numbered (radioSeq), so watchers' pages show it and play it in the Driver Radio
-// voice (GET /api/live/radio-speech).
+// Driver Radio (src/lib/driverRadio.ts): what the driver says over the radio, turned into text, and the Race
+// Engineer's answers (src/lib/raceEngineer.ts, which reads the driver's session with readEngineerSnapshot), are kept a
+// few minutes with their live state and numbered (radioSeq), so watchers' pages show them and play them
+// (GET /api/live/radio-speech).
+//
+// A watcher's message can also be spoken (the page's Hold to Talk, POST /api/live/voice-message): the recording waits
+// here with it, and collectors that take voice messages fetch it (readVoiceMessage) and play it in the car.
 
 const lapSeconds = z.number().min(0).max(86_400).nullish();
 
@@ -150,8 +155,13 @@ export const liveUpdateSchema = z.object({
   sessionTimeRemain: z.number().min(0).max(604_800).nullish(),
   sessionLapsRemain: z.number().int().min(0).max(100_000).nullish(),
   sessionLapsTotal: z.number().int().min(1).max(100_000).nullish(),
-  // The collector says watchers' messages to the driver (from 1.53.0)
+  // The collector says watchers' messages to the driver (from 1.53.0), and plays watchers' voice messages in their own
+  // voice (from 1.58.0; GET /api/collector/voice-message/[id])
   acceptsMessages: z.boolean().nullish(),
+  acceptsVoiceMessages: z.boolean().nullish(),
+  // Fuel left and the average used per green lap over the last few, in liters (from 1.58.0), for the Race Engineer
+  fuelLevel: z.number().min(0).max(1000).nullish(),
+  fuelPerLap: z.number().min(0).max(100).nullish(),
   // The In-Car AI Coach is speaking, or has something waiting to be said (from 1.55.0); the driver's own Race
   // Announcers wait for it
   coachSpeaking: z.boolean().nullish(),
@@ -182,8 +192,9 @@ export type FieldCar = FieldCarUpdate & { details: FieldDriverDetails | null };
 
 export type LiveField = { subSessionId: number; myCarIdx: number | null; cars: FieldCar[] };
 
-// A watcher's message to the driver, waiting for their collector's next update
-type DriverMessage = { from: string; text: string; at: number };
+// A watcher's message to the driver, waiting for their collector's next update; audioId names the watcher's own
+// recording of it, when they spoke it (readVoiceMessage)
+type DriverMessage = { from: string; text: string; at: number; audioId: string | null };
 export const MAX_MESSAGE_CHARS = 200;
 // At most this many messages wait for a driver, a watcher sends one every MESSAGE_INTERVAL_MS, and an undelivered one
 // is dropped after MESSAGE_EXPIRE_MS (the collector stopped sending updates)
@@ -222,8 +233,10 @@ const NEARBY_PCT = 0.03;
 const SLOWED_SHARE = 0.35;
 const MIN_SLOWED_RATE = 0.004;
 
-// A driver's radio message, as text; at is ms since the epoch
-export type RadioMessage = { seq: number; at: number; text: string };
+// A driver's radio message, as text, or the Race Engineer's answer to one (src/lib/raceEngineer.ts); at is ms since
+// the epoch
+export type RadioSpeaker = 'driver' | 'engineer';
+export type RadioMessage = { seq: number; at: number; text: string; from: RadioSpeaker };
 // Radio messages are kept this long, at most MAX_RADIO of them
 const RADIO_KEPT_MS = 5 * 60_000;
 const MAX_RADIO = 10;
@@ -276,10 +289,13 @@ const store = globalThis as unknown as {
     viewers: Map<number, Map<number, number>>;
     // When each watcher last sent a driver a message
     messagedAt?: Map<number, number>;
+    // Watchers' voice messages (WAVs) waiting for the driver's collector to fetch, by audioId
+    voiceMessages?: Map<string, { driverId: number; wav: Buffer; at: number }>;
   };
 };
 const live = (store.liveRacing ??= { entries: new Map<number, LiveEntry>(), viewers: new Map<number, Map<number, number>>() });
 const messagedAt = (live.messagedAt ??= new Map<number, number>());
+const voiceMessages = (live.voiceMessages ??= new Map<string, { driverId: number; wav: Buffer; at: number }>());
 
 function expire(now: number) {
   for (const [userId, entry] of live.entries) if (now - entry.receivedAt > EXPIRE_MS) live.entries.delete(userId);
@@ -295,7 +311,7 @@ export function recordLiveUpdate(
   watchers: number;
   needsOutline: boolean;
   needsField: boolean;
-  messages: { from: string; text: string }[];
+  messages: { from: string; text: string; audioId?: string }[];
   announcerSpeakingMs: number;
 } {
   const now = Date.now();
@@ -388,7 +404,9 @@ export function recordLiveUpdate(
     radioSeq: previous?.radioSeq ?? 0,
   });
   const messages = update.acceptsMessages
-    ? (previous?.messages ?? []).filter((m) => now - m.at <= MESSAGE_EXPIRE_MS).map(({ from, text }) => ({ from, text }))
+    ? (previous?.messages ?? [])
+        .filter((m) => now - m.at <= MESSAGE_EXPIRE_MS)
+        .map(({ from, text, audioId }) => (audioId && update.acceptsVoiceMessages ? { from, text, audioId } : { from, text }))
     : [];
   return {
     watchers: watcherCount(user.id, now),
@@ -560,12 +578,13 @@ export function detectRaceEvents(
   return events;
 }
 
-// What the driver just said over the radio, for their watchers; null when they aren't live (nobody can watch them)
-export function recordDriverRadio(driverId: number, text: string): RadioMessage | null {
+// What the driver just said over the radio (or the Race Engineer answered), for their watchers; null when they aren't
+// live (nobody can watch them)
+export function recordDriverRadio(driverId: number, text: string, from: RadioSpeaker = 'driver'): RadioMessage | null {
   const now = Date.now();
   const entry = live.entries.get(driverId);
   if (!entry || now - entry.receivedAt > STALE_MS) return null;
-  const message = { seq: ++entry.radioSeq, at: now, text };
+  const message = { seq: ++entry.radioSeq, at: now, text, from };
   entry.radio = [...entry.radio.filter((r) => now - r.at <= RADIO_KEPT_MS), message].slice(-MAX_RADIO);
   return message;
 }
@@ -577,6 +596,29 @@ export async function readDriverRadio(viewer: Pick<User, 'id' | 'role'>, driverI
   if (!message) return null;
   const allowed = await watchableDrivers(viewer);
   return allowed === 'all' || allowed.has(driverId) ? message : null;
+}
+
+// What the Race Engineer (src/lib/raceEngineer.ts) knows of a driver's session right now: their latest live update,
+// field, recent race events and radio; null when they aren't live
+export type EngineerSnapshot = {
+  update: UpdateState;
+  field: LiveField | null;
+  events: NumberedRaceEvent[];
+  radio: RadioMessage[];
+  weatherTrend: WeatherTrend | null;
+};
+
+export function readEngineerSnapshot(driverId: number): EngineerSnapshot | null {
+  const now = Date.now();
+  const entry = live.entries.get(driverId);
+  if (!entry || now - entry.receivedAt > STALE_MS) return null;
+  return {
+    update: entry.update,
+    field: entry.field,
+    events: entry.events.filter((e) => now - e.at <= EVENTS_KEPT_MS),
+    radio: entry.radio.filter((r) => now - r.at <= RADIO_KEPT_MS),
+    weatherTrend: entry.update.weather ? weatherTrend(entry.weatherHistory, weatherSample(entry.update.weather, entry.receivedAt)) : null,
+  };
 }
 
 // The collector stopped (closed, or iRacing closed)
@@ -626,7 +668,7 @@ export type LiveDriver = Omit<LiveUpdate, 'outline' | 'field' | 'inputs'> & {
   // The number of the driver's newest race event (readRaceEvents gives them), 0 for none yet
   eventSeq: number;
   // The driver's radio messages of the last few minutes, oldest first, each agoMs old, and the newest's number
-  radio: { seq: number; agoMs: number; text: string }[];
+  radio: { seq: number; agoMs: number; text: string; from: RadioSpeaker }[];
   radioSeq: number;
 };
 
@@ -655,20 +697,20 @@ export async function readLiveDrivers(viewer: Pick<User, 'id' | 'role'>, inputsF
       inputs: entry.userId === inputsFor ? entry.inputs : null,
       weatherTrend: entry.update.weather ? weatherTrend(entry.weatherHistory, weatherSample(entry.update.weather, entry.receivedAt)) : null,
       eventSeq: entry.eventSeq,
-      radio: entry.radio.filter((r) => now - r.at <= RADIO_KEPT_MS).map((r) => ({ seq: r.seq, agoMs: now - r.at, text: r.text })),
+      radio: entry.radio
+        .filter((r) => now - r.at <= RADIO_KEPT_MS)
+        .map((r) => ({ seq: r.seq, agoMs: now - r.at, text: r.text, from: r.from })),
       radioSeq: entry.radioSeq,
     });
   }
   return drivers.sort((a, b) => Number(b.isMe) - Number(a.isMe) || a.driver.localeCompare(b.driver));
 }
 
-// A watcher's message to a live driver, said by their collector in the driver's In-Car AI Coach voice once its next
-// update arrives (within a second in the car, a few seconds otherwise)
-export async function queueDriverMessage(
-  viewer: Pick<User, 'id' | 'role' | 'userName'>,
-  driverId: number,
-  text: string
-): Promise<'queued' | 'notLive' | 'notAllowed' | 'collectorTooOld' | 'tooMany'> {
+export type DriverMessageStatus = 'queued' | 'notLive' | 'notAllowed' | 'collectorTooOld' | 'tooMany';
+
+// Whether this viewer may message the driver now ('queued' when they may), checked before a voice message is turned
+// into text so a refused one costs nothing
+export async function checkDriverMessage(viewer: Pick<User, 'id' | 'role'>, driverId: number): Promise<DriverMessageStatus> {
   const now = Date.now();
   expire(now);
   const allowed = await watchableDrivers(viewer);
@@ -680,9 +722,39 @@ export async function queueDriverMessage(
   if (now - (messagedAt.get(viewer.id) ?? 0) < MESSAGE_INTERVAL_MS || entry.messages.length >= MAX_QUEUED_MESSAGES) {
     return 'tooMany';
   }
-  messagedAt.set(viewer.id, now);
-  entry.messages.push({ from: viewer.userName, text: text.slice(0, MAX_MESSAGE_CHARS), at: now });
   return 'queued';
+}
+
+// A watcher's message to a live driver, said by their collector in the driver's In-Car AI Coach voice once its next
+// update arrives (within a second in the car, a few seconds otherwise). With wav (the watcher spoke it, from the
+// Live Racing page's Hold to Talk), collectors that take voice messages play the recording instead, and older ones
+// say the text.
+export async function queueDriverMessage(
+  viewer: Pick<User, 'id' | 'role' | 'userName'>,
+  driverId: number,
+  text: string,
+  wav?: Buffer
+): Promise<DriverMessageStatus> {
+  const status = await checkDriverMessage(viewer, driverId);
+  if (status !== 'queued') return status;
+  const now = Date.now();
+  const entry = live.entries.get(driverId)!;
+  messagedAt.set(viewer.id, now);
+  let audioId: string | null = null;
+  if (wav) {
+    for (const [id, voice] of voiceMessages) if (now - voice.at > MESSAGE_EXPIRE_MS) voiceMessages.delete(id);
+    audioId = randomUUID();
+    voiceMessages.set(audioId, { driverId, wav, at: now });
+  }
+  entry.messages.push({ from: viewer.userName, text: text.slice(0, MAX_MESSAGE_CHARS), at: now, audioId });
+  return 'queued';
+}
+
+// A watcher's voice message for this driver's collector to play, or null once it's gone (or isn't theirs)
+export function readVoiceMessage(driverId: number, audioId: string): Buffer | null {
+  const voice = voiceMessages.get(audioId);
+  if (!voice || voice.driverId !== driverId || Date.now() - voice.at > MESSAGE_EXPIRE_MS) return null;
+  return voice.wav;
 }
 
 // What the Race Announcers know about a driver's session when an event happens

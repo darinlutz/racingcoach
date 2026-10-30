@@ -7,8 +7,8 @@ using System.Windows.Media;
 namespace RacingCoach.Collector;
 
 /// <summary>
-/// Driver Radio over the sim: Recording while the radio button is held, then what the driver said (or why it didn't
-/// work) for a few seconds. MainWindow shows it when Driver Radio starts recording and hides it after; it's made
+/// Driver Radio over the sim: Recording while the radio button is held, then what the driver said and the Race
+/// Engineer's answer (or why it didn't work) for a few seconds. MainWindow shows it when Driver Radio starts recording and hides it after; it's made
 /// never to take the keyboard or mouse focus from iRacing.
 /// </summary>
 public partial class RadioWindow : Window
@@ -36,6 +36,7 @@ public partial class RadioWindow : Window
         {
             RadioState.Recording => (Red, "DRIVER RADIO · RECORDING", $"Speak now… {seconds} s"),
             RadioState.Sending => (Blue, "DRIVER RADIO", "Sending…"),
+            RadioState.Said when status.Reply is not null => (Green, "RACE ENGINEER", $"You: “{status.Text}”\n{status.Reply}"),
             RadioState.Said => (Green, "DRIVER RADIO · YOU SAID", $"“{status.Text}”"),
             _ => (Amber, "DRIVER RADIO", status.Text ?? ""),
         };

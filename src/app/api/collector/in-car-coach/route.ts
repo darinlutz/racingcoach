@@ -1,20 +1,15 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { aiErrorResponse } from '@/lib/aiErrors';
-import { carRpmLimit } from '@/lib/carData';
 import { authenticateCollector } from '@/lib/collectorKeys';
 import { setCoachPronunciations } from '@/lib/coachVoice';
-import { readCollectorLapsByClientId } from '@/lib/collectorLaps';
-import { measureDebriefSession } from '@/lib/debriefSession';
+import { measureCollectorSession } from '@/lib/collectorSession';
 import { DEFAULT_LANGUAGE, LANGUAGE_LOCALES } from '@/lib/i18n/languages';
 import { inCarCoachCallouts, inCarCoachPlan } from '@/lib/inCarCoach';
-import { lapSamplesFromText } from '@/lib/lapData';
 import { aiRateLimit, type AiRateLimit } from '@/lib/rateLimits';
 import { canUseInCarCoach } from '@/lib/roles';
 import { getEnableAiFeatures } from '@/lib/siteSettings';
-import { readTargetLap } from '@/lib/targetLap';
-import { targetLapIsOf, withTargetLap } from '@/lib/targetLapTargets';
-import { findTrackByKey, readTracks, toLapTrack } from '@/lib/tracks';
+import { findTrackByKey, readTracks } from '@/lib/tracks';
 import { DEFAULT_UNITS } from '@/lib/units';
 import { getInCarCoachInstructions, getUserById } from '@/lib/users';
 
@@ -116,47 +111,27 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'The AI coach isn’t available right now' }, { status: 500 });
     }
 
-    const all = await readCollectorLapsByClientId(user.userId, parsed.data.clientLapIds);
-    if (all.length === 0) {
+    const measured = await measureCollectorSession(user.userId, parsed.data.clientLapIds);
+    if (!measured) {
       return NextResponse.json({ error: 'None of those laps have been uploaded' }, { status: 404 });
     }
-    // One session is one track; the newest lap's
-    const trackName = all[all.length - 1].track;
-    const laps = all.filter((lap) => lap.track === trackName).map((lap) => ({ ...lap, id: lap.clientLapId.slice(-4) }));
-    const userTrack = findTrackByKey(await readTracks(), all[all.length - 1].trackKey);
-    // The areas' targets come only from the Target Lap (targetLapTargets.ts)
-    const targetLap = userTrack ? await readTargetLap(user.userId) : null;
-    const session = userTrack
-      ? measureDebriefSession(
-          withTargetLap(toLapTrack(userTrack), targetLap && targetLapIsOf(targetLap, [trackName, userTrack.name], true) ? targetLap : null),
-          laps[0].car,
-          laps.map((lap) => ({ id: lap.id, lapSeconds: lap.lapTimeSeconds, samples: lapSamplesFromText(lap.csv) }))
-        )
-      : null;
 
     limit = await aiRateLimit(request, 'inCarCoachCallouts', user.user);
     if (limit.response) return limit.response;
-    const rpmLimit = await carRpmLimit(user.userId, laps[0].car).catch(() => null);
     const { callouts, steps } = await limit.track(() =>
       inCarCoachCallouts({
         instructions: user.instructions,
-        track: trackName,
-        car: laps[0].car,
-        laps: laps.map((lap) => ({
-          id: lap.id,
-          lapNumber: lap.lapNumber,
-          lapSeconds: lap.lapTimeSeconds,
-          incidents: lap.incidents,
-          offTrack: lap.offTrack,
-        })),
-        session,
-        carRpmLimit: rpmLimit,
+        track: measured.track,
+        car: measured.car,
+        laps: measured.laps,
+        session: measured.session,
+        carRpmLimit: measured.carRpmLimit,
         recentCallouts: parsed.data.recentCallouts,
         language: user.language,
         units: user.units,
       })
     );
-    console.log(`In-Car AI Coach: user ${user.userId}, ${laps.length} laps, ${callouts.length} callouts (${steps.join(', ') || 'no tools'})`);
+    console.log(`In-Car AI Coach: user ${user.userId}, ${measured.laps.length} laps, ${callouts.length} callouts (${steps.join(', ') || 'no tools'})`);
     return NextResponse.json({ callouts });
   } catch (error) {
     console.error('In-Car AI Coach error:', error);

@@ -2,7 +2,8 @@
 // and speaks; the collector records the microphone and posts the recording (POST /api/collector/radio), which is
 // turned into text here (OpenAI speech to text) and shown on the Live Racing page (src/lib/liveRacing.ts,
 // recordDriverRadio) and back in the sim. The page plays each message in the driver's radio voice
-// (GET /api/live/radio-speech, radioVoiceId).
+// (GET /api/live/radio-speech, radioVoiceId). The Race Engineer (src/lib/raceEngineer.ts) answers what needs an
+// answer. The Live Racing page's Hold to Talk sends watchers' spoken messages through the same speech to text.
 
 import { getCoachVoice } from './coachVoice';
 import { elevenLabsRadioVoiceId, elevenLabsVoiceId } from './elevenLabs';

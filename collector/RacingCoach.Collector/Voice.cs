@@ -5,7 +5,7 @@ using System.Threading.Channels;
 namespace RacingCoach.Collector;
 
 /// <summary>
-/// Speaks to the driver (the In-Car AI Coach, the in-session debrief) in the coach
+/// Speaks to the driver (the In-Car AI Coach, the in-session debrief, the Race Engineer, watchers' messages) in the coach
 /// voice they picked on the Account page, with a native accent in their Preferred Language: RacingCoach.app makes
 /// the speech with Google Chirp 3 HD (POST /api/collector/speech) and it's played here. One thing at a time, in order. Speech
 /// is kept for a while, so things said often (e.g. a rule's callout) play straight away after the first time.
@@ -17,7 +17,9 @@ namespace RacingCoach.Collector;
 /// </summary>
 internal static class Voice
 {
-    private sealed record Item(string? Text, string? Phrase, string Fallback, long Generation);
+    // Recording: a watcher's own voice message to fetch and play (Live Racing's Hold to Talk), with Text said instead
+    // when it can't be had
+    private sealed record Item(string? Text, string? Phrase, string Fallback, long Generation, Func<Task<byte[]?>>? Recording = null);
 
     private const int CacheSize = 64;
     private static readonly TimeSpan CacheFor = TimeSpan.FromMinutes(30);
@@ -72,6 +74,13 @@ internal static class Voice
     /// "newLap"); Windows' voice says the English fallback when the site can't.</summary>
     public static void SayPhrase(string phrase, string fallback, bool interrupt = false) =>
         Enqueue(new Item(null, phrase, fallback, 0), interrupt);
+
+    /// <summary>Plays a recording (a watcher's voice message from the Live Racing page) in turn with everything else,
+    /// fetched when its turn comes; text is said in the coach voice when it can't be fetched.</summary>
+    public static void PlayRecording(Func<Task<byte[]?>> recording, string text)
+    {
+        Enqueue(new Item(text.Trim(), null, text.Trim(), 0, recording), false);
+    }
 
     /// <summary>Something is being said, or waiting to be.</summary>
     public static bool Busy => Volatile.Read(ref _pending) > 0;
@@ -173,6 +182,19 @@ internal static class Voice
     // The speech from the site (or kept from earlier), or null to use Windows' voice
     private static async Task<byte[]?> GetSpeechAsync(Item item)
     {
+        if (item.Recording is not null)
+        {
+            try
+            {
+                if (await item.Recording() is { } recording)
+                    return recording;
+            }
+            catch (Exception e) when (e is HttpRequestException or TaskCanceledException or UnauthorizedAccessException)
+            {
+                _log($"Couldn't fetch the voice message ({e.Message}); the coach says it instead.");
+            }
+            item = item with { Recording = null };
+        }
         if (_site() is not { } site)
             return null;
         var key = item.Phrase is not null ? $"phrase:{item.Phrase}" : $"text:{item.Text}";

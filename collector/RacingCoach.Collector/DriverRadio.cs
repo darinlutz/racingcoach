@@ -3,10 +3,11 @@ using SVappsLAB.iRacingTelemetrySDK;
 namespace RacingCoach.Collector;
 
 /// <summary>What Driver Radio is doing, for the Radio window: Recording while the button is held, Sending while the
-/// site turns it into text, then Said (the text) or Problem (why not) for a few seconds; Since is when it started.</summary>
+/// site turns it into text (and the Race Engineer answers), then Said (the text, and the engineer's Reply when it
+/// answered) or Problem (why not) for a few seconds; Since is when it started.</summary>
 internal enum RadioState { Idle, Recording, Sending, Said, Problem }
 
-internal sealed record RadioStatus(RadioState State, string? Text, DateTime Since);
+internal sealed record RadioStatus(RadioState State, string? Text, DateTime Since, string? Reply = null);
 
 /// <summary>
 /// Driver Radio (src/lib/driverRadio.ts in the website): while the driver holds iRacing's radio (push to talk) button,
@@ -20,6 +21,10 @@ internal sealed record RadioStatus(RadioState State, string? Text, DateTime Sinc
 /// wheel button works anywhere, iRacing running or not, and goes to nobody else in iRacing unless it's also bound
 /// there.
 ///
+/// The site's Race Engineer answers when what was said needs an answer (a question, "box this lap", ...): it knows the
+/// live timing (gaps, position, fuel, laps left) and looks through the session's uploaded laps, and its reply is said
+/// in the coach voice and shown in the Radio window. Silver and Gold members only, like the In-Car AI Coach.
+///
 /// The In-Car AI Coach waits while the driver talks, so the microphone doesn't hear it.
 /// </summary>
 internal sealed class DriverRadio : IDisposable
@@ -32,10 +37,14 @@ internal sealed class DriverRadio : IDisposable
     private static readonly TimeSpan PollEvery = TimeSpan.FromMilliseconds(20);
     // iRacing's radio counts as held only while telemetry keeps coming
     private static readonly TimeSpan SampleFresh = TimeSpan.FromMilliseconds(500);
-    private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(30);
+    // The speech to text, then the Race Engineer, which may look through the laps
+    private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(45);
 
     private readonly Func<RacingCoachApi?> _api;
+    private readonly Func<IReadOnlyCollection<Guid>> _sessionLaps;
     private readonly Action<string, bool> _log;
+    // Told once a run that the Race Engineer is for Silver and Gold members
+    private bool _toldMembersOnly;
     private readonly MicRecorder _mic = new();
     private readonly CancellationTokenSource _stop = new();
     private readonly object _lock = new();
@@ -48,9 +57,10 @@ internal sealed class DriverRadio : IDisposable
     private Action<WheelButton?>? _picked;
     private DateTime _pickUntil;
 
-    public DriverRadio(Func<RacingCoachApi?> api, Action<string, bool> log, WheelButton? button)
+    public DriverRadio(Func<RacingCoachApi?> api, Func<IReadOnlyCollection<Guid>> sessionLaps, Action<string, bool> log, WheelButton? button)
     {
         _api = api;
+        _sessionLaps = sessionLaps;
         _log = log;
         _button = button;
         new Thread(Run) { IsBackground = true, Name = "Driver Radio" }.Start();
@@ -234,16 +244,31 @@ internal sealed class DriverRadio : IDisposable
             {
                 using var timeout = CancellationTokenSource.CreateLinkedTokenSource(_stop.Token);
                 timeout.CancelAfter(RequestTimeout);
-                var answer = await client.SendRadioAsync(wav, timeout.Token);
+                var answer = await client.SendRadioAsync(wav, _sessionLaps(), timeout.Token);
                 if (string.IsNullOrWhiteSpace(answer.Text))
                 {
                     SetUnlessRecording(RadioState.Problem, "Didn't catch that. Hold the button while you speak.");
                     return;
                 }
-                SetUnlessRecording(RadioState.Said, answer.Text);
+                var reply = string.IsNullOrWhiteSpace(answer.Reply) ? null : answer.Reply.Trim();
+                SetUnlessRecording(RadioState.Said, answer.Text, reply);
                 _log(answer.Shared
                     ? $"Driver Radio: “{answer.Text}” (sent to Live Racing)"
                     : $"Driver Radio: “{answer.Text}” (not on Live Racing: you're not sharing live right now)", false);
+                if (reply is not null)
+                {
+                    _log($"Race Engineer: “{reply}”", false);
+                    Voice.Say(reply);
+                }
+                else if (answer.Engineer == "membershipRequired" && !_toldMembersOnly)
+                {
+                    _toldMembersOnly = true;
+                    _log("Race Engineer: answers over the radio are for Silver and Gold members.", false);
+                }
+                else if (answer.Engineer is "rateLimited" or "failed")
+                    _log(answer.Engineer == "rateLimited"
+                        ? "Race Engineer: no answer, you've reached your AI limit for now."
+                        : "Race Engineer: couldn't answer that one.", true);
             }
             catch (Exception e) when (e is HttpRequestException or UnauthorizedAccessException or TaskCanceledException)
             {
@@ -255,12 +280,12 @@ internal sealed class DriverRadio : IDisposable
     }
 
     // A late answer doesn't hide the next message being recorded
-    private void SetUnlessRecording(RadioState state, string? text)
+    private void SetUnlessRecording(RadioState state, string? text, string? reply = null)
     {
         lock (_lock)
         {
             if (_status.State != RadioState.Recording)
-                _status = new RadioStatus(state, text, DateTime.UtcNow);
+                _status = new RadioStatus(state, text, DateTime.UtcNow, reply);
         }
     }
 }

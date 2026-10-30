@@ -60,6 +60,9 @@ internal sealed class InCarCoach(Func<RacingCoachApi?> api, Action<string> log)
 
     // Lap feedback: this run's uploaded laps per session folder, and the one request at a time
     private readonly Dictionary<string, List<Guid>> _uploaded = [];
+    // The newest session's uploaded laps, oldest first, whether lap feedback is on or not, for the Race Engineer
+    private string? _sessionFolder;
+    private readonly List<Guid> _sessionLaps = [];
     private bool _requesting;
     private string? _pendingFolder;
     private readonly Queue<string> _recent = [];
@@ -361,11 +364,29 @@ internal sealed class InCarCoach(Func<RacingCoachApi?> api, Action<string> log)
             Voice.Say(text);
     }
 
+    /// <summary>The newest session's uploaded laps (by clientLapId, oldest first, not pit road laps), for the Race
+    /// Engineer (DriverRadio).</summary>
+    public IReadOnlyCollection<Guid> SessionLaps()
+    {
+        lock (_lock)
+            return [.. _sessionLaps];
+    }
+
     /// <summary>Called with each lap the uploader has finished with (error null = uploaded).</summary>
     public void OnUploaded(UploadItem item, string? error)
     {
         if (error is not null || item.Earlier || item.WithPositions || item.Lap.PitRoad || item.Lap.ClientLapId is not { } id)
             return;
+        lock (_lock)
+        {
+            if (item.Folder != _sessionFolder)
+            {
+                _sessionFolder = item.Folder;
+                _sessionLaps.Clear();
+            }
+            if (!_sessionLaps.Contains(id))
+                _sessionLaps.Add(id);
+        }
         // Counted even while the plan is still loading, so a slow or failed load doesn't silence the session
         var feedback = _plan?.Plan ?? DefaultPlan;
         if (!feedback.LapFeedback)

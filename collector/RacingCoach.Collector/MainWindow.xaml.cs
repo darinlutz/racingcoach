@@ -76,6 +76,8 @@ public partial class MainWindow : Window
     private RadioWindow? _radioWindow;
     private bool _pickingRadioButton;
     private static readonly TimeSpan RadioSaidShownFor = TimeSpan.FromSeconds(8);
+    // Long enough to read the Race Engineer's answer while it's said
+    private static readonly TimeSpan RadioReplyShownFor = TimeSpan.FromSeconds(14);
     private static readonly TimeSpan RadioProblemShownFor = TimeSpan.FromSeconds(6);
     // TelemetryEngine.js for the Target Telemetry window's overlay boxes, while it's open
     private OverlayFeed? _overlayFeed;
@@ -378,7 +380,7 @@ public partial class MainWindow : Window
         var show = status.State switch
         {
             RadioState.Recording or RadioState.Sending => true,
-            RadioState.Said => age < RadioSaidShownFor,
+            RadioState.Said => age < (status.Reply is null ? RadioSaidShownFor : RadioReplyShownFor),
             RadioState.Problem => age < RadioProblemShownFor,
             _ => false,
         };
@@ -399,9 +401,10 @@ public partial class MainWindow : Window
         {
             RadioState.Recording => "Recording… let go of the button when you're done.",
             RadioState.Sending => "Sending…",
+            RadioState.Said when status.Reply is not null => $"You said: “{status.Text}”\nRace Engineer: “{status.Reply}”",
             RadioState.Said => $"You said: “{status.Text}”",
             RadioState.Problem => status.Text ?? "",
-            _ => "Hold iRacing's radio (push to talk) button and speak. It's shown over the sim and on Live Racing.",
+            _ => "Hold iRacing's radio (push to talk) button and speak. It's shown over the sim and on Live Racing, and your race engineer answers questions.",
         };
         var button = _engine.Radio.Button;
         RadioButtonText.Text = _pickingRadioButton ? "Press the wheel or button box button to talk with (10 s)…"

@@ -399,6 +399,8 @@ export default function LiveRacing({ announcers: showAnnouncers }: { announcers:
     (async () => {
       try {
         for (const message of waiting) {
+          // The driver's own collector already says the Race Engineer's answers in their car
+          if (mine && message.from === 'engineer') continue;
           const response = await fetch(`/api/live/radio-speech?driverId=${driver}&seq=${message.seq}`);
           if (!response.ok) {
             const data = await response.json().catch(() => ({}));
@@ -698,6 +700,7 @@ export default function LiveRacing({ announcers: showAnnouncers }: { announcers:
                       driverId={focusedHere.userId}
                       driver={focusedHere.driver}
                       disabled={!!focusedHere.offline}
+                      voice={showAnnouncers}
                     />
                   </>
                 ) : (

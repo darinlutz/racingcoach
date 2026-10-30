@@ -340,21 +340,39 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
         return await response.Content.ReadAsByteArrayAsync(ct);
     }
 
-    /// <summary>Driver Radio: what the driver said while holding the radio button, as a WAV recording. Answers the
-    /// words (empty when nothing was heard) and whether they went to the Live Racing page. Throws
-    /// UnauthorizedAccessException if the key isn't accepted, HttpRequestException (with the site's message, e.g. a
-    /// rate limit or Driver Radio turned off) or TaskCanceledException.</summary>
-    public async Task<RadioAnswer> SendRadioAsync(byte[] wav, CancellationToken ct)
+    /// <summary>Driver Radio: what the driver said while holding the radio button, as a WAV recording, with the
+    /// session's uploaded laps (by clientLapId, oldest first) for the Race Engineer to look through. Answers the words
+    /// (empty when nothing was heard), whether they went to the Live Racing page, and the Race Engineer's reply (null
+    /// when it has nothing to say, with why in Engineer). Throws UnauthorizedAccessException if the key isn't
+    /// accepted, HttpRequestException (with the site's message, e.g. a rate limit or Driver Radio turned off) or
+    /// TaskCanceledException.</summary>
+    public async Task<RadioAnswer> SendRadioAsync(byte[] wav, IReadOnlyCollection<Guid> sessionLaps, CancellationToken ct)
     {
         using var content = new ByteArrayContent(wav);
         content.Headers.ContentType = new MediaTypeHeaderValue("audio/wav");
-        using var response = await _http.PostAsync("api/collector/radio", content, ct);
+        var laps = string.Join(",", sessionLaps.TakeLast(30).Select(id => id.ToString("D")));
+        using var response = await _http.PostAsync($"api/collector/radio?engineer=1&laps={laps}", content, ct);
         if (response.StatusCode == HttpStatusCode.Unauthorized)
             throw new UnauthorizedAccessException("RacingCoach.app doesn't accept the upload key");
         if (!response.IsSuccessStatusCode)
             throw new HttpRequestException(await ErrorMessageAsync(response, ct));
         return await response.Content.ReadFromJsonAsync<RadioAnswer>(JsonOptions, ct)
             ?? throw new HttpRequestException("the site sent no answer");
+    }
+
+    /// <summary>Live Racing: a watcher's voice message to the driver (Hold to Talk on the website), as the WAV they
+    /// recorded, or null once it's gone. Throws UnauthorizedAccessException if the key isn't accepted,
+    /// HttpRequestException or TaskCanceledException.</summary>
+    public async Task<byte[]?> GetVoiceMessageAsync(string audioId, CancellationToken ct)
+    {
+        using var response = await _http.GetAsync($"api/collector/voice-message/{Uri.EscapeDataString(audioId)}", ct);
+        if (response.StatusCode == HttpStatusCode.Unauthorized)
+            throw new UnauthorizedAccessException("RacingCoach.app doesn't accept the upload key");
+        if (response.StatusCode == HttpStatusCode.NotFound)
+            return null;
+        if (!response.IsSuccessStatusCode)
+            throw new HttpRequestException(await ErrorMessageAsync(response, ct));
+        return await response.Content.ReadAsByteArrayAsync(ct);
     }
 
     /// <summary>Sends activity log lines (LogUploader). Throws UnauthorizedAccessException if the key isn't accepted,
@@ -518,11 +536,14 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
 internal sealed record LiveAnswer(int Watchers, bool NeedsOutline, bool SavedOutline, bool NeedsField = false,
     List<LiveMessage>? Messages = null, int AnnouncerSpeakingMs = 0);
 
-/// <summary>POST /api/collector/radio: the words the driver said, and whether they went to the Live Racing page.</summary>
-internal sealed record RadioAnswer(string Text, bool Shared);
+/// <summary>POST /api/collector/radio: the words the driver said, whether they went to the Live Racing page, and the
+/// Race Engineer's answer (null when it has none; Engineer says why: answered, silent, membershipRequired,
+/// rateLimited or failed).</summary>
+internal sealed record RadioAnswer(string Text, bool Shared, string? Reply = null, string? Engineer = null);
 
-/// <summary>A watcher's message to the driver from the website's Live Racing page, said in the coach voice.</summary>
-internal sealed record LiveMessage(string From, string Text);
+/// <summary>A watcher's message to the driver from the website's Live Racing page, said in the coach voice; or, with
+/// AudioId, spoken by the watcher (GetVoiceMessageAsync gives the recording).</summary>
+internal sealed record LiveMessage(string From, string Text, string? AudioId = null);
 
 /// <summary>GET /api/collector/track-outline: the track's name, iRacing's length (null when unknown), its outline
 /// (null until a clean lap of it has been uploaded with track positions) and its focus areas.</summary>

@@ -160,10 +160,10 @@ function tireLayer(corner: TireCorner, header: string[]): TireLayer | null {
 }
 
 // Brake (0-1) above this counts as the driver being on the brakes
-const BRAKE_THRESHOLD = 0;
+export const BRAKE_THRESHOLD = 0;
 
 // Throttle (0-1) at or above this counts as the driver being back on the power
-const THROTTLE_THRESHOLD = 0.1;
+export const THROTTLE_THRESHOLD = 0.1;
 
 // Reads the LapDistPct, Brake, Throttle, Speed, SteeringWheelAngle, Lat, Lon, Alt, Yaw, YawRate, VelocityX, VelocityY, RPM, Gear, tire temperature, tire pressure, ride height and engine columns. LapDistPct is unwrapped so it keeps
 // increasing past the start/finish line (e.g. 0.999 -> 1.001 instead of 0.001).

@@ -5,6 +5,7 @@ import { useLanguage } from '@/components/LanguageProvider';
 import FocusAreaTabs from '@/components/FocusAreaTabs';
 import type { Tab as LapDataTab } from '@/components/LapDataTabs';
 import PedalTraces, { type PedalTraceLap } from '@/components/PedalTraces';
+import { DEFAULT_CHART_SETTINGS, type ChartSettings } from '@/components/TelemetryCursor';
 import SummaryPanel from '@/components/SummaryPanel';
 import type { Dictionary } from '@/lib/i18n/dictionaries/en';
 import { fmt } from '@/lib/i18n/languages';
@@ -493,6 +494,8 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
   const [selectedArea, setSelectedArea] = useState('');
   // The data tab under the charts (Balance, Engine, ...), kept when another focus area is picked; the leftmost first
   const [dataTab, setDataTab] = useState<LapDataTab>('slip');
+  // The telemetry charts' toolbar, also kept when another focus area is picked
+  const [chartSettings, setChartSettings] = useState<ChartSettings>(DEFAULT_CHART_SETTINGS);
 
   // Starts on the initial laps' track when there are any, otherwise the first track
   const initialTrack = initialLaps?.base.trackName;
@@ -522,15 +525,17 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
       return;
     }
 
+    // The input empties this list as soon as its change handler returns, so it's read before the first await
+    const file = fileList[0];
     try {
-      const lap = await parseLapFile(fileList[0]);
+      const lap = await parseLapFile(file);
       // Select the track matching the uploaded file's track name
       const match = tracks.find((track) => sameTrackName(track.fileName, lap.trackName));
       if (match) setTrackName(match.name);
       setLapError(match ? '' : fmt(dictionary.laps.noSuchTrack, { track: lap.trackName }));
       setLap(lap);
     } catch (err) {
-      setLapError(fmt(dictionary.laps.fileError, { name: fileList[0].name, error: lapFileErrorText(err, dictionary.laps.errors) }));
+      setLapError(fmt(dictionary.laps.fileError, { name: file.name, error: lapFileErrorText(err, dictionary.laps.errors) }));
     }
   };
 
@@ -601,12 +606,16 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
                 diff: comparison.secondsDiff,
                 base: {
                   title: lapTitle(t.lapTitleBase, baseLap),
+                  lapTime: formatLapTime(baseLap.lapTime),
+                  lapSeconds: baseSeconds,
                   trace: baseTrace,
                   summary: pedalSummary(base, selectedTrack.lengthFeet, t, locale, units),
                   samples: baseSamples,
                 },
                 compare: {
                   title: lapTitle(t.lapTitleCompare, compareLap),
+                  lapTime: formatLapTime(compareLap.lapTime),
+                  lapSeconds: compareSeconds,
                   trace: compareTrace,
                   summary: pedalSummary(compare, selectedTrack.lengthFeet, t, locale, units),
                   samples: compareSamples,
@@ -764,11 +773,14 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
                 <PedalTraces
                   key={selectedTrace.name}
                   id={`pedal-${selectedIndex}`}
+                  areaName={selectedTrace.name}
                   lengthFeet={selectedTrack?.lengthFeet ?? null}
                   base={selectedTrace.base}
                   compare={selectedTrace.compare}
                   dataTab={dataTab}
                   onDataTabChange={setDataTab}
+                  chartSettings={chartSettings}
+                  onChartSettingsChange={setChartSettings}
                 />
               </div>
             </div>

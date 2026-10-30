@@ -15,6 +15,7 @@
     "test:tv": "node --test scripts/tv-broadcast.test.mjs",
     "test:broadcast": "node --test scripts/race-broadcast.test.mjs",
     "test:tire-temps": "node --experimental-transform-types --no-warnings --test scripts/tire-temps.test.mjs",
+    "test:lap-events": "node --experimental-transform-types --no-warnings --test scripts/lap-events.test.mjs",
     "test:e2e": "playwright test"
   },
   "dependencies": {

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Barlow, Barlow_Condensed } from "next/font/google";
+import { Barlow, Barlow_Condensed, JetBrains_Mono } from "next/font/google";
 import Link from "next/link";
 import ActivityTracker from "@/components/ActivityTracker";
 import ConsentGate from "@/components/ConsentGate";
@@ -31,6 +31,13 @@ const barlowCondensed = Barlow_Condensed({
   variable: "--font-barlow-condensed",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700", "800"],
+});
+
+// The numbers in Lap Compare's telemetry charts; not preloaded, as few pages use it
+const jetBrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains-mono",
+  subsets: ["latin"],
+  preload: false,
 });
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -69,7 +76,7 @@ export default async function RootLayout({
     <html
       lang={language}
       data-theme={theme}
-      className={`${barlow.variable} ${barlowCondensed.variable} h-full antialiased`}
+      className={`${barlow.variable} ${barlowCondensed.variable} ${jetBrainsMono.variable} h-full antialiased`}
       data-scroll-behavior="smooth"
     >
       <body className="min-h-screen bg-background text-foreground flex flex-col">

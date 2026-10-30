@@ -6,7 +6,6 @@ import FocusAreaTabs from '@/components/FocusAreaTabs';
 import type { Tab as LapDataTab } from '@/components/LapDataTabs';
 import PedalTraces, { type PedalTraceLap } from '@/components/PedalTraces';
 import SummaryPanel from '@/components/SummaryPanel';
-import TrackSatellite from '@/components/TrackSatellite';
 import type { Dictionary } from '@/lib/i18n/dictionaries/en';
 import { fmt } from '@/lib/i18n/languages';
 import { measureDrivingLine, type LapDrivingLine } from '@/lib/lapDrivingLine';
@@ -476,8 +475,6 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
   const t = dictionary.lapCompare;
   const [tracks, setTracks] = useState<Track[]>([]);
   const [trackName, setTrackName] = useState('');
-  // Whether the track name is hovered, which shows its satellite picture
-  const [trackHovered, setTrackHovered] = useState(false);
   const [error, setError] = useState('');
   const [baseLap, setBaseLap] = useState<LapFile | null>(initialLaps?.base ?? null);
   const [compareLap, setCompareLap] = useState<LapFile | null>(initialLaps?.compare ?? null);
@@ -660,11 +657,8 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
       {(baseLap || compareLap || error) && (
         <div>
           {(baseLap || compareLap) && (
-            // The satellite picture shows at the right while the track name is hovered, over what's below it
-            <div className="relative">
+            <div>
               <h2
-                onMouseEnter={() => setTrackHovered(true)}
-                onMouseLeave={() => setTrackHovered(false)}
                 className={
                   lapsTrack ? 'inline-block text-2xl font-bold tracking-tight text-foreground' : 'text-xl font-semibold text-muted-foreground'
                 }
@@ -672,19 +666,6 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
                 {lapsTrack?.fileName ??
                   (tracks.length === 0 ? (error ? dictionary.laps.unavailable : dictionary.common.loading) : dictionary.laps.notInTrackData)}
               </h2>
-              {lapsTrack && trackHovered && (
-                <div className="absolute right-0 top-0 z-10">
-                  <TrackSatellite
-                    track={{
-                      name: lapsTrack.fileName,
-                      lengthFeet: lapsTrack.lengthFeet,
-                      location: lapsTrack.location ?? null,
-                      bounds: lapsTrack.bounds ?? null,
-                    }}
-                    scale={1 / 3}
-                  />
-                </div>
-              )}
             </div>
           )}
           {error && <p className="mt-2 text-sm text-primary">{error}</p>}

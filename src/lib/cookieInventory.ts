@@ -88,15 +88,6 @@ export const COOKIE_INVENTORY: InventoryItem[] = [
     purpose: 'The Standard or Metric units you chose.',
   },
   {
-    name: 'nav',
-    kind: 'cookie',
-    category: 'necessary',
-    provider: 'RacingCoach.app',
-    firstParty: true,
-    duration: '1 year',
-    purpose: 'Whether you collapsed the navigation sidebar, so pages open at the width you chose.',
-  },
-  {
     name: 'liveRacing.leadAnnouncer, liveRacing.colorAnnouncer, liveRacing.satelliteOpacity',
     kind: 'localStorage',
     category: 'necessary',

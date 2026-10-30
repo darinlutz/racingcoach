@@ -20,7 +20,7 @@ export default async function LiveRacingPage() {
   const dictionary = getDictionary(language);
 
   return (
-    // The full width, with a small margin, like the Coaching & Analysis page, so the map and both side columns fit
+    // The full width, with a small margin, like the My Sessions page, so the map and both side columns fit
     <section className="py-10 px-3 sm:px-4">
       <div className="w-full space-y-6">
         <div>

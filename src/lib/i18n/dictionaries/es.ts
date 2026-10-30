@@ -44,7 +44,7 @@ export const es: Dictionary = {
   nav: {
     toolkit: 'Herramientas',
     learning: 'Aprendizaje',
-    coachingAnalysis: 'Coaching y análisis',
+    mySessions: 'Mis sesiones',
     raceTrends: 'Mis tendencias',
     carsTracks: 'Autos y pistas',
     expertLaps: 'Vueltas de expertos',
@@ -62,8 +62,6 @@ export const es: Dictionary = {
     getStarted: 'Comenzar',
     openMenu: 'Abrir menú',
     closeMenu: 'Cerrar menú',
-    collapseMenu: 'Contraer menú',
-    expandMenu: 'Abrir menú',
   },
 
   loginRequired: {
@@ -549,7 +547,7 @@ export const es: Dictionary = {
   },
 
   racing: {
-    title: 'Coaching y análisis',
+    title: 'Mis sesiones',
     intro: 'Debriefs y análisis de vueltas y stints',
     tabs: {
       debrief: 'Debrief Coach',
@@ -1310,7 +1308,7 @@ export const es: Dictionary = {
       'Abre Mi configuración y busca la tarjeta Recolector de telemetría.',
       'Haz clic en Crear clave de carga y luego en Copiar. La clave solo se muestra una vez.',
       'Abre RacingCoach.app Collector. La primera vez que se inicia, te pide tu clave de carga: pégala y haz clic en Connect. También puedes pulsar el botón Upload Key del collector en cualquier momento.',
-      'Listo. Abre iRacing y maneja: cada vuelta se graba y se sube a tu cuenta, lista para Coaching y análisis.',
+      'Listo. Abre iRacing y maneja: cada vuelta se graba y se sube a tu cuenta, lista en Mis sesiones.',
     ],
     keyButton: 'Abrir Mi configuración',
     keyLost: '¿Perdiste tu clave? Haz clic en Reemplazar clave en la misma tarjeta y pega la nueva en el collector.',
@@ -1318,7 +1316,7 @@ export const es: Dictionary = {
     telemetryText: 'Deberías ver esta imagen para confirmarlo:',
     telemetryAlt: 'El indicador de Telemetría de iRacing: un ícono rojo de transmisión junto a la palabra Telemetry',
     targetTitle: 'Definir la Vuelta Objetivo',
-    targetText: 'Tu Vuelta Objetivo es la vuelta que persigues. El collector la usa para mostrarte dónde frenar y cambiar de marcha, y para pitar antes de cada punto de frenada. Defínela en Debrief Coach, en la página Coaching y análisis, de una de estas dos formas:',
+    targetText: 'Tu Vuelta Objetivo es la vuelta que persigues. El collector la usa para mostrarte dónde frenar y cambiar de marcha, y para pitar antes de cada punto de frenada. Defínela en Debrief Coach, en la página Mis sesiones, de una de estas dos formas:',
     targetWays: [
       'Una de tus propias vueltas: en tus vueltas grabadas, elige la vuelta en la columna Objetivo y haz clic en Definir objetivo.',
       'La vuelta óptima: haz un debrief y, debajo de Vuelta teórica ideal (tu paso más rápido por cada parte de la pista, unido en una sola vuelta), haz clic en Definir como objetivo.',

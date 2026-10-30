@@ -2,16 +2,15 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useCallback, useState, type FocusEvent, type MouseEvent } from 'react';
+import { useCallback, useState, type MouseEvent } from 'react';
 import {
-  ArrowRight, BookOpen, Car, ChartLine, ChevronsLeft, ClipboardList, Download, Flag, GraduationCap, LifeBuoy, LogIn,
+  ArrowRight, BookOpen, Car, ChartLine, ClipboardList, Download, Flag, GraduationCap, LifeBuoy, LogIn,
   LogOut, Menu, Radio, Settings, ShieldCheck, Tag, Timer, TrendingUp, UserPlus, Wrench, X, type LucideIcon,
 } from 'lucide-react';
 import Brand from '@/components/Brand';
 import { buttonVariants } from '@/components/Button';
 import { useLanguage } from '@/components/LanguageProvider';
 import LoginRequiredDialog from '@/components/LoginRequiredDialog';
-import { NAV_COLLAPSED, NAV_COOKIE } from '@/lib/navSidebar';
 
 type NavigationProps = {
   // isAdmin shows the Admin and My Race Trends links; canUpgrade is false for Gold subscribers.
@@ -23,15 +22,13 @@ type NavigationProps = {
   showProDriverLesson: boolean;
   // The Admin page's Enable AI Features setting, which picks the logo's tagline
   enableAiFeatures: boolean;
-  // The sidebar was left collapsed to its icons (the NAV_COOKIE)
-  initiallyCollapsed: boolean;
 };
 
 // Each link's picture, shown beside its name, and alone when the sidebar is collapsed
 
 const links = [
   { href: '/#toolkit', key: 'toolkit', icon: Wrench },
-  { href: '/racing', key: 'coachingAnalysis', icon: ChartLine },
+  { href: '/racing', key: 'mySessions', icon: ChartLine },
   { href: '/live-racing', key: 'liveRacing', icon: Radio },
   { href: '/cars-tracks', key: 'carsTracks', icon: Car },
   { href: '/expert-laps', key: 'expertLaps', icon: Timer },
@@ -42,7 +39,7 @@ const links = [
 ] as const;
 
 // Signed-out visitors who click these get the Log in box instead of the page
-const loginRequiredLinks: ReadonlySet<string> = new Set(['installing', 'coachingAnalysis', 'liveRacing', 'carsTracks', 'expertLaps', 'support', 'pricing']);
+const loginRequiredLinks: ReadonlySet<string> = new Set(['installing', 'mySessions', 'liveRacing', 'carsTracks', 'expertLaps', 'support', 'pricing']);
 
 // At the bottom, just above My Settings (or Log In)
 const bottomLinks = [
@@ -50,7 +47,7 @@ const bottomLinks = [
   { href: '/race-trends', key: 'raceTrends', icon: TrendingUp },
 ] as const;
 
-export default function Navigation({ user, showPricing, showProDriverLesson, enableAiFeatures, initiallyCollapsed }: NavigationProps) {
+export default function Navigation({ user, showPricing, showProDriverLesson, enableAiFeatures }: NavigationProps) {
   const { t } = useLanguage();
   const router = useRouter();
   const pathname = usePathname();
@@ -69,27 +66,10 @@ export default function Navigation({ user, showPricing, showProDriverLesson, ena
   const [loginRequiredFor, setLoginRequiredFor] = useState<string | null>(null);
   const closeLoginRequired = useCallback(() => setLoginRequiredFor(null), []);
 
-  // Large screens: the sidebar collapsed to the red flag and the links' pictures
-  const [collapsed, setCollapsed] = useState(initiallyCollapsed);
-  // The name shown beside a collapsed sidebar's picture while it's hovered or focused, at that picture's height
-  const [tip, setTip] = useState<{ label: string; top: number } | null>(null);
-
-  const setSidebarCollapsed = (next: boolean) => {
-    setCollapsed(next);
-    setTip(null);
-    // globals.css narrows --nav-width, which the layout pads the page by, from <html data-nav>
-    if (next) document.documentElement.dataset.nav = NAV_COLLAPSED;
-    else delete document.documentElement.dataset.nav;
-    document.cookie = `${NAV_COOKIE}=${next ? NAV_COLLAPSED : 'expanded'}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax${location.protocol === 'https:' ? '; secure' : ''}`;
-  };
-
-  const showTip = (label: string) => (e: MouseEvent<HTMLElement> | FocusEvent<HTMLElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    setTip({ label, top: rect.top + rect.height / 2 });
-  };
-  const hideTip = () => setTip(null);
-  const tipProps = (label: string) =>
-    collapsed ? { 'aria-label': label, onMouseEnter: showTip(label), onMouseLeave: hideTip, onFocus: showTip(label), onBlur: hideTip } : {};
+  // Large screens: the sidebar stays collapsed to the red flag and the links' pictures, and opens over the page
+  // while the mouse is on it or the keyboard is in it
+  const [collapsed, setCollapsed] = useState(true);
+  const collapsedLabel = (label: string) => (collapsed ? { 'aria-label': label } : {});
 
   const toggleMenu = () => setIsOpen(!isOpen);
   const closeMenu = () => setIsOpen(false);
@@ -114,7 +94,7 @@ export default function Navigation({ user, showPricing, showProDriverLesson, ena
     }
   };
 
-  // Same type treatment as the Coaching & Analysis tabs: semibold, muted, red when current
+  // Same type treatment as the My Sessions tabs: semibold, muted, red when current
   const linkColor = (href: string) => (href === pathname ? 'text-primary' : 'text-muted-foreground hover:text-foreground');
   const mobileLink = (href: string) => `flex items-center gap-3 px-3 py-2 rounded-md font-semibold hover:bg-secondary transition-colors ${linkColor(href)}`;
 
@@ -123,15 +103,14 @@ export default function Navigation({ user, showPricing, showProDriverLesson, ena
   const sideItem = (href: string | null) => {
     const current = href === pathname;
     return [
-      'relative flex items-center gap-3 h-10 w-full rounded-lg font-semibold transition-colors',
-      collapsed ? 'justify-center' : 'px-3',
+      'relative flex items-center gap-3 h-10 w-full px-3.5 rounded-lg font-semibold transition-colors',
       current
         ? 'bg-secondary text-foreground [&>svg]:text-primary before:absolute before:-left-3 before:top-2 before:bottom-2 before:w-[3px] before:rounded-r-full before:bg-primary'
         : 'text-muted-foreground hover:text-foreground hover:bg-secondary/70',
     ].join(' ');
   };
   const sideLink = (key: string, href: string, Icon: LucideIcon, label: string, onClick?: (e: MouseEvent) => void) => (
-    <Link key={key} href={href} className={sideItem(href)} onClick={onClick} {...tipProps(label)}>
+    <Link key={key} href={href} className={sideItem(href)} onClick={onClick} {...collapsedLabel(label)}>
       <Icon className="size-5 shrink-0" strokeWidth={2} />
       {!collapsed && <span className="truncate">{label}</span>}
     </Link>
@@ -139,34 +118,25 @@ export default function Navigation({ user, showPricing, showProDriverLesson, ena
 
   return (
     // A sidebar down the left side on large screens (the layout pads the page by its width), a bar across the top with a menu below that
-    <nav className="sticky top-0 z-50 w-full bg-background border-b border-border lg:fixed lg:inset-y-0 lg:left-0 lg:w-(--nav-width) lg:border-b-0 lg:border-r lg:transition-[width] lg:duration-200">
-      {/* Desktop Sidebar */}
-      {/* Collapse button on the sidebar's edge, outside the scrolling part so it isn't clipped */}
-      {!collapsed && (
-        <button
-          onClick={() => setSidebarCollapsed(true)}
-          aria-label={t.nav.collapseMenu}
-          title={t.nav.collapseMenu}
-          className="hidden lg:grid absolute top-9 -right-3 z-10 size-6 place-items-center rounded-full border border-border bg-card text-muted-foreground shadow-sm hover:text-foreground hover:border-primary transition-colors"
-        >
-          <ChevronsLeft className="size-3.5" />
-        </button>
-      )}
-      <div className="hidden lg:flex flex-col h-full overflow-y-auto overflow-x-hidden px-3 py-6 gap-8">
-        {/* The logo at the top; collapsed, only its red flag, which opens the sidebar again */}
-        {collapsed ? (
-          <button
-            onClick={() => setSidebarCollapsed(false)}
-            className="group mx-auto grid size-12 shrink-0 place-items-center rounded-xl hover:bg-secondary transition-colors"
-            {...tipProps(t.nav.expandMenu)}
-          >
-            <Flag className="size-8 text-primary transition-transform duration-200 group-hover:-rotate-12 group-hover:scale-110" strokeWidth={2.5} />
-          </button>
-        ) : (
-          <div className="px-1 shrink-0">
+    <nav className={`sticky top-0 z-50 w-full bg-background border-b border-border lg:fixed lg:inset-y-0 lg:left-0 lg:border-b-0 lg:border-r lg:transition-[width] lg:duration-200 ${collapsed ? 'lg:w-(--nav-width)' : 'lg:w-(--nav-expanded-width) lg:shadow-2xl'}`}>
+      {/* Desktop Sidebar. A mouse click leaves focus on the link, so only keyboard focus opens it */}
+      <div
+        className="hidden lg:flex flex-col h-full overflow-y-auto overflow-x-hidden px-3 py-6 gap-8"
+        onMouseEnter={() => setCollapsed(false)}
+        onMouseLeave={() => setCollapsed(true)}
+        onFocus={(e) => { if (e.target.matches(':focus-visible')) setCollapsed(false); }}
+        onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget) && !e.currentTarget.matches(':hover')) setCollapsed(true); }}
+      >
+        {/* The logo at the top; collapsed, only its red flag. Its width is fixed so it doesn't wrap while the sidebar opens */}
+        <div className="flex items-center min-h-10 w-[222px] pl-2.5 shrink-0">
+          {collapsed ? (
+            <Link href="/" aria-label={t.brand.home}>
+              <Flag className="w-[28px] h-[29px] text-primary" strokeWidth={2.5} />
+            </Link>
+          ) : (
             <Brand compact aiFeatures={enableAiFeatures} />
-          </div>
-        )}
+          )}
+        </div>
 
         <div className="flex flex-col gap-1">
           {visibleLinks.map((link) => sideLink(link.key, link.href, link.icon, t.nav[link.key], guardLink(link.key, link.href)))}
@@ -184,18 +154,17 @@ export default function Navigation({ user, showPricing, showProDriverLesson, ena
                 <>
                   {/* The driver's initial in place of their name */}
                   <span
-                    tabIndex={0}
-                    className="mx-auto my-2 grid size-9 place-items-center rounded-full bg-accent font-display text-lg font-bold text-foreground"
-                    {...tipProps(`${t.nav.driver} ${user.userName}`)}
+                    className="mx-auto grid size-9 place-items-center rounded-full bg-accent font-display text-lg font-bold text-foreground"
+                    {...collapsedLabel(`${t.nav.driver} ${user.userName}`)}
                   >
                     {user.userName.charAt(0).toUpperCase()}
                   </span>
-                  <button onClick={handleLogout} disabled={loggingOut} className={`${sideItem(null)} disabled:opacity-60`} {...tipProps(t.nav.logout)}>
+                  <button onClick={handleLogout} disabled={loggingOut} className={`${sideItem(null)} disabled:opacity-60`} {...collapsedLabel(t.nav.logout)}>
                     <LogOut className="size-5" />
                   </button>
                 </>
               ) : (
-                <div className="mt-3 flex flex-col items-start gap-3 px-3">
+                <div className="mt-3 flex w-[222px] flex-col items-start gap-3 px-3">
                   <span className="font-semibold text-muted-foreground">{t.nav.driver} <span className="text-foreground">{user.userName}</span></span>
                   <button
                     onClick={handleLogout}
@@ -212,7 +181,7 @@ export default function Navigation({ user, showPricing, showProDriverLesson, ena
               {visibleBottomLinks.map((link) => sideLink(link.key, link.href, link.icon, t.nav[link.key], guardLink(link.key, link.href)))}
               {sideLink('logIn', '/login', LogIn, t.nav.logIn)}
               {collapsed ? (
-                <Link href="/signup" className="mx-auto mt-2 grid size-10 place-items-center rounded-lg bg-primary text-primary-foreground hover:bg-primary-strong transition-colors" {...tipProps(t.nav.getStarted)}>
+                <Link href="/signup" className="mx-auto mt-1 grid size-10 place-items-center rounded-lg bg-primary text-primary-foreground hover:bg-primary-strong transition-colors" {...collapsedLabel(t.nav.getStarted)}>
                   <UserPlus className="size-5" />
                 </Link>
               ) : (
@@ -224,17 +193,6 @@ export default function Navigation({ user, showPricing, showProDriverLesson, ena
           )}
         </div>
       </div>
-
-      {/* A collapsed sidebar's names, beside the hovered or focused picture */}
-      {collapsed && tip && (
-        <div
-          role="tooltip"
-          style={{ top: tip.top }}
-          className="hidden lg:block fixed left-[calc(var(--nav-width)+10px)] z-[60] -translate-y-1/2 whitespace-nowrap rounded-md border border-border bg-card px-2.5 py-1.5 text-sm font-semibold text-foreground shadow-lg pointer-events-none"
-        >
-          {tip.label}
-        </div>
-      )}
 
       {/* Mobile Bar */}
       <div className="lg:hidden site-container h-[84px] max-sm:h-[72px] flex items-center justify-between gap-[30px] max-sm:gap-3">

@@ -44,7 +44,7 @@ export const de: Dictionary = {
   nav: {
     toolkit: 'Werkzeuge',
     learning: 'Lernen',
-    coachingAnalysis: 'Coaching & Analyse',
+    mySessions: 'Meine Sessions',
     raceTrends: 'Meine Renntrends',
     carsTracks: 'Autos & Strecken',
     expertLaps: 'Expertenrunden',
@@ -62,8 +62,6 @@ export const de: Dictionary = {
     getStarted: 'Loslegen',
     openMenu: 'Menü öffnen',
     closeMenu: 'Menü schließen',
-    collapseMenu: 'Menü einklappen',
-    expandMenu: 'Menü öffnen',
   },
 
   // The nav bar's box for signed-out visitors who click a page that needs an account (src/components/LoginRequiredDialog.tsx)
@@ -569,7 +567,7 @@ export const de: Dictionary = {
   },
 
   racing: {
-    title: 'Coaching & Analyse',
+    title: 'Meine Sessions',
     intro: 'Debriefs sowie Runden- und Stint-Analysen',
     tabs: {
       debrief: 'Debrief Coach',
@@ -1335,7 +1333,7 @@ export const de: Dictionary = {
       'Öffne Meine Einstellungen und suche die Karte Telemetrie-Collector.',
       'Klicke auf Upload-Schlüssel erstellen und dann auf Kopieren. Der Schlüssel wird nur einmal angezeigt.',
       'Öffne den RacingCoach.app Collector. Beim ersten Start fragt er nach deinem Upload-Schlüssel: Füge ihn ein und klicke auf Connect. Du kannst auch jederzeit die Schaltfläche Upload Key im Collector drücken.',
-      'Das war’s. Starte iRacing und fahre los: Jede Runde wird aufgezeichnet und in dein Konto hochgeladen, bereit für Coaching & Analyse.',
+      'Das war’s. Starte iRacing und fahre los: Jede Runde wird aufgezeichnet und in dein Konto hochgeladen, bereit unter Meine Sessions.',
     ],
     keyButton: 'Meine Einstellungen öffnen',
     keyLost: 'Schlüssel verloren? Klicke auf derselben Karte auf Schlüssel ersetzen und füge den neuen in den Collector ein.',
@@ -1343,7 +1341,7 @@ export const de: Dictionary = {
     telemetryText: 'Zur Bestätigung solltest du dieses Bild sehen:',
     telemetryAlt: 'Telemetrie-Anzeige von iRacing: ein rotes Sendesymbol neben dem Wort Telemetry',
     targetTitle: 'Zielrunde festlegen',
-    targetText: 'Deine Zielrunde ist die Runde, der du nachjagst. Der Collector zeigt dir damit, wo du bremsen und schalten solltest, und piept vor jedem Bremspunkt. Lege sie im Debrief Coach auf der Seite Coaching & Analyse auf eine von zwei Arten fest:',
+    targetText: 'Deine Zielrunde ist die Runde, der du nachjagst. Der Collector zeigt dir damit, wo du bremsen und schalten solltest, und piept vor jedem Bremspunkt. Lege sie im Debrief Coach auf der Seite Meine Sessions auf eine von zwei Arten fest:',
     targetWays: [
       'Eine deiner eigenen Runden: Wähle unter Deine aufgezeichneten Runden die Runde in der Spalte Ziel aus und klicke dann auf Als Ziel setzen.',
       'Die optimale Runde: Starte einen Debrief und klicke unter Theoretische Bestrunde (deine schnellste Fahrt durch jeden Teil der Strecke, zu einer Runde zusammengesetzt) auf Als Ziel setzen.',

@@ -21,7 +21,7 @@ const TAB_ROWS: Tab[][] = [
   ['friends'],
 ];
 
-// The Coaching & Analysis page's tabs (src/app/racing/page.tsx, which only shows them to signed-in users)
+// The My Sessions page's tabs (src/app/racing/page.tsx, which only shows them to signed-in users)
 export default function CoachingAnalysis() {
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<Tab>('debrief');

@@ -6,7 +6,6 @@ import { useLanguage } from '@/components/LanguageProvider';
 import RecordedLaps from '@/components/RecordedLaps';
 import SetTargetLapDialog, { type SetTargetLapStep } from '@/components/SetTargetLapDialog';
 import TargetLapCard from '@/components/TargetLapCard';
-import TrackSatellite from '@/components/TrackSatellite';
 
 import type { Debrief } from '@/lib/debriefCoach';
 import { buildDebriefSession, lapId } from '@/lib/debriefSession';
@@ -46,8 +45,6 @@ export default function DebriefCoach({ onCompare }: { onCompare?: (base: LapFile
   const { t, fmt, plural, number } = useLanguage();
   const [tracks, setTracks] = useState<Track[]>([]);
   const [trackName, setTrackName] = useState('');
-  // Whether the track name is hovered, which shows its satellite picture
-  const [trackHovered, setTrackHovered] = useState(false);
   const [error, setError] = useState('');
   const [lapFiles, setLapFiles] = useState<LapFile[]>([]);
   // Laps picked from the RacingCoach collector's uploads
@@ -200,11 +197,8 @@ export default function DebriefCoach({ onCompare }: { onCompare?: (base: LapFile
       {(allLaps.length > 0 || error) && (
         <div>
           {allLaps.length > 0 && (
-            // The satellite picture shows at the right while the track name is hovered, over what's below it
-            <div className="relative">
+            <div>
               <h2
-                onMouseEnter={() => setTrackHovered(true)}
-                onMouseLeave={() => setTrackHovered(false)}
                 className={
                   selectedTrack ? 'inline-block text-2xl font-bold tracking-tight text-foreground' : 'text-xl font-semibold text-muted-foreground'
                 }
@@ -212,19 +206,6 @@ export default function DebriefCoach({ onCompare }: { onCompare?: (base: LapFile
                 {selectedTrack?.fileName ??
                   (tracks.length === 0 ? (error ? t.laps.unavailable : t.common.loading) : t.laps.notInTrackData)}
               </h2>
-              {selectedTrack && trackHovered && (
-                <div className="absolute right-0 top-0 z-10">
-                  <TrackSatellite
-                    track={{
-                      name: selectedTrack.fileName,
-                      lengthFeet: selectedTrack.lengthFeet,
-                      location: selectedTrack.location ?? null,
-                      bounds: selectedTrack.bounds ?? null,
-                    }}
-                    scale={1 / 3}
-                  />
-                </div>
-              )}
             </div>
           )}
           {error && <p className="mt-2 text-sm text-primary">{error}</p>}

@@ -44,7 +44,7 @@ export const en = {
   nav: {
     toolkit: 'Toolkit',
     learning: 'Learning',
-    coachingAnalysis: 'Coaching & Analysis',
+    mySessions: 'My Sessions',
     raceTrends: 'My Race Trends',
     carsTracks: 'Cars & Tracks',
     expertLaps: 'Expert Laps',
@@ -62,8 +62,6 @@ export const en = {
     getStarted: 'Get Started',
     openMenu: 'Open menu',
     closeMenu: 'Close menu',
-    collapseMenu: 'Collapse menu',
-    expandMenu: 'Open menu',
   },
 
   // The nav bar's box for signed-out visitors who click a page that needs an account (src/components/LoginRequiredDialog.tsx)
@@ -569,7 +567,7 @@ export const en = {
   },
 
   racing: {
-    title: 'Coaching & Analysis',
+    title: 'My Sessions',
     intro: 'Debriefs and lap and stint analysis',
     tabs: {
       debrief: 'Debrief Coach',
@@ -1335,7 +1333,7 @@ export const en = {
       'Open My Settings and find the Telemetry Collector card.',
       'Click Create Upload Key, then Copy. The key is only shown once.',
       'Open RacingCoach.app Collector. The first time it starts, it asks for your upload key: paste it in and click Connect. You can also press the collector’s Upload Key button at any time.',
-      'That’s it. Start iRacing and drive: each lap is recorded and uploaded to your account, ready for Coaching & Analysis.',
+      'That’s it. Start iRacing and drive: each lap is recorded and uploaded to your account, ready for My Sessions.',
     ],
     keyButton: 'Open My Settings',
     keyLost: 'Lost your key? Click Replace Key on the same card and paste the new one into the collector.',
@@ -1343,7 +1341,7 @@ export const en = {
     telemetryText: 'You should see this image to confirm this:',
     telemetryAlt: 'iRacing’s Telemetry indicator: a red broadcast icon next to the word Telemetry',
     targetTitle: 'Setting Target Lap',
-    targetText: 'Your Target Lap is the lap you’re chasing. The collector uses it to show you where to brake and shift, and to beep before each braking point. Set it in Debrief Coach on the Coaching & Analysis page, in either of two ways:',
+    targetText: 'Your Target Lap is the lap you’re chasing. The collector uses it to show you where to brake and shift, and to beep before each braking point. Set it in Debrief Coach on the My Sessions page, in either of two ways:',
     targetWays: [
       'One of your own laps: in Your recorded laps, pick the lap in the Target column, then click Set Target.',
       'The optimal lap: run a debrief, and under Theoretical best lap (your fastest run through every part of the track, joined into one lap) click Set as Target.',

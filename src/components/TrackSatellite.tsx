@@ -41,9 +41,8 @@ function trackView(track: SatelliteTrack, width: number, height: number) {
   return null;
 }
 
-// A satellite picture of a track (Track Data's, shown while its name is hovered, and Lap Compare's, beside the track
-// name), from the same sharpened imagery as Lap Compare's driving line maps. Nothing when the track's location isn't
-// known yet or imagery isn't set up.
+// A satellite picture of a track (Track Data's, shown while its name is hovered), from the same sharpened imagery as
+// Lap Compare's driving line maps. Nothing when the track's location isn't known yet or imagery isn't set up.
 // scale: its size as a share of the full SATELLITE_WIDTH x SATELLITE_HEIGHT, showing the same view
 export default function TrackSatellite({ track, scale = 1 }: { track: SatelliteTrack; scale?: number }) {
   const { t, fmt } = useLanguage();

@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Barlow, Barlow_Condensed } from "next/font/google";
-import { cookies } from "next/headers";
 import Link from "next/link";
 import ActivityTracker from "@/components/ActivityTracker";
 import ConsentGate from "@/components/ConsentGate";
@@ -13,7 +12,6 @@ import RateLimitDialog from "@/components/RateLimitDialog";
 import UnitsProvider from "@/components/UnitsProvider";
 import { getConsentState } from "@/lib/cookieConsentServer";
 import { getDictionary, getLanguage } from "@/lib/i18n/server";
-import { NAV_COLLAPSED, NAV_COOKIE } from "@/lib/navSidebar";
 import { hasAcceptedCurrentPolicies } from "@/lib/policyAcceptances";
 import { canCoach, isAdmin } from "@/lib/roles";
 import { getCurrentUser } from "@/lib/session";
@@ -63,8 +61,6 @@ export default async function RootLayout({
   // A signed-in user who hasn't accepted the current Terms of Service and Privacy Policy is asked to, above the page
   // (no notice if the check fails)
   const needsPolicyAcceptance = user ? !(await hasAcceptedCurrentPolicies(user.id).catch(() => true)) : false;
-  // Whether the nav sidebar was left collapsed to its icons (large screens only)
-  const navCollapsed = (await cookies()).get(NAV_COOKIE)?.value === NAV_COLLAPSED;
   // The visitor's cookie choices, read here so optional technologies are left out from the first render
   // (src/lib/cookieConsentServer.ts); CookieConsentProvider shows the banner when a choice is needed
   const consent = await getConsentState();
@@ -73,7 +69,6 @@ export default async function RootLayout({
     <html
       lang={language}
       data-theme={theme}
-      data-nav={navCollapsed ? NAV_COLLAPSED : undefined}
       className={`${barlow.variable} ${barlowCondensed.variable} h-full antialiased`}
       data-scroll-behavior="smooth"
     >
@@ -92,11 +87,10 @@ export default async function RootLayout({
                 showPricing={showPricing}
                 showProDriverLesson={showProDriverLesson}
                 enableAiFeatures={enableAiFeatures}
-                initiallyCollapsed={navCollapsed}
               />
               {/* On large screens the nav is a fixed sidebar down the left (with the logo at its top), so the page
-                  starts after it; --nav-width follows it when it's collapsed */}
-              <div className="flex-1 flex flex-col lg:pl-(--nav-width) lg:transition-[padding] lg:duration-200">
+                  starts after its collapsed width, and it opens over the page */}
+              <div className="flex-1 flex flex-col lg:pl-(--nav-width)">
                 {needsPolicyAcceptance && <PolicyUpdateNotice />}
                 <main className="flex-1">
                   {children}

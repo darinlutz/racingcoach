@@ -84,7 +84,7 @@ export default async function PricingPage() {
     loadPrice('silver_monthly'),
     loadPrice('gold_monthly'),
   ]);
-  // Like Coaching & Analysis, signed-out visitors log in first and come back here
+  // Like My Sessions, signed-out visitors log in first and come back here
   if (!user) redirect(withReturnTo('/login', '/pricing'));
   const t = getDictionary(await getLanguage(user)).pricing;
   const prices: Record<PaidLevel, Stripe.Price | null> = { Silver: silverMonthly, Gold: goldMonthly };

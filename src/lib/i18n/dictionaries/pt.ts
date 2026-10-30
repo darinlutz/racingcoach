@@ -44,7 +44,7 @@ export const pt: Dictionary = {
   nav: {
     toolkit: 'Ferramentas',
     learning: 'Aprendizado',
-    coachingAnalysis: 'Coaching e análise',
+    mySessions: 'Minhas sessões',
     raceTrends: 'Minhas tendências',
     carsTracks: 'Carros e pistas',
     expertLaps: 'Voltas de especialistas',
@@ -62,8 +62,6 @@ export const pt: Dictionary = {
     getStarted: 'Comece agora',
     openMenu: 'Abrir menu',
     closeMenu: 'Fechar menu',
-    collapseMenu: 'Recolher menu',
-    expandMenu: 'Abrir menu',
   },
 
   loginRequired: {
@@ -549,7 +547,7 @@ export const pt: Dictionary = {
   },
 
   racing: {
-    title: 'Coaching e análise',
+    title: 'Minhas sessões',
     intro: 'Debriefs e análise de voltas e stints',
     tabs: {
       debrief: 'Debrief Coach',
@@ -1310,7 +1308,7 @@ export const pt: Dictionary = {
       'Abra Minhas configurações e encontre o cartão Coletor de telemetria.',
       'Clique em Criar chave de envio e depois em Copiar. A chave só é mostrada uma vez.',
       'Abra o RacingCoach.app Collector. Na primeira vez que ele inicia, pede sua chave de envio: cole-a e clique em Connect. Você também pode clicar no botão Upload Key do collector a qualquer momento.',
-      'Pronto. Abra o iRacing e pilote: cada volta é gravada e enviada para sua conta, pronta para Coaching e análise.',
+      'Pronto. Abra o iRacing e pilote: cada volta é gravada e enviada para sua conta, pronta em Minhas sessões.',
     ],
     keyButton: 'Abrir Minhas configurações',
     keyLost: 'Perdeu sua chave? Clique em Substituir chave no mesmo cartão e cole a nova no collector.',
@@ -1318,7 +1316,7 @@ export const pt: Dictionary = {
     telemetryText: 'Você deve ver esta imagem para confirmar:',
     telemetryAlt: 'O indicador de Telemetria do iRacing: um ícone vermelho de transmissão ao lado da palavra Telemetry',
     targetTitle: 'Definir a Volta Alvo',
-    targetText: 'Sua Volta Alvo é a volta que você persegue. O collector a usa para mostrar onde frear e trocar de marcha, e para apitar antes de cada ponto de frenagem. Defina-a no Debrief Coach, na página Coaching e análise, de uma destas duas formas:',
+    targetText: 'Sua Volta Alvo é a volta que você persegue. O collector a usa para mostrar onde frear e trocar de marcha, e para apitar antes de cada ponto de frenagem. Defina-a no Debrief Coach, na página Minhas sessões, de uma destas duas formas:',
     targetWays: [
       'Uma das suas próprias voltas: nas suas voltas gravadas, escolha a volta na coluna Alvo e clique em Definir alvo.',
       'A volta ideal: faça um debrief e, abaixo de Volta teórica ideal (sua passagem mais rápida por cada parte da pista, unida em uma só volta), clique em Definir como alvo.',

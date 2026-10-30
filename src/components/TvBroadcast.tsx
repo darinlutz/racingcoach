@@ -2,6 +2,7 @@
 
 import { Maximize, Minimize, Mic, Minus, Play, Plus, Settings, SkipForward, Volume2, VolumeX, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import BroadcastVideoSwitcher from '@/components/BroadcastVideoSwitcher';
 import { useLanguage } from '@/components/LanguageProvider';
 import TvEventFeed from '@/components/TvEventFeed';
 import TvInputs from '@/components/TvInputs';
@@ -13,6 +14,7 @@ import { useTvRemote } from '@/components/useTvRemote';
 import { formatLapTime } from '@/lib/liveRacingFormat';
 import type { FlagKind } from '@/lib/raceFlags';
 import { toneWav } from '@/lib/tvAudio';
+import { isNewerSnapshot, type DirectorSnapshot } from '@/lib/videoDirector';
 
 // TV Broadcast Mode's broadcast (src/app/tv/): the race the paired account may watch, as a TV graphics package on a
 // 1920×1080 stage. Across the top the session, its flag, lap and time left; on the left the leaderboard (TvLeaderboard,
@@ -22,7 +24,9 @@ import { toneWav } from '@/lib/tvAudio';
 // Start Broadcast (the TV's browser only plays sound after a button press, so commentary waits for it), Test sound,
 // commentary and each announcer on or off, volume, mute, next driver, full screen where the browser allows it, and
 // Settings (the map's satellite imagery, screen edges, unpair), which the remote's Back closes. The choices are kept
-// in the browser. While the broadcast runs the screen is kept awake (Wake Lock) where the browser allows it.
+// in the browser. While the broadcast runs the screen is kept awake (Wake Lock) where the browser allows it. The
+// Broadcast Director (src/lib/videoDirector.ts) can cut the map's panel to a recorded clip (BroadcastVideoSwitcher), the map
+// and everything else carrying on live behind and around it.
 
 const KEYS = {
   commentary: 'tv.commentary',
@@ -81,8 +85,10 @@ const controlClass =
   'focus:ring-[6px] focus:ring-[#ffd400] disabled:opacity-40';
 const buttonClass = `${controlClass} bg-[#1b222d]`;
 
-function StatusPill({ status, t }: { status: FeedStatus; t: ReturnType<typeof useLanguage>['t']['tv'] }) {
+function StatusPill({ status, recorded, t }: { status: FeedStatus; recorded: boolean; t: ReturnType<typeof useLanguage>['t']['tv'] }) {
   const live = status === 'live' || status === 'fallback';
+  // Recorded footage is on screen, so nothing here says LIVE
+  if (recorded && live) return <span className="rounded-lg bg-[#3a4350] px-4 py-1 text-[26px] font-bold tracking-wide text-[#e6ebf2]">{t.director.recorded}</span>;
   return (
     <span
       className={`rounded-lg px-4 py-1 text-[26px] font-bold tracking-wide ${live ? 'bg-[#e10600] text-white' : 'bg-[#3a4350] text-[#e6ebf2]'}`}
@@ -108,6 +114,14 @@ export default function TvBroadcast({
   const unpaired = useCallback(() => window.location.reload(), []);
   const { state, status } = useTvFeed(driver, unpaired);
   const focus = state?.focus ?? null;
+  // The Director's latest word: an older message arriving late doesn't undo it
+  const incoming = focus?.director ?? null;
+  const [director, setDirector] = useState<DirectorSnapshot | null>(null);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- follows the feed
+    setDirector((current) => (!incoming ? null : isNewerSnapshot(current, incoming) ? incoming : current));
+  }, [incoming]);
+  const [recorded, setRecorded] = useState(false);
 
   const [started, setStarted] = useState(false);
   const [audioError, setAudioError] = useState('');
@@ -151,7 +165,9 @@ export default function TvBroadcast({
   const { speaking, problem, paused } = useTvCommentary(
     focus,
     { started, enabled: announcers && commentaryOn, lead, color, volume, muted },
-    audioRef
+    audioRef,
+    director,
+    state?.clockOffset ?? 0
   );
 
   const keepAwake = useCallback(async () => {
@@ -281,7 +297,7 @@ export default function TvBroadcast({
       <div ref={mainRef} className="flex h-full flex-col gap-5" aria-hidden={panelOpen}>
         {/* Session header */}
         <header className="flex h-[100px] shrink-0 items-center gap-6 rounded-2xl bg-[#10141b] px-8">
-          <StatusPill status={status} t={t.tv} />
+          <StatusPill status={status} recorded={recorded} t={t.tv} />
           <div className="min-w-0 flex-1">
             <p className="truncate font-display text-[44px] font-bold leading-none">{focus?.track ?? t.tv.title}</p>
             {session && <p className="mt-1 truncate text-[24px] uppercase tracking-wide text-[#a7b0bd]">{session}</p>}
@@ -398,13 +414,22 @@ export default function TvBroadcast({
             {/* The track map */}
             <div className="min-h-0 flex-1 overflow-hidden rounded-2xl bg-[#0a0d12] p-2">
               {focus && state && (
-                <TvMap
-                  trackKey={focus.trackKey}
-                  approximateFrom={focus.approximateOutlineFrom}
-                  cars={focus.mapCars}
-                  receivedAt={state.receivedAt}
-                  satellite={satellite}
-                />
+                <BroadcastVideoSwitcher
+                  director={director}
+                  clockOffset={state.clockOffset}
+                  volume={volume}
+                  muted={muted}
+                  duck={!!speaking}
+                  onRecordedChange={setRecorded}
+                >
+                  <TvMap
+                    trackKey={focus.trackKey}
+                    approximateFrom={focus.approximateOutlineFrom}
+                    cars={focus.mapCars}
+                    receivedAt={state.receivedAt}
+                    satellite={satellite}
+                  />
+                </BroadcastVideoSwitcher>
               )}
             </div>
 

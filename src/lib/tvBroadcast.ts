@@ -1,6 +1,8 @@
 import { readLiveDrivers, readRaceEvents, type FieldCar, type InputSample, type LiveDriver, type RaceEvent } from './liveRacing';
 import { sessionFlag, type FlagKind, type FlagNote } from './raceFlags';
 import type { User } from './users';
+import type { DirectorSnapshot } from './videoDirector';
+import { directorSessionKey, observeDirector } from './videoDirectorRuntime';
 
 // TV Broadcast Mode's picture of the race (src/app/tv/): what the TV shows, worked out here from the Live Racing
 // drivers the paired account may watch (readLiveDrivers, src/lib/liveRacing.ts), so the TV only draws it. Sent by
@@ -109,6 +111,9 @@ export type TvFocus = {
   // the newest inputsAgeMs old; null from collectors before 1.52.0
   inputs: InputSample[] | null;
   inputsAgeMs: number;
+  // What the Broadcast Director is showing (src/lib/videoDirector.ts), the same for everyone watching this session; null
+  // when it isn't running
+  director: DirectorSnapshot | null;
 };
 
 export type TvState = {
@@ -288,6 +293,18 @@ export async function readTvState(viewer: User, driverId: number | null): Promis
     const board = leaderboard(focused, watched);
     const flag = sessionFlag(focused.sessionFlags, focused.sessionState);
     const found = focused.offline ? null : await readRaceEvents(viewer, focused.userId, 0);
+    const sessionKey = [focused.field?.subSessionId ?? `u${focused.userId}`, focused.sessionType, focused.sessionName, focused.trackKey ?? focused.track].join('|');
+    // The race carries on whatever becomes of the clips
+    const director = await observeDirector(viewer, {
+      key: directorSessionKey(sessionKey, focused.userId, focused.field?.subSessionId),
+      label: [focused.track, focused.sessionName ?? focused.sessionType].filter(Boolean).join(' · '),
+      driverId: focused.userId,
+      trackKey: focused.trackKey ?? null,
+      offline: focused.offline,
+    }).catch((error) => {
+      console.error('Broadcast Director error:', error);
+      return null;
+    });
     focus = {
       driverId: focused.userId,
       driver: focused.driver,
@@ -301,7 +318,7 @@ export async function readTvState(viewer: User, driverId: number | null): Promis
       sessionType: focused.sessionType ?? null,
       sessionName: focused.sessionName ?? null,
       isRace: focused.sessionType?.toLowerCase() === 'race',
-      sessionKey: [focused.field?.subSessionId ?? `u${focused.userId}`, focused.sessionType, focused.sessionName, focused.trackKey ?? focused.track].join('|'),
+      sessionKey,
       flag: flag?.flag ?? null,
       flagNotes: flag?.notes ?? [],
       lap: positive(focused.lap),
@@ -329,6 +346,7 @@ export async function readTvState(viewer: User, driverId: number | null): Promis
       mapCars: mapCars(focused, drivers, colors),
       inputs: recentInputs(focused.inputs),
       inputsAgeMs: focused.ageMs,
+      director,
     };
   }
   return {

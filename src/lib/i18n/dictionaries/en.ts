@@ -1689,6 +1689,128 @@ export const en = {
 
   // The Admin page's activity log (src/app/admin/page.tsx)
   admin: {
+    // The Broadcast Video Library and Broadcast Director sections
+    broadcast: {
+      "libraryTitle": "Broadcast Video Library",
+      "libraryIntro": "Recorded clips the Broadcast Director can show on TV Broadcast Mode. H.264 MP4 with AAC audio plays as it is; anything else is transcoded first.",
+      "storageMissing": "Object storage is not set up. Set the BROADCAST_VIDEO_S3_ environment variables to upload videos (docs/broadcast-director.md).",
+      "failedLoad": "Couldn’t load the broadcast videos.",
+      "failedSave": "Couldn’t save that.",
+      "invalidDetails": "Check the video’s details.",
+      "invalidClipTimes": "The clip’s end must be after its start, and its start inside the video.",
+      "fileTooLarge": "That file is over the 1 GB limit.",
+      "unsupportedFile": "That file type isn’t supported. Use MP4, M4V, MOV, WebM or MKV.",
+      "fileNotUploaded": "The file didn’t reach storage. Try uploading it again.",
+      "uploadBlocked": "The upload was blocked. Check the storage bucket’s CORS rule.",
+      "category": "Category",
+      "categories": {
+        "RACE_START": "Race Start",
+        "CRASHES": "Crashes",
+        "ONBOARDS": "Onboards",
+        "HELICOPTER": "Helicopter",
+        "BLIMP": "Blimp",
+        "TVCAMERA1": "TV Camera 1",
+        "TVCAMERA2": "TV Camera 2",
+        "TVCAMERA3": "TV Camera 3"
+      },
+      "videoTitle": "Title",
+      "videoTitleHint": "The file’s name if left empty",
+      "track": "Track",
+      "anyTrack": "Any track",
+      "car": "Car",
+      "anyCar": "Any car",
+      "duration": "Duration (seconds)",
+      "durationHint": "Read from the file if left empty",
+      "clipStart": "Clip start (seconds)",
+      "clipEnd": "Clip end (seconds)",
+      "clipEndHint": "Default clip length",
+      "priority": "Priority (0-10)",
+      "selectionWeight": "Selection weight",
+      "cameraPerspective": "Camera perspective",
+      "sessionInfo": "Race or session",
+      "description": "Description",
+      "commentaryContext": "Recommended commentary context",
+      "commentaryContextHint": "What the announcers may say about this clip. They can’t see the video, so they only know what’s written here.",
+      "audioEnabled": "Audio enabled",
+      "enabled": "Enabled",
+      "files": "Video files",
+      "filesHint": "Choose one or several, up to 1 GB each. Several files are titled after their names, and share the details below.",
+      "upload": "Upload",
+      "uploadMany": "Upload {n} videos",
+      "uploading": "Uploading…",
+      "uploaded": "Uploaded",
+      "loading": "Loading…",
+      "noVideos": "No videos.",
+      "seconds": "{n} s",
+      "preview": "Preview",
+      "closePreview": "Close preview",
+      "edit": "Edit",
+      "delete": "Delete",
+      "save": "Save",
+      "confirmDelete": "Delete “{title}” and its file?",
+      "statuses": {
+        "uploading": "Waiting for the upload",
+        "processing": "Checking the file",
+        "transcoding": "Transcoding (waits while a broadcast has viewers)",
+        "ready": "Ready",
+        "failed": "Failed"
+      },
+      "failures": {
+        "tooLarge": "Failed: over the size limit",
+        "ffprobeMissing": "Failed: ffprobe isn’t installed on the server",
+        "ffmpegMissing": "Failed: ffmpeg isn’t installed on the server",
+        "notAVideo": "Failed: not a video the server can read",
+        "noDuration": "Failed: its length couldn’t be read. Enter a duration and upload it again",
+        "needsTranscode": "Failed: needs transcoding, which is turned off",
+        "transcodeFailed": "Failed: couldn’t be transcoded",
+        "unknown": "Failed"
+      },
+      "directorTitle": "Broadcast Director",
+      "directorIntro": "Inserts recorded clips into TV Broadcast Mode: the Lead Announcer introduces each one, every viewer cuts to it together, and the broadcast returns to the live track map.",
+      "dashboard": "Live Director",
+      "noSessions": "Nobody is watching a live session on a TV right now.",
+      "session": "Session",
+      "currentSource": "Current source",
+      "sourceVideo": "Recorded video",
+      "sourceMap": "Live track map",
+      "directorState": "Director state",
+      "currentCategory": "Current category",
+      "currentTitle": "Current title",
+      "announcers": "Announcers",
+      "announcersHeld": "Held for the clip",
+      "announcersBusy": "Speaking for {time}",
+      "announcersFree": "Free",
+      "nextEligible": "Next eligible clip",
+      "notScheduled": "Automatic mode is off",
+      "waitingForRace": "Waiting for the race to calm down",
+      "pendingClip": "Pending clip",
+      "raceIntensity": "Race intensity",
+      "viewers": "Viewers",
+      "anyCategory": "Any category",
+      "video": "Video",
+      "anyVideo": "Any video",
+      "playNow": "Play Video Now",
+      "returnToLive": "Return to Live",
+      "skipNext": "Skip Next Video",
+      "noSession": "That session has ended.",
+      "directorBusy": "Another clip is under way.",
+      "nothingToSkip": "There’s no clip waiting to skip.",
+      "settings": "Settings",
+      "videosEnabled": "Show recorded video",
+      "autoDirector": "Automatic Director (off: manual mode, only clips played from here)",
+      "requireIntroduction": "Require an announcer introduction before switching",
+      "commentaryDuringVideo": "Allow commentary during videos",
+      "postVideoCommentary": "Lead Announcer hands back to the live race after each clip",
+      "videoAudio": "Allow video audio (only clips with Audio enabled)",
+      "minInterval": "Minimum time between clips (seconds)",
+      "maxInterval": "Maximum target time between clips (seconds)",
+      "defaultClip": "Default clip duration (seconds)",
+      "transition": "Transition (milliseconds)",
+      "categorySettings": "Categories and their selection weights",
+      "categoryWeight": "{category} selection weight",
+      "recentlyPlayed": "Recently played",
+      "nothingPlayed": "No clips have played yet."
+    },
     pageTitle: 'Admin',
     lapRetention: {
       title: 'Lap Telemetry Retention',
@@ -2328,6 +2450,59 @@ export const en = {
   },
 
   tv: {
+    // The Broadcast Director's recorded clips (src/lib/videoDirector.ts)
+    director: {
+      "recorded": "RECORDED",
+      "recordedFootage": "Recorded footage",
+      "cameras": {
+        "RACE_START": "Race start",
+        "CRASHES": "Crash replay",
+        "ONBOARDS": "Onboard",
+        "HELICOPTER": "Helicopter",
+        "BLIMP": "Blimp",
+        "TVCAMERA1": "Trackside camera 1",
+        "TVCAMERA2": "Trackside camera 2",
+        "TVCAMERA3": "Trackside camera 3"
+      },
+      "intros": {
+        "RACE_START": [
+          "Let's take another look at a race start.",
+          "Here's a race start from our archive."
+        ],
+        "CRASHES": [
+          "Let's take a look at some dramatic racing action from an earlier session.",
+          "Here's some dramatic action from an earlier session."
+        ],
+        "ONBOARDS": [
+          "Let's take a look at an onboard camera and see what the driver is experiencing.",
+          "Let's jump onboard for the driver's view."
+        ],
+        "HELICOPTER": [
+          "Let's go up to our helicopter camera for a different perspective of the circuit.",
+          "Let's see this from the helicopter."
+        ],
+        "BLIMP": [
+          "Let's take a look at the circuit from high above with our blimp camera.",
+          "Let's go high above the circuit with the blimp."
+        ],
+        "TVCAMERA1": [
+          "Let's switch to one of our trackside cameras for another perspective.",
+          "Here's a look from trackside."
+        ],
+        "TVCAMERA2": [
+          "Let's switch to one of our trackside cameras for another perspective.",
+          "Let's go trackside for a closer view."
+        ],
+        "TVCAMERA3": [
+          "Let's switch to one of our trackside cameras for another perspective.",
+          "Here's another angle from trackside."
+        ]
+      },
+      "backToLive": [
+        "Back to the live race.",
+        "And back to the action."
+      ]
+    },
     title: 'TV Broadcast',
     pairHeading: 'Pair this TV with RacingCoach.app',
     pairStep1: 'On your phone or computer, go to',

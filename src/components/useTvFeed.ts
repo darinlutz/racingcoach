@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { TvState } from '@/lib/tvBroadcast';
+import { nextClockOffset } from '@/lib/videoDirector';
 
 // TV Broadcast Mode's live race (src/lib/tvBroadcast.ts): GET /api/tv/stream (Server-Sent Events), opened again after
 // it drops (the browser does that itself, and this does too when nothing arrives for WATCHDOG_MS or the TV comes back
@@ -26,8 +27,9 @@ async function stillPaired(): Promise<boolean> {
 }
 
 // A picture of the race with when this page received it (performance.now()), which the map's dots and the inputs
-// count their ages from
-export type ReceivedTvState = TvState & { receivedAt: number };
+// count their ages from, and how far the server's clock is ahead of this page's (ms), which the Broadcast Director's
+// schedule is read with
+export type ReceivedTvState = TvState & { receivedAt: number; clockOffset: number };
 
 export function useTvFeed(driver: number | null, onUnpaired: () => void): { state: ReceivedTvState | null; status: FeedStatus } {
   const [state, setState] = useState<ReceivedTvState | null>(null);
@@ -38,6 +40,7 @@ export function useTvFeed(driver: number | null, onUnpaired: () => void): { stat
   });
   // Stays on the fallback once there, for this page
   const fallback = useRef(false);
+  const clockOffset = useRef<number | null>(null);
 
   useEffect(() => {
     let stopped = false;
@@ -50,7 +53,9 @@ export function useTvFeed(driver: number | null, onUnpaired: () => void): { stat
 
     const receive = (text: string) => {
       try {
-        setState({ ...(JSON.parse(text) as TvState), receivedAt: performance.now() });
+        const parsed = JSON.parse(text) as TvState;
+        clockOffset.current = nextClockOffset(clockOffset.current, parsed.at, Date.now());
+        setState({ ...parsed, receivedAt: performance.now(), clockOffset: clockOffset.current });
       } catch {
         // a broken message: the next one replaces it
       }
@@ -94,6 +99,8 @@ export function useTvFeed(driver: number | null, onUnpaired: () => void): { stat
         return;
       }
       source?.close();
+      // Measured afresh with each stream, in case this device's clock was changed
+      clockOffset.current = null;
       source = new EventSource(`/api/tv/stream${query}`);
       armWatchdog();
       source.onmessage = (event) => {

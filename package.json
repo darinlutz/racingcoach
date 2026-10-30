@@ -14,12 +14,15 @@
     "test:cookie-consent": "node --test scripts/cookie-consent.test.mjs && node --experimental-transform-types --no-warnings --test scripts/cookie-consent-db.test.mjs",
     "test:tv": "node --test scripts/tv-broadcast.test.mjs",
     "test:broadcast": "node --test scripts/race-broadcast.test.mjs",
+    "test:video-director": "node --experimental-transform-types --no-warnings --test scripts/video-director.test.mjs",
     "test:tire-temps": "node --experimental-transform-types --no-warnings --test scripts/tire-temps.test.mjs",
     "test:lap-events": "node --experimental-transform-types --no-warnings --test scripts/lap-events.test.mjs",
     "test:e2e": "playwright test"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.187",
+    "@aws-sdk/client-s3": "^3.1161.0",
+    "@aws-sdk/s3-request-presigner": "^3.1161.0",
     "@deck.gl/core": "9.4.0",
     "@deck.gl/layers": "9.4.0",
     "@deck.gl/mesh-layers": "9.4.0",

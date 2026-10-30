@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
+import type { DirectorContext } from './broadcastDirector';
 import { BroadcastTracker, type BroadcastEvent, type TrackerSnapshot } from './broadcastTracker';
 import { flagCodeForFlair } from './countryFlags';
 import { query } from './db';
@@ -832,6 +833,36 @@ export async function readRaceEvents(
       leaders,
       carsByDriver,
     },
+  };
+}
+
+// The Broadcast Director's view of a live driver's session (src/lib/videoDirectorRuntime.ts): their race events and the
+// race as it stands, for how lively it is, without a viewer's permissions, as nothing of it goes to one; null when
+// they're not live
+export function readDirectorFeed(driverId: number): {
+  events: NumberedRaceEvent[];
+  context: DirectorContext;
+  track: string;
+  cars: string[];
+  fieldNames: string[];
+} | null {
+  const entry = live.entries.get(driverId);
+  if (!entry || Date.now() - entry.receivedAt > STALE_MS) return null;
+  const tracker = entry.broadcast;
+  const cars = (entry.field?.cars ?? []).flatMap((c) => (c.details?.car ? [c.details.car] : []));
+  return {
+    events: entry.events,
+    context: {
+      isRace: tracker.isRace || entry.update.sessionType?.toLowerCase() === 'race',
+      phase: tracker.phase(),
+      raceProgress: tracker.raceProgress(),
+      userIdx: tracker.userIdx,
+      userPosition: entry.update.position ?? null,
+      storylines: tracker.storylines(),
+    },
+    track: entry.update.track,
+    cars: [...new Set(cars)],
+    fieldNames: tracker.roster().map((r) => r.driver),
   };
 }
 

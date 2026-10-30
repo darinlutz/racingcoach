@@ -66,7 +66,10 @@ export type CommentaryResult =
   // seq: the newest event's number, to send as after next time; audio is base64. replaceQueued: these lines matter
   // more than any less important ones still waiting to be played, which the page drops
   | { kind: 'lines'; seq: number; lines: SpokenLine[]; replaceQueued: boolean }
-  | { kind: 'refused'; response: Response };
+  | { kind: 'refused'; response: Response }
+  // A clip's sequence is under way on the TV (src/lib/videoDirector.ts) and this can wait: nothing was spent, and these
+  // events are asked about again when it's over
+  | { kind: 'held'; seq: number };
 
 const withTimeout = <T>(promise: Promise<T>, ms: number): Promise<T> =>
   Promise.race([promise, new Promise<T>((_, reject) => setTimeout(() => reject(new Error(`timed out after ${ms} ms`)), ms))]);
@@ -79,6 +82,8 @@ export async function commentate(input: {
   lead: boolean;
   color: boolean;
   format: SpeechFormat;
+  // The Broadcast Director is holding commentary: only a P0 moment gets through
+  held?: boolean;
 }): Promise<CommentaryResult> {
   const { user, driverId, after, format } = input;
   const found = await readRaceEvents(user, driverId, after);
@@ -110,6 +115,7 @@ export async function commentate(input: {
     decision?.userRelated ?? false
   );
   if (!decision) return nothing;
+  if (input.held && decision.selected.priority > 0) return { kind: 'held', seq: after };
 
   let limit: AiRateLimit | null = null;
   try {

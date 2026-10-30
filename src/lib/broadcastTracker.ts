@@ -845,7 +845,8 @@ export class BroadcastTracker {
     if (this.state >= CHECKERED) return 'finished';
     const leader = [...this.cars.values()].find((c) => c.position === 1);
     const leaderLaps = leader?.lapsDone ?? 0;
-    const leaderBest = leader ? positive(Math.min(...leader.laps.map((l) => l.time))) : null;
+    // none yet when this server joined the race after the leader's last lap: Math.min of nothing is Infinity
+    const leaderBest = leader && leader.laps.length > 0 ? positive(Math.min(...leader.laps.map((l) => l.time))) : null;
     if (leaderLaps < 2) return 'opening';
     if (this.lapsTotal !== null) {
       if (this.lapsTotal - leaderLaps <= 2) return 'finalLaps';

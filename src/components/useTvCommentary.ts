@@ -5,6 +5,7 @@ import { useLanguage } from '@/components/LanguageProvider';
 import type { Announcer } from '@/lib/raceAnnouncer';
 import { CommentaryQueue } from '@/lib/tvAudio';
 import type { TvFocus } from '@/lib/tvBroadcast';
+import { LATE_LINE_MS, type DirectorSnapshot } from '@/lib/videoDirector';
 
 // TV Broadcast Mode's Race Announcers: when the followed driver's race events move on (eventSeq), the TV asks
 // POST /api/tv/announcer for commentary on the new ones (the Commentary Director, src/lib/broadcastDirector.ts,
@@ -16,6 +17,10 @@ import type { TvFocus } from '@/lib/tvBroadcast';
 // what each TV heard, so a reconnect or reload doesn't repeat it. When the TV follows its own account's driving, a
 // line waits for their In-Car AI Coach to finish and holds it while it plays (POST /api/tv/announcing), as on the
 // Live Racing page.
+//
+// A recorded clip's lines (the Broadcast Director's, src/lib/videoDirector.ts) are different: they play at the times the
+// server set, shared by every TV, taking over from any normal commentary. Normal commentary waits while the Director
+// holds it; the events it was about are asked about again afterwards, unless they've gone stale.
 
 export type CommentarySettings = { started: boolean; enabled: boolean; lead: boolean; color: boolean; volume: number; muted: boolean };
 
@@ -66,10 +71,14 @@ function playToEnd(audio: HTMLAudioElement): Promise<void> {
   });
 }
 
+type DirectorLine = DirectorSnapshot['lines'][number];
+
 export function useTvCommentary(
   focus: TvFocus | null,
   settings: CommentarySettings,
-  audioRef: RefObject<HTMLAudioElement | null>
+  audioRef: RefObject<HTMLAudioElement | null>,
+  director: DirectorSnapshot | null,
+  clockOffset: number
 ): { speaking: { speaker: Announcer; text: string } | null; problem: string; paused: boolean } {
   const { t } = useLanguage();
   const [speaking, setSpeaking] = useState<{ speaker: Announcer; text: string } | null>(null);
@@ -85,10 +94,18 @@ export function useTvCommentary(
   const disabled = useRef(false);
   const focusRef = useRef(focus);
   const settingsRef = useRef(settings);
+  const clockRef = useRef(clockOffset);
   useEffect(() => {
     focusRef.current = focus;
     settingsRef.current = settings;
+    clockRef.current = clockOffset;
   });
+  // The Director's line playing, the lines already played and their audio, fetched ahead of time
+  const directorLine = useRef<string | null>(null);
+  const played = useRef(new Set<string>());
+  const directorAudio = useRef(new Map<string, Promise<string | null>>());
+  // The newest race event the server said could wait for the Director
+  const heldSeq = useRef(-1);
 
   const stop = useCallback(() => {
     generation.current++;
@@ -104,6 +121,8 @@ export function useTvCommentary(
     try {
       for (;;) {
         const audio = audioRef.current;
+        // The Director's line has the audio element; this picks up again after it
+        if (directorLine.current) break;
         const line = queue.current.next(Date.now());
         if (!audio || !line || run !== generation.current) break;
         const mine = focusRef.current?.isMe ?? false;
@@ -163,6 +182,90 @@ export function useTvCommentary(
   }, [settings.volume, settings.muted, settings.started, audioRef]);
 
   const on = settings.started && settings.enabled && (settings.lead || settings.color);
+
+  const playDirectorLine = useCallback(
+    async (line: DirectorLine) => {
+      if (played.current.has(line.id)) return;
+      played.current.add(line.id);
+      // Joined too late for it to make sense
+      if (Date.now() + clockRef.current > line.at + LATE_LINE_MS) return;
+      const audio = audioRef.current;
+      // This takes over from anything else being said
+      generation.current++;
+      queue.current.clear();
+      audio?.pause();
+      directorLine.current = line.id;
+      if (line.text) setSpeaking({ speaker: line.speaker, text: line.text });
+      try {
+        const url = await directorAudio.current.get(line.id);
+        if (directorLine.current !== line.id) return;
+        if (url && audio) {
+          if (focusRef.current?.isMe) {
+            await fetch('/api/tv/announcing', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ms: line.durationMs + HOLD_MARGIN_MS }),
+            }).catch(() => undefined);
+          }
+          await loadDuration(audio, url);
+          if (directorLine.current !== line.id) return;
+          audio.volume = (Math.min(Math.max(settingsRef.current.volume, 0), 100) / 100) * line.volume;
+          await playToEnd(audio);
+        } else if (line.text) {
+          // No sound for this TV: the words stay up as long as the others are hearing them
+          await delay(line.durationMs);
+        }
+      } finally {
+        if (directorLine.current === line.id) {
+          directorLine.current = null;
+          setSpeaking(null);
+          playQueue();
+        }
+      }
+    },
+    [audioRef, playQueue]
+  );
+
+  // Each line of the Director's sequence, at its time, whatever the others are doing. A line that's gone from the
+  // schedule (the clip was cancelled or cut short) stops
+  const lines = director?.lines;
+  const directorSeq = director?.seq;
+  useEffect(() => {
+    const scheduled = lines ?? [];
+    if (directorLine.current && !scheduled.some((l) => l.id === directorLine.current)) {
+      directorLine.current = null;
+      audioRef.current?.pause();
+      setSpeaking(null);
+      playQueue();
+    }
+    if (!on || !visible) return;
+    const timers: number[] = [];
+    for (const line of scheduled) {
+      if (played.current.has(line.id) || (line.speaker === 'lead' ? !settings.lead : !settings.color)) continue;
+      if (line.audioUrl && !directorAudio.current.has(line.id)) {
+        directorAudio.current.set(
+          line.id,
+          fetch(line.audioUrl)
+            .then((response) => (response.ok ? response.blob() : null))
+            .then((blob) => (blob ? URL.createObjectURL(blob) : null))
+            .catch(() => null)
+        );
+      }
+      timers.push(window.setTimeout(() => playDirectorLine(line), Math.max(line.at - (Date.now() + clockRef.current), 0)));
+    }
+    return () => timers.forEach((timer) => window.clearTimeout(timer));
+  }, [directorSeq, lines, on, visible, settings.lead, settings.color, audioRef, playDirectorLine, playQueue]);
+
+  // Audio of sequences that are over
+  useEffect(() => {
+    if (directorSeq === undefined || (lines?.length ?? 0) > 0) return;
+    for (const [id, url] of directorAudio.current) {
+      directorAudio.current.delete(id);
+      url.then((u) => u && URL.revokeObjectURL(u));
+    }
+    played.current.clear();
+  }, [directorSeq, lines]);
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- turning the commentary off silences it at once
     if (!on) stop();
@@ -182,6 +285,8 @@ export function useTvCommentary(
       return;
     }
     if (focus.eventSeq <= s.seq || asking.current) return;
+    // Told this can wait for the Director: nothing to ask until something newer happens or it lets go
+    if (focus.director?.hold && heldSeq.current === focus.eventSeq) return;
     asking.current = true;
     const driverId = focus.driverId;
     const latest = focus.eventSeq;
@@ -193,6 +298,10 @@ export function useTvCommentary(
           body: JSON.stringify({ driverId, after: s.seq, lead: settings.lead, color: settings.color }),
         });
         const data = await response.json().catch(() => ({}));
+        if (response.ok && data.held) {
+          heldSeq.current = latest;
+          return;
+        }
         if (seen.current?.driverId === driverId) seen.current.seq = Math.max(seen.current.seq, latest, data.seq ?? 0);
         if (!response.ok) {
           if (data.code === 'aiFeaturesDisabled') {

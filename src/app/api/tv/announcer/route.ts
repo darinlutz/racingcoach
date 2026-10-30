@@ -4,6 +4,7 @@ import { commentate } from '@/lib/announcerCommentary';
 import { getDictionary } from '@/lib/i18n/server';
 import { getEnableAiFeatures } from '@/lib/siteSettings';
 import { getTvSession } from '@/lib/tvAuth';
+import { commentaryHeldFor, noteCommentaryPlaying } from '@/lib/videoDirectorRuntime';
 
 const bodySchema = z.object({
   driverId: z.number().int().positive(),
@@ -38,12 +39,14 @@ export async function POST(request: Request) {
     const { driverId } = parsed.data;
     const before = heard.get(session.id);
     const after = before?.driverId === driverId ? Math.max(parsed.data.after, before.seq) : parsed.data.after;
-    const result = await commentate({ request, user: session.user, ...parsed.data, after, format: 'mp3' });
+    const result = await commentate({ request, user: session.user, ...parsed.data, after, format: 'mp3', held: commentaryHeldFor(session.user.id) });
     if (result.kind === 'notLive') {
       return NextResponse.json({ error: t.driverNotLive }, { status: 404 });
     }
     if (result.kind === 'refused') return result.response;
+    if (result.kind === 'held') return NextResponse.json({ seq: result.seq, lines: [], held: true });
     heard.set(session.id, { driverId, seq: Math.max(result.seq, after) });
+    noteCommentaryPlaying(session.user.id, result.lines.reduce((sum, line) => sum + line.durationMs, 0));
     return NextResponse.json({ seq: result.seq, lines: result.lines, replaceQueued: result.replaceQueued });
   } catch (error) {
     console.error('TV Race Announcer error:', error);

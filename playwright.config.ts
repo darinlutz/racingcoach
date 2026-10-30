@@ -33,7 +33,12 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'], ...(process.env.E2E_BROWSER_CHANNEL ? { channel: process.env.E2E_BROWSER_CHANNEL } : {}) },
+      use: {
+        ...devices['Desktop Chrome'],
+        ...(process.env.E2E_BROWSER_CHANNEL ? { channel: process.env.E2E_BROWSER_CHANNEL } : {}),
+        // A particular browser build: e2e/broadcast-director.spec.ts needs one that plays H.264
+        ...(process.env.E2E_BROWSER_PATH ? { launchOptions: { executablePath: process.env.E2E_BROWSER_PATH } } : {}),
+      },
     },
   ],
   webServer: {
@@ -49,7 +54,8 @@ export default defineConfig({
       // Empty, so nothing reaches a real service even if the shell has them set
       STRIPE_SECRET_KEY: '',
       RESEND_API_KEY: '',
-      OPENAI_API_KEY: '',
+      // e2e/broadcast-director.spec.ts's stand-in for the speech service (its header says how); no real key belongs here
+      OPENAI_API_KEY: process.env.E2E_OPENAI_API_KEY ?? '',
       ANTHROPIC_API_KEY: '',
       DEEPSEEK_API_KEY: '',
       LANGSMITH_TRACING: 'false',

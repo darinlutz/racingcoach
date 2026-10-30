@@ -22,6 +22,8 @@ iRacing ─► Collector ─POST /api/collector/live─► liveRacing.ts (memory
                                                                              (ElevenLabs / Chirp / OpenAI)
 ```
 
+The recorded clips the map's panel can cut to are the Broadcast Director's, in `docs/broadcast-director.md`.
+
 ## Files
 
 | File | What it does |

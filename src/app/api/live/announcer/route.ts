@@ -41,6 +41,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: t.driverNotLive }, { status: 404 });
     }
     if (result.kind === 'refused') return result.response;
+    // Only TV Broadcast Mode's commentary is ever held
+    if (result.kind === 'held') return NextResponse.json({ seq: result.seq, lines: [], replaceQueued: false });
     return NextResponse.json({ seq: result.seq, lines: result.lines, replaceQueued: result.replaceQueued });
   } catch (error) {
     console.error('Race Announcer error:', error);

@@ -21,6 +21,7 @@ import { DEFAULT_THEME, isTheme, type Theme } from './theme';
 import { DEFAULT_BRAKE_BEEPS_VOLUME, isBrakeBeepsVolume } from './brakeBeepsVolume';
 import { DEFAULT_UNITS, isUnits, type Units } from './units';
 import type { PolicyVersions } from './policyVersions';
+import { BROADCAST_VIDEO_SCHEMA } from './broadcastVideoDb';
 import { END_LAPSED_MEMBERSHIPS_SQL, LAP_RETENTION_SCHEMA } from './lapRetentionDb';
 
 const scryptAsync = promisify(scrypt) as (password: string, salt: Buffer, keylen: number) => Promise<Buffer>;
@@ -656,6 +657,8 @@ export function ensureUserSchema(): Promise<void> {
       // Lap telemetry retention: each lap's and Debrief Coach run's expiry, kept in step with the owner's membership
       // level, and the cleanup job's tables (lapRetentionDb.ts)
       for (const statement of LAP_RETENTION_SCHEMA) await client.query(statement);
+      // The Broadcast Video Library and Broadcast Director (broadcastVideoDb.ts)
+      for (const statement of BROADCAST_VIDEO_SCHEMA) await client.query(statement);
       // The telemetry collector's activity log, sent as it's written (src/lib/collectorLogs.ts). A run is one start
       // of the collector; seq numbers its lines, so a batch sent twice is stored once
       await client.query(`CREATE TABLE IF NOT EXISTS racingcoach."CollectorLogs" (

@@ -18,9 +18,11 @@ ENV NODE_ENV=production
 
 # Python 3 for the Racing scripts, isolated in a venv to avoid Debian's
 # "externally managed environment" restriction on the system interpreter.
+# ffmpeg checks and transcodes the Broadcast Video Library's uploads (src/lib/videoProcessing.ts).
 RUN apt-get update && apt-get install -y --no-install-recommends \
       python3 \
       python3-venv \
+      ffmpeg \
     && rm -rf /var/lib/apt/lists/* \
     && python3 -m venv /opt/venv
 

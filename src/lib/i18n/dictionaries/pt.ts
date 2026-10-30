@@ -1661,6 +1661,128 @@ export const pt: Dictionary = {
   },
 
   admin: {
+    // The Broadcast Video Library and Broadcast Director sections
+    broadcast: {
+      "libraryTitle": "Biblioteca de Vídeos da Transmissão",
+      "libraryIntro": "Clipes gravados que o Diretor de Transmissão pode mostrar no Modo de Transmissão para TV. MP4 H.264 com áudio AAC é reproduzido como está; qualquer outro formato é convertido antes.",
+      "storageMissing": "O armazenamento de objetos não está configurado. Defina as variáveis de ambiente BROADCAST_VIDEO_S3_ para enviar vídeos (docs/broadcast-director.md).",
+      "failedLoad": "Não foi possível carregar os vídeos da transmissão.",
+      "failedSave": "Não foi possível salvar.",
+      "invalidDetails": "Verifique os detalhes do vídeo.",
+      "invalidClipTimes": "O fim do clipe deve vir depois do início, e o início deve estar dentro do vídeo.",
+      "fileTooLarge": "Esse arquivo ultrapassa o limite de 1 GB.",
+      "unsupportedFile": "Esse tipo de arquivo não é aceito. Use MP4, M4V, MOV, WebM ou MKV.",
+      "fileNotUploaded": "O arquivo não chegou ao armazenamento. Tente enviá-lo novamente.",
+      "uploadBlocked": "O envio foi bloqueado. Verifique a regra de CORS do bucket.",
+      "category": "Categoria",
+      "categories": {
+        "RACE_START": "Largada",
+        "CRASHES": "Acidentes",
+        "ONBOARDS": "Câmeras a bordo",
+        "HELICOPTER": "Helicóptero",
+        "BLIMP": "Dirigível",
+        "TVCAMERA1": "Câmera de TV 1",
+        "TVCAMERA2": "Câmera de TV 2",
+        "TVCAMERA3": "Câmera de TV 3"
+      },
+      "videoTitle": "Título",
+      "videoTitleHint": "O nome do arquivo, se ficar vazio",
+      "track": "Pista",
+      "anyTrack": "Qualquer pista",
+      "car": "Carro",
+      "anyCar": "Qualquer carro",
+      "duration": "Duração (segundos)",
+      "durationHint": "Lida do arquivo, se ficar vazia",
+      "clipStart": "Início do clipe (segundos)",
+      "clipEnd": "Fim do clipe (segundos)",
+      "clipEndHint": "Duração padrão do clipe",
+      "priority": "Prioridade (0-10)",
+      "selectionWeight": "Peso de seleção",
+      "cameraPerspective": "Perspectiva da câmera",
+      "sessionInfo": "Corrida ou sessão",
+      "description": "Descrição",
+      "commentaryContext": "Contexto recomendado para os comentários",
+      "commentaryContextHint": "O que os narradores podem dizer sobre este clipe. Eles não veem o vídeo, então só sabem o que está escrito aqui.",
+      "audioEnabled": "Áudio ativado",
+      "enabled": "Ativado",
+      "files": "Arquivos de vídeo",
+      "filesHint": "Escolha um ou vários, até 1 GB cada. Vários arquivos recebem o título do próprio nome e compartilham os detalhes abaixo.",
+      "upload": "Enviar",
+      "uploadMany": "Enviar {n} vídeos",
+      "uploading": "Enviando…",
+      "uploaded": "Enviado",
+      "loading": "Carregando…",
+      "noVideos": "Nenhum vídeo.",
+      "seconds": "{n} s",
+      "preview": "Pré-visualizar",
+      "closePreview": "Fechar pré-visualização",
+      "edit": "Editar",
+      "delete": "Excluir",
+      "save": "Salvar",
+      "confirmDelete": "Excluir “{title}” e o seu arquivo?",
+      "statuses": {
+        "uploading": "Aguardando o envio",
+        "processing": "Verificando o arquivo",
+        "transcoding": "Convertendo (aguarda enquanto uma transmissão tem espectadores)",
+        "ready": "Pronto",
+        "failed": "Falhou"
+      },
+      "failures": {
+        "tooLarge": "Falhou: acima do limite de tamanho",
+        "ffprobeMissing": "Falhou: o ffprobe não está instalado no servidor",
+        "ffmpegMissing": "Falhou: o ffmpeg não está instalado no servidor",
+        "notAVideo": "Falhou: não é um vídeo que o servidor consiga ler",
+        "noDuration": "Falhou: não foi possível ler a duração. Informe uma duração e envie novamente",
+        "needsTranscode": "Falhou: precisa de conversão, que está desativada",
+        "transcodeFailed": "Falhou: não foi possível converter",
+        "unknown": "Falhou"
+      },
+      "directorTitle": "Diretor de Transmissão",
+      "directorIntro": "Insere clipes gravados no Modo de Transmissão para TV: o Narrador Principal apresenta cada um, todos os espectadores mudam para ele juntos e a transmissão volta ao mapa ao vivo da pista.",
+      "dashboard": "Diretor ao vivo",
+      "noSessions": "Ninguém está assistindo a uma sessão ao vivo em uma TV agora.",
+      "session": "Sessão",
+      "currentSource": "Fonte atual",
+      "sourceVideo": "Vídeo gravado",
+      "sourceMap": "Mapa ao vivo da pista",
+      "directorState": "Estado do Diretor",
+      "currentCategory": "Categoria atual",
+      "currentTitle": "Título atual",
+      "announcers": "Narradores",
+      "announcersHeld": "Em espera pelo clipe",
+      "announcersBusy": "Falando por {time}",
+      "announcersFree": "Livres",
+      "nextEligible": "Próximo clipe possível",
+      "notScheduled": "O modo automático está desligado",
+      "waitingForRace": "Aguardando a corrida acalmar",
+      "pendingClip": "Clipe pendente",
+      "raceIntensity": "Intensidade da corrida",
+      "viewers": "Espectadores",
+      "anyCategory": "Qualquer categoria",
+      "video": "Vídeo",
+      "anyVideo": "Qualquer vídeo",
+      "playNow": "Reproduzir vídeo agora",
+      "returnToLive": "Voltar ao vivo",
+      "skipNext": "Pular próximo vídeo",
+      "noSession": "Essa sessão terminou.",
+      "directorBusy": "Outro clipe está em andamento.",
+      "nothingToSkip": "Não há clipe aguardando para pular.",
+      "settings": "Configurações",
+      "videosEnabled": "Mostrar vídeo gravado",
+      "autoDirector": "Diretor automático (desligado: modo manual, apenas clipes iniciados aqui)",
+      "requireIntroduction": "Exigir apresentação do narrador antes de mudar",
+      "commentaryDuringVideo": "Permitir comentários durante os vídeos",
+      "postVideoCommentary": "O Narrador Principal devolve à corrida ao vivo após cada clipe",
+      "videoAudio": "Permitir o áudio dos vídeos (só clipes com Áudio ativado)",
+      "minInterval": "Tempo mínimo entre clipes (segundos)",
+      "maxInterval": "Tempo máximo desejado entre clipes (segundos)",
+      "defaultClip": "Duração padrão do clipe (segundos)",
+      "transition": "Transição (milissegundos)",
+      "categorySettings": "Categorias e seus pesos de seleção",
+      "categoryWeight": "Peso de seleção de {category}",
+      "recentlyPlayed": "Reproduzidos recentemente",
+      "nothingPlayed": "Nenhum clipe foi reproduzido ainda."
+    },
     pageTitle: 'Administração',
     lapRetention: {
       title: 'Retenção da telemetria de voltas',
@@ -2286,6 +2408,59 @@ export const pt: Dictionary = {
   },
 
   tv: {
+    // The Broadcast Director's recorded clips (src/lib/videoDirector.ts)
+    director: {
+      "recorded": "GRAVADO",
+      "recordedFootage": "Imagens gravadas",
+      "cameras": {
+        "RACE_START": "Largada",
+        "CRASHES": "Replay de acidente",
+        "ONBOARDS": "Câmera a bordo",
+        "HELICOPTER": "Helicóptero",
+        "BLIMP": "Dirigível",
+        "TVCAMERA1": "Câmera de pista 1",
+        "TVCAMERA2": "Câmera de pista 2",
+        "TVCAMERA3": "Câmera de pista 3"
+      },
+      "intros": {
+        "RACE_START": [
+          "Vamos ver novamente uma largada.",
+          "Aqui está uma largada do nosso arquivo."
+        ],
+        "CRASHES": [
+          "Vamos ver um pouco de ação dramática de uma sessão anterior.",
+          "Aqui estão imagens dramáticas de uma sessão anterior."
+        ],
+        "ONBOARDS": [
+          "Vamos ver uma câmera a bordo e o que o piloto está vivendo.",
+          "Vamos para dentro do carro, com a visão do piloto."
+        ],
+        "HELICOPTER": [
+          "Vamos subir à nossa câmera do helicóptero para outra perspectiva do circuito.",
+          "Vamos ver isto do helicóptero."
+        ],
+        "BLIMP": [
+          "Vamos ver o circuito lá do alto com a nossa câmera do dirigível.",
+          "Vamos subir bem acima do circuito com o dirigível."
+        ],
+        "TVCAMERA1": [
+          "Vamos passar para uma das nossas câmeras de pista para outra perspectiva.",
+          "Aqui está uma visão da beira da pista."
+        ],
+        "TVCAMERA2": [
+          "Vamos passar para uma das nossas câmeras de pista para outra perspectiva.",
+          "Vamos à beira da pista para ver de mais perto."
+        ],
+        "TVCAMERA3": [
+          "Vamos passar para uma das nossas câmeras de pista para outra perspectiva.",
+          "Aqui está outro ângulo da beira da pista."
+        ]
+      },
+      "backToLive": [
+        "De volta à corrida ao vivo.",
+        "E de volta à ação."
+      ]
+    },
     title: 'Transmissão na TV',
     pairHeading: 'Conecte esta TV ao RacingCoach.app',
     pairStep1: 'No celular ou computador, acesse',

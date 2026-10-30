@@ -125,7 +125,7 @@ internal sealed partial class OverlayEngine
     /// <summary>Where the script came from: the copy in Documents\RacingCoach, or the one built into the exe.</summary>
     public string ScriptSource { get; }
 
-    /// <summary>The user's Preferred Language ("en", "pt" or "es") for the script's text; set from the UI thread,
+    /// <summary>The user's Preferred Language ("en", "pt", "es" or "de") for the script's text; set from the UI thread,
     /// takes effect with the next text.</summary>
     public string Language { get => _language; set => _language = Loc.Normalize(value); }
     private volatile string _language = Loc.English;

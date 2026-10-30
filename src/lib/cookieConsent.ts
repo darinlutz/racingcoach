@@ -6,8 +6,8 @@
 // The Cookie Policy (/cookies, src/lib/legal.ts) version and the banner/preference center wording version, both
 // stored with every consent record as evidence of what was shown. Change COOKIE_POLICY_VERSION with the policy's
 // effective date, and CONSENT_BANNER_VERSION whenever the banner or preference center text changes.
-export const COOKIE_POLICY_VERSION = '2026-10-29';
-export const CONSENT_BANNER_VERSION = '2026-10-29';
+export const COOKIE_POLICY_VERSION = '2026-10-30';
+export const CONSENT_BANNER_VERSION = '2026-10-30';
 
 // Bump this when a material change is made to what optional cookies do (a new technology, category or purpose):
 // every earlier choice stops counting and the banner asks again. Wording fixes don't need it.

@@ -67,7 +67,7 @@ export const COOKIE_INVENTORY: InventoryItem[] = [
     provider: 'RacingCoach.app',
     firstParty: true,
     duration: '1 year',
-    purpose: 'The site language you chose (English, Portuguese or Spanish), set when you pick it, sign up or log in, so pages stay in that language.',
+    purpose: 'The site language you chose (English, Portuguese, Spanish or German), set when you pick it, sign up or log in, so pages stay in that language.',
   },
   {
     name: 'theme',

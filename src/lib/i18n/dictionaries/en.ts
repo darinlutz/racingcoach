@@ -1,4 +1,4 @@
-// Every piece of text on the site, in English. pt.ts and es.ts must have exactly the same shape (the
+// Every piece of text on the site, in English. pt.ts, es.ts and de.ts must have exactly the same shape (the
 // Dictionary type checks it), so a missing or misspelled translation is a type error. Text with values
 // in it uses {placeholders} (fmt in languages.ts); text that depends on a count is { one, other }
 // (plural in languages.ts). Keep it plain JSON: the root layout sends the user's dictionary to the browser.
@@ -177,7 +177,7 @@ export const en = {
     toolkitCopy: 'Telemetry, tire temps, steering, stints and car balance — all turned into clear advice on what to change and where.',
     coachEyebrow: 'Your coach. Your language.',
     coachTitle: 'A PERSONAL AI COACH IN YOUR EAR.',
-    coachCopy: 'Choose English, Spanish, or Portuguese — the entire app translates and the in-car coach speaks your language.',
+    coachCopy: 'Choose English, Spanish, Portuguese, or German — the entire app translates and the in-car coach speaks your language.',
     languageHeading: 'Language',
     voiceHeading: 'Voice',
     instructionsHeading: 'Personal instructions',
@@ -1383,7 +1383,7 @@ export const en = {
     twoHours: '2 hours',
   },
 
-  // The Learning page (src/app/learning/page.tsx). The guide itself is in src/lib/learningGuide.ts and its Es and Pt files
+  // The Learning page (src/app/learning/page.tsx). The guide itself is in src/lib/learningGuide.ts and its Es, Pt and De files
   learning: {
     metaTitle: 'Learning — The Art of Driving a Race Car | RacingCoach.app',
     metaDescription: 'A practical, illustrated guide to vehicle dynamics, the racing line, braking, trail braking, rotation and telemetry.',

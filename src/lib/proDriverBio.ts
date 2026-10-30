@@ -95,7 +95,36 @@ const pt: ProDriverBio = {
   ],
 };
 
-const BIOS: Record<Language, ProDriverBio> = { en, es, pt };
+const de: ProDriverBio = {
+  title: 'Professioneller Sim-Racing-Fahrer & Coach',
+  sections: [
+    {
+      heading: 'Rennkarriere & Hintergrund',
+      paragraphs: [
+        'Mit einer Rennkarriere von mehr als zwei Jahrzehnten hat dieser erfolgreiche Sim-Racer und professionelle Fahrcoach auf höchstem Niveau im virtuellen Motorsport gefahren, unter anderem in der iRacing World Championship Series (WCS) und im renommierten Qualifikationswettbewerb Mazda Road to 24.',
+        'Seine Leidenschaft für den Rennsport begann mit Klassikern wie *Super Monaco GP* auf dem Sega Mega Drive. 2007 stieg er mit *Live for Speed* in das ernsthafte kompetitive Sim-Racing ein und entwickelte die Fähigkeiten, die ihn schließlich unter die besten virtuellen Fahrer der Welt brachten.',
+        '2009 kam er zu iRacing und machte schnell auf sich aufmerksam: 2010 gewann er seine erste offizielle Serienmeisterschaft. Dieser Erfolg brachte ihm einen Platz in der iRacing Road Pro Series 2011 und die Qualifikation für das Online-Finale der Intel Extreme Masters ein. 2012 beendete er die **iRacing World Championship Series unter den besten neun Fahrern** und erreichte außerdem das Finale der GT Academy.',
+        'Nach einer kurzen Pause im Jahr 2014 kehrte er mit dem Iberica Racing Team in den Wettbewerb zurück und holte zahlreiche Siege und Meistertitel. Zu seinen Erfolgen zählen der Gewinn des RaceDepartment SimRacingTeams Black Cup, der Masters of Endurance 1000 km von Suzuka und der Meisterschaft der Class A Grand Prix Series 2015. Seine herausragenden Leistungen in der Road Pro Series sicherten ihm einen weiteren Start in der iRacing World Championship Series 2016.',
+        '2016 wechselte er vom Formelsport zu den Sportwagen, fuhr im Mazda European MX-5 Cup und wurde Gesamtvierter. Im selben Jahr wurde er zum Vertreter von iRacing für die **Mazda Road to 24** gewählt und kämpfte im NOLA Motorsports Park in New Orleans um ein Stipendium über 100.000 US-Dollar für eine echte Rennkarriere im Global Mazda MX-5 Cup.',
+        'Seine Erfolgsserie setzte sich 2017 mit dem Sieg beim ersten Rennen des SEAT Leon Eurocup Online und einem dritten Platz bei den iRacing 24 Stunden vom Nürburgring fort.',
+        '2018 qualifizierte er sich für die Blancpain GT World Championship Series und schloss sich Teo Martin eSports an, was seinen Ruf im internationalen Sim-Racing weiter festigte. Im folgenden Jahr erreichte er für Vodafone Giants den dritten Platz bei den offiziellen 24 Stunden von Barcelona sowie zwei Siege und einen zweiten Platz in der Serie Ferrari GT3 Challenge Fixed.',
+        '2020 wechselte er zum offiziellen Esports-Rennteam von Ford, **Team Fordzilla**, wo er die BMW 12.0 Challenge Season 2 gewann, nachdem er in Season 1 Zweiter geworden war.',
+      ],
+    },
+    {
+      heading: 'Berufserfahrung als Coach',
+      paragraphs: [
+        'Neben seinen umfangreichen Rennerfolgen hat er sich eine angesehene Laufbahn als professioneller Fahrinstruktor und Sim-Racing-Coach aufgebaut.',
+        'Zu seiner Coaching-Erfahrung gehört die Arbeit mit der **Virtual Racing School (VRS)**, wo er Fahrern mit fortgeschrittener Telemetrieanalyse und persönlichem Unterricht hilft, ihre Renntechnik, Konstanz und Gesamtleistung zu verbessern.',
+        'Seine Expertise reicht über den virtuellen Motorsport hinaus bis in die Fahrerentwicklung in der realen Welt. Er war als Instruktor für Mercedes Driving Events Portugal und die Spanish Racing Drivers School tätig und coachte praktisch auf professionellen Fahranlagen in ganz Portugal und Spanien.',
+        'Durch die Verbindung von Wettkampferfahrung auf Spitzenniveau mit realem Motorsport-Unterricht bringt er ein umfassendes Verständnis von Fahrdynamik, Racecraft, Bremstechnik, Fahrzeugbeherrschung und Leistungsoptimierung mit.',
+        'Seine Coaching-Philosophie legt den Schwerpunkt darauf, grundlegende Fahrfertigkeiten zu entwickeln, das Fahrzeugverhalten zu verstehen und datengestützte Techniken anzuwenden, damit Fahrer schneller, konstanter und konkurrenzfähiger werden.',
+      ],
+    },
+  ],
+};
+
+const BIOS: Record<Language, ProDriverBio> = { en, es, pt, de };
 
 export function getProDriverBio(language: Language): ProDriverBio {
   return BIOS[language];

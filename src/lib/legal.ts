@@ -526,7 +526,7 @@ function inventoryTable(category: InventoryItem['category'], caption: string): L
 
 export const cookiePolicy: LegalDocumentContent = {
   title: 'RacingCoach.app Cookie Policy',
-  effectiveDate: 'October 29, 2026',
+  effectiveDate: 'October 30, 2026',
   intro: [
     `This Cookie Policy explains how RacingCoach.app, operated by ${BUSINESS_OPERATOR}, a company based in Kentucky, United States ("we," "our," or "us"), uses cookies and similar technologies on the racingcoach.app website. It should be read together with our Privacy Policy, which explains how we handle personal information more generally.`,
     `Version ${COOKIE_POLICY_VERSION}.`,

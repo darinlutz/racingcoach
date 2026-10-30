@@ -1,7 +1,7 @@
 // The languages the site is translated into. Shared by server and client code: the user's choice is
 // racingcoach."Users".preferred_language, or the LANGUAGE_COOKIE for visitors who aren't signed in.
 
-export const LANGUAGES = ['en', 'pt', 'es'] as const;
+export const LANGUAGES = ['en', 'pt', 'es', 'de'] as const;
 export type Language = (typeof LANGUAGES)[number];
 
 export const DEFAULT_LANGUAGE: Language = 'en';
@@ -14,13 +14,15 @@ export const LANGUAGE_NAMES: Record<Language, string> = {
   en: 'English',
   pt: 'Português',
   es: 'Español',
+  de: 'Deutsch',
 };
 
-// Number and date formatting: Brazilian Portuguese and Latin American Spanish
+// Number and date formatting: Brazilian Portuguese, Latin American Spanish and Germany's German
 export const LANGUAGE_LOCALES: Record<Language, string> = {
   en: 'en-US',
   pt: 'pt-BR',
   es: 'es-419',
+  de: 'de-DE',
 };
 
 // How the AI features are told which language to answer in
@@ -28,6 +30,7 @@ export const AI_LANGUAGE_NAMES: Record<Language, string> = {
   en: 'English',
   pt: 'Brazilian Portuguese',
   es: 'Latin American Spanish',
+  de: 'German',
 };
 
 // Added to the end of an AI feature's system prompt so it answers in the user's language. Names from the

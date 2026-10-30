@@ -212,7 +212,7 @@ test suites refuse a database that isn't on this computer.
 7. With a screen reader (NVDA/VoiceOver): the banner is announced as the "Cookie consent" region, reached first by Tab;
    the dialog is announced as "Cookie Settings"; switches announce on/off.
 8. Repeat at 375 px wide and at 200% zoom: no sideways scrolling, all buttons reachable.
-9. Switch the site to Portuguese and Spanish: the banner and preference center are translated.
+9. Switch the site to Portuguese, Spanish and German: the banner and preference center are translated.
 
 ## 6. Deployment (Render)
 
@@ -234,8 +234,8 @@ test suites refuse a database that isn't on this computer.
   Counsel should decide whether to delete them.
 - **Transfers and DPAs**: confirm a DPA with SCCs (or DPF certification) is in place with each processor listed above;
   the Privacy Policy now says transfers rely on such mechanisms. DeepSeek (China) needs specific review.
-- **Art. 27 representative**: a non-EU controller offering services to people in the EU (Portuguese and Spanish
-  versions, euro-area users) may need an EU representative, and a UK representative under the UK GDPR.
+- **Art. 27 representative**: a non-EU controller offering services to people in the EU (Portuguese, Spanish and
+  German versions, euro-area users) may need an EU representative, and a UK representative under the UK GDPR.
 - **Records of processing (Art. 30)** and a **DPIA** for AI coaching on telemetry may be required.
 - **LangSmith tracing** sends prompts and responses (with user telemetry) to LangChain; disclose it or turn tracing off
   in production.

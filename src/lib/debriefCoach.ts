@@ -976,11 +976,11 @@ const systemPrompt = (units: Units) =>
   LAP_TIME_RULE;
 
 // "brake about 30 ft later", "braking earlier", "brake later" -> the direction words in a fix. Also
-// Portuguese ("freie uns 30 ft mais tarde") and Spanish ("frena más tarde"), for answers in those languages
+// Portuguese ("freie uns 30 ft mais tarde"), Spanish ("frena más tarde") and German ("brems 30 ft später"), for answers in those languages
 // ("frente", front, is not braking).
 const BRAKE_DIRECTION_RE =
-  /(?<!\p{L})(?:brak|fre(?!nt)[aein])\p{L}*(?:[^\p{L}\p{N}%~]+[\p{L}\p{N}%~]+){0,5}?[^\p{L}\p{N}%~]+(later|earlier|sooner|mais tarde|más tarde|mais cedo|más temprano|antes)(?!\p{L})/giu;
-const LATER_WORDS = new Set(['later', 'mais tarde', 'más tarde']);
+  /(?<!\p{L})(?:brak|brems|fre(?!nt)[aein])\p{L}*(?:[^\p{L}\p{N}%~]+[\p{L}\p{N}%~]+){0,5}?[^\p{L}\p{N}%~]+(later|earlier|sooner|mais tarde|más tarde|mais cedo|más temprano|antes|später|früher)(?!\p{L})/giu;
+const LATER_WORDS = new Set(['later', 'mais tarde', 'más tarde', 'später']);
 
 function brakeDirectionsIn(text: string) {
   return new Set([...text.matchAll(BRAKE_DIRECTION_RE)].map((m) => (LATER_WORDS.has(m[1].toLowerCase()) ? 'later' : 'earlier')));

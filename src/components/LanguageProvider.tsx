@@ -8,7 +8,7 @@ type LanguageContextValue = {
   language: Language;
   // The user's dictionary: every piece of text on the site, in their Preferred Language
   t: Dictionary;
-  // en-US, pt-BR or es-419, for toLocaleString and Intl
+  // en-US, pt-BR, es-419 or de-DE, for toLocaleString and Intl
   locale: string;
   fmt: typeof fmt;
   plural: (n: number, forms: Plural, values?: Record<string, string | number>) => string;

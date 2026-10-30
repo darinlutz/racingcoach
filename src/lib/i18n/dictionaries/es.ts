@@ -171,7 +171,7 @@ export const es: Dictionary = {
     toolkitCopy: 'Telemetría, temperaturas de neumáticos, dirección, stints y balance del auto — todo convertido en consejos claros sobre qué cambiar y dónde.',
     coachEyebrow: 'Tu coach. Tu idioma.',
     coachTitle: 'UN COACH DE IA PERSONAL EN TU OÍDO.',
-    coachCopy: 'Elige inglés, español o portugués — toda la aplicación se traduce y el coach en el auto habla tu idioma.',
+    coachCopy: 'Elige inglés, español, portugués o alemán — toda la aplicación se traduce y el coach en el auto habla tu idioma.',
     languageHeading: 'Idioma',
     voiceHeading: 'Voz',
     instructionsHeading: 'Instrucciones personales',

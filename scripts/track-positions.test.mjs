@@ -15,6 +15,10 @@ const positions = [
   'Your brakepoint averages 1,234 ft with a std dev of 22 ft.',
   'Freie a 1.865 m.',
   'Frena en 1865 metros.',
+  'Brems bei 1.865 m.',
+  'Brems bei 1865 Metern.',
+  'Der Bremspunkt liegt 400 ft nach der Start-Ziel-Linie.',
+  'Lenke bei 45 % der Runde ein.',
   'The Target Lap brakes at 2,340 ft.',
 ];
 
@@ -34,6 +38,12 @@ const relative = [
   'Your slowest lap released the brake 40 ft before your fastest.',
   'Freie uns 30 ft mais tarde.',
   'Frena 6 m más tarde.',
+  'Brems etwa 30 ft später.',
+  'Brems 6 m früher als in deiner schnellsten Runde.',
+  'Dein Bremspunkt schwankt um 25 ft von Runde zu Runde.',
+  'Deine Bremspunkte liegen innerhalb von 3 m.',
+  'Du hast 15 ft nach dem Referenz-Bremspunkt gebremst.',
+  'Setze das Auto am Ausgang etwa 2 ft weiter links.',
   'Hold 3rd gear until 7,800 rpm.',
   'Build to about 90% peak pressure.',
   'Your theoretical lap is 0.438s faster than your best.',

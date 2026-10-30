@@ -1,14 +1,15 @@
 import { cookies, headers } from 'next/headers';
 import { getCurrentUser } from '../session';
 import type { User } from '../users';
+import { de } from './dictionaries/de';
 import { en, type Dictionary } from './dictionaries/en';
 import { es } from './dictionaries/es';
 import { pt } from './dictionaries/pt';
 import { DEFAULT_LANGUAGE, isLanguage, LANGUAGE_COOKIE, type Language } from './languages';
 
-const dictionaries: Record<Language, Dictionary> = { en, pt, es };
+const dictionaries: Record<Language, Dictionary> = { en, pt, es, de };
 
-// The browser's language: Spanish or Portuguese (any region, e.g. es-MX, pt-BR) when that's the visitor's
+// The browser's language: Spanish, Portuguese or German (any region, e.g. es-MX, pt-BR, de-AT) when that's the visitor's
 // first choice in Accept-Language, otherwise English
 async function browserLanguage(): Promise<Language> {
   const header = (await headers()).get('accept-language') ?? '';
@@ -21,12 +22,12 @@ async function browserLanguage(): Promise<Language> {
     })
     .filter((entry) => entry.code && entry.code !== '*' && entry.q > 0)
     .sort((a, b) => b.q - a.q)[0]?.code;
-  return first === 'es' || first === 'pt' ? first : DEFAULT_LANGUAGE;
+  return first === 'es' || first === 'pt' || first === 'de' ? first : DEFAULT_LANGUAGE;
 }
 
 // The language for this request: the signed-in user's Preferred Language, otherwise the visitor's
 // cookie (set on the sign-up form, and kept after signing out), otherwise the browser's language
-// (Spanish or Portuguese, else English). Pass the user when the caller already has it, to skip looking
+// (Spanish, Portuguese or German, else English). Pass the user when the caller already has it, to skip looking
 // it up again.
 export async function getLanguage(user?: User | null): Promise<Language> {
   const current = user === undefined ? await getCurrentUser() : user;

@@ -4,7 +4,7 @@ import { AI_LANGUAGE_NAMES, DEFAULT_LANGUAGE, type Language } from './i18n/langu
 import { ensureUserSchema } from './users';
 
 // The In-Car AI Coach's voice: Google Cloud Text-to-Speech's Chirp 3 HD voices, in the voice the driver picks on the
-// Account page ("Users".coach_voice), spoken by a native voice of their Preferred Language (en-US, pt-BR, and es-US or
+// Account page ("Users".coach_voice), spoken by a native voice of their Preferred Language (en-US, pt-BR, de-DE, and es-US or
 // es-ES by the Spanish accent they pick beside it, "Users".coach_spanish_accent). Without GOOGLE_TTS_API_KEY it falls
 // back to OpenAI's gpt-4o-mini-tts, told to speak with that accent. The collector gets its speech from
 // POST /api/collector/speech; the Account page's Listen button from GET /api/account/coach-voice/sample. The
@@ -61,6 +61,7 @@ export const MAX_SPEECH_CHARS = 500;
 function chirpLocale(language: Language, spanishAccent: SpanishAccent) {
   if (language === 'es') return spanishAccent === 'spain' ? 'es-ES' : 'es-US';
   if (language === 'pt') return 'pt-BR';
+  if (language === 'de') return 'de-DE';
   return 'en-US';
 }
 
@@ -143,6 +144,7 @@ const TURN_WORDS: Record<Language, { one: string; many: string; and: string; thr
   en: { one: 'Turn', many: 'Turns', and: 'and', through: 'through' },
   pt: { one: 'Curva', many: 'Curvas', and: 'e', through: 'a' },
   es: { one: 'Curva', many: 'Curvas', and: 'y', through: 'a' },
+  de: { one: 'Kurve', many: 'Kurven', and: 'und', through: 'bis' },
 };
 
 // The text with turn abbreviations (T1, T7-8, T8-T11) written out, so the voice says "Turn 1" rather than "T one"
@@ -174,6 +176,10 @@ const GAP_WORDS: Record<
     tenths: ['', 'una décima', 'dos décimas', 'tres décimas', 'cuatro décimas', 'cinco décimas', 'seis décimas', 'siete décimas', 'ocho décimas', 'nueve décimas'],
     second: 'segundo', seconds: 'segundos', underTenth: 'menos de una décima', plus: 'más', minus: 'menos', decimal: ',',
   },
+  de: {
+    tenths: ['', 'ein Zehntel', 'zwei Zehntel', 'drei Zehntel', 'vier Zehntel', 'fünf Zehntel', 'sechs Zehntel', 'sieben Zehntel', 'acht Zehntel', 'neun Zehntel'],
+    second: 'Sekunde', seconds: 'Sekunden', underTenth: 'weniger als ein Zehntel', plus: 'plus', minus: 'minus', decimal: ',',
+  },
 };
 
 // One time difference, rounded to the nearest tenth of a second, as it's said: "two tenths", "2.3 seconds"
@@ -193,7 +199,7 @@ function spokenGap(sign: string, digits: string, language: Language): string {
 export function spokenTimeGaps(text: string, language: Language = DEFAULT_LANGUAGE): string {
   return text
     .replace(
-      /(?<![\w:.,])([+\-−]?)(\d+(?:[.,]\d+)?)\s?(?:s|secs?|seconds?|segundos?)\b(?![.,]?\d)/gi,
+      /(?<![\w:.,])([+\-−]?)(\d+(?:[.,]\d+)?)\s?(?:s|secs?|seconds?|segundos?|sek|sekunden?)\b(?![.,]?\d)/gi,
       (_, sign: string, digits: string) => spokenGap(sign, digits, language)
     )
     .replace(/(?<![\w:.,])([+\-−])(\d+[.,]\d+)(?![\d.,]|\s?(?:%|°|ft|m\b|mph|kph|km))/g, (_, sign: string, digits: string) =>
@@ -206,6 +212,7 @@ const UNIT_WORDS: Record<Language, { foot: [string, string]; meter: [string, str
   en: { foot: ['foot', 'feet'], meter: ['meter', 'meters'] },
   pt: { foot: ['pé', 'pés'], meter: ['metro', 'metros'] },
   es: { foot: ['pie', 'pies'], meter: ['metro', 'metros'] },
+  de: { foot: ['Fuß', 'Fuß'], meter: ['Meter', 'Meter'] },
 };
 
 // The text with distances' unit abbreviations written out, so the voice says "15 feet" rather than "15 ef tee" and

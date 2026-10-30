@@ -678,6 +678,7 @@ public partial class MainWindow : Window
     {
         "pt" => "Portuguese",
         "es" => "Spanish",
+        "de" => "German",
         _ => "English",
     };
 

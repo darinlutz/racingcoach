@@ -146,7 +146,7 @@ internal sealed class CollectorEngine
     /// Standard (feet, mph, °F, gallons). Loaded with the upload key, and again at each new track or car so a
     /// change on the Account page shows from the next session; Standard without a key.</summary>
     public bool Metric { get; private set; }
-    /// <summary>The user's Preferred Language on the Account page ("en", "pt" or "es"), which the overlays are in.
+    /// <summary>The user's Preferred Language on the Account page ("en", "pt", "es" or "de"), which the overlays are in.
     /// Loaded with the units; English without a key.</summary>
     public string Language { get; private set; } = Loc.English;
     /// <summary>"Beeps before braking" and its volume (10-100%), shown and changed under the Preferred Language and

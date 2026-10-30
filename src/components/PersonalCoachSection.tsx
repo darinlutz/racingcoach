@@ -12,6 +12,7 @@ const languages = [
   { code: 'EN', name: 'English', line: 'Brake at the 100 board, carry speed to the apex.' },
   { code: 'ES', name: 'Español', line: 'Frena en el cartel de 100, lleva velocidad al vértice.' },
   { code: 'PT', name: 'Português', line: 'Freie na placa de 100, leve velocidade até o ápice.' },
+  { code: 'DE', name: 'Deutsch', line: 'Brems am 100er-Schild, nimm Tempo mit zum Scheitelpunkt.' },
 ];
 
 // A few of the Account page's coach voices (COACH_VOICE_DETAILS in src/lib/coachVoice.ts, which is server only)

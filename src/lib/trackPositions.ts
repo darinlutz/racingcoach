@@ -5,27 +5,27 @@
 // gets one chance to rewrite it, then any sentence that still gives a place on the track is dropped.
 // No imports, so `node --test` runs it directly (scripts/track-positions.test.mjs).
 
-// A number of feet or meters, in English, Portuguese and Spanish
-const DISTANCE_RE = /\d[\d,.]*\s*(?:ft|feet|foot|pés|pé|pies|pie|m|meters?|metres?|metros?)(?!\p{L})/giu;
+// A number of feet or meters, in English, Portuguese, Spanish and German
+const DISTANCE_RE = /\d[\d,.]*\s*(?:ft|feet|foot|pés|pé|pies|pie|fuß|fuss|m|meters?|metres?|metros?|metern)(?!\p{L})/giu;
 
 // What makes a distance a change or relative: its direction or a reference after it ("30 ft later", "16 m too
 // early", "10 ft after your fastest lap's brakepoint", "2 ft to the left", "50 ft into the area")
 const CHANGE_AFTER_RE =
-  /^[^\p{L}\p{N}]*(?:\p{L}+[^\p{L}\p{N}]+){0,2}?(?:later|earlier|sooner|late|early|deeper|apart|scatter|spread|variation|variance|swing|range|window|after|before|past|beyond|short|ahead|behind|into|longer|shorter|more|less|mais tarde|más tarde|mais cedo|más temprano|tarde|cedo|temprano|antes|depois|después|detrás|além|más allá|toward|towards|further|farther|wider|tighter|wide|para|hacia|em direção|en dirección|left|right|esquerda|direita|izquierda|derecha)(?!\p{L})/iu;
+  /^[^\p{L}\p{N}]*(?:\p{L}+[^\p{L}\p{N}]+){0,2}?(?:later|earlier|sooner|late|early|deeper|apart|scatter|spread|variation|variance|swing|range|window|after|before|past|beyond|short|ahead|behind|into|longer|shorter|more|less|mais tarde|más tarde|mais cedo|más temprano|tarde|cedo|temprano|antes|depois|después|detrás|além|más allá|toward|towards|further|farther|wider|tighter|wide|para|hacia|em direção|en dirección|left|right|esquerda|direita|izquierda|derecha|später|früher|spät|früh|tiefer|auseinander|nach|vor|hinter|vorher|danach|weiter|länger|kürzer|mehr|weniger|breiter|enger|links|rechts|richtung|streuung|spanne)(?!\p{L})/iu;
 // ... or a word before it ("later by 30 ft", "within 3 m of each other", "std dev 22 ft", "varies by 30 ft")
 const CHANGE_BEFORE_RE =
-  /(?<!\p{L})(?:by|por|em|en|within|under|over|less than|more than|up to|dentro de|menos de|más de|mais de|até|hasta|std dev|standard deviation(?: of)?|deviation(?: of)?|desvio(?: padrão)?(?: de)?|desviación(?: estándar)?(?: de)?|spread(?: of)?|range of|varies by|varied by|differ by|differs by|gap of|diferença de|diferencia de|±|\+\/-)\s*(?:about\s+|around\s+|roughly\s+|only\s+|just\s+|cerca de\s+|unos\s+|uns\s+|apenas\s+|solo\s+|sólo\s+)?$/iu;
+  /(?<!\p{L})(?:by|por|em|en|within|under|over|less than|more than|up to|dentro de|menos de|más de|mais de|até|hasta|std dev|standard deviation(?: of)?|deviation(?: of)?|desvio(?: padrão)?(?: de)?|desviación(?: estándar)?(?: de)?|spread(?: of)?|range of|varies by|varied by|differ by|differs by|gap of|diferença de|diferencia de|±|\+\/-|um|innerhalb von|innerhalb|unter|über|weniger als|mehr als|bis zu|standardabweichung(?: von)?|abweichung(?: von)?|streuung(?: von)?|spanne(?: von)?|schwankt um|schwanken um|differenz von|unterschied von|abstand von)\s*(?:about\s+|around\s+|roughly\s+|only\s+|just\s+|cerca de\s+|unos\s+|uns\s+|apenas\s+|solo\s+|sólo\s+|etwa\s+|rund\s+|ungefähr\s+|ca\.\s+|nur\s+)?$/iu;
 
 // A distance measured from the start/finish line is a place on the track whatever words surround it
 const FROM_LINE_RE =
-  /(?<!\p{L})(?:start\/finish|start-finish|start finish|s\/f|lap start|start of the lap|largada|linha de chegada|início da volta|línea de meta|línea de salida|inicio de la vuelta|salida\/meta)(?!\p{L})/iu;
+  /(?<!\p{L})(?:start\/finish|start-finish|start finish|s\/f|lap start|start of the lap|largada|linha de chegada|início da volta|línea de meta|línea de salida|inicio de la vuelta|salida\/meta|start\/ziel|start-ziel|rundenbeginn|rundenstart|beginn der runde|ziellinie|startlinie)(?!\p{L})/iu;
 
 // No brakepoint or throttle change is this big, and no spread either: a distance this far is a place on the track
 const MAX_RELATIVE_FEET = 1000;
 const MAX_RELATIVE_METERS = 300;
 
 // A share of the lap ("at 45% of the lap", "a 45% da volta") is a place on the track too
-const LAP_SHARE_RE = /\d[\d,.]*\s*%\s*(?:of|into|around|through|da|de|del|de la)\s+(?:the\s+|a\s+|la\s+)?(?:lap|volta|vuelta|track|pista)(?!\p{L})/iu;
+const LAP_SHARE_RE = /\d[\d,.]*\s*%\s*(?:of|into|around|through|da|de|del|de la|der|in)\s+(?:the\s+|a\s+|la\s+|die\s+|der\s+)?(?:lap|volta|vuelta|track|pista|runde|strecke)(?!\p{L})/iu;
 
 // "1,235" or "1.235" (thousands) -> 1235, "2.5" or "2,5" (decimals) -> 2.5
 function parseNumber(text: string): number {
@@ -34,7 +34,7 @@ function parseNumber(text: string): number {
   return Number(digits.replace(',', '.'));
 }
 
-const isMeters = (match: string) => /(?:\d|\s)(?:m|meters?|metres?|metros?)$/iu.test(match);
+const isMeters = (match: string) => /(?:\d|\s)(?:m|meters?|metres?|metros?|metern)$/iu.test(match);
 
 export function hasTrackPosition(text: string): boolean {
   if (LAP_SHARE_RE.test(text)) return true;

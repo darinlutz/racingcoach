@@ -34,6 +34,7 @@ const PROMPT: Record<Language, string> = {
   en: 'A racing driver on the team radio during an iRacing session: box box, pit this lap, copy, understeer, oversteer, tires, fuel, gap, push, yellow flag.',
   pt: 'Um piloto no rádio da equipe durante uma sessão do iRacing: box box, para nesta volta, entendido, saindo de frente, saindo de traseira, pneus, combustível, diferença, bandeira amarela.',
   es: 'Un piloto en la radio del equipo durante una sesión de iRacing: box box, entro en esta vuelta, copiado, subviraje, sobreviraje, neumáticos, combustible, diferencia, bandera amarilla.',
+  de: 'Ein Rennfahrer am Teamfunk während einer iRacing-Session: Box Box, diese Runde an die Box, verstanden, Untersteuern, Übersteuern, Reifen, Sprit, Abstand, pushen, gelbe Flagge.',
 };
 
 export class RadioTranscriptionError extends Error {}

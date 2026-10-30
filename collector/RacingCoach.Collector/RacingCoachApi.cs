@@ -103,7 +103,7 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
 
     /// <summary>Whether the user's Preferred Units on the Account page are Metric (meters, kph, °C, liters) rather
     /// than Standard (feet, mph, °F, gallons; also for a site from before there were units), their Preferred
-    /// Language ("en", "pt" or "es"; "en" from a site from before it was sent), and "Beeps before braking" and its
+    /// Language ("en", "pt", "es" or "de"; "en" from a site from before it was sent), and "Beeps before braking" and its
     /// volume (10-100; null from a site from before they were sent). Throws like GetTrackJsonAsync.</summary>
     public async Task<AccountPreferences> GetPreferencesAsync(CancellationToken ct)
     {

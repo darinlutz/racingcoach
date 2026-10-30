@@ -5,7 +5,7 @@ import { getUserById } from '@/lib/users';
 
 // Lets the telemetry collector check an upload key when the user enters it, and show whose account
 // its laps will go to, and tells it the user's Preferred Units ("standard" or "metric"), which its windows show
-// speeds, distances, temperatures and fuel in, Preferred Language ("en", "pt" or "es"), which its overlays are in,
+// speeds, distances, temperatures and fuel in, Preferred Language ("en", "pt", "es" or "de"), which its overlays are in,
 // and "Beeps before braking" (brakeBeeps) and its volume (brakeBeepsVolume, 10-100), which its window shows and changes
 // (PUT /api/collector/brake-beeps), and whether the account has accepted the current Terms of Service and Privacy
 // Policy (policiesAccepted; when not, the collector's window asks the user to review them on the website).

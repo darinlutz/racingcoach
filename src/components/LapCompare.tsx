@@ -42,7 +42,7 @@ const ENGLISH_DIFF_WORDS = {
 };
 type DiffWords = typeof ENGLISH_DIFF_WORDS;
 
-// 1234.5 -> "1,235" (or "1.235" in Portuguese and Spanish); the distance is already in the user's units
+// 1234.5 -> "1,235" (or "1.235" in Portuguese, Spanish and German); the distance is already in the user's units
 function formatDistance(distance: number, locale = 'en-US') {
   return Math.round(distance).toLocaleString(locale);
 }

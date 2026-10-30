@@ -241,7 +241,7 @@ public partial class RotationWindow : Window
         raw.Text = value is { } r ? $"{r.ToString("0.0000", Invariant)} {units}".TrimEnd() : "";
     }
 
-    // 12.3 -> "12.3° L", -12.3 -> "12.3° R" (E/D in Portuguese, I/D in Spanish)
+    // 12.3 -> "12.3° L", -12.3 -> "12.3° R" (E/D in Portuguese, I/D in Spanish, L/R in German)
     private string LeftRight(double value, string units) =>
         Math.Abs(value) < 0.05 ? $"{N(0, "0.0")}{units}"
         : $"{N(Math.Abs(value), "0.0")}{units} {Loc.T(_language, value > 0 ? "left" : "right")}";

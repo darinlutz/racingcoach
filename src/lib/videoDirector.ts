@@ -40,6 +40,8 @@ export const RECOVERY_MS = 2000;
 export const RETRY_AFTER_MS = 30_000;
 // A clip plays at most this long, whatever its timestamps say
 export const MAX_CLIP_SECONDS = 60;
+// Rotation: a clip is picked this long before its cut, so viewers can buffer it
+export const ROTATION_LEAD_MS = 6000;
 // How many recent clips and categories are avoided while there are alternatives
 export const RECENT_VIDEOS = 5;
 const RECENT_CATEGORIES = 2;
@@ -59,6 +61,10 @@ export type DirectorSettings = {
   postVideoCommentary: boolean;
   // Off mutes every clip; on lets a clip with Audio enabled be heard, ducked under the announcers
   videoAudio: boolean;
+  // During a race, take turns between the map and footage on a fixed rhythm, with no announcer lines of its own
+  rotationEnabled: boolean;
+  rotationMapSeconds: number;
+  rotationVideoSeconds: number;
   categoryEnabled: Partial<Record<VideoCategory, boolean>>;
   categoryWeights: Partial<Record<VideoCategory, number>>;
 };
@@ -74,6 +80,9 @@ export const DEFAULT_DIRECTOR_SETTINGS: DirectorSettings = {
   commentaryDuringVideo: true,
   postVideoCommentary: true,
   videoAudio: false,
+  rotationEnabled: true,
+  rotationMapSeconds: 30,
+  rotationVideoSeconds: 30,
   categoryEnabled: {},
   categoryWeights: {},
 };
@@ -103,6 +112,9 @@ export function parseDirectorSettings(raw: unknown, base: DirectorSettings = DEF
     commentaryDuringVideo: bool('commentaryDuringVideo'),
     postVideoCommentary: bool('postVideoCommentary'),
     videoAudio: bool('videoAudio'),
+    rotationEnabled: bool('rotationEnabled'),
+    rotationMapSeconds: clampNumber(r.rotationMapSeconds, 10, 600, base.rotationMapSeconds),
+    rotationVideoSeconds: clampNumber(r.rotationVideoSeconds, 5, MAX_CLIP_SECONDS, base.rotationVideoSeconds),
     categoryEnabled: enabled,
     categoryWeights: weights,
   };
@@ -198,6 +210,8 @@ export type ReservedClip = {
   durationMs: number;
   // The clip's own sound is heard (the Admin page allows it, and it was uploaded with it)
   audio: boolean;
+  // Rotation: the footage repeats every lengthSeconds from clipStartSeconds, starting offsetSeconds in
+  loop?: { offsetSeconds: number; lengthSeconds: number };
 };
 
 export type LineTiming = 'intro' | 'during' | 'after';
@@ -238,6 +252,10 @@ export type DirectorState = {
   nextCheckAt: number;
   // When the last clip ended; the time between clips counts from this
   lastClipEndedAt: number | null;
+  // Rotation: when the clip being picked or shown cuts in; null for a clip with the announcers' sequence
+  rotationCutAt: number | null;
+  // Rotation: how far (seconds) each clip has got, so a long file carries on rather than starting over
+  rotationPlayed: Record<number, number>;
   manualRequest: SelectionRequest | null;
   reselect: boolean;
   recentVideoIds: number[];
@@ -271,6 +289,8 @@ export function newDirector(sessionKey: string, now: number): DirectorState {
     holdUntil: 0,
     nextCheckAt: 0,
     lastClipEndedAt: null,
+    rotationCutAt: null,
+    rotationPlayed: {},
     manualRequest: null,
     reselect: false,
     recentVideoIds: [],
@@ -296,6 +316,8 @@ export type RaceConditions = {
   blocked: boolean;
   // A P0 moment since the sequence started: the broadcast goes back to it
   critical: boolean;
+  // The race is under way with nothing critical just now, so the rotation runs (if it's turned on)
+  rotating: boolean;
 };
 
 export type TickInput = {
@@ -314,8 +336,15 @@ function go(state: DirectorState, phase: DirectorPhase, now: number, effects: Di
   effects.push({ type: 'persist' });
 }
 
-// When the next clip is due: the minimum time between clips when the race is quiet, up to the maximum as it livens up
-export function nextClipDueAt(state: Pick<DirectorState, 'lastClipEndedAt' | 'createdAt'>, settings: Pick<DirectorSettings, 'minIntervalSeconds' | 'maxIntervalSeconds'>, level: number): number {
+// When the next clip is due: the minimum time between clips when the race is quiet, up to the maximum as it livens up;
+// in the rotation, the map's turn after the last one (its fade back counts, as the map shows from the start of that)
+export function nextClipDueAt(
+  state: Pick<DirectorState, 'lastClipEndedAt' | 'createdAt' | 'transitionMs'>,
+  settings: Pick<DirectorSettings, 'minIntervalSeconds' | 'maxIntervalSeconds' | 'rotationMapSeconds'>,
+  level: number,
+  rotating = false
+): number {
+  if (rotating) return state.lastClipEndedAt == null ? state.createdAt + settings.rotationMapSeconds * 1000 : state.lastClipEndedAt - state.transitionMs + settings.rotationMapSeconds * 1000;
   const share = level <= 1 ? 0 : level === 2 ? 0.5 : 1;
   const seconds = settings.minIntervalSeconds + (settings.maxIntervalSeconds - settings.minIntervalSeconds) * share;
   return (state.lastClipEndedAt ?? state.createdAt) + seconds * 1000;
@@ -323,7 +352,9 @@ export function nextClipDueAt(state: Pick<DirectorState, 'lastClipEndedAt' | 'cr
 
 function autoClipDue(state: DirectorState, input: TickInput): boolean {
   const { now, settings, race } = input;
-  return settings.videosEnabled && settings.autoDirector && !race.blocked && race.level < 4 && now >= nextClipDueAt(state, settings, race.level);
+  if (!settings.videosEnabled || !settings.autoDirector) return false;
+  if (settings.rotationEnabled && race.rotating) return now >= nextClipDueAt(state, settings, race.level, true) - ROTATION_LEAD_MS;
+  return !race.blocked && race.level < 4 && now >= nextClipDueAt(state, settings, race.level);
 }
 
 function abandon(state: DirectorState, now: number, status: 'cancelled' | 'failed', reason: string, effects: DirectorEffect[]): void {
@@ -349,7 +380,8 @@ function schedule(state: DirectorState, now: number, settings: DirectorSettings,
   const clip = state.clip!;
   const prepared = state.prepared ?? [];
   const intro = prepared.filter((l) => l.when === 'intro');
-  const start = intro.length > 0 ? now + AUDIO_LEAD_MS : now + PRELOAD_MS / 2;
+  const soonest = intro.length > 0 ? now + AUDIO_LEAD_MS : now + PRELOAD_MS / 2;
+  const start = Math.max(soonest, state.rotationCutAt ?? 0);
   const lines: ScheduledLine[] = [];
   let at = start;
   for (const line of intro) {
@@ -394,6 +426,7 @@ function cutToLive(state: DirectorState, now: number, status: 'cutShort', reason
 export function directorTick(state: DirectorState, input: TickInput): DirectorEffect[] {
   const { now, settings, race } = input;
   const effects: DirectorEffect[] = [];
+  const rotating = settings.rotationEnabled && race.rotating;
   // Turned off: a skip's promise of another clip doesn't outlive that
   if (!settings.videosEnabled) state.reselect = false;
   switch (state.phase) {
@@ -403,10 +436,12 @@ export function directorTick(state: DirectorState, input: TickInput): DirectorEf
         const request = state.manualRequest;
         state.manualRequest = null;
         state.selecting = true;
+        state.rotationCutAt = rotating ? now : null;
         effects.push({ type: 'select', request, trigger: 'manual' });
       } else if (now >= state.nextCheckAt && settings.videosEnabled && (state.reselect || autoClipDue(state, input))) {
         state.reselect = false;
         state.selecting = true;
+        state.rotationCutAt = rotating ? Math.max(nextClipDueAt(state, settings, race.level, true), now) : null;
         effects.push({ type: 'select', request: {}, trigger: 'auto' });
       }
       break;
@@ -417,6 +452,7 @@ export function directorTick(state: DirectorState, input: TickInput): DirectorEf
       break;
     case 'CLIP_PRELOADING':
       if (race.critical) abandon(state, now, 'cancelled', 'liveAction', effects);
+      else if (now >= state.preloadUntil && state.rotationCutAt != null) schedule(state, now, settings, effects);
       else if (now >= state.preloadUntil) {
         state.introDeadline = now + INTRO_WAIT_MS;
         go(state, 'INTRO_PENDING', now, effects);
@@ -494,6 +530,16 @@ export function clipSelected(state: DirectorState, video: DirectorVideo | null, 
     durationMs: Math.round(clipLengthSeconds(video, settings) * 1000),
     audio: settings.videoAudio && video.audioEnabled,
   };
+  if (state.rotationCutAt != null) {
+    // The whole of the file (or the part of it the clip's times mark), repeating if it's shorter than the footage's turn
+    const end = Math.min(video.clipEndSeconds ?? video.durationSeconds, video.durationSeconds);
+    const lengthSeconds = Math.max(end - video.clipStartSeconds, 0);
+    const played = state.rotationPlayed ?? {};
+    const offsetSeconds = (played[video.id] ?? 0) % lengthSeconds;
+    state.clip.durationMs = settings.rotationVideoSeconds * 1000;
+    state.clip.loop = { offsetSeconds, lengthSeconds };
+    state.rotationPlayed = { ...played, [video.id]: offsetSeconds + settings.rotationVideoSeconds };
+  }
   state.trigger = trigger;
   state.prepared = null;
   state.lines = [];
@@ -509,6 +555,13 @@ export function clipValidated(state: DirectorState, ok: boolean, now: number): D
   if (state.phase !== 'CLIP_SELECTED') return effects;
   if (!ok) {
     abandon(state, now, 'failed', 'missingFile', effects);
+    return effects;
+  }
+  if (state.rotationCutAt != null) {
+    // No lines to prepare; the schedule goes out just ahead of the cut, as viewers hear of it within a second
+    state.preloadUntil = Math.max(now + PRELOAD_MS, state.rotationCutAt - PRELOAD_MS / 2);
+    state.prepared = [];
+    go(state, 'CLIP_PRELOADING', now, effects);
     return effects;
   }
   state.preloadUntil = now + PRELOAD_MS;
@@ -614,7 +667,9 @@ export function restoreDirector(saved: DirectorState, now: number): { state: Dir
   return { state, lost };
 }
 
-export const commentaryHeld = (state: Pick<DirectorState, 'phase' | 'holdUntil'>, now: number) => HELD_PHASES.includes(state.phase) || now < state.holdUntil;
+// The rotation has no lines of its own, so commentary carries on over it
+export const commentaryHeld = (state: Pick<DirectorState, 'phase' | 'holdUntil'> & Partial<Pick<DirectorState, 'rotationCutAt'>>, now: number) =>
+  state.rotationCutAt == null && (HELD_PHASES.includes(state.phase) || now < state.holdUntil);
 
 // What's on screen at this moment, by the schedule
 export function sourceAt(state: Pick<DirectorState, 'transitionAt' | 'returnAt'>, now: number): BroadcastSource {
@@ -647,8 +702,13 @@ export type DirectorSnapshot = {
 export function expectedVideoTime(snapshot: Pick<DirectorSnapshot, 'clip' | 'playbackStartAt' | 'returnAt'>, serverNow: number): number | null {
   if (!snapshot.clip || snapshot.playbackStartAt == null || snapshot.returnAt == null) return null;
   if (serverNow < snapshot.playbackStartAt || serverNow >= snapshot.returnAt) return null;
-  return snapshot.clip.clipStartSeconds + (serverNow - snapshot.playbackStartAt) / 1000;
+  const elapsed = (serverNow - snapshot.playbackStartAt) / 1000;
+  const { clipStartSeconds, loop } = snapshot.clip;
+  return loop ? clipStartSeconds + (loop.offsetSeconds + elapsed) % loop.lengthSeconds : clipStartSeconds + elapsed;
 }
+
+// Where in the file the clip waits for its cut
+export const clipCueSeconds = (clip: Pick<ReservedClip, 'clipStartSeconds' | 'loop'>) => clip.clipStartSeconds + (clip.loop?.offsetSeconds ?? 0);
 
 // Off by more than this (seconds), a player jumps; by less than the nudge, it's left alone; between them it speeds up or
 // slows down a little until it's back

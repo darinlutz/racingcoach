@@ -427,7 +427,7 @@ function conditions(session: Session, now: number): RaceConditions {
   const feed = readDirectorFeed(session.driverId);
   session.sequenceSince = session.state.clip ? (session.sequenceSince ?? now) : null;
   // The followed driver went away: no new clip until there's a race to read again
-  if (!feed) return { level: 1, blocked: true, critical: false };
+  if (!feed) return { level: 1, blocked: true, critical: false, rotating: false };
   return raceConditions(feed.events, feed.context, now, session.sequenceSince);
 }
 
@@ -667,6 +667,7 @@ export function directorSessions(): DirectorDashboardSession[] {
   return [...runtime.sessions.values()].map((session) => {
     const s = session.state;
     const race = conditions(session, now);
+    const rotating = !!settings?.rotationEnabled && race.rotating;
     return {
       key: session.key,
       label: session.label,
@@ -679,9 +680,9 @@ export function directorSessions(): DirectorDashboardSession[] {
       lines: s.lines.map((l: ScheduledLine) => ({ when: l.when, speaker: l.speaker, at: l.at, durationMs: l.durationMs })),
       announcersBusyMs: Math.max(session.announcersBusyUntil - now, 0),
       commentaryHeld: commentaryHeld(s, now),
-      nextEligibleMs: settings?.videosEnabled && settings.autoDirector ? Math.max(Math.max(nextClipDueAt(s, settings, race.level), s.nextCheckAt) - now, 0) : null,
+      nextEligibleMs: settings?.videosEnabled && settings.autoDirector ? Math.max(Math.max(nextClipDueAt(s, settings, race.level, rotating), s.nextCheckAt) - now, 0) : null,
       raceLevel: race.level,
-      raceBlocked: race.blocked,
+      raceBlocked: race.blocked && !rotating,
       transitionAt: s.transitionAt,
       returnAt: s.returnAt,
       serverNow: now,

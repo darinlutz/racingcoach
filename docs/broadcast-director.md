@@ -53,6 +53,17 @@ race's opening, final laps or after the finish, or within 15 s of a P0/P1 moment
 there are alternatives. A clip tied to a track only plays at that track, and is favoured there. Play Video Now skips the
 schedule, not the sequence.
 
+**Rotation** (`rotationEnabled`, on by default; `rotationMapSeconds` and `rotationVideoSeconds`, 30 each): during a race,
+from the end of its opening until its final laps (`rotating` in `raceConditions`), the broadcast takes turns between the
+map and footage on a fixed rhythm. With so little time on the map, the sequence is left out: no lines are written or voiced
+(the Require introduction, during and after settings don't apply, and it makes no AI or speech calls of its own), it doesn't
+wait for the announcers, and normal commentary carries on over the footage. Passes and battles don't delay a turn; a P0
+moment cuts back as usual, keeps it on the map for 15 s and the map then gets a full turn. Footage fills its whole turn: the
+file (or the part its clip times mark) repeats if it's shorter, and a longer one carries on where it got to in that session.
+A clip is picked 6 s ahead so TVs can buffer it. Play Video Now cuts in as soon as it's buffered, and starts the next map's
+turn when it ends. At other times (practice, qualifying, a race's opening and final laps) the schedule above applies, which plays no clips in a race's opening or final laps.
+Needs Automatic mode on, and footage the Director may pick; with none, the map stays up.
+
 ## Failures
 
 | What happens | What the Director does |
@@ -120,3 +131,4 @@ any account's rate limit. Video goes straight from storage to the TV, not throug
 - [ ] **On the Fire TV**: the clip plays smoothly, the cut is clean, the map is live afterwards, and the remote still responds
 - [ ] A clip with Audio enabled and Allow video audio on: ducked under the announcers on the Fire TV
 - [ ] A long race: clips don't interrupt big moments, and the spacing feels right. Adjust on the Admin page
+- [ ] **On the Fire TV**: a long race of the rotation, a cut every 30 s without the decoder or memory giving out

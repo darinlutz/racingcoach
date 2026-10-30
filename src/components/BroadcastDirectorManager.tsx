@@ -18,8 +18,8 @@ const buttonClass = 'px-4 py-2 rounded-lg text-sm font-semibold border border-bo
 const primaryClass = 'px-4 py-2 rounded-lg text-sm font-semibold text-white bg-primary hover:bg-primary-strong transition-colors disabled:opacity-50';
 const POLL_MS = 2000;
 
-type Switch = 'videosEnabled' | 'autoDirector' | 'requireIntroduction' | 'commentaryDuringVideo' | 'postVideoCommentary' | 'videoAudio';
-type NumberSetting = 'minIntervalSeconds' | 'maxIntervalSeconds' | 'defaultClipSeconds' | 'transitionMs';
+type Switch = 'videosEnabled' | 'autoDirector' | 'rotationEnabled' | 'requireIntroduction' | 'commentaryDuringVideo' | 'postVideoCommentary' | 'videoAudio';
+type NumberSetting = 'rotationMapSeconds' | 'rotationVideoSeconds' | 'minIntervalSeconds' | 'maxIntervalSeconds' | 'defaultClipSeconds' | 'transitionMs';
 
 export default function BroadcastDirectorManager() {
   const { t, fmt } = useLanguage();
@@ -101,12 +101,15 @@ export default function BroadcastDirectorManager() {
   const switches: { key: Switch; label: string }[] = [
     { key: 'videosEnabled', label: b.videosEnabled },
     { key: 'autoDirector', label: b.autoDirector },
+    { key: 'rotationEnabled', label: b.rotationEnabled },
     { key: 'requireIntroduction', label: b.requireIntroduction },
     { key: 'commentaryDuringVideo', label: b.commentaryDuringVideo },
     { key: 'postVideoCommentary', label: b.postVideoCommentary },
     { key: 'videoAudio', label: b.videoAudio },
   ];
   const numbers: { key: NumberSetting; label: string; min: number }[] = [
+    { key: 'rotationMapSeconds', label: b.rotationMapSeconds, min: 10 },
+    { key: 'rotationVideoSeconds', label: b.rotationVideoSeconds, min: 5 },
     { key: 'minIntervalSeconds', label: b.minInterval, min: 10 },
     { key: 'maxIntervalSeconds', label: b.maxInterval, min: 10 },
     { key: 'defaultClipSeconds', label: b.defaultClip, min: 1 },

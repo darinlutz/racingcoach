@@ -12,6 +12,8 @@ const LEVEL_WINDOW_MS = 30_000;
 const BLOCK_WINDOW_MS = 15_000;
 // The race's start and end are live television, not time for recorded footage
 const NO_CLIP_PHASES: readonly DirectorContext['phase'][] = ['opening', 'finalLaps', 'finished'];
+// When the map and footage take turns: the race, once its opening's over and until its final laps
+const ROTATION_PHASES: readonly DirectorContext['phase'][] = ['middle', 'finalQuarter'];
 
 // since: when the current clip's sequence started (a P0 moment after it brings the broadcast back), or null for none
 export function raceConditions(events: NumberedRaceEvent[], ctx: DirectorContext, now: number, since: number | null): RaceConditions {
@@ -19,6 +21,7 @@ export function raceConditions(events: NumberedRaceEvent[], ctx: DirectorContext
   let level = 1;
   let blocked = NO_CLIP_PHASES.includes(ctx.phase);
   let critical = false;
+  let rotating = ctx.isRace && ROTATION_PHASES.includes(ctx.phase);
   for (const event of events) {
     const c = classify(event, ctx);
     const age = now - c.at;
@@ -29,7 +32,8 @@ export function raceConditions(events: NumberedRaceEvent[], ctx: DirectorContext
     const intensity = intensityFor(c, ctx, scratch, now, 5).lead;
     level = Math.max(level, intensity);
     if (age <= BLOCK_WINDOW_MS && (c.priority <= 1 || intensity >= 4)) blocked = true;
+    if (age <= BLOCK_WINDOW_MS && c.priority === 0) rotating = false;
     if (c.priority === 0 && since != null && c.at > since) critical = true;
   }
-  return { level, blocked, critical };
+  return { level, blocked, critical, rotating };
 }

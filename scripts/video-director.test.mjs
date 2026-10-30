@@ -8,6 +8,7 @@ import { readFileSync } from 'node:fs';
 import { hasVideoExtension, isVideoCategory, VIDEO_CATEGORIES } from '../src/lib/broadcastVideoCategories.ts';
 import {
   AUDIO_LEAD_MS,
+  clipCueSeconds,
   clipLengthSeconds,
   clipSelected,
   clipValidated,
@@ -56,7 +57,7 @@ const video = (id, category = 'ONBOARDS', extra = {}) => ({
   commentaryContext: '',
   ...extra,
 });
-const settings = DEFAULT_DIRECTOR_SETTINGS;
+const settings = { ...DEFAULT_DIRECTOR_SETTINGS, rotationEnabled: false };
 const context = (extra = {}) => ({ settings, trackKey: 'monza full', cars: [], recentVideoIds: [], recentCategories: [], ...extra });
 const CALM = { level: 1, blocked: false, critical: false };
 const line = (when, speaker, durationMs, id = `${when}-${speaker}`) => ({ id, when, speaker, durationMs });
@@ -383,13 +384,144 @@ describe('automatic scheduling', () => {
   });
 });
 
+describe('the rotation', () => {
+  const config = DEFAULT_DIRECTOR_SETTINGS;
+  const RACING = { level: 1, blocked: false, critical: false, rotating: true };
+  const tick = (state, now, race = RACING, busy = 0) => directorTick(state, { now, settings: config, race, announcersBusyUntil: busy });
+  // Ticks to the moment the Director asks for a clip, answers it and its file check, and returns that time
+  function pick(state, from, v = video(7, 'ONBOARDS', { durationSeconds: 300 })) {
+    let now = from;
+    while (!tick(state, (now += 250)).some((e) => e.type === 'select')) assert.ok(now - from < 120_000, 'a clip was asked for');
+    clipSelected(state, v, 'auto', config, now);
+    const effects = clipValidated(state, true, now);
+    assert.ok(!effects.some((e) => e.type === 'prepare'), 'no lines are written');
+    return now;
+  }
+  const until = (state, phase, from, race = RACING) => {
+    let now = from;
+    while (state.phase !== phase) {
+      now += 250;
+      tick(state, now, race);
+      assert.ok(now - from < 120_000, `reached ${phase}`);
+    }
+    return now;
+  };
+
+  test('is on by default, 30 seconds each', () => {
+    assert.equal(config.rotationEnabled, true);
+    assert.equal(config.rotationMapSeconds, 30);
+    assert.equal(config.rotationVideoSeconds, 30);
+    const kept = parseDirectorSettings({ rotationMapSeconds: 1, rotationVideoSeconds: 999 });
+    assert.equal(kept.rotationMapSeconds, 10);
+    assert.equal(kept.rotationVideoSeconds, 60);
+  });
+
+  test('30 seconds of map, then 30 seconds of footage, over and over', () => {
+    const state = newDirector('race', 0);
+    let mapFrom = 0;
+    for (let round = 0; round < 4; round++) {
+      const picked = pick(state, mapFrom);
+      assert.ok(state.clip, 'a clip is reserved ahead of its cut');
+      assert.equal(sourceAt(state, picked), 'LIVE_TRACK_MAP');
+      until(state, 'INTRO_PLAYING', picked);
+      assert.ok(Math.abs(state.transitionAt - mapFrom - 30_000) <= 500, `map ${state.transitionAt - mapFrom} ms`);
+      assert.equal(state.returnAt - state.transitionAt, 30_000);
+      assert.deepEqual(state.lines, []);
+      mapFrom = state.returnAt;
+      until(state, 'LIVE', picked);
+    }
+  });
+
+  test('never waits for the announcers, and never holds their commentary', () => {
+    const state = newDirector('race', 0);
+    let now = pick(state, 0);
+    while (state.phase !== 'VIDEO_PLAYING') {
+      now += 250;
+      tick(state, now, RACING, now + 60_000);
+      assert.equal(commentaryHeld(state, now), false);
+      assert.ok(now < 120_000);
+    }
+  });
+
+  test('lively moments don’t stop it, a P0 cuts back, and the map then gets its full turn', () => {
+    const state = newDirector('race', 0);
+    const busy = { level: 4, blocked: true, critical: false, rotating: true };
+    let now = 0;
+    while (!tick(state, (now += 250), busy).some((e) => e.type === 'select')) assert.ok(now < 60_000);
+    clipSelected(state, video(7), 'auto', config, now);
+    clipValidated(state, true, now);
+    now = until(state, 'VIDEO_PLAYING', now, busy);
+    tick(state, (now += 250), { ...busy, critical: true });
+    assert.equal(state.phase, 'TRANSITION_TO_LIVE');
+    now = until(state, 'LIVE', now);
+    const next = pick(state, now);
+    until(state, 'INTRO_PLAYING', next);
+    assert.ok(state.transitionAt - now >= 29_000, 'a full turn of the map');
+  });
+
+  test('outside the rotation’s part of the race, the normal schedule and sequence apply', () => {
+    const state = newDirector('race', 0);
+    assert.deepEqual(tick(state, 60_000, CALM), [], 'not due yet');
+    assert.equal(tick(state, 120_000, CALM)[0].type, 'select');
+    clipSelected(state, video(7), 'auto', config, 120_000);
+    assert.equal(state.clip.loop, undefined);
+    assert.ok(clipValidated(state, true, 120_000).some((e) => e.type === 'prepare'));
+  });
+
+  test('turned off, a race gets the normal schedule', () => {
+    const off = { ...config, rotationEnabled: false };
+    const state = newDirector('race', 0);
+    assert.deepEqual(directorTick(state, { now: 60_000, settings: off, race: RACING, announcersBusyUntil: 0 }), []);
+  });
+
+  test('a short file repeats for the whole turn; a long one carries on where it got to', () => {
+    const short = newDirector('race', 0);
+    pick(short, 0, video(1, 'ONBOARDS', { durationSeconds: 8 }));
+    assert.equal(short.clip.durationMs, 30_000);
+    const snapshot = { clip: short.clip, playbackStartAt: 1000, returnAt: 31_000 };
+    assert.equal(expectedVideoTime(snapshot, 1000 + 7000), 7);
+    assert.equal(expectedVideoTime(snapshot, 1000 + 9000), 1);
+    assert.equal(expectedVideoTime(snapshot, 31_000), null);
+
+    const long = newDirector('race', 0);
+    const v = video(2, 'ONBOARDS', { durationSeconds: 70, clipStartSeconds: 5 });
+    const offsets = [];
+    let from = 0;
+    for (let round = 0; round < 3; round++) {
+      const picked = pick(long, from, v);
+      offsets.push(long.clip.loop.offsetSeconds);
+      assert.equal(clipCueSeconds(long.clip), 5 + long.clip.loop.offsetSeconds);
+      from = until(long, 'LIVE', picked);
+    }
+    assert.deepEqual(offsets, [0, 30, 60], 'wraps round the 65 seconds after the clip’s start next time');
+  });
+
+  test('a saved state from before the rotation still restores', () => {
+    const state = newDirector('race', 0);
+    delete state.rotationCutAt;
+    delete state.rotationPlayed;
+    const { state: restored } = restoreDirector(state, 1000);
+    assert.equal(commentaryHeld(restored, 1000), false);
+    pick(restored, 1000);
+    assert.equal(restored.clip.loop.offsetSeconds, 0);
+  });
+});
+
 describe('race intensity', () => {
   const ctx = (phase = 'middle') => ({ isRace: true, phase, raceProgress: 0.5, userIdx: 1, userPosition: 5, storylines: [] });
   const event = (at, e, seq = 1) => ({ seq, at, event: e });
   const NOW = 1_000_000;
 
   test('a quiet race is level 1 and open for clips', () => {
-    assert.deepEqual(raceConditions([], ctx(), NOW, null), { level: 1, blocked: false, critical: false });
+    assert.deepEqual(raceConditions([], ctx(), NOW, null), { level: 1, blocked: false, critical: false, rotating: true });
+  });
+
+  test('the rotation runs from after the race’s opening until its final laps, not after a P0 moment', () => {
+    for (const phase of ['middle', 'finalQuarter']) assert.equal(raceConditions([], ctx(phase), NOW, null).rotating, true, phase);
+    for (const phase of ['practice', 'preRace', 'opening', 'finalLaps', 'finished']) assert.equal(raceConditions([], ctx(phase), NOW, null).rotating, false, phase);
+    assert.equal(raceConditions([], { ...ctx(), isRace: false }, NOW, null).rotating, false, 'not a race');
+    const red = event(NOW - 2000, { type: 'flag', flag: 'red', text: 'Red flag' });
+    assert.equal(raceConditions([red], ctx(), NOW, null).rotating, false);
   });
 
   test('routine laps don’t count as action', () => {

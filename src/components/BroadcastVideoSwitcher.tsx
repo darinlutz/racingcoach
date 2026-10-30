@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useLanguage } from '@/components/LanguageProvider';
-import { expectedVideoTime, playbackCorrection, type DirectorSnapshot } from '@/lib/videoDirector';
+import { clipCueSeconds, expectedVideoTime, playbackCorrection, type DirectorSnapshot } from '@/lib/videoDirector';
 
 // What fills TV Broadcast Mode's map panel: its children (the live track map), with the Broadcast Director's recorded
 // clip over them while the schedule says so (src/lib/videoDirector.ts). The map is never unmounted or paused, so it stays
@@ -86,8 +86,9 @@ export default function BroadcastVideoSwitcher({
         setVisible(false);
         pause();
         // Sits on its first frame, ready, until the cut
-        if (video.readyState >= 1 && snapshot.playbackStartAt === null && Math.abs(video.currentTime - snapshot.clip.clipStartSeconds) > 0.5) {
-          video.currentTime = snapshot.clip.clipStartSeconds;
+        const cue = clipCueSeconds(snapshot.clip);
+        if (video.readyState >= 1 && (snapshot.playbackStartAt === null || serverNow < snapshot.playbackStartAt) && Math.abs(video.currentTime - cue) > 0.5) {
+          video.currentTime = cue;
         }
         return;
       }

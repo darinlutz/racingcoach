@@ -185,7 +185,7 @@ test('the library and Director answer 404 to anyone but an Admin', async () => {
 
 test('Acceptance: an Onboard clip, introduced, on every TV together, and back to the map', async ({ browser }) => {
   // Manual for now, so nothing else starts; the Director still runs the normal sequence
-  await settle({ autoDirector: false, minIntervalSeconds: 10, maxIntervalSeconds: 20 });
+  await settle({ autoDirector: false, rotationEnabled: false, minIntervalSeconds: 10, maxIntervalSeconds: 20 });
   let sequence = 0;
   const send = () =>
     fetch(`${BASE}/api/collector/live`, {

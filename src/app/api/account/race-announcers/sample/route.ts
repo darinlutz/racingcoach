@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getCoachVoice, isCoachVoice, synthesizeSpeech } from '@/lib/coachVoice';
+import { getCoachVoice, isCoachVoice, speaksElevenLabs, synthesizeSpeech } from '@/lib/coachVoice';
+import { ELEVENLABS_PROVIDER, SPEECH_PROVIDER_HEADER } from '@/lib/engineBedConfig';
 import { apiText, getDictionary } from '@/lib/i18n/server';
 import { ANNOUNCER_ROLES, isAnnouncer } from '@/lib/raceAnnouncer';
 import { aiRateLimit, type AiRateLimit } from '@/lib/rateLimits';
@@ -30,7 +31,11 @@ export async function GET(request: Request) {
     const sample = announcer === 'lead' ? words.sampleLead : words.sampleColor;
     const audio = await synthesizeSpeech(sample, voice, user.preferredLanguage, spanishAccent, ANNOUNCER_ROLES[announcer]);
     return new NextResponse(new Uint8Array(audio), {
-      headers: { 'Content-Type': 'audio/wav', 'Cache-Control': 'private, max-age=86400' },
+      headers: {
+        'Content-Type': 'audio/wav',
+        'Cache-Control': 'private, max-age=86400',
+        ...(speaksElevenLabs(voice, ANNOUNCER_ROLES[announcer], user.preferredLanguage, spanishAccent) ? { [SPEECH_PROVIDER_HEADER]: ELEVENLABS_PROVIDER } : {}),
+      },
     });
   } catch (error) {
     console.error('Race Announcer sample error:', error);

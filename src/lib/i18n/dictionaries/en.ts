@@ -430,6 +430,20 @@ export const en = {
       preRace: 'Pre-race introduction',
       postRace: 'Post-race summary',
       saved: 'Race Broadcast preferences saved.',
+      engine: {
+        title: 'Engine sound',
+        intro: 'A racing engine plays quietly under your announcers while an ElevenLabs voice is speaking, and at no other time. Your browser mixes it in as each line plays.',
+        enabled: 'Play the engine sound under speech',
+        volume: 'Engine volume',
+        asset: 'Engine sound',
+        builtIn: 'GT3 engine (built in)',
+        engineFadeInMs: 'Fade in',
+        engineFadeOutMs: 'Fade out',
+        preview: 'Preview voice and engine',
+        previewing: 'Playing…',
+        previewFailed: 'Couldn’t play the preview.',
+        previewNotElevenLabs: 'The engine sound only plays under ElevenLabs voices, and your Lead Announcer uses another voice.',
+      },
     },
   },
 
@@ -1690,6 +1704,23 @@ export const en = {
   // The Admin page's activity log (src/app/admin/page.tsx)
   admin: {
     // The Broadcast Video Library and Broadcast Director sections
+    // The Engine Sounds section (src/components/EngineAudioLibrary.tsx)
+    engineAudio: {
+      title: 'Engine Sounds',
+      intro: 'MP3 or WAV files any listener can pick for the engine sound under ElevenLabs speech, beside the built-in one. A sound that loops cleanly works best.',
+      storageMissing: 'Object storage is not set up, so only the built-in sound is available. Set the BROADCAST_VIDEO_S3_ environment variables to upload sounds (docs/broadcast-director.md).',
+      file: 'MP3 or WAV file (up to 20 MB)',
+      name: 'Name (optional)',
+      upload: 'Upload',
+      uploading: 'Uploading…',
+      builtIn: 'GT3 engine (built in)',
+      remove: 'Remove',
+      confirmRemove: 'Remove “{name}”? Listeners who picked it get the built-in sound.',
+      failedLoad: 'Couldn’t load the engine sounds.',
+      failedSave: 'Couldn’t save that.',
+      fileTooLarge: 'That file is over the 20 MB limit.',
+      unsupportedFile: 'That file isn’t an MP3 or WAV.',
+    },
     broadcast: {
       "libraryTitle": "Broadcast Video Library",
       "libraryIntro": "Recorded clips the Broadcast Director can show on TV Broadcast Mode. H.264 MP4 with AAC audio plays as it is; anything else is transcoded first.",

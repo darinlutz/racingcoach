@@ -20,8 +20,8 @@ const heard = new Map<number, { driverId: number; seq: number }>();
 
 // TV Broadcast Mode's Race Announcers: the same commentary as the Live Racing page's (commentate in
 // src/lib/announcerCommentary.ts), for the TV's paired account, as MP3s for the TV's browser. Answers
-// { seq, lines: [{ speaker, text, audio, intensity, priority, ttlMs, durationMs, volume }], replaceQueued }, audio a
-// base64 MP3. The AI call counts against the account's AI limit like the Live Racing page's.
+// { seq, lines: [{ speaker, text, audio, intensity, priority, ttlMs, durationMs, volume, elevenLabs }], replaceQueued, engineBed },
+// audio a base64 MP3. The AI call counts against the account's AI limit like the Live Racing page's.
 export async function POST(request: Request) {
   const session = await getTvSession();
   const t = getDictionary(session?.user.preferredLanguage ?? 'en').tv;
@@ -47,7 +47,7 @@ export async function POST(request: Request) {
     if (result.kind === 'held') return NextResponse.json({ seq: result.seq, lines: [], held: true });
     heard.set(session.id, { driverId, seq: Math.max(result.seq, after) });
     noteCommentaryPlaying(session.user.id, result.lines.reduce((sum, line) => sum + line.durationMs, 0));
-    return NextResponse.json({ seq: result.seq, lines: result.lines, replaceQueued: result.replaceQueued });
+    return NextResponse.json({ seq: result.seq, lines: result.lines, replaceQueued: result.replaceQueued, engineBed: result.engineBed });
   } catch (error) {
     console.error('TV Race Announcer error:', error);
     return NextResponse.json({ error: t.commentaryFailed }, { status: 502 });

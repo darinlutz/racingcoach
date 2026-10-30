@@ -430,6 +430,20 @@ export const de: Dictionary = {
       preRace: 'Vorstellung vor dem Rennen',
       postRace: 'Zusammenfassung nach dem Rennen',
       saved: 'Einstellungen der Rennübertragung gespeichert.',
+      engine: {
+        title: 'Motorengeräusch',
+        intro: 'Unter deinen Kommentatoren läuft leise ein Rennmotor, solange eine ElevenLabs-Stimme spricht, und sonst nie. Dein Browser mischt ihn bei jedem Satz dazu.',
+        enabled: 'Motorengeräusch unter der Sprache abspielen',
+        volume: 'Motorlautstärke',
+        asset: 'Motorengeräusch',
+        builtIn: 'GT3-Motor (integriert)',
+        engineFadeInMs: 'Einblenden',
+        engineFadeOutMs: 'Ausblenden',
+        preview: 'Stimme und Motor anhören',
+        previewing: 'Wird abgespielt…',
+        previewFailed: 'Die Vorschau konnte nicht abgespielt werden.',
+        previewNotElevenLabs: 'Das Motorengeräusch läuft nur unter ElevenLabs-Stimmen, und dein Hauptkommentator nutzt eine andere Stimme.',
+      },
     },
   },
 
@@ -1690,6 +1704,23 @@ export const de: Dictionary = {
   // The Admin page's activity log (src/app/admin/page.tsx)
   admin: {
     // The Broadcast Video Library and Broadcast Director sections
+    // The Engine Sounds section (src/components/EngineAudioLibrary.tsx)
+    engineAudio: {
+      title: 'Motorengeräusche',
+      intro: 'MP3- oder WAV-Dateien, die jeder Zuhörer neben dem integrierten Geräusch als Motorengeräusch unter ElevenLabs-Sprache wählen kann. Am besten eignet sich ein Geräusch, das sich sauber wiederholt.',
+      storageMissing: 'Der Objektspeicher ist nicht eingerichtet, daher ist nur das integrierte Geräusch verfügbar. Setze die Umgebungsvariablen BROADCAST_VIDEO_S3_, um Geräusche hochzuladen (docs/broadcast-director.md).',
+      file: 'MP3- oder WAV-Datei (bis 20 MB)',
+      name: 'Name (optional)',
+      upload: 'Hochladen',
+      uploading: 'Wird hochgeladen…',
+      builtIn: 'GT3-Motor (integriert)',
+      remove: 'Entfernen',
+      confirmRemove: '„{name}“ entfernen? Zuhörer, die es gewählt haben, bekommen das integrierte Geräusch.',
+      failedLoad: 'Die Motorengeräusche konnten nicht geladen werden.',
+      failedSave: 'Das konnte nicht gespeichert werden.',
+      fileTooLarge: 'Diese Datei ist größer als 20 MB.',
+      unsupportedFile: 'Diese Datei ist weder MP3 noch WAV.',
+    },
     broadcast: {
       "libraryTitle": "Videobibliothek der Übertragung",
       "libraryIntro": "Aufgezeichnete Clips, die der Übertragungsregisseur im TV-Übertragungsmodus zeigen kann. H.264-MP4 mit AAC-Ton wird direkt abgespielt, alles andere vorher umgewandelt.",

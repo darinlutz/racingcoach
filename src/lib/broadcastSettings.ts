@@ -33,6 +33,13 @@ export type BroadcastSettings = {
   strategy: boolean;
   preRace: boolean;
   postRace: boolean;
+  // The engine sound under ElevenLabs speech (src/lib/engineBed.ts). engineVolume is 0-100, independent of the voices;
+  // engineAsset is one of the Admin page's Engine Sounds, null the built-in one
+  engineEnabled: boolean;
+  engineVolume: number;
+  engineAsset: number | null;
+  engineFadeInMs: number;
+  engineFadeOutMs: number;
 };
 
 export const DEFAULT_BROADCAST_SETTINGS: BroadcastSettings = {
@@ -48,10 +55,17 @@ export const DEFAULT_BROADCAST_SETTINGS: BroadcastSettings = {
   strategy: true,
   preRace: true,
   postRace: true,
+  engineEnabled: true,
+  engineVolume: 15,
+  engineAsset: null,
+  engineFadeInMs: 150,
+  engineFadeOutMs: 300,
 };
 
-const BOOLEAN_KEYS = ['announceNames', 'statistics', 'strategy', 'preRace', 'postRace'] as const;
-const VOLUME_KEYS = ['masterVolume', 'leadVolume', 'colorVolume'] as const;
+const BOOLEAN_KEYS = ['announceNames', 'statistics', 'strategy', 'preRace', 'postRace', 'engineEnabled'] as const;
+const VOLUME_KEYS = ['masterVolume', 'leadVolume', 'colorVolume', 'engineVolume'] as const;
+const FADE_KEYS = ['engineFadeInMs', 'engineFadeOutMs'] as const;
+export const MAX_ENGINE_FADE_MS = 2000;
 
 const oneOf = <T>(list: readonly T[], value: unknown): value is T => list.includes(value as T);
 const volume = (value: unknown): number | null =>
@@ -88,6 +102,16 @@ export function broadcastSettingsPatch(patch: unknown): Partial<BroadcastSetting
     if (p[key] === undefined) continue;
     if (typeof p[key] !== 'boolean') return null;
     out[key] = p[key] as boolean;
+  }
+  for (const key of FADE_KEYS) {
+    if (p[key] === undefined) continue;
+    const ms = p[key];
+    if (typeof ms !== 'number' || !Number.isFinite(ms)) return null;
+    out[key] = Math.round(Math.min(Math.max(ms, 0), MAX_ENGINE_FADE_MS));
+  }
+  if (p.engineAsset !== undefined) {
+    if (p.engineAsset !== null && !(Number.isInteger(p.engineAsset) && (p.engineAsset as number) > 0)) return null;
+    out.engineAsset = p.engineAsset as number | null;
   }
   return out;
 }

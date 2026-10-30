@@ -16,6 +16,8 @@ export type QueuedLine = {
   expiresAt?: number;
   // 0-1, the listener's master and announcer volume
   volume?: number;
+  // Voiced by ElevenLabs, so it plays over the engine bed (src/lib/engineBed.ts)
+  elevenLabs?: boolean;
 };
 
 // A line waiting longer than this isn't played
@@ -56,6 +58,11 @@ export class CommentaryQueue {
       return line;
     }
     return null;
+  }
+
+  // The line next() would look at first, left in the queue
+  peek(): QueuedLine | null {
+    return this.lines[0] ?? null;
   }
 
   get size(): number {

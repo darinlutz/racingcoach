@@ -14,6 +14,7 @@ import UnitsToggle from '@/components/UnitsToggle';
 import { coachVoicesFor, getCoachVoice, SPANISH_ACCENTS } from '@/lib/coachVoice';
 import { getCollectorKey } from '@/lib/collectorKeys';
 import { DISCORD_INVITE_URL, getDiscordConnection } from '@/lib/discord';
+import { listEngineAudioAssets } from '@/lib/engineAudioAssets';
 import { fmt, LANGUAGE_LOCALES } from '@/lib/i18n/languages';
 import { getDictionary } from '@/lib/i18n/server';
 import { announcerVoicesFor, getRaceAnnouncerSettings, MAX_RACE_ANNOUNCER_INSTRUCTIONS } from '@/lib/raceAnnouncer';
@@ -57,12 +58,13 @@ export default async function AccountPage({
   const { discord: discordResult } = await searchParams;
   const discordText = typeof discordResult === 'string' ? t.account.discordMessages[discordResult] : undefined;
   const discordOk = typeof discordResult === 'string' && DISCORD_OK.has(discordResult);
-  const [discord, collectorKey, inCarCoachInstructions, coachVoice, raceAnnouncers, showPricing, enableAiFeatures, aiUsage, aiLimits] = await Promise.all([
+  const [discord, collectorKey, inCarCoachInstructions, coachVoice, raceAnnouncers, engineAssets, showPricing, enableAiFeatures, aiUsage, aiLimits] = await Promise.all([
     getDiscordConnection(user.id),
     getCollectorKey(user.id),
     getInCarCoachInstructions(user.id),
     getCoachVoice(user.id),
     getRaceAnnouncerSettings(user.id),
+    listEngineAudioAssets(),
     getShowPricing(),
     getEnableAiFeatures(),
     readOwnAiUsage(user.id),
@@ -243,6 +245,7 @@ export default async function AccountPage({
               instructions={raceAnnouncers.instructions}
               maxLength={MAX_RACE_ANNOUNCER_INSTRUCTIONS}
               broadcast={raceAnnouncers.broadcast}
+              engineAssets={engineAssets.map(({ id, name }) => ({ id, name }))}
             />
           </InCarCoachInstructionsCard>
         )}

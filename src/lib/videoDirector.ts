@@ -636,8 +636,9 @@ export type DirectorSnapshot = {
   playbackStartAt: number | null;
   returnAt: number | null;
   liveAt: number | null;
-  // text and audioUrl are in the viewer's language and voices; volume is their announcer volume, 0-1
-  lines: { id: string; when: LineTiming; speaker: 'lead' | 'color'; at: number; durationMs: number; text: string; audioUrl: string | null; volume: number }[];
+  // text and audioUrl are in the viewer's language and voices; volume is their announcer volume, 0-1; elevenLabs says
+  // the line plays over the engine bed (src/lib/engineBed.ts), which each TV mixes itself as the line plays
+  lines: { id: string; when: LineTiming; speaker: 'lead' | 'color'; at: number; durationMs: number; text: string; audioUrl: string | null; volume: number; elevenLabs: boolean }[];
 };
 
 // The player's side: where in the file a viewer should be at this moment, joining late or not

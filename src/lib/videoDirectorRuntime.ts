@@ -3,7 +3,7 @@ import { CATEGORY_FACTS } from './broadcastVideoCategories';
 import { lineVolume } from './broadcastSettings';
 import { lastNameOf } from './broadcastValidation';
 import { getDirectorSettings, readPlayableVideos, readRecentlyPlayed, readVideoStorageKey } from './broadcastVideos';
-import { getCoachVoice, synthesizeSpeech, type CoachVoice, type SpanishAccent } from './coachVoice';
+import { getCoachVoice, speaksElevenLabs, synthesizeSpeech, type CoachVoice, type SpanishAccent } from './coachVoice';
 import { query } from './db';
 import { getDictionary } from './i18n/server';
 import type { Language } from './i18n/languages';
@@ -80,7 +80,7 @@ type Viewer = {
   volumes: Record<Announcer, number>;
   announcersOff: boolean;
 };
-type LineVoicing = { text: string; audioId: string | null };
+type LineVoicing = { text: string; audioId: string | null; elevenLabs: boolean };
 
 type Session = {
   key: string;
@@ -373,12 +373,13 @@ async function prepareLines(session: Session, settings: DirectorSettings): Promi
           if (!ms) throw new Error('speech was not an MP3');
           const audioId = randomUUID();
           runtime.audio.set(audioId, { bytes, expiresAt: Date.now() + AUDIO_KEPT_MS + clip.durationMs });
-          perVoice.set(key, { text: line.text, audioId });
+          const voice = slot.speaker === 'lead' ? voices.lead : voices.color;
+          perVoice.set(key, { text: line.text, audioId, elevenLabs: speaksElevenLabs(voice, ANNOUNCER_ROLES[slot.speaker], voices.language, voices.accent) });
           longest = Math.max(longest, ms);
         } catch (error) {
           console.error('Broadcast Director speech error:', error);
           // This viewer has the words on screen, without the sound
-          perVoice.set(key, { text: line.text, audioId: null });
+          perVoice.set(key, { text: line.text, audioId: null, elevenLabs: false });
         }
       })
     );
@@ -557,6 +558,7 @@ function snapshotFor(session: Session, viewer: Viewer | null): DirectorSnapshot 
         text: voiced?.text ?? '',
         audioUrl: voiced?.audioId && !viewer?.announcersOff ? `/api/tv/director/audio/${voiced.audioId}` : null,
         volume: viewer?.volumes[line.speaker] ?? 1,
+        elevenLabs: voiced?.elevenLabs ?? false,
       };
     }),
   };

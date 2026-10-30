@@ -413,6 +413,20 @@ export const pt: Dictionary = {
       preRace: 'Apresentação antes da corrida',
       postRace: 'Resumo depois da corrida',
       saved: 'Preferências da transmissão salvas.',
+      engine: {
+        title: 'Som do motor',
+        intro: 'Um motor de corrida toca baixinho sob seus comentaristas enquanto uma voz da ElevenLabs está falando, e em nenhum outro momento. Seu navegador faz a mixagem ao tocar cada frase.',
+        enabled: 'Tocar o som do motor sob a fala',
+        volume: 'Volume do motor',
+        asset: 'Som do motor',
+        builtIn: 'Motor GT3 (incluído)',
+        engineFadeInMs: 'Entrada gradual',
+        engineFadeOutMs: 'Saída gradual',
+        preview: 'Ouvir voz e motor',
+        previewing: 'Tocando…',
+        previewFailed: 'Não foi possível tocar a prévia.',
+        previewNotElevenLabs: 'O som do motor só toca sob as vozes da ElevenLabs, e seu narrador principal usa outra voz.',
+      },
     },
   },
 
@@ -1662,6 +1676,23 @@ export const pt: Dictionary = {
 
   admin: {
     // The Broadcast Video Library and Broadcast Director sections
+    // The Engine Sounds section (src/components/EngineAudioLibrary.tsx)
+    engineAudio: {
+      title: 'Sons de Motor',
+      intro: 'Arquivos MP3 ou WAV que qualquer ouvinte pode escolher como som do motor sob a fala da ElevenLabs, além do incluído. Funciona melhor um som que se repita sem cortes.',
+      storageMissing: 'O armazenamento de objetos não está configurado, então só o som incluído está disponível. Defina as variáveis de ambiente BROADCAST_VIDEO_S3_ para enviar sons (docs/broadcast-director.md).',
+      file: 'Arquivo MP3 ou WAV (até 20 MB)',
+      name: 'Nome (opcional)',
+      upload: 'Enviar',
+      uploading: 'Enviando…',
+      builtIn: 'Motor GT3 (incluído)',
+      remove: 'Remover',
+      confirmRemove: 'Remover “{name}”? Os ouvintes que o escolheram passam a ter o som incluído.',
+      failedLoad: 'Não foi possível carregar os sons de motor.',
+      failedSave: 'Não foi possível salvar.',
+      fileTooLarge: 'Esse arquivo passa do limite de 20 MB.',
+      unsupportedFile: 'Esse arquivo não é MP3 nem WAV.',
+    },
     broadcast: {
       "libraryTitle": "Biblioteca de Vídeos da Transmissão",
       "libraryIntro": "Clipes gravados que o Diretor de Transmissão pode mostrar no Modo de Transmissão para TV. MP4 H.264 com áudio AAC é reproduzido como está; qualquer outro formato é convertido antes.",

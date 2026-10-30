@@ -5,6 +5,7 @@ import 'flag-icons/css/flag-icons.min.css';
 import LanguageProvider from '@/components/LanguageProvider';
 import TvApp from '@/components/TvApp';
 import UnitsProvider from '@/components/UnitsProvider';
+import { readEngineBedConfig } from '@/lib/engineAudioAssets';
 import { getDictionary, getLanguage } from '@/lib/i18n/server';
 import { getEnableAiFeatures } from '@/lib/siteSettings';
 import { getTvSession } from '@/lib/tvAuth';
@@ -19,10 +20,11 @@ export const metadata: Metadata = { title: 'RacingCoach.app TV' };
 // Units once paired, the browser's before.
 export default async function TvPage() {
   const session = await getTvSession();
-  const [language, units, enableAiFeatures] = await Promise.all([
+  const [language, units, enableAiFeatures, engine] = await Promise.all([
     session ? session.user.preferredLanguage : getLanguage(null),
     getUnits(session?.user ?? null),
     getEnableAiFeatures(),
+    session ? readEngineBedConfig(session.user.id) : null,
   ]);
   // Where to type the code: the site's own address, without https://
   const siteUrl = process.env.SITE_URL?.trim().replace(/\/+$/, '') || `https://${(await headers()).get('host') ?? 'racingcoach.app'}`;
@@ -32,7 +34,7 @@ export default async function TvPage() {
     <LanguageProvider language={language} dictionary={getDictionary(language)}>
       <UnitsProvider units={units}>
         <TvApp
-          paired={session ? { userName: session.user.userName } : null}
+          paired={session && engine ? { userName: session.user.userName, engine } : null}
           announcers={enableAiFeatures}
           linkAddress={linkAddress}
         />

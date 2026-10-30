@@ -115,6 +115,11 @@ Created by `ensureUserSchema` (`src/lib/users.ts`) on first use; no migration st
 - The TV going to the background (Home button, another app) stops playback and clears the queue.
 - Mute silences the audio but the lines still appear (and still use the account's AI and speech quota). Turning
   Commentary off stops the requests altogether.
+- ElevenLabs lines play over a looping engine sound that this TV's browser mixes in itself (`src/lib/engineBed.ts`; see
+  Engine Sound in `AGENTS.md`). Nothing about it crosses the network but the sound file, once. It starts from the audio
+  element's own `playing` event, so every TV is in step with its own speech, wherever the server's timing put the line.
+  It follows the TV's volume and mute, and the account's preferences on the Account page. A failed load only loses the
+  engine, never the voice.
 
 ## Deploying on Render
 
@@ -183,6 +188,22 @@ practice or race session; an online race tests the leaderboard and race events b
 - [ ] While watching your own driving with the In-Car AI Coach on: the announcers never talk over the coach.
 - [ ] Turn off Enable AI Features on the Admin page: the TV says race commentary is turned off; controls for it are
       hidden after a reload.
+
+**Engine sound** (automated tests measure the levels and timing in a desktop browser; only ears, and a Fire TV, can check these)
+- [ ] With an ElevenLabs announcer voice, each line has the engine under it: the words stay clear at the default 15%,
+      and it starts with the voice, not before.
+- [ ] Between a Lead line and the Color line answering it, the engine carries on without a dip or restart.
+- [ ] After the last line it fades out smoothly; between commentaries there is no engine at all.
+- [ ] No click or gap is heard where the sound loops (it's about 30 s long, so listen through a long exchange, or
+      upload a short sound on the Admin page to hear the loop point often).
+- [ ] Mute silences the engine with the voice; Volume −/+ moves both.
+- [ ] Press Home during a line: the engine stops with the voice.
+- [ ] With a Chirp voice picked on the Account page, lines play with no engine.
+- [ ] On the Live Racing page in a normal desktop browser, freshly opened and not yet clicked (headless test browsers
+      don't enforce the autoplay rule, so this needs a real one): commentary that the browser lets play has no engine
+      under it; after your first click anywhere, the engine comes in.
+- [ ] Watch for 30+ minutes in a race with the engine on: no stutter in the voices, map or remote. If there is, note
+      whether turning the engine off on the Account page (then reloading the TV) fixes it.
 
 **Live data and reconnection**
 - [ ] The header shows the track, session, flag, lap (of total) and time left that match iRacing.

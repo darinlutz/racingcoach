@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useState } from 'react';
 import TvBroadcast from '@/components/TvBroadcast';
 import TvPairing from '@/components/TvPairing';
+import type { EngineBedConfig } from '@/lib/engineBedConfig';
 
 // TV Broadcast Mode's screen (src/app/tv/): a 1920×1080 stage scaled to fit the TV's browser (Silk on a 1080p or 4K
 // Fire TV reports a 960×540 page), over the site's navigation, with a margin inside its edges for TVs that crop them
@@ -33,7 +34,7 @@ export default function TvApp({
   announcers,
   linkAddress,
 }: {
-  paired: { userName: string } | null;
+  paired: { userName: string; engine: EngineBedConfig } | null;
   // The Admin page's Enable AI Features is on, so the Race Announcers can speak
   announcers: boolean;
   linkAddress: string;
@@ -84,7 +85,7 @@ export default function TvApp({
         }}
       >
         {paired ? (
-          <TvBroadcast userName={paired.userName} announcers={announcers} edges={edges} onEdges={changeEdges} />
+          <TvBroadcast userName={paired.userName} announcers={announcers} engine={paired.engine} edges={edges} onEdges={changeEdges} />
         ) : (
           <TvPairing linkAddress={linkAddress} />
         )}

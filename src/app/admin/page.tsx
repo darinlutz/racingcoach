@@ -5,6 +5,7 @@ import AiModelCostTable from '@/components/AiModelCostTable';
 import AiModelManager from '@/components/AiModelManager';
 import BroadcastDirectorManager from '@/components/BroadcastDirectorManager';
 import BroadcastVideoLibrary from '@/components/BroadcastVideoLibrary';
+import EngineAudioLibrary from '@/components/EngineAudioLibrary';
 import CollectorLogsViewer from '@/components/CollectorLogsViewer';
 import LapRetentionRuns from '@/components/LapRetentionRuns';
 import RateLimitManager from '@/components/RateLimitManager';
@@ -33,7 +34,7 @@ import { getCurrentUser } from '@/lib/session';
 import { getEnableAiFeatures, getShowPricing, getShowProDriverLesson } from '@/lib/siteSettings';
 
 // The site owner's Admin page: a link to Subscribers (src/app/admin/subscribers/), Site Settings (src/components/SiteSettingsManager.tsx), AI Model Control
-// (src/components/AiModelManager.tsx), AI Model Costs (src/components/AiModelCostTable.tsx), Rate Limiting (src/components/RateLimitManager.tsx), the Broadcast Video Library and Broadcast Director (src/components/BroadcastVideoLibrary.tsx, BroadcastDirectorManager.tsx), User Roles (src/components/UserRoleManager.tsx), Collector Logs
+// (src/components/AiModelManager.tsx), AI Model Costs (src/components/AiModelCostTable.tsx), Rate Limiting (src/components/RateLimitManager.tsx), the Broadcast Video Library, Engine Sounds and Broadcast Director (src/components/BroadcastVideoLibrary.tsx, EngineAudioLibrary.tsx, BroadcastDirectorManager.tsx), User Roles (src/components/UserRoleManager.tsx), Collector Logs
 // (src/components/CollectorLogsViewer.tsx), then racingcoach."ActivityLog",
 // every page view and click, filtered through the URL (so a filtered view can be bookmarked), with totals,
 // the top pages and controls, and a CSV export.
@@ -113,6 +114,8 @@ export default async function AdminPage({
         <RateLimitManager settings={rateLimits} overrides={rateLimitOverrides} users={users} timeZone={filters.timeZone} />
 
         <BroadcastVideoLibrary />
+
+        <EngineAudioLibrary />
 
         <BroadcastDirectorManager />
 

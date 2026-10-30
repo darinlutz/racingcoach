@@ -8,9 +8,12 @@ import TvEventFeed from '@/components/TvEventFeed';
 import TvInputs from '@/components/TvInputs';
 import TvLeaderboard from '@/components/TvLeaderboard';
 import TvMap from '@/components/TvMap';
+import { useEngineBed } from '@/components/useEngineBed';
 import { useTvCommentary } from '@/components/useTvCommentary';
 import { useTvFeed, type FeedStatus } from '@/components/useTvFeed';
 import { useTvRemote } from '@/components/useTvRemote';
+import { engineBed } from '@/lib/engineBed';
+import type { EngineBedConfig } from '@/lib/engineBedConfig';
 import { formatLapTime } from '@/lib/liveRacingFormat';
 import type { FlagKind } from '@/lib/raceFlags';
 import { toneWav } from '@/lib/tvAudio';
@@ -101,11 +104,13 @@ function StatusPill({ status, recorded, t }: { status: FeedStatus; recorded: boo
 export default function TvBroadcast({
   userName,
   announcers,
+  engine,
   edges,
   onEdges,
 }: {
   userName: string;
   announcers: boolean;
+  engine: EngineBedConfig;
   edges: number;
   onEdges: (edges: number) => void;
 }) {
@@ -162,6 +167,9 @@ export default function TvBroadcast({
     };
   }, []);
 
+  // The engine bed follows the TV's own volume and mute, like the voices
+  useEngineBed(engine, muted ? 0 : volume / 100);
+
   const { speaking, problem, paused } = useTvCommentary(
     focus,
     { started, enabled: announcers && commentaryOn, lead, color, volume, muted },
@@ -202,6 +210,8 @@ export default function TvBroadcast({
   };
 
   const startBroadcast = () => {
+    // In the press itself, like the audio element's first play
+    engineBed.unlock();
     playTone(toneWav(440, 150, 0))
       .then(() => {
         setStarted(true);

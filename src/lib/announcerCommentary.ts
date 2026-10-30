@@ -4,7 +4,9 @@ import { lineVolume, type BroadcastSettings } from './broadcastSettings';
 import type { BroadcastTracker, CarStats } from './broadcastTracker';
 import { estimatedSeconds, type LineFacts } from './broadcastValidation';
 import { spokenCarName } from './carBrands';
-import { getCoachVoice, synthesizeSpeech, type SpeechFormat } from './coachVoice';
+import { getCoachVoice, speaksElevenLabs, synthesizeSpeech, type SpeechFormat } from './coachVoice';
+import { engineBedConfigFor } from './engineAudioAssets';
+import type { EngineBedConfig } from './engineBedConfig';
 import { readRaceEvents, type NumberedRaceEvent, type RaceEventContext } from './liveRacing';
 import {
   ANNOUNCER_ROLES,
@@ -59,13 +61,16 @@ export type SpokenLine = {
   ttlMs: number;
   durationMs: number;
   volume: number;
+  // Voiced by ElevenLabs, so the page plays it over the engine bed
+  elevenLabs: boolean;
 };
 
 export type CommentaryResult =
   | { kind: 'notLive' }
   // seq: the newest event's number, to send as after next time; audio is base64. replaceQueued: these lines matter
-  // more than any less important ones still waiting to be played, which the page drops
-  | { kind: 'lines'; seq: number; lines: SpokenLine[]; replaceQueued: boolean }
+  // more than any less important ones still waiting to be played, which the page drops. engineBed: the listener's
+  // engine sound preferences as they are now, when there are lines to play over it
+  | { kind: 'lines'; seq: number; lines: SpokenLine[]; replaceQueued: boolean; engineBed?: EngineBedConfig }
   | { kind: 'refused'; response: Response }
   // A clip's sequence is under way on the TV (src/lib/videoDirector.ts) and this can wait: nothing was spent, and these
   // events are asked about again when it's over
@@ -187,6 +192,7 @@ export async function commentate(input: {
         ttlMs: Math.max(decision.expiresAt - Date.now(), 0) + 10_000 * i,
         durationMs,
         volume: lineVolume(settings.broadcast, line.speaker),
+        elevenLabs: speaksElevenLabs(line.speaker === 'lead' ? settings.leadVoice : settings.colorVoice, ANNOUNCER_ROLES[line.speaker], user.preferredLanguage, spanishAccent),
       };
     });
     commitDecision(listener.director, decision, Date.now(), lines.reduce((sum, l) => sum + l.durationMs, 0) + 400 * lines.length, decision.format, ctx.userIdx);
@@ -201,7 +207,7 @@ export async function commentate(input: {
       speechMs,
       eventAgeMs: Date.now() - decision.selected.at,
     });
-    return { kind: 'lines', seq: found.seq, lines, replaceQueued: decision.replaceQueued };
+    return { kind: 'lines', seq: found.seq, lines, replaceQueued: decision.replaceQueued, engineBed: await engineBedConfigFor(settings.broadcast) };
   } catch (error) {
     await limit?.refund();
     throw error;

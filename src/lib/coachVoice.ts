@@ -225,6 +225,12 @@ export function spokenUnits(text: string, language: Language = DEFAULT_LANGUAGE)
     .replace(/(?<![\w.,])(\d+(?:[.,]\d+)?)\s?m\b(?![/²³])/g, (_, number: string) => say(number, words.meter));
 }
 
+// Whether synthesizeSpeech with these would really use ElevenLabs, which is the speech the engine bed goes under
+// (src/lib/engineBed.ts), rather than the fallback for a voice that isn't set up
+export function speaksElevenLabs(voice: CoachVoice, role: ElevenLabsRole, language: Language, spanishAccent: SpanishAccent): boolean {
+  return voice === ELEVENLABS_COACH_VOICE && !!elevenLabsVoiceId(role, language, spanishAccent);
+}
+
 // The text spoken in the voice, as a WAV file (PCM with a WAV header, which Windows plays without any codec, and so
 // do browsers), or with format 'mp3' an MP3 (a tenth of the size, for TV Broadcast Mode on low-powered TVs). The text
 // is already in the driver's language. role picks the ElevenLabs voice (the coach's RaceCoach voice, or a Race

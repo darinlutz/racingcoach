@@ -33,12 +33,14 @@ function AnnouncerVoice({
   voice: initial,
   voices,
   onMessage,
+  onVoice,
 }: {
   announcer: Announcer;
   label: string;
   voice: string;
   voices: CoachVoiceDetails;
   onMessage: (message: Message) => void;
+  onVoice?: (voice: string) => void;
 }) {
   const { t, language } = useLanguage();
   const c = t.inCarCoach;
@@ -61,6 +63,7 @@ function AnnouncerVoice({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? t.api.failedSaveRaceAnnouncers);
+      onVoice?.(next);
       onMessage({ ok: true, text: r.voiceSaved });
     } catch (err) {
       setVoice(previous);
@@ -124,6 +127,7 @@ export default function RaceAnnouncersSection({
   instructions: initial,
   maxLength,
   broadcast,
+  engineAssets,
 }: {
   leadVoice: string;
   colorVoice: string;
@@ -132,10 +136,13 @@ export default function RaceAnnouncersSection({
   instructions: string;
   maxLength: number;
   broadcast: BroadcastSettings;
+  engineAssets: { id: number; name: string }[];
 }) {
   const { t, fmt } = useLanguage();
   const r = t.raceAnnouncers;
   const [voiceMessage, setVoiceMessage] = useState<Message>(null);
+  // The Lead Announcer's voice as it is now, which the engine sound's Preview speaks in
+  const [previewVoice, setPreviewVoice] = useState(leadVoice in leadVoices ? leadVoice : Object.keys(leadVoices)[0]);
   const [saved, setSaved] = useState(initial);
   const [text, setText] = useState(initial);
   const [saving, setSaving] = useState(false);
@@ -170,7 +177,7 @@ export default function RaceAnnouncersSection({
       <h3 className="text-sm font-medium text-muted-foreground mb-1">{r.title}</h3>
       <p className="text-sm text-muted-foreground mb-3">{r.intro}</p>
       <div className="grid gap-3 sm:grid-cols-2">
-        <AnnouncerVoice announcer="lead" label={r.lead} voice={leadVoice} voices={leadVoices} onMessage={setVoiceMessage} />
+        <AnnouncerVoice announcer="lead" label={r.lead} voice={leadVoice} voices={leadVoices} onMessage={setVoiceMessage} onVoice={setPreviewVoice} />
         <AnnouncerVoice announcer="color" label={r.color} voice={colorVoice} voices={colorVoices} onMessage={setVoiceMessage} />
       </div>
       <StatusMessage message={voiceMessage} />
@@ -206,7 +213,7 @@ export default function RaceAnnouncersSection({
       </div>
       <StatusMessage message={message} />
 
-      <BroadcastSettingsPanel initial={broadcast} />
+      <BroadcastSettingsPanel initial={broadcast} engineAssets={engineAssets} previewVoice={previewVoice} />
     </div>
   );
 }

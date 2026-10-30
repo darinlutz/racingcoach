@@ -10,6 +10,9 @@ import LiveSessionBanner from '@/components/LiveSessionBanner';
 import LiveSessionStatus from '@/components/LiveSessionStatus';
 import LiveTrackMap, { type MapCar } from '@/components/LiveTrackMap';
 import { useUnits } from '@/components/UnitsProvider';
+import { useEngineBed } from '@/components/useEngineBed';
+import { engineBed, linkSpeech } from '@/lib/engineBed';
+import { ELEVENLABS_PROVIDER, SPEECH_PROVIDER_HEADER, type EngineBedConfig } from '@/lib/engineBedConfig';
 import type { LiveDriver, LiveField } from '@/lib/liveRacing';
 import { formatLapTime as lapTime } from '@/lib/liveRacingFormat';
 import { reportRateLimit } from '@/lib/rateLimitClient';
@@ -79,14 +82,17 @@ function sessionFields(group: Received[]): SessionField[] {
   }));
 }
 
-// Plays a base64 WAV (a Race Announcer's line) at volume (0-1), resolving when it ends or can't play
-function playWav(base64: string, volume = 1): Promise<void> {
+// Plays a base64 WAV (a Race Announcer's line) at volume (0-1), resolving when it ends or can't play. An ElevenLabs line
+// (engine: whether another is coming) plays over the engine bed
+function playWav(base64: string, volume = 1, engine?: { continuing: () => boolean }): Promise<void> {
   return new Promise((resolve) => {
     const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
     const url = URL.createObjectURL(new Blob([bytes], { type: 'audio/wav' }));
     const audio = new Audio(url);
     audio.volume = Math.min(Math.max(volume, 0), 1);
+    const unlink = engine ? linkSpeech(engineBed, audio, engine.continuing) : null;
     const done = () => {
+      unlink?.();
       URL.revokeObjectURL(url);
       resolve();
     };
@@ -96,12 +102,15 @@ function playWav(base64: string, volume = 1): Promise<void> {
   });
 }
 
-// Plays an MP3 (a Driver Radio message), resolving when it ends or can't play
-function playMp3(blob: Blob): Promise<void> {
+// Plays an MP3 (a Driver Radio message), resolving when it ends or can't play. ElevenLabs speech plays over the engine
+// bed (engine: whether more is coming)
+function playMp3(blob: Blob, engine?: { continuing: () => boolean }): Promise<void> {
   return new Promise((resolve) => {
     const url = URL.createObjectURL(blob);
     const audio = new Audio(url);
+    const unlink = engine ? linkSpeech(engineBed, audio, engine.continuing) : null;
     const done = () => {
+      unlink?.();
       URL.revokeObjectURL(url);
       resolve();
     };
@@ -165,9 +174,10 @@ function driversInSession(group: Received[], session: SessionField): Map<number,
   return cars;
 }
 
-export default function LiveRacing({ announcers: showAnnouncers }: { announcers: boolean }) {
+export default function LiveRacing({ announcers: showAnnouncers, engine }: { announcers: boolean; engine: EngineBedConfig }) {
   const { t, fmt } = useLanguage();
   const units = useUnits();
+  useEngineBed(engine);
   const [drivers, setDrivers] = useState<Received[] | null>(null);
   // The driver whose inputs are shown (null: the user, else the first listed), and their recent inputs
   const [picked, setPicked] = useState<number | null>(null);
@@ -319,7 +329,7 @@ export default function LiveRacing({ announcers: showAnnouncers }: { announcers:
           }).catch(() => undefined);
           await delay(HOLD_LEAD_MS);
         }
-        await playWav(line.audio, line.volume ?? 1);
+        await playWav(line.audio, line.volume ?? 1, line.elevenLabs ? { continuing: () => !!commentary.current.peek()?.elevenLabs } : undefined);
       }
     } finally {
       commentaryPlaying.current = false;
@@ -363,7 +373,9 @@ export default function LiveRacing({ announcers: showAnnouncers }: { announcers:
         setAnnouncerError('');
         if (commentated.current?.driver !== driver) return;
         const now = Date.now();
-        type Line = { speaker: Announcer; text: string; audio: string; priority?: number; ttlMs?: number; volume?: number };
+        // Preferences changed since the page loaded take effect without reloading it
+        if (data.engineBed) engineBed.configure(data.engineBed);
+        type Line = { speaker: Announcer; text: string; audio: string; priority?: number; ttlMs?: number; volume?: number; elevenLabs?: boolean };
         commentary.current.push(
           ((data.lines ?? []) as Line[]).map((l) => ({ ...l, expiresAt: l.ttlMs != null ? now + l.ttlMs : undefined })),
           now,
@@ -398,7 +410,7 @@ export default function LiveRacing({ announcers: showAnnouncers }: { announcers:
     heard.seq = focused.radioSeq;
     (async () => {
       try {
-        for (const message of waiting) {
+        for (const [i, message] of waiting.entries()) {
           // The driver's own collector already says the Race Engineer's answers in their car
           if (mine && message.from === 'engineer') continue;
           const response = await fetch(`/api/live/radio-speech?driverId=${driver}&seq=${message.seq}`);
@@ -408,6 +420,7 @@ export default function LiveRacing({ announcers: showAnnouncers }: { announcers:
             throw new Error(data.error || t.liveRacing.radioFailed);
           }
           const blob = await response.blob();
+          const elevenLabs = response.headers.get(SPEECH_PROVIDER_HEADER) === ELEVENLABS_PROVIDER;
           // Watching themselves, the driver hears their In-Car AI Coach too, so the two take turns, as for the announcers
           if (mine) {
             if (!(await coachQuiet(meRef))) continue;
@@ -419,7 +432,7 @@ export default function LiveRacing({ announcers: showAnnouncers }: { announcers:
             }).catch(() => undefined);
             await delay(HOLD_LEAD_MS);
           }
-          await playMp3(blob);
+          await playMp3(blob, elevenLabs ? { continuing: () => i < waiting.length - 1 } : undefined);
         }
         setRadioError('');
       } catch (err) {

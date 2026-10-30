@@ -19,8 +19,8 @@ const bodySchema = z.object({
 // Announcer Instructions and Race Broadcast preferences, and each line spoken by the Lead or Color Announcer (only
 // those turned on, lead and color) in the voices picked on the Account page (commentate in
 // src/lib/announcerCommentary.ts, shared with TV Broadcast Mode). Answers
-// { seq, lines: [{ speaker, text, audio, intensity, priority, ttlMs, durationMs, volume }], replaceQueued }, audio a
-// base64 WAV; seq is the newest event's number, to send as after next time. No AI call when the Director picks
+// { seq, lines: [{ speaker, text, audio, intensity, priority, ttlMs, durationMs, volume, elevenLabs }], replaceQueued, engineBed },
+// audio a base64 WAV; seq is the newest event's number, to send as after next time. No AI call when the Director picks
 // nothing. 404 when the driver isn't live or can't be watched.
 export async function POST(request: Request) {
   const user = await getCurrentUser();
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
     if (result.kind === 'refused') return result.response;
     // Only TV Broadcast Mode's commentary is ever held
     if (result.kind === 'held') return NextResponse.json({ seq: result.seq, lines: [], replaceQueued: false });
-    return NextResponse.json({ seq: result.seq, lines: result.lines, replaceQueued: result.replaceQueued });
+    return NextResponse.json({ seq: result.seq, lines: result.lines, replaceQueued: result.replaceQueued, engineBed: result.engineBed });
   } catch (error) {
     console.error('Race Announcer error:', error);
     return NextResponse.json({ error: t.failedRaceAnnouncer }, { status: 502 });

@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import 'flag-icons/css/flag-icons.min.css';
 import LiveRacing from '@/components/LiveRacing';
 import LiveRacingWatchers from '@/components/LiveRacingWatchers';
+import { readEngineBedConfig } from '@/lib/engineAudioAssets';
 import { getDictionary, getLanguage } from '@/lib/i18n/server';
 import { withReturnTo } from '@/lib/returnTo';
 import { getCurrentUser } from '@/lib/session';
@@ -16,7 +17,7 @@ import { getEnableAiFeatures } from '@/lib/siteSettings';
 export default async function LiveRacingPage() {
   const user = await getCurrentUser();
   if (!user) redirect(withReturnTo('/login', '/live-racing'));
-  const [language, enableAiFeatures] = await Promise.all([getLanguage(user), getEnableAiFeatures()]);
+  const [language, enableAiFeatures, engine] = await Promise.all([getLanguage(user), getEnableAiFeatures(), readEngineBedConfig(user.id)]);
   const dictionary = getDictionary(language);
 
   return (
@@ -35,7 +36,7 @@ export default async function LiveRacingPage() {
             </Link>
           </p>
         </div>
-        <LiveRacing announcers={enableAiFeatures} />
+        <LiveRacing announcers={enableAiFeatures} engine={engine} />
         <LiveRacingWatchers />
       </div>
     </section>

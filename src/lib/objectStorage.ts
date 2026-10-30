@@ -80,6 +80,18 @@ export async function downloadVideoObject(key: string, path: string): Promise<vo
   await pipeline(response.Body as Readable, createWriteStream(path));
 }
 
+// Small files kept in the same store, sent through the web server: the Admin page's Engine Sounds (src/lib/engineAudioAssets.ts)
+export async function uploadObjectBytes(key: string, bytes: Buffer, contentType: string): Promise<void> {
+  const { client, bucket } = storage();
+  await client.send(new PutObjectCommand({ Bucket: bucket, Key: key, Body: bytes, ContentType: contentType, ContentLength: bytes.length }));
+}
+
+export async function downloadObjectBytes(key: string): Promise<Buffer> {
+  const { client, bucket } = storage();
+  const response = await client.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+  return Buffer.from(await response.Body!.transformToByteArray());
+}
+
 export async function uploadVideoObject(key: string, path: string, contentType: string): Promise<void> {
   const { client, bucket } = storage();
   const { size } = await stat(path);

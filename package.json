@@ -14,6 +14,7 @@
     "test:cookie-consent": "node --test scripts/cookie-consent.test.mjs && node --experimental-transform-types --no-warnings --test scripts/cookie-consent-db.test.mjs",
     "test:tv": "node --test scripts/tv-broadcast.test.mjs",
     "test:broadcast": "node --test scripts/race-broadcast.test.mjs",
+    "test:engine-bed": "node --test scripts/engine-bed.test.mjs",
     "test:video-director": "node --experimental-transform-types --no-warnings --test scripts/video-director.test.mjs",
     "test:tire-temps": "node --experimental-transform-types --no-warnings --test scripts/tire-temps.test.mjs",
     "test:lap-events": "node --experimental-transform-types --no-warnings --test scripts/lap-events.test.mjs",

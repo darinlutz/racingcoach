@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import { useLanguage } from '@/components/LanguageProvider';
+import { engineBed, linkSpeech } from '@/lib/engineBed';
 import type { Announcer } from '@/lib/raceAnnouncer';
 import { CommentaryQueue } from '@/lib/tvAudio';
 import type { TvFocus } from '@/lib/tvBroadcast';
@@ -21,6 +22,9 @@ import { LATE_LINE_MS, type DirectorSnapshot } from '@/lib/videoDirector';
 // A recorded clip's lines (the Broadcast Director's, src/lib/videoDirector.ts) are different: they play at the times the
 // server set, shared by every TV, taking over from any normal commentary. Normal commentary waits while the Director
 // holds it; the events it was about are asked about again afterwards, unless they've gone stale.
+//
+// ElevenLabs lines play over the engine bed (src/lib/engineBed.ts), which this TV mixes itself from the moment its own
+// audio element starts playing, so the bed is in step with the line wherever the server's timing put it.
 
 export type CommentarySettings = { started: boolean; enabled: boolean; lead: boolean; color: boolean; volume: number; muted: boolean };
 
@@ -111,6 +115,7 @@ export function useTvCommentary(
     generation.current++;
     queue.current.clear();
     audioRef.current?.pause();
+    engineBed.silence();
     setSpeaking(null);
   }, [audioRef]);
 
@@ -147,7 +152,9 @@ export function useTvCommentary(
           }
           setSpeaking({ speaker: line.speaker, text: line.text });
           audio.volume = (Math.min(Math.max(settingsRef.current.volume, 0), 100) / 100) * (line.volume ?? 1);
+          const unlink = line.elevenLabs ? linkSpeech(engineBed, audio, () => !!queue.current.peek()?.elevenLabs) : null;
           await playToEnd(audio);
+          unlink?.();
         } finally {
           URL.revokeObjectURL(url);
           if (run === generation.current) setSpeaking(null);
@@ -210,7 +217,9 @@ export function useTvCommentary(
           await loadDuration(audio, url);
           if (directorLine.current !== line.id) return;
           audio.volume = (Math.min(Math.max(settingsRef.current.volume, 0), 100) / 100) * line.volume;
+          const unlink = line.elevenLabs ? linkSpeech(engineBed, audio) : null;
           await playToEnd(audio);
+          unlink?.();
         } else if (line.text) {
           // No sound for this TV: the words stay up as long as the others are hearing them
           await delay(line.durationMs);
@@ -316,7 +325,9 @@ export function useTvCommentary(
         setProblem('');
         if (seen.current?.driverId !== driverId) return;
         const now = Date.now();
-        type Line = { speaker: Announcer; text: string; audio: string; priority?: number; ttlMs?: number; volume?: number };
+        // Preferences changed since this broadcast started take effect without reloading the TV
+        if (data.engineBed) engineBed.configure(data.engineBed);
+        type Line = { speaker: Announcer; text: string; audio: string; priority?: number; ttlMs?: number; volume?: number; elevenLabs?: boolean };
         queue.current.push(
           ((data.lines ?? []) as Line[]).map((l) => ({ ...l, expiresAt: l.ttlMs != null ? now + l.ttlMs : undefined })),
           now,

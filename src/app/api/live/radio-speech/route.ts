@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import { getCoachVoice, synthesizeSpeech, withPronunciations } from '@/lib/coachVoice';
+import { getCoachVoice, speaksElevenLabs, synthesizeSpeech, withPronunciations } from '@/lib/coachVoice';
 import { radioVoiceId } from '@/lib/driverRadio';
+import { ELEVENLABS_PROVIDER, SPEECH_PROVIDER_HEADER } from '@/lib/engineBedConfig';
 import { DEFAULT_LANGUAGE } from '@/lib/i18n/languages';
 import { elevenLabsSpeech } from '@/lib/elevenLabs';
 import { apiText } from '@/lib/i18n/server';
@@ -39,15 +40,15 @@ export async function GET(request: Request) {
       limit = await aiRateLimit(request, 'speech', user);
       if (limit.response) return limit.response;
       const { voice, spanishAccent, pronunciations } = await getCoachVoice(driverId);
-      const audio = await synthesizeSpeech(
-        withPronunciations(message.text, pronunciations),
-        voice,
-        driver.preferredLanguage ?? DEFAULT_LANGUAGE,
-        spanishAccent,
-        'raceCoach',
-        'mp3'
-      );
-      return new NextResponse(new Uint8Array(audio), { headers: { 'Content-Type': 'audio/mpeg', 'Cache-Control': 'no-store' } });
+      const language = driver.preferredLanguage ?? DEFAULT_LANGUAGE;
+      const audio = await synthesizeSpeech(withPronunciations(message.text, pronunciations), voice, language, spanishAccent, 'raceCoach', 'mp3');
+      return new NextResponse(new Uint8Array(audio), {
+        headers: {
+          'Content-Type': 'audio/mpeg',
+          'Cache-Control': 'no-store',
+          ...(speaksElevenLabs(voice, 'raceCoach', language, spanishAccent) ? { [SPEECH_PROVIDER_HEADER]: ELEVENLABS_PROVIDER } : {}),
+        },
+      });
     }
     const voiceId = await radioVoiceId(driver);
     if (!voiceId) {
@@ -56,7 +57,9 @@ export async function GET(request: Request) {
     limit = await aiRateLimit(request, 'speech', user);
     if (limit.response) return limit.response;
     const audio = await elevenLabsSpeech(message.text, voiceId);
-    return new NextResponse(new Uint8Array(audio), { headers: { 'Content-Type': 'audio/mpeg', 'Cache-Control': 'no-store' } });
+    return new NextResponse(new Uint8Array(audio), {
+      headers: { 'Content-Type': 'audio/mpeg', 'Cache-Control': 'no-store', [SPEECH_PROVIDER_HEADER]: ELEVENLABS_PROVIDER },
+    });
   } catch (error) {
     console.error('Driver Radio speech error:', error);
     await limit?.refund();

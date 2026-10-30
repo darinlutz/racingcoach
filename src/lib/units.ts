@@ -76,6 +76,11 @@ export function temperatureFromCelsius(celsius: number, units: Units): number {
   return units === 'metric' ? celsius : (celsius * 9) / 5 + 32;
 }
 
+// A difference between two °C temperatures -> the same difference in °F or °C (no 32 offset)
+export function temperatureDeltaFromCelsius(celsius: number, units: Units): number {
+  return units === 'metric' ? celsius : (celsius * 9) / 5;
+}
+
 const KPA_PER_PSI = 6.894757;
 
 // kPa (iRacing's tire pressures) -> psi or kPa

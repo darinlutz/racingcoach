@@ -118,8 +118,12 @@ export type LapSamples = {
   yawRates: number[];
   velocityXs: number[];
   velocityYs: number[];
-  // Each tire's surface temperatures, or carcass ones in laps without them (°C, NaN when the lap file has neither)
+  // Each tire's surface temperatures, or carcass ones in laps without them (°C, NaN when the lap file has neither),
+  // and which those are for each tire (null when it has neither)
   tireTemps: Record<TireCorner, TireTemps>;
+  tireLayers: Record<TireCorner, TireLayer | null>;
+  // iRacing's SessionTime (s, NaN when the lap file has no such column, as Garage 61 exports don't)
+  sessionTimes: number[];
   // Each tire's pressure (kPa, NaN when the lap file has no such column)
   tirePressures: Record<TireCorner, number[]>;
   // Each corner's ride height (m, NaN when the lap file has no such column)
@@ -138,6 +142,7 @@ export type TireCorner = (typeof TIRE_CORNERS)[number];
 
 // A tire's outer, middle and inner temperatures (°C), one per sample
 export type TireTemps = { outer: number[]; middle: number[]; inner: number[] };
+export type TireLayer = 'surface' | 'carcass';
 
 // iRacing's tire temperature columns go left, middle, right across the tire, so the outer edge is the left one
 // on the left-side tires and the right one on the right-side tires. The surface ones (LFtempL, LFtempM, LFtempR,
@@ -147,6 +152,11 @@ function tireTempColumns(corner: TireCorner, header: string[]): Record<keyof Tir
   const [outer, inner] = corner[0] === 'L' ? ['L', 'R'] : ['R', 'L'];
   const layer = header.includes(`${corner}tempM`) ? '' : 'C';
   return { outer: `${corner}temp${layer}${outer}`, middle: `${corner}temp${layer}M`, inner: `${corner}temp${layer}${inner}` };
+}
+
+function tireLayer(corner: TireCorner, header: string[]): TireLayer | null {
+  if (header.includes(`${corner}tempM`)) return 'surface';
+  return header.includes(`${corner}tempCM`) ? 'carcass' : null;
 }
 
 // Brake (0-1) above this counts as the driver being on the brakes
@@ -179,6 +189,7 @@ export function lapSamplesFromText(text: string): LapSamples {
   const yawRateColumn = header.indexOf('YawRate');
   const velocityXColumn = header.indexOf('VelocityX');
   const velocityYColumn = header.indexOf('VelocityY');
+  const sessionTimeColumn = header.indexOf('SessionTime');
   const pcts: number[] = [];
   const brakes: number[] = [];
   const speeds: number[] = [];
@@ -193,6 +204,8 @@ export function lapSamplesFromText(text: string): LapSamples {
   const yawRates: number[] = [];
   const velocityXs: number[] = [];
   const velocityYs: number[] = [];
+  const sessionTimes: number[] = [];
+  const tireLayers = Object.fromEntries(TIRE_CORNERS.map((corner) => [corner, tireLayer(corner, header)])) as Record<TireCorner, TireLayer | null>;
   const tireTemps = Object.fromEntries(
     TIRE_CORNERS.map((corner): [TireCorner, TireTemps] => [corner, { outer: [], middle: [], inner: [] }])
   ) as Record<TireCorner, TireTemps>;
@@ -246,13 +259,14 @@ export function lapSamplesFromText(text: string): LapSamples {
     yawRates.push(yawRateColumn < 0 ? NaN : parseFloat(cells[yawRateColumn]));
     velocityXs.push(velocityXColumn < 0 ? NaN : parseFloat(cells[velocityXColumn]));
     velocityYs.push(velocityYColumn < 0 ? NaN : parseFloat(cells[velocityYColumn]));
+    sessionTimes.push(sessionTimeColumn < 0 ? NaN : parseFloat(cells[sessionTimeColumn]));
     for (const { values, column } of tireColumns) values.push(column < 0 ? NaN : parseFloat(cells[column]));
     const density = densityColumn < 0 ? NaN : parseFloat(cells[densityColumn]);
     engine.fuelKgs.push(fuelLiters[fuelLiters.length - 1] * (density > 0 ? density : DEFAULT_FUEL_KG_PER_LTR));
   }
   return {
     pcts, brakes, speeds, throttles, steerings, lats, lons, alts, yaws, rpms, gears, yawRates, velocityXs, velocityYs,
-    tireTemps, tirePressures, rideHeights, engine,
+    tireTemps, tireLayers, sessionTimes, tirePressures, rideHeights, engine,
   };
 }
 

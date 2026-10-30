@@ -603,11 +603,13 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
                   title: lapTitle(t.lapTitleBase, baseLap),
                   trace: baseTrace,
                   summary: pedalSummary(base, selectedTrack.lengthFeet, t, locale, units),
+                  samples: baseSamples,
                 },
                 compare: {
                   title: lapTitle(t.lapTitleCompare, compareLap),
                   trace: compareTrace,
                   summary: pedalSummary(compare, selectedTrack.lengthFeet, t, locale, units),
+                  samples: compareSamples,
                 },
               });
             }

@@ -11,7 +11,7 @@ import TimeDeltaTrace from '@/components/TimeDeltaTrace';
 import LapDataTabs, { type Tab as LapDataTab } from '@/components/LapDataTabs';
 import { useUnits } from '@/components/UnitsProvider';
 import { CHART_MARGIN as MARGIN, clamp, nearestIndex, positionLabel, xTicks, type Axis } from '@/lib/lapCharts';
-import type { AreaTrace } from '@/lib/lapData';
+import type { AreaTrace, LapSamples } from '@/lib/lapData';
 import { DISTANCE_UNIT, distanceFromFeet } from '@/lib/units';
 
 // Brake red and throttle green, checked with the dataviz palette validator against the panel surface
@@ -34,6 +34,7 @@ export type PedalTraceLap = {
   title: string; // e.g. "Target lap · 1:25.488"
   trace: AreaTrace;
   summary: string; // text version of the chart, e.g. "Brakes at 812 ft (max 80%), throttle at 1,299 ft"
+  samples: Pick<LapSamples, 'pcts' | 'tireTemps' | 'tireLayers' | 'sessionTimes'>; // the whole lap, for the Tire Temperature Comparison
 };
 
 function useWidth() {

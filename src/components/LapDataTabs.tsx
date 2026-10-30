@@ -4,6 +4,7 @@ import { type KeyboardEvent, type PointerEvent } from 'react';
 
 import { useLanguage } from '@/components/LanguageProvider';
 import type { PedalTraceLap } from '@/components/PedalTraces';
+import TireTempDashboard from '@/components/TireTempDashboard';
 import { useUnits } from '@/components/UnitsProvider';
 import { BASE_LAP_COLOR, clamp, COMPARE_LAP_COLOR, nearestIndex, positionLabel, xTicks, type Axis } from '@/lib/lapCharts';
 import type { AreaTrace, TireCorner, TireTemps } from '@/lib/lapData';
@@ -314,7 +315,7 @@ function LapDataChart({
   );
 }
 
-// Under Lap Compare's charts for a focus area: Balance, Tire Temp, Tire Pressure, Ride Heights, Gear and Engine &
+// Under Lap Compare's charts for a focus area: Balance, Tire Temp (the Tire Temperature Comparison over its charts), Tire Pressure, Ride Heights, Gear and Engine &
 // Fuel tabs. The three tire and ride height tabs each have a chart per corner (left front and right front above, left rear and
 // right rear below) of both laps' tire temperatures (outer, middle, inner), tire pressures or ride
 // heights; Gear has the gear and RPM; Engine & Fuel has water and oil temperatures above, fuel use and fuel left below;
@@ -514,6 +515,9 @@ export default function LapDataTabs({
               <p className="mb-3 text-xs text-muted-foreground">
                 {fmt(panel.lapNone, { lap: missing.map((lap) => lap.title).join(', ') })}
               </p>
+            )}
+            {tab === 'temp' && (
+              <TireTempDashboard id={`${id}-tire-dashboard`} base={base} compare={compare} axis={axis} width={innerWidth} hoverPct={hoverPct} onHover={onHover} />
             )}
             <div className={`grid gap-4 ${twoColumns ? 'grid-cols-2' : 'grid-cols-1'}`}>
               {panel.charts.map((chart) => (

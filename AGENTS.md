@@ -153,6 +153,14 @@ The Race Announcers' two-person spectator broadcast on the Live Racing page and 
 - **Metrics**: `GET /api/admin/broadcast-metrics` (Admins, 404 otherwise; `src/lib/broadcastMetrics.ts`, server memory): requests, answered without AI, suppressed by reason, lines dropped by reason, stale after generation, AI and speech failures, AI, speech and event-to-audio latency, intensity and format counts, the driver's share, ElevenLabs characters, and the latest decisions with their diagnostics. Tokens and cost per call are in the Admin page's AI usage (`raceAnnouncer`)
 - **Tests**: `npm run test:broadcast` (simulated races through the tracker and Director, the factual check, preferences and the queue; prints the Director's choices through a whole race)
 
+## Tire Temperature Comparison
+
+Lap Compare's Tire Temp tab opens with a dashboard comparing the Target and Compare laps tire by tire around a top view of a GT3 (`src/components/TireTempDashboard.tsx`; the design came from the Lovable project `darinlutz/gt3-tire-temp-oracle`, adapted to the site's laps, units, languages and themes). Delta is always Compare minus Target; neither direction is called better. All calculations are in `src/lib/tireTempComparison.ts` (pure; `npm run test:tire-temps`).
+
+- **Scopes**: Sample (at the page's crosshair, where it last was when it's off the charts), Focus area and Lap (means). Session always answers N/A: Lap Compare only has its two laps
+- **What's compared**: only the same layer of the tire (`LapSamples.tireLayers`: surface, or carcass in laps without it), both continuous. A lap holding one carcass value is a pit reading (fewer than `MIN_CONTINUOUS_CHANGES` changes): shown, never subtracted, as the lap file doesn't say when it was taken. Laps are matched by lap position, never sample index; further than `MAX_ALIGNMENT_GAP` apart or under `MIN_COVERAGE` is N/A
+- **Statistics**: min and max are the lowest and highest single reading of any tread edge in the scope, and each delta is the difference of the two laps' statistics, not the largest pointwise difference. An average, min or max needs all three edges; an axle needs both its tires
+
 ## Cookie Consent
 
 Optional cookies and browser storage only run with the visitor's consent, given in the cookie banner or Cookie Settings (the footer's Cookie Settings button, `src/components/CookieSettingsButton.tsx`), and described in the Cookie Policy (`/cookies`, `cookiePolicy` in `src/lib/legal.ts`). Audit, design, deployment and open legal questions in `docs/cookie-consent.md`.

@@ -79,7 +79,7 @@ test('a new driver sees their profile, an empty state and zeros, and My Settings
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(/Ayrton\s*Example/i);
   await expect(page.getByRole('heading', { name: 'No laps yet' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Install the Collector' })).toHaveAttribute('href', '/installing');
-  await expect(page.getByText('Bronze Member')).toBeVisible();
+  await expect(page.getByText('Bronze Member', { exact: true })).toBeVisible();
   await expect(page.getByText('Free', { exact: true })).toBeVisible();
   await expect(page.getByText(`${email[0]}•••••@example.test`)).toBeVisible();
   await expect(page.getByText(email, { exact: true })).toHaveCount(0);
@@ -109,8 +109,9 @@ test("a driver sees their own laps and subscription, never another driver's", as
   await expect(me.page.getByRole('img', { name: 'Ferrari 296 GT3' })).toBeVisible();
   await expect(me.page.getByText('Mine Raceway', { exact: true })).toBeVisible();
   await expect(me.page.getByText('Grand Prix configuration')).toBeVisible();
+  await expect(me.page.getByText('Avg 2 laps / session')).toBeVisible();
   await expect(me.page.getByText('Theirs')).toHaveCount(0);
-  await expect(me.page.getByText('Gold Member')).toBeVisible();
+  await expect(me.page.getByText('Gold Member', { exact: true })).toBeVisible();
   await expect(me.page.getByText('Active', { exact: true })).toBeVisible();
   await expect(me.page.getByText('Renews', { exact: true })).toBeVisible();
   await expect(me.page.getByRole('link', { name: 'Manage Subscription' })).toHaveAttribute('href', '/account#subscription');

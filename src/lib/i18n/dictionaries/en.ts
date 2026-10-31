@@ -59,7 +59,7 @@ export const en = {
     totalLaps: 'Total Laps',
     lapsThisWeek: '+{n} this week',
     totalSessions: 'Total Sessions',
-    lapsPerSession: 'Avg {n} laps / session',
+    lapsPerSession: { one: 'Avg {n} lap / session', other: 'Avg {n} laps / session' },
     distanceDriven: 'Distance Driven',
     miles: 'mi',
     kilometers: 'km',

@@ -59,7 +59,7 @@ export const es: Dictionary = {
     totalLaps: 'Total de vueltas',
     lapsThisWeek: '+{n} esta semana',
     totalSessions: 'Total de sesiones',
-    lapsPerSession: 'Promedio de {n} vueltas / sesión',
+    lapsPerSession: { one: 'Promedio de {n} vuelta / sesión', other: 'Promedio de {n} vueltas / sesión' },
     distanceDriven: 'Distancia recorrida',
     miles: 'mi',
     kilometers: 'km',

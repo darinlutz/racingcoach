@@ -176,7 +176,7 @@ export default function MyDashboard({ user, data, viewPlans }: { user: User; dat
               icon={Flag}
               label={t.totalSessions}
               value={stats ? number(stats.sessions) : unavailable}
-              note={stats ? stats.sessions > 0 && fmt(t.lapsPerSession, { n: number(stats.laps / stats.sessions, 1) }) : unavailableNote}
+              note={stats ? stats.sessions > 0 && plural(language, Math.round((stats.laps / stats.sessions) * 10) / 10, t.lapsPerSession, { n: number(stats.laps / stats.sessions, 1) }) : unavailableNote}
             />
             <StatCard
               icon={Gauge}

@@ -3,8 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLanguage } from '@/components/LanguageProvider';
 import LiveIncidents from '@/components/LiveIncidents';
-import { steeringLabel } from '@/components/SteeringTrace';
-import { BASE_ARC_R, GearDisplay, WheelGraphic } from '@/components/SteeringWheel';
+import { BASE_ARC_R, GearDisplay, steeringLabel, WheelGraphic } from '@/components/SteeringWheel';
 import { useUnits } from '@/components/UnitsProvider';
 import type { InputSample } from '@/lib/liveRacing';
 import { SPEED_UNIT, speedFromMetersPerSecond } from '@/lib/units';

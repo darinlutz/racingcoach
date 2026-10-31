@@ -2,26 +2,27 @@
 
 import { useId } from 'react';
 
-import { useLanguage } from '@/components/LanguageProvider';
-import type { PedalTraceLap } from '@/components/PedalTraces';
-import { steeringLabel } from '@/components/SteeringTrace';
+import type { Dictionary } from '@/lib/i18n/dictionaries/en';
 import { fmt } from '@/lib/i18n/languages';
-import { BASE_LAP_COLOR, clamp, COMPARE_LAP_COLOR, nearestIndex, positionLabel, type Axis } from '@/lib/lapCharts';
+import { clamp } from '@/lib/lapCharts';
 
 const SIZE = 220;
 const MARK_COLOR = '#f97316';
-// Radii of the angle scale around the wheel and each lap's arc outside it
+// Radii of the angle scale around the wheel and the arc outside it
 const SCALE_R = 80;
 export const BASE_ARC_R = 89;
-const COMPARE_ARC_R = 97;
 
-const degrees = (radians: number) => (radians * 180) / Math.PI;
+// iRacing's steering angle is positive to the left: 30 -> "30° L", -30 -> "30° R"
+export function steeringLabel(deg: number, t: Dictionary['charts']) {
+  const rounded = Math.round(deg);
+  return rounded === 0 ? '0°' : fmt(rounded > 0 ? t.steeringLeft : t.steeringRight, { n: Math.abs(rounded) });
+}
 
 // iRacing's Gear: -1 reverse, 0 neutral, NaN where the lap file has no gear
 export const gearLabel = (gear: number) => (!Number.isFinite(gear) ? '–' : gear < 0 ? 'R' : gear === 0 ? 'N' : String(gear));
 
 // A dash display of one lap's gear: the number large in the lap's color, the lap's name under it, and on
-// the Compare lap how many gears higher (+) or lower (−) than the Target lap it is, when they differ. Also Live Racing's.
+// the Compare lap how many gears higher (+) or lower (−) than the Target lap it is, when they differ. Live Racing's.
 export function GearDisplay({ gear, label, color, diff }: { gear: number; label: string; color: string; diff?: number }) {
   return (
     <div
@@ -61,7 +62,7 @@ function arc(r: number, theta0: number, theta1: number) {
 
 // The wheel itself, turned by angle (degrees, + left, so counterclockwise), on a fixed angle scale with an arc per
 // entry in arcs from straight ahead (the top) to its own angle (radius r: BASE_ARC_R inside, 97 outside), and readout
-// on its screen, size pixels square, or with fill as wide as its box. Lap Compare's wheel, and Live Racing's.
+// on its screen, size pixels square, or with fill as wide as its box. Live Racing's wheel.
 export function WheelGraphic({
   angle,
   arcs,
@@ -194,79 +195,5 @@ export function WheelGraphic({
         <circle cy={4} r={2.4} fill={MARK_COLOR} />
       </g>
     </svg>
-  );
-}
-
-// A wheel turned by the Target lap's steering angle at the crosshair (the start of the area without one),
-// with an arc for each lap from straight ahead (the top) to its own angle: Target inside, Compare outside,
-// then the caption, and to its right each lap's gear there side by side under "Gear" (GearDisplay).
-// iRacing's angle is positive to the left, so a positive angle turns the wheel counterclockwise.
-export default function SteeringWheel({
-  base,
-  compare,
-  axis,
-  hoverPct,
-}: {
-  base: PedalTraceLap;
-  compare: PedalTraceLap;
-  axis: Axis;
-  hoverPct: number | null;
-}) {
-  const { t: dictionary } = useLanguage();
-  const t = dictionary.charts;
-  const pct = clamp(hoverPct ?? axis.domain[0], axis.domain[0], axis.domain[1]);
-  const laps = [
-    { key: 'base', label: dictionary.lapCompare.base, lap: base, color: BASE_LAP_COLOR, r: BASE_ARC_R },
-    { key: 'compare', label: dictionary.lapCompare.compare, lap: compare, color: COMPARE_LAP_COLOR, r: COMPARE_ARC_R },
-  ].map((l) => {
-    const i = nearestIndex(l.lap.trace.pcts, pct);
-    return { ...l, angle: degrees(l.lap.trace.steerings[i] ?? 0), gear: l.lap.trace.engine.gears[i] ?? NaN };
-  });
-  const wheelAngle = laps[0].angle;
-  // No gear displays when neither lap has gear data (Garage 61 exports and older collector laps)
-  const hasGears = laps.some(({ lap }) => lap.trace.engine.gears.some(Number.isFinite));
-  const gearDiff =
-    Number.isFinite(laps[0].gear) && Number.isFinite(laps[1].gear) ? laps[1].gear - laps[0].gear : undefined;
-
-  const angles = laps
-    .map(({ label, angle, gear }) => `${label} ${steeringLabel(angle, t)}${hasGears ? `, ${t.gearCharts.gear} ${gearLabel(gear)}` : ''}`)
-    .join(', ');
-
-  return (
-    <figure className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
-      <WheelGraphic
-        angle={wheelAngle}
-        arcs={laps}
-        readout={steeringLabel(wheelAngle, t)}
-        ariaLabel={fmt(t.wheelAria, { position: positionLabel(pct, axis), angles })}
-      />
-
-      {/* A small basis keeps it beside the wheel in half a row; it wraps under only when even that doesn't fit */}
-      <figcaption className="space-y-1 text-xs text-muted-foreground basis-32 grow max-w-56">
-        <p className="tabular-nums">{positionLabel(pct, axis)}</p>
-        {laps.map(({ key, label, color, angle }) => (
-          <p key={key} className="flex items-center gap-2">
-            <span className="inline-block w-3 h-0.5 rounded-full" style={{ backgroundColor: color }} />
-            <span className="font-semibold text-foreground tabular-nums">{steeringLabel(angle, t)}</span>
-            <span>{label}</span>
-          </p>
-        ))}
-        <p>{t.wheelHint}</p>
-      </figcaption>
-
-      {/* Right of the caption (under it when there's no room): Gear, and each lap's gear side by side */}
-      {hasGears && (
-        <div aria-hidden="true">
-          <p className="mb-1.5 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            {t.gearCharts.gear}
-          </p>
-          <div className="flex gap-3">
-            {laps.map(({ key, label, color, gear }) => (
-              <GearDisplay key={key} gear={gear} label={label} color={color} diff={key === 'compare' ? gearDiff : undefined} />
-            ))}
-          </div>
-        </div>
-      )}
-    </figure>
   );
 }

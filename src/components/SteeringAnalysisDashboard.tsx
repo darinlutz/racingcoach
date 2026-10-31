@@ -4,15 +4,12 @@ import { useId, useMemo, useState } from 'react';
 
 import { useLanguage } from '@/components/LanguageProvider';
 import { useTelemetry } from '@/components/TelemetryCursor';
-import { steeringLabel } from '@/components/SteeringTrace';
-import { gearLabel } from '@/components/SteeringWheel';
-import { DASH_GAP, DeltaIndicator, LapChannelChart, MetricCard, Panel, SegmentedToggle, useAtCursor, useNumbers, useViewWindow, type ChartMarker } from '@/components/TelemetryPanels';
+import { gearLabel, steeringLabel } from '@/components/SteeringWheel';
+import { DeltaIndicator, LapChannelChart, MetricCard, Panel, SegmentedToggle, useAtCursor, useNumbers, useViewWindow, type ChartMarker } from '@/components/TelemetryPanels';
 import { useUnits } from '@/components/UnitsProvider';
 import { deltas, largest, stats, steeringReversals } from '@/lib/lapChannels';
 import { SPEED_UNIT } from '@/lib/units';
 
-const WIDE = 1100;
-const SIDE_COLUMN = 360;
 const MAX_WHEEL_ANGLE = 540; // The picture stops turning here; the numbers don't
 const CORRECTION_LIMIT = 25; // A reversal smaller than this (degrees) counts as a correction
 const LED_COUNT = 15;
@@ -98,9 +95,45 @@ function GT3SteeringWheel({ angle, lap, indicators, display, ledShare, size }: {
   );
 }
 
-// The Steering tab: both laps' wheel at the crosshair side by side or as one with both angles marked, their angles
-// and difference, the steering chart with where each lap turns the wheel back, and how often it does in what's in view.
-export default function SteeringAnalysisDashboard({ id, width }: { id: string; width: number }) {
+// Where each lap turns the wheel back, for the chart's markers and the statistics' counts
+function useSteeringReversals() {
+  const { grid } = useTelemetry();
+  const { pcts, steerings } = grid;
+  return useMemo(() => [steeringReversals(pcts, steerings[0]), steeringReversals(pcts, steerings[1])], [pcts, steerings]);
+}
+
+// The steering chart, with where each lap turns the wheel back
+export function SteeringAngleChart({ id, width }: { id: string; width: number }) {
+  const { t } = useLanguage();
+  const { grid } = useTelemetry();
+  const reversals = useSteeringReversals();
+  const markers = useMemo<ChartMarker[]>(() => {
+    const onLap = (lap: 'target' | 'compare', list: typeof reversals[number]): ChartMarker[] =>
+      list.map(({ pct, amplitude }) => ({ pct, lap, kind: amplitude < CORRECTION_LIMIT ? 'correction' : 'reversal' }));
+    return [...onLap('target', reversals[0]), ...onLap('compare', reversals[1])];
+  }, [reversals]);
+  return (
+    <LapChannelChart
+      id={id}
+      title={t.charts.slipCharts.steering}
+      subtitle={t.charts.dash.steeringMarkers}
+      values={grid.steerings}
+      unit="°"
+      digits={0}
+      zeroLine
+      minSpan={20}
+      width={width}
+      height={320}
+      markers={markers}
+      formatTick={(tick) => steeringLabel(-tick, t.charts)}
+      caption={t.charts.steeringCaption}
+    />
+  );
+}
+
+// Both laps' wheel at the crosshair side by side or as one with both angles marked, their angles and difference, and
+// how often each lap turns the wheel back in what's in view. width is the container's.
+export default function SteeringAnalysisDashboard({ width }: { width: number }) {
   const { t } = useLanguage();
   const dash = t.charts.dash;
   const labels = t.charts.telemetry;
@@ -112,9 +145,7 @@ export default function SteeringAnalysisDashboard({ id, width }: { id: string; w
   const atCursor = useAtCursor();
   const { pcts, steerings, speeds } = grid;
 
-  const wide = width >= WIDE;
-  const mainWidth = wide ? width - SIDE_COLUMN - DASH_GAP : width;
-  const wheelSize = Math.min(400, (mainWidth - 60) / (view === 'pair' ? 2 : 1));
+  const wheelSize = Math.min(400, (width - 60) / (view === 'pair' ? 2 : 1));
 
   const [target, compare] = [atCursor(steerings[0]), atCursor(steerings[1])];
   const rpm = atCursor(channels.rpms[0]);
@@ -134,12 +165,7 @@ export default function SteeringAnalysisDashboard({ id, width }: { id: string; w
     steer: steer === null ? '' : steeringLabel(-steer, t.charts),
   });
 
-  const reversals = useMemo(() => [steeringReversals(pcts, steerings[0]), steeringReversals(pcts, steerings[1])], [pcts, steerings]);
-  const markers = useMemo<ChartMarker[]>(() => {
-    const onLap = (lap: 'target' | 'compare', list: typeof reversals[number]): ChartMarker[] =>
-      list.map(({ pct, amplitude }) => ({ pct, lap, kind: amplitude < CORRECTION_LIMIT ? 'correction' : 'reversal' }));
-    return [...onLap('target', reversals[0]), ...onLap('compare', reversals[1])];
-  }, [reversals]);
+  const reversals = useSteeringReversals();
   const inView = ({ pct }: { pct: number }) => pct >= pcts[i0] && pct <= pcts[i1];
   const count = (lap: 0 | 1) => reversals[lap].filter(inView).length;
   const corrections = (lap: 0 | 1) => reversals[lap].filter((r) => inView(r) && r.amplitude < CORRECTION_LIMIT).length;
@@ -149,88 +175,73 @@ export default function SteeringAnalysisDashboard({ id, width }: { id: string; w
   const direction = delta === null || delta === 0 ? '' : delta > 0 ? labels.right : labels.left;
 
   return (
-    <div className={wide ? 'grid gap-3' : 'flex flex-col gap-3'} style={wide ? { gridTemplateColumns: `minmax(0, 1fr) ${SIDE_COLUMN}px` } : undefined}>
-      <div className="flex min-w-0 flex-col gap-3">
-        <Panel
-          title={dash.steeringWheel}
-          subtitle={dash.wheelNotRoadWheel}
-          right={
-            <SegmentedToggle
-              label={dash.steeringWheel}
-              value={view}
-              onChange={setView}
-              options={[
-                { value: 'pair', label: dash.sideBySide },
-                { value: 'overlay', label: labels.overlay },
-              ]}
-            />
-          }
-        >
-          <div className="flex flex-col gap-3 p-3">
-            <div className="flex flex-wrap items-center justify-center gap-6">
-              {view === 'pair' ? (
-                <>
-                  <div className="flex flex-col items-center">
-                    <span className="tele-label !text-lap-target">{labels.target}</span>
-                    <GT3SteeringWheel angle={target ?? 0} lap="target" display={display(target)} ledShare={ledShare} size={wheelSize} />
-                  </div>
-                  <div className="flex flex-col items-center">
-                    <span className="tele-label !text-lap-compare">{labels.compare}</span>
-                    <GT3SteeringWheel angle={compare ?? 0} lap="compare" display={display(compare)} ledShare={ledShare} size={wheelSize} />
-                  </div>
-                </>
-              ) : (
+    <div className="flex min-w-0 flex-col gap-3">
+      <Panel
+        title={dash.steeringWheel}
+        subtitle={dash.wheelNotRoadWheel}
+        right={
+          <SegmentedToggle
+            label={dash.steeringWheel}
+            value={view}
+            onChange={setView}
+            options={[
+              { value: 'pair', label: dash.sideBySide },
+              { value: 'overlay', label: labels.overlay },
+            ]}
+          />
+        }
+      >
+        <div className="flex flex-col gap-3 p-3">
+          <div className="flex flex-wrap items-center justify-center gap-6">
+            {view === 'pair' ? (
+              <>
                 <div className="flex flex-col items-center">
-                  <span className="tele-label">{dash.wheelAtCompare}</span>
-                  <GT3SteeringWheel
-                    angle={compare ?? 0}
-                    lap="compare"
-                    indicators={[
-                      { key: 'target', angle: target ?? 0, color: TARGET },
-                      { key: 'compare', angle: compare ?? 0, color: COMPARE },
-                    ]}
-                    display={display(compare)}
-                    ledShare={ledShare}
-                    size={wheelSize}
-                  />
+                  <span className="tele-label !text-lap-target">{labels.target}</span>
+                  <GT3SteeringWheel angle={target ?? 0} lap="target" display={display(target)} ledShare={ledShare} size={wheelSize} />
                 </div>
-              )}
+                <div className="flex flex-col items-center">
+                  <span className="tele-label !text-lap-compare">{labels.compare}</span>
+                  <GT3SteeringWheel angle={compare ?? 0} lap="compare" display={display(compare)} ledShare={ledShare} size={wheelSize} />
+                </div>
+              </>
+            ) : (
+              <div className="flex flex-col items-center">
+                <span className="tele-label">{dash.wheelAtCompare}</span>
+                <GT3SteeringWheel
+                  angle={compare ?? 0}
+                  lap="compare"
+                  indicators={[
+                    { key: 'target', angle: target ?? 0, color: TARGET },
+                    { key: 'compare', angle: compare ?? 0, color: COMPARE },
+                  ]}
+                  display={display(compare)}
+                  ledShare={ledShare}
+                  size={wheelSize}
+                />
+              </div>
+            )}
+          </div>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <div className="rounded-sm border border-lap-target/40 bg-secondary/60 p-2">
+              <div className="tele-label !text-lap-target">{labels.target}</div>
+              <div className="tele-num text-2xl text-lap-target">{target === null ? '–' : steeringLabel(-target, t.charts)}</div>
             </div>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-              <div className="rounded-sm border border-lap-target/40 bg-secondary/60 p-2">
-                <div className="tele-label !text-lap-target">{labels.target}</div>
-                <div className="tele-num text-2xl text-lap-target">{target === null ? '–' : steeringLabel(-target, t.charts)}</div>
-              </div>
-              <div className="rounded-sm border border-lap-compare/40 bg-secondary/60 p-2">
-                <div className="tele-label !text-lap-compare">{labels.compare}</div>
-                <div className="tele-num text-2xl text-lap-compare">{compare === null ? '–' : steeringLabel(-compare, t.charts)}</div>
-              </div>
-              <div className="rounded-sm border border-border bg-secondary/60 p-2">
-                <div className="tele-label">{t.charts.pedalDelta}</div>
-                <div className="flex items-baseline gap-2">
-                  <DeltaIndicator value={delta} digits={0} unit="°" size="xl" label={false} />
-                  <span className="text-sm text-muted-foreground">{direction}</span>
-                </div>
+            <div className="rounded-sm border border-lap-compare/40 bg-secondary/60 p-2">
+              <div className="tele-label !text-lap-compare">{labels.compare}</div>
+              <div className="tele-num text-2xl text-lap-compare">{compare === null ? '–' : steeringLabel(-compare, t.charts)}</div>
+            </div>
+            <div className="rounded-sm border border-border bg-secondary/60 p-2">
+              <div className="tele-label">{t.charts.pedalDelta}</div>
+              <div className="flex items-baseline gap-2">
+                <DeltaIndicator value={delta} digits={0} unit="°" size="xl" label={false} />
+                <span className="text-sm text-muted-foreground">{direction}</span>
               </div>
             </div>
           </div>
-        </Panel>
-        <LapChannelChart
-          id={`${id}-angle`}
-          title={t.charts.slipCharts.steering}
-          subtitle={dash.steeringMarkers}
-          values={steerings}
-          unit="°"
-          digits={0}
-          zeroLine
-          minSpan={20}
-          width={mainWidth}
-          height={320}
-          markers={markers}
-          formatTick={(tick) => steeringLabel(-tick, t.charts)}
-        />
-      </div>
-      <Panel title={dash.steeringStats} subtitle={dash.inView} className="self-start">
+          <p className="text-xs text-muted-foreground">{dash.steeringCaption}</p>
+        </div>
+      </Panel>
+      <Panel title={dash.steeringStats} subtitle={dash.inView}>
         <div className="grid grid-cols-2 gap-2 p-2.5">
           <MetricCard label={dash.peakSteeringDelta} delta={peak?.value} unit="°" size="xl" className="col-span-2" />
           <MetricCard label={dash.reversals} target={count(0)} compare={count(1)} delta={count(1) - count(0)} digits={0} />

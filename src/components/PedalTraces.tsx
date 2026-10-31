@@ -14,8 +14,7 @@ import LapDataTabs, { type Tab as LapDataTab } from '@/components/LapDataTabs';
 import { useLanguage } from '@/components/LanguageProvider';
 import PlaybackControls from '@/components/PlaybackControls';
 import SpeedTrace from '@/components/SpeedTrace';
-import SteeringTrace from '@/components/SteeringTrace';
-import SteeringWheel from '@/components/SteeringWheel';
+import SteeringAnalysisDashboard, { SteeringAngleChart } from '@/components/SteeringAnalysisDashboard';
 import TelemetryCursor, { useTelemetry, type ChartSettings } from '@/components/TelemetryCursor';
 import ThrottleTrace from '@/components/ThrottleTrace';
 import TimeDeltaTrace from '@/components/TimeDeltaTrace';
@@ -49,10 +48,10 @@ function useWidth() {
 
 // Everything under the header and toolbar, which share the crosshair through TelemetryCursor. Two columns: on the
 // left, the Target and Compare laps' driving lines on a map (DrivingLineMap: flat, or a 3D model built from the laps)
-// with the crosshair's position marked on each, under it a steering wheel turned to both laps' angles at the
-// crosshair, with their gears (SteeringWheel), then the values at the crosshair and what the laps measure differently.
+// with the crosshair's position marked on each, under it both laps' steering wheels at the crosshair and the steering
+// statistics (SteeringAnalysisDashboard), then the values at the crosshair and what the laps measure differently.
 // On the right, top to bottom: the corner's phases, the time the Compare lap gains or loses (TimeDeltaTrace), throttle
-// and brake, steering angle, speed and how far left or right of the Target lap's line the Compare lap was, then playback.
+// and brake, steering angle (SteeringAngleChart), speed and how far left or right of the Target lap's line the Compare lap was, then playback.
 // The columns stack when the container is narrower than SIDE_BY_SIDE_MIN_WIDTH.
 // Last, the Balance, Tire Temp, Tire Pressure, Ride Heights, Gear and Engine tabs (LapDataTabs).
 function TelemetryDashboard({
@@ -81,7 +80,7 @@ function TelemetryDashboard({
       <div className={sideBySide ? 'flex items-start gap-4' : 'space-y-4'}>
         <div className="space-y-4" style={column}>
           <DrivingLineMap base={base} compare={compare} width={half} height={Math.round(half * MAP_ASPECT)} hoverPct={cursorPct} onHover={hoverFromMap} />
-          <SteeringWheel base={base} compare={compare} axis={fullAxis} hoverPct={cursorPct} />
+          <SteeringAnalysisDashboard width={half} />
           <CursorValuesTable />
           <EngineeringInsightsPanel areaName={areaName} />
           <p className="px-1 text-[11px] leading-snug text-muted-foreground">{t.charts.telemetry.help}</p>
@@ -91,7 +90,7 @@ function TelemetryDashboard({
           <TimeDeltaTrace id={`${id}-delta`} width={half} />
           <ThrottleTrace id={`${id}-throttle`} width={half} />
           <BrakeTrace id={`${id}-brake`} width={half} />
-          <SteeringTrace id={`${id}-steering`} width={half} />
+          <SteeringAngleChart id={`${id}-steering`} width={half} />
           <SpeedTrace id={`${id}-speed`} width={half} />
           <DrivingLineDiffTrace id={`${id}-line`} width={half} />
           <PlaybackControls />

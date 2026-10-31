@@ -3,7 +3,7 @@
 import { useLanguage } from '@/components/LanguageProvider';
 import { signedValue } from '@/components/TelemetryChart';
 import { useTelemetry } from '@/components/TelemetryCursor';
-import { steeringLabel } from '@/components/SteeringTrace';
+import { steeringLabel } from '@/components/SteeringWheel';
 
 // Both laps' pedals, steering and speed at the crosshair, and Compare minus Target, in the user's units
 export default function CursorValuesTable() {

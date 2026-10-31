@@ -5,7 +5,6 @@ import GearRpmDashboard from '@/components/GearRpmDashboard';
 import { useLanguage } from '@/components/LanguageProvider';
 import type { PedalTraceLap } from '@/components/PedalTraces';
 import RideHeightDashboard from '@/components/RideHeightDashboard';
-import SteeringAnalysisDashboard from '@/components/SteeringAnalysisDashboard';
 import { useChartPointer, useTelemetry } from '@/components/TelemetryCursor';
 import TirePressureDashboard from '@/components/TirePressureDashboard';
 import TireTempDashboard from '@/components/TireTempDashboard';
@@ -15,8 +14,8 @@ import { nearestIndex, positionLabel, xTicks, type Axis } from '@/lib/lapCharts'
 import type { AreaTrace, TireCorner, TireTemps } from '@/lib/lapData';
 import { TEMPERATURE_UNIT, temperatureFromCelsius } from '@/lib/units';
 
-export type Tab = 'temp' | 'pressure' | 'rideHeights' | 'gear' | 'engine' | 'slip' | 'steering';
-const TABS: Tab[] = ['slip', 'steering', 'temp', 'pressure', 'rideHeights', 'gear', 'engine'];
+export type Tab = 'temp' | 'pressure' | 'rideHeights' | 'gear' | 'engine' | 'slip';
+const TABS: Tab[] = ['slip', 'temp', 'pressure', 'rideHeights', 'gear', 'engine'];
 
 type Edge = keyof TireTemps;
 const EDGES: Edge[] = ['outer', 'middle', 'inner'];
@@ -260,7 +259,7 @@ function LapDataChart({
   );
 }
 
-// Under Lap Compare's charts for a focus area, a tab per subject: Balance (VehicleDynamicsDashboard), Steering, Tire
+// Under Lap Compare's charts for a focus area, a tab per subject: Balance (VehicleDynamicsDashboard), Tire
 // Temp (the Tire Temperature Comparison over a chart per corner), Tire Pressure, Ride Heights, Gear and Engine & Fuel,
 // each a dashboard on the crosshair and zoom the charts above share. width is the container's. The tab is kept by Lap
 // Compare, so it stays the same when another focus area is picked.
@@ -326,7 +325,6 @@ export default function LapDataTabs({
       caption: t.engineCaption,
     },
     slip: { has: ({ handling }: AreaTrace) => Boolean(present(handling.yawRates) || present(handling.sideslips)), none: t.slipNone, lapNone: t.slipLapNone, caption: t.slipCaption },
-    steering: { has: ({ steerings }: AreaTrace) => Boolean(present(steerings)), none: t.lapDataNone, lapNone: t.lapDataNone, caption: t.dash.steeringCaption },
   };
   const panel = tabs[tab];
   const missing = [base, compare].filter((lap) => !panel.has(lap.trace));
@@ -363,7 +361,6 @@ export default function LapDataTabs({
               </p>
             )}
             {tab === 'slip' && <VehicleDynamicsDashboard id={`${id}-dynamics`} width={innerWidth} />}
-            {tab === 'steering' && <SteeringAnalysisDashboard id={`${id}-steering`} width={innerWidth} />}
             {tab === 'pressure' && <TirePressureDashboard id={`${id}-pressure`} width={innerWidth} />}
             {tab === 'rideHeights' && <RideHeightDashboard id={`${id}-ride`} width={innerWidth} />}
             {tab === 'gear' && <GearRpmDashboard id={`${id}-gear`} width={innerWidth} />}

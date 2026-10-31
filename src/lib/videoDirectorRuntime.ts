@@ -427,7 +427,7 @@ function conditions(session: Session, now: number): RaceConditions {
   const feed = readDirectorFeed(session.driverId);
   session.sequenceSince = session.state.clip ? (session.sequenceSince ?? now) : null;
   // The followed driver went away: no new clip until there's a race to read again
-  if (!feed) return { level: 1, blocked: true, critical: false, rotating: false };
+  if (!feed) return { level: 1, blocked: true, critical: false, rotating: false, raceStartAt: null };
   return raceConditions(feed.events, feed.context, now, session.sequenceSince);
 }
 

@@ -2565,17 +2565,6 @@ export const en = {
     // The Broadcast Director's recorded clips (src/lib/videoDirector.ts)
     director: {
       "recorded": "RECORDED",
-      "recordedFootage": "Recorded footage",
-      "cameras": {
-        "RACE_START": "Race start",
-        "CRASHES": "Crash replay",
-        "ONBOARDS": "Onboard",
-        "HELICOPTER": "Helicopter",
-        "BLIMP": "Blimp",
-        "TVCAMERA1": "Trackside camera 1",
-        "TVCAMERA2": "Trackside camera 2",
-        "TVCAMERA3": "Trackside camera 3"
-      },
       "intros": {
         "RACE_START": [
           "Let's take another look at a race start.",

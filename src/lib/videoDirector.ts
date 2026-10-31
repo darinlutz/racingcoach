@@ -42,6 +42,10 @@ export const RETRY_AFTER_MS = 30_000;
 export const MAX_CLIP_SECONDS = 60;
 // Rotation: a clip is picked this long before its cut, so viewers can buffer it
 export const ROTATION_LEAD_MS = 6000;
+// At the green flag, race start footage plays this long
+export const START_CLIP_SECONDS = 45;
+// A TV that starts watching this soon after the green flag still gets the start's footage
+export const START_CLIP_WINDOW_MS = 30_000;
 // How many recent clips and categories are avoided while there are alternatives
 export const RECENT_VIDEOS = 5;
 const RECENT_CATEGORIES = 2;
@@ -147,7 +151,8 @@ export function clipLengthSeconds(video: Pick<DirectorVideo, 'durationSeconds' |
   return Math.min(Math.max(Math.min(wanted, available), 0), MAX_CLIP_SECONDS);
 }
 
-export type SelectionRequest = { category?: VideoCategory | null; videoId?: number | null };
+// avoidCategory: left out while there are alternatives
+export type SelectionRequest = { category?: VideoCategory | null; videoId?: number | null; avoidCategory?: VideoCategory };
 
 export type SelectionContext = {
   settings: DirectorSettings;
@@ -176,6 +181,8 @@ export function selectVideo(videos: DirectorVideo[], request: SelectionRequest, 
     pool = pool.filter((v) => v.category === request.category);
   } else {
     pool = pool.filter((v) => settings.categoryEnabled[v.category] !== false && (settings.categoryWeights[v.category] ?? 1) > 0 && v.selectionWeight > 0);
+    const notAvoided = pool.filter((v) => v.category !== request.avoidCategory);
+    if (notAvoided.length > 0) pool = notAvoided;
     const otherCategory = pool.filter((v) => !context.recentCategories.includes(v.category));
     if (otherCategory.length > 0) pool = otherCategory;
   }
@@ -256,6 +263,10 @@ export type DirectorState = {
   rotationCutAt: number | null;
   // Rotation: how far (seconds) each clip has got, so a long file carries on rather than starting over
   rotationPlayed: Record<number, number>;
+  // The clip being picked or shown is the green flag's race start footage
+  startClip: boolean;
+  // The race start that footage has been asked for; each start gets one
+  startClipFor: number | null;
   manualRequest: SelectionRequest | null;
   reselect: boolean;
   recentVideoIds: number[];
@@ -291,6 +302,8 @@ export function newDirector(sessionKey: string, now: number): DirectorState {
     lastClipEndedAt: null,
     rotationCutAt: null,
     rotationPlayed: {},
+    startClip: false,
+    startClipFor: null,
     manualRequest: null,
     reselect: false,
     recentVideoIds: [],
@@ -318,6 +331,8 @@ export type RaceConditions = {
   critical: boolean;
   // The race is under way with nothing critical just now, so the rotation runs (if it's turned on)
   rotating: boolean;
+  // When the green flag came out, while that's among the recent events
+  raceStartAt: number | null;
 };
 
 export type TickInput = {
@@ -355,6 +370,13 @@ function autoClipDue(state: DirectorState, input: TickInput): boolean {
   if (!settings.videosEnabled || !settings.autoDirector) return false;
   if (settings.rotationEnabled && race.rotating) return now >= nextClipDueAt(state, settings, race.level, true) - ROTATION_LEAD_MS;
   return !race.blocked && race.level < 4 && now >= nextClipDueAt(state, settings, race.level);
+}
+
+// The green flag is out and its race start footage hasn't been asked for yet
+function startClipDue(state: DirectorState, input: TickInput): boolean {
+  const { now, settings, race } = input;
+  if (!settings.videosEnabled || !settings.autoDirector || settings.categoryEnabled.RACE_START === false) return false;
+  return race.raceStartAt != null && state.startClipFor == null && now - race.raceStartAt <= START_CLIP_WINDOW_MS;
 }
 
 function abandon(state: DirectorState, now: number, status: 'cancelled' | 'failed', reason: string, effects: DirectorEffect[]): void {
@@ -427,31 +449,44 @@ export function directorTick(state: DirectorState, input: TickInput): DirectorEf
   const { now, settings, race } = input;
   const effects: DirectorEffect[] = [];
   const rotating = settings.rotationEnabled && race.rotating;
+  // The green flag takes over from any other clip, like a P0 moment, and doesn't wait for the time between clips
+  const startDue = startClipDue(state, input);
+  const backToRace = race.critical || startDue;
   // Turned off: a skip's promise of another clip doesn't outlive that
   if (!settings.videosEnabled) state.reselect = false;
   switch (state.phase) {
     case 'LIVE': {
       if (state.selecting) break;
-      if (state.manualRequest) {
+      if (startDue) {
+        state.startClipFor = race.raceStartAt;
+        state.startClip = true;
+        state.selecting = true;
+        state.rotationCutAt = now;
+        effects.push({ type: 'select', request: { category: 'RACE_START' }, trigger: 'auto' });
+      } else if (state.manualRequest) {
         const request = state.manualRequest;
         state.manualRequest = null;
+        state.startClip = false;
         state.selecting = true;
         state.rotationCutAt = rotating ? now : null;
         effects.push({ type: 'select', request, trigger: 'manual' });
       } else if (now >= state.nextCheckAt && settings.videosEnabled && (state.reselect || autoClipDue(state, input))) {
         state.reselect = false;
+        state.startClip = false;
         state.selecting = true;
         state.rotationCutAt = rotating ? Math.max(nextClipDueAt(state, settings, race.level, true), now) : null;
-        effects.push({ type: 'select', request: {}, trigger: 'auto' });
+        // Footage of a race start belongs at the start, not in the middle of the race
+        effects.push({ type: 'select', request: rotating ? { avoidCategory: 'RACE_START' } : {}, trigger: 'auto' });
       }
       break;
     }
     case 'CLIP_SELECTED':
       // waiting for the file check (clipValidated); a check that never answers is given up on
-      if (now > state.phaseSince + INTRO_WAIT_MS) abandon(state, now, 'failed', 'validationTimeout', effects);
+      if (startDue) abandon(state, now, 'cancelled', 'liveAction', effects);
+      else if (now > state.phaseSince + INTRO_WAIT_MS) abandon(state, now, 'failed', 'validationTimeout', effects);
       break;
     case 'CLIP_PRELOADING':
-      if (race.critical) abandon(state, now, 'cancelled', 'liveAction', effects);
+      if (backToRace) abandon(state, now, 'cancelled', 'liveAction', effects);
       else if (now >= state.preloadUntil && state.rotationCutAt != null) schedule(state, now, settings, effects);
       else if (now >= state.preloadUntil) {
         state.introDeadline = now + INTRO_WAIT_MS;
@@ -459,7 +494,7 @@ export function directorTick(state: DirectorState, input: TickInput): DirectorEf
       }
       break;
     case 'INTRO_PENDING':
-      if (race.critical) {
+      if (backToRace) {
         abandon(state, now, 'cancelled', 'liveAction', effects);
       } else if (now >= state.introDeadline) {
         abandon(state, now, 'failed', state.preparing ? 'introTimeout' : 'announcersBusy', effects);
@@ -470,18 +505,18 @@ export function directorTick(state: DirectorState, input: TickInput): DirectorEf
       }
       break;
     case 'INTRO_PLAYING':
-      if (race.critical) abandon(state, now, 'cancelled', 'liveAction', effects);
+      if (backToRace) abandon(state, now, 'cancelled', 'liveAction', effects);
       else if (now >= state.transitionAt!) {
         effects.push({ type: 'playbackStarted' });
         go(state, 'TRANSITION_TO_VIDEO', now, effects);
       }
       break;
     case 'TRANSITION_TO_VIDEO':
-      if (race.critical) cutToLive(state, now, 'cutShort', 'liveAction', effects);
+      if (backToRace) cutToLive(state, now, 'cutShort', 'liveAction', effects);
       else if (now >= state.transitionAt! + state.transitionMs) go(state, 'VIDEO_PLAYING', now, effects);
       break;
     case 'VIDEO_PLAYING':
-      if (race.critical) cutToLive(state, now, 'cutShort', 'liveAction', effects);
+      if (backToRace) cutToLive(state, now, 'cutShort', 'liveAction', effects);
       else if (now >= state.returnAt!) go(state, 'TRANSITION_TO_LIVE', now, effects);
       break;
     case 'TRANSITION_TO_LIVE':
@@ -500,7 +535,7 @@ export function directorTick(state: DirectorState, input: TickInput): DirectorEf
       }
       break;
     case 'RECOVERY':
-      if (now >= state.recoverUntil) go(state, 'LIVE', now, effects);
+      if (now >= state.recoverUntil || startDue) go(state, 'LIVE', now, effects);
       break;
   }
   if (state.phase === 'LIVE' && state.lines.length > 0 && now >= state.holdUntil) {
@@ -536,9 +571,10 @@ export function clipSelected(state: DirectorState, video: DirectorVideo | null, 
     const lengthSeconds = Math.max(end - video.clipStartSeconds, 0);
     const played = state.rotationPlayed ?? {};
     const offsetSeconds = (played[video.id] ?? 0) % lengthSeconds;
-    state.clip.durationMs = settings.rotationVideoSeconds * 1000;
+    const seconds = state.startClip ? START_CLIP_SECONDS : settings.rotationVideoSeconds;
+    state.clip.durationMs = seconds * 1000;
     state.clip.loop = { offsetSeconds, lengthSeconds };
-    state.rotationPlayed = { ...played, [video.id]: offsetSeconds + settings.rotationVideoSeconds };
+    state.rotationPlayed = { ...played, [video.id]: offsetSeconds + seconds };
   }
   state.trigger = trigger;
   state.prepared = null;
@@ -558,8 +594,9 @@ export function clipValidated(state: DirectorState, ok: boolean, now: number): D
     return effects;
   }
   if (state.rotationCutAt != null) {
-    // No lines to prepare; the schedule goes out just ahead of the cut, as viewers hear of it within a second
-    state.preloadUntil = Math.max(now + PRELOAD_MS, state.rotationCutAt - PRELOAD_MS / 2);
+    // No lines to prepare; the schedule goes out just ahead of the cut, as viewers hear of it within a second. The green
+    // flag's footage doesn't wait to buffer: it starts at once, and each TV shows it as soon as it can
+    state.preloadUntil = state.startClip ? now : Math.max(now + PRELOAD_MS, state.rotationCutAt - PRELOAD_MS / 2);
     state.prepared = [];
     go(state, 'CLIP_PRELOADING', now, effects);
     return effects;

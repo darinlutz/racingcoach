@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { useLanguage } from '@/components/LanguageProvider';
 import { clipCueSeconds, expectedVideoTime, playbackCorrection, type DirectorSnapshot } from '@/lib/videoDirector';
 
 // What fills TV Broadcast Mode's map panel: its children (the live track map), with the Broadcast Director's recorded
@@ -33,7 +32,6 @@ export default function BroadcastVideoSwitcher({
   onRecordedChange: (recorded: boolean) => void;
   children: ReactNode;
 }) {
-  const { t } = useLanguage();
   const clip = director?.clip ?? null;
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [visible, setVisible] = useState(false);
@@ -159,6 +157,7 @@ export default function BroadcastVideoSwitcher({
         <video
           key={clip.videoId}
           ref={videoRef}
+          data-testid={visible ? 'recorded-footage' : undefined}
           src={clip.url}
           preload="auto"
           muted
@@ -169,12 +168,6 @@ export default function BroadcastVideoSwitcher({
           className="pointer-events-none absolute inset-0 h-full w-full bg-black object-contain"
           style={{ opacity: visible ? 1 : 0, transition: `opacity ${transition}` }}
         />
-      )}
-      {visible && clip && (
-        <p data-testid="recorded-footage" className="absolute left-4 top-4 flex items-center gap-3 rounded-lg bg-black/75 px-4 py-2 text-[22px] font-bold uppercase tracking-wide text-white">
-          <span>{t.tv.director.recordedFootage}</span>
-          <span className="text-[#ffd400]">{t.tv.director.cameras[clip.category]}</span>
-        </p>
       )}
     </div>
   );

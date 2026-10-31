@@ -214,8 +214,6 @@ test('Acceptance: an Onboard clip, introduced, on every TV together, and back to
   // Then both TVs cut to the same clip at the same place
   const label = tvA.getByTestId('recorded-footage');
   await expect(label).toBeVisible({ timeout: 30_000 });
-  await expect(label).toContainText('Recorded footage');
-  await expect(label).toContainText('Onboard');
   await expect(tvB.getByTestId('recorded-footage')).toBeVisible({ timeout: 5000 });
   await expect(tvA.getByText('LIVE', { exact: true })).toHaveCount(0);
 

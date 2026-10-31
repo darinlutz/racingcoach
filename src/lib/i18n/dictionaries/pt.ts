@@ -2523,17 +2523,6 @@ export const pt: Dictionary = {
     // The Broadcast Director's recorded clips (src/lib/videoDirector.ts)
     director: {
       "recorded": "GRAVADO",
-      "recordedFootage": "Imagens gravadas",
-      "cameras": {
-        "RACE_START": "Largada",
-        "CRASHES": "Replay de acidente",
-        "ONBOARDS": "Câmera a bordo",
-        "HELICOPTER": "Helicóptero",
-        "BLIMP": "Dirigível",
-        "TVCAMERA1": "Câmera de pista 1",
-        "TVCAMERA2": "Câmera de pista 2",
-        "TVCAMERA3": "Câmera de pista 3"
-      },
       "intros": {
         "RACE_START": [
           "Vamos ver novamente uma largada.",

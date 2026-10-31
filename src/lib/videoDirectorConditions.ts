@@ -10,10 +10,10 @@ import type { RaceConditions } from './videoDirector';
 const LEVEL_WINDOW_MS = 30_000;
 // A P0 or P1 moment, or intensity 4 or more, this recently means no clip now
 const BLOCK_WINDOW_MS = 15_000;
-// The race's start and end are live television, not time for recorded footage
+// The race's start and end are live television, not time for the announcers' clip sequence
 const NO_CLIP_PHASES: readonly DirectorContext['phase'][] = ['opening', 'finalLaps', 'finished'];
-// When the map and footage take turns: the race, once its opening's over and until its final laps
-const ROTATION_PHASES: readonly DirectorContext['phase'][] = ['middle', 'finalQuarter'];
+// When the map and footage take turns: the race, from the green flag's footage until its final laps
+const ROTATION_PHASES: readonly DirectorContext['phase'][] = ['opening', 'middle', 'finalQuarter'];
 
 // since: when the current clip's sequence started (a P0 moment after it brings the broadcast back), or null for none
 export function raceConditions(events: NumberedRaceEvent[], ctx: DirectorContext, now: number, since: number | null): RaceConditions {
@@ -22,6 +22,7 @@ export function raceConditions(events: NumberedRaceEvent[], ctx: DirectorContext
   let blocked = NO_CLIP_PHASES.includes(ctx.phase);
   let critical = false;
   let rotating = ctx.isRace && ROTATION_PHASES.includes(ctx.phase);
+  const raceStartAt = events.find((event) => event.event.type === 'raceStart')?.at ?? null;
   for (const event of events) {
     const c = classify(event, ctx);
     const age = now - c.at;
@@ -33,7 +34,9 @@ export function raceConditions(events: NumberedRaceEvent[], ctx: DirectorContext
     level = Math.max(level, intensity);
     if (age <= BLOCK_WINDOW_MS && (c.priority <= 1 || intensity >= 4)) blocked = true;
     if (age <= BLOCK_WINDOW_MS && c.priority === 0) rotating = false;
-    if (c.priority === 0 && since != null && c.at > since) critical = true;
+    // The green flag doesn't bring the broadcast back from what started after it, the start's own footage
+    const startAlreadyOut = c.key === 'start' && raceStartAt != null && since != null && raceStartAt <= since;
+    if (c.priority === 0 && since != null && c.at > since && !startAlreadyOut) critical = true;
   }
-  return { level, blocked, critical, rotating };
+  return { level, blocked, critical, rotating, raceStartAt };
 }

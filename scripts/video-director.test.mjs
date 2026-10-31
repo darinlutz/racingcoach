@@ -34,6 +34,7 @@ import {
   selectVideo,
   skipNext,
   sourceAt,
+  START_CLIP_SECONDS,
   videoFailed,
 } from '../src/lib/videoDirector.ts';
 import { raceConditions } from '../src/lib/videoDirectorConditions.ts';
@@ -507,18 +508,141 @@ describe('the rotation', () => {
   });
 });
 
+describe('the green flag', () => {
+  const config = DEFAULT_DIRECTOR_SETTINGS;
+  const GREEN = 100_000;
+  const RACING = { level: 4, blocked: true, critical: false, rotating: false, raceStartAt: GREEN };
+  const tick = (state, now, race = RACING, settings = config) => directorTick(state, { now, settings, race, announcersBusyUntil: 0 });
+  const start = video(1, 'RACE_START', { durationSeconds: 300 });
+  // The start's footage, picked at the green flag and on the way to its cut
+  function picked(state, now = GREEN) {
+    const select = tick(state, now).find((e) => e.type === 'select');
+    assert.deepEqual(select.request, { category: 'RACE_START' });
+    clipSelected(state, start, 'auto', config, now);
+    assert.ok(!clipValidated(state, true, now).some((e) => e.type === 'prepare'), 'no lines are written');
+  }
+
+  test('cuts to 45 seconds of race start footage, about 2 seconds after the flag', () => {
+    const state = newDirector('race', 0);
+    assert.equal(START_CLIP_SECONDS, 45);
+    picked(state);
+    tick(state, GREEN + 250);
+    assert.equal(state.phase, 'INTRO_PLAYING');
+    assert.ok(state.transitionAt - GREEN <= 2000, `${state.transitionAt - GREEN} ms`);
+    assert.equal(state.returnAt - state.transitionAt, 45_000);
+    assert.deepEqual(state.lines, []);
+    assert.equal(commentaryHeld(state, state.transitionAt), false);
+    assert.equal(sourceAt(state, state.transitionAt + 44_000), 'RECORDED_VIDEO');
+    assert.equal(sourceAt(state, state.returnAt), 'LIVE_TRACK_MAP');
+  });
+
+  test('then the map, then other footage, taking turns', () => {
+    const state = newDirector('race', 0);
+    picked(state);
+    let now = GREEN;
+    const race = { ...RACING, rotating: true };
+    while (state.phase !== 'LIVE' || state.lastClipEndedAt == null) {
+      now += 250;
+      tick(state, now, race);
+      assert.ok(now - GREEN < 60_000);
+    }
+    assert.equal(sourceAt(state, now), 'LIVE_TRACK_MAP');
+    let select = [];
+    while (!(select = tick(state, (now += 250), race)).some((e) => e.type === 'select')) assert.ok(now - GREEN < 120_000);
+    assert.equal(select.find((e) => e.type === 'select').request.avoidCategory, 'RACE_START');
+    clipSelected(state, video(7), 'auto', config, now);
+    clipValidated(state, true, now);
+    assert.equal(state.clip.durationMs, 30_000, 'back to the rotation’s turn');
+    assert.ok(Math.abs(state.rotationCutAt - state.lastClipEndedAt - 30_000) <= 500, 'a full turn of the map');
+  });
+
+  test('mid-race footage leaves out race starts while there are alternatives', () => {
+    const context = { settings: config, trackKey: null, cars: [], recentVideoIds: [], recentCategories: [] };
+    const both = [video(1, 'RACE_START'), video(2, 'ONBOARDS')];
+    for (let i = 0; i < 20; i++) assert.equal(selectVideo(both, { avoidCategory: 'RACE_START' }, context, Math.random).id, 2);
+    assert.equal(selectVideo([video(1, 'RACE_START')], { avoidCategory: 'RACE_START' }, context).id, 1);
+  });
+
+  test('plays once per start', () => {
+    const state = newDirector('race', 0);
+    picked(state);
+    returnToLive(state, GREEN + 1000);
+    let now = GREEN + 1000;
+    while (state.phase !== 'LIVE') tick(state, (now += 250));
+    assert.ok(!tick(state, now + 250).some((e) => e.type === 'select'));
+  });
+
+  test('takes over from a clip already on screen, or on its way', () => {
+    const state = newDirector('race', 0);
+    const before = { level: 1, blocked: false, critical: false, rotating: false, raceStartAt: null };
+    clipSelected(state, video(7), 'auto', config, GREEN - 10_000);
+    clipValidated(state, true, GREEN - 10_000);
+    linesPrepared(state, [{ id: 'i', when: 'intro', speaker: 'lead', durationMs: 1000 }]);
+    let now = GREEN - 10_000;
+    while (state.phase !== 'VIDEO_PLAYING' && now < GREEN) tick(state, (now += 250), before);
+    assert.equal(state.phase, 'VIDEO_PLAYING');
+    now = GREEN;
+    let select;
+    while (!(select = tick(state, (now += 250)).find((e) => e.type === 'select'))) assert.ok(now - GREEN < 3000, 'the start’s footage comes at once');
+    assert.equal(select.request.category, 'RACE_START');
+
+    const waiting = newDirector('race', 0);
+    clipSelected(waiting, video(7), 'auto', config, GREEN - 100);
+    tick(waiting, GREEN);
+    assert.equal(waiting.phase, 'RECOVERY');
+    tick(waiting, GREEN + 250);
+    assert.equal(waiting.phase, 'LIVE', 'no recovery wait');
+    assert.equal(tick(waiting, GREEN + 500).find((e) => e.type === 'select').request.category, 'RACE_START');
+  });
+
+  test('a P0 moment still cuts back from it', () => {
+    const state = newDirector('race', 0);
+    picked(state);
+    let now = GREEN;
+    while (state.phase !== 'VIDEO_PLAYING') tick(state, (now += 250));
+    tick(state, (now += 250), { ...RACING, critical: true });
+    assert.equal(state.phase, 'TRANSITION_TO_LIVE');
+  });
+
+  test('not when Automatic mode, clips or the category are off, or long after the flag', () => {
+    for (const settings of [{ ...config, autoDirector: false }, { ...config, videosEnabled: false }, { ...config, categoryEnabled: { RACE_START: false } }]) {
+      assert.ok(!tick(newDirector('race', 0), GREEN, RACING, settings).some((e) => e.type === 'select'));
+    }
+    assert.ok(!tick(newDirector('race', 0), GREEN + 31_000).some((e) => e.type === 'select'));
+    assert.equal(tick(newDirector('race', 0), GREEN + 29_000).find((e) => e.type === 'select').request.category, 'RACE_START');
+  });
+
+  test('with no race start footage, the map stays up and the rotation follows', () => {
+    const state = newDirector('race', 0);
+    tick(state, GREEN);
+    clipSelected(state, null, 'auto', config, GREEN);
+    assert.equal(state.phase, 'LIVE');
+    assert.equal(state.nextCheckAt, GREEN + 30_000);
+    assert.ok(!tick(state, GREEN + 1000).some((e) => e.type === 'select'));
+  });
+});
+
 describe('race intensity', () => {
   const ctx = (phase = 'middle') => ({ isRace: true, phase, raceProgress: 0.5, userIdx: 1, userPosition: 5, storylines: [] });
   const event = (at, e, seq = 1) => ({ seq, at, event: e });
   const NOW = 1_000_000;
 
   test('a quiet race is level 1 and open for clips', () => {
-    assert.deepEqual(raceConditions([], ctx(), NOW, null), { level: 1, blocked: false, critical: false, rotating: true });
+    assert.deepEqual(raceConditions([], ctx(), NOW, null), { level: 1, blocked: false, critical: false, rotating: true, raceStartAt: null });
   });
 
-  test('the rotation runs from after the race’s opening until its final laps, not after a P0 moment', () => {
-    for (const phase of ['middle', 'finalQuarter']) assert.equal(raceConditions([], ctx(phase), NOW, null).rotating, true, phase);
-    for (const phase of ['practice', 'preRace', 'opening', 'finalLaps', 'finished']) assert.equal(raceConditions([], ctx(phase), NOW, null).rotating, false, phase);
+  test('the green flag is reported, and doesn’t bring back the footage that follows it', () => {
+    const green = [event(NOW - 2000, { type: 'raceStart', starters: 20, userGrid: 3 }, 1), event(NOW - 1000, { type: 'flag', flag: 'green', text: 'Green' }, 2)];
+    assert.equal(raceConditions(green, ctx('opening'), NOW, null).raceStartAt, NOW - 2000);
+    assert.equal(raceConditions(green, ctx('opening'), NOW, NOW - 1500).critical, false, 'the start’s footage stays up');
+    assert.equal(raceConditions(green, ctx('opening'), NOW, NOW - 5000).critical, true, 'a clip from before the flag doesn’t');
+    const red = event(NOW - 500, { type: 'flag', flag: 'red', text: 'Red flag' }, 3);
+    assert.equal(raceConditions([...green, red], ctx('opening'), NOW, NOW - 1500).critical, true, 'a red flag does');
+  });
+
+  test('the rotation runs from the race’s opening until its final laps, not after a P0 moment', () => {
+    for (const phase of ['opening', 'middle', 'finalQuarter']) assert.equal(raceConditions([], ctx(phase), NOW, null).rotating, true, phase);
+    for (const phase of ['practice', 'preRace', 'finalLaps', 'finished']) assert.equal(raceConditions([], ctx(phase), NOW, null).rotating, false, phase);
     assert.equal(raceConditions([], { ...ctx(), isRace: false }, NOW, null).rotating, false, 'not a race');
     const red = event(NOW - 2000, { type: 'flag', flag: 'red', text: 'Red flag' });
     assert.equal(raceConditions([red], ctx(), NOW, null).rotating, false);

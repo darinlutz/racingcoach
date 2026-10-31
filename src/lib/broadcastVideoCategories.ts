@@ -1,5 +1,5 @@
 // The Broadcast Video Library's eight categories, by stable identifier (src/lib/broadcastVideos.ts stores these, and the
-// database's CHECK allows only these). Labels are in the dictionaries (admin.broadcast.categories, tv.director.cameras).
+// database's CHECK allows only these). Labels are in the dictionaries (admin.broadcast.categories).
 // No imports, so client components and Node's tests use it directly.
 
 export const VIDEO_CATEGORIES = ['RACE_START', 'CRASHES', 'ONBOARDS', 'HELICOPTER', 'BLIMP', 'TVCAMERA1', 'TVCAMERA2', 'TVCAMERA3'] as const;

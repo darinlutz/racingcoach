@@ -673,13 +673,12 @@ export const de: Dictionary = {
     title: 'Meine Sessions',
     intro: 'Debriefs sowie Runden- und Stint-Analysen',
     tabs: {
-      debrief: 'Debrief Coach',
+      debrief: 'Session Debrief',
       stint: 'Stint-Analyse',
       lapCompare: 'Rundenvergleich',
       friends: 'Freunde',
     },
     intros: {
-      debrief: 'Ein KI-Coach prüft jede Runde deiner Session und sagt dir, was du beim nächsten Mal besser machen solltest.',
       stint: 'Analysiere einen Stint-Export aus Garage 61: Pace, Sektoren, Wetter und Sprit.',
       lapCompare: 'Vergleiche zwei Runden Fokusbereich für Fokusbereich.',
       friends: 'Behalte deine Rennfreunde im Blick. Jedes Konto hat seine eigene Liste.',
@@ -782,7 +781,7 @@ export const de: Dictionary = {
     confirm: 'Zielrunde festlegen',
     saving: 'Wird gespeichert…',
     savedTitle: 'Zielrunde festgelegt',
-    savedText: 'Diese Runde ist jetzt deine Zielrunde. Du kannst sie oben im Debrief Coach ansehen oder entfernen.',
+    savedText: 'Diese Runde ist jetzt deine Zielrunde. Du kannst sie oben im Session Debrief ansehen oder entfernen.',
     done: 'Fertig',
   },
   recordedLaps: {
@@ -1730,12 +1729,12 @@ export const de: Dictionary = {
     telemetryText: 'Zur Bestätigung solltest du dieses Bild sehen:',
     telemetryAlt: 'Telemetrie-Anzeige von iRacing: ein rotes Sendesymbol neben dem Wort Telemetry',
     targetTitle: 'Zielrunde festlegen',
-    targetText: 'Deine Zielrunde ist die Runde, der du nachjagst. Der Collector zeigt dir damit, wo du bremsen und schalten solltest, und piept vor jedem Bremspunkt. Lege sie im Debrief Coach auf der Seite Meine Sessions auf eine von zwei Arten fest:',
+    targetText: 'Deine Zielrunde ist die Runde, der du nachjagst. Der Collector zeigt dir damit, wo du bremsen und schalten solltest, und piept vor jedem Bremspunkt. Lege sie im Session Debrief auf der Seite Meine Sessions auf eine von zwei Arten fest:',
     targetWays: [
       'Eine deiner eigenen Runden: Wähle unter Deine aufgezeichneten Runden die Runde in der Spalte Ziel aus und klicke dann auf Als Ziel setzen.',
       'Die optimale Runde: Starte einen Debrief und klicke unter Theoretische Bestrunde (deine schnellste Fahrt durch jeden Teil der Strecke, zu einer Runde zusammengesetzt) auf Als Ziel setzen.',
     ],
-    targetButton: 'Debrief Coach öffnen',
+    targetButton: 'Session Debrief öffnen',
     targetOverlay: 'Klicke dann im Collector auf die Schaltfläche Target Telemetry, um das Overlay zu öffnen. iRacing muss im randlosen Fenstermodus von Windows laufen, damit das Overlay darüber angezeigt wird.',
     supportTitle: 'Fragen oder Probleme? Kontaktiere den Support',
     supportText: 'Wenn etwas nicht funktioniert oder du nicht weißt, wie es weitergeht, schick uns eine Nachricht. Wir melden uns per E-Mail bei dir.',

@@ -78,6 +78,14 @@ export default function MyDashboard({ user, data, viewPlans, pictureVersion }: {
   const carPicture = session && carPictureUrl(session.car);
   // Long names get the smaller size so they fit on a phone
   const nameSize = Math.max(name.first.length, name.last.length) > 11 ? 'text-5xl sm:text-7xl lg:text-8xl' : 'text-7xl sm:text-8xl lg:text-9xl';
+  const flag = user.country && (
+    <span
+      role="img"
+      aria-label={countryName(user.country, locale)}
+      title={countryName(user.country, locale)}
+      className={`${countryFlagClass(user.country)} ml-3 rounded-[3px] align-middle text-5xl shadow-[0_0_0_1px_rgba(0,0,0,0.15)] sm:text-6xl`}
+    />
+  );
   const signup = user.signupDate ? <LocalTime iso={user.signupDate} format="date" /> : '—';
   const manage = hasManageableSubscription(subscription.state);
   const unavailable = <span className="text-muted-foreground">—</span>;
@@ -94,16 +102,9 @@ export default function MyDashboard({ user, data, viewPlans, pictureVersion }: {
           <div className="dash-rise min-w-0 [animation-delay:120ms]">
             <p className="dash-label text-primary">{t.racingDriver}</p>
             <h1 className={`mt-2 font-display font-extrabold uppercase italic leading-[0.85] tracking-tight [overflow-wrap:anywhere] ${nameSize}`}>
-              {name.first && <>{name.first}<br /></>}
+              {name.first && <>{name.first}{flag}<br /></>}
               <span className="text-primary">{name.last}</span>
-              {user.country && (
-                <span
-                  role="img"
-                  aria-label={countryName(user.country, locale)}
-                  title={countryName(user.country, locale)}
-                  className={`${countryFlagClass(user.country)} ml-3 rounded-[3px] align-middle text-2xl shadow-[0_0_0_1px_rgba(0,0,0,0.15)] sm:text-3xl`}
-                />
-              )}
+              {!name.first && flag}
             </h1>
             <div className="dash-telemetry-line mt-6 w-48" aria-hidden />
             <div className="mt-6 flex flex-wrap items-center gap-4">

@@ -1,6 +1,7 @@
 'use client';
 
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Camera, Trash2 } from 'lucide-react';
 import ConfirmDialog from '@/components/ConfirmDialog';
@@ -15,6 +16,7 @@ const iconButton =
 // and ProfilePictureCropper positions and scales it; only that square, as a JPEG, leaves the browser (/api/account/picture).
 export default function ProfilePicture({ version: initial }: { version: string | null }) {
   const { t } = useLanguage();
+  const router = useRouter();
   const p = t.myDashboard.picture;
   const [version, setVersion] = useState(initial);
   const [picked, setPicked] = useState<HTMLImageElement | null>(null);
@@ -71,6 +73,8 @@ export default function ProfilePicture({ version: initial }: { version: string |
       }
       setVersion(data.version);
       setPicked(null);
+      // The sidebar shows it too
+      router.refresh();
     } catch {
       setSaveError(p.failedSave);
     } finally {
@@ -85,6 +89,7 @@ export default function ProfilePicture({ version: initial }: { version: string |
       const response = await fetch('/api/account/picture', { method: 'DELETE' });
       if (!response.ok) throw new Error();
       setVersion(null);
+      router.refresh();
     } catch {
       setError(p.failedRemove);
     }

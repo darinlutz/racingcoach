@@ -4,7 +4,7 @@ import { ensureUserSchema } from './users';
 // Each user's own picture on My Dashboard, in racingcoach."UserPictures" (a JPEG of at most 1 MB, see
 // profilePictureRules.ts), kept out of USER_COLUMNS so loading a user doesn't read a picture. None is the red helmet.
 
-// When the picture was last changed, which the page puts in its URL so a new picture shows; null when there's none
+// When the picture was last changed, which My Dashboard and the sidebar put in its URL so a new picture shows; null when there's none
 export async function getProfilePictureVersion(userId: number): Promise<string | null> {
   await ensureUserSchema();
   const [row] = await query('SELECT updated_at FROM racingcoach."UserPictures" WHERE user_id = $1', [userId]);

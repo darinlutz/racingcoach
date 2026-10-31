@@ -214,25 +214,27 @@ export default function DebriefCoach({ onCompare }: { onCompare?: (base: LapFile
 
       {/* Above the lap list, so it's in reach without scrolling past the stints */}
       <div className="space-y-4">
-        <button
-          type="button"
-          onClick={() => void runDebrief()}
-          disabled={trackLaps.length < 2 || !selectedTrack?.areas.length || running}
-          className="px-6 py-3 font-semibold text-white bg-gradient-to-r from-primary to-primary-strong rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {running ? t.debrief.running : t.debrief.run}
-        </button>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <button
+            type="button"
+            onClick={() => void runDebrief()}
+            disabled={trackLaps.length < 2 || !selectedTrack?.areas.length || running}
+            className="px-6 py-3 font-semibold text-white bg-gradient-to-r from-primary to-primary-strong rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {running ? t.debrief.running : t.debrief.run}
+          </button>
+
+          {!debrief && !runError && !running && (
+            <p className="text-sm text-muted-foreground">
+              {trackLaps.length < 2 ? t.debrief.needLaps : t.debrief.pressRun}
+            </p>
+          )}
+        </div>
 
         {runError && (
           <div className="px-4 py-3 rounded-lg border text-sm bg-primary/10 border-primary/40 text-red-300">
             {fmt(t.debrief.failed, { error: runError })}
           </div>
-        )}
-
-        {!debrief && !runError && !running && (
-          <p className="text-sm text-muted-foreground">
-            {trackLaps.length < 2 ? t.debrief.needLaps : t.debrief.pressRun}
-          </p>
         )}
       </div>
 

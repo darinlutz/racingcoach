@@ -673,13 +673,12 @@ export const en = {
     title: 'My Sessions',
     intro: 'Debriefs and lap and stint analysis',
     tabs: {
-      debrief: 'Debrief Coach',
+      debrief: 'Session Debrief',
       stint: 'Stint Analysis',
       lapCompare: 'Lap Compare',
       friends: 'Friends',
     },
     intros: {
-      debrief: 'An AI coach reviews every lap of your session and tells you what to fix next time.',
       stint: 'Analyze a Garage 61 stint export: pace, sectors, weather and fuel.',
       lapCompare: 'Compare two laps focus area by focus area.',
       friends: 'Keep track of your racing friends. Each account has its own list.',
@@ -782,7 +781,7 @@ export const en = {
     confirm: 'Set Target Lap',
     saving: 'Saving…',
     savedTitle: 'Target Lap set',
-    savedText: 'This lap is now your Target Lap. You can see it or remove it at the top of Debrief Coach.',
+    savedText: 'This lap is now your Target Lap. You can see it or remove it at the top of Session Debrief.',
     done: 'Done',
   },
   recordedLaps: {
@@ -1730,12 +1729,12 @@ export const en = {
     telemetryText: 'You should see this image to confirm this:',
     telemetryAlt: 'iRacing’s Telemetry indicator: a red broadcast icon next to the word Telemetry',
     targetTitle: 'Setting Target Lap',
-    targetText: 'Your Target Lap is the lap you’re chasing. The collector uses it to show you where to brake and shift, and to beep before each braking point. Set it in Debrief Coach on the My Sessions page, in either of two ways:',
+    targetText: 'Your Target Lap is the lap you’re chasing. The collector uses it to show you where to brake and shift, and to beep before each braking point. Set it in Session Debrief on the My Sessions page, in either of two ways:',
     targetWays: [
       'One of your own laps: in Your recorded laps, pick the lap in the Target column, then click Set Target.',
       'The optimal lap: run a debrief, and under Theoretical best lap (your fastest run through every part of the track, joined into one lap) click Set as Target.',
     ],
-    targetButton: 'Open Debrief Coach',
+    targetButton: 'Open Session Debrief',
     targetOverlay: 'Then click the collector’s Target Telemetry button to open the overlay. iRacing must be in Windows borderless mode for the overlay to show on top of it.',
     supportTitle: 'Questions or issues? Contact Support',
     supportText: 'If something doesn’t work or you’re not sure what to do next, send us a message and we’ll get back to you by email.',

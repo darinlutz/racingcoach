@@ -103,87 +103,92 @@ export default function TargetLapCard({ version = 0, onChange }: { version?: num
 
   return (
     <div className="bg-card rounded-lg border border-border px-4 py-4">
-      <h2 className="text-sm font-medium text-muted-foreground mb-1">{c.title}</h2>
-      <p className="text-sm text-muted-foreground mb-3">{c.intro}</p>
-
-      <div
-        onDragOver={(e) => {
-          e.preventDefault();
-          setDragging(true);
-        }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={(e) => {
-          e.preventDefault();
-          setDragging(false);
-          pick(e.dataTransfer.files);
-        }}
-        className={`flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-4 rounded-lg border-2 border-dashed transition-colors ${
-          dragging ? 'border-primary bg-accent' : 'border-border bg-secondary'
-        }`}
-      >
-        <p className="text-sm text-muted-foreground text-center sm:text-left">
-          {busy ? c.saving : c.drop}
-        </p>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => fileInputRef.current?.click()}
-          className="px-4 py-2 text-sm font-semibold bg-card border border-border rounded-lg text-foreground hover:border-primary hover:text-primary transition-colors disabled:opacity-50"
-        >
-          {t.laps.browseFiles}
-        </button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="text/csv,.csv"
-          className="hidden"
-          aria-label={c.title}
-          onChange={(e) => {
-            pick(e.target.files);
-            e.target.value = '';
-          }}
-        />
+      <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <h2 className="text-sm font-medium text-muted-foreground">{c.title}</h2>
+        <p className="text-sm text-muted-foreground">{c.intro}</p>
       </div>
 
-      {targetLap ? (
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 px-4 py-2 bg-secondary border border-border rounded-lg text-sm text-foreground">
-          <div className="min-w-0">
-            <p className="truncate">
-              {parts ? (
-                <>
-                  {parts.driver} • {parts.car} • {parts.track} •{' '}
-                  <span className="font-semibold">{formatLapTime(parts.lapTime)}</span>
-                </>
-              ) : (
-                targetLap.fileName
-              )}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {fmt(c.setOn, { date: new Date(targetLap.setAt).toLocaleString(locale, { dateStyle: 'medium', timeStyle: 'short' }) })}
-            </p>
+      {/* The current Target Lap with the drop zone to its right, stacked on small screens */}
+      <div className="grid gap-3 lg:grid-cols-2">
+        {targetLap ? (
+          <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 px-4 py-2 bg-secondary border border-border rounded-lg text-sm text-foreground">
+            <div className="min-w-0">
+              <p className="truncate">
+                {parts ? (
+                  <>
+                    {parts.driver} • {parts.car} • {parts.track} •{' '}
+                    <span className="font-semibold">{formatLapTime(parts.lapTime)}</span>
+                  </>
+                ) : (
+                  targetLap.fileName
+                )}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {fmt(c.setOn, { date: new Date(targetLap.setAt).toLocaleString(locale, { dateStyle: 'medium', timeStyle: 'short' }) })}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <a
+                href="/api/account/target-lap"
+                download={targetLap.fileName}
+                data-track="download-target-lap"
+                className="px-3 py-1 text-xs font-semibold bg-card border border-border rounded-lg text-foreground hover:border-primary hover:text-primary transition-colors"
+              >
+                {c.download}
+              </a>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => setConfirmingRemove(true)}
+                className="px-3 py-1 text-xs font-semibold bg-card border border-border rounded-lg text-foreground hover:border-primary hover:text-primary transition-colors disabled:opacity-50"
+              >
+                {c.remove}
+              </button>
+            </div>
           </div>
-          <div className="flex gap-2">
-            <a
-              href="/api/account/target-lap"
-              download={targetLap.fileName}
-              data-track="download-target-lap"
-              className="px-3 py-1 text-xs font-semibold bg-card border border-border rounded-lg text-foreground hover:border-primary hover:text-primary transition-colors"
-            >
-              {c.download}
-            </a>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => setConfirmingRemove(true)}
-              className="px-3 py-1 text-xs font-semibold bg-card border border-border rounded-lg text-foreground hover:border-primary hover:text-primary transition-colors disabled:opacity-50"
-            >
-              {c.remove}
-            </button>
-          </div>
+        ) : (
+          <p className="self-center text-sm text-muted-foreground">{loaded ? c.none : t.common.loading}</p>
+        )}
+
+        <div
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragging(true);
+          }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragging(false);
+            pick(e.dataTransfer.files);
+          }}
+          className={`flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-4 rounded-lg border-2 border-dashed transition-colors ${
+            dragging ? 'border-primary bg-accent' : 'border-border bg-secondary'
+          }`}
+        >
+          <p className="text-sm text-muted-foreground text-center sm:text-left">
+            {busy ? c.saving : c.drop}
+          </p>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => fileInputRef.current?.click()}
+            className="px-4 py-2 text-sm font-semibold bg-card border border-border rounded-lg text-foreground hover:border-primary hover:text-primary transition-colors disabled:opacity-50"
+          >
+            {t.laps.browseFiles}
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="text/csv,.csv"
+            className="hidden"
+            aria-label={c.title}
+            onChange={(e) => {
+              pick(e.target.files);
+              e.target.value = '';
+            }}
+          />
         </div>
-      ) : (
-        <p className="mt-3 text-sm text-muted-foreground">{loaded ? c.none : t.common.loading}</p>
-      )}
+      </div>
 
       <ConfirmDialog
         open={confirmingRemove}

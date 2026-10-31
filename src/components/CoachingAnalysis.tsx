@@ -69,8 +69,8 @@ export default function CoachingAnalysis() {
 
           {/* Tab Content */}
           <div className="bg-secondary rounded-xl border border-border p-4 sm:p-6">
-            <h2 className="text-2xl font-bold text-foreground mb-2">{t.racing.tabs[activeTab]}</h2>
-            <p className="text-muted-foreground mb-6">{t.racing.intros[activeTab]}</p>
+            <h2 className={`text-2xl font-bold text-foreground ${activeTab === 'debrief' ? 'mb-6' : 'mb-2'}`}>{t.racing.tabs[activeTab]}</h2>
+            {activeTab !== 'debrief' && <p className="text-muted-foreground mb-6">{t.racing.intros[activeTab]}</p>}
 
             {activeTab === 'friends' && <FriendsRoster />}
             {activeTab === 'stint' && <StintAnalysis />}

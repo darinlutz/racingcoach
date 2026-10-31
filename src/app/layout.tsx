@@ -7,6 +7,7 @@ import CookieConsentProvider from "@/components/CookieConsentProvider";
 import CookieSettingsButton from "@/components/CookieSettingsButton";
 import LanguageProvider from "@/components/LanguageProvider";
 import Navigation from "@/components/Navigation";
+import { getProfilePictureVersion } from "@/lib/profilePictures";
 import PolicyUpdateNotice from "@/components/PolicyUpdateNotice";
 import RateLimitDialog from "@/components/RateLimitDialog";
 import UnitsProvider from "@/components/UnitsProvider";
@@ -68,6 +69,8 @@ export default async function RootLayout({
   // A signed-in user who hasn't accepted the current Terms of Service and Privacy Policy is asked to, above the page
   // (no notice if the check fails)
   const needsPolicyAcceptance = user ? !(await hasAcceptedCurrentPolicies(user.id).catch(() => true)) : false;
+  // The sidebar's picture (the red helmet if the check fails)
+  const pictureVersion = user ? await getProfilePictureVersion(user.id).catch(() => null) : null;
   // The visitor's cookie choices, read here so optional technologies are left out from the first render
   // (src/lib/cookieConsentServer.ts); CookieConsentProvider shows the banner when a choice is needed
   const consent = await getConsentState();
@@ -90,7 +93,7 @@ export default async function RootLayout({
               {/* Pops up when an AI feature was refused because the user's AI limit is used up */}
               <RateLimitDialog />
               <Navigation
-                user={user ? { userName: user.userName, canUpgrade: canBuyAnything(user), isAdmin: isAdmin(user.role), canCoach: canCoach(user.role) } : null}
+                user={user ? { userName: user.userName, canUpgrade: canBuyAnything(user), isAdmin: isAdmin(user.role), canCoach: canCoach(user.role), pictureVersion } : null}
                 showPricing={showPricing}
                 showProDriverLesson={showProDriverLesson}
                 enableAiFeatures={enableAiFeatures}

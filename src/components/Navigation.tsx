@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useState, type MouseEvent } from 'react';
@@ -14,8 +15,8 @@ import LoginRequiredDialog from '@/components/LoginRequiredDialog';
 
 type NavigationProps = {
   // isAdmin shows the Admin and My Race Trends links; canUpgrade is false for Gold subscribers.
-  // canCoach (Coaches and Admins) shows the Coach link
-  user: { userName: string; canUpgrade: boolean; isAdmin: boolean; canCoach: boolean } | null;
+  // canCoach (Coaches and Admins) shows the Coach link; pictureVersion is null for the red helmet
+  user: { userName: string; canUpgrade: boolean; isAdmin: boolean; canCoach: boolean; pictureVersion: string | null } | null;
   // The Admin page's Show Pricing setting (src/lib/siteSettings.ts)
   showPricing: boolean;
   // The Admin page's Show Pro Driver Lesson setting
@@ -150,19 +151,24 @@ export default function Navigation({ user, showPricing, showProDriverLesson, ena
               {user.isAdmin && sideLink('admin', '/admin', ShieldCheck, t.nav.admin)}
               {visibleBottomLinks.map((link) => sideLink(link.key, link.href, link.icon, t.nav[link.key]))}
               {sideLink('myAccount', '/account', Settings, t.nav.myAccount)}
+              {/* The driver's picture in place of their name. Only hidden while open, as the picture isn't cached
+                  and would be fetched again each time the sidebar collapses */}
+              <span
+                role="img"
+                className={`mx-auto size-9 shrink-0 overflow-hidden rounded-full bg-accent ${collapsed ? 'block' : 'hidden'}`}
+                aria-label={`${t.nav.driver} ${user.userName}`}
+              >
+                {user.pictureVersion ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- the signed-in user's own private picture
+                  <img src={`/api/account/picture?v=${encodeURIComponent(user.pictureVersion)}`} alt="" width={36} height={36} className="size-full object-cover" />
+                ) : (
+                  <Image src="/assets/dashboard/helmet.webp" alt="" width={36} height={36} className="size-full object-contain" />
+                )}
+              </span>
               {collapsed ? (
-                <>
-                  {/* The driver's initial in place of their name */}
-                  <span
-                    className="mx-auto grid size-9 place-items-center rounded-full bg-accent font-display text-lg font-bold text-foreground"
-                    {...collapsedLabel(`${t.nav.driver} ${user.userName}`)}
-                  >
-                    {user.userName.charAt(0).toUpperCase()}
-                  </span>
-                  <button onClick={handleLogout} disabled={loggingOut} className={`${sideItem(null)} disabled:opacity-60`} {...collapsedLabel(t.nav.logout)}>
-                    <LogOut className="size-5" />
-                  </button>
-                </>
+                <button onClick={handleLogout} disabled={loggingOut} className={`${sideItem(null)} disabled:opacity-60`} {...collapsedLabel(t.nav.logout)}>
+                  <LogOut className="size-5" />
+                </button>
               ) : (
                 <div className="mt-3 flex w-[222px] flex-col items-start gap-3 px-3">
                   <span className="font-semibold text-muted-foreground">{t.nav.driver} <span className="text-foreground">{user.userName}</span></span>

@@ -653,13 +653,12 @@ export const pt: Dictionary = {
     title: 'Minhas sessões',
     intro: 'Debriefs e análise de voltas e stints',
     tabs: {
-      debrief: 'Debrief Coach',
+      debrief: 'Session Debrief',
       stint: 'Análise de stint',
       lapCompare: 'Comparar voltas',
       friends: 'Amigos',
     },
     intros: {
-      debrief: 'Um coach de IA analisa cada volta da sua sessão e diz o que corrigir na próxima vez.',
       stint: 'Analise uma exportação de stint do Garage 61: ritmo, setores, clima e combustível.',
       lapCompare: 'Compare duas voltas, área de foco por área de foco.',
       friends: 'Acompanhe seus amigos de corrida. Cada conta tem sua própria lista.',
@@ -759,7 +758,7 @@ export const pt: Dictionary = {
     confirm: 'Definir Volta Alvo',
     saving: 'Salvando…',
     savedTitle: 'Volta Alvo definida',
-    savedText: 'Esta volta agora é sua Volta Alvo. Você pode vê-la ou removê-la no topo do Debrief Coach.',
+    savedText: 'Esta volta agora é sua Volta Alvo. Você pode vê-la ou removê-la no topo do Session Debrief.',
     done: 'Concluído',
   },
   recordedLaps: {
@@ -1705,12 +1704,12 @@ export const pt: Dictionary = {
     telemetryText: 'Você deve ver esta imagem para confirmar:',
     telemetryAlt: 'O indicador de Telemetria do iRacing: um ícone vermelho de transmissão ao lado da palavra Telemetry',
     targetTitle: 'Definir a Volta Alvo',
-    targetText: 'Sua Volta Alvo é a volta que você persegue. O collector a usa para mostrar onde frear e trocar de marcha, e para apitar antes de cada ponto de frenagem. Defina-a no Debrief Coach, na página Minhas sessões, de uma destas duas formas:',
+    targetText: 'Sua Volta Alvo é a volta que você persegue. O collector a usa para mostrar onde frear e trocar de marcha, e para apitar antes de cada ponto de frenagem. Defina-a no Session Debrief, na página Minhas sessões, de uma destas duas formas:',
     targetWays: [
       'Uma das suas próprias voltas: nas suas voltas gravadas, escolha a volta na coluna Alvo e clique em Definir alvo.',
       'A volta ideal: faça um debrief e, abaixo de Volta teórica ideal (sua passagem mais rápida por cada parte da pista, unida em uma só volta), clique em Definir como alvo.',
     ],
-    targetButton: 'Abrir o Debrief Coach',
+    targetButton: 'Abrir o Session Debrief',
     targetOverlay: 'Depois clique no botão Target Telemetry do collector para abrir o overlay. O iRacing precisa estar no modo Windows borderless (janela sem bordas) para o overlay aparecer por cima dele.',
     supportTitle: 'Dúvidas ou problemas? Fale com o Suporte',
     supportText: 'Se algo não funcionar ou você não souber o que fazer em seguida, envie uma mensagem e responderemos por e-mail.',

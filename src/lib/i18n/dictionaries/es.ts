@@ -653,13 +653,12 @@ export const es: Dictionary = {
     title: 'Mis sesiones',
     intro: 'Debriefs y análisis de vueltas y stints',
     tabs: {
-      debrief: 'Debrief Coach',
+      debrief: 'Session Debrief',
       stint: 'Análisis de stint',
       lapCompare: 'Comparar vueltas',
       friends: 'Amigos',
     },
     intros: {
-      debrief: 'Un coach de IA revisa cada vuelta de tu sesión y te dice qué corregir la próxima vez.',
       stint: 'Analiza una exportación de stint de Garage 61: ritmo, sectores, clima y combustible.',
       lapCompare: 'Compara dos vueltas, zona de enfoque por zona de enfoque.',
       friends: 'Lleva el registro de tus amigos de carreras. Cada cuenta tiene su propia lista.',
@@ -759,7 +758,7 @@ export const es: Dictionary = {
     confirm: 'Establecer Vuelta Objetivo',
     saving: 'Guardando…',
     savedTitle: 'Vuelta Objetivo establecida',
-    savedText: 'Esta vuelta ahora es tu Vuelta Objetivo. Puedes verla o quitarla arriba en Debrief Coach.',
+    savedText: 'Esta vuelta ahora es tu Vuelta Objetivo. Puedes verla o quitarla arriba en Session Debrief.',
     done: 'Listo',
   },
   recordedLaps: {
@@ -1705,12 +1704,12 @@ export const es: Dictionary = {
     telemetryText: 'Deberías ver esta imagen para confirmarlo:',
     telemetryAlt: 'El indicador de Telemetría de iRacing: un ícono rojo de transmisión junto a la palabra Telemetry',
     targetTitle: 'Definir la Vuelta Objetivo',
-    targetText: 'Tu Vuelta Objetivo es la vuelta que persigues. El collector la usa para mostrarte dónde frenar y cambiar de marcha, y para pitar antes de cada punto de frenada. Defínela en Debrief Coach, en la página Mis sesiones, de una de estas dos formas:',
+    targetText: 'Tu Vuelta Objetivo es la vuelta que persigues. El collector la usa para mostrarte dónde frenar y cambiar de marcha, y para pitar antes de cada punto de frenada. Defínela en Session Debrief, en la página Mis sesiones, de una de estas dos formas:',
     targetWays: [
       'Una de tus propias vueltas: en tus vueltas grabadas, elige la vuelta en la columna Objetivo y haz clic en Definir objetivo.',
       'La vuelta óptima: haz un debrief y, debajo de Vuelta teórica ideal (tu paso más rápido por cada parte de la pista, unido en una sola vuelta), haz clic en Definir como objetivo.',
     ],
-    targetButton: 'Abrir Debrief Coach',
+    targetButton: 'Abrir Session Debrief',
     targetOverlay: 'Luego haz clic en el botón Target Telemetry del collector para abrir el overlay. iRacing debe estar en modo Windows borderless (ventana sin bordes) para que el overlay se vea encima.',
     supportTitle: '¿Preguntas o problemas? Contacta a Soporte',
     supportText: 'Si algo no funciona o no sabes qué hacer después, envíanos un mensaje y te responderemos por correo electrónico.',

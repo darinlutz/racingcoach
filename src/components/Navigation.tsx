@@ -4,8 +4,8 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useState, type MouseEvent } from 'react';
 import {
-  ArrowRight, BookOpen, Car, ChartLine, ClipboardList, Download, Flag, GraduationCap, LifeBuoy, LogIn,
-  LogOut, Menu, Radio, Settings, ShieldCheck, Tag, Timer, TrendingUp, UserPlus, Wrench, X, type LucideIcon,
+  ArrowRight, BookOpen, Car, ChartLine, ClipboardList, Download, Flag, GraduationCap, LayoutDashboard, LifeBuoy, LogIn,
+  LogOut, Menu, Radio, Settings, ShieldCheck, Tag, Timer, TrendingUp, UserPlus, X, type LucideIcon,
 } from 'lucide-react';
 import Brand from '@/components/Brand';
 import { buttonVariants } from '@/components/Button';
@@ -27,7 +27,7 @@ type NavigationProps = {
 // Each link's picture, shown beside its name, and alone when the sidebar is collapsed
 
 const links = [
-  { href: '/#toolkit', key: 'toolkit', icon: Wrench },
+  { href: '/my-dashboard', key: 'myDashboard', icon: LayoutDashboard },
   { href: '/racing', key: 'mySessions', icon: ChartLine },
   { href: '/live-racing', key: 'liveRacing', icon: Radio },
   { href: '/cars-tracks', key: 'carsTracks', icon: Car },
@@ -39,7 +39,7 @@ const links = [
 ] as const;
 
 // Signed-out visitors who click these get the Log in box instead of the page
-const loginRequiredLinks: ReadonlySet<string> = new Set(['installing', 'mySessions', 'liveRacing', 'carsTracks', 'expertLaps', 'support', 'pricing']);
+const loginRequiredLinks: ReadonlySet<string> = new Set(['myDashboard', 'installing', 'mySessions', 'liveRacing', 'carsTracks', 'expertLaps', 'support', 'pricing']);
 
 // At the bottom, just above My Settings (or Log In)
 const bottomLinks = [

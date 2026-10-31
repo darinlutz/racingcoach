@@ -18,6 +18,7 @@
     "test:video-director": "node --experimental-transform-types --no-warnings --test scripts/video-director.test.mjs",
     "test:tire-temps": "node --experimental-transform-types --no-warnings --test scripts/tire-temps.test.mjs",
     "test:lap-events": "node --experimental-transform-types --no-warnings --test scripts/lap-events.test.mjs",
+    "test:my-dashboard": "node --experimental-transform-types --no-warnings --test scripts/my-dashboard.test.mjs && node --experimental-transform-types --no-warnings --test scripts/my-dashboard-db.test.mjs",
     "test:e2e": "playwright test"
   },
   "dependencies": {

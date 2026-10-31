@@ -32,7 +32,8 @@ const CAR_PICTURES = new Set([
 export const CAR_PICTURE_WIDTH = 360;
 export const CAR_PICTURE_HEIGHT = Math.round((CAR_PICTURE_WIDTH * 672) / 992);
 
-const slug = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+// Accents go first, as iRacing's names have them ("Lamborghini Huracán GT3 EVO")
+const slug = (name: string) => name.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
 // The picture of a car by its name, or null for a car without one (e.g. one a user added)
 export function carPictureUrl(name: string): string | null {

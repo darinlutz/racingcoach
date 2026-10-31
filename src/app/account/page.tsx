@@ -252,16 +252,19 @@ export default async function AccountPage({
 
         {enableAiFeatures && <MyAiUsageCard day={aiUsage.day} week={aiUsage.week} limits={aiLimits} />}
 
-        {showViewPlans && (
-          <Link
-            href="/pricing"
-            className="mt-8 block w-full px-6 py-3 rounded-lg font-semibold text-center text-white bg-gradient-to-r from-primary to-primary-strong hover:from-primary-strong hover:to-primary transition-colors"
-          >
-            {t.account.viewPlans}
-          </Link>
-        )}
+        {/* Where My Dashboard's Manage Subscription goes */}
+        <div id="subscription" className="scroll-mt-24">
+          {showViewPlans && (
+            <Link
+              href="/pricing"
+              className="mt-8 block w-full px-6 py-3 rounded-lg font-semibold text-center text-white bg-gradient-to-r from-primary to-primary-strong hover:from-primary-strong hover:to-primary transition-colors"
+            >
+              {t.account.viewPlans}
+            </Link>
+          )}
 
-        {isSubscribed && <CancelSubscriptionButton />}
+          {isSubscribed && <CancelSubscriptionButton />}
+        </div>
 
         {/* Admins can't delete their account (the API refuses too) */}
         {!isAdmin(user.role) && <DeleteAccountButton isSubscribed={isSubscribed} />}

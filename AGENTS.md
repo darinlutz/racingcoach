@@ -62,6 +62,7 @@ src/
 │   ├── globals.css   # Global Tailwind styles
 │   ├── api/
 │   │   └── ...           # Racing, auth and Stripe routes
+│   ├── my-dashboard/ # My Dashboard (the driver's profile, statistics, membership and account)
 │   ├── racing/       # Racing page (friends, lap/stint analysis, debrief coach)
 │   ├── live-racing/  # Live Racing page (drivers going round each track's map, live, and who can watch me)
 │   ├── tv/           # TV Broadcast Mode (Live Racing on a Fire TV, with the Race Announcers); tv/link pairs a TV
@@ -128,6 +129,17 @@ Uploaded laps (`"CollectorLaps"`) and saved Debrief Coach runs (`"DebriefSession
 - **Collector** (from 1.51.0): deletes a lap's CSV once it's uploaded and has its track positions (as before), at once when the site answers `lapExpired`, and any lap's CSV and `session.json` entry 90 days after completion (`LapWriter.MaxLocalAge`), uploaded or not, then empty session folders; and at startup deletes `.ibt` files over 90 days old in `Documents\iRacing\telemetry` (not while playing a file back). Played-back laps are stamped with when they were driven (the `.ibt`'s start plus `SessionTime`)
 - **Not covered**: the Target Lap (the user's choice, kept until replaced or removed), Expert Laps (coaching content) and track bounds and outlines (no user in them)
 - **Tests**: `npm run test:lap-retention` (rules at exact UTC boundaries; then the real modules against a local Postgres when `LAP_RETENTION_TEST_DATABASE_URL` is set, see the test's header; it refuses a database that isn't local)
+
+## My Dashboard
+
+The nav bar's My Dashboard (`/my-dashboard`, `src/app/my-dashboard/page.tsx`, `src/components/MyDashboard.tsx`; the design came from the Lovable project `darinlutz/pixel-perfect-replica`, on the site's color tokens so it follows Light Mode): the signed-in driver's profile, latest driving, statistics, membership and account. It takes no user ID: it reads the session, so it's rendered for each visit and never cached between users. No tables or columns of its own.
+
+- **Statistics** (`readCareerStats` in `src/lib/dashboard.ts`, one aggregate query): from `"CollectorLaps"` only, the one record of individual laps, without expired laps like every lap read, so they cover the driver's lap history (30, 60 or 90 days, see Lap Telemetry Retention), not a lifetime, and the page says so. `"RaceResults"` isn't counted: one row per race, whose laps are also in `"CollectorLaps"` when the collector was running. Laps: complete laps (the recorder never uploads interrupted ones), out and in laps included. A lap is one subsession, session and lap number online, whatever its `client_lap_id` (a played-back `.ibt` under `--upload` gets new ones), and on offline sessions, which have no iRacing IDs, track, car, session number, lap number and exact lap time. Sessions: distinct subsession and session number online (practice, qualifying and a race are three); offline, laps of one track and car 30 minutes apart or more start a new one, like My Sessions. Distance: each lap's `"Tracks".track_length_feet` by its track key; laps without one are left out and counted in a note, and with none at all it shows as unavailable. Cars: distinct names, ignoring case. Tracks: distinct names without the layout in parentheses, so layouts of one track count once. Last Active: the latest `completed_at`
+- **Latest driving** (`readRecentSession`): the lap with the latest `completed_at`, so a late upload of an old session doesn't count, of any session type. The name, layout and map are Track Data's by the lap's key (`track_outline`, drawn by `trackMapPath`), else from the lap's "Track (Layout)". The picture is `carPictureUrl`'s, or a plain car icon: the design's own car picture is never shown for other cars. It links to My Sessions, as there's no page for one session
+- **Subscription** (`subscriptionView` in `src/lib/dashboardRules.ts`, no I/O): the tier is `"Users".membership_level`; the state comes from the `"StripeSubscriptions"` row the account points at (`stripe_subscription_id`), which the webhook keeps as Stripe says it is, else the account's own columns. An older row is ignored, so an upgrade waiting on the old plan's cancellation shows the new one. `cancelScheduled` (still running, set to end) isn't `canceled` (ended, paid time left) or `ended`; `complimentary` is a paid level with no subscription, from the Admin page. Manage Subscription goes to the Account page's plans and Cancel button (`#subscription`), or View Membership Plans to `/pricing` with nothing to manage: there's no Stripe customer portal
+- **Times** (`src/components/LocalTime.tsx`): the server doesn't know the viewer's time zone, so it sends UTC and the browser swaps it on load. The email address is partly hidden (`maskEmail`), as drivers stream their screens
+- **Artwork**: `public/assets/dashboard/` (WebP, resized from the design's files)
+- **Tests**: `npm run test:my-dashboard` (rules and guards, then the queries against a local Postgres when `MY_DASHBOARD_TEST_DATABASE_URL` is set, see the test's header) and `e2e/my-dashboard.spec.ts` (`npm run test:e2e`)
 
 ## TV Broadcast Mode
 

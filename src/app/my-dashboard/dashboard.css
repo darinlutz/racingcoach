@@ -1,0 +1,55 @@
+/* The My Dashboard page (from the Lovable project darinlutz/pixel-perfect-replica, on the site's color tokens so it
+   follows Dark Mode and Light Mode) */
+.my-dashboard {
+  --tier-bronze: oklch(0.68 0.11 60);
+  --tier-silver: oklch(0.81 0 0);
+  --tier-gold: oklch(0.78 0.13 88);
+}
+
+:root[data-theme="light"] .my-dashboard {
+  --tier-bronze: oklch(0.48 0.1 60);
+  --tier-silver: oklch(0.45 0 0);
+  --tier-gold: oklch(0.5 0.11 88);
+}
+
+.my-dashboard .tier-bronze { --tier: var(--tier-bronze); }
+.my-dashboard .tier-silver { --tier: var(--tier-silver); }
+.my-dashboard .tier-gold { --tier: var(--tier-gold); }
+
+.dash-hero {
+  background:
+    radial-gradient(ellipse at 25% 50%, color-mix(in oklch, var(--primary) 32%, transparent), transparent 60%),
+    linear-gradient(180deg, var(--secondary), var(--background));
+}
+
+.dash-card {
+  background: linear-gradient(160deg, var(--secondary), var(--card));
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-panel);
+}
+
+.dash-label {
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.dash-telemetry-line {
+  height: 3px;
+  background: repeating-linear-gradient(90deg, var(--primary) 0 18px, transparent 18px 24px);
+}
+
+.dash-rise { animation: dash-rise 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+
+@keyframes dash-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dash-rise { animation: none; }
+  .my-dashboard * { transition: none !important; }
+}

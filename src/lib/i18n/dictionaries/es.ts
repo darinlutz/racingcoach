@@ -616,7 +616,7 @@ export const es: Dictionary = {
     items: [
       'Los datos de tu cuenta, tus preferencias y tu Vuelta Objetivo',
       'Todas las vueltas que has subido y tus sesiones de Debrief Coach',
-      'Tus resultados de carreras, tus datos de autos y la clave y los registros del recolector de telemetría',
+      'Tus resultados de carreras y la clave y los registros del recolector de telemetría',
       'Tu cuenta de Discord vinculada y tu conexión con iRacePlan',
     ],
     subscription: 'Tu suscripción se cancelará de inmediato, sin reembolso.',
@@ -669,14 +669,16 @@ export const es: Dictionary = {
   // The Cars & Tracks page: the Cars (Car Data), Tracks (Track Data) and Racecar Analysis tabs
   carsTracks: {
     title: 'Autos y pistas',
-    intro: 'Tus autos, las pistas y sus zonas de enfoque, y análisis de autos',
+    intro: 'Los autos, las pistas y sus zonas de enfoque, y análisis de autos',
     tabs: {
       cars: 'Autos',
       tracks: 'Pistas',
       racecar: 'Análisis de autos',
     },
+    // The Cars tab's intro for a User, who has no Edit button
+    carsIntroReadOnly: 'Los autos y sus especificaciones. Expande un auto para ver sus dimensiones y notas.',
     intros: {
-      cars: 'Tus autos y sus especificaciones. Expande un auto para ver sus dimensiones y notas, o presiona Editar para cambiarlos.',
+      cars: 'Los autos y sus especificaciones. Expande un auto para ver sus dimensiones y notas, o presiona Editar para cambiarlos.',
       tracks: 'Las pistas y sus zonas de enfoque, las mismas para todos los pilotos. Expande una pista para ver sus zonas de enfoque.',
       racecar: 'Haz una pregunta y recibe una respuesta basada en los datos de análisis de autos (RAG).',
     },
@@ -1446,7 +1448,7 @@ export const es: Dictionary = {
     mustBePositive: '{label} debe ser un número positivo',
     failedLoad: 'No se pudieron cargar los autos',
     logIn: 'Inicia sesión',
-    signedOut: ' para ver y administrar tus autos.',
+    signedOut: ' para ver los autos.',
     failedSave: 'No se pudo guardar el auto',
     deleteConfirm: '¿Eliminar {car}?',
     failedDelete: 'No se pudo eliminar el auto',
@@ -1461,7 +1463,7 @@ export const es: Dictionary = {
     notesPlaceholder: 'Comportamiento, fortalezas y debilidades, pistas donde rinde bien…',
     saveCar: 'Guardar auto',
     addCarButton: '+ Agregar auto',
-    loading: 'Cargando tus autos…',
+    loading: 'Cargando autos…',
     none: 'Todavía no agregaste autos.',
     powerBhp: 'Potencia (bhp)',
     // {unit} is lb-ft, or Nm for Metric
@@ -1471,6 +1473,7 @@ export const es: Dictionary = {
     wetWeight: 'Peso c/ piloto (lbs)',
     actions: 'Acciones',
     noNotes: 'Todavía no hay notas. Presiona Editar para agregar algunas.',
+    noNotesReadOnly: 'Aún no hay notas.',
     calibratedCars: 'Autos calibrados',
     racingDiscipline: 'Disciplina',
     noDiscipline: 'Ninguna',
@@ -2844,7 +2847,7 @@ export const es: Dictionary = {
     failedCancel: 'No se pudo cancelar la suscripción',
     invalidPlan: 'Plan no válido',
     failedCheckout: 'No se pudo iniciar el pago',
-    logInCars: 'Inicia sesión para administrar tus autos',
+    logInCars: 'Inicia sesión para ver los autos',
     failedLoadCars: 'No se pudieron cargar los autos',
     failedAddCar: 'No se pudo agregar el auto',
     failedSaveCar: 'No se pudo guardar el auto',

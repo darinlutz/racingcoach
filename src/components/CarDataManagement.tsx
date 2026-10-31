@@ -5,7 +5,7 @@ import Link from 'next/link';
 import CalibrationHelpButton from '@/components/CalibrationHelpButton';
 import { useLanguage } from '@/components/LanguageProvider';
 import { useUnits } from '@/components/UnitsProvider';
-import type { CarInput, UserCar } from '@/lib/carData';
+import type { CarInput, Car } from '@/lib/carData';
 import { CAR_PICTURE_HEIGHT, CAR_PICTURE_WIDTH, carPictureUrl } from '@/lib/carPictures';
 import type { Dictionary } from '@/lib/i18n/dictionaries/en';
 import { fmt } from '@/lib/i18n/languages';
@@ -43,7 +43,7 @@ const fieldUnit = (field: NumberField, unit: string, units: Units) => (field ===
 const fieldPlaceholder = (field: NumberField, placeholder: string, units: Units) =>
   field === 'torqueLbFt' ? String(torqueText(Number(placeholder), units)) : placeholder;
 
-function toDraft(car: UserCar | null, units: Units): CarDraft {
+function toDraft(car: Car | null, units: Units): CarDraft {
   const draft = {
     id: car?.id ?? null,
     name: car?.name ?? '',
@@ -87,11 +87,12 @@ const primaryButton =
 const secondaryButton =
   'px-4 py-2 text-sm font-semibold bg-card border border-border rounded-lg text-foreground hover:border-primary hover:text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed';
 
-export default function CarDataManagement() {
+// canEdit: whether to offer Add Car, Edit and Delete (Coaches and Admins); /api/car-data refuses them from anyone else
+export default function CarDataManagement({ canEdit }: { canEdit: boolean }) {
   const { t: dictionary, locale } = useLanguage();
   const units = useUnits();
   const t = dictionary.cars;
-  const [cars, setCars] = useState<UserCar[]>([]);
+  const [cars, setCars] = useState<Car[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [signedOut, setSignedOut] = useState(false);
   const [message, setMessage] = useState('');
@@ -102,7 +103,7 @@ export default function CarDataManagement() {
   const [disciplines, setDisciplines] = useState<ReadonlySet<DisciplineFilter>>(() => new Set(['Sports Car']));
   // The car whose name is hovered (or focused), and where its picture goes. Fixed to the window, as the table's
   // scroll box would clip it; scrolling hides it
-  const [picture, setPicture] = useState<{ car: UserCar; url: string; left: number; top: number } | null>(null);
+  const [picture, setPicture] = useState<{ car: Car; url: string; left: number; top: number } | null>(null);
 
   useEffect(() => {
     if (!picture) return;
@@ -112,7 +113,7 @@ export default function CarDataManagement() {
   }, [picture]);
 
   // Under the name, or above it when there's no room below; kept inside the window
-  const showPicture = (car: UserCar) => (event: MouseEvent<HTMLElement> | FocusEvent<HTMLElement>) => {
+  const showPicture = (car: Car) => (event: MouseEvent<HTMLElement> | FocusEvent<HTMLElement>) => {
     const url = carPictureUrl(car.name);
     if (!url) return;
     const box = event.currentTarget.getBoundingClientRect();
@@ -156,7 +157,7 @@ export default function CarDataManagement() {
 
   const updateDraft = (changes: Partial<CarDraft>) => setDraft((d) => (d ? { ...d, ...changes } : d));
 
-  const startEditing = (car: UserCar | null) => {
+  const startEditing = (car: Car | null) => {
     setMessage('');
     setDraft(toDraft(car, units));
   };
@@ -193,7 +194,7 @@ export default function CarDataManagement() {
     }
   };
 
-  const removeCar = async (car: UserCar) => {
+  const removeCar = async (car: Car) => {
     if (!window.confirm(fmt(t.deleteConfirm, { car: car.name }))) return;
     setMessage('');
     try {
@@ -381,9 +382,11 @@ export default function CarDataManagement() {
           </div>
         </div>
       ) : (
-        <button type="button" onClick={() => startEditing(null)} className={primaryButton}>
-          {t.addCarButton}
-        </button>
+        canEdit && (
+          <button type="button" onClick={() => startEditing(null)} className={primaryButton}>
+            {t.addCarButton}
+          </button>
+        )
       )}
 
       {/* Car list */}
@@ -419,9 +422,11 @@ export default function CarDataManagement() {
                 <th scope="col" className="px-4 py-3 font-semibold text-right">
                   {t.wetWeight}
                 </th>
-                <th scope="col" className="px-4 py-3">
-                  <span className="sr-only">{t.actions}</span>
-                </th>
+                {canEdit && (
+                  <th scope="col" className="px-4 py-3">
+                    <span className="sr-only">{t.actions}</span>
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-border text-foreground">
@@ -451,30 +456,32 @@ export default function CarDataManagement() {
                     <td className="px-4 py-3 text-right tabular-nums">{stat(car.rpmLimit, locale)}</td>
                     <td className="px-4 py-3 text-right tabular-nums">{stat(car.displacementLiters, locale)}</td>
                     <td className="px-4 py-3 text-right tabular-nums">{stat(car.wetWeightLbs, locale)}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex justify-end gap-2">
-                        <button
-                          type="button"
-                          onClick={() => startEditing(car)}
-                          className="px-3 py-1 text-sm bg-card border border-border rounded text-foreground hover:border-primary hover:text-primary transition-colors"
-                        >
-                          {dictionary.common.edit}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void removeCar(car)}
-                          className="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
-                        >
-                          {dictionary.common.delete}
-                        </button>
-                      </div>
-                    </td>
+                    {canEdit && (
+                      <td className="px-4 py-3">
+                        <div className="flex justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => startEditing(car)}
+                            className="px-3 py-1 text-sm bg-card border border-border rounded text-foreground hover:border-primary hover:text-primary transition-colors"
+                          >
+                            {dictionary.common.edit}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void removeCar(car)}
+                            className="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+                          >
+                            {dictionary.common.delete}
+                          </button>
+                        </div>
+                      </td>
+                    )}
                   </tr>
 
                   {/* Dimensions, weights and notes for this car */}
                   {expanded === car.id && (
                     <tr>
-                      <td colSpan={8} className="px-4 pb-4 bg-secondary">
+                      <td colSpan={canEdit ? 8 : 7} className="px-4 pb-4 bg-secondary">
                         <table className="mt-3 w-full text-xs text-left bg-card border border-border rounded">
                           <thead className="bg-secondary text-muted-foreground">
                             <tr>
@@ -496,7 +503,7 @@ export default function CarDataManagement() {
                           </tbody>
                         </table>
                         <p className="mt-3 text-sm text-muted-foreground whitespace-pre-line">
-                          {car.notes ?? t.noNotes}
+                          {car.notes ?? (canEdit ? t.noNotes : t.noNotesReadOnly)}
                         </p>
                       </td>
                     </tr>

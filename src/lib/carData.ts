@@ -1,11 +1,9 @@
 import { z } from 'zod';
 import { query } from './db';
-import { DEFAULT_CARS } from './defaultCars';
 import { RACING_DISCIPLINES } from './racingDisciplines';
 import { ensureUserSchema } from './users';
 
-// Each user's own cars in racingcoach."CarsUsers" (created by ensureUserSchema and copied from the
-// default cars in racingcoach."Cars" when the account is created).
+// The cars in racingcoach."Cars" (created by ensureUserSchema): one list shared by everyone, kept by Coaches and Admins.
 
 const measure = z.number().positive().max(100000).nullable();
 const whole = z.number().int().positive().max(100000).nullable();
@@ -30,16 +28,16 @@ export const carInputSchema = z.object({
 });
 
 export type CarInput = z.infer<typeof carInputSchema>;
-export type UserCar = CarInput & { id: number };
+export type Car = CarInput & { id: number };
 
-// The rpm limit of a car by name, from the user's Car Data, or the default cars for someone not signed in.
-// iRacing's car names can differ a little from Car Data's, so case and punctuation are ignored and one name
-// containing the other also matches. null when no car matches or it has no rpm limit.
-export async function carRpmLimit(userId: number | null, carName: string): Promise<number | null> {
+// The rpm limit of a car by name, from Car Data. iRacing's car names can differ a little from Car Data's, so case and
+// punctuation are ignored and one name containing the other also matches. null when no car matches or it has no rpm
+// limit.
+export async function carRpmLimit(carName: string): Promise<number | null> {
   const key = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, '');
   const wanted = key(carName);
   if (!wanted) return null;
-  const cars: { name: string; rpmLimit: number | null }[] = userId === null ? DEFAULT_CARS : await readCars(userId);
+  const cars = await readCars();
   const match =
     cars.find((car) => key(car.name) === wanted) ??
     cars.find((car) => key(car.name).length > 0 && (wanted.includes(key(car.name)) || key(car.name).includes(wanted)));
@@ -70,12 +68,9 @@ const carValues = (car: CarInput) => [
   car.notes,
 ];
 
-export async function readCars(userId: number): Promise<UserCar[]> {
+export async function readCars(): Promise<Car[]> {
   await ensureUserSchema();
-  const rows = await query(
-    `SELECT id, ${CAR_COLUMNS} FROM racingcoach."CarsUsers" WHERE user_id = $1 ORDER BY lower(car_name)`,
-    [userId]
-  );
+  const rows = await query(`SELECT id, ${CAR_COLUMNS} FROM racingcoach."Cars" ORDER BY lower(car_name)`);
   return rows.map((r) => ({
     id: r.id as number,
     name: r.car_name as string,
@@ -93,32 +88,31 @@ export async function readCars(userId: number): Promise<UserCar[]> {
   }));
 }
 
-// Throws a unique violation (see isUniqueViolation) when the user already has a car with that name
-export async function addCar(userId: number, car: CarInput): Promise<number> {
+// Throws a unique violation (see isUniqueViolation) when there's already a car with that name
+export async function addCar(car: CarInput): Promise<number> {
   await ensureUserSchema();
   const [row] = await query(
-    `INSERT INTO racingcoach."CarsUsers" (user_id, ${CAR_COLUMNS})
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING id`,
-    [userId, ...carValues(car)]
+    `INSERT INTO racingcoach."Cars" (${CAR_COLUMNS})
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id`,
+    carValues(car)
   );
   return row.id as number;
 }
 
-// Only updates the car if it belongs to this user
-export async function updateCar(userId: number, id: number, car: CarInput): Promise<void> {
+export async function updateCar(id: number, car: CarInput): Promise<void> {
   await ensureUserSchema();
   const rows = await query(
-    `UPDATE racingcoach."CarsUsers" SET car_name = $3, racing_discipline = $4, length_in = $5, width_in = $6,
-       wheelbase_in = $7, dry_weight_lbs = $8, wet_weight_lbs = $9, displacement_liters = $10, rpm_limit = $11,
-       torque_lb_ft = $12, power_bhp = $13, notes = $14, updated_at = now()
-     WHERE id = $1 AND user_id = $2 RETURNING id`,
-    [id, userId, ...carValues(car)]
+    `UPDATE racingcoach."Cars" SET car_name = $2, racing_discipline = $3, length_in = $4, width_in = $5,
+       wheelbase_in = $6, dry_weight_lbs = $7, wet_weight_lbs = $8, displacement_liters = $9, rpm_limit = $10,
+       torque_lb_ft = $11, power_bhp = $12, notes = $13, updated_at = now()
+     WHERE id = $1 RETURNING id`,
+    [id, ...carValues(car)]
   );
   if (rows.length === 0) throw new CarNotFoundError();
 }
 
-// Only deletes the car if it belongs to this user
-export async function deleteCar(userId: number, id: number): Promise<void> {
+// A Broadcast Video tagged with this car keeps playing, without the tag (ON DELETE SET NULL)
+export async function deleteCar(id: number): Promise<void> {
   await ensureUserSchema();
-  await query('DELETE FROM racingcoach."CarsUsers" WHERE id = $1 AND user_id = $2', [id, userId]);
+  await query('DELETE FROM racingcoach."Cars" WHERE id = $1', [id]);
 }

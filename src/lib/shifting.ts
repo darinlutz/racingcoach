@@ -104,7 +104,7 @@ function stintLimiterHits(
 }
 
 // The RPM the coach judges shifts against, best first: a limiter the laps actually hit before shifting up,
-// the car's rpmLimit from the user's Car Data, or the highest RPM in the laps
+// the car's rpmLimit from Car Data, or the highest RPM in the laps
 export type ShiftLimit = { rpm: number; source: 'limiter' | 'carData' | 'highest' };
 
 export function shiftLimit(laps: (LapShifting | null | undefined)[], carDataRpm: number | null): ShiftLimit | null {

@@ -1,6 +1,8 @@
 import CarsTracksTabs from '@/components/CarsTracksTabs';
 import { CARS_TRACKS_TABS, type CarsTracksTab } from '@/lib/carsTracksTabs';
 import { getDictionary, getLanguage } from '@/lib/i18n/server';
+import { canEditCars } from '@/lib/roles';
+import { getCurrentUser } from '@/lib/session';
 import { getEnableAiFeatures } from '@/lib/siteSettings';
 
 // Cars & Tracks: Car Data, Track Data and Racecar Analysis in one page of tabs (the nav bar's Cars & Tracks link).
@@ -15,6 +17,7 @@ export default async function CarsTracksPage({
   const { tab } = await searchParams;
   const tabs = (await getEnableAiFeatures()) ? [...CARS_TRACKS_TABS] : CARS_TRACKS_TABS.filter((name) => name !== 'racecar');
   const initialTab = tabs.find((name) => name === tab) ?? ('cars' satisfies CarsTracksTab);
+  const user = await getCurrentUser();
 
   return (
     <div className="w-full">
@@ -29,7 +32,7 @@ export default async function CarsTracksPage({
 
       <section className="py-16 bg-card">
         <div className="site-container">
-          <CarsTracksTabs tabs={tabs} initialTab={initialTab} />
+          <CarsTracksTabs tabs={tabs} initialTab={initialTab} canEdit={canEditCars(user?.role)} />
         </div>
       </section>
     </div>

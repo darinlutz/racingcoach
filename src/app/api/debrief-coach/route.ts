@@ -37,7 +37,7 @@ export async function POST(request: Request) {
     limit = await aiRateLimit(request, 'debriefCoach', user);
     if (limit.response) return limit.response;
     // For the shifting tool; without it the coach falls back to the RPM in the laps
-    const rpmLimit = await carRpmLimit(user?.id ?? null, parsed.data.car).catch(() => null);
+    const rpmLimit = await carRpmLimit(parsed.data.car).catch(() => null);
     const [language, units] = await Promise.all([getLanguage(user), getUnits(user)]);
     const { debrief, steps, optimalLap } = await limit.track(() => runDebriefCoach(parsed.data, language, units, rpmLimit));
 

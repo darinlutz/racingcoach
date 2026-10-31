@@ -32,6 +32,8 @@ export default function CoachingAnalysis() {
     setActiveTab('lapCompare');
   };
 
+  const intro = activeTab === 'friends' || activeTab === 'stint' ? t.racing.intros[activeTab] : null;
+
   return (
     <div className="w-full">
       <section className="py-10 px-3 sm:px-4 bg-gradient-to-b from-background to-background border-b border-border">
@@ -39,7 +41,6 @@ export default function CoachingAnalysis() {
           <h1 className="text-3xl font-bold bg-gradient-to-r from-primary-strong via-primary to-primary-strong bg-clip-text text-transparent">
             {t.racing.title}
           </h1>
-          <p className="mt-2 text-muted-foreground">{t.racing.intro}</p>
         </div>
       </section>
 
@@ -69,8 +70,8 @@ export default function CoachingAnalysis() {
 
           {/* Tab Content */}
           <div className="bg-secondary rounded-xl border border-border p-4 sm:p-6">
-            <h2 className={`text-2xl font-bold text-foreground ${activeTab === 'debrief' ? 'mb-6' : 'mb-2'}`}>{t.racing.tabs[activeTab]}</h2>
-            {activeTab !== 'debrief' && <p className="text-muted-foreground mb-6">{t.racing.intros[activeTab]}</p>}
+            <h2 className={`text-2xl font-bold text-foreground ${intro ? 'mb-2' : 'mb-6'}`}>{t.racing.tabs[activeTab]}</h2>
+            {intro && <p className="text-muted-foreground mb-6">{intro}</p>}
 
             {activeTab === 'friends' && <FriendsRoster />}
             {activeTab === 'stint' && <StintAnalysis />}

@@ -651,7 +651,6 @@ export const es: Dictionary = {
 
   racing: {
     title: 'Mis sesiones',
-    intro: 'Debriefs y análisis de vueltas y stints',
     tabs: {
       debrief: 'Session Debrief',
       stint: 'Análisis de stint',
@@ -660,7 +659,6 @@ export const es: Dictionary = {
     },
     intros: {
       stint: 'Analiza una exportación de stint de Garage 61: ritmo, sectores, clima y combustible.',
-      lapCompare: 'Compara dos vueltas, zona de enfoque por zona de enfoque.',
       friends: 'Lleva el registro de tus amigos de carreras. Cada cuenta tiene su propia lista.',
     },
   },
@@ -722,7 +720,6 @@ export const es: Dictionary = {
   },
 
   debrief: {
-    yourRecordedLaps: 'Tus vueltas grabadas',
     orUpload: 'O sube los CSV de las vueltas de la sesión',
     run: 'Hacer debrief',
     running: 'El coach está revisando tus vueltas…',

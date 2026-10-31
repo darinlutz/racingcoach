@@ -374,7 +374,6 @@ export default function DebriefCoach({ onCompare }: { onCompare?: (base: LapFile
 
       {/* Laps the RacingCoach collector uploaded */}
       <div>
-        <p className="block text-sm text-muted-foreground mb-2">{t.debrief.yourRecordedLaps}</p>
         <RecordedLaps
           tracks={tracks}
           onChange={pickRecordedLaps}

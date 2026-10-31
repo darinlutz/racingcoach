@@ -671,7 +671,6 @@ export const de: Dictionary = {
 
   racing: {
     title: 'Meine Sessions',
-    intro: 'Debriefs sowie Runden- und Stint-Analysen',
     tabs: {
       debrief: 'Session Debrief',
       stint: 'Stint-Analyse',
@@ -680,7 +679,6 @@ export const de: Dictionary = {
     },
     intros: {
       stint: 'Analysiere einen Stint-Export aus Garage 61: Pace, Sektoren, Wetter und Sprit.',
-      lapCompare: 'Vergleiche zwei Runden Fokusbereich für Fokusbereich.',
       friends: 'Behalte deine Rennfreunde im Blick. Jedes Konto hat seine eigene Liste.',
     },
   },
@@ -745,7 +743,6 @@ export const de: Dictionary = {
   },
 
   debrief: {
-    yourRecordedLaps: 'Deine aufgezeichneten Runden',
     orUpload: 'Oder lade die Runden-CSVs der Session hoch',
     run: 'Debrief starten',
     running: 'Der Coach prüft deine Runden…',
@@ -1731,7 +1728,7 @@ export const de: Dictionary = {
     targetTitle: 'Zielrunde festlegen',
     targetText: 'Deine Zielrunde ist die Runde, der du nachjagst. Der Collector zeigt dir damit, wo du bremsen und schalten solltest, und piept vor jedem Bremspunkt. Lege sie im Session Debrief auf der Seite Meine Sessions auf eine von zwei Arten fest:',
     targetWays: [
-      'Eine deiner eigenen Runden: Wähle unter Deine aufgezeichneten Runden die Runde in der Spalte Ziel aus und klicke dann auf Als Ziel setzen.',
+      'Eine deiner eigenen Runden: Wähle unter deinen aufgezeichneten Runden die Runde in der Spalte Ziel aus und klicke dann auf Als Ziel setzen.',
       'Die optimale Runde: Starte einen Debrief und klicke unter Theoretische Bestrunde (deine schnellste Fahrt durch jeden Teil der Strecke, zu einer Runde zusammengesetzt) auf Als Ziel setzen.',
     ],
     targetButton: 'Session Debrief öffnen',

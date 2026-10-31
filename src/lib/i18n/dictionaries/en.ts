@@ -671,7 +671,6 @@ export const en = {
 
   racing: {
     title: 'My Sessions',
-    intro: 'Debriefs and lap and stint analysis',
     tabs: {
       debrief: 'Session Debrief',
       stint: 'Stint Analysis',
@@ -680,7 +679,6 @@ export const en = {
     },
     intros: {
       stint: 'Analyze a Garage 61 stint export: pace, sectors, weather and fuel.',
-      lapCompare: 'Compare two laps focus area by focus area.',
       friends: 'Keep track of your racing friends. Each account has its own list.',
     },
   },
@@ -745,7 +743,6 @@ export const en = {
   },
 
   debrief: {
-    yourRecordedLaps: 'Your recorded laps',
     orUpload: 'Or upload the session’s lap CSVs',
     run: 'Run Debrief',
     running: 'Coach is reviewing your laps…',
@@ -1731,7 +1728,7 @@ export const en = {
     targetTitle: 'Setting Target Lap',
     targetText: 'Your Target Lap is the lap you’re chasing. The collector uses it to show you where to brake and shift, and to beep before each braking point. Set it in Session Debrief on the My Sessions page, in either of two ways:',
     targetWays: [
-      'One of your own laps: in Your recorded laps, pick the lap in the Target column, then click Set Target.',
+      'One of your own laps: in your recorded laps, pick the lap in the Target column, then click Set Target.',
       'The optimal lap: run a debrief, and under Theoretical best lap (your fastest run through every part of the track, joined into one lap) click Set as Target.',
     ],
     targetButton: 'Open Session Debrief',

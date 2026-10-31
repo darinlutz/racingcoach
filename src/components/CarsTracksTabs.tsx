@@ -7,8 +7,17 @@ import SpaceFactQuery from '@/components/SpaceFactQuery';
 import TrackManagement from '@/components/TrackManagement';
 import { type CarsTracksTab } from '@/lib/carsTracksTabs';
 
-// The Cars & Tracks page's tabs: Cars (Car Data), Tracks (Track Data) and Racecar Analysis (tabs is the ones shown)
-export default function CarsTracksTabs({ tabs, initialTab }: { tabs: CarsTracksTab[]; initialTab: CarsTracksTab }) {
+// The Cars & Tracks page's tabs: Cars (Car Data), Tracks (Track Data) and Racecar Analysis (tabs is the ones shown).
+// canEdit: whether the Cars tab offers Add Car, Edit and Delete (Coaches and Admins)
+export default function CarsTracksTabs({
+  tabs,
+  initialTab,
+  canEdit,
+}: {
+  tabs: CarsTracksTab[];
+  initialTab: CarsTracksTab;
+  canEdit: boolean;
+}) {
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<CarsTracksTab>(initialTab);
 
@@ -40,9 +49,11 @@ export default function CarsTracksTabs({ tabs, initialTab }: { tabs: CarsTracksT
       {/* Tab Content */}
       <div className="bg-secondary rounded-xl border border-border p-8">
         <h2 className="text-2xl font-bold text-foreground mb-2">{t.carsTracks.tabs[activeTab]}</h2>
-        <p className="text-muted-foreground mb-6">{t.carsTracks.intros[activeTab]}</p>
+        <p className="text-muted-foreground mb-6">
+          {activeTab === 'cars' && !canEdit ? t.carsTracks.carsIntroReadOnly : t.carsTracks.intros[activeTab]}
+        </p>
 
-        {activeTab === 'cars' && <CarDataManagement />}
+        {activeTab === 'cars' && <CarDataManagement canEdit={canEdit} />}
         {activeTab === 'tracks' && <TrackManagement />}
         {activeTab === 'racecar' && (
           <SpaceFactQuery

@@ -327,7 +327,7 @@ const LINE_CHECKPOINTS = ['the start of the area (entry)', '25% through', 'the m
 
 // Also used by the In-Car AI Coach (inCarCoach.ts), on the laps the collector has uploaded so far.
 // The tools write distances and speeds in the user's units.
-// carRpmLimit is the car's rev limit from the user's Car Data (null when it isn't there), for get_shifting_points.
+// carRpmLimit is the car's rev limit from Car Data (null when it isn't there), for get_shifting_points.
 export function createTools(session: DebriefSession, units: Units = DEFAULT_UNITS, carRpmLimit: number | null = null) {
   const u = unitFormat(units);
   const { cutoff, incidentLaps, cleanLaps, areas } = cleanSession(session);
@@ -691,7 +691,7 @@ export function createTools(session: DebriefSession, units: Units = DEFAULT_UNIT
       const verdicts: string[] = [];
       if (!canJudgeEarly) {
         verdicts.push(
-          `Early shift verdict: the rev limit of the ${session.car} is not in your Car Data and these laps never held the ` +
+          `Early shift verdict: the rev limit of the ${session.car} is not in Car Data and these laps never held the ` +
             'limiter before shifting, so the limit is only the highest RPM reached. Early shifts cannot be judged; do not ' +
             'give an early-shift fix.'
         );
@@ -725,7 +725,7 @@ export function createTools(session: DebriefSession, units: Units = DEFAULT_UNIT
         limit.source === 'limiter'
           ? 'where these laps held the rev limiter'
           : limit.source === 'carData'
-            ? 'the rpm limit in your Car Data'
+            ? 'the rpm limit in Car Data'
             : 'the highest RPM reached, as the limit is not known for this car';
       return [
         `Shifting in the ${session.car}, over the whole lap. Rev limit ${rpm(limit.rpm)} (${source}). The ideal upshift ` +
@@ -1034,7 +1034,7 @@ export async function runDebriefCoach(
   session: DebriefSession,
   language: Language = DEFAULT_LANGUAGE,
   units: Units = DEFAULT_UNITS,
-  // The car's rev limit from the user's Car Data, for get_shifting_points
+  // The car's rev limit from Car Data, for get_shifting_points
   carRpmLimit: number | null = null
 ): Promise<{ debrief: Debrief; steps: string[]; optimalLap: OptimalLap | null }> {
   if (!process.env.OPENAI_API_KEY) {

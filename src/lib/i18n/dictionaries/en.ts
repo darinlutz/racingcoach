@@ -613,7 +613,7 @@ export const en = {
     items: [
       'Your account details, preferences and Target Lap',
       'Every lap you have uploaded and your Debrief Coach sessions',
-      'Your race results, Car Data, and telemetry collector key and logs',
+      'Your race results and telemetry collector key and logs',
       'Your linked Discord account and iRacePlan connection',
     ],
     subscription: 'Your subscription will be canceled right away, with no refund.',
@@ -667,14 +667,16 @@ export const en = {
   // The Cars & Tracks page: the Cars (Car Data), Tracks (Track Data) and Racecar Analysis tabs
   carsTracks: {
     title: 'Cars & Tracks',
-    intro: 'Your cars, the tracks and their focus areas, and racecar analysis',
+    intro: 'The cars, the tracks and their focus areas, and racecar analysis',
     tabs: {
       cars: 'Cars',
       tracks: 'Tracks',
       racecar: 'Racecar Analysis',
     },
+    // The Cars tab's intro for a User, who has no Edit button
+    carsIntroReadOnly: 'The cars and their specs. Expand a car to see its dimensions and notes.',
     intros: {
-      cars: 'Your cars and their specs. Expand a car to see its dimensions and notes, or press Edit to change them.',
+      cars: 'The cars and their specs. Expand a car to see its dimensions and notes, or press Edit to change them.',
       tracks: 'The tracks and their focus areas, the same for every driver. Expand a track to see its focus areas.',
       racecar: 'Ask a question and get an answer grounded in the racecar analysis data (RAG).',
     },
@@ -1444,7 +1446,7 @@ export const en = {
     mustBePositive: '{label} must be a positive number',
     failedLoad: 'Failed to load cars',
     logIn: 'Log in',
-    signedOut: ' to see and manage your cars.',
+    signedOut: ' to see the cars.',
     failedSave: 'Failed to save car',
     deleteConfirm: 'Delete {car}?',
     failedDelete: 'Failed to delete car',
@@ -1459,7 +1461,7 @@ export const en = {
     notesPlaceholder: 'Handling traits, strengths and weaknesses, tracks it suits…',
     saveCar: 'Save Car',
     addCarButton: '+ Add Car',
-    loading: 'Loading your cars…',
+    loading: 'Loading cars…',
     none: 'No cars added yet.',
     powerBhp: 'Power (bhp)',
     // {unit} is lb-ft, or Nm for Metric
@@ -1469,6 +1471,7 @@ export const en = {
     wetWeight: 'Wet Weight (lbs)',
     actions: 'Actions',
     noNotes: 'No notes yet. Press Edit to add some.',
+    noNotesReadOnly: 'No notes yet.',
     calibratedCars: 'Calibrated Cars',
     racingDiscipline: 'Discipline',
     noDiscipline: 'None',
@@ -2863,7 +2866,7 @@ export const en = {
     invalidPlan: 'Invalid plan',
     failedCheckout: 'Failed to create checkout session',
     // Cars, tracks, friends
-    logInCars: 'Log in to manage your cars',
+    logInCars: 'Log in to see the cars',
     failedLoadCars: 'Failed to load cars',
     failedAddCar: 'Failed to add car',
     failedSaveCar: 'Failed to save car',

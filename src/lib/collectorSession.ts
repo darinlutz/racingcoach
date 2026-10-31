@@ -47,6 +47,6 @@ export async function measureCollectorSession(userId: number, clientLapIds: stri
       offTrack: lap.offTrack,
     })),
     session,
-    carRpmLimit: await carRpmLimit(userId, laps[0].car).catch(() => null),
+    carRpmLimit: await carRpmLimit(laps[0].car).catch(() => null),
   };
 }

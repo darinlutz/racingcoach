@@ -1,10 +1,9 @@
 import type { PoolClient } from 'pg';
 import type { RacingDiscipline } from './racingDisciplines';
 
-// The cars every account starts with (the GT3 cars from GT3_Car_Data.xlsx, then a few of each other
-// discipline). They are seeded once into racingcoach."Cars"; each user gets their own copy in "CarsUsers"
-// on sign-up (copyDefaultCars) and can edit or delete them from the Car Data tab. A car added here later reaches
-// existing databases once, from addNewDefaultCars.
+// The cars the site starts with (the GT3 cars from GT3_Car_Data.xlsx, then a few of each other discipline). They are
+// seeded once into racingcoach."Cars", when that table is first created; after that the table is the source of truth,
+// kept by Coaches and Admins in the Cars tab, so a car added here doesn't reach an existing database.
 
 export type DefaultCar = {
   name: string;
@@ -414,21 +413,8 @@ export const DEFAULT_CARS: DefaultCar[] = [
   },
 ];
 
-// The cars added to DEFAULT_CARS with the racing_discipline column. Databases seeded before it get them
-// once, from addRacingDisciplines
-const CARS_ADDED_WITH_DISCIPLINES = [
-  'Next Gen NASCAR Cup Series Chevrolet Camaro ZL1',
-  "Legends Ford '34 Coupe",
-  'BMW M4 G82 GT4',
-  'Global Mazda MX-5 Cup',
-  'Dallara P217 LMP2',
-  'Porsche 963 GTP',
-  'Mercedes-AMG F1 W12 E Performance',
-  'Toyota GR86',
-];
-
-// Fills racingcoach."Cars" with DEFAULT_CARS (or some of them). Runs once, on the caller's transaction,
-// when the Cars table is first created; after that the table is the source of truth.
+// Fills racingcoach."Cars" with DEFAULT_CARS. A car already there (same name) is left alone. Runs on the caller's
+// transaction.
 export async function seedDefaultCars(client: PoolClient, cars: DefaultCar[] = DEFAULT_CARS): Promise<void> {
   const column = <K extends keyof DefaultCar>(key: K) => cars.map((c) => c[key]);
   await client.query(
@@ -455,52 +441,24 @@ export async function seedDefaultCars(client: PoolClient, cars: DefaultCar[] = D
   );
 }
 
-// Copies every car in racingcoach."Cars" (or only the ones named) into one user's "CarsUsers", or every
-// user's when userId is null (the one-time backfills). A car the user already has (same name) is skipped.
-// Runs on the caller's transaction.
-export async function copyDefaultCars(client: PoolClient, userId: number | null, names?: string[]): Promise<void> {
+// Runs once, on the caller's transaction, when "CarsUsers" is about to be dropped: the owner's copy of each car replaces
+// the one in Cars, and cars the owner added join it. A car the owner deleted stays in Cars.
+export async function mergeOwnerCars(client: PoolClient, ownerEmail: string): Promise<void> {
+  await client.query('ALTER TABLE racingcoach."CarsUsers" ADD COLUMN IF NOT EXISTS racing_discipline TEXT');
   await client.query(
-    `INSERT INTO racingcoach."CarsUsers"
-       (user_id, car_name, racing_discipline, length_in, width_in, wheelbase_in, dry_weight_lbs, wet_weight_lbs,
+    `INSERT INTO racingcoach."Cars"
+       (car_name, racing_discipline, length_in, width_in, wheelbase_in, dry_weight_lbs, wet_weight_lbs,
         displacement_liters, rpm_limit, torque_lb_ft, power_bhp, notes)
-     SELECT u.id, c.car_name, c.racing_discipline, c.length_in, c.width_in, c.wheelbase_in, c.dry_weight_lbs,
+     SELECT c.car_name, c.racing_discipline, c.length_in, c.width_in, c.wheelbase_in, c.dry_weight_lbs,
             c.wet_weight_lbs, c.displacement_liters, c.rpm_limit, c.torque_lb_ft, c.power_bhp, c.notes
-     FROM racingcoach."Users" u CROSS JOIN racingcoach."Cars" c
-     WHERE ($1::int IS NULL OR u.id = $1) AND ($2::text[] IS NULL OR c.car_name = ANY($2))
-     ON CONFLICT DO NOTHING`,
-    [userId, names ?? null]
+     FROM racingcoach."CarsUsers" c JOIN racingcoach."Users" u ON u.id = c.user_id
+     WHERE lower(u.email_address) = $1
+     ON CONFLICT (lower(car_name)) DO UPDATE SET
+       car_name = EXCLUDED.car_name, racing_discipline = EXCLUDED.racing_discipline, length_in = EXCLUDED.length_in,
+       width_in = EXCLUDED.width_in, wheelbase_in = EXCLUDED.wheelbase_in, dry_weight_lbs = EXCLUDED.dry_weight_lbs,
+       wet_weight_lbs = EXCLUDED.wet_weight_lbs, displacement_liters = EXCLUDED.displacement_liters,
+       rpm_limit = EXCLUDED.rpm_limit, torque_lb_ft = EXCLUDED.torque_lb_ft, power_bhp = EXCLUDED.power_bhp,
+       notes = EXCLUDED.notes, updated_at = now()`,
+    [ownerEmail]
   );
-}
-
-// Runs once, on the caller's transaction, when racing_discipline is added to a database seeded before it:
-// the GT3 cars already there become Sports Cars (in Cars and every user's copy; cars users added
-// themselves stay without one), and the cars added with the column go into Cars and every user's CarsUsers.
-export async function addRacingDisciplines(client: PoolClient): Promise<void> {
-  const gt3Names = DEFAULT_CARS.filter((c) => c.name.includes('GT3') && !CARS_ADDED_WITH_DISCIPLINES.includes(c.name)).map(
-    (c) => c.name.toLowerCase()
-  );
-  for (const table of ['"Cars"', '"CarsUsers"']) {
-    await client.query(
-      `UPDATE racingcoach.${table} SET racing_discipline = 'Sports Car'
-       WHERE racing_discipline IS NULL AND lower(car_name) = ANY($1)`,
-      [gt3Names]
-    );
-  }
-  await seedDefaultCars(client, DEFAULT_CARS.filter((c) => CARS_ADDED_WITH_DISCIPLINES.includes(c.name)));
-  await copyDefaultCars(client, null, CARS_ADDED_WITH_DISCIPLINES);
-}
-
-// Cars added to DEFAULT_CARS after a database was seeded go into Cars and every user's CarsUsers, once: a car
-// already in Cars is left alone, so a user who deleted their copy doesn't get it back. Runs on the caller's
-// transaction.
-export async function addNewDefaultCars(client: PoolClient): Promise<void> {
-  const { rows } = await client.query<{ name: string }>(
-    `SELECT n.name FROM unnest($1::text[]) AS n(name)
-     WHERE NOT EXISTS (SELECT 1 FROM racingcoach."Cars" c WHERE lower(c.car_name) = lower(n.name))`,
-    [DEFAULT_CARS.map((c) => c.name)]
-  );
-  if (rows.length === 0) return;
-  const names = rows.map((r) => r.name);
-  await seedDefaultCars(client, DEFAULT_CARS.filter((c) => names.includes(c.name)));
-  await copyDefaultCars(client, null, names);
 }

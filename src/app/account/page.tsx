@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import CancelSubscriptionButton from '@/components/CancelSubscriptionButton';
 import ChangePasswordButton from '@/components/ChangePasswordButton';
 import CollectorKeyCard from '@/components/CollectorKeyCard';
+import CountryPreference from '@/components/CountryPreference';
 import DeleteAccountButton from '@/components/DeleteAccountButton';
 import InCarCoachInstructionsCard from '@/components/InCarCoachInstructionsCard';
 import LanguageSelect from '@/components/LanguageSelect';
@@ -25,6 +26,7 @@ import { getCurrentUser } from '@/lib/session';
 import { getEnableAiFeatures, getShowPricing } from '@/lib/siteSettings';
 import { canBuyAnything, getInCarCoachInstructions, MAX_IN_CAR_COACH_INSTRUCTIONS } from '@/lib/users';
 import { ACCOUNT_STATUS, MEMBERSHIP_LEVEL } from '@/lib/accountStatus';
+import 'flag-icons/css/flag-icons.min.css';
 
 // Each level's medal color
 function levelBadgeClass(membershipLevel: string): string {
@@ -157,6 +159,7 @@ export default async function AccountPage({
               className={selectClass}
             />
           )}
+          <CountryPreference country={user.country} className={selectClass} />
           <div className="mt-5">
             <UnitsToggle />
           </div>

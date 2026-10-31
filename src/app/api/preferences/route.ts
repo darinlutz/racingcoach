@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { isCountry } from '@/lib/countryCodes';
 import { isLanguage } from '@/lib/i18n/languages';
 import { setLanguageCookie } from '@/lib/i18n/server';
 import { getCurrentUser } from '@/lib/session';
@@ -6,17 +7,34 @@ import { isTheme } from '@/lib/theme';
 import { setThemeCookie } from '@/lib/themeServer';
 import { isUnits } from '@/lib/units';
 import { setUnitsCookie } from '@/lib/unitsServer';
-import { setPreferredLanguage, setTheme, setUnits } from '@/lib/users';
+import { setCountry, setPreferredLanguage, setTheme, setUnits } from '@/lib/users';
 import { apiText } from '@/lib/i18n/server';
 
 // Saves the Preferred Language, the Preferred Units (Standard / Metric) or the theme (Dark Mode / Light
 // Mode): in the signed-in user's account (racingcoach."Users".preferred_language / units / theme) and in a
 // cookie, which is all a visitor has. A new language or units reloads the page in them; a new theme is
-// already showing in the browser. ("Play beeps before braking" and its volume are set in the telemetry collector,
-// with PUT /api/collector/brake-beeps.)
+// already showing in the browser. Also the Country ("Users".country; null is Not Specified), in the account only.
+// ("Play beeps before braking" and its volume are set in the telemetry collector, with PUT /api/collector/brake-beeps.)
 export async function PUT(request: Request) {
   const t = await apiText();
   const body = (await request.json().catch(() => null)) ?? {};
+
+  // Only ever the signed-in user's: a visitor picks one on the Create an Account page, which sends it when signing up
+  if (typeof body === 'object' && 'country' in body) {
+    const country = body.country;
+    if (country !== null && !isCountry(country)) {
+      return NextResponse.json({ error: t.unknownCountry }, { status: 400 });
+    }
+    try {
+      const user = await getCurrentUser();
+      if (!user) return NextResponse.json({ error: t.logInProfile }, { status: 401 });
+      await setCountry(user.id, country);
+      return NextResponse.json({ country });
+    } catch (error) {
+      console.error('Country error:', error);
+      return NextResponse.json({ error: t.failedSaveCountry }, { status: 500 });
+    }
+  }
 
   if (typeof body === 'object' && 'units' in body) {
     const units = body.units;

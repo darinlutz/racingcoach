@@ -1,6 +1,7 @@
 import { timingSafeEqual } from 'node:crypto';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { cleanCountry } from '@/lib/countryCodes';
 import {
   fetchGoogleProfile,
   GOOGLE_COOKIE_PATH,
@@ -65,7 +66,7 @@ export async function GET(request: Request) {
     const profile = await fetchGoogleProfile(code, googleRedirectUri(request), saved.verifier);
     const signup =
       saved.mode === 'signup' && saved.acceptedPolicies
-        ? { language: saved.language, promoCode: saved.promoCode, acceptedPolicies: saved.acceptedPolicies }
+        ? { language: saved.language, country: cleanCountry(saved.country), promoCode: saved.promoCode, acceptedPolicies: saved.acceptedPolicies }
         : null;
     const result = await signInWithGoogle(profile, signup);
     // Logging in with a Google account that has no RacingCoach account: making one needs the Create an Account

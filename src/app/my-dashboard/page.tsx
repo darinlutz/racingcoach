@@ -3,10 +3,12 @@ import { redirect } from 'next/navigation';
 import MyDashboard from '@/components/MyDashboard';
 import { readDashboard } from '@/lib/dashboard';
 import { getDictionary, getLanguage } from '@/lib/i18n/server';
+import { getProfilePictureVersion } from '@/lib/profilePictures';
 import { withReturnTo } from '@/lib/returnTo';
 import { getCurrentUser } from '@/lib/session';
 import { getShowPricing } from '@/lib/siteSettings';
 import { canBuyAnything } from '@/lib/users';
+import 'flag-icons/css/flag-icons.min.css';
 import './dashboard.css';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -19,6 +21,6 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function MyDashboardPage() {
   const user = await getCurrentUser();
   if (!user) redirect(withReturnTo('/login', '/my-dashboard'));
-  const [data, showPricing] = await Promise.all([readDashboard(user), getShowPricing()]);
-  return <MyDashboard user={user} data={data} viewPlans={showPricing && canBuyAnything(user)} />;
+  const [data, showPricing, pictureVersion] = await Promise.all([readDashboard(user), getShowPricing(), getProfilePictureVersion(user.id)]);
+  return <MyDashboard user={user} data={data} viewPlans={showPricing && canBuyAnything(user)} pictureVersion={pictureVersion} />;
 }

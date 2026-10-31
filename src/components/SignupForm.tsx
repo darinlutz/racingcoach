@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { withReturnTo } from '@/lib/returnTo';
 import { POLICY_VERSIONS } from '@/lib/policyVersions';
 import { MAX_PROMO_CODE_LENGTH } from '@/lib/promoCode';
+import CountrySelect from './CountrySelect';
 import ForgotPasswordForm from './ForgotPasswordForm';
 import GoogleSignInButton from './GoogleSignInButton';
 import LanguageSelect from './LanguageSelect';
@@ -33,6 +34,8 @@ export default function SignupForm({
     password: '',
     promoCode: '',
   });
+  // Null is Not Specified
+  const [country, setCountry] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [forgotPassword, setForgotPassword] = useState(false);
@@ -52,7 +55,7 @@ export default function SignupForm({
         headers: { 'Content-Type': 'application/json' },
         // The Preferred Language box switches the page as soon as it changes, so the page's language is the choice
         // and the policy versions are the ones the agreement line under the button links to
-        body: JSON.stringify({ ...formData, preferredLanguage: language, acceptedPolicies: POLICY_VERSIONS }),
+        body: JSON.stringify({ ...formData, country, preferredLanguage: language, acceptedPolicies: POLICY_VERSIONS }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -78,7 +81,7 @@ export default function SignupForm({
 
       {googleEnabled && (
         <>
-          <GoogleSignInButton mode="signup" next={next} promoCode={formData.promoCode} />
+          <GoogleSignInButton mode="signup" next={next} promoCode={formData.promoCode} country={country} />
           <div className="flex items-center gap-3 text-xs uppercase text-muted-foreground">
             <span className="flex-1 border-t border-border" />
             {t.auth.or}
@@ -155,6 +158,13 @@ export default function SignupForm({
       </div>
 
       <LanguageSelect id="preferredLanguage" className={inputClass} />
+
+      <div>
+        <label htmlFor="country" className="block text-sm font-medium text-foreground mb-2">
+          {t.preferences.country}
+        </label>
+        <CountrySelect id="country" value={country} onChange={setCountry} className={inputClass} />
+      </div>
 
       {error && (
         <p className="p-3 rounded-lg bg-primary/10 border border-primary/40 text-red-300 text-sm">{error}</p>

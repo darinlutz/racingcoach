@@ -147,6 +147,160 @@ test('it reflects a language changed in My Settings', async ({ browser }) => {
   await context.close();
 });
 
+test('a new account picks a country with its flag, changes it in My Settings, and My Dashboard shows the flag', async ({ browser }) => {
+  const email = `dash-${randomUUID()}@example.test`;
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const page = await context.newPage();
+  await answerCookieBanner(page);
+  await page.goto('/signup');
+  await expect(page.locator('#country')).toHaveText('Not Specified');
+  await page.locator('#country').click();
+  const countries = page.getByRole('listbox', { name: 'Country' }).getByRole('option');
+  await expect(countries).toHaveCount(251);
+  await page.getByRole('combobox', { name: 'Search countries' }).fill('braz');
+  await expect(countries).toHaveCount(1);
+  await expect(countries.filter({ hasText: 'Brazil' }).locator('.fi-br')).toBeVisible();
+  // Enter picks the country and doesn't submit the form
+  await page.getByRole('combobox', { name: 'Search countries' }).press('Enter');
+  await expect(page.locator('#country')).toHaveText('Brazil');
+  await expect(page).toHaveURL(/\/signup/);
+  await page.locator('#userName').fill('Flag Driver');
+  await page.locator('#emailAddress').fill(email);
+  await page.locator('#password').fill('correct-horse-9');
+  await page.getByRole('button', { name: 'Create Account' }).click();
+  await page.waitForURL((url) => !url.pathname.startsWith('/signup'));
+  const { rows: [row] } = await db.query('SELECT country FROM racingcoach."Users" WHERE email_address = $1', [email]);
+  expect(row.country).toBe('BR');
+
+  await page.goto('/my-dashboard');
+  await expect(page.getByRole('heading', { level: 1 }).getByRole('img', { name: 'Brazil' })).toBeVisible();
+
+  // Under the Preferred Language in My Settings
+  await page.goto('/account');
+  await expect(page.locator('#country')).toHaveText('Brazil');
+  await page.locator('#country').click();
+  await page.getByRole('option', { name: 'Germany' }).click();
+  await expect(page.getByText('Saved', { exact: true })).toBeVisible();
+  await page.goto('/my-dashboard');
+  await expect(page.getByRole('heading', { level: 1 }).getByRole('img', { name: 'Germany' })).toBeVisible();
+
+  await page.goto('/account');
+  await page.locator('#country').click();
+  await page.getByRole('option', { name: 'Not Specified' }).click();
+  await expect(page.getByText('Saved', { exact: true })).toBeVisible();
+  await page.goto('/my-dashboard');
+  await expect(page.getByRole('heading', { level: 1 }).getByRole('img')).toHaveCount(0);
+  await context.close();
+});
+
+test('an account made without a country is Not Specified, and a made-up one is refused', async ({ browser }) => {
+  const { context, page, id } = await signUp(browser, 'Plain Driver');
+  const { rows: [row] } = await db.query('SELECT country FROM racingcoach."Users" WHERE id = $1', [id]);
+  expect(row.country).toBeNull();
+  const response = await page.request.put('/api/preferences', { data: { country: 'Narnia' } });
+  expect(response.status()).toBe(400);
+  await context.close();
+});
+
+// A small picture twice as wide as it's tall: red on the left half, blue on the right
+const WIDE_PNG = async (page: Page) =>
+  Buffer.from(
+    await page.evaluate(() => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 400;
+      canvas.height = 200;
+      const context = canvas.getContext('2d')!;
+      context.fillStyle = '#ff0000';
+      context.fillRect(0, 0, 200, 200);
+      context.fillStyle = '#0000ff';
+      context.fillRect(200, 0, 200, 200);
+      return canvas.toDataURL('image/png').split(',')[1];
+    }),
+    'base64'
+  );
+
+test('a driver swaps the helmet for their own scaled picture, only they can load it, and can go back', async ({ browser }) => {
+  const me = await signUp(browser, 'Photo Driver');
+  await me.page.goto('/my-dashboard');
+  await expect(me.page.getByRole('img', { name: "Driver's red racing helmet" })).toBeVisible();
+  await expect(me.page.getByRole('button', { name: 'Remove your picture' })).toHaveCount(0);
+
+  // The camera icon opens the computer's file picker
+  const [chooser] = await Promise.all([me.page.waitForEvent('filechooser'), me.page.getByRole('button', { name: 'Change your picture' }).click()]);
+  await chooser.setFiles({ name: 'me.png', mimeType: 'image/png', buffer: await WIDE_PNG(me.page) });
+  const dialog = me.page.getByRole('dialog', { name: 'Position your picture' });
+  await expect(dialog).toBeVisible();
+
+  // Dragged as far right as it goes, the frame shows only the red half
+  const frame = dialog.getByRole('group');
+  const box = (await frame.boundingBox())!;
+  await me.page.mouse.move(box.x + 20, box.y + box.height / 2);
+  await me.page.mouse.down();
+  await me.page.mouse.move(box.x + box.width + 300, box.y + box.height / 2, { steps: 5 });
+  await me.page.mouse.up();
+  await dialog.getByRole('slider').fill('1');
+  await dialog.getByRole('button', { name: 'Save Picture' }).click();
+  await expect(dialog).toHaveCount(0);
+
+  const picture = me.page.getByRole('img', { name: 'Your driver picture' });
+  await expect(picture).toBeVisible();
+  await expect(me.page.getByRole('img', { name: "Driver's red racing helmet" })).toHaveCount(0);
+  const seen = await picture.evaluate(async (img: HTMLImageElement) => {
+    await img.decode();
+    const canvas = document.createElement('canvas');
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    const context = canvas.getContext('2d')!;
+    context.drawImage(img, 0, 0);
+    const pixel = (x: number, y: number) => Array.from(context.getImageData(x, y, 1, 1).data);
+    return { width: img.naturalWidth, height: img.naturalHeight, left: pixel(20, 256), right: pixel(490, 256) };
+  });
+  expect(seen).toMatchObject({ width: 512, height: 512 });
+  for (const pixel of [seen.left, seen.right]) {
+    expect(pixel[0]).toBeGreaterThan(200);
+    expect(pixel[2]).toBeLessThan(60);
+  }
+
+  // It stays after a reload
+  await me.page.reload();
+  await expect(me.page.getByRole('img', { name: 'Your driver picture' })).toBeVisible();
+
+  // A visitor can't load it, and nobody can upload something that isn't a JPEG
+  const visitor = await browser.newContext();
+  expect((await visitor.request.get('/api/account/picture')).status()).toBe(401);
+  await visitor.close();
+  const other = await signUp(browser, 'Other Driver');
+  expect((await other.page.request.get(`/api/account/picture?userId=${me.id}`)).status()).toBe(404);
+  await other.context.close();
+  const refused = await me.page.request.put('/api/account/picture', {
+    multipart: { file: { name: 'x.jpg', mimeType: 'image/jpeg', buffer: Buffer.from('<svg onload="alert(1)"></svg>') } },
+  });
+  expect(refused.status()).toBe(415);
+
+  // Something that isn't a picture is turned down in the browser
+  const [notPicture] = await Promise.all([me.page.waitForEvent('filechooser'), me.page.getByRole('button', { name: 'Change your picture' }).click()]);
+  await notPicture.setFiles({ name: 'notes.png', mimeType: 'image/png', buffer: Buffer.from('not a picture') });
+  await expect(me.page.getByRole('alert').filter({ hasText: 'can’t be read as a picture' })).toBeVisible();
+
+  await me.page.getByRole('button', { name: 'Remove your picture' }).click();
+  await me.page.getByRole('alertdialog').getByRole('button', { name: 'Remove' }).click();
+  await expect(me.page.getByRole('img', { name: "Driver's red racing helmet" })).toBeVisible();
+  const { rows } = await db.query('SELECT 1 FROM racingcoach."UserPictures" WHERE user_id = $1', [me.id]);
+  expect(rows).toHaveLength(0);
+  await me.context.close();
+});
+
+test('deleting an account deletes its picture', async ({ browser }) => {
+  const { context, page, id } = await signUp(browser, 'Leaving Driver');
+  const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0]);
+  const saved = await page.request.put('/api/account/picture', { multipart: { file: { name: 'x.jpg', mimeType: 'image/jpeg', buffer: jpeg } } });
+  expect(saved.status()).toBe(200);
+  expect((await page.request.delete('/api/account')).status()).toBe(200);
+  const { rows } = await db.query('SELECT 1 FROM racingcoach."UserPictures" WHERE user_id = $1', [id]);
+  expect(rows).toHaveLength(0);
+  await context.close();
+});
+
 for (const [name, width, height] of [['phone', 375, 800], ['tablet', 800, 1000], ['desktop', 1440, 900]] as const) {
   test(`fits a ${name} without scrolling sideways, even with a long name`, async ({ browser }) => {
     const { context, page } = await signUp(browser, 'Maximiliano Wolfeschlegelsteinhausen', { width, height });

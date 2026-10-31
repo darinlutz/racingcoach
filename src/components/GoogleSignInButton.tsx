@@ -4,16 +4,18 @@ import { POLICY_VERSIONS } from '@/lib/policyVersions';
 import { useLanguage } from './LanguageProvider';
 
 // Sign in with Google (/api/auth/google). From the Create an Account page (mode signup) it carries the page's
-// Preferred Language, the promo code typed so far and the policy versions the agreement line links to, so a new
+// Preferred Language, the Country and promo code so far and the policy versions the agreement line links to, so a new
 // account is made like the form would make it. Styled per Google's branding guidelines: white, with the G logo.
 export default function GoogleSignInButton({
   mode,
   next,
   promoCode = '',
+  country = null,
 }: {
   mode: 'login' | 'signup';
   next: string;
   promoCode?: string;
+  country?: string | null;
 }) {
   const { t, language } = useLanguage();
   const params = new URLSearchParams({ mode, next });
@@ -22,6 +24,7 @@ export default function GoogleSignInButton({
     params.set('terms', POLICY_VERSIONS.terms);
     params.set('privacy', POLICY_VERSIONS.privacy);
     if (promoCode.trim()) params.set('promoCode', promoCode.trim());
+    if (country) params.set('country', country);
   }
 
   return (

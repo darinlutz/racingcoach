@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { cleanCountry } from '@/lib/countryCodes';
 import { DEFAULT_LANGUAGE, fmt, isLanguage } from '@/lib/i18n/languages';
 import { setLanguageCookie } from '@/lib/i18n/server';
 import { notifyOwner } from '@/lib/ownerNotifications';
@@ -11,7 +12,7 @@ import { apiText } from '@/lib/i18n/server';
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_NAME_LENGTH = 100;
 
-// Creates an account from a name, email address, password, Preferred Language and optional promo code, recording that it accepted the
+// Creates an account from a name, email address, password, Preferred Language, Country and optional promo code, recording that it accepted the
 // Terms of Service and Privacy Policy versions in acceptedPolicies. iRacePlan is connected later, from the
 // My Race Trends page (/api/race-trends/connection).
 export async function POST(request: Request) {
@@ -23,6 +24,7 @@ export async function POST(request: Request) {
     const password = typeof body.password === 'string' ? body.password : '';
     const preferredLanguage = isLanguage(body.preferredLanguage) ? body.preferredLanguage : DEFAULT_LANGUAGE;
     const promoCode = cleanPromoCode(body.promoCode);
+    const country = cleanCountry(body.country);
 
     if (!userName || !emailAddress || !password) {
       return NextResponse.json({ error: t.allFieldsRequired }, { status: 400 });
@@ -47,6 +49,7 @@ export async function POST(request: Request) {
       emailAddress,
       password,
       preferredLanguage,
+      country,
       promoCode,
       acceptedPolicies: { ...POLICY_VERSIONS },
     });

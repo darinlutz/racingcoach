@@ -1,7 +1,9 @@
 // My Dashboard's rules and guards: npm run test:my-dashboard
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { cleanCountry, COUNTRY_CODES, countryFlagClass, countryName, countryOptions, countrySearchText } from '../src/lib/countryCodes.ts';
+import { clampPan, cropSquare, looksLikeJpeg, panAfterZoom, pictureBox } from '../src/lib/profilePictureRules.ts';
 import {
   hasManageableSubscription,
   longDistance,
@@ -11,6 +13,74 @@ import {
   subscriptionView,
   trackMapPath,
 } from '../src/lib/dashboardRules.ts';
+
+test('every country has a flag and a name, in every language', () => {
+  assert.equal(new Set(COUNTRY_CODES).size, COUNTRY_CODES.length);
+  assert.ok(COUNTRY_CODES.length >= 249);
+  for (const code of COUNTRY_CODES) {
+    assert.ok(existsSync(`node_modules/flag-icons/flags/4x3/${code.toLowerCase()}.svg`), `${code} has no flag`);
+  }
+  for (const locale of ['en-US', 'pt-BR', 'es-419', 'de-DE']) {
+    const options = countryOptions(locale);
+    assert.equal(options.length, COUNTRY_CODES.length);
+    for (const { code, name } of options) assert.notEqual(name, code, `${code} has no name in ${locale}`);
+  }
+  assert.equal(countryName('BR', 'en-US'), 'Brazil');
+  assert.equal(countryName('DE', 'pt-BR'), 'Alemanha');
+  assert.equal(countryFlagClass('BR'), 'fi fi-br');
+});
+
+test('only a listed country is kept; anything else is Not Specified', () => {
+  assert.equal(cleanCountry('BR'), 'BR');
+  for (const value of [null, undefined, '', 'br', 'Brazil', 'ZZ', '__proto__', 5, {}]) {
+    assert.equal(cleanCountry(value), null);
+  }
+});
+
+test('a country search ignores case and accents', () => {
+  assert.equal(countrySearchText('  Côte d’Ivoire'), 'cote d’ivoire');
+  assert.equal(countrySearchText('TÜRKIYE'), 'turkiye');
+});
+
+test('a picture always fills the frame, however it is dragged or scaled', () => {
+  const size = { width: 2000, height: 1000 };
+  // At zoom 1 the shorter side fits exactly: it moves sideways only, half the 300 pixels too wide
+  assert.deepEqual(clampPan({ x: 999, y: 999 }, size, 1, 300), { x: 150, y: 0 });
+  assert.deepEqual(clampPan({ x: -999, y: -999 }, size, 1, 300), { x: -150, y: -0 });
+  assert.deepEqual(clampPan({ x: 999, y: 999 }, size, 2, 300), { x: 450, y: 150 });
+  for (const [pan, zoom] of [[{ x: 999, y: -999 }, 1], [{ x: -999, y: 999 }, 2.5], [{ x: 3, y: 7 }, 4]]) {
+    const crop = cropSquare(clampPan(pan, size, zoom, 300), size, zoom, 300);
+    assert.ok(crop.x >= -1e-9 && crop.y >= -1e-9, 'starts inside the picture');
+    assert.ok(crop.x + crop.side <= size.width + 1e-9 && crop.y + crop.side <= size.height + 1e-9, 'ends inside the picture');
+  }
+});
+
+test('the square saved is the part showing in the frame', () => {
+  const size = { width: 2000, height: 1000 };
+  assert.deepEqual(cropSquare({ x: 0, y: 0 }, size, 1, 300), { x: 500, y: 0, side: 1000 });
+  // Dragged all the way right, the picture's left end shows
+  assert.deepEqual(cropSquare({ x: 150, y: 0 }, size, 1, 300), { x: 0, y: 0, side: 1000 });
+  assert.deepEqual(cropSquare({ x: 0, y: 0 }, size, 2, 300), { x: 750, y: 250, side: 500 });
+  const box = pictureBox({ x: 150, y: 0 }, size, 1, 300);
+  assert.deepEqual(box, { width: 600, height: 300, left: 0, top: 0 });
+});
+
+test('scaling keeps the same spot at the center of the frame', () => {
+  const size = { width: 2000, height: 1000 };
+  const before = cropSquare({ x: 60, y: 0 }, size, 1, 300);
+  const pan = panAfterZoom({ x: 60, y: 0 }, size, 1, 2, 300);
+  const after = cropSquare(pan, size, 2, 300);
+  assert.equal(before.x + before.side / 2, after.x + after.side / 2);
+  // Scaling back down can't leave a gap
+  assert.deepEqual(panAfterZoom({ x: 450, y: 150 }, size, 2, 1, 300), { x: 150, y: 0 });
+});
+
+test('only a JPEG is accepted as an upload', () => {
+  assert.ok(looksLikeJpeg(new Uint8Array([0xff, 0xd8, 0xff, 0xe0])));
+  assert.ok(!looksLikeJpeg(new TextEncoder().encode('<svg onload="alert(1)">')));
+  assert.ok(!looksLikeJpeg(new Uint8Array([0x89, 0x50, 0x4e, 0x47])));
+  assert.ok(!looksLikeJpeg(new Uint8Array()));
+});
 
 const NOW = new Date('2026-10-31T12:00:00.000Z');
 const FUTURE = '2026-11-30T12:00:00.000Z';

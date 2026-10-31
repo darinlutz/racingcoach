@@ -16,6 +16,7 @@ import { addNewDefaultCars, addRacingDisciplines, copyDefaultCars, seedDefaultCa
 import { seedDefaultTracks } from './defaultTracks';
 import { dropTrackLengthsTable } from './trackLengths';
 import { appendTrackCorners, categorizeTracks, removeLegacyTracks, seedTrackCorners } from './trackCorners';
+import { cleanCountry } from './countryCodes';
 import { DEFAULT_LANGUAGE, isLanguage, type Language } from './i18n/languages';
 import { DEFAULT_THEME, isTheme, type Theme } from './theme';
 import { DEFAULT_BRAKE_BEEPS_VOLUME, isBrakeBeepsVolume } from './brakeBeepsVolume';
@@ -43,6 +44,8 @@ export type User = {
   role: string;
   // The language the site and its AI features use for this user
   preferredLanguage: Language;
+  // The Country picked at sign-up or in My Settings, as an alpha-2 code (src/lib/countryCodes.ts); null is Not Specified
+  country: string | null;
   // Dark Mode or Light Mode for the whole site
   theme: Theme;
   // Standard (feet, mph, °F) or Metric (meters, kph, °C) for the whole site
@@ -57,7 +60,7 @@ export type User = {
 };
 
 const USER_COLUMNS =
-  'id, user_name, email_address, account_status, membership_level, signup_date, subscription_end_date, stripe_subscription_id, stripe_customer_id, role, preferred_language, theme, units, brake_beeps, brake_beeps_volume, has_password';
+  'id, user_name, email_address, account_status, membership_level, signup_date, subscription_end_date, stripe_subscription_id, stripe_customer_id, role, preferred_language, country, theme, units, brake_beeps, brake_beeps_volume, has_password';
 
 // The site owner is made Admin on sign-up; everyone else is a User
 export const OWNER_EMAIL = 'darinlutz@yahoo.com';
@@ -101,7 +104,7 @@ export class EmailTakenError extends Error {
 let schemaReady: Promise<void> | null = null;
 
 // The racingcoach schema holds the site's accounts and everything tied to one:
-// Users, Track Data's Tracks and their TrackFocusAreas (shared by every user), each user's own Friends and LiveRacingWatchers,
+// Users and their UserPictures, Track Data's Tracks and their TrackFocusAreas (shared by every user), each user's own Friends and LiveRacingWatchers,
 // the default Cars and each user's CarsUsers, IRacePlanConnections and RaceResults (from iRacePlan and the collector), DiscordConnections, GoogleConnections, saved
 // DebriefSessions, the telemetry collector's CollectorKeys, uploaded CollectorLaps, CollectorLogs and CollectorLogReviews, sign-in Sessions,
 // PasswordResets links, TV Broadcast Mode's TvPairings and TvSessions, CancellationReason feedback, the ActivityLog of page views and clicks, and the
@@ -155,6 +158,8 @@ export function ensureUserSchema(): Promise<void> {
       await client.query(
         `ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS preferred_language TEXT NOT NULL DEFAULT '${DEFAULT_LANGUAGE}'`
       );
+      // The Country from the Create an Account page and My Settings: an alpha-2 code (src/lib/countryCodes.ts); NULL is Not Specified
+      await client.query('ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS country TEXT');
       // Dark Mode or Light Mode for the whole site: dark or light (src/lib/theme.ts)
       await client.query(
         `ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS theme TEXT NOT NULL DEFAULT '${DEFAULT_THEME}'`
@@ -215,6 +220,12 @@ export function ensureUserSchema(): Promise<void> {
         ACCOUNT_STATUS.subscribed,
         LEGACY_SUBSCRIBED_STATUSES,
       ]);
+      // Each user's own picture on My Dashboard (src/lib/profilePictures.ts); no row is the red helmet
+      await client.query(`CREATE TABLE IF NOT EXISTS racingcoach."UserPictures" (
+        user_id INTEGER PRIMARY KEY REFERENCES racingcoach."Users"(id) ON DELETE CASCADE,
+        image BYTEA NOT NULL,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      )`);
       // Each friend belongs to one user. `seq` records insertion order for listing.
       await client.query(`CREATE TABLE IF NOT EXISTS racingcoach."Friends" (
         id TEXT PRIMARY KEY,
@@ -974,6 +985,7 @@ function rowToUser(row: Record<string, unknown>): User {
     membershipLevel: (row.membership_level as string | null) ?? MEMBERSHIP_LEVEL.bronze,
     role: row.role as string,
     preferredLanguage: isLanguage(row.preferred_language) ? row.preferred_language : DEFAULT_LANGUAGE,
+    country: cleanCountry(row.country),
     theme: isTheme(row.theme) ? row.theme : DEFAULT_THEME,
     units: isUnits(row.units) ? row.units : DEFAULT_UNITS,
     brakeBeeps: row.brake_beeps !== false,
@@ -997,6 +1009,7 @@ export async function createUser(input: {
   // Null for an account made by signing in with another service: it gets a random password nobody knows
   password: string | null;
   preferredLanguage: Language;
+  country: string | null;
   promoCode: string | null;
   acceptedPolicies: PolicyVersions;
 }): Promise<User> {
@@ -1009,8 +1022,8 @@ export async function createUser(input: {
       const { rows } = await client.query(
         `INSERT INTO racingcoach."Users"
            (user_name, email_address, password, account_status, membership_level, signup_date, role, preferred_language,
-            promo_code, has_password)
-         VALUES ($1, $2, $3, $6, $8, $4, $5, $7, $9, $10)
+            promo_code, has_password, country)
+         VALUES ($1, $2, $3, $6, $8, $4, $5, $7, $9, $10, $11)
          RETURNING ${USER_COLUMNS}`,
         [
           input.userName,
@@ -1023,6 +1036,7 @@ export async function createUser(input: {
           MEMBERSHIP_LEVEL.bronze,
           input.promoCode,
           input.password !== null,
+          input.country,
         ]
       );
       const user = rowToUser(rows[0]);
@@ -1122,6 +1136,11 @@ export async function setMembershipLevel(userId: number, membershipLevel: Member
 export async function setPreferredLanguage(userId: number, language: Language): Promise<void> {
   await ensureUserSchema();
   await query('UPDATE racingcoach."Users" SET preferred_language = $1 WHERE id = $2', [language, userId]);
+}
+
+export async function setCountry(userId: number, country: string | null): Promise<void> {
+  await ensureUserSchema();
+  await query('UPDATE racingcoach."Users" SET country = $1 WHERE id = $2', [country, userId]);
 }
 
 export async function setTheme(userId: number, theme: Theme): Promise<void> {

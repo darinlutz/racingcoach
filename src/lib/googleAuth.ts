@@ -19,13 +19,14 @@ const MAX_NAME_LENGTH = 100;
 export type GoogleMode = 'login' | 'signup';
 
 // What /api/auth/google remembers for the callback. Signing up carries what the Create an Account form had:
-// its Preferred Language, promo code and the policy versions it showed.
+// its Preferred Language, Country, promo code and the policy versions it showed.
 export type GoogleState = {
   state: string;
   verifier: string;
   mode: GoogleMode;
   next: string;
   language: Language;
+  country: string | null;
   promoCode: string | null;
   acceptedPolicies: PolicyVersions | null;
 };
@@ -130,7 +131,7 @@ async function saveGoogleConnection(userId: number, profile: GoogleProfile): Pro
 // password of its own until Forgot Password sets one. Null when there's no account and no `signup`.
 export async function signInWithGoogle(
   profile: GoogleProfile,
-  signup: { language: Language; promoCode: string | null; acceptedPolicies: PolicyVersions } | null
+  signup: { language: Language; country: string | null; promoCode: string | null; acceptedPolicies: PolicyVersions } | null
 ): Promise<{ user: User; created: boolean } | null> {
   await ensureUserSchema();
   const [linked] = await query('SELECT user_id FROM racingcoach."GoogleConnections" WHERE google_sub = $1', [profile.sub]);
@@ -151,6 +152,7 @@ export async function signInWithGoogle(
     emailAddress: profile.email,
     password: null,
     preferredLanguage: signup.language,
+    country: signup.country,
     promoCode: signup.promoCode,
     acceptedPolicies: signup.acceptedPolicies,
   });

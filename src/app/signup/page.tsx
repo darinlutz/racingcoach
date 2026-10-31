@@ -4,6 +4,7 @@ import { googleSignInEnabled } from '@/lib/googleAuth';
 import { getDictionary, getLanguage } from '@/lib/i18n/server';
 import { safeReturnTo } from '@/lib/returnTo';
 import { getCurrentUser } from '@/lib/session';
+import 'flag-icons/css/flag-icons.min.css';
 
 // ?next= is the page to go back to afterwards (src/lib/returnTo.ts); ?google= is what Sign in with Google came
 // back with (src/app/api/auth/google)

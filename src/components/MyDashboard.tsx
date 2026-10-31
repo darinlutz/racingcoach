@@ -2,8 +2,10 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Car, ChevronRight, Clock, Flag, Gauge, MapPin, Route, Settings, type LucideIcon } from 'lucide-react';
 import LocalTime from '@/components/LocalTime';
+import ProfilePicture from '@/components/ProfilePicture';
 import { MEMBERSHIP_LEVEL, MEMBERSHIP_LEVEL_VALUES } from '@/lib/accountStatus';
 import { carPictureUrl } from '@/lib/carPictures';
+import { countryFlagClass, countryName } from '@/lib/countryCodes';
 import type { DashboardData } from '@/lib/dashboard';
 import { hasManageableSubscription, longDistance, maskEmail, splitDriverName, TRACK_MAP_VIEW_BOX, type SubscriptionState } from '@/lib/dashboardRules';
 import { fmt, LANGUAGE_LOCALES, LANGUAGE_NAMES, plural } from '@/lib/i18n/languages';
@@ -62,7 +64,7 @@ function StatCard({ icon: Icon, label, value, unit, note }: { icon: LucideIcon; 
 }
 
 // The page's sections, from what src/lib/dashboard.ts read for the signed-in user
-export default function MyDashboard({ user, data, viewPlans }: { user: User; data: DashboardData; viewPlans: boolean }) {
+export default function MyDashboard({ user, data, viewPlans, pictureVersion }: { user: User; data: DashboardData; viewPlans: boolean; pictureVersion: string | null }) {
   const language = user.preferredLanguage;
   const dictionary = getDictionary(language);
   const t = dictionary.myDashboard;
@@ -87,21 +89,21 @@ export default function MyDashboard({ user, data, viewPlans }: { user: User; dat
         <div className="mx-auto grid max-w-7xl items-center gap-6 px-6 py-10 md:grid-cols-2 md:py-16">
           <div className="dash-rise relative flex justify-center">
             <div className="absolute inset-10 rounded-full bg-primary/30 blur-3xl" aria-hidden />
-            <Image
-              src="/assets/dashboard/helmet.webp"
-              alt={t.helmetAlt}
-              width={640}
-              height={640}
-              sizes="(min-width: 768px) 16rem, 14rem"
-              preload
-              className="relative w-full max-w-56 -rotate-6 drop-shadow-2xl md:max-w-64"
-            />
+            <ProfilePicture version={pictureVersion} />
           </div>
           <div className="dash-rise min-w-0 [animation-delay:120ms]">
             <p className="dash-label text-primary">{t.racingDriver}</p>
             <h1 className={`mt-2 font-display font-extrabold uppercase italic leading-[0.85] tracking-tight [overflow-wrap:anywhere] ${nameSize}`}>
               {name.first && <>{name.first}<br /></>}
               <span className="text-primary">{name.last}</span>
+              {user.country && (
+                <span
+                  role="img"
+                  aria-label={countryName(user.country, locale)}
+                  title={countryName(user.country, locale)}
+                  className={`${countryFlagClass(user.country)} ml-3 rounded-[3px] align-middle text-2xl shadow-[0_0_0_1px_rgba(0,0,0,0.15)] sm:text-3xl`}
+                />
+              )}
             </h1>
             <div className="dash-telemetry-line mt-6 w-48" aria-hidden />
             <div className="mt-6 flex flex-wrap items-center gap-4">

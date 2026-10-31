@@ -9,6 +9,7 @@ import {
   newPkceVerifier,
   type GoogleState,
 } from '@/lib/googleAuth';
+import { cleanCountry } from '@/lib/countryCodes';
 import { DEFAULT_LANGUAGE, isLanguage } from '@/lib/i18n/languages';
 import { isCurrentPolicyVersions } from '@/lib/policyVersions';
 import { cleanPromoCode } from '@/lib/promoCode';
@@ -16,7 +17,7 @@ import { safeReturnTo } from '@/lib/returnTo';
 import { getSiteOrigin } from '@/lib/siteOrigin';
 
 // Starts Sign in with Google from the Log In page (?mode=login) or the Create an Account page (?mode=signup, with
-// the form's language, promoCode and the terms and privacy versions it showed). ?next= is where to go afterwards.
+// the form's language, country, promoCode and the terms and privacy versions it showed). ?next= is where to go afterwards.
 // Sends the visitor to Google with a one-time state value that /api/auth/google/callback checks.
 export async function GET(request: Request) {
   const origin = getSiteOrigin(request);
@@ -47,6 +48,7 @@ export async function GET(request: Request) {
       mode,
       next,
       language: isLanguage(language) ? language : DEFAULT_LANGUAGE,
+      country: cleanCountry(params.get('country')),
       promoCode: cleanPromoCode(params.get('promoCode')),
       acceptedPolicies: mode === 'signup' && isCurrentPolicyVersions(acceptedPolicies) ? acceptedPolicies : null,
     };

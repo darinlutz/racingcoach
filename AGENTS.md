@@ -130,6 +130,17 @@ Uploaded laps (`"CollectorLaps"`) and saved Debrief Coach runs (`"DebriefSession
 - **Not covered**: the Target Lap (the user's choice, kept until replaced or removed), Expert Laps (coaching content) and track bounds and outlines (no user in them)
 - **Tests**: `npm run test:lap-retention` (rules at exact UTC boundaries; then the real modules against a local Postgres when `LAP_RETENTION_TEST_DATABASE_URL` is set, see the test's header; it refuses a database that isn't local)
 
+## Multi-Simulator Telemetry
+
+iRacing is the only supported simulator. The collector and website are ready for others behind an adapter contract; no other adapter exists. Design, the capability matrix, what's proven and not, how to add a simulator, and rollback are in `docs/multi-simulator.md`.
+
+- **Collector**: `collector/RacingCoach.Collector.Core/` (no simulator SDK or WPF): `ISimulatorAdapter`, `TelemetryFrame` (null means unavailable, never 0; iRacing's units and signs), `FrameLapTracker`, `LapCsvFormat`, `SimulatorSelection`, `FramePump`. `IRacingAdapter.cs` holds the SDK connection. iRacing keeps its own path (`RunNativeAsync`, `TelemetryData`, `LapRecorder`), as the coach, overlays, brake beeps, Rotation Model, Live Racing, Driver Radio and race results read `TelemetryData`; other simulators get laps only, through `CanonicalLapPipeline`. `--simulator auto|<id>` opts in; without it no detection runs
+- **Matrix**: `simulators/capabilities.json`, shared by the collector (`SimulatorCatalog`) and website (`src/lib/simulators.ts`). `status: supported` is what lets `POST /api/collector/laps` accept a simulator's laps (422 `simulatorNotSupported` otherwise): change it only after an adapter has passed the checklist against the real simulator
+- **Database** (`src/lib/simulatorSchema.ts`, additive only): `"CollectorLaps".simulator` (default `iracing`), `native_track_key`, `payload_version`, `adapter_version`; `"SimulatorTracks"` and `"SimulatorCars"` map other simulators' ids to the site's, only on purpose (`simulatorMappings.ts`), never by similar names. For another simulator `track_key` is the mapped site track or NULL. Only iRacing laps write `"Tracks"`' lengths, locations, bounds and outlines
+- **Payload**: a lap's details carry `simulator` and `payloadVersion`; none means iRacing, format 1. Bump it only when a field changes meaning, and keep reading older formats
+- **Golden files**: `collector/RacingCoach.Collector.Tests/Golden/` is iRacing's behavior from before this work. Never regenerate them to make a test pass: a difference is a change to iRacing to understand first
+- **Tests**: `npm run test:collector` (needs no simulator) and `npm run test:simulators` (with `SIMULATORS_TEST_DATABASE_URL`, see the test's header)
+
 ## My Dashboard
 
 The nav bar's My Dashboard (`/my-dashboard`, `src/app/my-dashboard/page.tsx`, `src/components/MyDashboard.tsx`; the design came from the Lovable project `darinlutz/pixel-perfect-replica`, on the site's color tokens so it follows Light Mode): the signed-in driver's profile, latest driving, statistics, membership and account. It takes no user ID: it reads the session, so it's rendered for each visit and never cached between users. Its only table is `"UserPictures"`.

@@ -1,0 +1,346 @@
+{
+  "clean": {
+    "laps": [
+      {
+        "LapNumber": 1,
+        "SessionNum": 0,
+        "LapTimeSeconds": 20,
+        "Samples": 1201,
+        "MissingSamples": 0,
+        "Incidents": 0,
+        "OnPitRoad": false,
+        "OffTrack": false
+      },
+      {
+        "LapNumber": 2,
+        "SessionNum": 0,
+        "LapTimeSeconds": 20,
+        "Samples": 1201,
+        "MissingSamples": 0,
+        "Incidents": 0,
+        "OnPitRoad": false,
+        "OffTrack": false
+      },
+      {
+        "LapNumber": 3,
+        "SessionNum": 0,
+        "LapTimeSeconds": 20,
+        "Samples": 1201,
+        "MissingSamples": 0,
+        "Incidents": 0,
+        "OnPitRoad": false,
+        "OffTrack": false
+      }
+    ],
+    "discarded": []
+  },
+  "missing samples": {
+    "laps": [
+      {
+        "LapNumber": 1,
+        "SessionNum": 0,
+        "LapTimeSeconds": 20,
+        "Samples": 1198,
+        "MissingSamples": 3,
+        "Incidents": 0,
+        "OnPitRoad": false,
+        "OffTrack": false
+      },
+      {
+        "LapNumber": 2,
+        "SessionNum": 0,
+        "LapTimeSeconds": 20,
+        "Samples": 1201,
+        "MissingSamples": 0,
+        "Incidents": 0,
+        "OnPitRoad": false,
+        "OffTrack": false
+      }
+    ],
+    "discarded": []
+  },
+  "telemetry paused": {
+    "laps": [
+      {
+        "LapNumber": 2,
+        "SessionNum": 0,
+        "LapTimeSeconds": 20,
+        "Samples": 1201,
+        "MissingSamples": 0,
+        "Incidents": 0,
+        "OnPitRoad": false,
+        "OffTrack": false
+      }
+    ],
+    "discarded": [
+      "Lap 1 not saved: telemetry paused."
+    ]
+  },
+  "time goes backwards": {
+    "laps": [
+      {
+        "LapNumber": 2,
+        "SessionNum": 0,
+        "LapTimeSeconds": 20,
+        "Samples": 1201,
+        "MissingSamples": 0,
+        "Incidents": 0,
+        "OnPitRoad": false,
+        "OffTrack": false
+      }
+    ],
+    "discarded": [
+      "Lap 1 not saved: session time went backwards."
+    ]
+  },
+  "reset or tow": {
+    "laps": [
+      {
+        "LapNumber": 2,
+        "SessionNum": 0,
+        "LapTimeSeconds": 20,
+        "Samples": 1201,
+        "MissingSamples": 0,
+        "Incidents": 0,
+        "OnPitRoad": false,
+        "OffTrack": false
+      }
+    ],
+    "discarded": [
+      "Lap 1 not saved: car was moved (reset or tow)."
+    ]
+  },
+  "backward over the line": {
+    "laps": [
+      {
+        "LapNumber": 1,
+        "SessionNum": 0,
+        "LapTimeSeconds": 20,
+        "Samples": 1201,
+        "MissingSamples": 0,
+        "Incidents": 0,
+        "OnPitRoad": false,
+        "OffTrack": false
+      },
+      {
+        "LapNumber": 2,
+        "SessionNum": 0,
+        "LapTimeSeconds": 19.489011,
+        "Samples": 1170,
+        "MissingSamples": 0,
+        "Incidents": 0,
+        "OnPitRoad": false,
+        "OffTrack": false
+      }
+    ],
+    "discarded": [
+      "Lap 2 not saved: drove backwards over the start/finish line."
+    ]
+  },
+  "rocking over the line": {
+    "laps": [
+      {
+        "LapNumber": 2,
+        "SessionNum": 0,
+        "LapTimeSeconds": 20,
+        "Samples": 1201,
+        "MissingSamples": 0,
+        "Incidents": 0,
+        "OnPitRoad": false,
+        "OffTrack": false
+      }
+    ],
+    "discarded": [
+      "Lap 0 not saved: drove backwards over the start/finish line.",
+      "Lap 0 not saved: drove backwards over the start/finish line.",
+      "Lap 0 not saved: drove backwards over the start/finish line.",
+      "Lap 0 not saved: drove backwards over the start/finish line.",
+      "Lap 0 not saved: drove backwards over the start/finish line.",
+      "Lap 0 not saved: drove backwards over the start/finish line.",
+      "Lap 0 not saved: drove backwards over the start/finish line.",
+      "Lap 0 not saved: drove backwards over the start/finish line.",
+      "Lap 0 not saved: drove backwards over the start/finish line.",
+      "Lap 0 not saved: drove backwards over the start/finish line.",
+      "Lap 0 not saved: drove backwards over the start/finish line.",
+      "Lap 0 not saved: drove backwards over the start/finish line.",
+      "Lap 0 not saved: drove backwards over the start/finish line.",
+      "Lap 0 not saved: drove backwards over the start/finish line.",
+      "Lap 0 not saved: drove backwards over the start/finish line.",
+      "Lap 1 not saved: drove backwards over the start/finish line.",
+      "Lap 1 not saved: drove backwards over the start/finish line.",
+      "Lap 1 not saved: drove backwards over the start/finish line.",
+      "Lap 1 not saved: drove backwards over the start/finish line.",
+      "Lap 1 not saved: car was moved (reset or tow)."
+    ]
+  },
+  "session changes": {
+    "laps": [
+      {
+        "LapNumber": 2,
+        "SessionNum": 1,
+        "LapTimeSeconds": 20,
+        "Samples": 1201,
+        "MissingSamples": 0,
+        "Incidents": 0,
+        "OnPitRoad": false,
+        "OffTrack": false
+      },
+      {
+        "LapNumber": 3,
+        "SessionNum": 1,
+        "LapTimeSeconds": 20,
+        "Samples": 1201,
+        "MissingSamples": 0,
+        "Incidents": 0,
+        "OnPitRoad": false,
+        "OffTrack": false
+      }
+    ],
+    "discarded": [
+      "Lap 1 not saved: session changed."
+    ]
+  },
+  "replay": {
+    "laps": [
+      {
+        "LapNumber": 2,
+        "SessionNum": 0,
+        "LapTimeSeconds": 20,
+        "Samples": 1201,
+        "MissingSamples": 0,
+        "Incidents": 0,
+        "OnPitRoad": false,
+        "OffTrack": false
+      }
+    ],
+    "discarded": [
+      "Lap 1 not saved: left the car or watching a replay."
+    ]
+  },
+  "left the car": {
+    "laps": [
+      {
+        "LapNumber": 2,
+        "SessionNum": 0,
+        "LapTimeSeconds": 20,
+        "Samples": 1201,
+        "MissingSamples": 0,
+        "Incidents": 0,
+        "OnPitRoad": false,
+        "OffTrack": false
+      }
+    ],
+    "discarded": [
+      "Lap 1 not saved: left the car or watching a replay."
+    ]
+  },
+  "pit road": {
+    "laps": [
+      {
+        "LapNumber": 1,
+        "SessionNum": 0,
+        "LapTimeSeconds": 20,
+        "Samples": 1201,
+        "MissingSamples": 0,
+        "Incidents": 0,
+        "OnPitRoad": true,
+        "OffTrack": false
+      },
+      {
+        "LapNumber": 2,
+        "SessionNum": 0,
+        "LapTimeSeconds": 20,
+        "Samples": 1201,
+        "MissingSamples": 0,
+        "Incidents": 0,
+        "OnPitRoad": false,
+        "OffTrack": false
+      }
+    ],
+    "discarded": []
+  },
+  "off track": {
+    "laps": [
+      {
+        "LapNumber": 1,
+        "SessionNum": 0,
+        "LapTimeSeconds": 20,
+        "Samples": 1201,
+        "MissingSamples": 0,
+        "Incidents": 0,
+        "OnPitRoad": false,
+        "OffTrack": true
+      },
+      {
+        "LapNumber": 2,
+        "SessionNum": 0,
+        "LapTimeSeconds": 20,
+        "Samples": 1201,
+        "MissingSamples": 0,
+        "Incidents": 0,
+        "OnPitRoad": false,
+        "OffTrack": false
+      }
+    ],
+    "discarded": []
+  },
+  "incidents": {
+    "laps": [
+      {
+        "LapNumber": 1,
+        "SessionNum": 0,
+        "LapTimeSeconds": 20,
+        "Samples": 1201,
+        "MissingSamples": 0,
+        "Incidents": 4,
+        "OnPitRoad": false,
+        "OffTrack": false
+      },
+      {
+        "LapNumber": 2,
+        "SessionNum": 0,
+        "LapTimeSeconds": 20,
+        "Samples": 1201,
+        "MissingSamples": 0,
+        "Incidents": 0,
+        "OnPitRoad": false,
+        "OffTrack": false
+      }
+    ],
+    "discarded": []
+  },
+  "no lap position": {
+    "laps": [
+      {
+        "LapNumber": 2,
+        "SessionNum": 0,
+        "LapTimeSeconds": 20,
+        "Samples": 1201,
+        "MissingSamples": 0,
+        "Incidents": 0,
+        "OnPitRoad": false,
+        "OffTrack": false
+      }
+    ],
+    "discarded": [
+      "Lap 1 not saved: left the car or watching a replay."
+    ]
+  },
+  "negative lap position": {
+    "laps": [
+      {
+        "LapNumber": 2,
+        "SessionNum": 0,
+        "LapTimeSeconds": 20,
+        "Samples": 1201,
+        "MissingSamples": 0,
+        "Incidents": 0,
+        "OnPitRoad": false,
+        "OffTrack": false
+      }
+    ],
+    "discarded": [
+      "Lap 1 not saved: left the car or watching a replay."
+    ]
+  }
+}

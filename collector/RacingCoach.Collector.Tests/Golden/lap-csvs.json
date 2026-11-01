@@ -1,0 +1,22 @@
+{
+  "Folder": "(date) Lime Rock Park (Grand Prix) - Test Car GT3",
+  "Header": "Speed,LapDistPct,Brake,Throttle,RPM,SteeringWheelAngle,Gear,Clutch,ABSActive,LatAccel,LongAccel,VertAccel,Yaw,YawRate,VelocityX,VelocityY,LFtempCL,LFtempCM,LFtempCR,RFtempCL,RFtempCM,RFtempCR,LRtempCL,LRtempCM,LRtempCR,RRtempCL,RRtempCM,RRtempCR,FuelLevel,FuelUsePerHour,WaterTemp,OilTemp,LFrideHeight,RFrideHeight,LRrideHeight,RRrideHeight,LFpressure,RFpressure,LRpressure,RRpressure,Lap,LapDist,SessionTime,SessionTick,Lat,Lon,Alt,FuelKgPerLtr",
+  "FirstRow": "47.6093,0,0.966,0.7395,5749.6484,-1.1038,3,1,false,-16.5418,0.3131,11.5206,2.6944,0.1037,47.6093,-1.1604,75.244,79.7287,85.3822,87.9261,85.941,82.1714,81.0023,84.4281,90.2185,93.9692,93.1512,89.436,59.97,60.3175,87.7995,100.5269,0.0592,0.0582,0.059699997,0.0514,165.529,170.4678,175.8959,177.7421,1,0,0.5,30,,,,0.75",
+  "Files": [
+    {
+      "Name": "RacingCoach - Test Driver - Test Car GT3 - Lime Rock Park (Grand Prix) - 00.20.000 - S0L001.csv",
+      "Sha256": "1962D6DA0749618DC457428E445E86397056FBA57FC0AFDD7B3BBFC915424341",
+      "Rows": 1201
+    },
+    {
+      "Name": "RacingCoach - Test Driver - Test Car GT3 - Lime Rock Park (Grand Prix) - 00.20.000 - S0L002.csv",
+      "Sha256": "E0EEFAE1AEBEA9A1CB5442074AF1F8B37F5B94378AE1505CD098562D14284612",
+      "Rows": 1201
+    },
+    {
+      "Name": "RacingCoach - Test Driver - Test Car GT3 - Lime Rock Park (Grand Prix) - 00.20.000 - S0L003.csv",
+      "Sha256": "9B4FF382F7EEB18656E9FEE04993EAB9A001C479C0D96374AE25D3B8D4A50FAC",
+      "Rows": 1201
+    }
+  ]
+}

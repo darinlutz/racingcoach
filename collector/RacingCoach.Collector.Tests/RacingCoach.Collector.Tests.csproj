@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The collector's regression and adapter tests: dotnet test collector/RacingCoach.Collector.Tests
+       (or npm run test:collector). Needs no simulator: see docs/multi-simulator.md for what that leaves unproven. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <RootNamespace>RacingCoach.Collector.Tests</RootNamespace>
+    <!-- One of the tests runs the collector's engine, whose window code expects a single process-wide Application -->
+    <GenerateProgramFile>true</GenerateProgramFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+    <!-- TelemetryData is generated in the collector's assembly; without this the generator would make a second one here -->
+    <PackageReference Include="SVappsLAB.iRacingTelemetrySDK" Version="2.5.0" ExcludeAssets="analyzers" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\RacingCoach.Collector\RacingCoach.Collector.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="System.IO" />
+    <Using Include="System.Net.Http" />
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+</Project>

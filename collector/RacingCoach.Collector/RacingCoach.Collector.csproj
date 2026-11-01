@@ -41,4 +41,13 @@
     <Resource Include="Assets\collector.ico" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Adapter contracts, the canonical telemetry model and lap tracking, without any simulator's SDK or WPF -->
+    <ProjectReference Include="..\RacingCoach.Collector.Core\RacingCoach.Collector.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="RacingCoach.Collector.Tests" />
+  </ItemGroup>
+
 </Project>

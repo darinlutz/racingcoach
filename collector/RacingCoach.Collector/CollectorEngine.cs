@@ -1,12 +1,21 @@
-using Microsoft.Extensions.Logging.Abstractions;
+using RacingCoach.Collector.Simulators;
 using SVappsLAB.iRacingTelemetrySDK;
 
 namespace RacingCoach.Collector;
 
-/// <summary>Command line options. A played-back .ibt file (with a speed multiplier) replaces live iRacing.</summary>
-internal sealed record CollectorOptions(string? IbtFile, int Speed, bool SetKey, bool NoUpload, bool Upload, string? SiteUrl, bool NoPositions)
+/// <summary>Command line options. A played-back .ibt file (with a speed multiplier) replaces live iRacing.
+/// Simulator is --simulator: null is iRacing directly, as ever; "auto" looks for a running simulator, and otherwise
+/// it's a simulator's id.</summary>
+internal sealed record CollectorOptions(string? IbtFile, int Speed, bool SetKey, bool NoUpload, bool Upload, string? SiteUrl, bool NoPositions, string? Simulator = null)
 {
+    public const string AutoSimulator = "auto";
     public bool Playback => IbtFile is not null;
+}
+
+/// <summary>The simulators this build can read. Adding one is adding its adapter here.</summary>
+internal static class SimulatorRegistry
+{
+    public static IReadOnlyList<ISimulatorAdapter> Create(IRacingAdapter iRacing) => [iRacing];
 }
 
 /// <summary>Track, car, driver and session details from iRacing's session info, for the window.</summary>
@@ -52,11 +61,13 @@ internal sealed class CollectorEngine
     private readonly BrakeBeeps _brakeBeeps;
     private readonly RaceResultTracker? _races;
     private readonly LogUploader _logs;
+    private readonly string _documents;
     private readonly object _sampleLock = new();
     private TelemetryData _latest;
     private bool _hasLatest;
     private LapUploader? _uploader;
-    private ITelemetryClient<TelemetryData>? _client;
+    private readonly IRacingAdapter _iRacing;
+    private readonly IReadOnlyList<ISimulatorAdapter> _adapters;
 
     // .ibt recording: asked for once per connection (so turning it off with Alt+L sticks), and
     // a finished recording is the cue to add track positions to the stint's laps
@@ -74,11 +85,16 @@ internal sealed class CollectorEngine
 
     /// <param name="log">Called with each activity message, and whether it's an error.</param>
     /// <param name="lapsChanged">Called when a session folder's laps change (saved, uploaded, positions added).</param>
-    public CollectorEngine(CollectorOptions options, Action<string, bool> log, Action<SessionLaps> lapsChanged)
+    /// <param name="documents">The Documents folder (the user's own, unless a test gives it another).</param>
+    /// <param name="adapters">The simulators to choose from with --simulator (the registry's, unless a test gives others).</param>
+    public CollectorEngine(CollectorOptions options, Action<string, bool> log, Action<SessionLaps> lapsChanged, string? documents = null, IReadOnlyList<ISimulatorAdapter>? adapters = null)
     {
         _options = options;
         _log = log;
-        var documents = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+        _iRacing = new IRacingAdapter(options.IbtFile, options.Speed);
+        _adapters = adapters ?? SimulatorRegistry.Create(_iRacing);
+        documents ??= Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+        _documents = documents;
         LapsFolder = Path.Combine(documents, "RacingCoach", "Laps");
 
         // Live telemetry has no track positions; iRacing only writes them to its .ibt files, so live laps get
@@ -286,29 +302,28 @@ internal sealed class CollectorEngine
     public async Task RunAsync(CancellationToken cancel)
     {
         _writer.Start();
-        IBTOptions? ibtOptions = _options.IbtFile is null ? null : new IBTOptions(_options.IbtFile, _options.Speed);
-        // Playback waits for each handler call instead of dropping samples when it runs faster than we keep up.
-        var clientOptions = ibtOptions is null ? new ClientOptions() : new ClientOptions { DeliveryMode = TelemetryDeliveryMode.Synchronous };
+        var playback = _options.IbtFile is not null;
 
-        Log(ibtOptions is null ? "Waiting for iRacing…" : $"Playing back {Path.GetFileName(_options.IbtFile)}…");
-        if (ibtOptions is not null)
+        Log(_options.Simulator is not null ? "Looking for a simulator…" : !playback ? "Waiting for iRacing…" : $"Playing back {Path.GetFileName(_options.IbtFile)}…");
+        if (playback)
             State = SimState.PlayingBack;
         if (_enricher is not null)
             Log($"Track positions are added after each stint from iRacing's .ibt files in {_enricher.IbtFolder}");
         // Not while playing a file back, which may be an old .ibt from that folder
-        if (ibtOptions is null)
+        if (!playback)
         {
-            var ibtFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "iRacing", "telemetry");
+            var ibtFolder = Path.Combine(_documents, "iRacing", "telemetry");
             _ = Task.Run(() => IbtEnricher.DeleteOldIbtFiles(ibtFolder, message => Log(message)));
         }
 
         var live = Live.RunAsync(cancel);
         try
         {
-            await using var client = TelemetryClient<TelemetryData>.Create(NullLogger.Instance, ibtOptions, clientOptions);
-            _client = client;
-            await client.Monitor(Handlers(), cancel);
-            if (ibtOptions is not null)
+            if (_options.Simulator is null)
+                await _iRacing.RunNativeAsync(Handlers(), cancel);
+            else
+                await RunSelectedAsync(_options.Simulator, cancel);
+            if (playback)
             {
                 State = SimState.PlaybackFinished;
                 Log("Playback finished.");
@@ -320,7 +335,6 @@ internal sealed class CollectorEngine
         }
         finally
         {
-            _client = null;
             await _writer.FlushAsync(); // finish saving laps already completed (which queues their uploads)
             if (_races is not null)
             {
@@ -334,6 +348,31 @@ internal sealed class CollectorEngine
             Radio.Dispose();
             await _logs.DisposeAsync(); // the last activity log lines
         }
+    }
+
+    // --simulator: runs whichever simulator is selected, one at a time. iRacing keeps its own path, with all its live
+    // features; other simulators' laps go through the shared pipeline.
+    private Task RunSelectedAsync(string simulator, CancellationToken cancel)
+    {
+        var manual = simulator == CollectorOptions.AutoSimulator ? null : simulator;
+        var supervisor = new SimulatorSupervisor(_adapters, manual, Log);
+        return supervisor.RunAsync(async (adapter, ct) =>
+        {
+            if (adapter is IRacingAdapter iRacing)
+            {
+                await iRacing.RunNativeAsync(Handlers(), ct);
+                return;
+            }
+            State = SimState.Connected;
+            try
+            {
+                await new CanonicalLapPipeline(adapter, _writer.Enqueue, Log).RunAsync(ct);
+            }
+            finally
+            {
+                State = SimState.Waiting;
+            }
+        }, cancel);
     }
 
     private TelemetryHandlers<TelemetryData> Handlers() => new()
@@ -453,7 +492,7 @@ internal sealed class CollectorEngine
                 if (!_askedForIbt && data.IsOnTrack == true && data.IsDiskLoggingEnabled == false)
                 {
                     _askedForIbt = true;
-                    _client?.SimControl.TelemetryRecording.Start();
+                    _iRacing.StartDiskRecording();
                     Log("Turned on iRacing's telemetry recording (.ibt) for track positions.");
                 }
                 var recordingIbt = data.IsDiskLoggingActive == true;
@@ -463,7 +502,7 @@ internal sealed class CollectorEngine
                     if (!_restartedIbt && !recordingIbt && data.IsDiskLoggingEnabled == true && now - _inCarSince >= IbtStartGrace)
                     {
                         _restartedIbt = true;
-                        _client?.SimControl.TelemetryRecording.Start();
+                        _iRacing.StartDiskRecording();
                         Log("iRacing's telemetry recording (.ibt) was on but not recording; started it again for track positions.");
                     }
                 }

@@ -1,0 +1,30 @@
+{
+  "clientLapId": "(random)",
+  "track": "Lime Rock Park (Grand Prix)",
+  "trackKey": "limerock full",
+  "trackLengthFeet": 7939.6325459,
+  "trackLatitude": 41.928,
+  "trackLongitude": -73.381,
+  "car": "Test Car GT3",
+  "driver": "Test Driver",
+  "sessionId": 111,
+  "subSessionId": 222,
+  "sessionNum": 0,
+  "sessionType": "Practice",
+  "lapNumber": 1,
+  "lapTimeSeconds": 20,
+  "samples": 1201,
+  "missingSamples": 0,
+  "incidents": 0,
+  "pitRoad": false,
+  "offTrack": false,
+  "recordedAt": "2100-01-01T00:00:20.5\u002B00:00",
+  "conditions": {
+    "trackTempC": 31.5,
+    "airTempC": 22.2,
+    "relativeHumidity": 0.45,
+    "windVelocity": 3.12,
+    "windDirection": 1.5,
+    "trackUsage": "moderate usage"
+  }
+}

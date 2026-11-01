@@ -7,6 +7,8 @@ import { lapCsvBounds, saveTrackBounds, saveTrackLocation, trackNeedsBounds } fr
 import { lapCsvOutline, saveTrackOutline, trackNeedsOutline } from './trackOutlines';
 import { ensureUserSchema } from './users';
 import { lapCompletedAt } from './lapRetentionRules';
+import { recordSimulatorCar, resolveSimulatorTrackKey } from './simulatorMappings';
+import { DEFAULT_SIMULATOR } from './simulators';
 
 // Laps uploaded by the telemetry collector (collector/ in this repo), stored in
 // racingcoach."CollectorLaps". Each lap is one CSV as the collector writes it (iRacing variable names
@@ -24,6 +26,13 @@ const REQUIRED_COLUMNS = ['Speed', 'LapDistPct', 'Brake', 'Throttle'];
 // The lap's details, as the collector sends them next to the CSV: its session.json lap entry plus the
 // session's track, car, driver and iRacing IDs. clientLapId is the collector's own ID for the lap.
 export const collectorLapSchema = z.object({
+  // Which simulator (simulators/capabilities.json) and the format of these details, with the adapter's version;
+  // collectors before they sent them are iRacing's, format 1. trackKey is that simulator's own id for the track, and
+  // carKey for the car (iRacing's car is matched by name, so it doesn't send one)
+  simulator: z.string().trim().toLowerCase().min(1).max(40).nullish(),
+  payloadVersion: z.number().int().positive().max(1000).nullish(),
+  adapterVersion: z.string().trim().min(1).max(40).nullish(),
+  carKey: z.string().trim().min(1).max(200).nullish(),
   clientLapId: z.uuid(),
   track: z.string().trim().min(1).max(200),
   // iRacing's track key (WeekendInfo.TrackName, e.g. "twinring fullrc"); collectors before 1.29.0 don't send it
@@ -138,6 +147,10 @@ export type CollectorLapSummary = {
   // iRacing's track key (WeekendInfo.TrackName), which finds the Track Data track (its `name` on the Racing
   // page, see toLapTrack) when iRacing names the layout differently; null for laps from collectors before 1.29.0
   trackKey: string | null;
+  // The simulator the lap is from and, for one other than iRacing, its own id for the track (trackKey is then the
+  // site's track it's mapped to, simulatorMappings.ts, or null)
+  simulator: string;
+  nativeTrackKey: string | null;
   car: string;
   // The RacingCoach account that uploaded the lap, and its name. That's who drove it as far as the site is
   // concerned: iRacingDriver is the name iRacing reported, which is whoever the sim was logged in as (e.g. a
@@ -189,6 +202,8 @@ export async function listCollectorLaps(viewer: LapViewer, driverIds: number[] |
     client_lap_id: string;
     track: string;
     track_key: string | null;
+    simulator: string;
+    native_track_key: string | null;
     car: string;
     user_id: number;
     user_name: string;
@@ -209,7 +224,7 @@ export async function listCollectorLaps(viewer: LapViewer, driverIds: number[] |
     expires_at: Date;
     conditions: LapConditions | null;
   }>(
-    `SELECT l.id, l.client_lap_id, l.track, l.track_key, l.car, l.user_id, u.user_name, l.driver, l.iracing_session_id,
+    `SELECT l.id, l.client_lap_id, l.track, l.track_key, l.simulator, l.native_track_key, l.car, l.user_id, u.user_name, l.driver, l.iracing_session_id,
             l.iracing_subsession_id, l.session_num, l.session_type, l.lap_number, l.lap_time_seconds, l.sample_count,
             l.missing_samples, l.incidents, l.pit_road, l.off_track, l.recorded_at, l.completed_at, l.expires_at, l.conditions
      FROM racingcoach."CollectorLaps" l JOIN racingcoach."Users" u ON u.id = l.user_id
@@ -222,6 +237,8 @@ export async function listCollectorLaps(viewer: LapViewer, driverIds: number[] |
     clientLapId: row.client_lap_id,
     track: row.track,
     trackKey: row.track_key,
+    simulator: row.simulator,
+    nativeTrackKey: row.native_track_key,
     car: row.car,
     userId: Number(row.user_id),
     driver: row.user_name,
@@ -358,6 +375,11 @@ export async function saveCollectorLap(
   hasPosition: boolean
 ): Promise<{ id: number; duplicate: boolean; replaced: boolean }> {
   await ensureUserSchema();
+  const simulator = lap.simulator ?? DEFAULT_SIMULATOR;
+  // The site's track: iRacing's key is one already, and another simulator's only through an explicit mapping
+  const siteTrackKey = await resolveSimulatorTrackKey(simulator, lap.trackKey ?? null, lap.track);
+  const nativeTrackKey = simulator === DEFAULT_SIMULATOR ? null : (lap.trackKey ?? null);
+  await recordSimulatorCar(simulator, lap.carKey ?? null, lap.car);
   // The retention clock starts when the lap was completed, never later than now (lapCompletedAt)
   const completedAt = lapCompletedAt(new Date(lap.recordedAt), new Date());
   const [check] = await query<{ expired: boolean; deleted: boolean }>(
@@ -372,9 +394,10 @@ export async function saveCollectorLap(
       `INSERT INTO racingcoach."CollectorLaps" (
          user_id, client_lap_id, track, car, driver, iracing_session_id, iracing_subsession_id, session_num,
          session_type, lap_number, lap_time_seconds, sample_count, missing_samples, incidents, pit_road,
-         off_track, recorded_at, csv_bytes, csv_gzip, has_position, track_key, conditions, completed_at, expires_at)
+         off_track, recorded_at, csv_bytes, csv_gzip, has_position, track_key, conditions, completed_at, expires_at,
+         simulator, native_track_key, payload_version, adapter_version)
        SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23,
-              racingcoach.lap_expires_at($23, membership_level)
+              racingcoach.lap_expires_at($23, membership_level), $24, $25, $26, $27
        FROM racingcoach."Users" WHERE id = $1
        RETURNING id`,
       [
@@ -398,15 +421,23 @@ export async function saveCollectorLap(
         csvBytes,
         csvGzip,
         hasPosition,
-        lap.trackKey ?? null,
+        siteTrackKey,
         // pg would send a plain object as JSON anyway; stringified so null stays SQL NULL
         lap.conditions ? JSON.stringify(toLapConditions(lap.conditions)) : null,
         completedAt,
+        simulator,
+        nativeTrackKey,
+        lap.payloadVersion ?? 1,
+        lap.adapterVersion ?? null,
       ]
     );
-    await saveTrackLength(lap.trackKey ?? null, lap.trackLengthFeet ?? null);
-    await saveTrackLocation(lap.trackKey ?? null, lap.trackLatitude ?? null, lap.trackLongitude ?? null);
-    if (hasPosition) await saveTrackShapeFromLap(lap.trackKey ?? null, csvGzip, !lap.pitRoad && !lap.offTrack);
+    // "Tracks" holds iRacing's lengths, locations, bounds and outlines. Another simulator's are its own, even for a
+    // track mapped to one of the site's, as its layout and coordinates needn't match
+    if (simulator === DEFAULT_SIMULATOR) {
+      await saveTrackLength(lap.trackKey ?? null, lap.trackLengthFeet ?? null);
+      await saveTrackLocation(lap.trackKey ?? null, lap.trackLatitude ?? null, lap.trackLongitude ?? null);
+    }
+    if (simulator === DEFAULT_SIMULATOR && hasPosition) await saveTrackShapeFromLap(lap.trackKey ?? null, csvGzip, !lap.pitRoad && !lap.offTrack);
     return { id: row.id, duplicate: false, replaced: false };
   } catch (error) {
     if (!isUniqueViolation(error)) throw error;
@@ -420,7 +451,7 @@ export async function saveCollectorLap(
         [userId, lap.clientLapId, csvGzip, csvBytes]
       );
       if (replaced) {
-        await saveTrackShapeFromLap(lap.trackKey ?? null, csvGzip, !lap.pitRoad && !lap.offTrack);
+        if (simulator === DEFAULT_SIMULATOR) await saveTrackShapeFromLap(lap.trackKey ?? null, csvGzip, !lap.pitRoad && !lap.offTrack);
         return { id: replaced.id, duplicate: true, replaced: true };
       }
     }
@@ -465,7 +496,7 @@ export function backfillTrackBounds(): Promise<void> {
         `SELECT DISTINCT ON (lower(l.track_key)) l.id, l.track_key, NOT (l.pit_road OR l.off_track) AS clean
          FROM racingcoach."CollectorLaps" l
          JOIN racingcoach."Tracks" t ON lower(t.track_key) = lower(l.track_key)
-         WHERE l.has_position AND l.expires_at > now()
+         WHERE l.has_position AND l.expires_at > now() AND l.simulator = '${DEFAULT_SIMULATOR}'
            AND (t.track_south IS NULL OR (t.track_outline IS NULL AND NOT (l.pit_road OR l.off_track)))
          ORDER BY lower(l.track_key), (l.pit_road OR l.off_track), l.recorded_at DESC`
       );

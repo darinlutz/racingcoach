@@ -1,3 +1,4 @@
+import { SIMULATOR_SCHEMA } from './simulatorSchema';
 import { randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 import { isUniqueViolation, query, transaction } from './db';
@@ -619,6 +620,8 @@ export function ensureUserSchema(): Promise<void> {
       await client.query(
         'CREATE INDEX IF NOT EXISTS collector_laps_user_id_recorded_at_idx ON racingcoach."CollectorLaps" (user_id, recorded_at)'
       );
+      // Which simulator each lap is from, and other simulators' tracks and cars (simulatorSchema.ts)
+      for (const statement of SIMULATOR_SCHEMA) await client.query(statement);
       // Lap telemetry retention: each lap's and Debrief Coach run's expiry, kept in step with the owner's membership
       // level, and the cleanup job's tables (lapRetentionDb.ts)
       for (const statement of LAP_RETENTION_SCHEMA) await client.query(statement);

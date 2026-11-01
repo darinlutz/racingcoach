@@ -8,6 +8,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test:collector": "dotnet test collector/RacingCoach.Collector.Tests",
+    "test:simulators": "node --experimental-transform-types --no-warnings --test scripts/simulators.test.mjs && node --experimental-transform-types --no-warnings --test scripts/simulators-db.test.mjs",
     "test:rotation": "node --test scripts/rotation-model.test.mjs",
     "test:track-positions": "node --test scripts/track-positions.test.mjs",
     "test:lap-retention": "node --test scripts/lap-retention.test.mjs && node --experimental-transform-types --no-warnings --test scripts/lap-retention-db.test.mjs",

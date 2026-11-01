@@ -1,6 +1,5 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using SVappsLAB.iRacingTelemetrySDK;
 
 namespace RacingCoach.Collector;
 
@@ -16,6 +15,14 @@ internal sealed class SessionManifest
     public string Driver { get; set; } = "";
     public int SessionId { get; set; }
     public int SubSessionId { get; set; }
+    /// <summary>The simulator the laps are from; iRacing's in manifests written before there were others.</summary>
+    public string Simulator { get; set; } = IRacingAdapter.Id;
+    /// <summary>The adapter's version, for a simulator other than iRacing.</summary>
+    public string? AdapterVersion { get; set; }
+    /// <summary>That simulator's own ids for the car and track; not used for iRacing, whose cars are matched by name
+    /// and track keys are in TrackKeys.</summary>
+    public string? CarKey { get; set; }
+    public string? TrackKey { get; set; }
     public List<ManifestLap> Laps { get; set; } = [];
 
     private const string FileName = "session.json";
@@ -91,15 +98,15 @@ internal sealed record LapConditions(
     string? TrackUsage)
 {
     /// <summary>The conditions on the lap's last sample; null when telemetry has none of them.</summary>
-    public static LapConditions? From(TelemetryData last, string? trackUsage)
+    public static LapConditions? Create(float? trackTemp, float? airTemp, float? humidity, float? windSpeed, float? windDirection, string? trackUsage)
     {
         static double? Round(float? value, int digits) => value is { } v && float.IsFinite(v) ? Math.Round(v, digits) : null;
         var conditions = new LapConditions(
-            Round(last.TrackTempCrew, 1),
-            Round(last.AirTemp, 1),
-            Round(last.RelativeHumidity, 3),
-            Round(last.WindVel, 2),
-            Round(last.WindDir, 3),
+            Round(trackTemp, 1),
+            Round(airTemp, 1),
+            Round(humidity, 3),
+            Round(windSpeed, 2),
+            Round(windDirection, 3),
             string.IsNullOrWhiteSpace(trackUsage) ? null : trackUsage);
         return conditions == new LapConditions(null, null, null, null, null, null) ? null : conditions;
     }

@@ -1,7 +1,5 @@
-using System.Globalization;
 using System.Text;
 using System.Threading.Channels;
-using SVappsLAB.iRacingTelemetrySDK;
 
 namespace RacingCoach.Collector;
 
@@ -19,7 +17,6 @@ internal sealed record SessionLaps(string Folder, string Track, string Car, IRea
 /// </summary>
 internal sealed class LapWriter : IAsyncDisposable
 {
-    private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
     private const string UnknownTrack = "Unknown Track";
     private const string UnknownTrackError = "track and car unknown (iRacing hadn't sent session info yet)";
     /// <summary>The upload error of a lap RacingCoach.app refused as past its retention period; its CSV is deleted at once.</summary>
@@ -28,64 +25,6 @@ internal sealed class LapWriter : IAsyncDisposable
     /// longest retention period (src/lib/lapRetentionRules.ts), so the PC never keeps telemetry longer than the site.
     /// Its CSV and its entry in session.json are deleted, and the session's folder once it has no laps left.</summary>
     public static readonly TimeSpan MaxLocalAge = TimeSpan.FromDays(90);
-
-    // Same names and units as iRacing: Speed in m/s, pedals 0..1, LapDistPct 0..1.
-    private static readonly (string Name, Func<TelemetryData, string> Value)[] Columns =
-    [
-        ("Speed", d => F(d.Speed)),
-        ("LapDistPct", d => F(d.LapDistPct)),
-        ("Brake", d => F(d.Brake)),
-        ("Throttle", d => F(d.Throttle)),
-        ("RPM", d => F(d.RPM)),
-        ("SteeringWheelAngle", d => F(d.SteeringWheelAngle)),
-        ("Gear", d => I(d.Gear)),
-        ("Clutch", d => F(d.Clutch)),
-        ("ABSActive", d => B(d.BrakeABSactive)),
-        ("LatAccel", d => F(d.LatAccel)),
-        ("LongAccel", d => F(d.LongAccel)),
-        ("VertAccel", d => F(d.VertAccel)),
-        ("Yaw", d => F(d.Yaw)),
-        ("YawRate", d => F(d.YawRate)),
-        // The car's velocity, forward and to the left (m/s): the Rotation Model's sideslip on the website
-        ("VelocityX", d => F(d.VelocityX)),
-        ("VelocityY", d => F(d.VelocityY)),
-        // Each tire's carcass temperature (°C), left, middle and right across it: Lap Compare's Tire Temp charts
-        ("LFtempCL", d => F(d.LFtempCL)),
-        ("LFtempCM", d => F(d.LFtempCM)),
-        ("LFtempCR", d => F(d.LFtempCR)),
-        ("RFtempCL", d => F(d.RFtempCL)),
-        ("RFtempCM", d => F(d.RFtempCM)),
-        ("RFtempCR", d => F(d.RFtempCR)),
-        ("LRtempCL", d => F(d.LRtempCL)),
-        ("LRtempCM", d => F(d.LRtempCM)),
-        ("LRtempCR", d => F(d.LRtempCR)),
-        ("RRtempCL", d => F(d.RRtempCL)),
-        ("RRtempCM", d => F(d.RRtempCM)),
-        ("RRtempCR", d => F(d.RRtempCR)),
-        // Lap Compare's Engine charts: fuel in liters, fuel use in kg/h, temperatures in °C (RPM is above)
-        ("FuelLevel", d => F(d.FuelLevel)),
-        ("FuelUsePerHour", d => F(d.FuelUsePerHour)),
-        ("WaterTemp", d => F(d.WaterTemp)),
-        ("OilTemp", d => F(d.OilTemp)),
-        // Each corner's ride height (m): Lap Compare's Ride Heights charts
-        ("LFrideHeight", d => F(d.LFrideHeight)),
-        ("RFrideHeight", d => F(d.RFrideHeight)),
-        ("LRrideHeight", d => F(d.LRrideHeight)),
-        ("RRrideHeight", d => F(d.RRrideHeight)),
-        // Each tire's pressure (kPa): Lap Compare's Tire Pressure charts
-        ("LFpressure", d => F(d.LFpressure)),
-        ("RFpressure", d => F(d.RFpressure)),
-        ("LRpressure", d => F(d.LRpressure)),
-        ("RRpressure", d => F(d.RRpressure)),
-        ("Lap", d => I(d.Lap)),
-        ("LapDist", d => F(d.LapDist)),
-        ("SessionTime", d => d.SessionTime?.ToString(Inv) ?? ""),
-        ("SessionTick", d => I(d.SessionTick)),
-        // Empty in live laps until IbtEnricher fills them in from the session's .ibt file
-        ("Lat", d => D(d.Lat)),
-        ("Lon", d => D(d.Lon)),
-        ("Alt", d => D(d.Alt)),
-    ];
 
     // How often, and how many times, to look again for an .ibt file iRacing hasn't finished writing
     private static readonly TimeSpan IbtRetryDelay = TimeSpan.FromSeconds(10);
@@ -244,11 +183,8 @@ internal sealed class LapWriter : IAsyncDisposable
         using (var writer = new StreamWriter(temp, append: false, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false), bufferSize: 1 << 16))
         {
             writer.NewLine = "\n";
-            // Last, the car's fuel density from session info, the same on every row
-            var fuelKgPerLtr = session.FuelKgPerLtr is { } density ? density.ToString(Inv) : "";
-            writer.WriteLine(string.Join(',', Columns.Select(c => c.Name)) + ",FuelKgPerLtr");
-            foreach (var sample in lap.Samples)
-                writer.WriteLine(string.Join(',', Columns.Select(c => c.Value(sample))) + "," + fuelKgPerLtr);
+            writer.WriteLine(lap.Samples.Header);
+            lap.Samples.WriteRows(writer, session.FuelKgPerLtr);
         }
         File.Move(temp, path);
 
@@ -265,14 +201,15 @@ internal sealed class LapWriter : IAsyncDisposable
             Incidents = lap.Incidents,
             PitRoad = lap.OnPitRoad,
             OffTrack = lap.OffTrack,
-            RecordedAt = PlaybackStartedAt is { } started && lap.Samples[^1].SessionTime is { } sessionTime
+            RecordedAt = PlaybackStartedAt is { } started && lap.Samples.LastSessionTime is { } sessionTime
                 ? started + TimeSpan.FromSeconds(sessionTime)
                 : DateTimeOffset.Now,
-            // Only played-back .ibt files have them already
-            HasPosition = lap.Samples.All(s => s.Lat is { } lat && s.Lon is { } lon && (lat != 0 || lon != 0)),
+            HasPosition = lap.Samples.HasPosition,
+            // A lap that can't get positions later is finished with once it's uploaded
+            PositionMissing = !lap.Samples.HasPosition && !lap.Samples.PositionsMayFollow,
             // Without session info the lap can't be matched to a track on RacingCoach.app; it's kept here only
             UploadError = lap.Session is null ? UnknownTrackError : null,
-            Conditions = LapConditions.From(lap.Samples[^1], session.TrackUsage?.GetValueOrDefault(lap.SessionNum)),
+            Conditions = lap.Samples.Conditions(session.TrackUsage?.GetValueOrDefault(lap.SessionNum)),
         };
         var manifest = SessionManifest.Load(folder) ?? new SessionManifest();
         // Keep the newest session details (session types fill in over time)
@@ -281,6 +218,10 @@ internal sealed class LapWriter : IAsyncDisposable
         manifest.Driver = session.Driver;
         manifest.SessionId = session.SessionId;
         manifest.SubSessionId = session.SubSessionId;
+        manifest.Simulator = session.Simulator;
+        manifest.AdapterVersion = session.AdapterVersion;
+        manifest.CarKey = session.CarKey;
+        manifest.TrackKey = session.TrackKey;
         manifest.Laps.Add(entry);
         manifest.Save(folder);
         Report(folder, manifest, newLap: true);
@@ -450,7 +391,7 @@ internal sealed class LapWriter : IAsyncDisposable
     private string FolderFor(SessionContext session)
     {
         if (_folder is not null && _folderSession is { } s
-            && s.Track == session.Track && s.Car == session.Car
+            && s.Simulator == session.Simulator && s.Track == session.Track && s.Car == session.Car
             && s.SessionId == session.SessionId && s.SubSessionId == session.SubSessionId)
         {
             _folderSession = session;
@@ -464,7 +405,7 @@ internal sealed class LapWriter : IAsyncDisposable
         return _folder;
     }
 
-    private static SessionInfo InfoOf(SessionManifest m) => new(m.Track, m.Car, m.Driver, m.SessionId, m.SubSessionId);
+    private static SessionInfo InfoOf(SessionManifest m) => new(m.Track, m.Car, m.Driver, m.SessionId, m.SubSessionId, m.Simulator, m.AdapterVersion, m.CarKey, m.TrackKey);
 
     private static string UniquePath(string folder, string name)
     {
@@ -483,9 +424,4 @@ internal sealed class LapWriter : IAsyncDisposable
 
     private static string SafeFileName(string name) =>
         string.Concat(name.Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));
-
-    private static string F(float? v) => v?.ToString(Inv) ?? "";
-    private static string D(double? v) => v?.ToString(Inv) ?? "";
-    private static string I(int? v) => v?.ToString(Inv) ?? "";
-    private static string B(bool? v) => v is { } b ? (b ? "true" : "false") : "";
 }

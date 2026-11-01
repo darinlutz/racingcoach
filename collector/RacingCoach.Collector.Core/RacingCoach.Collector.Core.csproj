@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- What every simulator shares: the adapter contracts, the canonical telemetry model, lap tracking and detection.
+       No simulator's SDK and no WPF, so adapters and tests can use it and it never reaches into iRacing. See
+       docs/multi-simulator.md. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>RacingCoach.Collector.Simulators</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The capability matrix, shared with the website (src/lib/simulators.ts) -->
+    <EmbeddedResource Include="..\..\simulators\capabilities.json" LogicalName="simulators.capabilities.json" />
+  </ItemGroup>
+
+</Project>

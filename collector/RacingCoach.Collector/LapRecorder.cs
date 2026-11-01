@@ -14,7 +14,13 @@ internal sealed record SessionContext(
     // website can turn FuelLevel (liters) into a weight
     double? FuelKgPerLtr = null,
     // Each session's track usage by SessionNum (SessionInfo.Sessions[].SessionTrackRubberState, e.g. "moderate usage")
-    IReadOnlyDictionary<int, string>? TrackUsage = null);
+    IReadOnlyDictionary<int, string>? TrackUsage = null,
+    // Which simulator's adapter the session came from, and its version
+    string Simulator = IRacingAdapter.Id,
+    string? AdapterVersion = null,
+    // That simulator's own ids for the car and track; iRacing's cars are matched by name, and its track keys are in TrackKeys
+    string? CarKey = null,
+    string? TrackKey = null);
 
 /// <summary>A finished lap, handed from the recorder to the writer.</summary>
 internal sealed record CompletedLap(
@@ -22,7 +28,7 @@ internal sealed record CompletedLap(
     int LapNumber,
     int SessionNum,
     double LapTimeSeconds,
-    List<TelemetryData> Samples,
+    LapSamples Samples,
     int MissingSamples,
     int Incidents,
     bool OnPitRoad,
@@ -134,7 +140,7 @@ internal sealed class LapRecorder(Action<CompletedLap> onLapCompleted, Action<st
             LapNumber: samples[samples.Count / 2].Lap ?? 0,
             SessionNum: first.SessionNum ?? 0,
             LapTimeSeconds: lapTime,
-            Samples: samples,
+            Samples: new IRacingLapSamples(samples),
             MissingSamples: _missingSamples,
             Incidents: Math.Max(0, (last.PlayerCarMyIncidentCount ?? 0) - (first.PlayerCarMyIncidentCount ?? 0)),
             OnPitRoad: samples.Any(s => s.OnPitRoad == true),

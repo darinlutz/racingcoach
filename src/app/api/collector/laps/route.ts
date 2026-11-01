@@ -11,6 +11,7 @@ import {
   saveCollectorLap,
 } from '@/lib/collectorLaps';
 import { retentionDays } from '@/lib/lapRetentionRules';
+import { lapRefusal } from '@/lib/simulators';
 import { recordedStintLimit } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
 import { apiText } from '@/lib/i18n/server';
@@ -65,7 +66,8 @@ export async function GET(request: Request) {
 // Answers 201 with the lap's id, or 200 with duplicate: true if that lap was already uploaded (and
 // replaced: true if this copy's track positions replaced a stored copy without them). Answers 422 with
 // code: 'lapExpired' for a lap past its retention period (LapExpiredError), which isn't stored; the collector
-// stops uploading it and deletes its local copy.
+// stops uploading it and deletes its local copy. Answers 422 with code: 'simulatorNotSupported' for a simulator whose
+// adapter hasn't been tested yet, or 'payloadVersionNotSupported' for a format newer than this site reads (simulators.ts).
 export async function POST(request: Request) {
   try {
     const userId = await authenticateCollector(request);
@@ -99,6 +101,11 @@ export async function POST(request: Request) {
     if (!parsed.success) {
       const fields = [...new Set(parsed.error.issues.map((issue) => issue.path.join('.')))];
       return NextResponse.json({ error: `Invalid lap details: ${fields.join(', ')}` }, { status: 400 });
+    }
+
+    const refusal = lapRefusal(parsed.data.simulator, parsed.data.payloadVersion);
+    if (refusal) {
+      return NextResponse.json({ error: `This lap can't be accepted yet: ${refusal}`, code: refusal }, { status: 422 });
     }
 
     const csvGzip = Buffer.from(await csvField.arrayBuffer());

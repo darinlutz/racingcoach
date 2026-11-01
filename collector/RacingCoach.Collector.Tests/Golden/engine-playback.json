@@ -1,0 +1,23 @@
+{
+  "Files": [
+    {
+      "Name": "RacingCoach - Test Driver - Test Car GT3 - Lime Rock Park (Grand Prix) - 00.20.000 - S0L001.csv",
+      "Sha256": "3FF4A4FFB5D141EF4FD58B67B76B7BEDF5E8FCF254B6905AF86EC39966B06AF9"
+    },
+    {
+      "Name": "RacingCoach - Test Driver - Test Car GT3 - Lime Rock Park (Grand Prix) - 00.20.000 - S0L002.csv",
+      "Sha256": "A6D1E344AB24B92154ADF62F8CF35C28306D701978B1CE56512ADC9C7090D415"
+    },
+    {
+      "Name": "RacingCoach - Test Driver - Test Car GT3 - Lime Rock Park (Grand Prix) - 00.20.000 - S0L003.csv",
+      "Sha256": "E72349A4BFAF69378DDD83CE5B017422B7C35D883F844EBEB57DFCDD5836DAD0"
+    }
+  ],
+  "Log": [
+    "Lap 1 saved: 0:20.000 (1,201 samples)",
+    "Lap 2 saved: 0:20.000 (1,201 samples)",
+    "Lap 3 saved: 0:20.000 (1,201 samples)",
+    "Playback finished.",
+    "Session: Lime Rock Park (Grand Prix) / Test Car GT3"
+  ]
+}

@@ -128,6 +128,8 @@ public static class Program
           --site <url>        Upload to another RacingCoach.app address this time (for testing)
           --no-positions      Don't turn on iRacing's .ibt recording or add track positions (Lat/Lon)
                               from .ibt files to live laps this time
+          --simulator <id>    Which simulator to read: "auto" looks for one running; otherwise its id,
+                              e.g. iracing. Without it, iRacing as always
         """;
 
     // One collector at a time: two would both record every lap and upload it twice
@@ -195,6 +197,9 @@ public static class Program
                 case "--site" when i + 1 < args.Length && Uri.TryCreate(args[i + 1], UriKind.Absolute, out _):
                     options = options with { SiteUrl = args[++i] };
                     break;
+                case "--simulator" when i + 1 < args.Length:
+                    options = options with { Simulator = args[++i].ToLowerInvariant() };
+                    break;
                 case var arg when arg.StartsWith("--", StringComparison.Ordinal): return false;
                 default: positional.Add(args[i]); break;
             }
@@ -206,6 +211,7 @@ public static class Program
         if (positional.Count == 2 && (!int.TryParse(positional[1], out speed) || speed < 1))
             return false;
         options = options with { IbtFile = positional.ElementAtOrDefault(0), Speed = speed };
-        return true;
+        // A played-back file is an iRacing one
+        return options.IbtFile is null || options.Simulator is null;
     }
 }

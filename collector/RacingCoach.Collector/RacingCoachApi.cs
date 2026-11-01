@@ -8,7 +8,8 @@ using System.Text.Json;
 namespace RacingCoach.Collector;
 
 /// <summary>The session details sent with every lap of a session folder.</summary>
-internal sealed record SessionInfo(string Track, string Car, string Driver, int SessionId, int SubSessionId);
+internal sealed record SessionInfo(string Track, string Car, string Driver, int SessionId, int SubSessionId,
+    string Simulator = IRacingAdapter.Id, string? AdapterVersion = null, string? CarKey = null, string? TrackKey = null);
 
 internal enum UploadOutcome
 {
@@ -79,6 +80,9 @@ internal static class TrackKeys
 internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDisposable
 {
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+    /// <summary>Bump when a lap's details or CSV change meaning, with a way for the site to read the old one
+    /// (collectorLapSchema in src/lib/collectorLaps.ts). Adding a field the site can ignore isn't a new version.</summary>
+    private const int LapPayloadVersion = 1;
 
     private readonly HttpClient _http = new()
     {
@@ -398,14 +402,21 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
             return (UploadOutcome.Rejected, "the lap's CSV file is missing");
         }
 
+        // TrackKeys is iRacing's, by track name, so another simulator's track of the same name never picks up its details
+        var iRacing = session.Simulator == IRacingAdapter.Id;
         var details = new
         {
+            // Which simulator, and the format of these details: the site treats a lap without them as iRacing's, format 1
+            simulator = session.Simulator,
+            payloadVersion = LapPayloadVersion,
+            adapterVersion = session.AdapterVersion,
+            carKey = session.CarKey,
             clientLapId = lap.ClientLapId,
             session.Track,
-            trackKey = TrackKeys.For(session.Track),
-            trackLengthFeet = TrackKeys.LengthFeet(session.Track),
-            trackLatitude = TrackKeys.Location(session.Track)?.Latitude,
-            trackLongitude = TrackKeys.Location(session.Track)?.Longitude,
+            trackKey = iRacing ? TrackKeys.For(session.Track) : session.TrackKey,
+            trackLengthFeet = iRacing ? TrackKeys.LengthFeet(session.Track) : null,
+            trackLatitude = iRacing ? TrackKeys.Location(session.Track)?.Latitude : null,
+            trackLongitude = iRacing ? TrackKeys.Location(session.Track)?.Longitude : null,
             session.Car,
             session.Driver,
             session.SessionId,

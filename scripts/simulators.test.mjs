@@ -1,0 +1,83 @@
+// Multi-simulator rules, no database: npm run test:simulators
+// The matrix is the one the collector builds in, so these hold for both.
+
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import {
+  acceptsLapsFrom,
+  channelAvailable,
+  CHANNELS,
+  DEFAULT_SIMULATOR,
+  findSimulator,
+  lapRefusal,
+  SIMULATORS,
+} from '../src/lib/simulators.ts';
+
+const source = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
+
+test('only iRacing is claimed as supported', () => {
+  assert.deepEqual(SIMULATORS.filter((s) => s.status === 'supported').map((s) => s.id), ['iracing']);
+  assert.equal(DEFAULT_SIMULATOR, 'iracing');
+});
+
+test('every target simulator is listed, with sources and licensing noted', () => {
+  assert.deepEqual(SIMULATORS.map((s) => s.id), ['iracing', 'acc', 'ac', 'ams2', 'lmu', 'rf2', 'r3e', 'acevo', 'f1']);
+  for (const simulator of SIMULATORS) {
+    assert.ok(simulator.sources.length > 0, simulator.id);
+    assert.ok(simulator.licensing, simulator.id);
+    assert.ok(simulator.interfaces.length > 0, simulator.id);
+  }
+});
+
+test('a simulator only lists real channels, and one with no adapter never says collected', () => {
+  for (const simulator of SIMULATORS) {
+    for (const [channel, { support }] of Object.entries(simulator.channels)) {
+      assert.ok(CHANNELS.includes(channel), `${simulator.id}: ${channel}`);
+      if (simulator.status !== 'supported') assert.ok(!support.startsWith('collected'), `${simulator.id}: ${channel}`);
+    }
+  }
+});
+
+test('laps are only accepted from a tested simulator, and never an unknown one', () => {
+  assert.equal(acceptsLapsFrom('iracing'), true);
+  assert.equal(acceptsLapsFrom('acc'), false);
+  assert.equal(acceptsLapsFrom('nonsense'), false);
+});
+
+test('an old collector is never refused, and a new format or simulator is, with a reason', () => {
+  assert.equal(lapRefusal(undefined, undefined), null);
+  assert.equal(lapRefusal(null, null), null);
+  assert.equal(lapRefusal('iracing', 1), null);
+  assert.equal(lapRefusal('acc', 1), 'simulatorNotSupported');
+  assert.equal(lapRefusal('iracing', 2), 'payloadVersionNotSupported');
+});
+
+test('a channel only shows where it has really been collected', () => {
+  assert.equal(channelAvailable('iracing', 'brake'), true);
+  assert.equal(channelAvailable('iracing', 'geoPosition'), true);
+  assert.equal(channelAvailable('iracing', 'wheelSpeed'), false);
+  assert.equal(channelAvailable('acc', 'brake'), false); // documented, not yet read from the game
+  assert.equal(channelAvailable('acc', 'steeringAngle'), false);
+  assert.equal(findSimulator('acc').channels.rideHeightAxle.support, 'unavailable');
+  assert.equal(channelAvailable('nonsense', 'brake'), false);
+});
+
+test('laps from before simulators existed stay valid: every schema change is additive', () => {
+  assert.match(source('src/lib/users.ts'), /for \(const statement of SIMULATOR_SCHEMA\) await client\.query\(statement\);/);
+  const statements = source('src/lib/simulatorSchema.ts');
+  assert.match(statements, /"CollectorLaps" ADD COLUMN IF NOT EXISTS simulator TEXT NOT NULL DEFAULT 'iracing'/);
+  // No statement of this work drops, renames or rewrites anything
+  const code = statements.replace(/^\s*\/\/.*$/gm, '').replaceAll('ON DELETE SET NULL', '');
+  assert.doesNotMatch(code, /\bDROP\b|\bRENAME\b|ALTER COLUMN|\bUPDATE\b|\bDELETE\b/);
+});
+
+test('another simulator can never write to iRacing track data, and neither path reads across', () => {
+  const laps = source('src/lib/collectorLaps.ts');
+  // The iRacing-only writes are guarded together
+  assert.match(laps, /if \(simulator === DEFAULT_SIMULATOR\) \{\s+await saveTrackLength/);
+  assert.match(laps, /simulator === DEFAULT_SIMULATOR && hasPosition\) await saveTrackShapeFromLap/);
+  assert.match(laps, /if \(simulator === DEFAULT_SIMULATOR\) await saveTrackShapeFromLap/);
+  // and the backfill only reads iRacing's laps
+  assert.match(laps, /l\.simulator = '\$\{DEFAULT_SIMULATOR\}'/);
+});

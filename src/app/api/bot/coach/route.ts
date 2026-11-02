@@ -1,5 +1,6 @@
 import { timingSafeEqual } from 'node:crypto';
 import { NextResponse } from 'next/server';
+import { MEMBERSHIP_LEVEL } from '@/lib/accountStatus';
 import { isAiOutOfCredits } from '@/lib/aiErrors';
 import { getUserIdByDiscordId } from '@/lib/discord';
 import { readConnection, readRaceEvents } from '@/lib/raceHistory';
@@ -48,6 +49,10 @@ export async function POST(request: Request) {
     const user = userId === null ? null : await getUserById(userId);
     if (!user) {
       return NextResponse.json({ error: 'not_linked' }, { status: 404 });
+    }
+    // AI features aren't for Bronze members (other than Admins); the bot tells them to upgrade
+    if (user.membershipLevel === MEMBERSHIP_LEVEL.bronze && !isAdmin(user.role)) {
+      return NextResponse.json({ error: 'membership_required' }, { status: 403 });
     }
     // For Admins only, like the website's My Race Trends
     if (!isAdmin(user.role)) {

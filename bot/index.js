@@ -2,7 +2,7 @@ import 'dotenv/config';
 import { Client, Events, GatewayIntentBits, MessageFlags } from 'discord.js';
 import { getCoaching } from './api.js';
 import { buildCoachEmbed } from './coach.js';
-import { closeDb, getLatestDebrief, getLinkedUser, getRecentDebriefs, getRecentRaces } from './db.js';
+import { closeDb, getLatestDebrief, getLinkedUser, getRecentDebriefs, getRecentRaces, getShowPricing } from './db.js';
 import { buildDebriefEmbed } from './debrief.js';
 import { buildRecentEmbed } from './recent.js';
 
@@ -66,6 +66,20 @@ function notLinkedMessage() {
   return `Your Discord account isn't linked to RacingCoach yet. Sign in and click **Connect Discord** on ${accountPage}.`;
 }
 
+// AI features are for Silver and Gold members and Admins, like the website's (notForBronze in src/lib/ragRoute.ts).
+// Every command that calls the website's AI checks this first and answers upgradeMessage instead.
+function needsUpgrade(user) {
+  return user.membershipLevel === 'Bronze' && user.role !== 'Admin';
+}
+
+// Points to the Pricing page, or the Account page while the Admin page's Show Pricing is off
+async function upgradeMessage(command) {
+  const page = (await getShowPricing())
+    ? sitePage('/pricing', 'the RacingCoach Pricing page')
+    : sitePage('/account', 'the RacingCoach Account page');
+  return `\`${command}\` uses AI coaching, which isn't included with a Bronze membership. To use it, upgrade to Silver or Gold on ${page}.`;
+}
+
 // e.g. "Silver Member since March 2026"
 function membershipText(user) {
   const level = `${user.membershipLevel} Member`;
@@ -98,6 +112,10 @@ async function handleCoach(interaction) {
     await interaction.editReply(notLinkedMessage());
     return;
   }
+  if (needsUpgrade(user)) {
+    await interaction.editReply(await upgradeMessage('/coach results'));
+    return;
+  }
   if (user.role !== 'Admin') {
     await interaction.editReply('`/coach results` is only available to RacingCoach Admins.');
     return;
@@ -120,6 +138,10 @@ async function handleCoach(interaction) {
     await interaction.editReply({ embeds: [buildCoachEmbed(races, coaching)] });
   } catch (error) {
     console.error('Coaching error:', error);
+    if (error.code === 'membership_required') {
+      await interaction.editReply({ content: await upgradeMessage('/coach results'), embeds: [] });
+      return;
+    }
     const outOfCredits = error.code === 'out_of_credits';
     await interaction.editReply({ embeds: [buildCoachEmbed(races, null, { failed: true, outOfCredits })] });
   }

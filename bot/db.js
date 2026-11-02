@@ -28,6 +28,12 @@ export async function closeDb() {
   if (pool) await pool.end();
 }
 
+// The Admin page's Show Pricing site setting, like the website's getShowPricing: on when it has no row
+export async function getShowPricing() {
+  const [row] = await query(`SELECT value FROM racingcoach."SiteSettings" WHERE key = 'show_pricing'`);
+  return row ? row.value === 'true' : true;
+}
+
 // The RacingCoach account linked to a Discord user with the Account page's Connect Discord
 // button, or null when they haven't linked one.
 export async function getLinkedUser(discordUserId) {

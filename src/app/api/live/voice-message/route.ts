@@ -4,6 +4,7 @@ import { DEFAULT_LANGUAGE } from '@/lib/i18n/languages';
 import { apiText } from '@/lib/i18n/server';
 import { checkDriverMessage, queueDriverMessage, type DriverMessageStatus } from '@/lib/liveRacing';
 import { aiRateLimit, type AiRateLimit } from '@/lib/rateLimits';
+import { canUseVoiceAi } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
 import { getEnableAiFeatures } from '@/lib/siteSettings';
 
@@ -12,7 +13,8 @@ import { getEnableAiFeatures } from '@/lib/siteSettings';
 // speech to text, in the watcher's Preferred Language, rate limited as driverRadio), then queued like a typed message
 // with the recording, which collectors from 1.58.0 play in the driver's car in the watcher's own voice (older ones
 // say the text in the coach voice). Answers { success, text }, 422 when no words were heard, and the same errors as
-// POST /api/live/message, checked before the speech to text so a refused message costs nothing.
+// POST /api/live/message, checked before the speech to text so a refused message costs nothing. For Silver and Gold
+// members and Admins only (canUseVoiceAi): anyone else gets 403 { code: 'membershipRequired' } and can still type one.
 export async function POST(request: Request) {
   const user = await getCurrentUser();
   const t = await apiText(user);
@@ -23,6 +25,9 @@ export async function POST(request: Request) {
     }
     if (!(await getEnableAiFeatures())) {
       return NextResponse.json({ error: t.voiceMessagesOff, code: 'aiFeaturesDisabled' }, { status: 403 });
+    }
+    if (!canUseVoiceAi(user)) {
+      return NextResponse.json({ error: t.voiceMessagesMembersOnly, code: 'membershipRequired' }, { status: 403 });
     }
     const driverId = Number(new URL(request.url).searchParams.get('driverId'));
     if (!Number.isInteger(driverId) || driverId <= 0) {

@@ -7,7 +7,7 @@ import { DEFAULT_LANGUAGE } from '@/lib/i18n/languages';
 import { readEngineerSnapshot, recordDriverRadio } from '@/lib/liveRacing';
 import { raceEngineerReply } from '@/lib/raceEngineer';
 import { aiRateLimit, type AiRateLimit } from '@/lib/rateLimits';
-import { canUseInCarCoach } from '@/lib/roles';
+import { canUseInCarCoach, canUseVoiceAi } from '@/lib/roles';
 import { getEnableAiFeatures } from '@/lib/siteSettings';
 import { DEFAULT_UNITS } from '@/lib/units';
 import { getInCarCoachInstructions, getUserById, type User } from '@/lib/users';
@@ -21,7 +21,8 @@ const lapIdsSchema = z.array(z.uuid()).max(30);
 // button, as the request body (a WAV file, Content-Type audio/wav). Authenticated with the upload key as a bearer
 // token, like /api/collector/laps. Answers { text, shared, reply, engineer }: the words, in the driver's Preferred
 // Language (empty when nothing was heard), and whether they went to the Live Racing page (only while the driver is
-// live). 403 { code: 'aiFeaturesDisabled' } while the Admin page's Enable AI Features is off.
+// live). 403 { code: 'aiFeaturesDisabled' } while the Admin page's Enable AI Features is off, and 403
+// { code: 'membershipRequired' } for anyone but Silver and Gold members and Admins (canUseVoiceAi).
 //
 // With ?engineer=1 (collectors from 1.58.0) the Race Engineer (src/lib/raceEngineer.ts) answers too: reply is what
 // it says back, for the collector to say in the coach voice, or null when what was said needs no answer; laps= (the
@@ -38,6 +39,10 @@ export async function POST(request: Request) {
     }
     if (!(await getEnableAiFeatures())) {
       return NextResponse.json({ error: 'Driver Radio is turned off on RacingCoach.app', code: 'aiFeaturesDisabled' }, { status: 403 });
+    }
+    // The collector shows the message in the Radio window
+    if (!canUseVoiceAi(user)) {
+      return NextResponse.json({ error: 'Driver Radio is for Silver and Gold members', code: 'membershipRequired' }, { status: 403 });
     }
     const audio = Buffer.from(await request.arrayBuffer());
     if (audio.length > MAX_RADIO_BYTES) {

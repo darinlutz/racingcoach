@@ -174,7 +174,17 @@ function driversInSession(group: Received[], session: SessionField): Map<number,
   return cars;
 }
 
-export default function LiveRacing({ announcers: showAnnouncers, engine }: { announcers: boolean; engine: EngineBedConfig }) {
+// announcersMembersOnly: AI features are on but the user isn't a Silver or Gold member (canUseVoiceAi), so they're told
+// why in place of the announcer checkboxes, and Hold to Talk is hidden
+export default function LiveRacing({
+  announcers: showAnnouncers,
+  announcersMembersOnly = false,
+  engine,
+}: {
+  announcers: boolean;
+  announcersMembersOnly?: boolean;
+  engine: EngineBedConfig;
+}) {
   const { t, fmt } = useLanguage();
   const units = useUnits();
   useEngineBed(engine);
@@ -706,6 +716,12 @@ export default function LiveRacing({ announcers: showAnnouncers, engine }: { ann
                           ))}
                         </div>
                         {announcerError && <p className="mt-1 text-xs text-red-300">{announcerError}</p>}
+                      </div>
+                    )}
+                    {announcersMembersOnly && (
+                      <div className="px-4 py-3">
+                        <p className="text-sm font-semibold text-foreground">{t.raceAnnouncers.title}</p>
+                        <p className="mt-1 text-sm text-muted-foreground">{t.raceAnnouncers.membersOnly}</p>
                       </div>
                     )}
                     <LiveDriverMessage

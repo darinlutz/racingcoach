@@ -33,7 +33,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: t.aiNotConfigured }, { status: 500 });
     }
 
+    // Signed-in users only, so visitors can't run the AI
     const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: t.logInAi }, { status: 401 });
+    }
     limit = await aiRateLimit(request, 'debriefCoach', user);
     if (limit.response) return limit.response;
     // For the shifting tool; without it the coach falls back to the RPM in the laps

@@ -8,6 +8,7 @@ import LiveRacingWatchers from '@/components/LiveRacingWatchers';
 import { readEngineBedConfig } from '@/lib/engineAudioAssets';
 import { getDictionary, getLanguage } from '@/lib/i18n/server';
 import { withReturnTo } from '@/lib/returnTo';
+import { canUseVoiceAi } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
 import { getEnableAiFeatures } from '@/lib/siteSettings';
 
@@ -36,7 +37,7 @@ export default async function LiveRacingPage() {
             </Link>
           </p>
         </div>
-        <LiveRacing announcers={enableAiFeatures} engine={engine} />
+        <LiveRacing announcers={enableAiFeatures && canUseVoiceAi(user)} announcersMembersOnly={enableAiFeatures && !canUseVoiceAi(user)} engine={engine} />
         <LiveRacingWatchers />
       </div>
     </section>

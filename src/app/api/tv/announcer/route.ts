@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { commentate } from '@/lib/announcerCommentary';
 import { getDictionary } from '@/lib/i18n/server';
+import { canUseVoiceAi } from '@/lib/roles';
 import { getEnableAiFeatures } from '@/lib/siteSettings';
 import { getTvSession } from '@/lib/tvAuth';
 import { commentaryHeldFor, noteCommentaryPlaying } from '@/lib/videoDirectorRuntime';
@@ -21,7 +22,8 @@ const heard = new Map<number, { driverId: number; seq: number }>();
 // TV Broadcast Mode's Race Announcers: the same commentary as the Live Racing page's (commentate in
 // src/lib/announcerCommentary.ts), for the TV's paired account, as MP3s for the TV's browser. Answers
 // { seq, lines: [{ speaker, text, audio, intensity, priority, ttlMs, durationMs, volume, elevenLabs }], replaceQueued, engineBed },
-// audio a base64 MP3. The AI call counts against the account's AI limit like the Live Racing page's.
+// audio a base64 MP3. The AI call counts against the account's AI limit like the Live Racing page's, and the account
+// must be a Silver or Gold member or an Admin (canUseVoiceAi), else 403 { code: 'membershipRequired' }.
 export async function POST(request: Request) {
   const session = await getTvSession();
   const t = getDictionary(session?.user.preferredLanguage ?? 'en').tv;
@@ -31,6 +33,9 @@ export async function POST(request: Request) {
     }
     if (!(await getEnableAiFeatures())) {
       return NextResponse.json({ error: t.aiDisabled, code: 'aiFeaturesDisabled' }, { status: 403 });
+    }
+    if (!canUseVoiceAi(session.user)) {
+      return NextResponse.json({ error: t.announcersMembersOnly, code: 'membershipRequired' }, { status: 403 });
     }
     const parsed = bodySchema.safeParse(await request.json().catch(() => null));
     if (!parsed.success) {

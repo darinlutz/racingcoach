@@ -104,12 +104,14 @@ function StatusPill({ status, recorded, t }: { status: FeedStatus; recorded: boo
 export default function TvBroadcast({
   userName,
   announcers,
+  announcersMembersOnly,
   engine,
   edges,
   onEdges,
 }: {
   userName: string;
   announcers: boolean;
+  announcersMembersOnly: boolean;
   engine: EngineBedConfig;
   edges: number;
   onEdges: (edges: number) => void;
@@ -297,7 +299,9 @@ export default function TvBroadcast({
   const session = focus ? [focus.sessionType, focus.sessionName && focus.sessionName !== focus.sessionType ? focus.sessionName : null].filter(Boolean).join(' · ') : '';
   const flagColors = focus?.flag ? FLAG_COLORS[focus.flag] : undefined;
   const commentaryLine = !announcers
-    ? t.tv.aiDisabled
+    ? announcersMembersOnly
+      ? t.tv.announcersMembersOnly
+      : t.tv.aiDisabled
     : !commentaryOn || (!lead && !color)
       ? t.tv.commentaryOff
       : problem || (paused ? t.tv.commentaryPaused : started ? t.tv.commentaryWaiting : t.tv.startHint);

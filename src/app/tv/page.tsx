@@ -7,6 +7,7 @@ import TvApp from '@/components/TvApp';
 import UnitsProvider from '@/components/UnitsProvider';
 import { readEngineBedConfig } from '@/lib/engineAudioAssets';
 import { getDictionary, getLanguage } from '@/lib/i18n/server';
+import { canUseVoiceAi } from '@/lib/roles';
 import { getEnableAiFeatures } from '@/lib/siteSettings';
 import { getTvSession } from '@/lib/tvAuth';
 import { getUnits } from '@/lib/unitsServer';
@@ -35,7 +36,8 @@ export default async function TvPage() {
       <UnitsProvider units={units}>
         <TvApp
           paired={session && engine ? { userName: session.user.userName, engine } : null}
-          announcers={enableAiFeatures}
+          announcers={enableAiFeatures && !!session && canUseVoiceAi(session.user)}
+          announcersMembersOnly={enableAiFeatures && !!session && !canUseVoiceAi(session.user)}
           linkAddress={linkAddress}
         />
       </UnitsProvider>

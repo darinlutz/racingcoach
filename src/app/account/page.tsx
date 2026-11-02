@@ -21,7 +21,7 @@ import { getDictionary } from '@/lib/i18n/server';
 import { announcerVoicesFor, getRaceAnnouncerSettings, MAX_RACE_ANNOUNCER_INSTRUCTIONS } from '@/lib/raceAnnouncer';
 import { retentionDays } from '@/lib/lapRetentionRules';
 import { readOwnAiLimits, readOwnAiUsage } from '@/lib/rateLimits';
-import { canUseInCarCoach, isAdmin } from '@/lib/roles';
+import { canUseInCarCoach, canUseVoiceAi, isAdmin } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
 import { getEnableAiFeatures, getShowPricing } from '@/lib/siteSettings';
 import { canBuyAnything, getInCarCoachInstructions, MAX_IN_CAR_COACH_INSTRUCTIONS } from '@/lib/users';
@@ -240,16 +240,24 @@ export default async function AccountPage({
             available={canUseInCarCoach(user)}
             viewPlans={showViewPlans}
           >
-            <RaceAnnouncersSection
-              leadVoice={raceAnnouncers.leadVoice}
-              colorVoice={raceAnnouncers.colorVoice}
-              leadVoices={announcerVoicesFor('lead', user.preferredLanguage, coachVoice.spanishAccent)}
-              colorVoices={announcerVoicesFor('color', user.preferredLanguage, coachVoice.spanishAccent)}
-              instructions={raceAnnouncers.instructions}
-              maxLength={MAX_RACE_ANNOUNCER_INSTRUCTIONS}
-              broadcast={raceAnnouncers.broadcast}
-              engineAssets={engineAssets.map(({ id, name }) => ({ id, name }))}
-            />
+            {/* The Race Announcers are for Silver and Gold members (canUseVoiceAi); anyone else is told why */}
+            {canUseVoiceAi(user) ? (
+              <RaceAnnouncersSection
+                leadVoice={raceAnnouncers.leadVoice}
+                colorVoice={raceAnnouncers.colorVoice}
+                leadVoices={announcerVoicesFor('lead', user.preferredLanguage, coachVoice.spanishAccent)}
+                colorVoices={announcerVoicesFor('color', user.preferredLanguage, coachVoice.spanishAccent)}
+                instructions={raceAnnouncers.instructions}
+                maxLength={MAX_RACE_ANNOUNCER_INSTRUCTIONS}
+                broadcast={raceAnnouncers.broadcast}
+                engineAssets={engineAssets.map(({ id, name }) => ({ id, name }))}
+              />
+            ) : (
+              <div className="mb-5 pb-4 border-b border-border">
+                <h3 className="text-sm font-medium text-muted-foreground mb-1">{t.raceAnnouncers.title}</h3>
+                <p className="text-sm text-muted-foreground">{t.raceAnnouncers.membersOnly}</p>
+              </div>
+            )}
           </InCarCoachInstructionsCard>
         )}
 

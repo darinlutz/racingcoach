@@ -4,6 +4,7 @@ import { ELEVENLABS_PROVIDER, SPEECH_PROVIDER_HEADER } from '@/lib/engineBedConf
 import { apiText, getDictionary } from '@/lib/i18n/server';
 import { ANNOUNCER_ROLES, isAnnouncer } from '@/lib/raceAnnouncer';
 import { aiRateLimit, type AiRateLimit } from '@/lib/rateLimits';
+import { canUseVoiceAi } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
 
 // The Account page's Race Announcers' Listen buttons: a sample line (the dictionary's raceAnnouncers.sampleLead or
@@ -17,6 +18,9 @@ export async function GET(request: Request) {
   try {
     if (!user) {
       return NextResponse.json({ error: t.logInRaceAnnouncers }, { status: 401 });
+    }
+    if (!canUseVoiceAi(user)) {
+      return NextResponse.json({ error: t.raceAnnouncersMembersOnly, code: 'membershipRequired' }, { status: 403 });
     }
     const params = new URL(request.url).searchParams;
     const announcer = params.get('announcer');

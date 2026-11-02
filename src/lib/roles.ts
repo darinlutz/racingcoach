@@ -37,6 +37,10 @@ export const canUseInCarCoach = (user: { membershipLevel: string; role: string }
   user.membershipLevel === MEMBERSHIP_LEVEL.silver ||
   user.membershipLevel === MEMBERSHIP_LEVEL.gold;
 
+// The Race Announcers (Live Racing and TV Broadcast Mode), Live Racing's Hold to Talk voice messages and Driver Radio
+// are for the same members, as each makes AI or speech calls all race long
+export const canUseVoiceAi = canUseInCarCoach;
+
 // How many of the newest stints (sessions) Debrief Coach's recorded laps list shows: 8 for Bronze, 20 for Silver,
 // 50 for Gold members, Coaches and Admins (the most anyone sees)
 export const STINT_LIMITS = { bronze: 8, silver: 20, max: 50 } as const;

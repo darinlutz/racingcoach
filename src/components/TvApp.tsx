@@ -32,11 +32,14 @@ function useStageScale(): number {
 export default function TvApp({
   paired,
   announcers,
+  announcersMembersOnly,
   linkAddress,
 }: {
   paired: { userName: string; engine: EngineBedConfig } | null;
-  // The Admin page's Enable AI Features is on, so the Race Announcers can speak
+  // The Admin page's Enable AI Features is on and the account is a Silver or Gold member or an Admin (canUseVoiceAi),
+  // so the Race Announcers can speak; announcersMembersOnly when only the membership stops them
   announcers: boolean;
+  announcersMembersOnly: boolean;
   linkAddress: string;
 }) {
   const scale = useStageScale();
@@ -85,7 +88,7 @@ export default function TvApp({
         }}
       >
         {paired ? (
-          <TvBroadcast userName={paired.userName} announcers={announcers} engine={paired.engine} edges={edges} onEdges={changeEdges} />
+          <TvBroadcast userName={paired.userName} announcers={announcers} announcersMembersOnly={announcersMembersOnly} engine={paired.engine} edges={edges} onEdges={changeEdges} />
         ) : (
           <TvPairing linkAddress={linkAddress} />
         )}

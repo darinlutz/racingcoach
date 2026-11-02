@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { commentate } from '@/lib/announcerCommentary';
 import { apiText } from '@/lib/i18n/server';
+import { canUseVoiceAi } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
 import { getEnableAiFeatures } from '@/lib/siteSettings';
 
@@ -21,7 +22,8 @@ const bodySchema = z.object({
 // src/lib/announcerCommentary.ts, shared with TV Broadcast Mode). Answers
 // { seq, lines: [{ speaker, text, audio, intensity, priority, ttlMs, durationMs, volume, elevenLabs }], replaceQueued, engineBed },
 // audio a base64 WAV; seq is the newest event's number, to send as after next time. No AI call when the Director picks
-// nothing. 404 when the driver isn't live or can't be watched.
+// nothing. 404 when the driver isn't live or can't be watched; 403 { code: 'membershipRequired' } for anyone but Silver
+// and Gold members and Admins (canUseVoiceAi).
 export async function POST(request: Request) {
   const user = await getCurrentUser();
   const t = await apiText(user);
@@ -31,6 +33,9 @@ export async function POST(request: Request) {
     }
     if (!(await getEnableAiFeatures())) {
       return NextResponse.json({ error: t.raceAnnouncersDisabled, code: 'aiFeaturesDisabled' }, { status: 403 });
+    }
+    if (!canUseVoiceAi(user)) {
+      return NextResponse.json({ error: t.raceAnnouncersMembersOnly, code: 'membershipRequired' }, { status: 403 });
     }
     const parsed = bodySchema.safeParse(await request.json().catch(() => null));
     if (!parsed.success) {

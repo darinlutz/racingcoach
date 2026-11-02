@@ -125,8 +125,9 @@ export type RateLimitOverride = {
 export const USAGE_RANGES = ['hour', 'day', 'week', 'month', 'all'] as const;
 export type UsageRange = (typeof USAGE_RANGES)[number];
 
+// On by default; a site that already saved its settings keeps its own switch (parseRateLimitSettings)
 export const DEFAULT_RATE_LIMITS: RateLimitSettings = {
-  enabled: false,
+  enabled: true,
   resetStyle: 'rolling',
   exemptRoles: 'admins',
   tiers: {

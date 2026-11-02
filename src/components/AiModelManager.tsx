@@ -4,11 +4,11 @@ import { useState } from 'react';
 import { useLanguage } from '@/components/LanguageProvider';
 import {
   AI_FEATURE_VALUES,
-  AI_FEATURES,
   AI_MODEL_CATEGORIES,
   AI_MODEL_PROVIDERS,
   aiModelProvider,
   aiModelsFor,
+  defaultAiModel,
   type AiFeature,
   type AiModel,
   type AiModelCategory,
@@ -35,8 +35,8 @@ export default function AiModelManager({ models: initialModels }: { models: Mode
   const featureName = (value: AiFeature) => a.aiFeatures[value] ?? value;
   const categoryName = (category: AiModelCategory) =>
     category === 'Admin' ? (a.roles.Admin ?? category) : (t.pricing.levelNames[category] ?? category);
-  const modelName = (feature: AiFeature, value: AiModel) =>
-    value === AI_FEATURES[feature] ? fmt(a.aiModelDefault, { model: value }) : value;
+  const modelName = (category: AiModelCategory, feature: AiFeature, value: AiModel) =>
+    value === defaultAiModel(category, feature) ? fmt(a.aiModelDefault, { model: value }) : value;
 
   const changes = AI_MODEL_CATEGORIES.flatMap((category) =>
     AI_FEATURE_VALUES.filter((feature) => models[category][feature] !== saved[category][feature]).map((feature) => ({
@@ -114,7 +114,7 @@ export default function AiModelManager({ models: initialModels }: { models: Mode
                           <optgroup key={provider} label={provider}>
                             {options.map((value) => (
                               <option key={value} value={value}>
-                                {modelName(feature, value)}
+                                {modelName(category, feature, value)}
                               </option>
                             ))}
                           </optgroup>

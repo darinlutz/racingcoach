@@ -74,6 +74,20 @@ export function isAiModelFor(feature: AiFeature, value: unknown): value is AiMod
 export const AI_MODEL_CATEGORIES = ['Admin', 'Gold', 'Silver', 'Bronze'] as const;
 export type AiModelCategory = (typeof AI_MODEL_CATEGORIES)[number];
 
+// A category's own defaults, ahead of AI_FEATURES and of a feature's model from before models were set per category:
+// Bronze (and visitors) get the cheaper gpt-4o-mini for the Debrief Coach. Its other features are gpt-4o-mini already,
+// or Silver and above only
+const CATEGORY_DEFAULTS: Partial<Record<AiModelCategory, Partial<Record<AiFeature, AiModel>>>> = {
+  Bronze: { debriefCoach: 'gpt-4o-mini' },
+};
+
+export const categoryDefault = (category: AiModelCategory, feature: AiFeature): AiModel | undefined =>
+  CATEGORY_DEFAULTS[category]?.[feature];
+
+// The model a category uses for a feature when the Admin page hasn't picked one
+export const defaultAiModel = (category: AiModelCategory, feature: AiFeature): AiModel =>
+  categoryDefault(category, feature) ?? AI_FEATURES[feature];
+
 // AI calls made for no user (e.g. the collector log review) use the Admin category's models
 export const SYSTEM_AI_MODEL_CATEGORY: AiModelCategory = 'Admin';
 

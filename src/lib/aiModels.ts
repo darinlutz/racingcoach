@@ -6,6 +6,8 @@ import {
   AI_FEATURE_VALUES,
   AI_FEATURES,
   AI_MODEL_CATEGORIES,
+  categoryDefault,
+  defaultAiModel,
   type AiFeature,
   type AiModel,
   type AiModelCategory,
@@ -25,7 +27,8 @@ export * from '@/lib/aiModelList';
 // Which OpenAI, Anthropic or DeepSeek model each AI feature uses for each category of caller (Admin, Gold, Silver, Bronze; see
 // aiModelCategoryOf), chosen on the Admin page's AI Model Control section and kept in racingcoach."SiteSettings"
 // (key ai_model:<category>:<feature>). A category with no row for a feature uses the feature's model from before
-// models were set per category (key ai_model:<feature>), else its default (AI_FEATURES in src/lib/aiModelList.ts).
+// models were set per category (key ai_model:<feature>), else its default (AI_FEATURES in src/lib/aiModelList.ts). A
+// category's own default (categoryDefault, e.g. Bronze's Debrief Coach) comes before that older row.
 
 const settingKey = (category: AiModelCategory, feature: AiFeature) => `ai_model:${category}:${feature}`;
 
@@ -50,7 +53,9 @@ export async function getAiModels(): Promise<AiModelsByCategory> {
   return Object.fromEntries(
     AI_MODEL_CATEGORIES.map((category) => [
       category,
-      Object.fromEntries(AI_FEATURE_VALUES.map((feature) => [feature, saved[category]?.[feature] ?? shared[feature]])),
+      Object.fromEntries(
+        AI_FEATURE_VALUES.map((feature) => [feature, saved[category]?.[feature] ?? categoryDefault(category, feature) ?? shared[feature]])
+      ),
     ])
   ) as AiModelsByCategory;
 }
@@ -77,10 +82,13 @@ export async function getAiModel(feature: AiFeature): Promise<AiModel> {
     );
     const own = rows.find((row) => row.key === settingKey(category, feature))?.value;
     const shared = rows.find((row) => row.key === `ai_model:${feature}`)?.value;
-    return isAiModelFor(feature, own) ? own : isAiModelFor(feature, shared) ? shared : AI_FEATURES[feature];
+    if (isAiModelFor(feature, own)) return own;
+    const ownDefault = categoryDefault(category, feature);
+    if (ownDefault) return ownDefault;
+    return isAiModelFor(feature, shared) ? shared : AI_FEATURES[feature];
   } catch (error) {
     console.error(`Failed to read the AI model for ${feature}:`, error);
-    return AI_FEATURES[feature];
+    return defaultAiModel(category, feature);
   }
 }
 

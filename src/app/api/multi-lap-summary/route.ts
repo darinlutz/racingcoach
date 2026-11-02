@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { aiErrorResponse } from '@/lib/aiErrors';
+import { apiText } from '@/lib/i18n/server';
 import { summarizeMultiLap } from '@/lib/lapSummary';
 import { aiRateLimit, type AiRateLimit } from '@/lib/rateLimits';
 import { getCurrentUser } from '@/lib/session';
@@ -27,7 +28,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'OpenAI API key not configured' }, { status: 500 });
     }
 
+    // Signed-in users only, so visitors can't run the AI
     const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: (await apiText()).logInAi }, { status: 401 });
+    }
     limit = await aiRateLimit(request, 'multiLapSummary', user);
     if (limit.response) return limit.response;
     const units = await getUnits(user);

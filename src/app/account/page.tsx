@@ -143,6 +143,18 @@ export default async function AccountPage({
           )}
         </dl>
 
+        {/* Privacy & Data Rights (src/app/account/privacy/): see, download, correct or delete personal data */}
+        <Link
+          href="/account/privacy"
+          className="mt-6 flex items-center justify-between gap-4 bg-card rounded-lg border border-border px-4 py-4 hover:border-primary transition-colors"
+        >
+          <span className="min-w-0">
+            <span className="block font-medium text-foreground">{t.privacyRights.link}</span>
+            <span className="block text-sm text-muted-foreground">{t.privacyRights.linkDescription}</span>
+          </span>
+          <span aria-hidden="true" className="shrink-0 text-primary">→</span>
+        </Link>
+
         {/* Accounts made through Google sign-in have no password to change until Forgot Password sets one */}
         {user.hasPassword && <ChangePasswordButton />}
 
@@ -278,7 +290,7 @@ export default async function AccountPage({
         </div>
 
         {/* Admins can't delete their account (the API refuses too) */}
-        {!isAdmin(user.role) && <DeleteAccountButton isSubscribed={isSubscribed} />}
+        {!isAdmin(user.role) && <DeleteAccountButton isSubscribed={isSubscribed} hasPassword={user.hasPassword} />}
       </div>
     </section>
   );

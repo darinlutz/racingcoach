@@ -3,22 +3,43 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { useLanguage } from '@/components/LanguageProvider';
+import { privacyInputClass } from '@/components/ReauthForm';
 
-// The Account page's Delete Account button (not shown to Admins) and its warning. Confirming deletes the account and
-// all of its data (DELETE /api/account), then goes to the home page signed out. The warning fades and scales in like
-// ConfirmDialog; Escape or a click outside closes it unless the deletion is under way, and Cancel has focus when it opens.
-export default function DeleteAccountButton({ isSubscribed }: { isSubscribed: boolean }) {
+// The Delete Account button on My Settings and Privacy & Data Rights (not shown to Admins) and its warning. The user
+// types DELETE and confirms it's them, with their password or, for an account without one, a code emailed to it;
+// confirming deletes the account and all of its data (DELETE /api/account), then goes to the home page signed out.
+// The warning fades and scales in like ConfirmDialog; Escape or a click outside closes it unless the deletion is under
+// way, and Cancel has focus when it opens.
+export default function DeleteAccountButton({ isSubscribed, hasPassword }: { isSubscribed: boolean; hasPassword: boolean }) {
   const { t: dictionary } = useLanguage();
   const t = dictionary.deleteAccount;
+  const reauth = dictionary.privacyRights.reauth;
   const [open, setOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState('');
+  const [typed, setTyped] = useState('');
+  const [secret, setSecret] = useState('');
+  const [codeSent, setCodeSent] = useState(false);
   const cancelRef = useRef<HTMLButtonElement>(null);
   const router = useRouter();
 
   const openWarning = () => {
     setError('');
+    setTyped('');
+    setSecret('');
     setOpen(true);
+  };
+
+  const sendCode = async () => {
+    setError('');
+    const response = await fetch('/api/account/privacy/reauth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sendCode: true }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (response.ok) setCodeSent(true);
+    else setError(data.error || t.failed);
   };
 
   useEffect(() => {
@@ -43,7 +64,11 @@ export default function DeleteAccountButton({ isSubscribed }: { isSubscribed: bo
     setError('');
     setDeleting(true);
     try {
-      const response = await fetch('/api/account', { method: 'DELETE' });
+      const response = await fetch('/api/account', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirm: typed.trim(), ...(hasPassword ? { password: secret } : { code: secret }) }),
+      });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || t.failed);
       // Signed out now: off to the home page, refreshed so the nav bar forgets the account
@@ -118,6 +143,45 @@ export default function DeleteAccountButton({ isSubscribed }: { isSubscribed: bo
 
           {isSubscribed && <p className="mt-4 text-sm text-muted-foreground">{t.subscription}</p>}
 
+          <div className="mt-4 space-y-3" data-no-track>
+            <div>
+              <label htmlFor="deleteAccountTyped" className="block text-sm font-medium text-foreground mb-1">{t.typeDelete}</label>
+              <input
+                id="deleteAccountTyped"
+                value={typed}
+                onChange={(e) => setTyped(e.target.value)}
+                autoComplete="off"
+                spellCheck={false}
+                className={privacyInputClass}
+              />
+            </div>
+            {hasPassword || codeSent ? (
+              <div>
+                {codeSent && <p className="mb-2 text-sm text-muted-foreground">{reauth.codeSent}</p>}
+                <label htmlFor="deleteAccountSecret" className="block text-sm font-medium text-foreground mb-1">
+                  {hasPassword ? reauth.password : reauth.code}
+                </label>
+                <input
+                  id="deleteAccountSecret"
+                  type={hasPassword ? 'password' : 'text'}
+                  inputMode={hasPassword ? undefined : 'numeric'}
+                  autoComplete={hasPassword ? 'current-password' : 'one-time-code'}
+                  value={secret}
+                  onChange={(e) => setSecret(e.target.value)}
+                  className={privacyInputClass}
+                />
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => void sendCode()}
+                className="px-4 py-2 rounded-lg font-semibold text-foreground bg-card border border-border hover:border-primary hover:text-primary transition-colors"
+              >
+                {reauth.sendCode}
+              </button>
+            )}
+          </div>
+
           {error && (
             <p className="mt-4 p-3 rounded-lg bg-primary/15 border border-primary/40 text-red-300 text-sm">{error}</p>
           )}
@@ -135,7 +199,7 @@ export default function DeleteAccountButton({ isSubscribed }: { isSubscribed: bo
             <button
               type="button"
               onClick={() => void deleteAccount()}
-              disabled={deleting}
+              disabled={deleting || typed.trim() !== 'DELETE' || !secret}
               className="flex-1 px-4 py-2 rounded-lg font-semibold text-white bg-red-600 hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {deleting ? t.deleting : t.confirm}

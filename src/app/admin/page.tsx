@@ -10,6 +10,7 @@ import CollectorLogsViewer from '@/components/CollectorLogsViewer';
 import LapRetentionRuns from '@/components/LapRetentionRuns';
 import RateLimitManager from '@/components/RateLimitManager';
 import SiteSettingsManager from '@/components/SiteSettingsManager';
+import PrivacyRequestsLinkCard from '@/components/PrivacyRequestsLinkCard';
 import SubscribersLinkCard from '@/components/SubscribersLinkCard';
 import UserRoleManager from '@/components/UserRoleManager';
 import {
@@ -32,6 +33,7 @@ import { getDictionary } from '@/lib/i18n/server';
 import { isAdmin } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
 import { getEnableAiFeatures, getShowPricing, getShowProDriverLesson } from '@/lib/siteSettings';
+import { readRequestCounts } from '@/lib/privacyRequests';
 
 // The site owner's Admin page: a link to Subscribers (src/app/admin/subscribers/), Site Settings (src/components/SiteSettingsManager.tsx), AI Model Control
 // (src/components/AiModelManager.tsx), AI Model Costs (src/components/AiModelCostTable.tsx), Rate Limiting (src/components/RateLimitManager.tsx), the Broadcast Video Library, Engine Sounds and Broadcast Director (src/components/BroadcastVideoLibrary.tsx, EngineAudioLibrary.tsx, BroadcastDirectorManager.tsx), User Roles (src/components/UserRoleManager.tsx), Collector Logs
@@ -58,7 +60,7 @@ export default async function AdminPage({
   const t = getDictionary(user.preferredLanguage);
   const a = t.admin;
   const locale = LANGUAGE_LOCALES[user.preferredLanguage];
-  const [report, users, showPricing, showProDriverLesson, enableAiFeatures, aiModels, rateLimits, rateLimitOverrides, averageCallTokens, retentionRuns] = await Promise.all([
+  const [report, users, showPricing, showProDriverLesson, enableAiFeatures, aiModels, rateLimits, rateLimitOverrides, averageCallTokens, retentionRuns, privacyCounts] = await Promise.all([
     readActivityReport(filters),
     listUsersForAdmin(),
     getShowPricing(),
@@ -69,6 +71,7 @@ export default async function AdminPage({
     listOverrides(),
     readAverageCallTokens(),
     readLapRetentionRuns(),
+    readRequestCounts(),
   ]);
   const { summary, topPages, topClicks, rows } = report;
 
@@ -104,6 +107,8 @@ export default async function AdminPage({
         </h1>
 
         <SubscribersLinkCard t={t.subscribers} timeZone={filters.timeZone} />
+
+        <PrivacyRequestsLinkCard t={t.privacyAdmin} counts={privacyCounts} />
 
         <SiteSettingsManager showPricing={showPricing} showProDriverLesson={showProDriverLesson} enableAiFeatures={enableAiFeatures} />
 

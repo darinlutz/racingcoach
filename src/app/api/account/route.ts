@@ -1,16 +1,21 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { ACCOUNT_STATUS } from '@/lib/accountStatus';
-import { apiText } from '@/lib/i18n/server';
+import { deleteAccount } from '@/lib/dataErasure';
+import { apiText, getDictionary } from '@/lib/i18n/server';
 import { notifyOwner } from '@/lib/ownerNotifications';
+import { quietly, sendRequestUpdate } from '@/lib/privacyEmail';
+import { isRecentlyReauthenticated, reauthenticateWithCode, reauthenticateWithPassword } from '@/lib/reauth';
 import { isAdmin } from '@/lib/roles';
 import { deleteSession, getCurrentUser } from '@/lib/session';
-import { deleteUser } from '@/lib/users';
 
-// The Account page's Delete Account, for the signed-in user only (never an Admin). Cancels a live Stripe
-// subscription first so it isn't charged again, then deletes the account and everything tied to it except
-// the ActivityLog, cancellation feedback and billing history (deleteUser), and signs the browser out.
-export async function DELETE() {
+// Delete My Account (My Settings and Privacy & Data Rights), for the signed-in user only (never an Admin). Body:
+// { confirm: 'DELETE', password? | code? }: the user types DELETE and confirms it's them (their password, or an emailed
+// code for an account without one), unless this sign-in already did within 10 minutes. Cancels a live Stripe
+// subscription first so it isn't charged again, then deletes the account and everything tied to it except cancellation
+// feedback and billing history (unlinked) and the ActivityLog (anonymized), recording it as a completed privacy request and in the
+// erasure ledger (deleteAccount in src/lib/dataErasure.ts), and signs the browser out.
+export async function DELETE(request: Request) {
   const user = await getCurrentUser();
   const t = await apiText(user);
   try {
@@ -19,6 +24,25 @@ export async function DELETE() {
     }
     if (isAdmin(user.role)) {
       return NextResponse.json({ error: t.adminCannotDeleteAccount }, { status: 403 });
+    }
+    const p = getDictionary(user.preferredLanguage).privacyRights;
+    const body = await request.json().catch(() => ({}));
+    if (body.confirm !== 'DELETE') {
+      return NextResponse.json({ error: p.errors.confirmDelete }, { status: 400 });
+    }
+    if (!(await isRecentlyReauthenticated(user))) {
+      const result =
+        typeof body.password === 'string' && body.password
+          ? await reauthenticateWithPassword(user, body.password)
+          : typeof body.code === 'string' && body.code
+            ? await reauthenticateWithCode(user, body.code.trim())
+            : null;
+      if (result !== 'ok') {
+        return NextResponse.json(
+          { error: result ? p.reauth[result] : p.reauth.required, reauthRequired: true },
+          { status: result === 'tooMany' ? 429 : 403 }
+        );
+      }
     }
 
     if (user.accountStatus === ACCOUNT_STATUS.subscribed && user.stripeSubscriptionId) {
@@ -35,12 +59,22 @@ export async function DELETE() {
       }
     }
 
-    await deleteUser(user.id);
+    const done = await deleteAccount(user);
     await deleteSession();
     await notifyOwner('deleted', user.emailAddress);
+    await quietly(
+      sendRequestUpdate(user.emailAddress, {
+        requestId: done.id,
+        type: 'account_deletion',
+        headline: 'completed',
+        message: `${done.resolution} Billing records we must keep for tax, records of your cookie choices and the record of this request are kept without your name and email address.`,
+        signedIn: false,
+      }),
+      'account deleted'
+    );
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Delete account error:', error);
+    console.error('Delete account error:', error instanceof Error ? error.message : error);
     return NextResponse.json({ error: t.failedDeleteAccount }, { status: 500 });
   }
 }

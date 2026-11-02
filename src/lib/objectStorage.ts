@@ -2,7 +2,7 @@ import { createReadStream, createWriteStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import type { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
-import { DeleteObjectCommand, GetObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, GetObjectCommand, HeadObjectCommand, ListObjectsV2Command, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 // Where the Broadcast Video Library's files live: any S3-compatible object store (Cloudflare R2 recommended, as serving
@@ -90,6 +90,27 @@ export async function downloadObjectBytes(key: string): Promise<Buffer> {
   const { client, bucket } = storage();
   const response = await client.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
   return Buffer.from(await response.Body!.transformToByteArray());
+}
+
+// A stored object as a stream, sent through the web server after its own access check: Download My Data's exports
+// (src/lib/personalDataExport.ts), which never get a presigned URL anyone holding it could use
+export async function readObjectStream(key: string): Promise<{ body: ReadableStream; size: number | null }> {
+  const { client, bucket } = storage();
+  const response = await client.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+  return { body: response.Body!.transformToWebStream(), size: response.ContentLength ?? null };
+}
+
+// Every key under a prefix: the erasure ledger's copies (src/lib/dataErasure.ts)
+export async function listObjectKeys(prefix: string): Promise<string[]> {
+  const { client, bucket } = storage();
+  const keys: string[] = [];
+  let token: string | undefined;
+  do {
+    const page = await client.send(new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix, ContinuationToken: token }));
+    for (const item of page.Contents ?? []) if (item.Key) keys.push(item.Key);
+    token = page.IsTruncated ? page.NextContinuationToken : undefined;
+  } while (token);
+  return keys;
 }
 
 export async function uploadVideoObject(key: string, path: string, contentType: string): Promise<void> {

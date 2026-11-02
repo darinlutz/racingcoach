@@ -16,7 +16,15 @@ function getPool(): Pool {
     if (!connectionString) {
       throw new Error('DATABASE_URL is not set');
     }
-    globalForDb.pgPool = new Pool({ connectionString, options: `-c search_path=${DB_SCHEMA}` });
+    // 25 connections (pg's default is 10) so race-night lap uploads, live updates and AI routes don't queue. Render
+    // Postgres allows at least 100: two of these pools while a deploy overlaps, the bot's 10 and the MCP tools' 3 fit.
+    // A query that still can't get one within 10 s fails instead of waiting forever.
+    globalForDb.pgPool = new Pool({
+      connectionString,
+      options: `-c search_path=${DB_SCHEMA}`,
+      max: 25,
+      connectionTimeoutMillis: 10_000,
+    });
   }
   return globalForDb.pgPool;
 }

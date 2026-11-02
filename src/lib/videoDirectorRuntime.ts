@@ -10,6 +10,7 @@ import type { Language } from './i18n/languages';
 import { readDirectorFeed } from './liveRacing';
 import { videoObjectSize, videoStorageConfigured } from './objectStorage';
 import { ANNOUNCER_ROLES, getRaceAnnouncerSettings, raceAnnouncerLines, type Announcer, type LinePlan } from './raceAnnouncer';
+import { siteAiCall } from './rateLimits';
 import { getEnableAiFeatures } from './siteSettings';
 import type { User } from './users';
 import {
@@ -306,8 +307,9 @@ async function writeLines(video: DirectorVideo, slots: Slot[], language: Languag
   }
   try {
     const plans: LinePlan[] = slots.map((s) => ({ speaker: s.speaker, intensity: s.intensity, maxSeconds: s.maxSeconds, job: s.job }));
+    // Shared by every TV watching, so logged as the site's own AI call rather than against a viewer
     const { lines } = await withTimeout(
-      raceAnnouncerLines({
+      siteAiCall('broadcastDirector', () => raceAnnouncerLines({
         request: {
           event: { what: 'The producer is showing a recorded clip between moments of the live race. The lines are about the clip, not about race action.' },
           recordedClip: facts,
@@ -318,7 +320,7 @@ async function writeLines(video: DirectorVideo, slots: Slot[], language: Languag
         facts: { allowedNames: fieldNames.filter((n) => metadata.includes(lastNameOf(n))), fieldNames, allowedNumbers: numbers, allowedDecimals: decimals },
         instructions: '',
         language,
-      }),
+      })),
       WRITE_TIMEOUT_MS
     );
     lines.forEach((line, i) => out.set(slots[i].when, { text: line.text, spoken: line.spoken }));

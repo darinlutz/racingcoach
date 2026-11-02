@@ -8,8 +8,10 @@ import {
   BURST_OPTIONS,
   EXEMPT_ROLES,
   type ExemptRoles,
+  isLiveFeature,
   LIMIT_OPTIONS,
   LIMIT_TIERS,
+  LIVE_FEATURES,
   type LimitRule,
   type LimitTier,
   OVERRIDE_DURATIONS,
@@ -28,7 +30,8 @@ import {
 } from '@/lib/rateLimitConfig';
 
 // The Admin page's Rate Limiting section (src/lib/rateLimits.ts): turning limits on, each membership level's AI
-// limit, a per-minute burst limit, the IP address cap and each feature's weight (saved together with PUT
+// limit, a per-minute burst limit, the IP address cap, each feature's weight and the live broadcast limit with its
+// own weights (saved together with PUT
 // /api/admin/rate-limits); overrides for one user or IP address (POST/DELETE /api/admin/rate-limits/overrides);
 // and the AI usage report (src/components/AiUsageReport.tsx), whose Set Limit fills in the override form.
 
@@ -76,6 +79,8 @@ export default function RateLimitManager({
 
   const setTier = (tier: LimitTier, change: Partial<LimitRule>) =>
     setSettings((s) => ({ ...s, tiers: { ...s.tiers, [tier]: { ...s.tiers[tier], ...change } } }));
+  const setLiveTier = (tier: LimitTier, change: Partial<LimitRule>) =>
+    setSettings((s) => ({ ...s, live: { ...s.live, tiers: { ...s.live.tiers, [tier]: { ...s.live.tiers[tier], ...change } } } }));
 
   const saveSettings = async (next: RateLimitSettings) => {
     setSaving(true);
@@ -363,7 +368,7 @@ export default function RateLimitManager({
         <h3 className="text-sm font-semibold text-foreground">{r.weightsTitle}</h3>
         <p className="text-xs text-muted-foreground mb-3">{r.weightsHint}</p>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {RATE_LIMITED_FEATURES.map((feature: RateLimitedFeature) => (
+          {RATE_LIMITED_FEATURES.filter((feature) => !isLiveFeature(feature)).map((feature: RateLimitedFeature) => (
             <div key={feature}>
               <label htmlFor={`rl-weight-${feature}`} className={labelClass}>{featureName(feature)}</label>
               <select
@@ -376,6 +381,58 @@ export default function RateLimitManager({
                 {WEIGHT_OPTIONS.map((weight) => (
                   <option key={weight} value={weight}>
                     {weight === 0 ? r.weightOff : fmt(r.weightCalls, { n: weight })}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* The live broadcast limit, apart from the levels' limits */}
+      <div>
+        <h3 className="text-sm font-semibold text-foreground">{r.liveTitle}</h3>
+        <p className="text-xs text-muted-foreground mb-3">{r.liveHint}</p>
+        <div className="overflow-x-auto">
+          <table className="w-full max-w-lg text-sm">
+            <thead className="text-left text-xs text-muted-foreground">
+              <tr>
+                <th className="py-1 pr-3 font-medium">{r.level}</th>
+                <th className="py-1 pr-3 font-medium">{r.limit}</th>
+                <th className="py-1 font-medium">{r.per}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {LIMIT_TIERS.map((tier) => (
+                <tr key={tier}>
+                  <td className="py-1.5 pr-3 font-medium text-foreground whitespace-nowrap">{tierName(tier)}</td>
+                  <td className="py-1.5 pr-3 min-w-[130px]">
+                    {limitSelect(`rl-live-limit-${tier}`, settings.live.tiers[tier].limit, (value) => setLiveTier(tier, { limit: value }))}
+                  </td>
+                  <td className="py-1.5 min-w-[130px]">
+                    {periodSelect(`rl-live-period-${tier}`, settings.live.tiers[tier].period, (value) => setLiveTier(tier, { period: value }))}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {LIVE_FEATURES.map((feature) => (
+            <div key={feature}>
+              <label htmlFor={`rl-live-weight-${feature}`} className={labelClass}>{featureName(feature)}</label>
+              <select
+                id={`rl-live-weight-${feature}`}
+                value={settings.live.weights[feature]}
+                onChange={(e) =>
+                  setSettings((s) => ({ ...s, live: { ...s.live, weights: { ...s.live.weights, [feature]: Number(e.target.value) } } }))
+                }
+                disabled={saving}
+                className={inputClass}
+              >
+                {WEIGHT_OPTIONS.map((weight) => (
+                  <option key={weight} value={weight}>
+                    {weight === 0 ? r.weightOff : fmt(feature === 'raceAnnouncer' ? r.weightPerLine : r.weightCalls, { n: weight })}
                   </option>
                 ))}
               </select>

@@ -1,14 +1,16 @@
 import { isIP } from 'node:net';
 import { NextResponse } from 'next/server';
 import type { PoolClient } from 'pg';
-import { aiModelCategoryOf } from './aiModelList';
+import { aiModelCategoryOf, SYSTEM_AI_MODEL_CATEGORY } from './aiModelList';
 import { withAiUsage } from './aiTokenUsage';
 import { query, transaction } from './db';
 import { getDictionary, getLanguage } from './i18n/server';
 import { fmt, LANGUAGE_LOCALES, type Language } from './i18n/languages';
 import {
   DEFAULT_RATE_LIMITS,
+  isLiveFeature,
   LIMIT_TIERS,
+  LIVE_FEATURES,
   type LimitRule,
   type LimitTier,
   type OverrideMode,
@@ -20,6 +22,8 @@ import {
   type RateLimitOverride,
   type RateLimitSettings,
   type ResetStyle,
+  SITE_TIER,
+  type SiteAiFeature,
   type UsageRange,
   calendarWindowEnd,
   windowStart,
@@ -96,19 +100,31 @@ function scopeWhere(scope: Scope): { sql: string; param: unknown } {
   return { sql: 'ip_address = $1', param: scope.ip };
 }
 
-async function usedSince(client: PoolClient, scope: Scope, since: Date): Promise<number> {
+// The calls of one budget: the live broadcast features' (live) or everything else's, for a query whose
+// LIVE_FEATURE_LIST is parameter $param
+const budgetSql = (live: boolean, param = 3) => `${live ? '' : 'NOT '}(feature = ANY($${param}))`;
+const LIVE_FEATURE_LIST: string[] = [...LIVE_FEATURES];
+
+async function usedSince(client: PoolClient, scope: Scope, since: Date, live = false): Promise<number> {
   const where = scopeWhere(scope);
   const { rows } = await client.query(
     `SELECT coalesce(sum(weight), 0) AS used FROM racingcoach."AiUsage"
-     WHERE ${where.sql} AND allowed AND counted AND occurred_at >= $2`,
-    [where.param, since]
+     WHERE ${where.sql} AND allowed AND counted AND occurred_at >= $2 AND ${budgetSql(live)}`,
+    [where.param, since, LIVE_FEATURE_LIST]
   );
   return Number(rows[0].used);
 }
 
 // Seconds until enough of the window's calls have aged out (rolling) or the window ends (calendar) for one more
 // call of this weight; null when it never will (a limit of 0, or a weight above the limit)
-async function secondsUntilFree(client: PoolClient, scope: Scope, rule: LimitRule, style: ResetStyle, weight: number): Promise<number | null> {
+async function secondsUntilFree(
+  client: PoolClient,
+  scope: Scope,
+  rule: LimitRule,
+  style: ResetStyle,
+  weight: number,
+  live = false
+): Promise<number | null> {
   if (rule.limit === null || rule.limit < weight || rule.limit === 0) return null;
   const now = new Date();
   const start = windowStart(rule.period, style, now);
@@ -116,8 +132,8 @@ async function secondsUntilFree(client: PoolClient, scope: Scope, rule: LimitRul
   const where = scopeWhere(scope);
   const { rows } = await client.query(
     `SELECT occurred_at, weight FROM racingcoach."AiUsage"
-     WHERE ${where.sql} AND allowed AND counted AND occurred_at >= $2 ORDER BY occurred_at`,
-    [where.param, start]
+     WHERE ${where.sql} AND allowed AND counted AND occurred_at >= $2 AND ${budgetSql(live)} ORDER BY occurred_at`,
+    [where.param, start, LIVE_FEATURE_LIST]
   );
   let excess = rows.reduce((sum, row) => sum + Number(row.weight), 0) + weight - rule.limit;
   for (const row of rows) {
@@ -167,13 +183,32 @@ async function refusal(
   weight: number,
   tier: LimitTier,
   user: User | null,
-  ip: string | null
+  ip: string | null,
+  live: boolean
 ): Promise<Refusal | null> {
   const overrides = await activeOverrides(client, user?.id ?? null, ip);
   if (overrides.user?.mode === 'blocked' || overrides.ip?.mode === 'blocked') {
     return { reason: 'blocked', rule: null, custom: true, retryAfterSeconds: null };
   }
   if (weight === 0) return null;
+
+  // A live broadcast call: only the level's live limit, which an unlimited override lifts. Not the burst limit (the
+  // Commentary Director paces the announcers) or the IP address cap
+  if (live) {
+    const ownOverride = user ? overrides.user : overrides.ip;
+    if (ownOverride?.mode === 'unlimited') return null;
+    const rule = settings.live.tiers[tier];
+    if (rule.limit === null) return null;
+    const scope: Scope = user ? { kind: 'user', userId: user.id } : { kind: 'anonymous', ip };
+    const used = await usedSince(client, scope, windowStart(rule.period, settings.resetStyle), true);
+    if (used + weight <= rule.limit) return null;
+    return {
+      reason: 'liveLimit',
+      rule,
+      custom: false,
+      retryAfterSeconds: await secondsUntilFree(client, scope, rule, settings.resetStyle, weight, true),
+    };
+  }
 
   // The caller's own limit: their override's, else their membership level's (a visitor's IP address override
   // takes the place of the Anonymous limit)
@@ -198,8 +233,8 @@ async function refusal(
     const where = scopeWhere(scope);
     const { rows } = await client.query(
       `SELECT count(*) AS calls, min(occurred_at) AS oldest FROM racingcoach."AiUsage"
-       WHERE ${where.sql} AND allowed AND weight > 0 AND occurred_at >= now() - interval '1 minute'`,
-      [where.param]
+       WHERE ${where.sql} AND allowed AND weight > 0 AND occurred_at >= now() - interval '1 minute' AND ${budgetSql(false, 2)}`,
+      [where.param, LIVE_FEATURE_LIST]
     );
     if (Number(rows[0].calls) >= burst) {
       const freeAt = new Date(rows[0].oldest).getTime() + 60_000;
@@ -251,8 +286,14 @@ const noRefund = async () => {};
 // The gate before every AI call: logs it, and refuses it while limits are on and the caller has used theirs up.
 // user is the signed-in (or collector or Discord) user, null for a visitor; request is null where the caller's
 // IP address means nothing (the Discord bot calls from its own server). A failure here never costs the user the
-// AI call: it's logged and the call goes ahead.
-export async function aiRateLimit(request: Request | null, feature: RateLimitedFeature, user: User | null): Promise<AiRateLimit> {
+// AI call: it's logged and the call goes ahead. units multiplies the feature's weight: a Race Announcer call counts
+// once per line it asks for. A live feature (LIVE_FEATURES) counts against the live limit instead of the level's.
+export async function aiRateLimit(
+  request: Request | null,
+  feature: RateLimitedFeature,
+  user: User | null,
+  units = 1
+): Promise<AiRateLimit> {
   const ip = request ? clientIp(request) : null;
   // Even an unlogged call runs with the caller's AI model category, so it uses their models
   const category = aiModelCategoryOf(user);
@@ -261,11 +302,12 @@ export async function aiRateLimit(request: Request | null, feature: RateLimitedF
   try {
     const settings = await getRateLimitSettings();
     const tier: LimitTier = user ? tierOf(user.membershipLevel) : 'Anonymous';
-    const weight = settings.weights[feature];
+    const live = isLiveFeature(feature);
+    const weight = (live ? settings.live.weights[feature] : settings.weights[feature]) * Math.max(1, Math.round(units));
     decision = await transaction(async (client) => {
       // One decision at a time per caller, so calls made together can't all slip under the limit
       await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [user ? `ai-user:${user.id}` : `ai-ip:${ip ?? ''}`]);
-      const refused = settings.enabled && !isExempt(settings, user) ? await refusal(client, settings, weight, tier, user, ip) : null;
+      const refused = settings.enabled && !isExempt(settings, user) ? await refusal(client, settings, weight, tier, user, ip, live) : null;
       const { rows } = await client.query(
         `INSERT INTO racingcoach."AiUsage" (user_id, ip_address, feature, tier, weight, allowed, reason)
          VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
@@ -311,6 +353,32 @@ export async function aiRateLimit(request: Request | null, feature: RateLimitedF
   };
 }
 
+// The site's own AI calls, made for no user (SITE_AI_FEATURES): logged in AiUsage as tier Site with weight 0 and
+// counted false, so the usage report shows their tokens and models but they never count against anyone, and run
+// with the Admin category's models (SYSTEM_AI_MODEL_CATEGORY). A failure to log never stops the call.
+export async function siteAiCall<T>(feature: SiteAiFeature, work: () => Promise<T>): Promise<T> {
+  let id: number | null = null;
+  try {
+    await ensureUserSchema();
+    const rows = await query<{ id: string }>(
+      `INSERT INTO racingcoach."AiUsage" (user_id, ip_address, feature, tier, weight, allowed, counted)
+       VALUES (NULL, NULL, $1, $2, 0, true, false) RETURNING id`,
+      [feature, SITE_TIER]
+    );
+    id = Number(rows[0].id);
+  } catch (error) {
+    console.error(`Failed to log the site's ${feature} AI call:`, error);
+  }
+  try {
+    return await withAiUsage(id, SYSTEM_AI_MODEL_CATEGORY, work);
+  } catch (error) {
+    if (id !== null) {
+      query('UPDATE racingcoach."AiUsage" SET failed = true WHERE id = $1', [id]).catch((e) => console.error('Failed to mark an AI call failed:', e));
+    }
+    throw error;
+  }
+}
+
 // "in 3 hours", "tomorrow", "em 20 minutos"...
 function relativeTime(seconds: number, language: Language): string {
   const format = new Intl.RelativeTimeFormat(LANGUAGE_LOCALES[language], { numeric: 'auto' });
@@ -332,10 +400,12 @@ async function refusalMessage(refused: Refusal, tier: LimitTier, settings: RateL
 
   let upgradeTo: RateLimitInfo['upgradeTo'] = null;
   const signUp = refused.reason === 'limit' && tier === 'Anonymous' && !refused.custom;
-  if (refused.reason === 'limit' && !refused.custom) {
+  const live = refused.reason === 'liveLimit';
+  if ((refused.reason === 'limit' || live) && !refused.custom) {
+    const tiers = live ? settings.live.tiers : settings.tiers;
     const next = NEXT_LEVEL[tier];
-    const current = settings.tiers[tier].limit ?? Infinity;
-    const higher = next ? (settings.tiers[next].limit ?? Infinity) > current : false;
+    const current = tiers[tier].limit ?? Infinity;
+    const higher = next ? (tiers[next].limit ?? Infinity) > current : false;
     if (next && higher && (await getShowPricing().catch(() => false))) upgradeTo = next;
   }
 
@@ -343,13 +413,14 @@ async function refusalMessage(refused: Refusal, tier: LimitTier, settings: RateL
   if (refused.reason === 'blocked') parts.push(t.blocked);
   else if (refused.reason === 'burst') parts.push(fmt(t.burst, { when: when ?? '' }));
   else if (refused.reason === 'ipLimit') parts.push(t.ipLimit);
+  else if (live) parts.push(refused.rule?.limit === 0 ? fmt(t.liveNoAccess, { level }) : fmt(t.liveUsedUp, { level, period: t.periods[refused.rule?.period ?? 'day'] }));
   else if (refused.rule?.limit === 0) parts.push(tier === 'Anonymous' && !refused.custom ? t.anonymousNoAccess : refused.custom ? t.customNoAccess : fmt(t.noAccess, { level }));
   else {
     const period = t.periods[refused.rule?.period ?? 'day'];
     parts.push(tier === 'Anonymous' && !refused.custom ? fmt(t.anonymousUsedUp, { period }) : refused.custom ? fmt(t.customUsedUp, { period }) : fmt(t.usedUp, { level, period }));
   }
 
-  if (refused.reason === 'limit' || refused.reason === 'ipLimit') {
+  if (refused.reason === 'limit' || refused.reason === 'ipLimit' || live) {
     if (upgradeTo && when) parts.push(fmt(t.upgradeOrWait, { level: dictionary.pricing.levelNames[upgradeTo] ?? upgradeTo, when }));
     else if (upgradeTo) parts.push(fmt(t.upgrade, { level: dictionary.pricing.levelNames[upgradeTo] ?? upgradeTo }));
     else if (signUp) parts.push(when ? fmt(t.signUpOrWait, { when }) : t.signUp);
@@ -467,25 +538,28 @@ export async function readAverageCallTokens(): Promise<{ input: number; cachedIn
   return { input: Number(rows[0].input), cachedInput: Number(rows[0].cached), output: Number(rows[0].output), calls };
 }
 
-export type OwnAiUsage ={ calls: number; weighted: number; inputTokens: number; outputTokens: number; blocked: number };
+// weighted is the level's limit's calls, live the live broadcast limit's (LIVE_FEATURES)
+export type OwnAiUsage = { calls: number; weighted: number; live: number; inputTokens: number; outputTokens: number; blocked: number };
 
 // The user's AI calls in the last 24 hours and the last 7 days, counted like the usage report's
 export async function readOwnAiUsage(userId: number): Promise<{ day: OwnAiUsage; week: OwnAiUsage }> {
   await ensureUserSchema();
   const measures = (prefix: string, since: string) => `
     count(*) FILTER (WHERE allowed AND occurred_at >= ${since}) AS ${prefix}_calls,
-    coalesce(sum(weight) FILTER (WHERE allowed AND NOT failed AND occurred_at >= ${since}), 0) AS ${prefix}_weighted,
+    coalesce(sum(weight) FILTER (WHERE allowed AND NOT failed AND occurred_at >= ${since} AND NOT (feature = ANY($2))), 0) AS ${prefix}_weighted,
+    coalesce(sum(weight) FILTER (WHERE allowed AND NOT failed AND occurred_at >= ${since} AND feature = ANY($2)), 0) AS ${prefix}_live,
     coalesce(sum(input_tokens) FILTER (WHERE occurred_at >= ${since}), 0) AS ${prefix}_input_tokens,
     coalesce(sum(output_tokens) FILTER (WHERE occurred_at >= ${since}), 0) AS ${prefix}_output_tokens,
     count(*) FILTER (WHERE NOT allowed AND occurred_at >= ${since}) AS ${prefix}_blocked`;
   const rows = await query(
     `SELECT ${measures('day', `now() - interval '1 day'`)}, ${measures('week', `now() - interval '7 days'`)}
      FROM racingcoach."AiUsage" WHERE user_id = $1 AND occurred_at >= now() - interval '7 days'`,
-    [userId]
+    [userId, LIVE_FEATURE_LIST]
   );
   const toUsage = (prefix: string): OwnAiUsage => ({
     calls: Number(rows[0][`${prefix}_calls`]),
     weighted: Number(rows[0][`${prefix}_weighted`]),
+    live: Number(rows[0][`${prefix}_live`]),
     inputTokens: Number(rows[0][`${prefix}_input_tokens`]),
     outputTokens: Number(rows[0][`${prefix}_output_tokens`]),
     blocked: Number(rows[0][`${prefix}_blocked`]),
@@ -495,26 +569,29 @@ export async function readOwnAiUsage(userId: number): Promise<{ day: OwnAiUsage;
 
 // The limits on the user's AI calls, as aiRateLimit applies them: their membership level's (or their override's)
 // limit in weighted calls per period, and its limit on calls in any minute. null is unlimited: rate limiting is
-// off, the user's role is exempt, or an override makes them unlimited
-export type OwnAiLimits = { level: LimitTier; limit: number | null; period: Period; perMinute: number | null };
+// off, the user's role is exempt, or an override makes them unlimited. live is the live broadcast limit, which a
+// custom override doesn't change
+export type OwnAiLimits = { level: LimitTier; limit: number | null; period: Period; perMinute: number | null; live: LimitRule };
 
 export async function readOwnAiLimits(user: User): Promise<OwnAiLimits> {
   const settings = await getRateLimitSettings();
   const level = tierOf(user.membershipLevel);
   const rule = settings.tiers[level];
-  if (!settings.enabled || isExempt(settings, user)) return { level, limit: null, period: rule.period, perMinute: null };
+  const live = settings.live.tiers[level];
+  const unlimited = { level, limit: null, period: rule.period, perMinute: null, live: { limit: null, period: live.period } };
+  if (!settings.enabled || isExempt(settings, user)) return unlimited;
   const [override] = await query(
     `SELECT mode, limit_count, period FROM racingcoach."RateLimitOverrides"
      WHERE user_id = $1 AND (expires_at IS NULL OR expires_at > now())`,
     [user.id]
   );
-  if (override?.mode === 'unlimited') return { level, limit: null, period: rule.period, perMinute: null };
-  if (override?.mode === 'blocked') return { level, limit: 0, period: rule.period, perMinute: 0 };
+  if (override?.mode === 'unlimited') return unlimited;
+  if (override?.mode === 'blocked') return { level, limit: 0, period: rule.period, perMinute: 0, live: { limit: 0, period: live.period } };
   if (override) {
     const limit = override.limit_count === null ? null : Number(override.limit_count);
-    return { level, limit, period: override.period as Period, perMinute: settings.burst[level] };
+    return { level, limit, period: override.period as Period, perMinute: settings.burst[level], live };
   }
-  return { level, limit: rule.limit, period: rule.period, perMinute: settings.burst[level] };
+  return { level, limit: rule.limit, period: rule.period, perMinute: settings.burst[level], live };
 }
 
 // ---- Usage report ----
@@ -619,22 +696,24 @@ export async function readUsageReport(range: UsageRange, by: 'user' | 'ip', sear
     ),
   ]);
 
+  // The site's own calls (siteAiCall) are in the totals and the features, but aren't anyone's row
+  const rowFilter = `${filter} AND a.tier <> '${SITE_TIER}'`;
   const groupKey = by === 'user' ? `a.user_id, CASE WHEN a.user_id IS NULL THEN a.ip_address END` : 'a.ip_address';
   const groupRows = await query(
     by === 'user'
       ? `SELECT a.user_id, CASE WHEN a.user_id IS NULL THEN a.ip_address END AS anon_ip,
                 max(u.user_name) AS user_name, max(u.email_address) AS email_address, max(u.role) AS role,
                 max(u.membership_level) AS membership_level, ${measures}, count(DISTINCT a.ip_address) AS distinct_count
-         FROM ${from} WHERE ${filter} GROUP BY ${groupKey} ORDER BY weighted DESC, calls DESC, last_at DESC LIMIT ${REPORT_ROWS}`
+         FROM ${from} WHERE ${rowFilter} GROUP BY ${groupKey} ORDER BY weighted DESC, calls DESC, last_at DESC LIMIT ${REPORT_ROWS}`
       : `SELECT a.ip_address, ${measures}, count(DISTINCT a.user_id) AS distinct_count,
                 string_agg(DISTINCT u.user_name, ', ') AS names, bool_or(a.user_id IS NULL) AS has_anonymous
-         FROM ${from} WHERE ${filter} GROUP BY ${groupKey} ORDER BY weighted DESC, calls DESC, last_at DESC LIMIT ${REPORT_ROWS}`,
+         FROM ${from} WHERE ${rowFilter} GROUP BY ${groupKey} ORDER BY weighted DESC, calls DESC, last_at DESC LIMIT ${REPORT_ROWS}`,
     params
   );
   const featureByRow = await query(
     `SELECT ${by === 'user' ? `a.user_id, CASE WHEN a.user_id IS NULL THEN a.ip_address END AS anon_ip` : 'a.ip_address'},
             a.feature, count(*) AS calls
-     FROM ${from} WHERE ${filter} AND a.allowed GROUP BY ${groupKey}, a.feature`,
+     FROM ${from} WHERE ${rowFilter} AND a.allowed GROUP BY ${groupKey}, a.feature`,
     params
   );
 
@@ -759,8 +838,9 @@ async function addCurrentUsage(
       const used = await query(
         `SELECT ${column} AS id, coalesce(sum(weight), 0) AS used FROM racingcoach."AiUsage"
          WHERE ${column} = ANY($1) ${kind === 'anonymous' ? 'AND user_id IS NULL' : ''} AND allowed AND counted AND occurred_at >= $2
+           AND ${budgetSql(false)}
          GROUP BY ${column}`,
-        [ids, since]
+        [ids, since, LIVE_FEATURE_LIST]
       );
       const byId = new Map(used.map((row) => [String(row.id), Number(row.used)]));
       for (const need of group) {

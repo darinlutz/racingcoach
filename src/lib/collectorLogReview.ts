@@ -2,6 +2,7 @@ import { createAgent } from 'langchain';
 import { z } from 'zod';
 import { chatModel } from './aiModels';
 import { query } from './db';
+import { siteAiCall } from './rateLimits';
 import { getUserById, OWNER_EMAIL } from './users';
 
 // The collector log review agent. When a batch of a user's collector activity log (racingcoach."CollectorLogs")
@@ -111,15 +112,17 @@ export async function reviewCollectorRun(userId: number, runId: string): Promise
     [userId, runId]
   );
 
-  const agent = createAgent({
-    model: await chatModel('collectorLogReview', 0),
-    tools: [],
-    systemPrompt: SYSTEM_PROMPT,
-    responseFormat: verdictSchema,
-  });
   const format = (line: LogLine) =>
     `${line.seq > afterSeq ? '*' : ' '} #${line.seq} ${line.loggedAt} ${line.isError ? 'ERROR ' : ''}${line.message}`;
-  const result = await agent.invoke({
+  // Logged as the site's own AI call, so the Admin page's AI usage shows its tokens
+  const result = await siteAiCall('collectorLogReview', async () => {
+    const agent = createAgent({
+      model: await chatModel('collectorLogReview', 0),
+      tools: [],
+      systemPrompt: SYSTEM_PROMPT,
+      responseFormat: verdictSchema,
+    });
+    return agent.invoke({
     messages: [
       {
         role: 'user',
@@ -133,6 +136,7 @@ export async function reviewCollectorRun(userId: number, runId: string): Promise
         ].join('\n'),
       },
     ],
+    });
   });
   const verdict = result.structuredResponse as Verdict;
 

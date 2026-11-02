@@ -530,6 +530,8 @@ export const es: Dictionary = {
     inputTokens: 'Tokens de entrada',
     outputTokens: 'Tokens de salida',
     blocked: 'Bloqueadas',
+    live: 'Llamadas de la transmisión en vivo',
+    livePeriods: { hour: '{limit} por hora', day: '{limit} por día', week: '{limit} por semana', month: '{limit} por mes' },
     limitHeader: { hour: 'Límite por hora {level}', day: 'Límite diario {level}', week: 'Límite semanal {level}', month: 'Límite mensual {level}' },
     perMinuteHeader: 'Límite por minuto {level}',
     unlimited: 'Ilimitado',
@@ -1972,6 +1974,7 @@ export const es: Dictionary = {
       raceAnnouncer: 'Carreras en vivo: narradores de carrera',
       driverRadio: 'Carreras en vivo: radio del piloto (voz a texto)',
       raceEngineer: 'Carreras en vivo: ingeniero de carrera (respuestas por radio)',
+      broadcastDirector: 'Transmisión en TV: frases de clips del director de transmisión (sitio)',
     } as Record<string, string>,
     rateLimits: {
       title: 'Límites de uso',
@@ -2005,6 +2008,9 @@ export const es: Dictionary = {
       weightsHint: 'Cuánto cuenta una llamada de cada función contra los límites. Los agentes que hacen varias llamadas al modelo pueden contar más. 0 deja la función sin límite (sus llamadas se siguen registrando y los bloqueos siguen aplicando).',
       weightOff: '0 (sin límite)',
       weightCalls: 'Cuenta como {n}',
+      liveTitle: 'Límites de la transmisión en vivo',
+      liveHint: 'Los narradores de carrera, el texto a voz y la voz a texto del radio del piloto cuentan aquí en lugar de los límites de arriba, y no contra el límite por minuto: una carrera puede hacer cientos. Una llamada de los narradores cuenta su peso una vez por frase pedida. Cuando el límite se acaba, la narración y el radio se callan con un aviso en la página hasta que se libere.',
+      weightPerLine: 'Cuenta como {n} por frase',
       save: 'Guardar ajustes',
       saving: 'Guardando…',
       saved: 'Ajustes de límites guardados.',
@@ -2353,6 +2359,8 @@ export const es: Dictionary = {
     burst: 'Estás usando el coach de IA más rápido de lo permitido. Vuelve a intentarlo {when}.',
     ipLimit: 'Llegaron demasiadas solicitudes de IA desde tu red.',
     blocked: 'El coaching con IA se desactivó en tu cuenta. Contacta a soporte si crees que es un error.',
+    liveUsedUp: 'Usaste todo el límite {period} de transmisión en vivo de la membresía {level}.',
+    liveNoAccess: 'Las voces de la transmisión en vivo no están incluidas en la membresía {level}.',
   },
 
   liveRacing: {

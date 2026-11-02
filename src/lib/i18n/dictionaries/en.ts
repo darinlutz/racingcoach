@@ -548,6 +548,8 @@ export const en = {
     inputTokens: 'Input tokens',
     outputTokens: 'Output tokens',
     blocked: 'Blocked',
+    live: 'Live broadcast calls',
+    livePeriods: { hour: '{limit} per hour', day: '{limit} per day', week: '{limit} per week', month: '{limit} per month' },
     limitHeader: { hour: '{level} hourly limit', day: '{level} daily limit', week: '{level} weekly limit', month: '{level} monthly limit' },
     perMinuteHeader: '{level} per-minute limit',
     unlimited: 'Unlimited',
@@ -2000,6 +2002,7 @@ export const en = {
       raceAnnouncer: 'Live Racing: Race Announcers',
       driverRadio: 'Live Racing: Driver Radio (speech to text)',
       raceEngineer: 'Live Racing: Race Engineer (radio answers)',
+      broadcastDirector: 'TV Broadcast: Broadcast Director clip lines (site)',
     } as Record<string, string>,
     // The Rate Limiting section (src/components/RateLimitManager.tsx, src/components/AiUsageReport.tsx)
     rateLimits: {
@@ -2034,6 +2037,9 @@ export const en = {
       weightsHint: 'How much one call of each feature counts against the limits. Agents that make several model calls can count more. 0 leaves the feature unlimited (its calls are still logged, and blocks still apply).',
       weightOff: '0 (not limited)',
       weightCalls: 'Counts as {n}',
+      liveTitle: 'Live broadcast limits',
+      liveHint: 'Race Announcers, text to speech and Driver Radio speech to text count here instead of the limits above, and not against the per-minute limit: a race can make hundreds of them. A Race Announcer call counts its weight once per line it asks for. When the limit runs out, the commentary and radio go quiet with a note on the page until it frees up.',
+      weightPerLine: 'Counts as {n} per line',
       save: 'Save Settings',
       saving: 'Saving…',
       saved: 'Rate limit settings saved.',
@@ -2390,6 +2396,8 @@ export const en = {
     burst: 'You’re using the AI coach faster than allowed. Try again {when}.',
     ipLimit: 'Too many AI requests have come from your network.',
     blocked: 'AI coaching has been turned off for your account. Contact support if you think this is a mistake.',
+    liveUsedUp: 'You’ve used your {level} membership’s {period} live broadcast allowance.',
+    liveNoAccess: 'Live broadcast voices aren’t included in the {level} membership.',
   },
 
   // Error messages the API routes send back to the site (src/lib/i18n/server.ts apiText)

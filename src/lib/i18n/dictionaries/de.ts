@@ -548,6 +548,8 @@ export const de: Dictionary = {
     inputTokens: 'Eingabe-Tokens',
     outputTokens: 'Ausgabe-Tokens',
     blocked: 'Blockiert',
+    live: 'Aufrufe der Live-Übertragung',
+    livePeriods: { hour: '{limit} pro Stunde', day: '{limit} pro Tag', week: '{limit} pro Woche', month: '{limit} pro Monat' },
     limitHeader: { hour: '{level}-Stundenlimit', day: '{level}-Tageslimit', week: '{level}-Wochenlimit', month: '{level}-Monatslimit' },
     perMinuteHeader: '{level}-Minutenlimit',
     unlimited: 'Unbegrenzt',
@@ -2000,6 +2002,7 @@ export const de: Dictionary = {
       raceAnnouncer: 'Live Racing: Rennkommentatoren',
       driverRadio: 'Live Racing: Fahrerfunk (Sprache zu Text)',
       raceEngineer: 'Live Racing: Renningenieur (Funkantworten)',
+      broadcastDirector: 'TV-Übertragung: Clip-Sätze des Broadcast Directors (Website)',
     },
     // The Rate Limiting section (src/components/RateLimitManager.tsx, src/components/AiUsageReport.tsx)
     rateLimits: {
@@ -2034,6 +2037,9 @@ export const de: Dictionary = {
       weightsHint: 'Wie stark ein Aufruf jeder Funktion auf die Limits angerechnet wird. Agenten mit mehreren Modellaufrufen können mehr zählen. 0 lässt die Funktion unbegrenzt (ihre Aufrufe werden weiterhin protokolliert und Sperren gelten weiterhin).',
       weightOff: '0 (nicht begrenzt)',
       weightCalls: 'Zählt als {n}',
+      liveTitle: 'Limits der Live-Übertragung',
+      liveHint: 'Rennkommentatoren, Text zu Sprache und Fahrerfunk (Sprache zu Text) zählen hier statt bei den Limits oben und nicht gegen das Minutenlimit: Ein Rennen kann Hunderte davon erzeugen. Ein Aufruf der Rennkommentatoren zählt sein Gewicht einmal pro angefragtem Satz. Ist das Limit aufgebraucht, verstummen Kommentar und Funk mit einem Hinweis auf der Seite, bis es wieder frei wird.',
+      weightPerLine: 'Zählt als {n} pro Satz',
       save: 'Einstellungen speichern',
       saving: 'Wird gespeichert…',
       saved: 'Einstellungen der Ratenbegrenzung gespeichert.',
@@ -2390,6 +2396,8 @@ export const de: Dictionary = {
     burst: 'Du nutzt den KI-Coach schneller als erlaubt. Versuche es {when} erneut.',
     ipLimit: 'Aus deinem Netzwerk kamen zu viele KI-Anfragen.',
     blocked: 'KI-Coaching wurde für dein Konto deaktiviert. Kontaktiere den Support, wenn du das für einen Fehler hältst.',
+    liveUsedUp: 'Du hast das {period}-Kontingent der Live-Übertragung deiner {level}-Mitgliedschaft ausgeschöpft.',
+    liveNoAccess: 'Die Stimmen der Live-Übertragung sind in der {level}-Mitgliedschaft nicht enthalten.',
   },
 
   // Error messages the API routes send back to the site (src/lib/i18n/server.ts apiText)

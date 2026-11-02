@@ -15,7 +15,7 @@ import { engineBed, linkSpeech } from '@/lib/engineBed';
 import { ELEVENLABS_PROVIDER, SPEECH_PROVIDER_HEADER, type EngineBedConfig } from '@/lib/engineBedConfig';
 import type { LiveDriver, LiveField } from '@/lib/liveRacing';
 import { formatLapTime as lapTime } from '@/lib/liveRacingFormat';
-import { reportRateLimit } from '@/lib/rateLimitClient';
+import { liveLimitPauseMs, reportRateLimit } from '@/lib/rateLimitClient';
 import { useMapSettings } from '@/lib/satelliteImagery';
 import { CommentaryQueue } from '@/lib/tvAudio';
 import type { TrackOutline } from '@/lib/trackOutlines';
@@ -203,6 +203,9 @@ export default function LiveRacing({
   const [announcerError, setAnnouncerError] = useState('');
   const commentated = useRef<{ driver: number; seq: number } | null>(null);
   const commentating = useRef(false);
+  // Until when the announcers and radio playback stop asking, after the live broadcast limit refused them
+  const announcersPausedUntil = useRef(0);
+  const radioPausedUntil = useRef(0);
   const commentary = useRef(new CommentaryQueue());
   const commentaryPlaying = useRef(false);
   // The user's own live state as last polled, for whether their In-Car AI Coach is speaking
@@ -355,7 +358,7 @@ export default function LiveRacing({
       commentary.current.clear();
       return;
     }
-    const on = showAnnouncers && (announcers.lead || announcers.color);
+    const on = showAnnouncers && (announcers.lead || announcers.color) && Date.now() >= announcersPausedUntil.current;
     if (!on || focused.offline) {
       seen.seq = focused.eventSeq;
       if (!on) commentary.current.clear();
@@ -378,6 +381,8 @@ export default function LiveRacing({
         }
         if (!response.ok) {
           reportRateLimit(response, data);
+          const pause = liveLimitPauseMs(response, data);
+          if (pause !== null) announcersPausedUntil.current = Date.now() + pause;
           throw new Error(data.error || t.liveRacing.announcerFailed);
         }
         setAnnouncerError('');
@@ -408,7 +413,7 @@ export default function LiveRacing({
       radioHeard.current = { driver: focused.userId, seq: focused.radioSeq };
       return;
     }
-    if (!playRadio || focused.offline) {
+    if (!playRadio || focused.offline || Date.now() < radioPausedUntil.current) {
       heard.seq = focused.radioSeq;
       return;
     }
@@ -427,6 +432,8 @@ export default function LiveRacing({
           if (!response.ok) {
             const data = await response.json().catch(() => ({}));
             reportRateLimit(response, data);
+            const pause = liveLimitPauseMs(response, data);
+            if (pause !== null) radioPausedUntil.current = Date.now() + pause;
             throw new Error(data.error || t.liveRacing.radioFailed);
           }
           const blob = await response.blob();

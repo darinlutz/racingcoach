@@ -6,7 +6,8 @@ import type { OwnAiLimits, OwnAiUsage } from '@/lib/rateLimits';
 
 // The Account page's My AI Usage: the user's AI calls in the last 24 hours and the last 7 days (readOwnAiUsage),
 // counted like the Admin page's usage report, and the limits on them (readOwnAiLimits): the level's limit in
-// weighted calls on the Weighted calls row, its limit on calls in any minute on the AI calls row
+// weighted calls on the Weighted calls row, its limit on calls in any minute on the AI calls row, and the live broadcast
+// limit (Race Announcers, speech, Driver Radio) on its own row
 export default function MyAiUsageCard({ day, week, limits }: { day: OwnAiUsage; week: OwnAiUsage; limits: OwnAiLimits }) {
   const { t, number } = useLanguage();
   const u = t.aiUsage;
@@ -14,6 +15,12 @@ export default function MyAiUsageCard({ day, week, limits }: { day: OwnAiUsage; 
   const measures: { label: string; value: (usage: OwnAiUsage) => number; limit?: string; perMinute?: string }[] = [
     { label: u.calls, value: (usage) => usage.calls, perMinute: limitText(limits.perMinute) },
     { label: u.weighted, value: (usage) => usage.weighted, limit: limitText(limits.limit) },
+    // Its own limit, which may be for another period than the column's
+    {
+      label: u.live,
+      value: (usage) => usage.live,
+      limit: limits.live.limit === null ? u.unlimited : fmt(u.livePeriods[limits.live.period], { limit: number(limits.live.limit) }),
+    },
     { label: u.inputTokens, value: (usage) => usage.inputTokens },
     { label: u.outputTokens, value: (usage) => usage.outputTokens },
     { label: u.blocked, value: (usage) => usage.blocked },

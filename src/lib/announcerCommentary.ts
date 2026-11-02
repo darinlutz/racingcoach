@@ -124,10 +124,11 @@ export async function commentate(input: {
 
   let limit: AiRateLimit | null = null;
   try {
-    limit = await aiRateLimit(input.request, 'raceAnnouncer', user);
+    // The live broadcast limit counts each line asked for, as each is also spoken
+    const plans = linePlans(decision);
+    limit = await aiRateLimit(input.request, 'raceAnnouncer', user, plans.length);
     if (limit.response) return { kind: 'refused', response: limit.response };
     const built = buildRequest(decision, found.context, tracker, settings.broadcast, listener);
-    const plans = linePlans(decision);
     const started = Date.now();
     let written: Awaited<ReturnType<typeof raceAnnouncerLines>>;
     try {

@@ -530,6 +530,8 @@ export const pt: Dictionary = {
     inputTokens: 'Tokens de entrada',
     outputTokens: 'Tokens de saída',
     blocked: 'Bloqueadas',
+    live: 'Chamadas da transmissão ao vivo',
+    livePeriods: { hour: '{limit} por hora', day: '{limit} por dia', week: '{limit} por semana', month: '{limit} por mês' },
     limitHeader: { hour: 'Limite por hora {level}', day: 'Limite diário {level}', week: 'Limite semanal {level}', month: 'Limite mensal {level}' },
     perMinuteHeader: 'Limite por minuto {level}',
     unlimited: 'Ilimitado',
@@ -1972,6 +1974,7 @@ export const pt: Dictionary = {
       raceAnnouncer: 'Corridas ao vivo: narradores da corrida',
       driverRadio: 'Corridas ao vivo: rádio do piloto (fala para texto)',
       raceEngineer: 'Corridas ao vivo: engenheiro de corrida (respostas no rádio)',
+      broadcastDirector: 'Transmissão na TV: falas dos clipes do diretor de transmissão (site)',
     } as Record<string, string>,
     rateLimits: {
       title: 'Limites de uso',
@@ -2005,6 +2008,9 @@ export const pt: Dictionary = {
       weightsHint: 'Quanto uma chamada de cada recurso conta no limite. Agentes que fazem várias chamadas ao modelo podem contar mais. 0 deixa o recurso sem limite (as chamadas continuam registradas, e os bloqueios continuam valendo).',
       weightOff: '0 (sem limite)',
       weightCalls: 'Conta como {n}',
+      liveTitle: 'Limites da transmissão ao vivo',
+      liveHint: 'Narradores da corrida, texto para fala e fala para texto do rádio do piloto contam aqui em vez dos limites acima, e não contra o limite por minuto: uma corrida pode fazer centenas deles. Uma chamada dos narradores conta seu peso uma vez por fala pedida. Quando o limite acaba, a narração e o rádio silenciam com um aviso na página até liberar.',
+      weightPerLine: 'Conta como {n} por fala',
       save: 'Salvar configurações',
       saving: 'Salvando…',
       saved: 'Configurações de limites salvas.',
@@ -2353,6 +2359,8 @@ export const pt: Dictionary = {
     burst: 'Você está usando o coach de IA mais rápido do que o permitido. Tente de novo {when}.',
     ipLimit: 'Muitas solicitações de IA vieram da sua rede.',
     blocked: 'O coaching com IA foi desativado na sua conta. Fale com o suporte se achar que é um engano.',
+    liveUsedUp: 'Você usou todo o limite {period} de transmissão ao vivo da assinatura {level}.',
+    liveNoAccess: 'As vozes da transmissão ao vivo não estão incluídas na assinatura {level}.',
   },
 
   liveRacing: {

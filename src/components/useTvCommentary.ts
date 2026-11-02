@@ -313,11 +313,13 @@ export function useTvCommentary(
         }
         if (seen.current?.driverId === driverId) seen.current.seq = Math.max(seen.current.seq, latest, data.seq ?? 0);
         if (!response.ok) {
-          if (data.code === 'aiFeaturesDisabled') {
+          if (data.code === 'aiFeaturesDisabled' || data.code === 'membershipRequired') {
             disabled.current = true;
-            setProblem(t.tv.aiDisabled);
+            setProblem(data.code === 'membershipRequired' ? t.tv.announcersMembersOnly : t.tv.aiDisabled);
           } else {
-            pausedUntil.current = Date.now() + (response.status === 429 ? RATE_LIMIT_PAUSE_MS : ERROR_PAUSE_MS);
+            // The live broadcast limit says when a line fits again
+            const retryMs = (data.rateLimit?.retryAfterSeconds ?? 0) * 1000;
+            pausedUntil.current = Date.now() + (response.status === 429 ? Math.max(RATE_LIMIT_PAUSE_MS, retryMs) : ERROR_PAUSE_MS);
             setProblem(data.error || t.tv.commentaryFailed);
           }
           return;

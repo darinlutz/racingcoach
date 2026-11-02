@@ -26,6 +26,19 @@ export type RateLimitedFeature = (typeof RATE_LIMITED_FEATURES)[number];
 export const isRateLimitedFeature = (value: unknown): value is RateLimitedFeature =>
   (RATE_LIMITED_FEATURES as readonly string[]).includes(value as string);
 
+// Live broadcast calls: the Race Announcers (one call per event the Commentary Director picks, every few seconds in a
+// race), text to speech and Driver Radio's speech to text. There can be hundreds in a race, so they count against
+// their own limit (RateLimitSettings.live) rather than the level's limit, and not against the per-minute burst limit
+export const LIVE_FEATURES = ['raceAnnouncer', 'speech', 'driverRadio'] as const satisfies readonly RateLimitedFeature[];
+export type LiveFeature = (typeof LIVE_FEATURES)[number];
+
+export const isLiveFeature = (feature: string): feature is LiveFeature => (LIVE_FEATURES as readonly string[]).includes(feature);
+
+// The site's own AI calls, made for no user, logged in AiUsage (tier SITE_TIER) but never counted against anyone
+export const SITE_AI_FEATURES = ['collectorLogReview', 'broadcastDirector'] as const;
+export type SiteAiFeature = (typeof SITE_AI_FEATURES)[number];
+export const SITE_TIER = 'Site';
+
 // The membership levels plus visitors who aren't signed in, whose calls are counted by IP address
 export const LIMIT_TIERS = ['Anonymous', 'Bronze', 'Silver', 'Gold'] as const;
 export type LimitTier = (typeof LIMIT_TIERS)[number];
@@ -87,12 +100,21 @@ export type RateLimitSettings = {
   // A cap on everyone at one IP address together, signed in or not (several accounts on one network)
   ip: LimitRule;
   // What one call of each feature counts against the limit: an agent like Debrief Coach makes several model
-  // calls, so it can count more. 0 means the feature isn't limited (its calls are still logged)
+  // calls, so it can count more. 0 means the feature isn't limited (its calls are still logged). The live
+  // features' entries aren't used: theirs are live.weights
   weights: Record<RateLimitedFeature, number>;
+  // The live broadcast limit (LIVE_FEATURES), apart from the level's: each level's limit and what each live call
+  // counts. A Race Announcer call counts its weight once per line it asks for (one per announcer turned on, up to 3)
+  live: {
+    tiers: Record<LimitTier, LimitRule>;
+    weights: Record<LiveFeature, number>;
+  };
 };
 
 // The boxes' choices. Limits and bursts are in weighted calls; null is Unlimited (or Off for a burst)
-export const LIMIT_OPTIONS: (number | null)[] = [0, 1, 2, 3, 5, 10, 15, 20, 25, 30, 40, 50, 75, 100, 150, 200, 300, 500, 1000, 2000, null];
+export const LIMIT_OPTIONS: (number | null)[] = [
+  0, 1, 2, 3, 5, 10, 15, 20, 25, 30, 40, 50, 75, 100, 150, 200, 300, 500, 1000, 2000, 3000, 5000, 10000, null,
+];
 export const BURST_OPTIONS: (number | null)[] = [null, 1, 2, 3, 5, 10, 20, 30];
 export const WEIGHT_OPTIONS = [0, 1, 2, 3, 5, 10];
 
@@ -147,15 +169,26 @@ export const DEFAULT_RATE_LIMITS: RateLimitSettings = {
     raceCoaching: 1,
     inCarCoachPlan: 0,
     inCarCoachCallouts: 1,
-    speech: 0,
     racecarAnalysis: 1,
-    // Live Racing's Race Announcers: a call per race event while they're on, so free by default like the coach voice
+    // The live features count against the live limit, by live.weights; these aren't used
+    speech: 0,
     raceAnnouncer: 0,
-    // Driver Radio: speech to text of what the driver says over the radio, free by default like the coach voice
     driverRadio: 0,
     // Driver Radio's Race Engineer: an answer to what the driver says over the radio, counted like an In-Car AI
     // Coach callout
     raceEngineer: 1,
+  },
+  // Bronze only has the collector's spoken debrief and messages, the Listen buttons and other drivers' radio; the
+  // Race Announcers, Hold to Talk and Driver Radio are Silver and above (canUseVoiceAi). An hour's race with both
+  // announcers in Full Broadcast can be several hundred lines
+  live: {
+    tiers: {
+      Anonymous: { limit: 0, period: 'day' },
+      Bronze: { limit: 30, period: 'day' },
+      Silver: { limit: 500, period: 'day' },
+      Gold: { limit: 2000, period: 'day' },
+    },
+    weights: { raceAnnouncer: 1, speech: 1, driverRadio: 1 },
   },
 };
 
@@ -181,6 +214,10 @@ export function parseRateLimitSettings(value: unknown, base: RateLimitSettings =
   const tiers = (v.tiers ?? {}) as Record<string, unknown>;
   const burst = (v.burst ?? {}) as Record<string, unknown>;
   const weights = (v.weights ?? {}) as Record<string, unknown>;
+  const live = (v.live ?? {}) as Record<string, unknown>;
+  const liveTiers = (live.tiers ?? {}) as Record<string, unknown>;
+  const liveWeights = (live.weights ?? {}) as Record<string, unknown>;
+  const parseWeight = (w: unknown, fallback: number) => (typeof w === 'number' && Number.isInteger(w) && w >= 0 && w <= 100 ? w : fallback);
   return {
     enabled: typeof v.enabled === 'boolean' ? v.enabled : base.enabled,
     resetStyle: isOneOf(RESET_STYLES, v.resetStyle) ? v.resetStyle : base.resetStyle,
@@ -191,17 +228,24 @@ export function parseRateLimitSettings(value: unknown, base: RateLimitSettings =
     ) as Record<LimitTier, number | null>,
     ip: parseRule(v.ip, base.ip),
     weights: Object.fromEntries(
-      RATE_LIMITED_FEATURES.map((feature) => {
-        const w = weights[feature];
-        return [feature, typeof w === 'number' && Number.isInteger(w) && w >= 0 && w <= 100 ? w : base.weights[feature]];
-      })
+      RATE_LIMITED_FEATURES.map((feature) => [feature, parseWeight(weights[feature], base.weights[feature])])
     ) as Record<RateLimitedFeature, number>,
+    // Settings saved before the live limit existed get its defaults, not their old live feature weights (0)
+    live: {
+      tiers: Object.fromEntries(
+        LIMIT_TIERS.map((tier) => [tier, parseRule(liveTiers[tier], base.live.tiers[tier])])
+      ) as Record<LimitTier, LimitRule>,
+      weights: Object.fromEntries(
+        LIVE_FEATURES.map((feature) => [feature, parseWeight(liveWeights[feature], base.live.weights[feature])])
+      ) as Record<LiveFeature, number>,
+    },
   };
 }
 
 // What the 429 answer of a limited AI call carries besides its message (src/components/RateLimitDialog.tsx)
 export type RateLimitInfo = {
-  reason: 'limit' | 'burst' | 'ipLimit' | 'blocked';
+  // liveLimit: the live broadcast limit, which the pages show as a note rather than the dialog
+  reason: 'limit' | 'burst' | 'ipLimit' | 'blocked' | 'liveLimit';
   level: LimitTier;
   // The next membership level up, when upgrading would raise the limit and the Pricing page is shown
   upgradeTo: 'Silver' | 'Gold' | null;

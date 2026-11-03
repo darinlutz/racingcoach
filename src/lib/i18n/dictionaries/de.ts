@@ -565,6 +565,7 @@ export const de: Dictionary = {
     lapTime: 'Rundenzeit, {lapTime}',
     newBest: 'Neue Bestzeit!',
     areaAverage: 'Die Durchschnittszeit in Bereich {n} war {seconds} Sekunden',
+    inGarage: 'Du bist in der Garage. Fahr raus auf die Strecke.',
   },
 
   pricing: {

@@ -220,6 +220,23 @@ export function steeringDetail({ steerings, speeds }: AreaTrace): SteeringDetail
   };
 }
 
+export type GearDetail = {
+  // The gear at the slowest point of the area (the apex of its slowest corner), and the lowest forward gear in it
+  apexGear: number;
+  lowestGear: number;
+};
+
+// null when the lap file has no Gear column, or the car was never in a forward gear in the area
+export function gearDetail({ speeds, engine: { gears } }: AreaTrace): GearDetail | null {
+  const forward = gears.filter((gear) => Number.isFinite(gear) && gear >= 1);
+  if (forward.length === 0) return null;
+  let slowest = -1;
+  speeds.forEach((speed, i) => {
+    if (Number.isFinite(gears[i]) && gears[i] >= 1 && (slowest < 0 || speed < speeds[slowest])) slowest = i;
+  });
+  return { apexGear: gears[slowest], lowestGear: Math.min(...forward) };
+}
+
 // Fractional sample index where the trace reaches a lap position (clamped to the trace)
 function indexAt(pcts: number[], pct: number) {
   const last = pcts.length - 1;

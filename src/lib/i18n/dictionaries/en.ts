@@ -566,6 +566,7 @@ export const en = {
     lapTime: 'Lap time, {lapTime}',
     newBest: 'New best lap!',
     areaAverage: 'Area {n} average time was {seconds} seconds',
+    inGarage: 'You are in the garage. Head out onto the track.',
   },
 
   pricing: {

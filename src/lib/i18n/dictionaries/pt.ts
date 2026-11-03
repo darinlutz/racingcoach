@@ -546,6 +546,7 @@ export const pt: Dictionary = {
     lapTime: 'Tempo de volta, {lapTime}',
     newBest: 'Nova melhor volta!',
     areaAverage: 'O tempo médio na área {n} foi de {seconds} segundos',
+    inGarage: 'Você está na garagem. Vá para a pista.',
   },
 
   pricing: {

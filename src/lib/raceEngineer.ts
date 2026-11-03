@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { chatModel } from './aiModels';
 import type { CollectorSession } from './collectorSession';
 import { brakeChangeRule, createTools } from './debriefCoach';
+import { describeAreaTurns } from './focusAreaTurns';
 import { aiLanguageRule, DEFAULT_LANGUAGE, type Language } from './i18n/languages';
 import { driverInstructionsRule, headCoachInCarRule, readHeadCoachInCarInstructions } from './inCarCoach';
 import { LAP_TIME_RULE } from './lapData';
@@ -41,8 +42,10 @@ const enginePrompt = (units: Units, hasTools: boolean) =>
   'another driver, or words that make no sense as a message to you do not: set needsReply false. ' +
   'When you answer, it is spoken in the driver\'s ear at speed: one or two short sentences, the most useful number ' +
   'first, no lists, no markdown, talk to the driver as "you", calm and brisk like a real race engineer. Answer only ' +
-  'from the facts you are given and the tools; if you do not have what they asked for, say so in a few words ' +
-  '(e.g. "No sector data on this one, sorry"). Never invent a number. Gaps in a race are time behind on the road ' +
+  'from the facts you are given and the tools, and answer the question they asked. If you do not have what they ' +
+  'asked for, say so plainly in one short sentence and stop (e.g. "No data on Turn 6, it is not one of our focus ' +
+  'areas"): never answer a different question instead, never change the subject, never guess. Never invent a ' +
+  'number. Gaps in a race are time behind on the road ' +
   'from the live timing; outside a race, compare best laps. For fuel, give laps of fuel left, and whether it is ' +
   'enough to the end when the session has a limit. ' +
   (hasTools
@@ -50,6 +53,10 @@ const enginePrompt = (units: Units, hasTools: boolean) =>
       'get_session_overview, then get_area_detail for the focus area that loses the most, and give one change. ' +
       'Any brakepoint advice must follow the brakepoint verdict. ' +
       brakeChangeRule(units) +
+      ' For a question about a turn ("which gear in Turn 4", "how is my braking into Turn 7"), find the focus area ' +
+      'that covers that turn in the list of focus areas and call the tool for it (get_gear_detail for gears), and ' +
+      'answer about that turn, calling it what the driver called it. A turn in no focus area was not measured, so ' +
+      'nothing is known about it or where it is: say so. ' +
       ' Do not call tools for questions the live facts answer (gaps, position, fuel, laps left). '
     : TRACK_POSITION_RULE + ' ') +
   'Name focus areas by their names, never by a distance from the start/finish line. ' +
@@ -260,7 +267,12 @@ export async function raceEngineerReply(input: {
     measured
       ? `Laps uploaded this session, oldest first: ${measured.laps
           .map((lap) => `lap ${lap.lapNumber} ${formatSeconds(lap.lapSeconds)}${lap.incidents ? ` (${lap.incidents}x)` : ''}${lap.offTrack ? ' (off track)' : ''}`)
-          .join('; ')}.` + (hasAreas ? ' The Debrief Coach tools have them measured in the focus areas.' : ' This track has no focus areas in Track Data.')
+          .join('; ')}.` +
+        (hasAreas
+          ? ` The Debrief Coach tools have them measured in the focus areas, the only parts of the track measured: ${measured.session!.areas
+              .map((area) => describeAreaTurns(area.name))
+              .join(', ')}.`
+          : ' This track has no focus areas in Track Data, so no corner is measured.')
       : 'No laps uploaded this session yet, so there is no focus area analysis.',
     radio.length
       ? `Said on the radio in the last few minutes, oldest first:\n${radio.map((r) => `${r.from === 'driver' ? 'Driver' : 'You'}: "${r.text}"`).join('\n')}`

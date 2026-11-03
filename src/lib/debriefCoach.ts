@@ -6,6 +6,7 @@ import { LAP_TIME_RULE } from './lapData';
 import { planOptimalLap, segmentName, type OptimalLap } from './optimalLap';
 import { shiftLimit, type LapShifting } from './shifting';
 import { coachInstructionsRule } from './siteSettings';
+import { describeAreaTurns, findFocusArea } from './focusAreaTurns';
 import { formatSeconds } from './stintExport';
 import { hasTrackPosition, removeTrackPositions, trackPositionFeedback } from './trackPositions';
 import {
@@ -46,6 +47,8 @@ const throttleSchema = z.object({
   worstDrop: z.object({ fromPct: z.number(), toPct: z.number() }).nullable(),
 });
 const steeringSchema = z.object({ maxDeg: z.number(), apexDeg: z.number(), reversals: z.number() });
+// null when the lap file has no Gear column
+const gearsSchema = z.object({ apexGear: z.number().int(), lowestGear: z.number().int() });
 const lineSchema = z.object({ offsetsM: z.array(z.number()).length(5), maxOffsetM: z.number(), maxOffsetAtPct: z.number() });
 
 // Upshifts and rev limiter hits of one whole lap (src/lib/shifting.ts has what each number means); null when
@@ -68,6 +71,7 @@ const runSchema = z.object({
   braking: brakingSchema.optional(),
   throttle: throttleSchema.optional(),
   steering: steeringSchema.optional(),
+  gears: gearsSchema.nullable().optional(),
   // null when the lap (or every lap) has no track positions in the area
   line: lineSchema.nullable().optional(),
 });
@@ -331,8 +335,11 @@ const LINE_CHECKPOINTS = ['the start of the area (entry)', '25% through', 'the m
 export function createTools(session: DebriefSession, units: Units = DEFAULT_UNITS, carRpmLimit: number | null = null) {
   const u = unitFormat(units);
   const { cutoff, incidentLaps, cleanLaps, areas } = cleanSession(session);
-  const findArea = (name: string) => areas.find((a) => a.name.toLowerCase() === name.trim().toLowerCase());
-  const areaNames = areas.map((a) => a.name).join(', ');
+  // By name, or by a turn it covers ("Turn 4" is "T4&5"; focusAreaTurns.ts)
+  const findArea = (name: string) => findFocusArea(areas, name);
+  const areaNames =
+    areas.map((a) => describeAreaTurns(a.name)).join(', ') +
+    '. A turn in none of them is not measured in these laps, so nothing is known about it: say so.';
 
   const overview = tool(
     async () => {
@@ -812,6 +819,72 @@ export function createTools(session: DebriefSession, units: Units = DEFAULT_UNIT
     }
   );
 
+  const gearDetail = tool(
+    async ({ area: name }: { area: string }) => {
+      const area = findArea(name);
+      if (!area) return `No focus area named "${name}". Focus areas: ${areaNames}`;
+      const { runs } = fastSlow(area);
+      const geared = runs.filter((r) => r.gears);
+      if (geared.length === 0) {
+        return `Gears were not recorded for ${area.name} in these laps (no Gear column), so gear choice there cannot be judged.`;
+      }
+
+      const byGear = new Map<number, DebriefRun[]>();
+      for (const run of geared) byGear.set(run.gears!.apexGear, [...(byGear.get(run.gears!.apexGear) ?? []), run]);
+      const gearLines = [...byGear.entries()]
+        .sort(([a], [b]) => a - b)
+        .map(([gear, group]) => {
+          const times = group.map((r) => r.seconds);
+          return (
+            `- ${ordinal(gear)} gear: ${group.length} lap${group.length === 1 ? '' : 's'}, best ${Math.min(...times).toFixed(3)}s, ` +
+            `avg ${mean(times).toFixed(3)}s, min speed ${avgOf(group.map((r) => u.mph(r.minSpeedMph)), 1, u.speed)}, ` +
+            `exit speed ${avgOf(group.map((r) => u.mph(r.exitSpeedMph)), 1, u.speed)}`
+          );
+        });
+
+      const ranked = [...byGear.entries()].sort(([, a], [, b]) => mean(a.map((r) => r.seconds)) - mean(b.map((r) => r.seconds)));
+      const [bestGear, bestRuns] = ranked[0];
+      let verdict: string;
+      if (ranked.length === 1) {
+        verdict =
+          `Gear verdict: every lap used ${ordinal(bestGear)} gear at the slowest point, so these laps cannot say whether ` +
+          'another gear is faster here. Say which gear they use and that no other gear has been tried; do not claim one is better.';
+      } else {
+        const [, nextRuns] = ranked[1];
+        const diff = mean(nextRuns.map((r) => r.seconds)) - mean(bestRuns.map((r) => r.seconds));
+        verdict =
+          `Gear verdict: ${ordinal(bestGear)} gear was fastest here on average, ${diff.toFixed(3)}s quicker than ` +
+          `${ordinal(ranked[1][0])}.` +
+          (bestRuns.length < 2 || nextRuns.length < 2 ? ' One of them was used on a single lap only, so it is weak evidence: say so.' : '');
+      }
+
+      return [
+        `${area.name} gears. The gear is the one at the slowest point of the area (the apex; in an area of several ` +
+          'turns, the slowest of them), and the lowest gear used anywhere in it.',
+        'Per lap, fastest first:',
+        ...runs.map((run) =>
+          run.gears
+            ? `${run.lap} ${run.seconds.toFixed(3)}s: ${ordinal(run.gears.apexGear)} at the slowest point ` +
+              `(${u.mph(run.minSpeedMph).toFixed(1)}${u.speed}), lowest ${ordinal(run.gears.lowestGear)}`
+            : `${run.lap} ${run.seconds.toFixed(3)}s: not recorded`
+        ),
+        '',
+        'By gear at the slowest point:',
+        ...gearLines,
+        '',
+        verdict,
+      ].join('\n');
+    },
+    {
+      name: 'get_gear_detail',
+      description:
+        'The gear each lap used through one focus area (at its slowest point, and the lowest), the area times in each ' +
+        'gear and a verdict on which gear is fastest there. Use it for "which gear in Turn 4" questions; the area can ' +
+        'be given as a turn, e.g. "Turn 4".',
+      schema: z.object({ area: z.string().describe('Focus area name, exactly as in the overview, or a turn, e.g. "Turn 4"') }),
+    }
+  );
+
   const drivingLine = tool(
     async ({ area: name }: { area: string }) => {
       const area = findArea(name);
@@ -893,7 +966,7 @@ export function createTools(session: DebriefSession, units: Units = DEFAULT_UNIT
     }
   );
 
-  return [overview, areaDetail, compareLap, brakingDetail, throttleDetail, shiftingPoints, steeringDetail, drivingLine];
+  return [overview, areaDetail, compareLap, brakingDetail, throttleDetail, shiftingPoints, steeringDetail, gearDetail, drivingLine];
 }
 
 // The theoretical lap (src/lib/optimalLap.ts): only the Debrief Coach has it, as only its sessions carry the

@@ -2,7 +2,7 @@
 // dropped or recorded lap files (buildDebriefSession); the In-Car AI Coach builds it on the server from the
 // collector's uploaded CSVs (measureDebriefSession).
 
-import { brakingDetail, lineDetail, steeringDetail, throttleDetail } from '@/lib/areaInputs';
+import { brakingDetail, gearDetail, lineDetail, steeringDetail, throttleDetail } from '@/lib/areaInputs';
 import type { DebriefSession } from '@/lib/debriefCoach';
 import {
   areaStats,
@@ -62,6 +62,7 @@ export function measureDebriefSession(track: Track, car: string, laps: MeasuredL
       braking: brakingDetail(trace, track.lengthFeet),
       throttle: throttleDetail(trace, track.lengthFeet),
       steering: steeringDetail(trace),
+      gears: gearDetail(trace),
       line: reference ? lineDetail(trace, reference.trace) : null,
     }));
 

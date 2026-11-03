@@ -1,5 +1,3 @@
-using System.Runtime.InteropServices;
-
 namespace RacingCoach.Collector;
 
 /// <summary>A button on a game controller (a wheel, button box or pedals), picked for Driver Radio's push to talk: the
@@ -10,106 +8,84 @@ internal sealed record WheelButton(int VendorId, int ProductId, int Button, stri
 }
 
 /// <summary>
-/// Reads game controller buttons through Windows' joystick API (winmm), which sees every DirectInput controller
-/// without taking it from iRacing: the first 32 buttons of the first 16 controllers. No polling of its own; callers
-/// ask as often as they need.
+/// Reads game controller buttons straight from Windows' HID driver, the way Brake Practice reads the pedals
+/// (<see cref="PedalDevice"/>), shared, so iRacing keeps them too: every button of every joystick, gamepad or button
+/// box. While picking, every controller is open; otherwise only the push to talk button's, opened again (at most every
+/// 2 s) when it isn't connected. No polling of its own; callers ask as often as they need.
 /// </summary>
 internal static class WheelButtons
 {
-    private const int MaxControllers = 16;
+    private static readonly TimeSpan RescanEvery = TimeSpan.FromSeconds(2);
+    private static readonly object Lock = new();
+    private static List<PedalDevice> _devices = [];
+    private static DateTime _scannedAt = DateTime.MinValue;
 
     /// <summary>Whether the button is held down; false when its controller isn't connected.</summary>
     public static bool IsDown(WheelButton button)
     {
-        foreach (var (id, vendor, product, _) in Controllers())
+        bool Matches(PedalDevice d) => d.VendorId == button.VendorId && d.ProductId == button.ProductId;
+        lock (Lock)
         {
-            if (vendor == button.VendorId && product == button.ProductId && Buttons(id) is { } pressed)
-                return (pressed & (1u << (button.Button - 1))) != 0;
+            Close(d => !d.Connected || !Matches(d));
+            if (!_devices.Any(Matches) && DateTime.UtcNow - _scannedAt >= RescanEvery)
+            {
+                Open();
+                Close(d => !Matches(d));
+            }
+            return _devices.Any(d => Matches(d) && d.IsButtonDown(button.Button));
         }
-        return false;
     }
 
-    /// <summary>Every connected controller's buttons held down right now, by controller.</summary>
-    public static Dictionary<(int Id, int Vendor, int Product, string Name), uint> Snapshot()
+    /// <summary>Opens every connected controller and answers the buttons held down on each right now.</summary>
+    public static Dictionary<PedalDevice, int[]> Snapshot()
     {
-        var held = new Dictionary<(int, int, int, string), uint>();
-        foreach (var controller in Controllers())
+        lock (Lock)
         {
-            if (Buttons(controller.Id) is { } pressed)
-                held[controller] = pressed;
+            Close(_ => true);
+            Open();
+            return _devices.ToDictionary(d => d, d => d.ButtonsDown());
         }
-        return held;
     }
 
     /// <summary>The first button pressed since before (a Snapshot), or null.</summary>
-    public static WheelButton? NewlyPressed(Dictionary<(int Id, int Vendor, int Product, string Name), uint> before)
+    public static WheelButton? NewlyPressed(Dictionary<PedalDevice, int[]> before)
     {
-        foreach (var (controller, pressed) in Snapshot())
+        lock (Lock)
         {
-            var added = pressed & ~before.GetValueOrDefault(controller);
-            if (added == 0)
-                continue;
-            var bit = System.Numerics.BitOperations.TrailingZeroCount(added);
-            return new WheelButton(controller.Vendor, controller.Product, bit + 1, controller.Name);
-        }
-        return null;
-    }
-
-    private static IEnumerable<(int Id, int Vendor, int Product, string Name)> Controllers()
-    {
-        var count = Math.Min(joyGetNumDevs(), MaxControllers);
-        var size = Marshal.SizeOf<JoyCaps>();
-        for (var id = 0; id < count; id++)
-        {
-            if (joyGetDevCapsW((IntPtr)id, out var caps, size) != 0)
-                continue;
-            var name = string.IsNullOrWhiteSpace(caps.Name) ? $"Controller {id + 1}" : caps.Name.Trim();
-            yield return (id, caps.VendorId, caps.ProductId, name);
+            foreach (var device in _devices)
+            {
+                var held = before.GetValueOrDefault(device) ?? [];
+                foreach (var pressed in device.ButtonsDown())
+                {
+                    if (!held.Contains(pressed))
+                        return new WheelButton(device.VendorId, device.ProductId, pressed, device.Name);
+                }
+            }
+            return null;
         }
     }
 
-    // The controller's buttons held down, a bit each (button 1 the lowest), or null when it isn't connected
-    private static uint? Buttons(int id)
+    /// <summary>Done picking: closes every controller but the button's (all of them without one).</summary>
+    public static void Keep(WheelButton? button)
     {
-        var info = new JoyInfoEx { Size = (uint)Marshal.SizeOf<JoyInfoEx>(), Flags = JoyReturnButtons };
-        return joyGetPosEx((uint)id, ref info) == 0 ? info.Buttons : null;
+        lock (Lock)
+            Close(d => button is null || d.VendorId != button.VendorId || d.ProductId != button.ProductId);
     }
 
-    private const uint JoyReturnButtons = 0x80;
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct JoyInfoEx
+    private static void Open()
     {
-        public uint Size;
-        public uint Flags;
-        public uint X, Y, Z, R, U, V;
-        public uint Buttons;
-        public uint ButtonNumber;
-        public uint Pov;
-        public uint Reserved1;
-        public uint Reserved2;
+        _devices = PedalDevice.FindAll(buttons: true);
+        foreach (var device in _devices)
+            device.Start();
+        _scannedAt = DateTime.UtcNow;
     }
 
-    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-    private struct JoyCaps
+    private static void Close(Func<PedalDevice, bool> which)
     {
-        public ushort VendorId;
-        public ushort ProductId;
-        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string Name;
-        public uint XMin, XMax, YMin, YMax, ZMin, ZMax;
-        public uint NumButtons, PeriodMin, PeriodMax;
-        public uint RMin, RMax, UMin, UMax, VMin, VMax;
-        public uint Caps, MaxAxes, NumAxes, MaxButtons;
-        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string RegKey;
-        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)] public string OemVxd;
+        foreach (var device in _devices.Where(which).ToList())
+        {
+            device.Dispose();
+            _devices.Remove(device);
+        }
     }
-
-    [DllImport("winmm.dll")]
-    private static extern int joyGetNumDevs();
-
-    [DllImport("winmm.dll", CharSet = CharSet.Unicode)]
-    private static extern int joyGetDevCapsW(IntPtr id, out JoyCaps caps, int size);
-
-    [DllImport("winmm.dll")]
-    private static extern int joyGetPosEx(uint id, ref JoyInfoEx info);
 }

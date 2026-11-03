@@ -6,12 +6,15 @@ namespace RacingCoach.Collector;
 
 /// <summary>
 /// A USB game controller (pedals, wheelbase) read straight from Windows' HID driver, the way iRacing itself reads
-/// it, so Brake Practice works without iRacing running. Each device reads its reports on its own background
-/// thread and keeps the latest value of every axis; nothing else is decoded.
+/// it, so Brake Practice works without iRacing running, and Driver Radio's push to talk can be any button on any
+/// controller (winmm's joystick API, used before, missed some). Each device reads its reports on its own background
+/// thread and keeps the latest value of every axis and button; nothing else is decoded.
 /// </summary>
 internal sealed class PedalDevice : IDisposable
 {
     public string Name { get; }
+    public int VendorId { get; }
+    public int ProductId { get; }
     public bool IsSimucube => Name.Contains("Simucube", StringComparison.OrdinalIgnoreCase);
     public IReadOnlyList<PedalAxis> Axes { get; }
     /// <summary>False once the device stops answering (unplugged, powered off).</summary>
@@ -20,13 +23,21 @@ internal sealed class PedalDevice : IDisposable
     private readonly SafeFileHandle _handle;
     private readonly IntPtr _preparsed;
     private readonly int _reportLength;
+    private readonly List<ButtonRange> _buttonRanges;
+    // Held down, by button number (the Button page's usage, as Windows numbers them); replaced whole by each report
+    private volatile bool[] _buttons;
     private Thread? _thread;
     private volatile bool _stopping;
     private volatile bool _failed;
 
-    private PedalDevice(string name, SafeFileHandle handle, IntPtr preparsed, int reportLength, List<PedalAxis> axes)
+    private PedalDevice(string name, int vendorId, int productId, SafeFileHandle handle, IntPtr preparsed, int reportLength,
+        List<PedalAxis> axes, List<ButtonRange> buttonRanges)
     {
         Name = name;
+        VendorId = vendorId;
+        ProductId = productId;
+        _buttonRanges = buttonRanges;
+        _buttons = new bool[buttonRanges.Count == 0 ? 0 : buttonRanges.Max(r => r.Last) + 1];
         _handle = handle;
         _preparsed = preparsed;
         _reportLength = reportLength;
@@ -35,8 +46,9 @@ internal sealed class PedalDevice : IDisposable
         Axes = axes;
     }
 
-    /// <summary>Every joystick, gamepad or multi-axis controller plugged in that has at least one axis.</summary>
-    public static List<PedalDevice> FindAll()
+    /// <summary>Every joystick, gamepad or multi-axis controller plugged in that has at least one axis, or, with
+    /// buttons, at least one button (button boxes often have no axes).</summary>
+    public static List<PedalDevice> FindAll(bool buttons = false)
     {
         var devices = new List<PedalDevice>();
         Native.HidD_GetHidGuid(out var guid);
@@ -48,7 +60,7 @@ internal sealed class PedalDevice : IDisposable
             var data = new Native.SP_DEVICE_INTERFACE_DATA { cbSize = Marshal.SizeOf<Native.SP_DEVICE_INTERFACE_DATA>() };
             for (uint i = 0; Native.SetupDiEnumDeviceInterfaces(set, IntPtr.Zero, ref guid, i, ref data); i++)
             {
-                if (DevicePath(set, ref data) is { } path && TryOpen(path) is { } device)
+                if (DevicePath(set, ref data) is { } path && TryOpen(path, buttons) is { } device)
                     devices.Add(device);
             }
         }
@@ -59,7 +71,21 @@ internal sealed class PedalDevice : IDisposable
         return devices;
     }
 
-    /// <summary>Starts reading reports; the axes have values once the first one arrives.</summary>
+    /// <summary>Whether the button (numbered from 1) is held down.</summary>
+    public bool IsButtonDown(int button)
+    {
+        var held = _buttons;
+        return button > 0 && button < held.Length && held[button];
+    }
+
+    /// <summary>The buttons held down right now, by number.</summary>
+    public int[] ButtonsDown()
+    {
+        var held = _buttons;
+        return Enumerable.Range(0, held.Length).Where(b => held[b]).ToArray();
+    }
+
+    /// <summary>Starts reading reports; the axes and buttons have values once the first one arrives.</summary>
     public void Start()
     {
         _thread ??= new Thread(ReadLoop) { IsBackground = true, Name = $"Pedal reader ({Name})" };
@@ -86,6 +112,8 @@ internal sealed class PedalDevice : IDisposable
                             out var raw, _preparsed, report, read) == Native.HIDP_STATUS_SUCCESS)
                         axis.Set(raw);
                 }
+                if (_buttonRanges.Count > 0)
+                    ReadButtons(report, read);
             }
         }
         finally
@@ -93,6 +121,31 @@ internal sealed class PedalDevice : IDisposable
             _handle.Dispose();
             Native.HidD_FreePreparsedData(_preparsed);
         }
+    }
+
+    // The buttons of this report's ID, in each of their collections, take what it says; the rest keep their state (a
+    // device can split its buttons over several reports). Without report IDs, every report and button range has ID 0.
+    private void ReadButtons(byte[] report, uint read)
+    {
+        bool[]? next = null;
+        foreach (var link in _buttonRanges.Where(r => r.ReportId == report[0]).Select(r => r.LinkCollection).Distinct())
+        {
+            var count = Native.HidP_MaxUsageListLength(Native.HidP_Input, Native.ButtonPage, _preparsed);
+            var usages = new ushort[Math.Max(count, 1)];
+            if (Native.HidP_GetUsages(Native.HidP_Input, Native.ButtonPage, link, usages, ref count, _preparsed, report, read)
+                != Native.HIDP_STATUS_SUCCESS)
+                continue;
+            next ??= (bool[])_buttons.Clone();
+            foreach (var range in _buttonRanges.Where(r => r.ReportId == report[0] && r.LinkCollection == link))
+                Array.Clear(next, range.First, range.Last - range.First + 1);
+            foreach (var usage in usages.AsSpan(0, (int)count))
+            {
+                if (usage < next.Length)
+                    next[usage] = true;
+            }
+        }
+        if (next is not null)
+            _buttons = next;
     }
 
     public void Dispose()
@@ -135,7 +188,7 @@ internal sealed class PedalDevice : IDisposable
         }
     }
 
-    private static PedalDevice? TryOpen(string path)
+    private static PedalDevice? TryOpen(string path, bool buttons)
     {
         // Keyboards and mice refuse to open for reading, which leaves them out
         var handle = Native.CreateFile(path, Native.GENERIC_READ, Native.FILE_SHARE_READ | Native.FILE_SHARE_WRITE,
@@ -152,14 +205,13 @@ internal sealed class PedalDevice : IDisposable
         {
             if (Native.HidP_GetCaps(preparsed, out var caps) != Native.HIDP_STATUS_SUCCESS
                 || caps.UsagePage != Native.GenericDesktop
-                || caps.Usage is not (Native.Joystick or Native.Gamepad or Native.MultiAxisController)
-                || caps.NumberInputValueCaps == 0)
+                || caps.Usage is not (Native.Joystick or Native.Gamepad or Native.MultiAxisController))
                 return null;
 
             var count = caps.NumberInputValueCaps;
             var valueCaps = new Native.HIDP_VALUE_CAPS[count];
-            if (Native.HidP_GetValueCaps(Native.HidP_Input, valueCaps, ref count, preparsed) != Native.HIDP_STATUS_SUCCESS)
-                return null;
+            if (count > 0 && Native.HidP_GetValueCaps(Native.HidP_Input, valueCaps, ref count, preparsed) != Native.HIDP_STATUS_SUCCESS)
+                count = 0;
 
             var axes = new List<PedalAxis>();
             foreach (var vc in valueCaps.AsSpan(0, count))
@@ -173,15 +225,29 @@ internal sealed class PedalDevice : IDisposable
                         axes.Add(new PedalAxis(name, vc.UsagePage, (ushort)usage, vc.LinkCollection, vc.BitSize, vc.LogicalMin, vc.LogicalMax));
                 }
             }
-            if (axes.Count == 0)
+            var buttonCount = caps.NumberInputButtonCaps;
+            var buttonCaps = new Native.HIDP_BUTTON_CAPS[buttonCount];
+            if (buttonCount > 0 && Native.HidP_GetButtonCaps(Native.HidP_Input, buttonCaps, ref buttonCount, preparsed) != Native.HIDP_STATUS_SUCCESS)
+                buttonCount = 0;
+            var buttonRanges = new List<ButtonRange>();
+            foreach (var bc in buttonCaps.AsSpan(0, buttonCount))
+            {
+                var (first, last) = bc.IsRange != 0 ? (bc.UsageMin, bc.UsageMax) : (bc.UsageMin, bc.UsageMin);
+                if (bc.UsagePage == Native.ButtonPage && first > 0 && last >= first && last <= MaxButton)
+                    buttonRanges.Add(new ButtonRange(bc.ReportID, bc.LinkCollection, first, last));
+            }
+            if (buttons ? buttonRanges.Count == 0 : axes.Count == 0)
                 return null;
 
             var nameBuffer = new byte[256];
             var product = Native.HidD_GetProductString(handle, nameBuffer, nameBuffer.Length)
                 ? Encoding.Unicode.GetString(nameBuffer).TrimEnd('\0').Trim()
                 : "";
+            var attributes = new Native.HIDD_ATTRIBUTES { Size = Marshal.SizeOf<Native.HIDD_ATTRIBUTES>() };
+            Native.HidD_GetAttributes(handle, ref attributes);
             keep = true;
-            return new PedalDevice(product.Length > 0 ? product : "Game controller", handle, preparsed, caps.InputReportByteLength, axes);
+            return new PedalDevice(product.Length > 0 ? product : "Game controller", attributes.VendorID, attributes.ProductID,
+                handle, preparsed, caps.InputReportByteLength, axes, buttonRanges);
         }
         finally
         {
@@ -192,6 +258,11 @@ internal sealed class PedalDevice : IDisposable
             }
         }
     }
+
+    private const int MaxButton = 1024;
+
+    // A run of buttons (Button page usages) in one report and collection
+    private sealed record ButtonRange(byte ReportId, ushort LinkCollection, int First, int Last);
 
     private static class Native
     {
@@ -208,6 +279,16 @@ internal sealed class PedalDevice : IDisposable
         public const ushort Joystick = 0x04;
         public const ushort Gamepad = 0x05;
         public const ushort MultiAxisController = 0x08;
+        public const ushort ButtonPage = 0x09;
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct HIDD_ATTRIBUTES
+        {
+            public int Size;
+            public ushort VendorID;
+            public ushort ProductID;
+            public ushort VersionNumber;
+        }
 
         [StructLayout(LayoutKind.Sequential)]
         public struct SP_DEVICE_INTERFACE_DATA
@@ -256,8 +337,33 @@ internal sealed class PedalDevice : IDisposable
             [FieldOffset(58)] public ushort UsageMax;
         }
 
+        // hidpi.h's HIDP_BUTTON_CAPS; UsageMin is NotRange.Usage when IsRange is 0
+        [StructLayout(LayoutKind.Explicit, Size = 72)]
+        public struct HIDP_BUTTON_CAPS
+        {
+            [FieldOffset(0)] public ushort UsagePage;
+            [FieldOffset(2)] public byte ReportID;
+            [FieldOffset(6)] public ushort LinkCollection;
+            [FieldOffset(12)] public byte IsRange;
+            [FieldOffset(56)] public ushort UsageMin;
+            [FieldOffset(58)] public ushort UsageMax;
+        }
+
         [DllImport("hid.dll")]
         public static extern void HidD_GetHidGuid(out Guid guid);
+
+        [DllImport("hid.dll")]
+        public static extern bool HidD_GetAttributes(SafeFileHandle device, ref HIDD_ATTRIBUTES attributes);
+
+        [DllImport("hid.dll")]
+        public static extern int HidP_GetButtonCaps(int reportType, [Out] HIDP_BUTTON_CAPS[] buttonCaps, ref ushort length, IntPtr preparsed);
+
+        [DllImport("hid.dll")]
+        public static extern uint HidP_MaxUsageListLength(int reportType, ushort usagePage, IntPtr preparsed);
+
+        [DllImport("hid.dll")]
+        public static extern int HidP_GetUsages(int reportType, ushort usagePage, ushort linkCollection, [Out] ushort[] usages,
+            ref uint usageLength, IntPtr preparsed, byte[] report, uint reportLength);
 
         [DllImport("hid.dll", SetLastError = true)]
         public static extern bool HidD_GetPreparsedData(SafeFileHandle device, out IntPtr preparsed);

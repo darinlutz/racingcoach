@@ -55,7 +55,7 @@ internal sealed class DriverRadio : IDisposable
     private DateTime _sampleAt = DateTime.MinValue;
     private WheelButton? _button;
     // Set Wheel Button: waiting for any controller button to be pressed, with what was held when it started
-    private Dictionary<(int Id, int Vendor, int Product, string Name), uint>? _picking;
+    private Dictionary<PedalDevice, int[]>? _picking;
     private Action<WheelButton?>? _picked;
     private DateTime _pickUntil;
 
@@ -189,7 +189,7 @@ internal sealed class DriverRadio : IDisposable
     // Set Wheel Button: true while it's waiting for a button
     private bool Picking()
     {
-        Dictionary<(int Id, int Vendor, int Product, string Name), uint>? before;
+        Dictionary<PedalDevice, int[]>? before;
         lock (_lock)
             before = _picking;
         if (before is null)
@@ -208,6 +208,7 @@ internal sealed class DriverRadio : IDisposable
         // the button is still down: it starts a message only once it's been let go
         while (pressed is not null && WheelButtons.IsDown(pressed) && !_stop.IsCancellationRequested)
             Thread.Sleep(PollEvery);
+        WheelButtons.Keep(pressed ?? Button);
         return true;
     }
 

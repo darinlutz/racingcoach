@@ -1969,7 +1969,7 @@ export const pt: Dictionary = {
     keySteps: [
       'Abra Minhas configurações e encontre o cartão Coletor de telemetria.',
       'Clique em Criar chave de envio e depois em Copiar. A chave só é mostrada uma vez.',
-      'Abra o RacingCoach.app Collector. Na primeira vez que ele inicia, pede sua chave de envio: cole-a e clique em Connect. Você também pode clicar no botão Upload Key do collector a qualquer momento.',
+      'Abra o RacingCoach.app Collector. Na primeira vez que ele inicia, pede sua chave de envio: cole-a e clique em Conectar (Connect). Você também pode clicar no botão Chave de envio (Upload Key) do collector a qualquer momento.',
       'Pronto. Abra o iRacing e pilote: cada volta é gravada e enviada para sua conta, pronta em Minhas sessões.',
     ],
     keyButton: 'Abrir Minhas configurações',

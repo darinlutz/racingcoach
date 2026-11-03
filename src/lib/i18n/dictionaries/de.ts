@@ -1994,7 +1994,7 @@ export const de: Dictionary = {
     keySteps: [
       'Öffne Meine Einstellungen und suche die Karte Telemetrie-Collector.',
       'Klicke auf Upload-Schlüssel erstellen und dann auf Kopieren. Der Schlüssel wird nur einmal angezeigt.',
-      'Öffne den RacingCoach.app Collector. Beim ersten Start fragt er nach deinem Upload-Schlüssel: Füge ihn ein und klicke auf Connect. Du kannst auch jederzeit die Schaltfläche Upload Key im Collector drücken.',
+      'Öffne den RacingCoach.app Collector. Beim ersten Start fragt er nach deinem Upload-Schlüssel: Füge ihn ein und klicke auf Verbinden (Connect). Du kannst auch jederzeit die Schaltfläche Upload-Schlüssel (Upload Key) im Collector drücken.',
       'Das war’s. Starte iRacing und fahre los: Jede Runde wird aufgezeichnet und in dein Konto hochgeladen, bereit unter Meine Sessions.',
     ],
     keyButton: 'Meine Einstellungen öffnen',

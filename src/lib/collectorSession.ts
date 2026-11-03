@@ -26,7 +26,10 @@ export async function measureCollectorSession(userId: number, clientLapIds: stri
   if (all.length === 0) return null;
   // One session is one track; the newest lap's
   const trackName = all[all.length - 1].track;
-  const laps = all.filter((lap) => lap.track === trackName).map((lap) => ({ ...lap, id: lap.clientLapId.slice(-4) }));
+  const sameTrack = all.filter((lap) => lap.track === trackName);
+  // Named by iRacing's lap number ("Lap 3"), or by order when two share one
+  const unique = new Set(sameTrack.map((lap) => lap.lapNumber)).size === sameTrack.length;
+  const laps = sameTrack.map((lap, i) => ({ ...lap, id: `Lap ${unique ? lap.lapNumber : i + 1}` }));
   const userTrack = findTrackByKey(await readTracks(), all[all.length - 1].trackKey);
   const targetLap = userTrack ? await readTargetLap(userId) : null;
   const session = userTrack

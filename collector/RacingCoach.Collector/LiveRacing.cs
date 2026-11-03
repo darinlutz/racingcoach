@@ -110,7 +110,8 @@ internal sealed class LiveRacing(Func<RacingCoachApi?> api, Action<string> log)
     public int Watchers { get; private set; }
     /// <summary>The last live update reached the site.</summary>
     public bool Sharing { get; private set; }
-    /// <summary>Why the last live update didn't reach the site, or null.</summary>
+    /// <summary>Why the last live update didn't reach the site, or null: a Loc key for the collector's own reasons
+    /// (shown in the user's language), else the site's or the network's message.</summary>
     public string? Problem { get; private set; }
 
     /// <summary>Session info: the track being driven (as the laps name it), iRacing's key for it, the car, each
@@ -409,7 +410,7 @@ internal sealed class LiveRacing(Func<RacingCoachApi?> api, Action<string> log)
             {
                 Sharing = false;
                 Watchers = 0;
-                Problem = client is null ? "Sharing live needs uploads to RacingCoach.app turned on, with your upload key." : null;
+                Problem = client is null ? "main.liveNeedsKey" : null;
                 return false;
             }
             var d = _latest;
@@ -502,7 +503,7 @@ internal sealed class LiveRacing(Func<RacingCoachApi?> api, Action<string> log)
         {
             Sharing = false;
             Watchers = 0;
-            Problem = e is TaskCanceledException ? "RacingCoach.app didn't answer in time" : e.Message;
+            Problem = e is TaskCanceledException ? "main.siteTimeout" : e.Message;
         }
         return onTrack;
     }

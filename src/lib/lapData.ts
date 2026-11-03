@@ -31,6 +31,8 @@ export type LapFile = {
   trackName: string;
   lapTime: string;
   fileId: string;
+  // iRacing's lap number, for laps the collector uploaded (lap files carry none)
+  lapNumber?: number;
 };
 
 const MAX_CSV_BYTES = 25 * 1024 * 1024;

@@ -207,20 +207,22 @@ export function spokenTimeGaps(text: string, language: Language = DEFAULT_LANGUA
     );
 }
 
-// How distance units are said in each language, for one and for more
-const UNIT_WORDS: Record<Language, { foot: [string, string]; meter: [string, string] }> = {
-  en: { foot: ['foot', 'feet'], meter: ['meter', 'meters'] },
-  pt: { foot: ['pé', 'pés'], meter: ['metro', 'metros'] },
-  es: { foot: ['pie', 'pies'], meter: ['metro', 'metros'] },
-  de: { foot: ['Fuß', 'Fuß'], meter: ['Meter', 'Meter'] },
+// How distance and metric speed units are said in each language, for one and for more
+const UNIT_WORDS: Record<Language, { foot: [string, string]; meter: [string, string]; kmh: [string, string] }> = {
+  en: { foot: ['foot', 'feet'], meter: ['meter', 'meters'], kmh: ['kilometer per hour', 'kilometers per hour'] },
+  pt: { foot: ['pé', 'pés'], meter: ['metro', 'metros'], kmh: ['quilômetro por hora', 'quilômetros por hora'] },
+  es: { foot: ['pie', 'pies'], meter: ['metro', 'metros'], kmh: ['kilómetro por hora', 'kilómetros por hora'] },
+  de: { foot: ['Fuß', 'Fuß'], meter: ['Meter', 'Meter'], kmh: ['Kilometer pro Stunde', 'Kilometer pro Stunde'] },
 };
 
-// The text with distances' unit abbreviations written out, so the voice says "15 feet" rather than "15 ef tee" and
-// "5 meters" rather than "5 em": "ft" and "m" only right after a number, and not "m/s"
+// The text with unit abbreviations written out, so the voice says "15 feet" rather than "15 ef tee", "5 meters"
+// rather than "5 em" and "120 kilometers per hour" rather than mangling "km/h": "ft", "m" and "km/h" (or "kph",
+// "kmh") only right after a number, and not "m/s"
 export function spokenUnits(text: string, language: Language = DEFAULT_LANGUAGE): string {
   const words = UNIT_WORDS[language];
   const say = (number: string, [one, many]: [string, string]) => `${number} ${number === '1' ? one : many}`;
   return text
+    .replace(/(?<![\w.,])(\d+(?:[.,]\d+)?)\s?(?:km\/h|kph|kmh)\b/gi, (_, number: string) => say(number, words.kmh))
     .replace(/(?<![\w.,])(\d+(?:[.,]\d+)?)\s?ft\b/gi, (_, number: string) => say(number, words.foot))
     .replace(/(?<![\w.,])(\d+(?:[.,]\d+)?)\s?m\b(?![/²³])/g, (_, number: string) => say(number, words.meter));
 }

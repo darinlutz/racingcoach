@@ -1969,7 +1969,7 @@ export const es: Dictionary = {
     keySteps: [
       'Abre Mi configuración y busca la tarjeta Recolector de telemetría.',
       'Haz clic en Crear clave de carga y luego en Copiar. La clave solo se muestra una vez.',
-      'Abre RacingCoach.app Collector. La primera vez que se inicia, te pide tu clave de carga: pégala y haz clic en Connect. También puedes pulsar el botón Upload Key del collector en cualquier momento.',
+      'Abre RacingCoach.app Collector. La primera vez que se inicia, te pide tu clave de carga: pégala y haz clic en Conectar (Connect). También puedes pulsar el botón Clave de carga (Upload Key) del collector en cualquier momento.',
       'Listo. Abre iRacing y maneja: cada vuelta se graba y se sube a tu cuenta, lista en Mis sesiones.',
     ],
     keyButton: 'Abrir Mi configuración',

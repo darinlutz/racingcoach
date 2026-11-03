@@ -76,6 +76,9 @@ internal sealed class CollectorEngine
     // Getting back in the car in the same iRacing session can leave recording turned on but not recording (no
     // .ibt file, so the stint's laps never get positions): then it's started again, once per time in the car
     private static readonly TimeSpan IbtStartGrace = TimeSpan.FromSeconds(5);
+    // How often the Preferred Units and Language are loaded again while telemetry is coming in
+    private static readonly TimeSpan UnitsReloadEvery = TimeSpan.FromMinutes(1);
+    private DateTime _unitsLoadedAt;
     private DateTime? _inCarSince;
     private bool _restartedIbt;
 
@@ -159,12 +162,13 @@ internal sealed class CollectorEngine
     /// <summary>Driver Radio: hold the radio button and speak, and it's shown as text in the sim and on Live Racing.</summary>
     public DriverRadio Radio { get; }
     /// <summary>The user's Preferred Units on the Account page are Metric (meters, kph, °C, liters) rather than
-    /// Standard (feet, mph, °F, gallons). Loaded with the upload key, and again at each new track or car so a
-    /// change on the Account page shows from the next session; Standard without a key.</summary>
+    /// Standard (feet, mph, °F, gallons). Loaded with the upload key, again at each new track or car, and every
+    /// minute while telemetry comes in, so a change on the Account page shows within a minute; Standard without a
+    /// key.</summary>
     public bool Metric { get; private set; }
     /// <summary>The user's Preferred Language on the Account page ("en", "pt", "es" or "de"), which the overlays are in.
-    /// Loaded with the units; English without a key.</summary>
-    public string Language { get; private set; } = Loc.English;
+    /// Loaded with the units; Windows' display language (when it's one of those, else English) without a key.</summary>
+    public string Language { get; private set; } = Loc.SystemLanguage;
     /// <summary>"Beeps before braking" and its volume (10-100%), shown and changed under the Preferred Language and
     /// Units in the window and saved to the account (SetBrakeBeeps). Loaded with the units.</summary>
     public bool BrakeBeepsOn { get; private set; } = true;
@@ -217,10 +221,11 @@ internal sealed class CollectorEngine
     // the last ones stay
     private void RefreshUnits()
     {
+        _unitsLoadedAt = DateTime.UtcNow;
         if (Api is not { } api)
         {
             Metric = false;
-            Language = Loc.English;
+            Language = Loc.SystemLanguage;
             BrakeBeepsOn = true;
             BrakeBeepsVolume = BrakeBeeps.DefaultVolume;
             BrakeBeepsLoaded++;
@@ -237,9 +242,15 @@ internal sealed class CollectorEngine
                 {
                     Metric = preferences.Metric;
                     Language = preferences.Language;
-                    BrakeBeepsOn = preferences.BrakeBeeps ?? true;
-                    BrakeBeepsVolume = Math.Clamp(preferences.BrakeBeepsVolume ?? BrakeBeeps.DefaultVolume, 10, 100);
-                    BrakeBeepsLoaded++;
+                    var beepsOn = preferences.BrakeBeeps ?? true;
+                    var beepsVolume = Math.Clamp(preferences.BrakeBeepsVolume ?? BrakeBeeps.DefaultVolume, 10, 100);
+                    // Only when they've changed, so the reload every minute doesn't move the controls under the user
+                    if (beepsOn != BrakeBeepsOn || beepsVolume != BrakeBeepsVolume || BrakeBeepsLoaded == 0)
+                    {
+                        BrakeBeepsOn = beepsOn;
+                        BrakeBeepsVolume = beepsVolume;
+                        BrakeBeepsLoaded++;
+                    }
                     PoliciesAccepted = preferences.PoliciesAccepted;
                 }
             }
@@ -485,6 +496,9 @@ internal sealed class CollectorEngine
                 _samplesInWindow = 0;
                 _windowStart = now;
             }
+            // A change of units or language on the Account page shows within a minute, not only at the next session
+            if (Api is not null && now - _unitsLoadedAt >= UnitsReloadEvery)
+                RefreshUnits();
 
             if (_enricher is not null)
             {

@@ -8,7 +8,7 @@ import SetTargetLapDialog, { type SetTargetLapStep } from '@/components/SetTarge
 import TargetLapCard from '@/components/TargetLapCard';
 
 import type { Debrief } from '@/lib/debriefCoach';
-import { buildDebriefSession, lapId } from '@/lib/debriefSession';
+import { buildDebriefSession, lapNames } from '@/lib/debriefSession';
 import {
   formatLapTime,
   formatSize,
@@ -27,9 +27,10 @@ import { reportRateLimit } from '@/lib/rateLimitClient';
 // ("RacingCoach - Driver - Car - Track - 01.17.912 - Optimal.csv") so the Target Lap card and the collector read
 // its car, track and time. The driver is "Theoretical" when the parts come from more than one driver's laps.
 async function buildOptimalLap(plan: OptimalLap, laps: LapFile[], trackName: string) {
+  const names = lapNames(laps);
   const picked = [...new Set(plan.segments.map((s) => s.lap))].map((id) => {
-    const lap = laps.find((l) => lapId(l) === id);
-    if (!lap) throw new Error(`lap [${id}] is not loaded`);
+    const lap = laps[names.indexOf(id)];
+    if (!lap) throw new Error(`${id} is not loaded`);
     return { id, lap };
   });
   const csvs = new Map(await Promise.all(picked.map(async ({ id, lap }) => [id, await lap.file.text()] as const)));
@@ -136,6 +137,8 @@ export default function DebriefCoach({ onCompare }: { onCompare?: (base: LapFile
   // Only laps from the selected track can be measured against its focus areas
   const trackLaps = selectedTrack ? allLaps.filter((lap) => sameTrackName(lap.trackName, selectedTrack.fileName)) : [];
   const otherLaps = allLaps.length - trackLaps.length;
+  // What the coach calls each lap ("Lap 3"), shown beside the dropped files
+  const trackLapNames = lapNames(trackLaps);
 
 
   const runDebrief = async () => {
@@ -445,7 +448,11 @@ export default function DebriefCoach({ onCompare }: { onCompare?: (base: LapFile
                 className="flex items-center justify-between px-4 py-2 bg-card border border-border rounded-lg text-sm text-foreground"
               >
                 <span className="min-w-0 truncate">
-                  📄 <span className="text-muted-foreground">[{lapId(lap)}]</span> {lap.driverName} • {lap.carName} •{' '}
+                  📄{' '}
+                  {trackLaps.includes(lap) && (
+                    <span className="text-muted-foreground">{trackLapNames[trackLaps.indexOf(lap)]} • </span>
+                  )}
+                  {lap.driverName} • {lap.carName} •{' '}
                   <span className="font-semibold">{formatLapTime(lap.lapTime)}</span>{' '}
                   <span className="text-muted-foreground">{formatSize(lap.file.size)}</span>
                 </span>

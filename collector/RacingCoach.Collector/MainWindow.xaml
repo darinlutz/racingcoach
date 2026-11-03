@@ -145,15 +145,15 @@
                         <TextBlock FontSize="20" FontWeight="Bold">
                             <Run Text="RACINGCOACH" /><Run Text=" COLLECTOR" Foreground="{StaticResource PrimaryBrush}" FontWeight="Normal" />
                         </TextBlock>
-                        <TextBlock x:Name="SubtitleText" Style="{StaticResource Muted}" FontSize="12" Text="Records your iRacing laps and sends them to RacingCoach.app" />
+                        <TextBlock x:Name="SubtitleText" Style="{StaticResource Muted}" FontSize="12" local:Loc.Key="main.subtitle" />
                     </StackPanel>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <Button Style="{StaticResource Button}" Content="Upload Key" Click="ChangeKey_Click" Margin="0,0,8,0" x:Name="KeyButton" />
+                    <Button Style="{StaticResource Button}" local:Loc.Key="main.uploadKey" Click="ChangeKey_Click" Margin="0,0,8,0" x:Name="KeyButton" />
                     <Button Style="{StaticResource Button}" Content="RacingCoach.app" Click="OpenSite_Click" Margin="0,0,8,0" />
-                    <Button Style="{StaticResource BlueButton}" Content="Brake Practice" Click="BrakePractice_Click" Margin="0,0,8,0" />
-                    <Button Style="{StaticResource PrimaryButton}" Content="Rotation Overlay" Click="Rotation_Click" Margin="0,0,8,0" />
-                    <Button Style="{StaticResource PrimaryButton}" Content="Target Telemetry Overlay" Click="TargetTelemetry_Click" />
+                    <Button Style="{StaticResource BlueButton}" local:Loc.Key="main.brakePractice" Click="BrakePractice_Click" Margin="0,0,8,0" />
+                    <Button Style="{StaticResource PrimaryButton}" local:Loc.Key="main.rotationOverlay" Click="Rotation_Click" Margin="0,0,8,0" />
+                    <Button Style="{StaticResource PrimaryButton}" local:Loc.Key="main.targetTelemetryOverlay" Click="TargetTelemetry_Click" />
                 </StackPanel>
             </Grid>
 
@@ -171,17 +171,17 @@
             <Border x:Name="PoliciesBanner" DockPanel.Dock="Top" Visibility="Collapsed" Margin="0,0,0,14" CornerRadius="10" Padding="16,10"
                     Background="#3A2F14" BorderBrush="{StaticResource AmberBrush}" BorderThickness="1">
                 <DockPanel>
-                    <Button DockPanel.Dock="Right" Style="{StaticResource Button}" Content="Review" Click="OpenSite_Click" Margin="12,0,0,0" />
+                    <Button DockPanel.Dock="Right" Style="{StaticResource Button}" local:Loc.Key="main.review" Click="OpenSite_Click" Margin="12,0,0,0" />
                     <TextBlock VerticalAlignment="Center" TextWrapping="Wrap"
-                               Text="RacingCoach.app's Terms of Service and Privacy Policy have been updated. Please review and accept them on the website." />
+                               local:Loc.Key="main.policiesUpdated" />
                 </DockPanel>
             </Border>
 
             <!-- Tabs -->
             <Border DockPanel.Dock="Top" Margin="0,0,0,14" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1">
                 <StackPanel Orientation="Horizontal">
-                    <RadioButton x:Name="DashboardTab" Style="{StaticResource Tab}" GroupName="Tabs" Content="Dashboard" IsChecked="True" Checked="Tab_Checked" />
-                    <RadioButton x:Name="LiveRacingTab" Style="{StaticResource Tab}" GroupName="Tabs" Content="Live Racing" Checked="Tab_Checked" />
+                    <RadioButton x:Name="DashboardTab" Style="{StaticResource Tab}" GroupName="Tabs" local:Loc.Key="main.dashboard" IsChecked="True" Checked="Tab_Checked" />
+                    <RadioButton x:Name="LiveRacingTab" Style="{StaticResource Tab}" GroupName="Tabs" local:Loc.Key="main.liveRacing" Checked="Tab_Checked" />
                 </StackPanel>
             </Border>
 
@@ -194,44 +194,44 @@
                         <TextBlock Style="{StaticResource Label}" Text="IRACING" />
                         <StackPanel Orientation="Horizontal">
                             <Ellipse x:Name="SimDot" Style="{StaticResource Dot}" />
-                            <TextBlock x:Name="SimText" Style="{StaticResource Value}" Text="Starting…" />
+                            <TextBlock x:Name="SimText" Style="{StaticResource Value}" local:Loc.Key="main.starting" />
                         </StackPanel>
                         <TextBlock x:Name="SimDetail" Style="{StaticResource Muted}" Margin="18,2,0,0" />
                     </StackPanel>
                 </Border>
                 <Border Style="{StaticResource Card}" Margin="6,0">
                     <StackPanel>
-                        <TextBlock Style="{StaticResource Label}" Text="LAP RECORDING" />
+                        <TextBlock Style="{StaticResource Label}" local:Loc.Key="main.lapRecording" />
                         <StackPanel Orientation="Horizontal">
                             <Ellipse x:Name="RecordDot" Style="{StaticResource Dot}" />
-                            <TextBlock x:Name="RecordText" Style="{StaticResource Value}" Text="Not recording" />
+                            <TextBlock x:Name="RecordText" Style="{StaticResource Value}" local:Loc.Key="main.notRecording" />
                         </StackPanel>
                         <TextBlock x:Name="RecordDetail" Style="{StaticResource Muted}" Margin="18,2,0,0" />
                     </StackPanel>
                 </Border>
                 <Border Style="{StaticResource Card}" Margin="6,0">
                     <StackPanel>
-                        <TextBlock Style="{StaticResource Label}" Text="UPLOADS" />
+                        <TextBlock Style="{StaticResource Label}" local:Loc.Key="main.uploads" />
                         <StackPanel Orientation="Horizontal">
                             <Ellipse x:Name="UploadDot" Style="{StaticResource Dot}" />
-                            <TextBlock x:Name="UploadText" Style="{StaticResource Value}" Text="Checking…" />
+                            <TextBlock x:Name="UploadText" Style="{StaticResource Value}" local:Loc.Key="main.checking" />
                         </StackPanel>
                         <!-- The account's Preferred Language and Units, under its name -->
                         <TextBlock x:Name="PreferencesText" Style="{StaticResource Muted}" FontSize="11" Margin="18,1,0,0" Visibility="Collapsed" />
                         <!-- Under them, "Beeps before braking" (BrakeBeeps.cs), saved to the account; with it on, its volume and a
                              Test button that plays the beeps at that volume -->
                         <StackPanel x:Name="BeepsPanel" Margin="18,6,0,0" Visibility="Collapsed">
-                            <CheckBox x:Name="BeepsCheck" Content="Beeps before braking" Foreground="{StaticResource FgBrush}" FontSize="12"
+                            <CheckBox x:Name="BeepsCheck" local:Loc.Key="main.beeps" Foreground="{StaticResource FgBrush}" FontSize="12"
                                       Click="BeepsCheck_Click"
-                                      ToolTip="Beeps 300, 200 and 100 ft before your Target Lap's first braking in each focus area (Track Data's target brakepoints without a Target Lap), and higher at the brakepoint" />
+                                      local:Loc.ToolTip="main.beepsTip" />
                             <DockPanel x:Name="BeepsVolumeRow" Margin="0,4,0,0">
-                                <Button DockPanel.Dock="Right" Style="{StaticResource Button}" Content="Test" Padding="8,2" FontSize="11"
-                                        Margin="6,0,0,0" Click="TestBeeps_Click" ToolTip="Play the beeps at this volume" />
+                                <Button DockPanel.Dock="Right" Style="{StaticResource Button}" local:Loc.Key="main.test" Padding="8,2" FontSize="11"
+                                        Margin="6,0,0,0" Click="TestBeeps_Click" local:Loc.ToolTip="main.testTip" />
                                 <TextBlock x:Name="BeepsVolumeText" DockPanel.Dock="Right" Width="36" TextAlignment="Right" FontSize="12"
                                            VerticalAlignment="Center" />
                                 <Slider x:Name="BeepsVolumeSlider" Minimum="10" Maximum="100" Value="62" SmallChange="1" LargeChange="10"
                                         IsSnapToTickEnabled="True" TickFrequency="1" VerticalAlignment="Center"
-                                        ToolTip="Volume" ValueChanged="BeepsVolume_ValueChanged" />
+                                        local:Loc.ToolTip="main.volume" ValueChanged="BeepsVolume_ValueChanged" />
                             </DockPanel>
                         </StackPanel>
                         <TextBlock x:Name="UploadDetail" Style="{StaticResource Muted}" Margin="18,2,0,0" />
@@ -239,7 +239,7 @@
                 </Border>
                 <Border Style="{StaticResource Card}" Margin="6,0">
                     <StackPanel>
-                        <TextBlock Style="{StaticResource Label}" Text="TRACK POSITIONS" />
+                        <TextBlock Style="{StaticResource Label}" local:Loc.Key="main.trackPositions" />
                         <StackPanel Orientation="Horizontal">
                             <Ellipse x:Name="IbtDot" Style="{StaticResource Dot}" />
                             <TextBlock x:Name="IbtText" Style="{StaticResource Value}" />
@@ -269,20 +269,20 @@
                     </Grid.ColumnDefinitions>
                     <Border Style="{StaticResource Card}" Grid.Column="0">
                         <StackPanel>
-                            <TextBlock Style="{StaticResource Label}" Text="TRACK" />
+                            <TextBlock Style="{StaticResource Label}" local:Loc.Key="main.track" />
                             <TextBlock x:Name="TrackText" Style="{StaticResource Value}" FontSize="17" Text="—" TextWrapping="Wrap" />
                             <TextBlock x:Name="TrackDetail" Style="{StaticResource Muted}" TextWrapping="Wrap" />
-                            <TextBlock Style="{StaticResource Label}" Text="CAR" Margin="0,14,0,4" />
+                            <TextBlock Style="{StaticResource Label}" local:Loc.Key="main.car" Margin="0,14,0,4" />
                             <TextBlock x:Name="CarText" Style="{StaticResource Value}" FontSize="17" Text="—" TextWrapping="Wrap" />
                             <TextBlock x:Name="CarDetail" Style="{StaticResource Muted}" />
-                            <TextBlock Style="{StaticResource Label}" Text="SESSION" Margin="0,14,0,4" />
+                            <TextBlock Style="{StaticResource Label}" local:Loc.Key="main.session" Margin="0,14,0,4" />
                             <TextBlock x:Name="SessionText" Style="{StaticResource Value}" Text="—" />
                             <TextBlock x:Name="SessionDetail" Style="{StaticResource Muted}" />
                         </StackPanel>
                     </Border>
                     <Border Style="{StaticResource Card}" Grid.Column="2">
                         <StackPanel>
-                            <TextBlock Style="{StaticResource Label}" Text="FUEL" />
+                            <TextBlock Style="{StaticResource Label}" local:Loc.Key="main.fuel" />
                             <DockPanel>
                                 <TextBlock x:Name="FuelPctText" DockPanel.Dock="Right" Style="{StaticResource Muted}" VerticalAlignment="Bottom" />
                                 <TextBlock x:Name="FuelText" Style="{StaticResource Value}" FontSize="17" Text="—" />
@@ -299,11 +299,11 @@
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
                                 <StackPanel>
-                                    <TextBlock Style="{StaticResource Label}" Text="TRACK TEMP" />
+                                    <TextBlock Style="{StaticResource Label}" local:Loc.Key="main.trackTemp" />
                                     <TextBlock x:Name="TrackTempText" Style="{StaticResource Value}" Text="—" />
                                 </StackPanel>
                                 <StackPanel Grid.Column="1">
-                                    <TextBlock Style="{StaticResource Label}" Text="AIR TEMP" />
+                                    <TextBlock Style="{StaticResource Label}" local:Loc.Key="main.airTemp" />
                                     <TextBlock x:Name="AirTempText" Style="{StaticResource Value}" Text="—" />
                                 </StackPanel>
                             </Grid>
@@ -314,11 +314,11 @@
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
                                 <StackPanel>
-                                    <TextBlock Style="{StaticResource Label}" Text="TIME LEFT" />
+                                    <TextBlock Style="{StaticResource Label}" local:Loc.Key="main.timeLeft" />
                                     <TextBlock x:Name="TimeLeftText" Style="{StaticResource Value}" Text="—" />
                                 </StackPanel>
                                 <StackPanel Grid.Column="1">
-                                    <TextBlock Style="{StaticResource Label}" Text="LAPS LEFT" />
+                                    <TextBlock Style="{StaticResource Label}" local:Loc.Key="main.lapsLeft" />
                                     <TextBlock x:Name="LapsLeftText" Style="{StaticResource Value}" Text="—" />
                                 </StackPanel>
                             </Grid>
@@ -329,7 +329,7 @@
                 <!-- Live inputs -->
                 <Border Style="{StaticResource Card}" Grid.Row="0" Grid.Column="2" Margin="0,0,0,14">
                     <StackPanel>
-                        <TextBlock Style="{StaticResource Label}" Text="LIVE" />
+                        <TextBlock Style="{StaticResource Label}" local:Loc.Key="main.live" />
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
@@ -338,10 +338,10 @@
                             </Grid.ColumnDefinitions>
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom">
                                 <TextBlock x:Name="SpeedText" FontSize="44" FontWeight="Bold" Text="—" />
-                                <TextBlock x:Name="SpeedUnitText" Text=" MPH" Style="{StaticResource Muted}" VerticalAlignment="Bottom" Margin="0,0,0,10" />
+                                <TextBlock x:Name="SpeedUnitText" Text="mph" FontSize="16" FontWeight="SemiBold" Style="{StaticResource Muted}" VerticalAlignment="Bottom" Margin="4,0,0,9" />
                             </StackPanel>
                             <StackPanel Grid.Column="2" HorizontalAlignment="Right">
-                                <TextBlock Style="{StaticResource Label}" Text="GEAR" HorizontalAlignment="Right" />
+                                <TextBlock Style="{StaticResource Label}" local:Loc.Key="main.gear" HorizontalAlignment="Right" />
                                 <TextBlock x:Name="GearText" FontSize="32" FontWeight="Bold" Text="—" HorizontalAlignment="Right" />
                             </StackPanel>
                         </Grid>
@@ -349,7 +349,7 @@
 
                         <DockPanel>
                             <TextBlock x:Name="ThrottleText" DockPanel.Dock="Right" Style="{StaticResource Muted}" Width="40" TextAlignment="Right" />
-                            <TextBlock Text="Throttle" Width="64" Style="{StaticResource Muted}" />
+                            <TextBlock local:Loc.Key="main.throttle" Width="76" Style="{StaticResource Muted}" />
                             <Grid VerticalAlignment="Center">
                                 <Border Style="{StaticResource BarTrack}" />
                                 <Border Style="{StaticResource Bar}" Background="{StaticResource GreenBrush}">
@@ -359,7 +359,7 @@
                         </DockPanel>
                         <DockPanel Margin="0,8,0,0">
                             <TextBlock x:Name="BrakeText" DockPanel.Dock="Right" Style="{StaticResource Muted}" Width="40" TextAlignment="Right" />
-                            <TextBlock Text="Brake" Width="64" Style="{StaticResource Muted}" />
+                            <TextBlock local:Loc.Key="main.brake" Width="76" Style="{StaticResource Muted}" />
                             <Grid VerticalAlignment="Center">
                                 <Border Style="{StaticResource BarTrack}" />
                                 <Border Style="{StaticResource Bar}" Background="{StaticResource PrimaryBrush}">
@@ -369,7 +369,7 @@
                         </DockPanel>
                         <DockPanel Margin="0,8,0,0">
                             <TextBlock x:Name="SteeringText" DockPanel.Dock="Right" Style="{StaticResource Muted}" Width="40" TextAlignment="Right" />
-                            <TextBlock Text="Steering" Width="64" Style="{StaticResource Muted}" />
+                            <TextBlock local:Loc.Key="main.steering" Width="76" Style="{StaticResource Muted}" />
                             <Grid x:Name="SteeringTrack" VerticalAlignment="Center">
                                 <Border Style="{StaticResource BarTrack}" />
                                 <Border Width="2" Height="12" Background="{StaticResource GreyBrush}" HorizontalAlignment="Center" />
@@ -392,19 +392,19 @@
 
                         <UniformGrid Columns="4" Margin="0,14,0,0">
                             <StackPanel>
-                                <TextBlock Style="{StaticResource Label}" Text="CURRENT" />
+                                <TextBlock Style="{StaticResource Label}" local:Loc.Key="main.current" />
                                 <TextBlock x:Name="CurrentLapText" Style="{StaticResource Value}" Text="—" FontFamily="Consolas" />
                             </StackPanel>
                             <StackPanel>
-                                <TextBlock Style="{StaticResource Label}" Text="LAST" />
+                                <TextBlock Style="{StaticResource Label}" local:Loc.Key="main.last" />
                                 <TextBlock x:Name="LastLapText" Style="{StaticResource Value}" Text="—" FontFamily="Consolas" />
                             </StackPanel>
                             <StackPanel>
-                                <TextBlock Style="{StaticResource Label}" Text="BEST" />
+                                <TextBlock Style="{StaticResource Label}" local:Loc.Key="main.best" />
                                 <TextBlock x:Name="BestLapText" Style="{StaticResource Value}" Text="—" FontFamily="Consolas" />
                             </StackPanel>
                             <StackPanel>
-                                <TextBlock Style="{StaticResource Label}" Text="VS BEST" />
+                                <TextBlock Style="{StaticResource Label}" local:Loc.Key="main.vsBest" />
                                 <TextBlock x:Name="DeltaText" Style="{StaticResource Value}" Text="—" FontFamily="Consolas" />
                             </StackPanel>
                         </UniformGrid>
@@ -416,7 +416,7 @@
                     <DockPanel>
                         <DockPanel DockPanel.Dock="Top" Margin="16,0,16,8">
                             <TextBlock x:Name="LapsSummaryText" DockPanel.Dock="Right" Style="{StaticResource Muted}" />
-                            <TextBlock x:Name="LapsTitle" Style="{StaticResource Label}" Text="LAPS THIS SESSION" />
+                            <TextBlock x:Name="LapsTitle" Style="{StaticResource Label}" local:Loc.Key="main.lapsThisSession" />
                         </DockPanel>
                         <Grid DockPanel.Dock="Top" Margin="16,0,16,4">
                             <Grid.ColumnDefinitions>
@@ -428,18 +428,18 @@
                                 <ColumnDefinition Width="104" />
                                 <ColumnDefinition Width="104" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Style="{StaticResource Label}" Text="LAP" />
-                            <TextBlock Grid.Column="1" Style="{StaticResource Label}" Text="TIME" />
-                            <TextBlock Grid.Column="2" Style="{StaticResource Label}" Text="TO BEST" />
-                            <TextBlock Grid.Column="3" Style="{StaticResource Label}" Text="INC" />
-                            <TextBlock Grid.Column="4" Style="{StaticResource Label}" Text="NOTES" />
-                            <TextBlock Grid.Column="5" Style="{StaticResource Label}" Text="UPLOADED" />
-                            <TextBlock Grid.Column="6" Style="{StaticResource Label}" Text="POSITIONS" />
+                            <TextBlock Grid.Column="0" Style="{StaticResource Label}" local:Loc.Key="main.colLap" />
+                            <TextBlock Grid.Column="1" Style="{StaticResource Label}" local:Loc.Key="main.colTime" />
+                            <TextBlock Grid.Column="2" Style="{StaticResource Label}" local:Loc.Key="main.colToBest" />
+                            <TextBlock Grid.Column="3" Style="{StaticResource Label}" local:Loc.Key="main.colIncidents" />
+                            <TextBlock Grid.Column="4" Style="{StaticResource Label}" local:Loc.Key="main.colNotes" />
+                            <TextBlock Grid.Column="5" Style="{StaticResource Label}" local:Loc.Key="main.colUploaded" />
+                            <TextBlock Grid.Column="6" Style="{StaticResource Label}" local:Loc.Key="main.colPositions" />
                         </Grid>
                         <Border DockPanel.Dock="Top" Height="1" Background="{StaticResource BorderBrush}" />
                         <Grid>
                             <TextBlock x:Name="NoLapsText" Style="{StaticResource Muted}" Margin="16,14" TextWrapping="Wrap"
-                                       Text="Laps appear here as you complete them. A lap counts from the start/finish line all the way around to it again." />
+                                       local:Loc.Key="main.noLaps" />
                             <ScrollViewer x:Name="LapsScroll" VerticalScrollBarVisibility="Auto">
                                 <ItemsControl x:Name="LapsList">
                                     <ItemsControl.ItemTemplate>
@@ -477,9 +477,9 @@
                     <DockPanel>
                         <DockPanel DockPanel.Dock="Top" Margin="16,0,16,8">
                             <TextBlock DockPanel.Dock="Right">
-                                <Hyperlink Click="OpenLogFile_Click" Foreground="{StaticResource MutedBrush}">Log file</Hyperlink>
+                                <Hyperlink Click="OpenLogFile_Click" Foreground="{StaticResource MutedBrush}"><Run local:Loc.Key="main.logFile" /></Hyperlink>
                             </TextBlock>
-                            <TextBlock Style="{StaticResource Label}" Text="ACTIVITY" />
+                            <TextBlock Style="{StaticResource Label}" local:Loc.Key="main.activity" />
                         </DockPanel>
                         <Border DockPanel.Dock="Top" Height="1" Background="{StaticResource BorderBrush}" />
                         <ScrollViewer x:Name="ActivityScroll" VerticalScrollBarVisibility="Auto">
@@ -517,10 +517,10 @@
                         <!-- The satellite imagery's opacity under an exact map, 0-100% (as on the website's Live Racing page),
                              shown when the site has imagery set up; saved in collector.json -->
                         <StackPanel x:Name="SatelliteRow" DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,8,0,0" Visibility="Collapsed">
-                            <TextBlock Style="{StaticResource Muted}" Text="Satellite" VerticalAlignment="Center" />
+                            <TextBlock Style="{StaticResource Muted}" local:Loc.Key="main.satellite" VerticalAlignment="Center" />
                             <Slider x:Name="SatelliteSlider" Width="128" Minimum="0" Maximum="100" Value="60" SmallChange="5" LargeChange="5"
                                     IsSnapToTickEnabled="True" TickFrequency="5" VerticalAlignment="Center" Margin="8,0"
-                                    ToolTip="How see-through the satellite imagery under the map is" ValueChanged="Satellite_ValueChanged" />
+                                    local:Loc.ToolTip="main.satelliteTip" ValueChanged="Satellite_ValueChanged" />
                             <TextBlock x:Name="SatelliteText" Style="{StaticResource Muted}" Width="36" VerticalAlignment="Center" Text="60%" />
                         </StackPanel>
                         <Grid>
@@ -533,26 +533,26 @@
 
                 <Border Style="{StaticResource Card}" Grid.Column="2">
                     <StackPanel>
-                        <TextBlock Style="{StaticResource Label}" Text="SHARING LIVE" />
+                        <TextBlock Style="{StaticResource Label}" local:Loc.Key="main.sharingLive" />
                         <StackPanel Orientation="Horizontal">
                             <Ellipse x:Name="ShareDot" Style="{StaticResource Dot}" />
-                            <TextBlock x:Name="ShareText" Style="{StaticResource Value}" Text="Not sharing" />
+                            <TextBlock x:Name="ShareText" Style="{StaticResource Value}" local:Loc.Key="main.notSharing" />
                         </StackPanel>
                         <TextBlock x:Name="ShareDetail" Style="{StaticResource Muted}" Margin="18,2,0,0" TextWrapping="Wrap" />
-                        <Button Style="{StaticResource Button}" Content="Watch on RacingCoach.app" Click="OpenLiveRacing_Click" Margin="0,10,0,0"
-                                HorizontalAlignment="Left" ToolTip="Opens the Live Racing page, where you also choose which friends can watch you" />
+                        <Button Style="{StaticResource Button}" local:Loc.Key="main.watchOnSite" Click="OpenLiveRacing_Click" Margin="0,10,0,0"
+                                HorizontalAlignment="Left" local:Loc.ToolTip="main.watchOnSiteTip" />
 
                         <Border Height="1" Background="{StaticResource BorderBrush}" Margin="0,16" />
 
                         <!-- Driver Radio (DriverRadio.cs): hold iRacing's radio button, or the wheel button set here, and speak -->
-                        <TextBlock Style="{StaticResource Label}" Text="DRIVER RADIO" />
+                        <TextBlock Style="{StaticResource Label}" local:Loc.Key="main.driverRadio" />
                         <TextBlock x:Name="RadioText" Style="{StaticResource Muted}" TextWrapping="Wrap"
-                                   Text="Hold iRacing's radio (push to talk) button and speak. It's shown over the sim and on Live Racing." />
+                                   local:Loc.Key="main.radioIdle" />
                         <TextBlock x:Name="RadioButtonText" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,6,0,0" />
                         <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                            <Button x:Name="SetRadioButton" Style="{StaticResource Button}" Content="Set Wheel Button" Click="SetRadioButton_Click"
-                                    ToolTip="Press a button on your wheel or button box to talk with it too, e.g. offline, where iRacing's radio doesn't transmit" />
-                            <Button x:Name="ClearRadioButton" Style="{StaticResource Button}" Content="Clear" Click="ClearRadioButton_Click" Margin="8,0,0,0" />
+                            <Button x:Name="SetRadioButton" Style="{StaticResource Button}" local:Loc.Key="main.setWheelButton" Click="SetRadioButton_Click"
+                                    local:Loc.ToolTip="main.setWheelButtonTip" />
+                            <Button x:Name="ClearRadioButton" Style="{StaticResource Button}" local:Loc.Key="main.clear" Click="ClearRadioButton_Click" Margin="8,0,0,0" />
                         </StackPanel>
 
                         <Border Height="1" Background="{StaticResource BorderBrush}" Margin="0,16" />
@@ -564,10 +564,10 @@
                             </Grid.ColumnDefinitions>
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom">
                                 <TextBlock x:Name="LiveSpeedText" FontSize="40" FontWeight="Bold" Text="—" />
-                                <TextBlock x:Name="LiveSpeedUnitText" Text=" MPH" Style="{StaticResource Muted}" VerticalAlignment="Bottom" Margin="0,0,0,9" />
+                                <TextBlock x:Name="LiveSpeedUnitText" Text="mph" FontSize="15" FontWeight="SemiBold" Style="{StaticResource Muted}" VerticalAlignment="Bottom" Margin="4,0,0,8" />
                             </StackPanel>
                             <StackPanel Grid.Column="1" HorizontalAlignment="Right">
-                                <TextBlock Style="{StaticResource Label}" Text="GEAR" HorizontalAlignment="Right" />
+                                <TextBlock Style="{StaticResource Label}" local:Loc.Key="main.gear" HorizontalAlignment="Right" />
                                 <TextBlock x:Name="LiveGearText" FontSize="30" FontWeight="Bold" Text="—" HorizontalAlignment="Right" />
                             </StackPanel>
                         </Grid>
@@ -575,24 +575,24 @@
 
                         <UniformGrid Columns="2" Margin="0,14,0,0">
                             <StackPanel Margin="0,0,0,12">
-                                <TextBlock Style="{StaticResource Label}" Text="CURRENT" />
+                                <TextBlock Style="{StaticResource Label}" local:Loc.Key="main.current" />
                                 <TextBlock x:Name="LiveCurrentText" Style="{StaticResource Value}" Text="—" FontFamily="Consolas" />
                             </StackPanel>
                             <StackPanel Margin="0,0,0,12">
-                                <TextBlock Style="{StaticResource Label}" Text="VS BEST" />
+                                <TextBlock Style="{StaticResource Label}" local:Loc.Key="main.vsBest" />
                                 <TextBlock x:Name="LiveDeltaText" Style="{StaticResource Value}" Text="—" FontFamily="Consolas" />
                             </StackPanel>
                             <StackPanel>
-                                <TextBlock Style="{StaticResource Label}" Text="LAST" />
+                                <TextBlock Style="{StaticResource Label}" local:Loc.Key="main.last" />
                                 <TextBlock x:Name="LiveLastText" Style="{StaticResource Value}" Text="—" FontFamily="Consolas" />
                             </StackPanel>
                             <StackPanel>
-                                <TextBlock Style="{StaticResource Label}" Text="BEST" />
+                                <TextBlock Style="{StaticResource Label}" local:Loc.Key="main.best" />
                                 <TextBlock x:Name="LiveBestText" Style="{StaticResource Value}" Text="—" FontFamily="Consolas" />
                             </StackPanel>
                         </UniformGrid>
 
-                        <TextBlock Style="{StaticResource Label}" Text="FOCUS AREA" Margin="0,16,0,4" />
+                        <TextBlock Style="{StaticResource Label}" local:Loc.Key="main.focusArea" Margin="0,16,0,4" />
                         <TextBlock x:Name="LiveAreaText" Style="{StaticResource Value}" Text="—" />
                     </StackPanel>
                 </Border>
@@ -604,12 +604,12 @@
         <Grid x:Name="KeyOverlay" Background="#D9000000" Visibility="Collapsed">
             <Border Style="{StaticResource Card}" Width="560" VerticalAlignment="Center" HorizontalAlignment="Center" Padding="26,22">
                 <StackPanel>
-                    <TextBlock Text="Connect to RacingCoach.app" FontSize="20" FontWeight="Bold" Margin="0,0,0,8" />
+                    <TextBlock local:Loc.Key="main.connectTitle" FontSize="20" FontWeight="Bold" Margin="0,0,0,8" />
                     <TextBlock x:Name="KeyIntro" TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,6" />
                     <TextBlock TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,14">
-                        <Run Text="Create an upload key on your" />
-                        <Hyperlink Click="OpenAccount_Click" Foreground="{StaticResource PrimaryBrush}">Account page</Hyperlink>
-                        <Run Text="(Telemetry Collector card), copy it and paste it here." />
+                        <Run local:Loc.Key="main.keyHowToStart" />
+                        <Hyperlink Click="OpenAccount_Click" Foreground="{StaticResource PrimaryBrush}"><Run local:Loc.Key="main.accountPage" /></Hyperlink>
+                        <Run local:Loc.Key="main.keyHowToEnd" />
                     </TextBlock>
                     <TextBox x:Name="KeyBox" FontFamily="Consolas" FontSize="14" Padding="10,8"
                              Background="{StaticResource SecondaryBrush}" Foreground="{StaticResource FgBrush}"
@@ -617,8 +617,8 @@
                              KeyDown="KeyBox_KeyDown" />
                     <TextBlock x:Name="KeyStatusText" TextWrapping="Wrap" Margin="0,8,0,0" MinHeight="18" />
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
-                        <Button x:Name="KeySkipButton" Style="{StaticResource Button}" Content="Skip for now" Click="KeySkip_Click" Margin="0,0,8,0" />
-                        <Button x:Name="KeyConnectButton" Style="{StaticResource PrimaryButton}" Content="Connect" Click="KeyConnect_Click" />
+                        <Button x:Name="KeySkipButton" Style="{StaticResource Button}" local:Loc.Key="main.skip" Click="KeySkip_Click" Margin="0,0,8,0" />
+                        <Button x:Name="KeyConnectButton" Style="{StaticResource PrimaryButton}" local:Loc.Key="main.connect" Click="KeyConnect_Click" />
                     </StackPanel>
                 </StackPanel>
             </Border>
@@ -628,9 +628,9 @@
         <Grid x:Name="ClosingOverlay" Background="#D9000000" Visibility="Collapsed">
             <Border Style="{StaticResource Card}" VerticalAlignment="Center" HorizontalAlignment="Center" Padding="26,20">
                 <StackPanel>
-                    <TextBlock Text="Finishing up…" FontSize="18" FontWeight="Bold" />
+                    <TextBlock local:Loc.Key="main.finishing" FontSize="18" FontWeight="Bold" />
                     <TextBlock Foreground="{StaticResource MutedBrush}" Margin="0,6,0,0"
-                               Text="Saving your last laps and finishing uploads. Laps that don't upload now go next time." />
+                               local:Loc.Key="main.finishingDetail" />
                 </StackPanel>
             </Border>
         </Grid>

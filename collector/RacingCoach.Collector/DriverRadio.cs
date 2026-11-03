@@ -7,7 +7,9 @@ namespace RacingCoach.Collector;
 /// answered) or Problem (why not) for a few seconds; Since is when it started.</summary>
 internal enum RadioState { Idle, Recording, Sending, Said, Problem }
 
-internal sealed record RadioStatus(RadioState State, string? Text, DateTime Since, string? Reply = null);
+/// <summary>Driver Radio's state for the window. A problem of its own has a TextKey (a Loc key, with Text as its {0}),
+/// so the window shows it in the user's language while the log keeps it in English.</summary>
+internal sealed record RadioStatus(RadioState State, string? Text, DateTime Since, string? Reply = null, string? TextKey = null);
 
 /// <summary>
 /// Driver Radio (src/lib/driverRadio.ts in the website): while the driver holds iRacing's radio (push to talk) button,
@@ -103,10 +105,10 @@ internal sealed class DriverRadio : IDisposable
         _mic.Dispose();
     }
 
-    private void Set(RadioState state, string? text = null)
+    private void Set(RadioState state, string? text = null, string? textKey = null)
     {
         lock (_lock)
-            _status = new RadioStatus(state, text, DateTime.UtcNow);
+            _status = new RadioStatus(state, text, DateTime.UtcNow, TextKey: textKey);
     }
 
     private bool Held()
@@ -218,7 +220,7 @@ internal sealed class DriverRadio : IDisposable
         catch (InvalidOperationException e)
         {
             var problem = $"Couldn't record: {e.Message}. Check the microphone in Windows' Sound settings, and that Privacy & security > Microphone lets desktop apps use it.";
-            Set(RadioState.Problem, problem);
+            Set(RadioState.Problem, e.Message, "radio.micFailed");
             _log($"Driver Radio: {problem}", true);
             return false;
         }
@@ -234,7 +236,7 @@ internal sealed class DriverRadio : IDisposable
         var client = _api();
         if (client is null)
         {
-            Set(RadioState.Problem, "Driver Radio needs your upload key (Upload Key button).");
+            Set(RadioState.Problem, textKey: "radio.needsKey");
             return;
         }
         Set(RadioState.Sending);
@@ -247,7 +249,7 @@ internal sealed class DriverRadio : IDisposable
                 var answer = await client.SendRadioAsync(wav, _sessionLaps(), timeout.Token);
                 if (string.IsNullOrWhiteSpace(answer.Text))
                 {
-                    SetUnlessRecording(RadioState.Problem, "Didn't catch that. Hold the button while you speak.");
+                    SetUnlessRecording(RadioState.Problem, null, textKey: "radio.didntCatch");
                     return;
                 }
                 var reply = string.IsNullOrWhiteSpace(answer.Reply) ? null : answer.Reply.Trim();
@@ -273,19 +275,19 @@ internal sealed class DriverRadio : IDisposable
             catch (Exception e) when (e is HttpRequestException or UnauthorizedAccessException or TaskCanceledException)
             {
                 var problem = e is TaskCanceledException ? "RacingCoach.app didn't answer in time" : e.Message;
-                SetUnlessRecording(RadioState.Problem, problem);
+                SetUnlessRecording(RadioState.Problem, problem, textKey: e is TaskCanceledException ? "main.siteTimeout" : null);
                 _log($"Driver Radio: {problem}", true);
             }
         });
     }
 
     // A late answer doesn't hide the next message being recorded
-    private void SetUnlessRecording(RadioState state, string? text, string? reply = null)
+    private void SetUnlessRecording(RadioState state, string? text, string? reply = null, string? textKey = null)
     {
         lock (_lock)
         {
             if (_status.State != RadioState.Recording)
-                _status = new RadioStatus(state, text, DateTime.UtcNow, reply);
+                _status = new RadioStatus(state, text, DateTime.UtcNow, reply, textKey);
         }
     }
 }

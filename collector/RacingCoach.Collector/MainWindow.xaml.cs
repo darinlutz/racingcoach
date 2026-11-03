@@ -29,6 +29,16 @@ public partial class MainWindow : Window
     private const int UnlimitedLaps = 32767;
     private const int MaxActivityLines = 500;
     private static readonly CultureInfo Culture = CultureInfo.GetCultureInfo("en-US");
+    // The language the window is shown in: the account's Preferred Language (CollectorEngine.Language); null until
+    // the first Refresh applies it
+    private string? _language;
+    // Texts set once and shown again in a new language: the update banner and its button, the upload key prompt's
+    // intro and status, and why uploads are off
+    private Func<string>? _updateMessage;
+    private string _updateButtonKey = "main.download";
+    private string? _keyIntroKey;
+    private string? _keyStatusKey;
+    private string? _offReasonKey;
 
     private static readonly Brush Green = Brush("#2EB872");
     private static readonly Brush Amber = Brush("#E3A82B");
@@ -57,7 +67,6 @@ public partial class MainWindow : Window
 
     private string _siteUrl = CollectorSettings.DefaultSiteUrl;
     private UploadSetupState _uploadState = UploadSetupState.Checking;
-    private string? _offReason;
     private string? _account;
     // The session folder laps were last saved to this run; the lap list shows it
     private string? _currentFolder;
@@ -121,8 +130,6 @@ public partial class MainWindow : Window
     private async Task StartAsync()
     {
         ActivityLog.Shared.Write($"RacingCoach.app Collector {UpdateCheck.Current} started. Laps are saved to {_engine.LapsFolder}");
-        if (_engine.Playback)
-            SubtitleText.Text = $"Playing back {Path.GetFileName(_engine.PlaybackFile)} at {_options.Speed}x";
 
         _run = Task.Run(async () =>
         {
@@ -155,22 +162,21 @@ public partial class MainWindow : Window
         UpdateBanner.Visibility = Visibility.Visible;
         if (!SelfUpdater.CanUpdate || update.DownloadUrl is null)
         {
-            ShowManualUpdate($"RacingCoach.app Collector {update.Version} is available (you have {UpdateCheck.Current}). Download it, close this one and run the new one.");
+            ShowManualUpdate(() => T("main.updateAvailable", update.Version, UpdateCheck.Current));
             return;
         }
 
         UpdateButton.Visibility = Visibility.Collapsed;
-        UpdateText.Text = $"Downloading RacingCoach.app Collector {update.Version}…";
+        ShowUpdateMessage(() => T("main.downloading", update.Version));
         var progress = new Progress<double>(fraction =>
-            UpdateText.Text = $"Downloading RacingCoach.app Collector {update.Version}… {fraction:P0}");
+            ShowUpdateMessage(() => $"{T("main.downloading", update.Version)} {fraction.ToString("P0", Loc.Culture(_language ?? Loc.English))}"));
         try
         {
             await SelfUpdater.DownloadAsync(update, progress, _stop.Token);
             ActivityLog.Shared.Write($"Downloaded RacingCoach.app Collector {update.Version}; it installs when you restart or close the collector.");
-            UpdateText.Text = $"RacingCoach.app Collector {update.Version} is ready (you have {UpdateCheck.Current}). Restart now to update, or it installs itself when you close the collector."
-                + (SelfUpdater.UsesInstaller ? " Windows will ask you to allow it." : "");
-            UpdateButton.Content = "Restart Now";
-            UpdateButton.Visibility = Visibility.Visible;
+            ShowUpdateMessage(() => T("main.updateReady", update.Version, UpdateCheck.Current)
+                + (SelfUpdater.UsesInstaller ? T("main.updateAllow") : ""));
+            ShowUpdateButton("main.restartNow");
         }
         catch (OperationCanceledException) when (_stop.IsCancellationRequested)
         {
@@ -179,14 +185,27 @@ public partial class MainWindow : Window
         catch (Exception e)
         {
             ActivityLog.Shared.Write($"Couldn't download RacingCoach.app Collector {update.Version}: {e.Message}", isError: true);
-            ShowManualUpdate($"RacingCoach.app Collector {update.Version} is available, but downloading it failed ({e.Message}). Download it yourself, close this one and run the new one.");
+            ShowManualUpdate(() => T("main.updateDownloadFailed", update.Version, e.Message));
         }
     }
 
-    private void ShowManualUpdate(string text)
+    private void ShowManualUpdate(Func<string> message)
     {
-        UpdateText.Text = text;
-        UpdateButton.Content = "Download";
+        ShowUpdateMessage(message);
+        ShowUpdateButton("main.download");
+    }
+
+    // The banner's text, made again in a new language
+    private void ShowUpdateMessage(Func<string> message)
+    {
+        _updateMessage = message;
+        UpdateText.Text = message();
+    }
+
+    private void ShowUpdateButton(string key)
+    {
+        _updateButtonKey = key;
+        UpdateButton.Content = T(key);
         UpdateButton.Visibility = Visibility.Visible;
     }
 
@@ -198,9 +217,8 @@ public partial class MainWindow : Window
             return;
         }
         // The lap being driven is only saved once it's complete
-        if (_engine.State == SimState.Connected && MessageBox.Show(this,
-                "Restarting stops recording for a few seconds, and the lap you're on won't be saved. Restart now?",
-                "Update RacingCoach.app Collector", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+        if (_engine.State == SimState.Connected && MessageBox.Show(this, T("main.restartConfirm"), T("main.updateTitle"),
+                MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
             return;
         _restartForUpdate = true;
         Close();
@@ -222,8 +240,8 @@ public partial class MainWindow : Window
         {
             ActivityLog.Shared.Write($"Couldn't install RacingCoach.app Collector {_update?.Version}: {e.Message}", isError: true);
             if (_restartForUpdate)
-                MessageBox.Show($"The update couldn't be installed ({e.Message}). This version will keep working; download the new one from {_updateUrl ?? UpdateCheck.ReleasesPage}.",
-                    "Update RacingCoach.app Collector", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show(T("main.installFailed", e.Message, _updateUrl ?? UpdateCheck.ReleasesPage),
+                    T("main.updateTitle"), MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
 
@@ -233,7 +251,7 @@ public partial class MainWindow : Window
     {
         if (_options.NoUpload || (_options.Playback && !_options.Upload))
         {
-            SetUploadsOff(_options.NoUpload ? "Uploading is off for this run (--no-upload)" : "Played-back laps aren't uploaded (add --upload)");
+            SetUploadsOff(_options.NoUpload ? "main.noUploadFlag" : "main.playbackNoUpload");
             return;
         }
 
@@ -243,9 +261,7 @@ public partial class MainWindow : Window
         if (key is null)
         {
             _uploadState = UploadSetupState.NoKey;
-            ShowKeyPanel(_options.SetKey
-                ? "Enter your new upload key."
-                : "To send your laps to your RacingCoach.app account, the collector needs your upload key. Laps are recorded either way.");
+            ShowKeyPanel(_options.SetKey ? "main.keyNew" : "main.keyNeeded");
             return;
         }
 
@@ -264,7 +280,7 @@ public partial class MainWindow : Window
             default:
                 _uploadState = UploadSetupState.Refused;
                 ActivityLog.Shared.Write("RacingCoach.app no longer accepts your saved upload key.", isError: true);
-                ShowKeyPanel("RacingCoach.app no longer accepts your saved upload key (it may have been replaced or revoked). Enter your current one.");
+                ShowKeyPanel("main.keyRefusedSaved");
                 break;
         }
     }
@@ -278,20 +294,24 @@ public partial class MainWindow : Window
         RefreshLaps();
     }
 
-    private void SetUploadsOff(string reason)
+    // reasonKey: a Loc key
+    private void SetUploadsOff(string reasonKey)
     {
         _uploadState = UploadSetupState.Off;
-        _offReason = reason;
+        _offReasonKey = reasonKey;
         KeyButton.IsEnabled = false;
         RefreshLaps();
     }
 
-    private void ShowKeyPanel(string intro)
+    // introKey: a Loc key
+    private void ShowKeyPanel(string introKey)
     {
-        KeyIntro.Text = intro;
+        _keyIntroKey = introKey;
+        _keyStatusKey = null;
+        KeyIntro.Text = T(introKey);
         KeyStatusText.Text = "";
         KeyBox.Text = "";
-        KeySkipButton.Content = _uploadState == UploadSetupState.Active ? "Cancel" : "Skip for now";
+        KeySkipButton.Content = T(_uploadState == UploadSetupState.Active ? "main.cancel" : "main.skip");
         KeyOverlay.Visibility = Visibility.Visible;
         KeyBox.Focus();
     }
@@ -309,18 +329,18 @@ public partial class MainWindow : Window
         var key = KeyBox.Text.Trim();
         if (!CollectorSettings.LooksLikeUploadKey(key))
         {
-            ShowKeyStatus("That isn't an upload key. Keys start with rck_ and are 47 characters long.", Red);
+            ShowKeyStatus("main.keyInvalid", Red);
             return;
         }
 
         KeyConnectButton.IsEnabled = false;
-        ShowKeyStatus("Checking the key with RacingCoach.app…", Muted);
+        ShowKeyStatus("main.keyChecking", Muted);
         try
         {
             var check = await UploadSetup.CheckAsync(_siteUrl, key);
             if (check.Status == KeyStatus.Refused)
             {
-                ShowKeyStatus("RacingCoach.app doesn't recognise that key. Check you copied all of it, or create a new one.", Red);
+                ShowKeyStatus("main.keyUnknown", Red);
                 return;
             }
 
@@ -339,9 +359,11 @@ public partial class MainWindow : Window
         }
     }
 
-    private void ShowKeyStatus(string text, Brush brush)
+    // key: a Loc key
+    private void ShowKeyStatus(string key, Brush brush)
     {
-        KeyStatusText.Text = text;
+        _keyStatusKey = key;
+        KeyStatusText.Text = T(key);
         KeyStatusText.Foreground = brush;
     }
 
@@ -353,14 +375,14 @@ public partial class MainWindow : Window
     }
 
     private void ChangeKey_Click(object sender, RoutedEventArgs e) =>
-        ShowKeyPanel(_uploadState == UploadSetupState.Active
-            ? "Enter a new upload key, e.g. after replacing it on your Account page."
-            : "To send your laps to your RacingCoach.app account, the collector needs your upload key.");
+        ShowKeyPanel(_uploadState == UploadSetupState.Active ? "main.keyReplace" : "main.keyNeededShort");
 
     // ---------------------------------------------------------------- Display
 
     private void Refresh()
     {
+        if (_engine.Language != _language)
+            ApplyLanguage(_engine.Language);
         RefreshStatus();
         RefreshSession();
         RefreshLive();
@@ -368,6 +390,27 @@ public partial class MainWindow : Window
         if (LivePanel.Visibility == Visibility.Visible)
             RefreshLiveRacing();
     }
+
+    // Shows the window in the account's Preferred Language: the XAML's texts (Loc.Key), and the ones set once
+    private void ApplyLanguage(string language)
+    {
+        _language = language;
+        Loc.Apply(this, language);
+        if (_engine.Playback)
+            SubtitleText.Text = T("main.playingBack", Path.GetFileName(_engine.PlaybackFile), _options.Speed);
+        if (_updateMessage is not null)
+            UpdateText.Text = _updateMessage();
+        UpdateButton.Content = T(_updateButtonKey);
+        if (_keyIntroKey is not null)
+            KeyIntro.Text = T(_keyIntroKey);
+        KeyStatusText.Text = _keyStatusKey is null ? "" : T(_keyStatusKey);
+        KeySkipButton.Content = T(_uploadState == UploadSetupState.Active ? "main.cancel" : "main.skip");
+        RefreshLaps();
+    }
+
+    // The text for a Loc key in the window's language, with {0}, {1}... filled in
+    private string T(string key, params object?[] args) =>
+        args.Length == 0 ? Loc.T(_language ?? Loc.English, key) : Loc.T(_language ?? Loc.English, key, args);
 
     // ---------------------------------------------------------------- Driver Radio
 
@@ -392,24 +435,24 @@ public partial class MainWindow : Window
                 _radioWindow.Left = Math.Max(0, (SystemParameters.PrimaryScreenWidth - _radioWindow.Width) / 2);
                 _radioWindow.Closed += (_, _) => _radioWindow = null;
             }
-            _radioWindow.Display(status);
+            _radioWindow.Display(status, _language ?? Loc.English);
         }
         else
             _radioWindow?.Hide();
 
         RadioText.Text = status.State switch
         {
-            RadioState.Recording => "Recording… let go of the button when you're done.",
-            RadioState.Sending => "Sending…",
-            RadioState.Said when status.Reply is not null => $"You said: “{status.Text}”\nRace Engineer: “{status.Reply}”",
-            RadioState.Said => $"You said: “{status.Text}”",
-            RadioState.Problem => status.Text ?? "",
-            _ => "Hold iRacing's radio (push to talk) button and speak. It's shown over the sim and on Live Racing, and your race engineer answers questions.",
+            RadioState.Recording => T("main.radioRecording"),
+            RadioState.Sending => T("main.radioSending"),
+            RadioState.Said when status.Reply is not null => $"{T("main.radioYouSaid", status.Text)}\n{T("main.radioEngineer", status.Reply)}",
+            RadioState.Said => T("main.radioYouSaid", status.Text),
+            RadioState.Problem => RadioWindow.ProblemText(status, _language ?? Loc.English),
+            _ => T("main.radioIdle"),
         };
         var button = _engine.Radio.Button;
-        RadioButtonText.Text = _pickingRadioButton ? "Press the wheel or button box button to talk with (10 s)…"
-            : button is null ? "Wheel button: none (iRacing's radio button only)"
-            : $"Wheel button: {button}";
+        RadioButtonText.Text = _pickingRadioButton ? T("main.radioPicking")
+            : button is null ? T("main.radioNoButton")
+            : T("main.radioButton", button.Controller, button.Button);
         SetRadioButton.IsEnabled = !_pickingRadioButton;
         ClearRadioButton.IsEnabled = !_pickingRadioButton && button is not null;
     }
@@ -475,41 +518,43 @@ public partial class MainWindow : Window
         var session = _engine.Session;
         MapTrackText.Text = session is null ? "—" : session.TrackConfig is null ? session.Track : $"{session.Track} · {session.TrackConfig}";
         var map = live.Map;
-        MapKindText.Text = map is null ? "" : map.Exact ? "" : "Approximate map";
+        MapKindText.Text = map is null ? "" : map.Exact ? "" : T("main.approximateMap");
         MapEmptyText.Text = map is not null ? ""
-            : session is null ? "Start iRacing and get in the car to see the track here."
-            : "Drive one clean lap and the track is drawn here. The exact map comes once a lap of this track has been uploaded with track positions, after your stint.";
+            : session is null ? T("main.mapStart")
+            : T("main.mapDrive");
         SatelliteRow.Visibility = map is { Mercator: not null } && TrackMap.Imagery?.Available is not null ? Visibility.Visible : Visibility.Collapsed;
         MapNoteText.Text = map is { Exact: false }
-            ? "Drawn from your own lap's speed and yaw rate, so it's close but not exact. The exact map replaces it once a lap of this track has been uploaded with track positions, after your stint."
+            ? T("main.mapApproximateNote")
             : "";
 
+        // The collector's own problems are Loc keys; the site's and the network's are shown as they are
+        var problem = live.Problem is { } p ? Loc.TOr(_language ?? Loc.English, p, p) : null;
         if (live.Sharing)
-            SetTile(ShareDot, ShareText, ShareDetail, Green, "Sharing live",
-                live.Watchers switch { 0 => "Nobody is watching right now", 1 => "1 person is watching", var n => $"{n} people are watching" });
+            SetTile(ShareDot, ShareText, ShareDetail, Green, T("main.sharing"),
+                live.Watchers switch { 0 => T("main.watchersNone"), 1 => T("main.watchersOne"), var n => T("main.watchersMany", n) });
         else if (_engine.State is SimState.Waiting or SimState.PlaybackFinished || session is null)
-            SetTile(ShareDot, ShareText, ShareDetail, Grey, "Not sharing", live.Problem ?? "Starts when you're in iRacing");
+            SetTile(ShareDot, ShareText, ShareDetail, Grey, T("main.notSharing"), problem ?? T("main.sharingStarts"));
         else
-            SetTile(ShareDot, ShareText, ShareDetail, live.Problem is null ? Amber : Red, "Not sharing", live.Problem ?? "Connecting…");
+            SetTile(ShareDot, ShareText, ShareDetail, problem is null ? Amber : Red, T("main.notSharing"), problem ?? T("main.connecting"));
 
         if (!_engine.TryGetLatest(out var d) || d.IsOnTrack != true)
         {
             LiveSpeedText.Text = LiveGearText.Text = LiveCurrentText.Text = LiveLastText.Text = LiveBestText.Text = LiveDeltaText.Text = LiveAreaText.Text = "—";
             LiveDeltaText.Foreground = Fg;
-            LiveLapText.Text = session is null ? "Lap —" : "In the garage";
+            LiveLapText.Text = session is null ? T("main.lapNone") : T("main.inGarage");
             return;
         }
         var metric = _engine.Metric;
-        LiveSpeedUnitText.Text = metric ? " KPH" : " MPH";
+        LiveSpeedUnitText.Text = Loc.SpeedUnit(metric);
         LiveSpeedText.Text = d.Speed is { } speed
             ? Math.Round(speed * (metric ? MetersPerSecondToKph : MetersPerSecondToMph)).ToString("0", Culture)
             : "—";
         LiveGearText.Text = d.Gear switch { null => "—", -1 => "R", 0 => "N", var g => g.Value.ToString(Culture) };
         var pct = Math.Clamp(d.LapDistPct ?? 0, 0, 1);
-        LiveLapText.Text = (d.Lap is { } lap ? $"Lap {lap}" : "Lap —")
-            + (d.PlayerCarPosition is > 0 and var p ? $" · P{p}" : "")
-            + $" · {pct * 100:0}% around"
-            + (d.OnPitRoad == true ? " · pit road" : "");
+        LiveLapText.Text = (d.Lap is { } lap ? T("main.lap", lap) : T("main.lapNone"))
+            + (d.PlayerCarPosition is > 0 and var position ? $" · P{position}" : "")
+            + $" · {T("main.around", pct * 100)}"
+            + (d.OnPitRoad == true ? $" · {T("main.pitRoad")}" : "");
         LiveCurrentText.Text = LapTime(d.LapCurrentLapTime);
         LiveLastText.Text = LapTime(d.LapLastLapTime);
         LiveBestText.Text = LapTime(d.LapBestLapTime);
@@ -523,7 +568,7 @@ public partial class MainWindow : Window
             LiveDeltaText.Text = "—";
             LiveDeltaText.Foreground = Fg;
         }
-        LiveAreaText.Text = TrackMap.AreaAt(pct)?.Name ?? (map is { Areas.Count: > 0 } ? "Between areas" : "—");
+        LiveAreaText.Text = TrackMap.AreaAt(pct)?.Name ?? (map is { Areas.Count: > 0 } ? T("main.betweenAreas") : "—");
     }
 
     private void Satellite_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
@@ -556,75 +601,75 @@ public partial class MainWindow : Window
         switch (_engine.State)
         {
             case SimState.Waiting:
-                SetTile(SimDot, SimText, SimDetail, Amber, "Waiting for iRacing", "Start iRacing and get in the car");
+                SetTile(SimDot, SimText, SimDetail, Amber, T("main.waitingForIRacing"), T("main.startIRacing"));
                 break;
             case SimState.Connected:
-                SetTile(SimDot, SimText, SimDetail, Green, "Connected", $"{_engine.SamplesPerSecond:0} samples/s");
+                SetTile(SimDot, SimText, SimDetail, Green, T("main.connected"), T("main.samplesPerSecond", _engine.SamplesPerSecond));
                 break;
             case SimState.PlayingBack:
-                SetTile(SimDot, SimText, SimDetail, Blue, "Playing back", Path.GetFileName(_engine.PlaybackFile) ?? "");
+                SetTile(SimDot, SimText, SimDetail, Blue, T("main.playingBackShort"), Path.GetFileName(_engine.PlaybackFile) ?? "");
                 break;
             case SimState.PlaybackFinished:
-                SetTile(SimDot, SimText, SimDetail, Grey, "Playback finished", Path.GetFileName(_engine.PlaybackFile) ?? "");
+                SetTile(SimDot, SimText, SimDetail, Grey, T("main.playbackFinished"), Path.GetFileName(_engine.PlaybackFile) ?? "");
                 break;
         }
 
         var lapCount = _currentLaps?.Laps.Count ?? 0;
-        var saved = lapCount == 0 ? "No laps saved yet" : $"{lapCount} lap{(lapCount == 1 ? "" : "s")} saved this session";
+        var saved = lapCount switch { 0 => T("main.noLapsSaved"), 1 => T("main.lapsSavedOne"), _ => T("main.lapsSavedMany", lapCount) };
         var status = _engine.RecorderStatus;
         if (!connected)
-            SetTile(RecordDot, RecordText, RecordDetail, Grey, "Not recording", saved);
+            SetTile(RecordDot, RecordText, RecordDetail, Grey, T("main.notRecording"), saved);
         else if (status.StartsWith("lap", StringComparison.Ordinal))
-            SetTile(RecordDot, RecordText, RecordDetail, Green, $"Recording {status.Split(' ')[0]} {status.Split(' ')[1]}", saved);
+            SetTile(RecordDot, RecordText, RecordDetail, Green, T("main.recordingLap", status.Split(' ')[1]), saved);
         else
-            SetTile(RecordDot, RecordText, RecordDetail, Amber, "Ready", "Recording starts at the start/finish line");
+            SetTile(RecordDot, RecordText, RecordDetail, Amber, T("main.ready"), T("main.recordingStarts"));
 
         var uploader = _engine.Uploader;
         switch (_uploadState)
         {
             case UploadSetupState.Checking:
-                SetTile(UploadDot, UploadText, UploadDetail, Amber, "Checking key…", _siteUrl);
+                SetTile(UploadDot, UploadText, UploadDetail, Amber, T("main.checkingKey"), _siteUrl);
                 break;
             case UploadSetupState.Off:
-                SetTile(UploadDot, UploadText, UploadDetail, Grey, "Off", _offReason ?? "");
+                SetTile(UploadDot, UploadText, UploadDetail, Grey, T("main.off"), _offReasonKey is null ? "" : T(_offReasonKey));
                 break;
             case UploadSetupState.NoKey:
-                SetTile(UploadDot, UploadText, UploadDetail, Amber, "No upload key", "Press Upload Key to connect");
+                SetTile(UploadDot, UploadText, UploadDetail, Amber, T("main.noKey"), T("main.pressUploadKey"));
                 break;
             case UploadSetupState.Refused:
-                SetTile(UploadDot, UploadText, UploadDetail, Red, "Key not accepted", "Press Upload Key to enter a new one");
+                SetTile(UploadDot, UploadText, UploadDetail, Red, T("main.keyNotAccepted"), T("main.pressUploadKeyNew"));
                 break;
             case UploadSetupState.Active when uploader is null:
                 break;
             case UploadSetupState.Active when uploader.KeyRejected:
-                SetTile(UploadDot, UploadText, UploadDetail, Red, "Key not accepted", "Press Upload Key to enter a new one");
+                SetTile(UploadDot, UploadText, UploadDetail, Red, T("main.keyNotAccepted"), T("main.pressUploadKeyNew"));
                 break;
             case UploadSetupState.Active when uploader.Offline:
-                SetTile(UploadDot, UploadText, UploadDetail, Amber, "Can't reach the site", $"{uploader.Pending} lap(s) waiting; retrying");
+                SetTile(UploadDot, UploadText, UploadDetail, Amber, T("main.siteUnreachable"), T("main.lapsWaiting", uploader.Pending));
                 break;
             case UploadSetupState.Active:
-                SetTile(UploadDot, UploadText, UploadDetail, Green, _account ?? "Uploading", uploader.Pending > 0
-                    ? $"Uploading {uploader.Pending} lap(s)…"
-                    : "All laps uploaded");
+                SetTile(UploadDot, UploadText, UploadDetail, Green, _account ?? T("main.uploading"), uploader.Pending > 0
+                    ? T("main.uploadingLaps", uploader.Pending)
+                    : T("main.allUploaded"));
                 break;
         }
 
         var showPreferences = _uploadState == UploadSetupState.Active && _account is not null;
         PreferencesText.Visibility = showPreferences ? Visibility.Visible : Visibility.Collapsed;
         if (showPreferences)
-            PreferencesText.Text = $"Language: {LanguageName(_engine.Language)} · Units: {(_engine.Metric ? "Metric" : "Standard")}";
+            PreferencesText.Text = T("main.preferences", T("main.languageName"), T(_engine.Metric ? "main.metric" : "main.standard"));
         BeepsPanel.Visibility = PreferencesText.Visibility;
         // Put the controls back to the account's setting when it loads, unless a volume change is about to be saved
         if (showPreferences && _beepsShown != _engine.BrakeBeepsLoaded && !_beepsVolumeSave.IsEnabled)
             ShowBeeps();
 
         if (_engine.IbtFolder is null)
-            SetTile(IbtDot, IbtText, IbtDetail, Grey, _engine.Playback ? "From the file" : "Off",
-                _engine.Playback ? "Played-back laps have positions already" : "Turned off for this run (--no-positions)");
+            SetTile(IbtDot, IbtText, IbtDetail, Grey, T(_engine.Playback ? "main.fromFile" : "main.off"),
+                T(_engine.Playback ? "main.playbackHasPositions" : "main.positionsOff"));
         else if (_engine.RecordingIbt)
-            SetTile(IbtDot, IbtText, IbtDetail, Green, "Recording .ibt", "Added to your laps when you leave the car");
+            SetTile(IbtDot, IbtText, IbtDetail, Green, T("main.recordingIbt"), T("main.ibtAdded"));
         else
-            SetTile(IbtDot, IbtText, IbtDetail, Grey, "Not recording", connected ? "Starts when you're on track" : "Starts when you get in the car");
+            SetTile(IbtDot, IbtText, IbtDetail, Grey, T("main.notRecording"), T(connected ? "main.startsOnTrack" : "main.startsInCar"));
     }
 
     private void ShowBeeps()
@@ -674,14 +719,6 @@ public partial class MainWindow : Window
         detail.ToolTip = string.IsNullOrEmpty(description) ? null : description;
     }
 
-    private static string LanguageName(string language) => language switch
-    {
-        "pt" => "Portuguese",
-        "es" => "Spanish",
-        "de" => "German",
-        _ => "English",
-    };
-
     private void RefreshSession()
     {
         var session = _engine.Session;
@@ -696,12 +733,12 @@ public partial class MainWindow : Window
         TrackDetail.Text = Join(TrackLength(session.TrackLength), session.TrackLocation);
         CarText.Text = session.Car;
         CarDetail.Text = Join(session.CarNumber is null ? null : $"#{session.CarNumber}", session.CarClass, session.Driver);
-        SkiesText.Text = session.Skies ?? "";
+        SkiesText.Text = session.Skies is { } skies ? Loc.TOr(_language ?? Loc.English, $"skies.{skies}", skies) : "";
 
         var hasSample = _engine.TryGetLatest(out var d);
         var type = hasSample && d.SessionNum is { } num ? session.SessionTypes.GetValueOrDefault(num) : null;
-        SessionText.Text = type ?? "—";
-        SessionDetail.Text = session.SubSessionId > 0 ? $"Session {session.SubSessionId}" : "Offline session";
+        SessionText.Text = type is null ? "—" : Loc.TOr(_language ?? Loc.English, $"sessionType.{type}", type);
+        SessionDetail.Text = session.SubSessionId > 0 ? T("main.subsession", session.SubSessionId) : T("main.offlineSession");
     }
 
     private void RefreshLive()
@@ -715,7 +752,7 @@ public partial class MainWindow : Window
             SteeringShift.X = 0;
             FuelText.Text = TrackTempText.Text = AirTempText.Text = TimeLeftText.Text = LapsLeftText.Text = "—";
             FuelPctText.Text = "";
-            LapNumberText.Text = "Lap —";
+            LapNumberText.Text = T("main.lapNone");
             LapProgressText.Text = "";
             CurrentLapText.Text = LastLapText.Text = BestLapText.Text = DeltaText.Text = "—";
             DeltaText.Foreground = Fg;
@@ -724,7 +761,7 @@ public partial class MainWindow : Window
 
         // In the user's Preferred Units (Account page): mph, or kph for Metric
         var metric = _engine.Metric;
-        SpeedUnitText.Text = metric ? " KPH" : " MPH";
+        SpeedUnitText.Text = Loc.SpeedUnit(metric);
         SpeedText.Text = d.Speed is { } speed
             ? Math.Round(speed * (metric ? MetersPerSecondToKph : MetersPerSecondToMph)).ToString("0", Culture)
             : "—";
@@ -742,12 +779,12 @@ public partial class MainWindow : Window
         var steering = (d.SteeringWheelAngle ?? 0) * 180 / Math.PI;
         var half = Math.Max(0, SteeringTrack.ActualWidth / 2 - 5);
         SteeringShift.X = -Math.Clamp(steering / SteeringRangeDegrees, -1, 1) * half;
-        SteeringText.Text = Math.Abs(steering) < 0.5 ? "0°" : $"{Math.Abs(steering):0}°{(steering > 0 ? "L" : "R")}";
+        SteeringText.Text = Math.Abs(steering) < 0.5 ? "0°" : $"{Math.Abs(steering):0}°{T(steering > 0 ? "left" : "right")}";
 
         var pct = Math.Clamp(d.LapDistPct ?? 0, 0, 1);
         LapScale.ScaleX = pct;
-        LapNumberText.Text = d.Lap is { } lap ? $"Lap {lap}" + (d.PlayerCarPosition is > 0 and var p ? $" · P{p}" : "") : "Lap —";
-        LapProgressText.Text = $"{pct * 100:0}% around";
+        LapNumberText.Text = d.Lap is { } lap ? T("main.lap", lap) + (d.PlayerCarPosition is > 0 and var p ? $" · P{p}" : "") : T("main.lapNone");
+        LapProgressText.Text = T("main.around", pct * 100);
 
         CurrentLapText.Text = LapTime(d.LapCurrentLapTime);
         LastLapText.Text = LapTime(d.LapLastLapTime);
@@ -774,13 +811,13 @@ public partial class MainWindow : Window
         TimeLeftText.Text = d.SessionTimeRemain switch
         {
             null or < 0 => "—",
-            >= UnlimitedSeconds => "Unlimited",
+            >= UnlimitedSeconds => T("main.unlimited"),
             var s => TimeSpan.FromSeconds(s.Value).ToString(s >= 3600 ? @"h\:mm\:ss" : @"m\:ss", Culture),
         };
         LapsLeftText.Text = d.SessionLapsRemainEx switch
         {
             null or < 0 => "—",
-            >= UnlimitedLaps => "Unlimited",
+            >= UnlimitedLaps => T("main.unlimited"),
             var l => l.Value.ToString(Culture),
         };
     }
@@ -808,7 +845,7 @@ public partial class MainWindow : Window
         if (laps is null)
             return;
 
-        LapsTitle.Text = $"{(_lapSavedThisRun ? "LAPS THIS SESSION" : "LAST SESSION")} · {laps.Track.ToUpperInvariant()}";
+        LapsTitle.Text = $"{T(_lapSavedThisRun ? "main.lapsThisSession" : "main.lastSession")} · {laps.Track.ToUpperInvariant()}";
         var best = laps.Laps.Count > 0 ? laps.Laps.Min(l => l.LapTimeSeconds) : 0;
         var uploading = _uploadState == UploadSetupState.Active;
         var positionsOn = _engine.IbtFolder is not null;
@@ -818,32 +855,32 @@ public partial class MainWindow : Window
         {
             var isBest = lap.LapTimeSeconds == best;
             var notes = new List<string>();
-            if (lap.PitRoad) notes.Add("pit road");
-            if (lap.OffTrack) notes.Add("off track");
-            if (lap.MissingSamples > 0) notes.Add($"{lap.MissingSamples} samples missing");
+            if (lap.PitRoad) notes.Add(T("main.pitRoad"));
+            if (lap.OffTrack) notes.Add(T("main.offTrack"));
+            if (lap.MissingSamples > 0) notes.Add(T("main.samplesMissing", lap.MissingSamples));
 
             var (upload, uploadBrush, uploadTip) = lap switch
             {
-                { Uploaded: true, CsvDeleted: true } => ("✓ Uploaded", Green, "On RacingCoach.app; the CSV was deleted from this PC"),
-                { Uploaded: true } => ("✓ Uploaded", Green, "On RacingCoach.app"),
-                { UploadError: { } error } when error.StartsWith("track and car unknown", StringComparison.Ordinal) => ("Saved only", Grey, error),
-                { UploadError: { } error } => ("Not uploaded", Red, error),
-                _ when uploading => ("Waiting…", Amber, "Queued for upload"),
-                _ => ("Saved on PC", Grey, "Uploading is off"),
+                { Uploaded: true, CsvDeleted: true } => (T("main.uploaded"), Green, T("main.uploadedCsvDeleted")),
+                { Uploaded: true } => (T("main.uploaded"), Green, T("main.onSite")),
+                { UploadError: { } error } when error.StartsWith("track and car unknown", StringComparison.Ordinal) => (T("main.savedOnly"), Grey, error),
+                { UploadError: { } error } => (T("main.notUploaded"), Red, error),
+                _ when uploading => (T("main.waiting"), Amber, T("main.queued")),
+                _ => (T("main.savedOnPc"), Grey, T("main.uploadingOff")),
             };
             var (positions, positionsBrush, positionsTip) = lap switch
             {
-                { HasPosition: true } => ("✓ Added", Green, "Lat/Lon/Alt were added to the lap's CSV"),
-                { PositionMissing: true } => ("Not available", Grey, "iRacing's .ibt file didn't cover the whole lap"),
-                _ when positionsOn => ("After the stint", Amber, "Added from iRacing's .ibt file when you leave the car"),
-                _ => ("—", Grey, "Track positions are off for this run"),
+                { HasPosition: true } => (T("main.added"), Green, T("main.addedTip")),
+                { PositionMissing: true } => (T("main.notAvailable"), Grey, T("main.notAvailableTip")),
+                _ when positionsOn => (T("main.afterStint"), Amber, T("main.afterStintTip")),
+                _ => ("—", Grey, T("main.positionsOffTip")),
             };
 
             _laps.Add(new LapRow
             {
                 Lap = lap.LapNumber.ToString(Culture),
                 Time = LapTime(lap.LapTimeSeconds),
-                Gap = isBest ? "Best" : $"+{lap.LapTimeSeconds - best:0.000}",
+                Gap = isBest ? T("main.bestLap") : $"+{lap.LapTimeSeconds - best:0.000}",
                 GapBrush = isBest ? Blue : Muted,
                 Incidents = lap.Incidents > 0 ? $"{lap.Incidents}x" : "",
                 Notes = string.Join(", ", notes),
@@ -858,7 +895,7 @@ public partial class MainWindow : Window
         }
 
         var uploaded = laps.Laps.Count(l => l.Uploaded);
-        LapsSummaryText.Text = $"{laps.Laps.Count} lap{(laps.Laps.Count == 1 ? "" : "s")} · best {LapTime(best)} · {uploaded} uploaded";
+        LapsSummaryText.Text = T(laps.Laps.Count == 1 ? "main.lapsSummaryOne" : "main.lapsSummaryMany", laps.Laps.Count, LapTime(best), uploaded);
     }
 
     // ---------------------------------------------------------------- Activity

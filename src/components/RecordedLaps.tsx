@@ -84,6 +84,7 @@ function toLapFile(lap: CollectorLapSummary, trackName: string, csv: string): La
     trackName,
     lapTime,
     fileId,
+    lapNumber: lap.lapNumber,
   };
 }
 

@@ -304,7 +304,7 @@ export async function inCarCoachCallouts(input: {
 
   const lapLines = input.laps.map(
     (lap) =>
-      `[${lap.id}] lap ${lap.lapNumber}: ${formatSeconds(lap.lapSeconds)}` +
+      `${lap.id}: ${formatSeconds(lap.lapSeconds)}` +
       (lap.incidents > 0 ? `, ${lap.incidents} incident points` : '') +
       (lap.offTrack ? ', went off track' : '')
   );

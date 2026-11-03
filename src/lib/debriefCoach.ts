@@ -216,14 +216,14 @@ function averageFromReference(values: (number | null | undefined)[], from: FromR
 // The tools' note on what their distances mean
 function referenceNote(ref: AreaReference, u: UnitFormat) {
   return ref
-    ? `Every distance here is from ${ref.name} ([${ref.lap}]): "after" is further along the track (later), "before" is earlier. ` +
+    ? `Every distance here is from ${ref.name} (${ref.lap}): "after" is further along the track (later), "before" is earlier. ` +
         `Give the driver changes (${u.distanceName} later or earlier, against a reference you name), never these as places on the track.`
     : 'No run braked or picked the throttle back up here, so there are no distances.';
 }
 
 function describeRun(run: DebriefRun, u: UnitFormat, from: FromReference) {
   return (
-    `[${run.lap}] ${run.seconds.toFixed(3)}s, ` +
+    `${run.lap} ${run.seconds.toFixed(3)}s, ` +
     `${run.brakeFeet === null ? 'no braking' : `brake ${from(run.brakeFeet)}`}, ` +
     `max brake ${run.maxBrakePct.toFixed(0)}%, min ${u.mph(run.minSpeedMph).toFixed(1)}${u.speed}, ` +
     `exit ${u.mph(run.exitSpeedMph).toFixed(1)}${u.speed}`
@@ -341,11 +341,11 @@ export function createTools(session: DebriefSession, units: Units = DEFAULT_UNIT
       return [
         incidentLaps.length > 0
           ? `Left out as incident laps (over ${formatSeconds(cutoff)}, 110% of the median lap): ` +
-            `${incidentLaps.map((l) => `[${l.id}] ${formatSeconds(l.lapTime)}`).join(', ')}. All statistics below use the other laps.`
+            `${incidentLaps.map((l) => `${l.id} ${formatSeconds(l.lapTime)}`).join(', ')}. All statistics below use the other laps.`
           : 'No incident laps were left out.',
         `${session.track}, ${session.car}. ${times.length} laps: best ${formatSeconds(Math.min(...times))}, ` +
           `avg ${formatSeconds(mean(times))}, worst ${formatSeconds(Math.max(...times))}, std dev ${fixed(stdDev(times), 3, 's')}.`,
-        `Laps fastest to slowest: ${laps.map((l) => `[${l.id}] ${formatSeconds(l.lapTime)}`).join(', ')}`,
+        `Laps fastest to slowest: ${laps.map((l) => `${l.id} ${formatSeconds(l.lapTime)}`).join(', ')}`,
         '',
         'Focus areas, most average time lost first:',
         ...[...areas]
@@ -434,9 +434,11 @@ export function createTools(session: DebriefSession, units: Units = DEFAULT_UNIT
 
   const compareLap = tool(
     async ({ lap }: { lap: string }) => {
-      const id = lap.replace(/[[\]]/g, '').trim().toLowerCase();
+      // "Lap 3", "[Lap 3]" or just "3"
+      const bare = lap.replace(/[[\]]/g, '').trim().toLowerCase();
+      const id = /^\d+$/.test(bare) ? `lap ${bare}` : bare;
       const match = session.laps.find((l) => l.id.toLowerCase() === id);
-      if (!match) return `No lap with ID "${lap}". Lap IDs: ${session.laps.map((l) => l.id).join(', ')}`;
+      if (!match) return `No lap named "${lap}". Laps: ${session.laps.map((l) => l.id).join(', ')}`;
 
       // The lap's own run comes from all laps (it may be an incident lap); the area best from the clean laps
       const rows = areas.flatMap((area) => {
@@ -449,7 +451,7 @@ export function createTools(session: DebriefSession, units: Units = DEFAULT_UNIT
       rows.sort((a, b) => b.delta - a.delta);
       const total = rows.reduce((sum, r) => sum + r.delta, 0);
       return [
-        `Lap [${match.id}] ${formatSeconds(match.lapTime)}${match.lapTime > cutoff ? ' (an incident lap)' : ''}. Time lost to the best run in each focus area, most first ` +
+        `${match.id} ${formatSeconds(match.lapTime)}${match.lapTime > cutoff ? ' (an incident lap)' : ''}. Time lost to the best run in each focus area, most first ` +
           `(${total.toFixed(3)}s in total). Brakepoints are from where each area's fastest run started braking ` +
           '("after" is later, "before" earlier):',
         ...rows.map((r) => `+${r.delta.toFixed(3)}s ${r.text}`),
@@ -460,7 +462,7 @@ export function createTools(session: DebriefSession, units: Units = DEFAULT_UNIT
       description:
         'Where one lap lost time: each focus area of that lap against the best run through the area. Use it on ' +
         'slow laps to look for a pattern.',
-      schema: z.object({ lap: z.string().describe('Lap ID from the overview, e.g. "ab12"') }),
+      schema: z.object({ lap: z.string().describe('The lap as the overview names it, e.g. "Lap 3"') }),
     }
   );
 
@@ -475,9 +477,9 @@ export function createTools(session: DebriefSession, units: Units = DEFAULT_UNIT
 
       const describe = (run: DebriefRun) => {
         const d = run.braking;
-        if (!d) return `[${run.lap}] ${run.seconds.toFixed(3)}s: not measured`;
+        if (!d) return `${run.lap} ${run.seconds.toFixed(3)}s: not measured`;
         return (
-          `[${run.lap}] ${run.seconds.toFixed(3)}s: ` +
+          `${run.lap} ${run.seconds.toFixed(3)}s: ` +
           [
             run.brakeFeet === null ? 'no braking' : `brake ${from(run.brakeFeet)}`,
             `${fixed(d.rampSeconds, 2, 's')} to peak ${run.maxBrakePct.toFixed(0)}%`,
@@ -535,7 +537,7 @@ export function createTools(session: DebriefSession, units: Units = DEFAULT_UNIT
 
       const describe = (run: DebriefRun) => {
         const d = run.throttle;
-        if (!d) return `[${run.lap}] ${run.seconds.toFixed(3)}s: not measured`;
+        if (!d) return `${run.lap} ${run.seconds.toFixed(3)}s: not measured`;
         const lift =
           d.liftSeconds !== null
             ? `lifted in ${d.liftSeconds.toFixed(2)}s${d.liftSeconds > SLOW_LIFT_SECONDS ? ' (slow)' : ''}`
@@ -543,7 +545,7 @@ export function createTools(session: DebriefSession, units: Units = DEFAULT_UNIT
               ? `partial lift to ${d.partialLiftPct}%`
               : 'no lift measured';
         return (
-          `[${run.lap}] ${run.seconds.toFixed(3)}s: ` +
+          `${run.lap} ${run.seconds.toFixed(3)}s: ` +
           [
             lift,
             d.pickupFeet === null ? 'no pickup in the area' : `throttle on ${from(d.pickupFeet)}`,
@@ -604,7 +606,7 @@ export function createTools(session: DebriefSession, units: Units = DEFAULT_UNIT
         const reapplied = measured.filter((r) => r.throttle!.reapplications > 0);
         lines.push(
           `Commitment: re-applied the throttle on ${reapplied.length} of ${measured.length} laps` +
-            (reapplied.length > 0 ? ` (${reapplied.map((r) => `[${r.lap}]`).join(', ')})` : '') +
+            (reapplied.length > 0 ? ` (${reapplied.map((r) => `${r.lap}`).join(', ')})` : '') +
             '. Each re-application means you got on the gas too early or too hard for the grip and had to back out; ' +
             'a later, committed pickup that goes straight to 100% is the goal.'
         );
@@ -651,7 +653,7 @@ export function createTools(session: DebriefSession, units: Units = DEFAULT_UNIT
             (hit.beforeUpshift ? ' before shifting up' : ' (no upshift after it)')
         );
         return (
-          `[${lap.id}] ${formatSeconds(lap.lapTime)}: ${shifts.length > 0 ? shifts.join(', ') : 'no full-throttle upshifts'}` +
+          `${lap.id} ${formatSeconds(lap.lapTime)}: ${shifts.length > 0 ? shifts.join(', ') : 'no full-throttle upshifts'}` +
           (hits.length > 0 ? `; ${hits.join(', ')}` : '; never on the limiter') +
           (shifting.partThrottleUpshifts > 0 ? `; ${shifting.partThrottleUpshifts} part-throttle upshift(s) left out` : '')
         );
@@ -771,9 +773,9 @@ export function createTools(session: DebriefSession, units: Units = DEFAULT_UNIT
       const side = (deg: number) => (deg === 0 ? 'straight' : `${Math.abs(deg).toFixed(0)}° ${deg > 0 ? 'left' : 'right'}`);
       const describe = (run: DebriefRun) => {
         const d = run.steering;
-        if (!d) return `[${run.lap}] ${run.seconds.toFixed(3)}s: not measured`;
+        if (!d) return `${run.lap} ${run.seconds.toFixed(3)}s: not measured`;
         return (
-          `[${run.lap}] ${run.seconds.toFixed(3)}s: max wheel angle ${d.maxDeg.toFixed(0)}°, ${side(d.apexDeg)} at the ` +
+          `${run.lap} ${run.seconds.toFixed(3)}s: max wheel angle ${d.maxDeg.toFixed(0)}°, ${side(d.apexDeg)} at the ` +
           `slowest point (${u.mph(run.minSpeedMph).toFixed(1)}${u.speed}), ${d.reversals} steering reversal${d.reversals === 1 ? '' : 's'}`
         );
       };
@@ -831,9 +833,9 @@ export function createTools(session: DebriefSession, units: Units = DEFAULT_UNIT
         return Number.parseFloat(shown) === 0 ? 'on the line' : `${shown} ${side(meters)}`;
       };
       const describe = (run: DebriefRun) => {
-        if (!run.line) return `[${run.lap}] ${run.seconds.toFixed(3)}s: no track positions`;
+        if (!run.line) return `${run.lap} ${run.seconds.toFixed(3)}s: no track positions`;
         return (
-          `[${run.lap}] ${run.seconds.toFixed(3)}s: ${run.line.offsetsM.map(offset).join(', ')}; ` +
+          `${run.lap} ${run.seconds.toFixed(3)}s: ${run.line.offsetsM.map(offset).join(', ')}; ` +
           `largest ${offset(run.line.maxOffsetM)} at ${run.line.maxOffsetAtPct}% through the area`
         );
       };
@@ -865,7 +867,7 @@ export function createTools(session: DebriefSession, units: Units = DEFAULT_UNIT
             'driving line does not explain the time here. Do not give a driving line fix for this area.';
 
       return [
-        `${area.name} driving line, compared with lap [${area.lineReference ?? '?'}] (the fastest ` +
+        `${area.name} driving line, compared with ${area.lineReference ?? 'the reference lap'} (the fastest ` +
           `through the area with track positions). Each lap shows how many ${u.distanceName} it was from that line at the start ` +
           "of the area, 25%, 50%, 75% and the end, to the left or right as seen from the driver's seat facing the " +
           'direction of travel' +
@@ -907,7 +909,7 @@ function assembleOptimalLapTool(plan: OptimalLap | null, session: DebriefSession
       const gain = plan.bestLap.lapTime - plan.lapTime;
       const laps = new Set(plan.segments.map((s) => s.lap));
       return [
-        `Theoretical lap ${formatSeconds(plan.lapTime)}, ${gain.toFixed(3)}s faster than your best lap [${plan.bestLap.id}] ` +
+        `Theoretical lap ${formatSeconds(plan.lapTime)}, ${gain.toFixed(3)}s faster than your best lap (${plan.bestLap.id}) ` +
           `${formatSeconds(plan.bestLap.lapTime)}, built from the fastest clean run through each of ${plan.segments.length} parts ` +
           `of the track, taken from ${laps.size} lap${laps.size === 1 ? '' : 's'}. The driver can download it and set it ` +
           'as their Target Lap.',
@@ -915,7 +917,7 @@ function assembleOptimalLapTool(plan: OptimalLap | null, session: DebriefSession
         ...plan.segments.map(
           (s) =>
             `- ${segmentName(s)} (${(s.start * 100).toFixed(0)}%-${(s.end * 100).toFixed(0)}%): ${s.seconds.toFixed(3)}s from ` +
-            `[${s.lap}]${s.gain > 0.0005 ? `, ${s.gain.toFixed(3)}s faster than [${plan.bestLap.id}]` : ''}`
+            `${s.lap}${s.gain > 0.0005 ? `, ${s.gain.toFixed(3)}s faster than ${plan.bestLap.id}` : ''}`
         ),
       ].join('\n');
     },
@@ -971,7 +973,8 @@ const systemPrompt = (units: Units) =>
   ' Only blame braking or speed when the fast and slow runs actually differ in it; if ' +
   'nothing in the data explains the time, say the cause is not in the data instead of guessing. Use the numbers ' +
   `from the tools in the units they give (${DISTANCE_NAME[units]}, ${SPEED_UNIT[units]}), never invent data, write to ` +
-  'the driver as "you", and use plain text with no markdown. Once you have your fixes, call assemble_optimal_lap ' +
+  'the driver as "you", and use plain text with no markdown. When you mention a particular lap, call it by its name ' +
+  'from the tools, e.g. "Lap 3", never by an ID or file name. Once you have your fixes, call assemble_optimal_lap ' +
   'once and sum up the theoretical lap it builds in optimalLap.' +
   LAP_TIME_RULE;
 

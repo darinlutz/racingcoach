@@ -29,20 +29,26 @@ public partial class RadioWindow : Window
         };
     }
 
-    internal void Display(RadioStatus status)
+    /// <summary>Shows the status in the user's Preferred Language.</summary>
+    internal void Display(RadioStatus status, string language)
     {
         var seconds = (int)(DateTime.UtcNow - status.Since).TotalSeconds;
         (Dot.Fill, HeadingText.Text, BodyText.Text) = status.State switch
         {
-            RadioState.Recording => (Red, "DRIVER RADIO · RECORDING", $"Speak now… {seconds} s"),
-            RadioState.Sending => (Blue, "DRIVER RADIO", "Sending…"),
-            RadioState.Said when status.Reply is not null => (Green, "RACE ENGINEER", $"You: “{status.Text}”\n{status.Reply}"),
-            RadioState.Said => (Green, "DRIVER RADIO · YOU SAID", $"“{status.Text}”"),
-            _ => (Amber, "DRIVER RADIO", status.Text ?? ""),
+            RadioState.Recording => (Red, Loc.T(language, "radio.recording"), Loc.T(language, "radio.speakNow", seconds)),
+            RadioState.Sending => (Blue, Loc.T(language, "main.driverRadio"), Loc.T(language, "main.radioSending")),
+            RadioState.Said when status.Reply is not null => (Green, Loc.T(language, "radio.engineer"),
+                $"{Loc.T(language, "radio.you", status.Text)}\n{status.Reply}"),
+            RadioState.Said => (Green, Loc.T(language, "radio.youSaid"), $"“{status.Text}”"),
+            _ => (Amber, Loc.T(language, "main.driverRadio"), ProblemText(status, language)),
         };
         if (!IsVisible)
             Show();
     }
+
+    /// <summary>A problem's text: Driver Radio's own in the user's language, or the site's or the network's message.</summary>
+    internal static string ProblemText(RadioStatus status, string language) =>
+        status.TextKey is { } key ? Loc.T(language, key, status.Text) : status.Text ?? "";
 
     private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {

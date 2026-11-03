@@ -18,15 +18,21 @@ import {
 import { lapSegmentTimes } from '@/lib/optimalLap';
 import { lapShifting } from '@/lib/shifting';
 
-// Short lap ID shown in the app and used by the agent, e.g. "ab12"
-export const lapId = (lap: LapFile) => lap.fileId.slice(-4);
+// Each lap's name, shown in the app and used by the agent, e.g. "Lap 3": iRacing's lap numbers (as the recorded
+// laps list shows them) when every lap has one and no two share it, else the laps' order, from Lap 1
+export function lapNames(laps: LapFile[]) {
+  const numbers = laps.map((lap) => lap.lapNumber);
+  const useNumbers = numbers.every((n) => n !== undefined) && new Set(numbers).size === numbers.length;
+  return laps.map((lap, i) => `Lap ${useNumbers ? lap.lapNumber : i + 1}`);
+}
 
 export type MeasuredLap = { id: string; lapSeconds: number; samples: LapSamples };
 
 // Also times every lap through every part of the track (segments), for the coach's theoretical lap (optimalLap.ts)
 export async function buildDebriefSession(track: Track, laps: LapFile[]): Promise<DebriefSession> {
   const samples = await Promise.all(laps.map((lap) => readLapSamples(lap.file)));
-  const measured = laps.map((lap, i) => ({ id: lapId(lap), lapSeconds: lapTimeToSeconds(lap.lapTime), samples: samples[i] }));
+  const names = lapNames(laps);
+  const measured = laps.map((lap, i) => ({ id: names[i], lapSeconds: lapTimeToSeconds(lap.lapTime), samples: samples[i] }));
   return { ...measureDebriefSession(track, laps[0].carName, measured), segments: lapSegmentTimes(track, measured) };
 }
 

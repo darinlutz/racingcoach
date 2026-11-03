@@ -162,6 +162,12 @@ export async function writeExportZip(userId: number, kind: ExportKind, path: str
         [userId]
       );
       await add('coaching/debrief_sessions.json', 'debriefs', json(debriefs), debriefs.length);
+      const summaries = await query(
+        `SELECT id, kind, track, input, summary, created_at, expires_at
+         FROM racingcoach."LapSummaries" WHERE user_id = $1 AND expires_at > now() ORDER BY created_at`,
+        [userId]
+      );
+      await add('coaching/lap_summaries.json', 'debriefs', json(summaries), summaries.length);
     }
 
     if (want('targetLap') && (await hasColumn('Users', 'TargetLap'))) {
@@ -468,7 +474,8 @@ export async function countPersonalData(userId: number): Promise<Record<string, 
   const [row] = await query(
     `SELECT
        (SELECT count(*) FROM racingcoach."CollectorLaps" WHERE user_id = $1 AND expires_at > now())::int AS laps,
-       (SELECT count(*) FROM racingcoach."DebriefSessions" WHERE user_id = $1 AND expires_at > now())::int AS debriefs,
+       ((SELECT count(*) FROM racingcoach."DebriefSessions" WHERE user_id = $1 AND expires_at > now())
+        + (SELECT count(*) FROM racingcoach."LapSummaries" WHERE user_id = $1 AND expires_at > now()))::int AS debriefs,
        (SELECT count(*) FROM racingcoach."RaceResults" WHERE user_id = $1 AND has_result)::int AS "raceResults",
        ${targetLap}::int AS "targetLap",
        (SELECT count(*) FROM racingcoach."UserPictures" WHERE user_id = $1)::int AS "profilePicture",

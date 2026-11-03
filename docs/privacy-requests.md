@@ -72,7 +72,7 @@ years after they close (`purge_after`).
 
 `writeExportZip` builds a ZIP on disk entry by entry (lap files one at a time), with `README.txt` (the Article 15
 information from the inventory) and `manifest.json` (every file, and which categories aren't in this export and why).
-Every query is `user_id = $1` (or `id = $1`); laps and Debrief Coach runs filter `expires_at > now()` like every lap read.
+Every query is `user_id = $1` (or `id = $1`); laps, Debrief Coach runs and lap summaries filter `expires_at > now()` like every lap read.
 Never included: password and token hashes, the iRacePlan API key, and other users' email addresses (Live Racing watchers
 are listed by account name only).
 

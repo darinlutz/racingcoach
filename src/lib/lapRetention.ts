@@ -23,7 +23,7 @@ export async function runLapRetention(): Promise<LapRetentionRunResult | null> {
       console.log(
         `Lap retention run ${result.runId}${dryRun ? ' (dry run)' : ''}: ${result.membershipsEnded} memberships ended, ` +
           `${result.lapsDeleted}/${result.lapsDue} expired laps and ${result.debriefsDeleted}/${result.debriefsDue} ` +
-          `expired debriefs deleted, ${result.tombstonesPurged} tombstones purged`
+          `expired debriefs and lap summaries deleted, ${result.tombstonesPurged} tombstones purged`
       );
     }
     return result;

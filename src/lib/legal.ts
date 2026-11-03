@@ -187,7 +187,7 @@ export const privacyPolicy: LegalDocumentContent = {
         'Different categories of information are kept for different periods:',
         {
           list: [
-            'Lap telemetry and the Debrief Coach analyses saved from it are kept only for the limited periods described in Section 8.',
+            'Lap telemetry and the Debrief Coach analyses and AI lap summaries saved from it are kept only for the limited periods described in Section 8.',
             'Account records, settings, racing results, and coaching instructions are kept while your account is open.',
             'Activity logs sent by the RacingCoach collector are kept for 90 days.',
             'Billing, subscription, and cancellation records are kept as long as reasonably necessary for accounting, tax, and legal obligations, including after an account is deleted.',
@@ -204,7 +204,7 @@ export const privacyPolicy: LegalDocumentContent = {
       heading: '8. Lap Telemetry Retention and Deletion',
       id: 'lap-telemetry-retention',
       blocks: [
-        `RacingCoach.app, operated by ${BUSINESS_OPERATOR}, retains identifiable lap telemetry for a limited period based on the user's membership level. Lap telemetry means the laps recorded by the RacingCoach collector and uploaded to your account, which include measurements such as speed, pedal, steering, gear, tire, fuel, and track position for every sample of a lap, and the Debrief Coach analyses saved from them.`,
+        `RacingCoach.app, operated by ${BUSINESS_OPERATOR}, retains identifiable lap telemetry for a limited period based on the user's membership level. Lap telemetry means the laps recorded by the RacingCoach collector and uploaded to your account, which include measurements such as speed, pedal, steering, gear, tire, fuel, and track position for every sample of a lap, and the Debrief Coach analyses and AI lap summaries saved from them.`,
         {
           list: [
             'Bronze (free) members: up to thirty (30) days after the lap was completed.',
@@ -213,7 +213,7 @@ export const privacyPolicy: LegalDocumentContent = {
           ],
         },
         { strong: 'Under no circumstances will identifiable lap telemetry remain in active application storage for more than ninety (90) days after the lap was completed.' },
-        'Retention periods are calculated from the original completion time of each lap as recorded by the RacingCoach collector (or the time we received the lap, if that is earlier), not the date on which telemetry is uploaded, imported, analyzed, or reprocessed. Uploading a lap again never restarts its retention period. Saved Debrief Coach analyses are subject to the same periods, calculated from the time the analysis was saved.',
+        'Retention periods are calculated from the original completion time of each lap as recorded by the RacingCoach collector (or the time we received the lap, if that is earlier), not the date on which telemetry is uploaded, imported, analyzed, or reprocessed. Uploading a lap again never restarts its retention period. Saved Debrief Coach analyses and AI lap summaries are subject to the same periods, calculated from the time the analysis or summary was saved.',
         'When a lap\'s applicable retention period expires, RacingCoach.app automatically makes the associated telemetry unavailable throughout the Services, including the website, coaching and AI analysis features, and integrations, and schedules its permanent deletion from active application storage. Each lap\'s scheduled deletion date is shown with your recorded laps.',
         'These periods reflect the amount of lap history each membership level provides for lap comparison and coaching. We do not keep lap telemetry longer than needed for that purpose.',
         { subheading: 'Membership Changes' },

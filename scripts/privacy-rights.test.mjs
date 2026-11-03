@@ -320,9 +320,9 @@ describe('source guards', () => {
     assert.ok(text.includes('DeepSeek'), 'every AI provider is named');
   });
 
-  test('laps and Debrief Coach runs in an export skip expired rows, like every lap read', () => {
+  test('laps, Debrief Coach runs and lap summaries in an export skip expired rows, like every lap read', () => {
     const source = read('src/lib/personalDataExport.ts');
-    for (const table of ['CollectorLaps', 'DebriefSessions']) {
+    for (const table of ['CollectorLaps', 'DebriefSessions', 'LapSummaries']) {
       for (const match of source.matchAll(new RegExp(`FROM racingcoach\\."${table}"[^\`]*`, 'g'))) {
         assert.match(match[0], /expires_at > now\(\)/, table);
       }

@@ -20,7 +20,7 @@ const local = url && ['localhost', '127.0.0.1', '::1', '[::1]'].includes(new URL
 const skip = !url ? 'LAP_RETENTION_TEST_DATABASE_URL is not set' : !local ? 'refusing a database that is not local' : false;
 
 const DAY = 24 * 60 * 60 * 1000;
-let users, laps, debriefs, job, rules, db;
+let users, laps, debriefs, summaries, job, rules, db;
 let client;
 
 const q = async (sql, params) => (await client.query(sql, params)).rows;
@@ -88,6 +88,7 @@ describe('lap retention in the database', { skip }, () => {
     users = await import(new URL('users.ts', src).href);
     laps = await import(new URL('collectorLaps.ts', src).href);
     debriefs = await import(new URL('debriefHistory.ts', src).href);
+    summaries = await import(new URL('lapSummaryHistory.ts', src).href);
     job = await import(new URL('lapRetentionDb.ts', src).href);
     rules = await import(new URL('lapRetentionRules.ts', src).href);
     db = await import(new URL('db.ts', src).href);
@@ -315,6 +316,22 @@ describe('lap retention in the database', { skip }, () => {
     assert.equal(Number(await days()), 60);
     await users.setMembershipLevel(user, 'Bronze');
     assert.equal(Number(await days()), 30);
+  });
+
+  test('saved lap summaries expire like laps, follow level changes and are deleted with debriefs', async () => {
+    const user = await makeUser('Gold');
+    await summaries.saveLapSummary(user, 'stint', 't', 'report', 'summary');
+    const days = async () =>
+      (await q('SELECT round(extract(epoch FROM expires_at - created_at) / 86400) AS d FROM racingcoach."LapSummaries" WHERE user_id = $1', [user]))[0].d;
+    assert.equal(Number(await days()), 90);
+    await users.setMembershipLevel(user, 'Silver');
+    assert.equal(Number(await days()), 60);
+
+    await q(`UPDATE racingcoach."LapSummaries" SET created_at = now() - interval '61 days' WHERE user_id = $1`, [user]);
+    await users.setMembershipLevel(user, 'Bronze');
+    const run = await cleanUp();
+    assert.ok(run.debriefsDeleted >= 1);
+    assert.equal((await q('SELECT count(*)::int AS n FROM racingcoach."LapSummaries" WHERE user_id = $1', [user]))[0].n, 0);
   });
 
   test('dry run counts expired laps without deleting; delete mode deletes them and leaves tombstones', async () => {

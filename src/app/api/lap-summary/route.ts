@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { aiErrorResponse } from '@/lib/aiErrors';
 import { lapDrivingLinesSchema } from '@/lib/lapDrivingLine';
+import { saveLapSummary } from '@/lib/lapSummaryHistory';
 import { summarizeLapComparison } from '@/lib/lapSummary';
 import { apiText, getLanguage } from '@/lib/i18n/server';
 import { getCurrentUser } from '@/lib/session';
@@ -55,6 +56,14 @@ export async function POST(request: Request) {
         areaNames.data.length > 0 ? areaNames.data : lines.data.map((l) => l.area)
       )
     );
+
+    // Kept for signed-in users, like Debrief Coach runs. Saving is extra, so a failure is logged rather than costing
+    // them the summary.
+    try {
+      await saveLapSummary(user.id, 'lap', track, comparison, summary);
+    } catch (error) {
+      console.error('Save lap summary error:', error);
+    }
 
     return NextResponse.json({ success: true, summary }, { status: 200 });
   } catch (error) {

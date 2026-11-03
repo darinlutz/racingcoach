@@ -100,12 +100,13 @@ export const PERSONAL_DATA_INVENTORY: InventoryCategory[] = [
   },
   {
     key: 'debriefs',
-    title: 'Debrief Coach analyses',
-    description: 'Each Debrief Coach run you saved: the session measured from your laps and the coach’s written debrief.',
-    tables: ['DebriefSessions'],
+    title: 'Debrief Coach analyses and lap summaries',
+    description:
+      'Each Debrief Coach run you saved: the session measured from your laps and the coach’s written debrief; and each AI summary of Lap Compare, Multi-Lap Analysis or Stint Analysis: the measurements it was given and the coach’s summary.',
+    tables: ['DebriefSessions', 'LapSummaries'],
     purpose: 'Showing your coaching history, here and in the Discord bot.',
     legalBasis: ['contract'],
-    source: 'Measured by your browser from your laps; the debrief is written by the AI coach.',
+    source: 'Measured by your browser from your laps; the debriefs and summaries are written by the AI coach.',
     storage: HOSTING,
     retention: lapPeriods,
     recipients: [HOSTING, AI_PROVIDERS, 'Discord (only what /coach debrief and /coach recent post, when you use them)'],

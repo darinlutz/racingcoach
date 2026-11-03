@@ -658,7 +658,7 @@ export const es: Dictionary = {
     } as Record<string, string>,
     categories: {
       laps: 'Telemetría de vueltas',
-      debriefs: 'Análisis de Debrief Coach',
+      debriefs: 'Análisis de Debrief Coach y resúmenes de vueltas',
       raceResults: 'Resultados de carreras',
       targetLap: 'Vuelta Objetivo',
       profilePicture: 'Foto de perfil',
@@ -2172,7 +2172,7 @@ export const es: Dictionary = {
     pageTitle: 'Administración',
     lapRetention: {
       title: 'Retención de la telemetría de vueltas',
-      intro: 'La limpieza cada hora de las vueltas y debriefs del Debrief Coach vencidos: Bronce 30 días, Plata 60 y Oro 90 después de completarse, con 7 días de gracia para Oro cuando termina una membresía.',
+      intro: 'La limpieza cada hora de las vueltas, debriefs del Debrief Coach y resúmenes de vueltas vencidos: Bronce 30 días, Plata 60 y Oro 90 después de completarse, con 7 días de gracia para Oro cuando termina una membresía.',
       dryRunMode: 'Simulación: las vueltas vencidas se ocultan pero no se eliminan. Configura LAP_RETENTION_MODE=delete en el servidor para eliminarlas.',
       deleteMode: 'Las vueltas vencidas se eliminan.',
       started: 'Inicio',
@@ -2181,7 +2181,7 @@ export const es: Dictionary = {
       delete: 'Eliminar',
       membershipsEnded: 'Membresías terminadas',
       laps: 'Vueltas eliminadas / vencidas',
-      debriefs: 'Debriefs eliminados / vencidos',
+      debriefs: 'Debriefs y resúmenes eliminados / vencidos',
       status: 'Estado',
       ok: 'OK',
       running: 'En curso',

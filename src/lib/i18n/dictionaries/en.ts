@@ -680,7 +680,7 @@ export const en = {
     } as Record<string, string>,
     categories: {
       laps: 'Lap telemetry',
-      debriefs: 'Debrief Coach analyses',
+      debriefs: 'Debrief Coach analyses and lap summaries',
       raceResults: 'Race results',
       targetLap: 'Target Lap',
       profilePicture: 'Profile picture',
@@ -2204,7 +2204,7 @@ export const en = {
     pageTitle: 'Admin',
     lapRetention: {
       title: 'Lap Telemetry Retention',
-      intro: 'The hourly cleanup of expired laps and Debrief Coach runs: Bronze 30 days, Silver 60 and Gold 90 after completion, with a 7-day Gold grace period after a membership ends.',
+      intro: 'The hourly cleanup of expired laps, Debrief Coach runs and lap summaries: Bronze 30 days, Silver 60 and Gold 90 after completion, with a 7-day Gold grace period after a membership ends.',
       dryRunMode: 'Dry run: expired laps are hidden but not deleted. Set LAP_RETENTION_MODE=delete on the server to delete them.',
       deleteMode: 'Expired laps are deleted.',
       started: 'Started',
@@ -2213,7 +2213,7 @@ export const en = {
       delete: 'Delete',
       membershipsEnded: 'Memberships ended',
       laps: 'Laps deleted / due',
-      debriefs: 'Debriefs deleted / due',
+      debriefs: 'Debriefs and summaries deleted / due',
       status: 'Status',
       ok: 'OK',
       running: 'Running',

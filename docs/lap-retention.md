@@ -15,7 +15,7 @@ How the lap retention policy is enforced, deployed and rolled back. The rules an
 | Absolute maximum | 90 days |
 
 - The clock starts at the lap's completion: the collector's `recordedAt`, but never later than the time the site
-  received it. Saved Debrief Coach runs count from when they were saved. Re-uploads never restart it.
+  received it. Saved Debrief Coach runs and lap summaries count from when they were saved. Re-uploads never restart it.
 - Upgrades lengthen unexpired laps to the new period. Downgrades shorten them, and laps past the new period expire
   at once.
 - A paid membership that is canceled, or not renewed, stays in effect until its paid period ends, then becomes
@@ -33,6 +33,7 @@ How the lap retention policy is enforced, deployed and rolled back. The rules an
 |---|---|---|
 | `"CollectorLaps"` (the row and `csv_gzip`) | Raw lap telemetry, every 60 Hz sample | Expires by the rules above, then deleted |
 | `"DebriefSessions"` (`session`, `debrief`) | Per-lap measurements and the AI's debrief | Same rules, from `created_at` |
+| `"LapSummaries"` (`input`, `summary`) | Lap Compare, Multi-Lap and Stint measurements and the AI's summary | Same rules, from `created_at`; counted with debriefs in `"LapRetentionRuns"` |
 | `"ExpiredLaps"` | User ID, collector lap ID and completion time of deleted laps; no telemetry | Purged 90 days after completion |
 | `"LapRetentionRuns"` | Counts and error messages of cleanup runs | Kept 365 days |
 | `"Users"."TargetLap"` | One lap the user chose as their target | User-chosen reference content: kept until replaced or removed, or the account is deleted |
@@ -53,6 +54,8 @@ transaction on the first database use after a deploy. They can run again safely.
 
 - `"CollectorLaps"`: `completed_at` and `expires_at` (both NOT NULL after the backfill), and an index on `expires_at`
 - `"DebriefSessions"`: `expires_at` (NOT NULL after the backfill), and an index on it
+- `"LapSummaries"` (created by `ensureUserSchema` in `users.ts` with `expires_at` NOT NULL and its index; the trigger
+  re-stamps it and the cleanup job clamps and deletes it like `"DebriefSessions"`)
 - The functions `lap_retention_days`, `lap_level_rank`, `lap_expires_at`, `lap_restamp` and
   `restamp_lap_retention`, and the trigger `users_membership_lap_retention` on `"Users"`
 - The new tables `"ExpiredLaps"` and `"LapRetentionRuns"`

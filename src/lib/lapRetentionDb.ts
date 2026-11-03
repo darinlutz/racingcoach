@@ -3,8 +3,8 @@
 // dependency-free rules, so scripts/lap-retention-db.test.mjs runs this exact code against a test database.
 //
 // - "CollectorLaps".completed_at is the retention clock's start (lapCompletedAt) and expires_at the first instant the
-//   lap is no longer available; "DebriefSessions" (saved Debrief Coach runs, measured from laps) use created_at and
-//   their own expires_at. Every read filters on expires_at > now(), so an expired lap is gone even before the
+//   lap is no longer available; "DebriefSessions" (saved Debrief Coach runs, measured from laps) and "LapSummaries"
+//   (saved AI lap summaries) use created_at and their own expires_at. Every read filters on expires_at > now(), so an expired lap is gone even before the
 //   cleanup job deletes it.
 // - New rows get expires_at from the owner's level when they're saved. A change of "Users".membership_level, by
 //   any route (Stripe, the Admin page, a paid period ending), re-stamps the owner's unexpired rows through the
@@ -30,7 +30,7 @@ const daysCase = Object.entries(RETENTION_DAYS)
   .join(' ');
 const rankCase = `CASE level WHEN ${quote(MEMBERSHIP_LEVEL.gold)} THEN 2 WHEN ${quote(MEMBERSHIP_LEVEL.silver)} THEN 1 ELSE 0 END`;
 
-// Statements run by ensureUserSchema (users.ts) once "Users", "CollectorLaps" and "DebriefSessions" exist, inside its
+// Statements run by ensureUserSchema (users.ts) once "Users", "CollectorLaps", "DebriefSessions" and "LapSummaries" exist, inside its
 // transaction. Every one can run again; the backfill only fills rows without an expiry.
 export const LAP_RETENTION_SCHEMA: string[] = [
   `CREATE OR REPLACE FUNCTION racingcoach.lap_retention_days(level TEXT) RETURNS INTEGER
@@ -83,7 +83,7 @@ export const LAP_RETENTION_SCHEMA: string[] = [
      tombstones_purged INTEGER NOT NULL DEFAULT 0,
      error TEXT
    )`,
-  // Re-stamps the owner's unexpired laps and debriefs when their level changes. A Gold membership that ended
+  // Re-stamps the owner's unexpired laps, debriefs and lap summaries when their level changes. A Gold membership that ended
   // (Canceled, or Expired after a failed renewal) keeps Gold's period until GOLD_GRACE_DAYS after its paid period.
   `CREATE OR REPLACE FUNCTION racingcoach.restamp_lap_retention() RETURNS trigger LANGUAGE plpgsql AS $$
    DECLARE
@@ -99,6 +99,9 @@ export const LAP_RETENTION_SCHEMA: string[] = [
        SET expires_at = racingcoach.lap_restamp(completed_at, expires_at, upgrade, NEW.membership_level, grace_until)
        WHERE user_id = NEW.id AND expires_at > now();
      UPDATE racingcoach."DebriefSessions"
+       SET expires_at = racingcoach.lap_restamp(created_at, expires_at, upgrade, NEW.membership_level, grace_until)
+       WHERE user_id = NEW.id AND expires_at > now();
+     UPDATE racingcoach."LapSummaries"
        SET expires_at = racingcoach.lap_restamp(created_at, expires_at, upgrade, NEW.membership_level, grace_until)
        WHERE user_id = NEW.id AND expires_at > now();
      RETURN NULL;
@@ -129,12 +132,16 @@ export type LapRetentionRunResult = {
   membershipsEnded: number;
   lapsDue: number;
   lapsDeleted: number;
+  // Saved Debrief Coach runs and lap summaries together (SAVED_ANALYSES)
   debriefsDue: number;
   debriefsDeleted: number;
   tombstonesPurged: number;
 };
 
 export const DEFAULT_BATCH_SIZE = 100;
+
+// Saved AI analyses of laps, expiring like them from created_at; counted together as debriefs in a run's result
+const SAVED_ANALYSES = ['DebriefSessions', 'LapSummaries'] as const;
 
 // One cleanup run on the client's connection (not inside a transaction: each statement commits on its own, so a
 // batch holds its row locks only briefly and a run cut short keeps what it finished). Answers null without doing
@@ -174,14 +181,17 @@ export async function runLapRetentionJob(
       `UPDATE racingcoach."CollectorLaps" SET expires_at = completed_at + ${hours(MAX_RETENTION_DAYS)}
        WHERE expires_at > completed_at + ${hours(MAX_RETENTION_DAYS)}`
     );
-    await client.query(
-      `UPDATE racingcoach."DebriefSessions" SET expires_at = created_at + ${hours(MAX_RETENTION_DAYS)}
-       WHERE expires_at > created_at + ${hours(MAX_RETENTION_DAYS)}`
-    );
+    for (const table of SAVED_ANALYSES) {
+      await client.query(
+        `UPDATE racingcoach."${table}" SET expires_at = created_at + ${hours(MAX_RETENTION_DAYS)}
+         WHERE expires_at > created_at + ${hours(MAX_RETENTION_DAYS)}`
+      );
+    }
 
     const { rows: due } = await client.query(
       `SELECT (SELECT count(*) FROM racingcoach."CollectorLaps" WHERE expires_at <= now()) AS laps,
-              (SELECT count(*) FROM racingcoach."DebriefSessions" WHERE expires_at <= now()) AS debriefs`
+              (SELECT count(*) FROM racingcoach."DebriefSessions" WHERE expires_at <= now())
+              + (SELECT count(*) FROM racingcoach."LapSummaries" WHERE expires_at <= now()) AS debriefs`
     );
     result.lapsDue = Number(due[0].laps);
     result.debriefsDue = Number(due[0].debriefs);
@@ -203,15 +213,17 @@ export async function runLapRetentionJob(
         result.lapsDeleted += deleted.rowCount ?? 0;
         if ((deleted.rowCount ?? 0) < batchSize) break;
       }
-      for (;;) {
-        const deleted = await client.query(
-          `DELETE FROM racingcoach."DebriefSessions" WHERE id IN (
-             SELECT id FROM racingcoach."DebriefSessions" WHERE expires_at <= now()
-             ORDER BY expires_at LIMIT $1 FOR UPDATE SKIP LOCKED)`,
-          [batchSize]
-        );
-        result.debriefsDeleted += deleted.rowCount ?? 0;
-        if ((deleted.rowCount ?? 0) < batchSize) break;
+      for (const table of SAVED_ANALYSES) {
+        for (;;) {
+          const deleted = await client.query(
+            `DELETE FROM racingcoach."${table}" WHERE id IN (
+               SELECT id FROM racingcoach."${table}" WHERE expires_at <= now()
+               ORDER BY expires_at LIMIT $1 FOR UPDATE SKIP LOCKED)`,
+            [batchSize]
+          );
+          result.debriefsDeleted += deleted.rowCount ?? 0;
+          if ((deleted.rowCount ?? 0) < batchSize) break;
+        }
       }
       // Past MAX_RETENTION_DAYS an upload is refused anyway (lapExpiresAt), so the tombstone isn't needed
       const purged = await client.query(

@@ -658,7 +658,7 @@ export const pt: Dictionary = {
     } as Record<string, string>,
     categories: {
       laps: 'Telemetria de voltas',
-      debriefs: 'Análises do Debrief Coach',
+      debriefs: 'Análises do Debrief Coach e resumos de voltas',
       raceResults: 'Resultados de corridas',
       targetLap: 'Volta Alvo',
       profilePicture: 'Foto de perfil',
@@ -2172,7 +2172,7 @@ export const pt: Dictionary = {
     pageTitle: 'Administração',
     lapRetention: {
       title: 'Retenção da telemetria de voltas',
-      intro: 'A limpeza de hora em hora das voltas e debriefs do Debrief Coach expirados: Bronze 30 dias, Prata 60 e Ouro 90 após a conclusão, com 7 dias de carência para o Ouro após o fim de uma assinatura.',
+      intro: 'A limpeza de hora em hora das voltas, debriefs do Debrief Coach e resumos de voltas expirados: Bronze 30 dias, Prata 60 e Ouro 90 após a conclusão, com 7 dias de carência para o Ouro após o fim de uma assinatura.',
       dryRunMode: 'Simulação: voltas expiradas ficam ocultas, mas não são excluídas. Defina LAP_RETENTION_MODE=delete no servidor para excluí-las.',
       deleteMode: 'Voltas expiradas são excluídas.',
       started: 'Início',
@@ -2181,7 +2181,7 @@ export const pt: Dictionary = {
       delete: 'Excluir',
       membershipsEnded: 'Assinaturas encerradas',
       laps: 'Voltas excluídas / vencidas',
-      debriefs: 'Debriefs excluídos / vencidos',
+      debriefs: 'Debriefs e resumos excluídos / vencidos',
       status: 'Status',
       ok: 'OK',
       running: 'Em execução',

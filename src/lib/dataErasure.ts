@@ -29,7 +29,10 @@ const STATEMENTS: Record<ErasableCategory, string[]> = {
      ON CONFLICT DO NOTHING`,
     `DELETE FROM racingcoach."CollectorLaps" WHERE user_id = $1 AND ($2::timestamptz IS NULL OR uploaded_at <= $2)`,
   ],
-  debriefs: [`DELETE FROM racingcoach."DebriefSessions" WHERE user_id = $1 AND ($2::timestamptz IS NULL OR created_at <= $2)`],
+  debriefs: [
+    `DELETE FROM racingcoach."DebriefSessions" WHERE user_id = $1 AND ($2::timestamptz IS NULL OR created_at <= $2)`,
+    `DELETE FROM racingcoach."LapSummaries" WHERE user_id = $1 AND ($2::timestamptz IS NULL OR created_at <= $2)`,
+  ],
   raceResults: [`DELETE FROM racingcoach."RaceResults" WHERE user_id = $1 AND ($2::timestamptz IS NULL OR synced_at <= $2)`],
   targetLap: [], // targetLapStatements, as its columns are added on first use
   profilePicture: [`DELETE FROM racingcoach."UserPictures" WHERE user_id = $1 AND ($2::timestamptz IS NULL OR updated_at <= $2)`],

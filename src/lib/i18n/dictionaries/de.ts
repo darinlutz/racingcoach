@@ -677,7 +677,7 @@ export const de: Dictionary = {
     } as Record<string, string>,
     categories: {
       laps: 'Runden-Telemetrie',
-      debriefs: 'Debrief-Coach-Analysen',
+      debriefs: 'Debrief-Coach-Analysen und Rundenzusammenfassungen',
       raceResults: 'Rennergebnisse',
       targetLap: 'Zielrunde',
       profilePicture: 'Profilbild',
@@ -2200,7 +2200,7 @@ export const de: Dictionary = {
     pageTitle: 'Admin',
     lapRetention: {
       title: 'Aufbewahrung der Rundentelemetrie',
-      intro: 'Die stündliche Bereinigung abgelaufener Runden und Debrief-Coach-Läufe: Bronze 30 Tage, Silber 60 und Gold 90 nach der Fahrt, mit einer Gold-Schonfrist von 7 Tagen nach Ende einer Mitgliedschaft.',
+      intro: 'Die stündliche Bereinigung abgelaufener Runden, Debrief-Coach-Läufe und Rundenzusammenfassungen: Bronze 30 Tage, Silber 60 und Gold 90 nach der Fahrt, mit einer Gold-Schonfrist von 7 Tagen nach Ende einer Mitgliedschaft.',
       dryRunMode: 'Testlauf: Abgelaufene Runden werden ausgeblendet, aber nicht gelöscht. Setze LAP_RETENTION_MODE=delete auf dem Server, um sie zu löschen.',
       deleteMode: 'Abgelaufene Runden werden gelöscht.',
       started: 'Gestartet',
@@ -2209,7 +2209,7 @@ export const de: Dictionary = {
       delete: 'Löschen',
       membershipsEnded: 'Beendete Mitgliedschaften',
       laps: 'Runden gelöscht / fällig',
-      debriefs: 'Debriefs gelöscht / fällig',
+      debriefs: 'Debriefs und Zusammenfassungen gelöscht / fällig',
       status: 'Status',
       ok: 'OK',
       running: 'Läuft',

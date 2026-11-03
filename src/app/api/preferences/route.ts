@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { isCountry } from '@/lib/countryCodes';
+import { MAX_NAME_PRONUNCIATION, setNamePronunciation } from '@/lib/raceAnnouncer';
 import { isLanguage } from '@/lib/i18n/languages';
 import { setLanguageCookie } from '@/lib/i18n/server';
 import { getCurrentUser } from '@/lib/session';
@@ -13,7 +14,8 @@ import { apiText } from '@/lib/i18n/server';
 // Saves the Preferred Language, the Preferred Units (Standard / Metric) or the theme (Dark Mode / Light
 // Mode): in the signed-in user's account (racingcoach."Users".preferred_language / units / theme) and in a
 // cookie, which is all a visitor has. A new language or units reloads the page in them; a new theme is
-// already showing in the browser. Also the Country ("Users".country; null is Not Specified), in the account only.
+// already showing in the browser. Also the Country ("Users".country; null is Not Specified) and the Name Pronunciation
+// ("Users".name_pronunciation, how the Race Announcers say the user's name; empty for the name as written), in the account only.
 // ("Play beeps before braking" and its volume are set in the telemetry collector, with PUT /api/collector/brake-beeps.)
 export async function PUT(request: Request) {
   const t = await apiText();
@@ -33,6 +35,25 @@ export async function PUT(request: Request) {
     } catch (error) {
       console.error('Country error:', error);
       return NextResponse.json({ error: t.failedSaveCountry }, { status: 500 });
+    }
+  }
+
+  if (typeof body === 'object' && 'namePronunciation' in body) {
+    if (typeof body.namePronunciation !== 'string') {
+      return NextResponse.json({ error: t.failedSaveNamePronunciation }, { status: 400 });
+    }
+    const namePronunciation = body.namePronunciation.trim();
+    if (namePronunciation.length > MAX_NAME_PRONUNCIATION) {
+      return NextResponse.json({ error: t.namePronunciationTooLong }, { status: 400 });
+    }
+    try {
+      const user = await getCurrentUser();
+      if (!user) return NextResponse.json({ error: t.logInProfile }, { status: 401 });
+      await setNamePronunciation(user.id, namePronunciation);
+      return NextResponse.json({ namePronunciation });
+    } catch (error) {
+      console.error('Name pronunciation error:', error);
+      return NextResponse.json({ error: t.failedSaveNamePronunciation }, { status: 500 });
     }
   }
 

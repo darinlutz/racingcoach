@@ -206,6 +206,9 @@ export function ensureUserSchema(): Promise<void> {
       await client.query(
         `ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS race_announcer_instructions TEXT NOT NULL DEFAULT ''`
       );
+      // How the Race Announcers say the user's name, from the Account page's Name Pronunciation (src/lib/raceAnnouncer.ts);
+      // empty for their name as written
+      await client.query(`ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS name_pronunciation TEXT NOT NULL DEFAULT ''`);
       // The Race Broadcast preferences (src/lib/broadcastSettings.ts); missing keys are the defaults
       await client.query(
         `ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS broadcast_settings JSONB NOT NULL DEFAULT '{}'::jsonb`

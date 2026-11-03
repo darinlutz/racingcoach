@@ -152,7 +152,7 @@ export const PERSONAL_DATA_INVENTORY: InventoryCategory[] = [
     key: 'coachSettings',
     title: 'Coaching instructions and voices',
     description:
-      'Your In-Car AI Coach Instructions, how the coach says names, coach and announcer voices, Race Announcer Instructions and Race Broadcast preferences.',
+      'Your In-Car AI Coach Instructions, how the coach says names, coach and announcer voices, Race Announcer Instructions, how the announcers say your name and Race Broadcast preferences.',
     tables: ['Users'],
     purpose: 'Running the In-Car AI Coach and Race Announcers the way you asked.',
     legalBasis: ['contract'],

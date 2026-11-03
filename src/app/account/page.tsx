@@ -8,6 +8,7 @@ import DeleteAccountButton from '@/components/DeleteAccountButton';
 import InCarCoachInstructionsCard from '@/components/InCarCoachInstructionsCard';
 import LanguageSelect from '@/components/LanguageSelect';
 import MyAiUsageCard from '@/components/MyAiUsageCard';
+import NamePronunciationPreference from '@/components/NamePronunciationPreference';
 import RaceAnnouncersSection from '@/components/RaceAnnouncersSection';
 import SpanishAccentSelect from '@/components/SpanishAccentSelect';
 import ThemeToggle from '@/components/ThemeToggle';
@@ -18,7 +19,13 @@ import { DISCORD_INVITE_URL, getDiscordConnection } from '@/lib/discord';
 import { listEngineAudioAssets } from '@/lib/engineAudioAssets';
 import { fmt, LANGUAGE_LOCALES } from '@/lib/i18n/languages';
 import { getDictionary } from '@/lib/i18n/server';
-import { announcerVoicesFor, getRaceAnnouncerSettings, MAX_RACE_ANNOUNCER_INSTRUCTIONS } from '@/lib/raceAnnouncer';
+import {
+  announcerVoicesFor,
+  getNamePronunciation,
+  getRaceAnnouncerSettings,
+  MAX_NAME_PRONUNCIATION,
+  MAX_RACE_ANNOUNCER_INSTRUCTIONS,
+} from '@/lib/raceAnnouncer';
 import { retentionDays } from '@/lib/lapRetentionRules';
 import { readOwnAiLimits, readOwnAiUsage } from '@/lib/rateLimits';
 import { canUseInCarCoach, canUseVoiceAi, isAdmin } from '@/lib/roles';
@@ -60,12 +67,13 @@ export default async function AccountPage({
   const { discord: discordResult } = await searchParams;
   const discordText = typeof discordResult === 'string' ? t.account.discordMessages[discordResult] : undefined;
   const discordOk = typeof discordResult === 'string' && DISCORD_OK.has(discordResult);
-  const [discord, collectorKey, inCarCoachInstructions, coachVoice, raceAnnouncers, engineAssets, showPricing, enableAiFeatures, aiUsage, aiLimits] = await Promise.all([
+  const [discord, collectorKey, inCarCoachInstructions, coachVoice, raceAnnouncers, namePronunciation, engineAssets, showPricing, enableAiFeatures, aiUsage, aiLimits] = await Promise.all([
     getDiscordConnection(user.id),
     getCollectorKey(user.id),
     getInCarCoachInstructions(user.id),
     getCoachVoice(user.id),
     getRaceAnnouncerSettings(user.id),
+    getNamePronunciation(user.id),
     listEngineAudioAssets(),
     getShowPricing(),
     getEnableAiFeatures(),
@@ -161,6 +169,15 @@ export default async function AccountPage({
         {/* The site's language, including what the AI features answer in, Standard / Metric units, and Dark Mode / Light Mode */}
         <div className="mt-6 bg-card rounded-lg border border-border px-4 py-4">
           <h2 className="text-sm font-medium text-muted-foreground mb-3">{t.preferences.title}</h2>
+          {/* How the Race Announcers say the user's name; hidden with them when Enable AI Features is off */}
+          {enableAiFeatures && (
+            <NamePronunciationPreference
+              namePronunciation={namePronunciation}
+              userName={user.userName}
+              maxLength={MAX_NAME_PRONUNCIATION}
+              className={selectClass}
+            />
+          )}
           <LanguageSelect id="preferredLanguage" className={selectClass} />
           <p className="mt-2 text-sm text-muted-foreground">{t.preferences.languageHint}</p>
           {/* The coach voice's Spanish accent, only for Spanish; hidden with the Coach voice when Enable AI Features is off */}

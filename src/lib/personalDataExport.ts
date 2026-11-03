@@ -184,7 +184,7 @@ export async function writeExportZip(userId: number, kind: ExportKind, path: str
     if (want('coachSettings')) {
       const [settings] = await query(
         `SELECT in_car_coach_instructions, coach_pronunciations, coach_voice, coach_spanish_accent, announcer_lead_voice,
-                announcer_color_voice, race_announcer_instructions, broadcast_settings
+                announcer_color_voice, race_announcer_instructions, name_pronunciation, broadcast_settings
          FROM racingcoach."Users" WHERE id = $1`,
         [userId]
       );
@@ -479,7 +479,7 @@ export async function countPersonalData(userId: number): Promise<Record<string, 
        (SELECT count(*) FROM racingcoach."RaceResults" WHERE user_id = $1 AND has_result)::int AS "raceResults",
        ${targetLap}::int AS "targetLap",
        (SELECT count(*) FROM racingcoach."UserPictures" WHERE user_id = $1)::int AS "profilePicture",
-       (SELECT (in_car_coach_instructions <> '' OR race_announcer_instructions <> '' OR coach_pronunciations <> '[]'::jsonb
+       (SELECT (in_car_coach_instructions <> '' OR race_announcer_instructions <> '' OR coach_pronunciations <> '[]'::jsonb OR name_pronunciation <> ''
                 OR broadcast_settings <> '{}'::jsonb OR coach_voice <> '' OR announcer_lead_voice <> '' OR announcer_color_voice <> '')::int
         FROM racingcoach."Users" WHERE id = $1) AS "coachSettings",
        ((SELECT count(*) FROM racingcoach."Friends" WHERE user_id = $1)

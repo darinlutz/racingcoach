@@ -4,7 +4,7 @@ import { lineVolume, type BroadcastSettings } from './broadcastSettings';
 import type { BroadcastTracker, CarStats } from './broadcastTracker';
 import { estimatedSeconds, type LineFacts } from './broadcastValidation';
 import { spokenCarName } from './carBrands';
-import { getCoachVoice, speaksElevenLabs, synthesizeSpeech, type SpeechFormat } from './coachVoice';
+import { getCoachVoice, speaksElevenLabs, synthesizeSpeech, withPronunciations, type Pronunciation, type SpeechFormat } from './coachVoice';
 import { engineBedConfigFor } from './engineAudioAssets';
 import type { EngineBedConfig } from './engineBedConfig';
 import { readRaceEvents, type NumberedRaceEvent, type RaceEventContext } from './liveRacing';
@@ -12,8 +12,10 @@ import {
   ANNOUNCER_ROLES,
   describeEvent,
   describeStoryline,
+  getNamePronunciation,
   getRaceAnnouncerSettings,
   linePlans,
+  namePronunciations,
   raceAnnouncerLines,
   type Announcer,
   type NameFor,
@@ -97,7 +99,8 @@ export async function commentate(input: {
   const speakers: Speaker[] = [...(input.lead ? ['lead' as const] : []), ...(input.color ? ['color' as const] : [])];
   if (found.events.length === 0 || speakers.length === 0) return nothing;
 
-  const settings = await getRaceAnnouncerSettings(user.id);
+  // the listener's announcers, and how the driver they follow says their own name
+  const [settings, namePronunciation] = await Promise.all([getRaceAnnouncerSettings(user.id), getNamePronunciation(driverId)]);
   const tracker = found.broadcast;
   const listener = listenerFor(user.id, driverId, found.sessionKey);
   const ctx: DirectorContext = {
@@ -128,7 +131,7 @@ export async function commentate(input: {
     const plans = linePlans(decision);
     limit = await aiRateLimit(input.request, 'raceAnnouncer', user, plans.length);
     if (limit.response) return { kind: 'refused', response: limit.response };
-    const built = buildRequest(decision, found.context, tracker, settings.broadcast, listener);
+    const built = buildRequest(decision, found.context, tracker, settings.broadcast, listener, namePronunciation);
     const started = Date.now();
     let written: Awaited<ReturnType<typeof raceAnnouncerLines>>;
     try {
@@ -154,7 +157,7 @@ export async function commentate(input: {
     const audio = await Promise.all(
       written.lines.map((line) =>
         synthesizeSpeech(
-          line.spoken,
+          withPronunciations(line.spoken, built.pronunciations),
           line.speaker === 'lead' ? settings.leadVoice : settings.colorVoice,
           user.preferredLanguage,
           spanishAccent,
@@ -254,8 +257,9 @@ function buildRequest(
   context: RaceEventContext,
   tracker: BroadcastTracker,
   settings: BroadcastSettings,
-  listener: Listener
-): { request: Record<string, unknown>; facts: LineFacts } {
+  listener: Listener,
+  namePronunciation: string
+): { request: Record<string, unknown>; facts: LineFacts; pronunciations: Pronunciation[] } {
   const roster = tracker.roster();
   const userCar = roster.find((r) => r.idx === tracker.userIdx);
   // the driver as the field knows them (their iRacing name), and their RacingCoach.app name too
@@ -304,6 +308,7 @@ function buildRequest(
     listenersDriver: {
       name: driver,
       alsoKnownAs: context.driver !== driver ? context.driver : undefined,
+      namePronunciation: namePronunciation || undefined,
       car: spokenCarName(context.car),
       position: context.position,
       carClass: userStats?.carClass ?? null,
@@ -351,5 +356,6 @@ function buildRequest(
   return {
     request,
     facts: { allowedNames: [...allowedNames], fieldNames: roster.map((r) => r.driver), allowedNumbers, allowedDecimals },
+    pronunciations: namePronunciations([driver, context.driver], namePronunciation),
   };
 }

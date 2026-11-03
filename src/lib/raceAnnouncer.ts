@@ -6,7 +6,7 @@ import { parseBroadcastSettings, type BroadcastSettings } from './broadcastSetti
 import type { BroadcastEvent, Storyline } from './broadcastTracker';
 import { checkLine, deliveryText, fitToSeconds, type LineFacts } from './broadcastValidation';
 import { spokenCarName } from './carBrands';
-import { ELEVENLABS_COACH_VOICE, isCoachVoice, voicesFor, type CoachVoice, type SpanishAccent } from './coachVoice';
+import { ELEVENLABS_COACH_VOICE, isCoachVoice, voicesFor, type CoachVoice, type Pronunciation, type SpanishAccent } from './coachVoice';
 import { query } from './db';
 import type { ElevenLabsRole } from './elevenLabs';
 import { aiLanguageRule, type Language } from './i18n/languages';
@@ -69,6 +69,33 @@ export async function setAnnouncerVoice(userId: number, announcer: Announcer, vo
 export async function setRaceAnnouncerInstructions(userId: number, instructions: string): Promise<void> {
   await ensureUserSchema();
   await query('UPDATE racingcoach."Users" SET race_announcer_instructions = $1 WHERE id = $2', [instructions, userId]);
+}
+
+export const MAX_NAME_PRONUNCIATION = 100;
+
+// How the Race Announcers say this driver's name, as spelled on the Account page; empty for the name as written
+export async function getNamePronunciation(userId: number): Promise<string> {
+  await ensureUserSchema();
+  const rows = await query<{ name_pronunciation: string }>('SELECT name_pronunciation FROM racingcoach."Users" WHERE id = $1', [userId]);
+  return rows[0]?.name_pronunciation ?? '';
+}
+
+export async function setNamePronunciation(userId: number, pronunciation: string): Promise<void> {
+  await ensureUserSchema();
+  await query('UPDATE racingcoach."Users" SET name_pronunciation = $1 WHERE id = $2', [pronunciation, userId]);
+}
+
+// The driver's name, whole and word by word when the two have as many words, swapped for how they say it in what the
+// voice reads (withPronunciations), so "Lutz" alone is said right too
+export function namePronunciations(names: string[], pronunciation: string): Pronunciation[] {
+  const spoken = pronunciation.trim();
+  if (!spoken) return [];
+  const sounds = spoken.split(/\s+/);
+  return [...new Set(names.map((n) => n.trim()).filter(Boolean))].flatMap((name) => {
+    const words = name.split(/\s+/);
+    const byWord = words.length > 1 && words.length === sounds.length ? words.map((w, i) => ({ written: w, spoken: sounds[i] })).filter((p) => p.written.length > 1) : [];
+    return [{ written: name, spoken }, ...byWord];
+  });
 }
 
 // Saves these Race Broadcast preferences (already checked, broadcastSettingsPatch) over the user's others
@@ -295,7 +322,8 @@ const announcerPrompt = () =>
   'Refer to drivers by name (or exactly as the request names them); call each car by the short name in brackets now ' +
   'and then (e.g. "the Porsche", "that McLaren"), never a model number or class name. Use no pronoun for a driver ' +
   'other than they/them unless the listener\'s instructions say otherwise. Say a driver in the field by last name ' +
-  'after the first mention. ' +
+  'after the first mention. When listenersDriver has a namePronunciation, it is how they say their own name: keep ' +
+  'the real spelling in text and write it that way in spoken, word for word (a last name alone as its last part). ' +
   'Write every number as words, the way an announcer says it aloud: positions ("ninth", "P nine"), laps, and gaps ' +
   'rounded to the tenth ("four tenths", "one point two seconds"); lap times as announcers say them ("a one forty-two ' +
   'point three"). Plain text, no markdown, no stage directions, no speaker names before the line. ' +

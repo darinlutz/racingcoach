@@ -40,7 +40,7 @@ const STATEMENTS: Record<ErasableCategory, string[]> = {
   coachSettings: [
     `UPDATE racingcoach."Users" SET in_car_coach_instructions = '', race_announcer_instructions = '',
        coach_pronunciations = '[]'::jsonb, coach_voice = '', coach_spanish_accent = '', announcer_lead_voice = '',
-       announcer_color_voice = '', broadcast_settings = '{}'::jsonb
+       announcer_color_voice = '', name_pronunciation = '', broadcast_settings = '{}'::jsonb
      WHERE id = $1 AND $2::timestamptz IS NULL`,
   ],
   friends: [

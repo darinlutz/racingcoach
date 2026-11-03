@@ -140,6 +140,7 @@ export const de: Dictionary = {
     installing: 'Installation',
     admin: 'Admin',
     coach: 'Coach',
+    modelLearning: 'Modell-Lernen',
     driver: 'Fahrer:',
     logout: 'Abmelden',
     logIn: 'Anmelden',
@@ -3308,5 +3309,15 @@ export const de: Dictionary = {
     rotationTitle: 'Untersteuern in der Kurvenmitte erkannt',
     rotationGain: 'Empfehlung bereit',
     rotationCopy: 'Die Kalibrierung hat die natürliche Rotation des Autos gemessen. In T 7 liegt die Gierrate 11 % unter dem Sollwert — geh mit mehr Trail-Braking tiefer rein, damit die Nase besser einlenkt.',
+  },
+  modelLearning: {
+    title: 'Modell-Lernen',
+    intro: 'Starte die Tensor-Lektion von Tag 1 (src/day_1_tensors.py) und sieh dir an, was sie ausgibt.',
+    runModel: 'Modell ausführen',
+    running: 'Läuft...',
+    results: 'Ergebnisse',
+    placeholder: 'Drück auf Modell ausführen, um die Ergebnisse hier zu sehen.',
+    noOutput: 'Das Skript hat nichts ausgegeben.',
+    exitCode: 'Das Skript wurde mit Code {code} beendet.',
   },
 };

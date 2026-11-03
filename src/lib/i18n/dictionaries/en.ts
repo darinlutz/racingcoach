@@ -141,6 +141,7 @@ export const en = {
     installing: 'Installing',
     admin: 'Admin',
     coach: 'Coach',
+    modelLearning: 'Model Learning',
     driver: 'Driver:',
     logout: 'Logout',
     logIn: 'Log In',
@@ -3313,6 +3314,16 @@ export const en = {
     rotationTitle: 'Mid-corner understeer detected',
     rotationGain: 'Recommendation ready',
     rotationCopy: 'Calibration measured the car’s natural rotation. At T 7 yaw rate is 11% below target — trail-brake deeper to help the nose turn in.',
+  },
+  modelLearning: {
+    title: 'Model Learning',
+    intro: 'Run the day 1 tensors lesson (src/day_1_tensors.py) and see what it prints.',
+    runModel: 'Run Model',
+    running: 'Running...',
+    results: 'Results',
+    placeholder: 'Press Run Model to see the results here.',
+    noOutput: 'The script printed nothing.',
+    exitCode: 'The script exited with code {code}.',
   },
 };
 

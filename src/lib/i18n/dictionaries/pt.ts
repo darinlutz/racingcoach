@@ -140,6 +140,7 @@ export const pt: Dictionary = {
     installing: 'Instalar',
     admin: 'Admin',
     coach: 'Treinador',
+    modelLearning: 'Aprendizado de Modelos',
     driver: 'Piloto:',
     logout: 'Sair',
     logIn: 'Entrar',
@@ -3257,5 +3258,15 @@ export const pt: Dictionary = {
     rotationTitle: 'Subesterço no meio da curva detectado',
     rotationGain: 'Recomendação pronta',
     rotationCopy: 'A calibração mediu a rotação natural do carro. Na C 7 a taxa de guinada está 11% abaixo do alvo — use mais trail braking para ajudar a frente a entrar.',
+  },
+  modelLearning: {
+    title: 'Aprendizado de Modelos',
+    intro: 'Execute a lição de tensores do dia 1 (src/day_1_tensors.py) e veja o que ela imprime.',
+    runModel: 'Executar Modelo',
+    running: 'Executando...',
+    results: 'Resultados',
+    placeholder: 'Clique em Executar Modelo para ver os resultados aqui.',
+    noOutput: 'O script não imprimiu nada.',
+    exitCode: 'O script terminou com o código {code}.',
   },
 };

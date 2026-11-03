@@ -14,6 +14,7 @@ import UnitsProvider from "@/components/UnitsProvider";
 import { getConsentState } from "@/lib/cookieConsentServer";
 import { getDictionary, getLanguage } from "@/lib/i18n/server";
 import { hasAcceptedCurrentPolicies } from "@/lib/policyAcceptances";
+import { canUseModelLearning } from "@/lib/modelLearning";
 import { canCoach, isAdmin } from "@/lib/roles";
 import { getCurrentUser } from "@/lib/session";
 import { getEnableAiFeatures, getShowPricing, getShowProDriverLesson } from "@/lib/siteSettings";
@@ -93,7 +94,7 @@ export default async function RootLayout({
               {/* Pops up when an AI feature was refused because the user's AI limit is used up */}
               <RateLimitDialog />
               <Navigation
-                user={user ? { userName: user.userName, canUpgrade: canBuyAnything(user), isAdmin: isAdmin(user.role), canCoach: canCoach(user.role), pictureVersion } : null}
+                user={user ? { userName: user.userName, canUpgrade: canBuyAnything(user), isAdmin: isAdmin(user.role), canCoach: canCoach(user.role), canModelLearning: canUseModelLearning(user), pictureVersion } : null}
                 showPricing={showPricing}
                 showProDriverLesson={showProDriverLesson}
                 enableAiFeatures={enableAiFeatures}

@@ -15,5 +15,5 @@ dist = lap[:, 4]
 in_area = (dist >= 0.12) & (dist <= 0.18)
 max_brake = lap[in_area,1].max()
 
-
+print("lilNicca")
 

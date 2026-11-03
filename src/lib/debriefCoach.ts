@@ -20,7 +20,7 @@ import {
   speedFromMph,
   type Units,
 } from './units';
-import { chatModel } from '@/lib/aiModels';
+import { chatModel, structured, withFallbackModel } from '@/lib/aiModels';
 
 // Post-session debrief coach for the Debrief Coach tab. The browser measures every lap in every
 // focus area (the CSVs are too big to send) and posts the numbers here; the agent digs through
@@ -1030,6 +1030,10 @@ function toolSteps(messages: unknown[]) {
   );
 }
 
+// A debrief normally takes 13-40 s; the picked model gets 60 s before the default model gets the rest of 120 s
+// (withFallbackModel), rather than leaving the page waiting minutes on a slow or overloaded model
+const DEBRIEF_TIMES = { pickedMs: 60_000, totalMs: 120_000 };
+
 export async function runDebriefCoach(
   session: DebriefSession,
   language: Language = DEFAULT_LANGUAGE,
@@ -1048,43 +1052,48 @@ export async function runDebriefCoach(
     cleanLaps.map((lap) => lap.id)
   );
   const tools = [...createTools(session, units, carRpmLimit), assembleOptimalLapTool(optimalLap, session)];
-  const agent = createAgent({
-    model: await chatModel('debriefCoach', 0.2),
-    tools,
-    systemPrompt: systemPrompt(units) + (await coachInstructionsRule()) + aiLanguageRule(language),
-    responseFormat: debriefSchema,
-  });
-
-  let result = await agent.invoke(
-    { messages: [{ role: 'user', content: `Debrief my session at ${session.track} in the ${session.car}. What should I fix?` }] },
-    { recursionLimit: 40 }
-  );
-
+  const prompt = systemPrompt(units) + (await coachInstructionsRule()) + aiLanguageRule(language);
   // The model can still flip "later" and "earlier" or say where to brake, so check everything it wrote and give it
   // one chance to correct itself before dropping any fix, keep-doing item or sentence that still breaks the rules
   const check = (response: DebriefFixes) => [...brakeContradictions(response, areas, u), ...trackPositions(response, u)];
-  let problems = check(result.structuredResponse);
-  if (problems.length > 0) {
-    result = await agent.invoke(
-      {
-        messages: [
-          ...result.messages,
-          {
-            role: 'user',
-            content:
-              `Your debrief breaks the brakepoint rules: ${problems.map((p) => p.message).join(' ')} ` +
-              'Rewrite the whole debrief so every brakepoint fix, problem and evidence agrees with the brakepoint ' +
-              `verdicts, and no fix, keep-doing item or theoretical lap summary says where on the track something ` +
-              `happens. ${brakeChangeRule(units)}`,
-          },
-        ],
-      },
-      { recursionLimit: 40 }
-    );
-    problems = check(result.structuredResponse);
-  }
 
-  const response: DebriefFixes = result.structuredResponse;
+  const { result, response, problems } = await withFallbackModel('debriefCoach', DEBRIEF_TIMES, async (model, signal) => {
+    const agent = createAgent({
+      model: await chatModel('debriefCoach', 0.2, model),
+      tools,
+      systemPrompt: prompt,
+      responseFormat: debriefSchema,
+    });
+
+    let result = await agent.invoke(
+      { messages: [{ role: 'user', content: `Debrief my session at ${session.track} in the ${session.car}. What should I fix?` }] },
+      { recursionLimit: 40, signal }
+    );
+    let response: DebriefFixes = structured(result);
+    let problems = check(response);
+    if (problems.length > 0) {
+      result = await agent.invoke(
+        {
+          messages: [
+            ...result.messages,
+            {
+              role: 'user',
+              content:
+                `Your debrief breaks the brakepoint rules: ${problems.map((p) => p.message).join(' ')} ` +
+                'Rewrite the whole debrief so every brakepoint fix, problem and evidence agrees with the brakepoint ' +
+                `verdicts, and no fix, keep-doing item or theoretical lap summary says where on the track something ` +
+                `happens. ${brakeChangeRule(units)}`,
+            },
+          ],
+        },
+        { recursionLimit: 40, signal }
+      );
+      response = structured(result);
+      problems = check(response);
+    }
+    return { result, response, problems };
+  });
+
   for (const p of problems) console.error(`Debrief coach dropped what broke the rules: ${p.message}`, JSON.stringify(p.fix ?? ''));
   const fixes = response.fixes.filter((fix) => !problems.some((p) => p.fix === fix));
   const keepDoing = response.keepDoing.filter((text) => !hasTrackPosition(text));

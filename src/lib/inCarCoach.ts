@@ -9,7 +9,7 @@ import { getDictionary } from './i18n/server';
 import { LAP_TIME_RULE } from './lapData';
 import { coachInstructionsRule, getHeadCoachInCarInstructions } from './siteSettings';
 import { formatSeconds } from './stintExport';
-import { chatModel, getAiModel } from '@/lib/aiModels';
+import { chatModel, getAiModel, structured, withFallbackModel } from '@/lib/aiModels';
 
 // The In-Car AI Coach: the telemetry collector's coach while the driver is on track. Each user writes their own
 // In-Car AI Coach Instructions on the Account page ("Users".in_car_coach_instructions), on top of the head
@@ -179,6 +179,10 @@ const unitsRule = (units: Units) =>
 const planCache = new Map<string, InCarCoachPlan>();
 const PLAN_CACHE_SIZE = 500;
 
+// The collector gives up on a request after 60 s (RacingCoachApi.cs), so the coach answers within 50 s whatever the
+// model does, the picked model getting the first 30 (withFallbackModel)
+const COACH_TIMES = { pickedMs: 30_000, totalMs: 50_000 };
+
 export async function inCarCoachPlan(
   instructions: string,
   areaNames: string[],
@@ -199,25 +203,21 @@ export async function inCarCoachPlan(
   const cached = planCache.get(key);
   if (cached) return withBuiltInRules(cached, language);
 
-  const agent = createAgent({
-    model: await chatModel('inCarCoachPlan', 0),
-    tools: [],
-    systemPrompt: PLAN_PROMPT + BUILT_IN_RULES_PROMPT + unitsRule(units) + aiLanguageRule(language),
-    responseFormat: planSchema,
-  });
-  const result = await agent.invoke({
-    messages: [
-      {
-        role: 'user',
-        content:
-          `Focus areas on this track: ${areaNames.length > 0 ? areaNames.join(', ') : 'none (no areaEntry or areaExit rules)'}.\n` +
-          (headCoach ? `${headCoachInCarBlock(headCoach)}\n` : '') +
-          (instructions.trim() ? `<driver_instructions>\n${instructions.trim()}\n</driver_instructions>` : ''),
-      },
-    ],
+  const content =
+    `Focus areas on this track: ${areaNames.length > 0 ? areaNames.join(', ') : 'none (no areaEntry or areaExit rules)'}.\n` +
+    (headCoach ? `${headCoachInCarBlock(headCoach)}\n` : '') +
+    (instructions.trim() ? `<driver_instructions>\n${instructions.trim()}\n</driver_instructions>` : '');
+  const answer = await withFallbackModel('inCarCoachPlan', COACH_TIMES, async (aiModel, signal) => {
+    const agent = createAgent({
+      model: await chatModel('inCarCoachPlan', 0, aiModel),
+      tools: [],
+      systemPrompt: PLAN_PROMPT + BUILT_IN_RULES_PROMPT + unitsRule(units) + aiLanguageRule(language),
+      responseFormat: planSchema,
+    });
+    return structured(await agent.invoke({ messages: [{ role: 'user', content }] }, { signal }));
   });
 
-  const plan = cleanPlan(result.structuredResponse, areaNames);
+  const plan = cleanPlan(answer, areaNames);
   if (planCache.size >= PLAN_CACHE_SIZE) planCache.delete(planCache.keys().next().value!);
   planCache.set(key, plan);
   return withBuiltInRules(plan, language);
@@ -295,17 +295,12 @@ export async function inCarCoachCallouts(input: {
   const units = input.units ?? DEFAULT_UNITS;
   const hasAreas = !!input.session && input.session.areas.some((area) => area.runs.length > 0);
   const tools = hasAreas ? createTools(input.session!, units, input.carRpmLimit ?? null) : [];
-  const agent = createAgent({
-    model: await chatModel('inCarCoachCallouts', 0.2),
-    tools,
-    systemPrompt:
-      calloutPrompt(units) +
-      (await coachInstructionsRule()) +
-      headCoachInCarRule(await readHeadCoachInCarInstructions()) +
-      driverInstructionsRule(input.instructions) +
-      aiLanguageRule(input.language ?? DEFAULT_LANGUAGE),
-    responseFormat: calloutsSchema,
-  });
+  const systemPrompt =
+    calloutPrompt(units) +
+    (await coachInstructionsRule()) +
+    headCoachInCarRule(await readHeadCoachInCarInstructions()) +
+    driverInstructionsRule(input.instructions) +
+    aiLanguageRule(input.language ?? DEFAULT_LANGUAGE);
 
   const lapLines = input.laps.map(
     (lap) =>
@@ -328,9 +323,18 @@ export async function inCarCoachCallouts(input: {
     'What are your 2 callouts for my next lap?',
   ].join('\n');
 
-  const result = await agent.invoke({ messages: [{ role: 'user', content }] }, { recursionLimit: 20 });
+  const result = await withFallbackModel('inCarCoachCallouts', COACH_TIMES, async (aiModel, signal) => {
+    const agent = createAgent({
+      model: await chatModel('inCarCoachCallouts', 0.2, aiModel),
+      tools,
+      systemPrompt,
+      responseFormat: calloutsSchema,
+    });
+    const answer = await agent.invoke({ messages: [{ role: 'user', content }] }, { recursionLimit: 20, signal });
+    return { callouts: structured(answer).callouts as Callout[], messages: answer.messages };
+  });
   // A callout that still says where on the track to brake (feet or meters from the line) is dropped; saying nothing is fine
-  const callouts = (result.structuredResponse.callouts as Callout[])
+  const callouts = result.callouts
     .filter((c) => c.text.trim() && !hasTrackPosition(c.text))
     .slice(0, MAX_CALLOUTS)
     .map((c) => ({ text: c.text.trim(), sound: c.sound ?? null }));

@@ -92,6 +92,33 @@ export async function getAiModel(feature: AiFeature): Promise<AiModel> {
   }
 }
 
+// Runs an AI call on the feature's picked model, giving it pickedMs; when it fails, is too slow (DeepSeek can answer
+// 503 "too busy" or take minutes) or gives no structured response, the caller's category's default model gets the
+// rest of totalMs. The signal aborts the model calls too, so nothing is paid for after the time is up.
+export async function withFallbackModel<T>(
+  feature: AiFeature,
+  times: { pickedMs: number; totalMs: number },
+  run: (model: AiModel, signal: AbortSignal) => Promise<T>
+): Promise<T> {
+  const started = Date.now();
+  const picked = await getAiModel(feature);
+  const context = currentAiModelCategory();
+  const fallback = defaultAiModel(isAiModelCategory(context) ? context : SYSTEM_AI_MODEL_CATEGORY, feature);
+  if (picked === fallback) return run(picked, AbortSignal.timeout(times.totalMs));
+  try {
+    return await run(picked, AbortSignal.timeout(times.pickedMs));
+  } catch (error) {
+    console.warn(`${picked} failed for ${feature} after ${Date.now() - started} ms, trying ${fallback}:`, error);
+    return run(fallback, AbortSignal.timeout(Math.max(5_000, times.totalMs - (Date.now() - started))));
+  }
+}
+
+// createAgent leaves structuredResponse empty when the model never gives its answer in the response format
+export function structured<T>(result: { structuredResponse?: T }): T {
+  if (!result.structuredResponse) throw new Error('The model gave no structured response');
+  return result.structuredResponse;
+}
+
 // gpt-5 and later are reasoning models: OpenAI refuses any temperature but the default for them
 const isReasoningModel = (model: string) => model.startsWith('gpt-5');
 
@@ -130,9 +157,9 @@ class DeepSeekChatModel extends ChatOpenAI {
 // with a reasoning effort for newer models (e.g. gpt-5.5), so read replies with .text, not .content. Claude models
 // (claude-*) always think and refuse a temperature, so they get low effort too. DeepSeek models (deepseek-*) go to
 // DeepSeek's API with thinking off. Inside an AI route's limit.track(), every call's tokens are added to its AiUsage
-// row (src/lib/aiTokenUsage.ts).
-export async function chatModel(feature: AiFeature, temperature: number): Promise<BaseChatModel> {
-  const model = await getAiModel(feature);
+// row (src/lib/aiTokenUsage.ts). Pass model to use it instead of the feature's picked model (e.g. a fallback).
+export async function chatModel(feature: AiFeature, temperature: number, override?: AiModel): Promise<BaseChatModel> {
+  const model = override ?? (await getAiModel(feature));
   const callbacks = tokenUsageCallbacks(model);
   if (isClaudeModel(model)) {
     if (!process.env.ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY is not configured');

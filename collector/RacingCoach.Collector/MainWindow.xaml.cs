@@ -61,6 +61,12 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _beepsVolumeSave = new() { Interval = TimeSpan.FromMilliseconds(400) };
     private readonly DispatcherTimer _satelliteSave = new() { Interval = TimeSpan.FromMilliseconds(400) };
     private int _satelliteSaved;
+    // The microphone's level bar: a recorder that keeps nothing, open only while it's shown (RefreshMic)
+    private readonly MicRecorder _micMeter = new();
+    private bool _micMeterOn;
+    private DateTime _micRetryAt;
+    private double _micShown;
+    private bool _micListing;
     private readonly ObservableCollection<LapRow> _laps = [];
     private readonly ObservableCollection<ActivityRow> _activity = [];
     private Task? _run;
@@ -112,6 +118,7 @@ public partial class MainWindow : Window
         SatelliteSlider.Value = _satelliteSaved;
         TrackMap.ImageryOpacity = SatelliteSlider.Value / 100;
         _satelliteSave.Tick += (_, _) => SaveSatelliteOpacity();
+        ListMicrophones();
         Loaded += async (_, _) => await StartAsync();
         SourceInitialized += (_, _) => UseDarkTitleBar();
     }
@@ -387,6 +394,7 @@ public partial class MainWindow : Window
         RefreshSession();
         RefreshLive();
         RefreshRadio();
+        RefreshMic();
         if (LivePanel.Visibility == Visibility.Visible)
             RefreshLiveRacing();
     }
@@ -405,12 +413,89 @@ public partial class MainWindow : Window
             KeyIntro.Text = T(_keyIntroKey);
         KeyStatusText.Text = _keyStatusKey is null ? "" : T(_keyStatusKey);
         KeySkipButton.Content = T(_uploadState == UploadSetupState.Active ? "main.cancel" : "main.skip");
+        ListMicrophones(); // Windows default, in this language
         RefreshLaps();
     }
 
     // The text for a Loc key in the window's language, with {0}, {1}... filled in
     private string T(string key, params object?[] args) =>
         args.Length == 0 ? Loc.T(_language ?? Loc.English, key) : Loc.T(_language ?? Loc.English, key, args);
+
+    // ---------------------------------------------------------------- Microphone
+
+    // Windows default, then Windows' microphones; one picked earlier that isn't connected now stays listed and picked
+    private void ListMicrophones()
+    {
+        _micListing = true;
+        var names = MicRecorder.Devices().ToList();
+        var picked = MicRecorder.DeviceName;
+        if (!string.IsNullOrEmpty(picked) && !names.Contains(picked))
+            names.Add(picked);
+        MicCombo.Items.Clear();
+        MicCombo.Items.Add(new System.Windows.Controls.ComboBoxItem { Content = T("main.micDefault") });
+        foreach (var name in names)
+            MicCombo.Items.Add(new System.Windows.Controls.ComboBoxItem { Content = name, Tag = name });
+        MicCombo.SelectedIndex = string.IsNullOrEmpty(picked) ? 0 : names.IndexOf(picked) + 1;
+        _micListing = false;
+    }
+
+    // A microphone plugged in since shows when the list opens
+    private void MicCombo_DropDownOpened(object sender, EventArgs e) => ListMicrophones();
+
+    private void MicCombo_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        if (_micListing || MicCombo.SelectedItem is not System.Windows.Controls.ComboBoxItem item)
+            return;
+        var name = item.Tag as string;
+        if (name == MicRecorder.DeviceName)
+            return;
+        MicRecorder.DeviceName = name; // Driver Radio's next recording
+        var settings = CollectorSettings.Load();
+        settings.Microphone = name;
+        settings.Save();
+        ActivityLog.Shared.Write($"Driver Radio microphone: {name ?? "Windows default"}", false);
+        StopMicMeter(); // the bar listens to the new one at the next refresh
+        _micRetryAt = DateTime.MinValue;
+    }
+
+    // The level bar listens while this window is in front on the Dashboard, so the microphone isn't open all session
+    // behind the sim; while Driver Radio records, its own recording moves the bar too. Quiet (under about -44 dB,
+    // room noise) shows no bar; above it, the bar is the level on a 50 dB scale, amber near clipping.
+    private void RefreshMic()
+    {
+        var listen = IsActive && WindowState != WindowState.Minimized && DashboardPanel.Visibility == Visibility.Visible;
+        if (listen && !_micMeterOn && DateTime.UtcNow >= _micRetryAt)
+        {
+            try
+            {
+                _micMeter.Start(0);
+                _micMeterOn = true;
+                MicProblemText.Visibility = Visibility.Collapsed;
+            }
+            catch (InvalidOperationException e)
+            {
+                _micRetryAt = DateTime.UtcNow.AddSeconds(5);
+                MicProblemText.Text = T("main.micFailed", e.Message);
+                MicProblemText.Visibility = Visibility.Visible;
+            }
+        }
+        else if (!listen && _micMeterOn)
+            StopMicMeter();
+
+        var peak = Math.Max(_micMeter.Level, _engine.Radio.MicLevel);
+        var level = peak < 0.006 ? 0 : Math.Clamp((20 * Math.Log10(peak) + 50) / 50, 0, 1);
+        _micShown = Math.Max(level, _micShown * 0.6); // up at once, down smoothly
+        if (_micShown < 0.02)
+            _micShown = 0;
+        MicLevelBar.Width = ((FrameworkElement)MicLevelBar.Parent).ActualWidth * _micShown;
+        MicLevelBar.Background = (Brush)FindResource(peak >= 0.9 ? "AmberBrush" : "GreenBrush");
+    }
+
+    private void StopMicMeter()
+    {
+        _micMeter.Stop();
+        _micMeterOn = false;
+    }
 
     // ---------------------------------------------------------------- Driver Radio
 
@@ -1021,6 +1106,7 @@ public partial class MainWindow : Window
         _radioWindow?.Close();
         ClosingOverlay.Visibility = Visibility.Visible;
         _timer.Stop();
+        _micMeter.Dispose();
         CompositionTarget.Rendering -= OnLiveRacingFrame;
         if (_satelliteSave.IsEnabled)
             SaveSatelliteOpacity();

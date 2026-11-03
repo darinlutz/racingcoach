@@ -97,6 +97,79 @@
             <Setter Property="BorderBrush" Value="{StaticResource BlueBrush}" />
         </Style>
 
+        <!-- A dropdown in the window's colors (WPF's own draws a light box whatever its Background) -->
+        <Style x:Key="ComboToggle" TargetType="ToggleButton">
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="Box" Background="{StaticResource CardBrush}" BorderBrush="{StaticResource BorderBrush}"
+                                BorderThickness="1" CornerRadius="6">
+                            <Path HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0" Data="M0,0 L4,4 L8,0"
+                                  Stroke="{StaticResource MutedBrush}" StrokeThickness="1.5" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource PrimaryBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="Combo" TargetType="ComboBox">
+            <Setter Property="Foreground" Value="{StaticResource FgBrush}" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <ToggleButton Style="{StaticResource ComboToggle}"
+                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}" />
+                            <ContentPresenter Margin="8,3,24,3" VerticalAlignment="Center" IsHitTestVisible="False"
+                                              Content="{TemplateBinding SelectionBoxItem}"
+                                              ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}" />
+                            <Popup IsOpen="{TemplateBinding IsDropDownOpen}" Placement="Bottom" AllowsTransparency="True"
+                                   Focusable="False" PopupAnimation="Fade">
+                                <Border Background="{StaticResource CardBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                                        CornerRadius="6" Padding="0,3" MaxHeight="260"
+                                        MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}">
+                                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                        <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Contained" />
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="ItemContainerStyle">
+                <Setter.Value>
+                    <Style TargetType="ComboBoxItem">
+                        <Setter Property="Foreground" Value="{StaticResource FgBrush}" />
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ComboBoxItem">
+                                    <Border x:Name="Row" Background="Transparent" Padding="8,4">
+                                        <ContentPresenter />
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsHighlighted" Value="True">
+                                            <Setter TargetName="Row" Property="Background" Value="{StaticResource SecondaryBrush}" />
+                                        </Trigger>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter Property="Foreground" Value="{StaticResource BlueBrush}" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- The tabs under the header: Dashboard (the status tiles, session, live inputs, laps and activity) and Live Racing -->
         <Style x:Key="Tab" TargetType="RadioButton">
             <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
@@ -233,6 +306,18 @@
                                         IsSnapToTickEnabled="True" TickFrequency="1" VerticalAlignment="Center"
                                         local:Loc.ToolTip="main.volume" ValueChanged="BeepsVolume_ValueChanged" />
                             </DockPanel>
+                        </StackPanel>
+                        <!-- Under them, Driver Radio's microphone (MicRecorder.DeviceName, saved in collector.json) and a bar
+                             that moves with what it hears, so the driver can see their voice is picked up -->
+                        <StackPanel Margin="18,8,0,0">
+                            <TextBlock local:Loc.Key="main.microphone" FontSize="12" Margin="0,0,0,3" />
+                            <ComboBox x:Name="MicCombo" Style="{StaticResource Combo}" local:Loc.ToolTip="main.microphoneTip"
+                                      DropDownOpened="MicCombo_DropDownOpened" SelectionChanged="MicCombo_SelectionChanged" />
+                            <Border Style="{StaticResource BarTrack}" Margin="0,5,0,0" Background="Transparent" local:Loc.ToolTip="main.micLevelTip">
+                                <Border x:Name="MicLevelBar" Style="{StaticResource Bar}" HorizontalAlignment="Left" Width="0"
+                                        Background="{StaticResource GreenBrush}" />
+                            </Border>
+                            <TextBlock x:Name="MicProblemText" Style="{StaticResource Muted}" FontSize="11" Margin="0,2,0,0" Visibility="Collapsed" />
                         </StackPanel>
                         <TextBlock x:Name="UploadDetail" Style="{StaticResource Muted}" Margin="18,2,0,0" />
                     </StackPanel>

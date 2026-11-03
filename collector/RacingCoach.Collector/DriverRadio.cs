@@ -70,6 +70,9 @@ internal sealed class DriverRadio : IDisposable
 
     public RadioStatus Status { get { lock (_lock) return _status; } }
 
+    /// <summary>How loud the microphone is while recording, 0 to 1 (<see cref="MicRecorder.Level"/>).</summary>
+    public double MicLevel => _mic.Level;
+
     /// <summary>The wheel button that's push to talk, or null for iRacing's radio button only.</summary>
     public WheelButton? Button
     {

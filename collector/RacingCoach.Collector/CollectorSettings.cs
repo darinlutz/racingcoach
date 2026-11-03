@@ -27,6 +27,8 @@ internal sealed class CollectorSettings
     public WheelButton? RadioButton { get; set; }
     /// <summary>The Live Racing tab's satellite imagery opacity under the map, 0-100 (the website's default, 60).</summary>
     public int SatelliteOpacity { get; set; } = 60;
+    /// <summary>Driver Radio's microphone, by its Windows name, or null for Windows' default (<see cref="MicRecorder.DeviceName"/>).</summary>
+    public string? Microphone { get; set; }
 
     public static CollectorSettings Load()
     {

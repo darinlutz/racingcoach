@@ -120,7 +120,9 @@ internal sealed class CollectorEngine
             : new RaceResultTracker(Path.Combine(documents, "RacingCoach", "Races"), message => Log(message));
         Rotation = new RotationMonitor(message => Log(message));
         Live = new LiveRacing(() => Api, message => Log(message));
-        Radio = new DriverRadio(() => Api, _coach.SessionLaps, Log, CollectorSettings.Load().RadioButton);
+        var settings = CollectorSettings.Load();
+        MicRecorder.DeviceName = settings.Microphone;
+        Radio = new DriverRadio(() => Api, _coach.SessionLaps, Log, settings.RadioButton);
         Voice.UseSite(() => Api, message => Log(message)); // speech in the user's coach voice
         _logs = new LogUploader(() => Api); // the activity log, to the user's account
     }

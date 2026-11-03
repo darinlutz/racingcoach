@@ -3,10 +3,11 @@ using System.Runtime.InteropServices;
 namespace RacingCoach.Collector;
 
 /// <summary>
-/// Records the default microphone (Windows' sound settings pick it) for Driver Radio: 16 kHz 16-bit mono, which is
-/// all speech to text needs, through Windows' waveIn directly, like TonePlayer's waveOut. The microphone is open only
-/// between Start and Stop. Start throws InvalidOperationException when there's no microphone or Windows' privacy
-/// settings don't let desktop apps use it.
+/// Records the microphone picked in the main window (<see cref="DeviceName"/>, else Windows' default) for Driver Radio:
+/// 16 kHz 16-bit mono, which is all speech to text needs, through Windows' waveIn directly, like TonePlayer's waveOut.
+/// The microphone is open only between Start and Stop. Start throws InvalidOperationException when there's no
+/// microphone or Windows' privacy settings don't let desktop apps use it. The main window's level meter is another
+/// one started with no seconds to keep, read through <see cref="Level"/>.
 /// </summary>
 internal sealed class MicRecorder : IDisposable
 {
@@ -23,6 +24,45 @@ internal sealed class MicRecorder : IDisposable
     private Thread? _reader;
     private volatile bool _running;
     private int _maxBytes;
+    private double _level;
+
+    /// <summary>The microphone to record, by its name in Windows' list (<see cref="Devices"/>), or null for Windows'
+    /// default. Taken at each Start; a microphone that isn't connected any more records the default.</summary>
+    public static string? DeviceName { get; set; }
+
+    /// <summary>The names of the microphones Windows has, in its order. waveIn cuts them at 31 characters.</summary>
+    public static IReadOnlyList<string> Devices()
+    {
+        var names = new List<string>();
+        var count = waveInGetNumDevs();
+        for (uint i = 0; i < count; i++)
+            if (waveInGetDevCaps(i, out var caps, (uint)Marshal.SizeOf<WaveInCaps>()) == 0)
+                names.Add(caps.Name);
+        return names;
+    }
+
+    // DeviceName's waveIn ID, or the wave mapper (Windows' default) when it's null or not connected
+    private static uint DeviceId()
+    {
+        var name = DeviceName;
+        if (string.IsNullOrEmpty(name))
+            return WaveMapper;
+        var devices = Devices();
+        for (var i = 0; i < devices.Count; i++)
+            if (devices[i] == name)
+                return (uint)i;
+        return WaveMapper;
+    }
+
+    /// <summary>How loud the microphone's latest 100 ms was: its peak, 0 to 1. 0 while it isn't recording.</summary>
+    public double Level
+    {
+        get
+        {
+            lock (_lock)
+                return _device == IntPtr.Zero ? 0 : _level;
+        }
+    }
 
     /// <summary>Starts recording, keeping at most maxSeconds of it.</summary>
     public void Start(int maxSeconds)
@@ -32,6 +72,7 @@ internal sealed class MicRecorder : IDisposable
             if (_device != IntPtr.Zero)
                 return;
             _pcm.SetLength(0);
+            _level = 0;
             _maxBytes = maxSeconds * SampleRate * 2;
             var format = new WaveFormat
             {
@@ -42,7 +83,7 @@ internal sealed class MicRecorder : IDisposable
                 BlockAlign = 2,
                 BitsPerSample = 16,
             };
-            Check(waveInOpen(out _device, WaveMapper, ref format, IntPtr.Zero, IntPtr.Zero, 0));
+            Check(waveInOpen(out _device, DeviceId(), ref format, IntPtr.Zero, IntPtr.Zero, 0));
             try
             {
                 var headerSize = Marshal.SizeOf<WaveHeader>();
@@ -134,6 +175,8 @@ internal sealed class MicRecorder : IDisposable
             var header = Marshal.PtrToStructure<WaveHeader>(_headers[i]);
             if ((header.Flags & WhdrDone) == 0)
                 continue;
+            if (header.BytesRecorded >= 2)
+                _level = Peak(_buffers[i], (int)header.BytesRecorded);
             var take = (int)Math.Min(header.BytesRecorded, Math.Max(0, _maxBytes - _pcm.Length));
             if (take > 0)
             {
@@ -170,6 +213,17 @@ internal sealed class MicRecorder : IDisposable
         }
         waveInClose(_device);
         _device = IntPtr.Zero;
+    }
+
+    // The loudest sample of a buffer of 16-bit PCM, 0 to 1
+    private static double Peak(IntPtr buffer, int bytes)
+    {
+        var samples = new short[bytes / 2];
+        Marshal.Copy(buffer, samples, 0, samples.Length);
+        var peak = 0;
+        foreach (var sample in samples)
+            peak = Math.Max(peak, Math.Abs((int)sample));
+        return peak / 32768.0;
     }
 
     // 16-bit mono PCM with a WAV header
@@ -230,6 +284,25 @@ internal sealed class MicRecorder : IDisposable
         public IntPtr Next;
         public IntPtr Reserved;
     }
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private struct WaveInCaps
+    {
+        public ushort ManufacturerId;
+        public ushort ProductId;
+        public uint DriverVersion;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
+        public string Name;
+        public uint Formats;
+        public ushort Channels;
+        public ushort Reserved;
+    }
+
+    [DllImport("winmm.dll")]
+    private static extern uint waveInGetNumDevs();
+
+    [DllImport("winmm.dll", EntryPoint = "waveInGetDevCapsW", CharSet = CharSet.Unicode)]
+    private static extern int waveInGetDevCaps(uint deviceId, out WaveInCaps caps, uint size);
 
     [DllImport("winmm.dll")]
     private static extern int waveInOpen(out IntPtr device, uint deviceId, ref WaveFormat format, IntPtr callback, IntPtr instance, uint flags);

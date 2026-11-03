@@ -6,6 +6,8 @@
 export const en = {
   common: {
     loading: 'Loading…',
+    // The coach's progress bar while it writes a summary (ThinkingProgress)
+    percentComplete: '{percent}% Complete',
     save: 'Save',
     saved: 'Saved',
     saving: 'Saving…',

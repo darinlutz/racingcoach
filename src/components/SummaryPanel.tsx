@@ -1,4 +1,5 @@
 import { Sparkles } from 'lucide-react';
+import type { ReactNode } from 'react';
 
 type SummaryPanelProps = {
   title: string;
@@ -8,10 +9,12 @@ type SummaryPanelProps = {
   placeholder: string;
   // The text is a "writing…" message rather than the summary
   pending?: boolean;
+  // Shown under the heading, e.g. the coach's progress
+  children?: ReactNode;
 };
 
 // The coach's written summary (Lap Compare), as easy-to-read paragraphs under a heading rather than in a text box
-export default function SummaryPanel({ title, text, placeholder, pending = false }: SummaryPanelProps) {
+export default function SummaryPanel({ title, text, placeholder, pending = false, children }: SummaryPanelProps) {
   const paragraphs = text
     .split(/\n\s*\n/)
     .map((p) => p.trim())
@@ -23,6 +26,7 @@ export default function SummaryPanel({ title, text, placeholder, pending = false
         <Sparkles className="h-4 w-4" aria-hidden />
         {title}
       </h3>
+      {children}
       {paragraphs.length === 0 ? (
         <p className="mt-3 text-base text-muted-foreground">{placeholder}</p>
       ) : pending ? (

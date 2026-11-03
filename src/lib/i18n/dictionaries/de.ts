@@ -6,6 +6,7 @@ import type { Dictionary } from './en';
 export const de: Dictionary = {
   common: {
     loading: 'Wird geladen…',
+    percentComplete: '{percent} % abgeschlossen',
     save: 'Speichern',
     saved: 'Gespeichert',
     saving: 'Wird gespeichert…',

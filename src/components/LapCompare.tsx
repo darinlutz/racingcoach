@@ -7,6 +7,7 @@ import type { Tab as LapDataTab } from '@/components/LapDataTabs';
 import PedalTraces, { type PedalTraceLap } from '@/components/PedalTraces';
 import { DEFAULT_CHART_SETTINGS, type ChartSettings } from '@/components/TelemetryCursor';
 import SummaryPanel from '@/components/SummaryPanel';
+import ThinkingProgress from '@/components/ThinkingProgress';
 import type { Dictionary } from '@/lib/i18n/dictionaries/en';
 import { fmt } from '@/lib/i18n/languages';
 import { measureDrivingLine, type LapDrivingLine } from '@/lib/lapDrivingLine';
@@ -741,7 +742,9 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
             text={analysis}
             placeholder={!baseLap || !compareLap ? t.summaryPlaceholderNoLaps : t.summaryPlaceholder}
             pending={analyzing && analysis === t.writing}
-          />
+          >
+            <ThinkingProgress active={analyzing && analysis === t.writing} expectedMs={15000} className="mt-3" />
+          </SummaryPanel>
         )}
 
         {traces.length > 0 && (

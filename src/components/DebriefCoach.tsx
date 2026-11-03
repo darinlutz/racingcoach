@@ -6,6 +6,7 @@ import { useLanguage } from '@/components/LanguageProvider';
 import RecordedLaps from '@/components/RecordedLaps';
 import SetTargetLapDialog, { type SetTargetLapStep } from '@/components/SetTargetLapDialog';
 import TargetLapCard from '@/components/TargetLapCard';
+import ThinkingProgress from '@/components/ThinkingProgress';
 
 import type { Debrief } from '@/lib/debriefCoach';
 import { buildDebriefSession, lapNames } from '@/lib/debriefSession';
@@ -226,6 +227,9 @@ export default function DebriefCoach({ onCompare }: { onCompare?: (base: LapFile
           >
             {running ? t.debrief.running : t.debrief.run}
           </button>
+
+          {/* The agent makes several model calls, so it usually takes a while */}
+          <ThinkingProgress active={running} expectedMs={30000} />
 
           {!debrief && !runError && !running && (
             <p className="text-sm text-muted-foreground">

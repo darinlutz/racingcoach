@@ -2,7 +2,6 @@ import contextlib
 import io
 import json
 import sys
-import pandas as pd
 import chromadb
 from chromadb.utils import embedding_functions
 from openai import OpenAI
@@ -88,8 +87,6 @@ def select_models():
     return llm_type, embedding_type
 
 
-CAR_DATA_PATH = Path(__file__).resolve().parent.parent / "GT3_Car_Data.xlsx"
-TRACK_DATA_PATH = Path(__file__).resolve().parent.parent / "Track_Information.xlsx"
 
 FEET_PER_MILE = 5280
 METERS_PER_FOOT = 0.3048
@@ -97,25 +94,35 @@ KPH_PER_MPH = 1.609344
 NM_PER_LB_FT = 1.3558179483
 
 
-def load_cars(units="standard"):
-    """Turn each car spreadsheet row into one text document describing that car, with its torque in the user's
-    Preferred Units: lb-ft (standard) or Nm (metric)."""
-    df = pd.read_excel(CAR_DATA_PATH)
+def load_cars(cars, units="standard"):
+    """Turn each car of Car Data (racingcoach."Cars", which the website sends as the payload's cars) into one text
+    document describing that car, with its torque in the user's Preferred Units: lb-ft (standard) or Nm (metric).
+    Specs a car doesn't have are left out."""
     documents = []
-    for _, row in df.iterrows():
-        power_to_weight = row["Power (bhp)"] / row["Wet Weight With Driver (lbs)"]
-        notes = row["Notes"] if pd.notna(row["Notes"]) else ""
-        torque = (
-            f"{row['Torque (lb-ft)'] * NM_PER_LB_FT:.0f} Nm" if units == "metric" else f"{row['Torque (lb-ft)']} lb-ft"
-        )
+    for car in cars:
+        specs = []
+
+        def spec(key, text):
+            if car.get(key) is not None:
+                specs.append(text.format(car[key]))
+
+        spec("racingDiscipline", "racing discipline {}")
+        spec("lengthIn", "length {} in")
+        spec("widthIn", "width {} in")
+        spec("wheelbaseIn", "wheelbase {} in")
+        spec("dryWeightLbs", "dry weight {} lbs")
+        spec("wetWeightLbs", "wet weight with driver {} lbs")
+        spec("displacementLiters", "engine displacement {} liters")
+        spec("rpmLimit", "RPM limit {}")
+        if car.get("torqueLbFt") is not None:
+            torque = car["torqueLbFt"]
+            specs.append(f"torque {torque * NM_PER_LB_FT:.0f} Nm" if units == "metric" else f"torque {torque} lb-ft")
+        spec("powerBhp", "power {} bhp")
+        if car.get("powerBhp") and car.get("wetWeightLbs"):
+            specs.append(f"power-to-weight {car['powerBhp'] / car['wetWeightLbs']:.3f} bhp per lb (wet weight)")
+        notes = car.get("notes") or ""
         documents.append(
-            f"Car: {row['Car']}: length {row['Length (in)']} in, width {row['Width (in)']} in, "
-            f"wheelbase {row['Wheelbase (in)']} in, dry weight {row['Dry Weight (lbs)']} lbs, "
-            f"wet weight with driver {row['Wet Weight With Driver (lbs)']} lbs, "
-            f"engine displacement {row['Displacement (Liters)']} liters, "
-            f"RPM limit {row['RPM Limit']}, torque {torque}, "
-            f"power {row['Power (bhp)']} bhp, "
-            f"power-to-weight {power_to_weight:.3f} bhp per lb (wet weight)."
+            f"Car: {car['name']}: " + (", ".join(specs) if specs else "no specs recorded") + "."
             + (f" Notes: {notes}" if notes else "")
         )
     print(f"\nLoaded {len(documents)} cars:")
@@ -124,32 +131,45 @@ def load_cars(units="standard"):
     return documents
 
 
-def load_tracks(units="standard"):
-    """Turn each track spreadsheet row into one text document describing that track, in the user's
-    Preferred Units: feet, miles and mph (standard) or meters, km and kph (metric)."""
-    df = pd.read_excel(TRACK_DATA_PATH)
+def load_tracks(tracks, units="standard"):
+    """Turn each Track Data track (racingcoach."Tracks", which the website sends as the payload's tracks) into one
+    text document describing that track, in the user's Preferred Units: feet, miles and mph (standard) or meters, km
+    and kph (metric). Details a track doesn't have are left out."""
     documents = []
-    for _, row in df.iterrows():
-        length_miles = row["Length (ft)"] / FEET_PER_MILE
-        notes = row["Track Notes"] if pd.notna(row["Track Notes"]) else ""
+    for track in tracks:
+        details = []
+        if track.get("category"):
+            details.append(f"track type {track['category']}")
+        length_ft = track.get("lengthFeet")
+        corners = track.get("numberOfCorners")
+        speed_mph = track.get("averageSpeedMph")
         if units == "metric":
-            length_m = row["Length (ft)"] * METERS_PER_FOOT
-            length_km = length_m / 1000
-            size = (
-                f"length {length_m:.0f} m ({length_km:.2f} km), "
-                f"{row['Number of Corners']} corners ({row['Number of Corners'] / length_km:.1f} corners per km), "
-                f"average speed {row['Average speed (mph)'] * KPH_PER_MPH:.0f} kph, "
-            )
+            length_km = length_ft * METERS_PER_FOOT / 1000 if length_ft else None
+            if length_ft:
+                details.append(f"length {length_ft * METERS_PER_FOOT:.0f} m ({length_km:.2f} km)")
+            if corners:
+                details.append(
+                    f"{corners} corners" + (f" ({corners / length_km:.1f} corners per km)" if length_km else "")
+                )
+            if speed_mph:
+                details.append(f"average speed {speed_mph * KPH_PER_MPH:.0f} kph")
         else:
-            size = (
-                f"length {row['Length (ft)']} ft ({length_miles:.2f} miles), "
-                f"{row['Number of Corners']} corners ({row['Number of Corners'] / length_miles:.1f} corners per mile), "
-                f"average speed {row['Average speed (mph)']} mph, "
-            )
+            length_miles = length_ft / FEET_PER_MILE if length_ft else None
+            if length_ft:
+                details.append(f"length {length_ft} ft ({length_miles:.2f} miles)")
+            if corners:
+                details.append(
+                    f"{corners} corners" + (f" ({corners / length_miles:.1f} corners per mile)" if length_miles else "")
+                )
+            if speed_mph:
+                details.append(f"average speed {speed_mph} mph")
+        if track.get("typicalLapSeconds"):
+            details.append(f"typical lap time {track['typicalLapSeconds']} seconds")
+        notes = track.get("notes") or ""
         documents.append(
-            f"Track: {row['Track Name']} (track ID: {row['Track ID']}): "
-            + size
-            + f"typical lap time {row['Typical Lap Time, (seconds)']} seconds."
+            f"Track: {track['name']} (track ID: {track['key']}): "
+            + (", ".join(details) if details else "no details recorded")
+            + "."
             + (f" Track notes: {notes}" if notes else "")
         )
     print(f"\nLoaded {len(documents)} tracks:")
@@ -158,11 +178,11 @@ def load_tracks(units="standard"):
     return documents
 
 
-def load_documents(units="standard"):
+def load_documents(cars, tracks, units="standard"):
     """Cars and tracks share one collection; the metadata records which is which
     so the prompt can present them as separate sections."""
-    cars = load_cars(units)
-    tracks = load_tracks(units)
+    cars = load_cars(cars, units)
+    tracks = load_tracks(tracks, units)
     documents = cars + tracks
     metadatas = [{"type": "car"}] * len(cars) + [{"type": "track"}] * len(tracks)
     return documents, metadatas
@@ -180,11 +200,13 @@ def setup_chromadb(documents, metadatas, embedding_model):
         name="racecar_data", embedding_function=embedding_model.embedding_fn
     )
 
-    collection.add(
-        documents=documents,
-        metadatas=metadatas,
-        ids=[str(i) for i in range(len(documents))],
-    )
+    # ChromaDB refuses an empty add, e.g. the terminal demo's
+    if documents:
+        collection.add(
+            documents=documents,
+            metadatas=metadatas,
+            ids=[str(i) for i in range(len(documents))],
+        )
 
     print("\nDocuments added to ChromaDB collection successfully!")
     return collection
@@ -216,7 +238,7 @@ def augment_prompt(query, related_chunks):
     car_section = "\n".join(f"- {doc}" for doc in cars)
     track_section = "\n".join(f"- {doc}" for doc in tracks)
     augmented_prompt = (
-        f"GT3 CAR DATA:\n{car_section}\n\n"
+        f"CAR DATA:\n{car_section}\n\n"
         f"TRACK DATA:\n{track_section}\n\n"
         f"Question: {query}\n"
         "(Use both data sets plus your general knowledge, but mention only the few cars and tracks "
@@ -230,10 +252,10 @@ def augment_prompt(query, related_chunks):
 
 
 SYSTEM_PROMPT = (
-    "You are an expert GT3 racecar and circuit analyst. Each question comes with two data sets: GT3 CAR DATA "
-    "(specs for each car, plus Notes describing its layout, handling and strengths/weaknesses) and TRACK DATA (length, corner count, average speed and typical lap time for each circuit, plus track notes on its downforce level, layout, braking zones, overtaking and tire wear). "
+    "You are an expert racecar and circuit analyst. Each question comes with two data sets: CAR DATA "
+    "(specs for each car, its racing discipline (e.g. Sports Car, Prototype, Formula Car), plus Notes describing its layout, handling and strengths/weaknesses) and TRACK DATA (length, corner count, average speed and typical lap time for each circuit, plus track notes on its downforce level, layout, braking zones, overtaking and tire wear). "
     "Build your answer from three sources:\n"
-    "1. The GT3 car data. Check every car listed before naming a highest/lowest/best, and quote the relevant "
+    "1. The car data. Check every car listed before naming a highest/lowest/best, and quote the relevant "
     "numbers with their units (a HIGHER power-to-weight ratio is better, a lower weight is lighter). Each car's Notes are provided data too: use them for its layout, handling "
     "character, desirable and undesirable traits, driver suitability and the kinds of tracks it suits, and "
     "match those traits to the demands of the track in question.\n"
@@ -243,7 +265,7 @@ SYSTEM_PROMPT = (
     "Each track's notes are provided data too: use them for its downforce level, layout, key corners and "
     "braking zones, overtaking chances and tire/brake wear, and set them against each car's Notes to judge "
     "how well a car's traits suit what the track demands.\n"
-    "3. Your own general knowledge of GT3 racing and of these circuits (layout, notable corners and straights, "
+    "3. Your own general knowledge of racing in each car's discipline and of these circuits (layout, notable corners and straights, "
     "elevation, tire wear, car characteristics such as engine layout, aero and braking). The track ID identifies "
     "which circuit/layout a row refers to.\n"
     "Combine them: for example, match cars to tracks by comparing car power, weight and dimensions with the "
@@ -268,7 +290,7 @@ def build_messages(query, collection, top_k=None):
     if top_k is None:
         top_k = collection.count()
 
-    related_chunks = find_related_chunks(query, collection, top_k)
+    related_chunks = find_related_chunks(query, collection, top_k) if top_k > 0 else []
     augmented_prompt = augment_prompt(query, related_chunks)
 
     messages = [
@@ -291,7 +313,7 @@ def rag_pipeline(query, collection, llm_model, top_k=None):
 
 def run_query(payload: dict) -> dict:
     """Handle a single question for the web UI (one process per call, so the
-    CSV/ChromaDB setup is redone each time rather than kept in memory)."""
+    car, track and ChromaDB setup is redone each time rather than kept in memory)."""
     query = payload.get("query", "")
     llm_type = payload.get("llmType", "openai")
     embedding_type = payload.get("embeddingType", "openai")
@@ -308,7 +330,7 @@ def run_query(payload: dict) -> dict:
     with contextlib.redirect_stdout(io.StringIO()):
         embedding_model = EmbeddingModel(embedding_type)
 
-        documents, metadatas = load_documents(units)
+        documents, metadatas = load_documents(payload.get("cars", []), payload.get("tracks", []), units)
         collection = setup_chromadb(documents, metadatas, embedding_model)
 
         if prompt_only:
@@ -337,8 +359,9 @@ def main():
     print(f"\nUsing LLM: {llm_type.upper()}")
     print(f"Using Embeddings: {embedding_type.upper()}")
 
-    # Load the car and track data
-    documents, metadatas = load_documents()
+    # The car and track data are in the website's database (Car Data and Track Data), which the website sends with
+    # each question; this terminal demo has neither, so it answers from general knowledge only.
+    documents, metadatas = load_documents([], [])
 
     # Setup ChromaDB
     collection = setup_chromadb(documents, metadatas, embedding_model)
@@ -364,12 +387,12 @@ def main():
 
 
 if __name__ == "__main__":
-    # A JSON payload passed as the first argument means the web UI is
-    # driving this (one question in, one answer out); otherwise fall back
-    # to the original interactive terminal demo.
+    # --stdin means the web UI is driving this (one question in, one answer
+    # out), with a JSON payload on stdin; otherwise fall back to the original
+    # interactive terminal demo.
     if len(sys.argv) > 1:
         try:
-            result = run_query(json.loads(sys.argv[1]))
+            result = run_query(json.loads(sys.stdin.read() if sys.argv[1] == "--stdin" else sys.argv[1]))
             print(json.dumps(result))
         except Exception as e:
             print(json.dumps({"error": str(e)}), file=sys.stderr)

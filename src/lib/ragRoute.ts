@@ -34,8 +34,9 @@ export async function ollamaAvailabilityResponse(extra: Record<string, unknown> 
   }
 }
 
-// Runs a Python script in src/ with a JSON payload argument and resolves with
-// the JSON object it prints. Rejects with the script's error message.
+// Runs a Python script in src/ with a JSON payload on its stdin (the --stdin argument says so; an argument can't
+// be over 128 KB on Linux, and the payload can carry every car) and resolves with the JSON object it prints.
+// Rejects with the script's error message.
 export function runPythonJson<T extends { error?: string }>(
   scriptFile: string,
   payload: unknown,
@@ -44,9 +45,9 @@ export function runPythonJson<T extends { error?: string }>(
   const scriptPath = path.join(process.cwd(), 'src', scriptFile);
 
   return new Promise<T>((resolve, reject) => {
-    execFile(
+    const child = execFile(
       'python',
-      [scriptPath, JSON.stringify(payload)],
+      [scriptPath, '--stdin'],
       {
         env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
         timeout: timeoutMs,
@@ -84,23 +85,31 @@ export function runPythonJson<T extends { error?: string }>(
         resolve(parsed);
       }
     );
+    // A script that exits before reading all of it closes the pipe; its exit is reported above instead
+    child.stdin?.on('error', () => {});
+    child.stdin?.end(JSON.stringify(payload));
   });
 }
 
 // Builds the GET/POST handlers for a RAG tab backed by a Python script in
-// src/ that accepts a JSON payload argument and prints a JSON result. feature is
+// src/ that reads a JSON payload from stdin and prints a JSON result. feature is
 // what the Admin page's Rate Limiting counts its calls as. While the Admin page's Enable AI Features is off, every
 // POST gets 403 { code: 'aiFeaturesDisabled' }. Visitors who aren't signed in get 401. With notForBronze, Bronze
 // members (other than Admins) get 403 { code: 'membershipRequired', showPricing } before any AI call, which opens the page's
 // MembershipRequiredDialog. With modelFeature, the 'openai' LLM option asks the script for its prompt only
 // ({ promptOnly: true } answers { system, prompt, references }) and sends it to that feature's model from the Admin
 // page's AI Model Control (chatModel), whose tokens are added to the call's AiUsage row; GET also answers the
-// caller's model as model. The Ollama option still runs entirely in the script.
+// caller's model as model. The Ollama option still runs entirely in the script. payload adds to what the script is
+// sent, e.g. data from the database.
 export function createRagRoute(
   scriptFile: string,
   feature: RateLimitedFeature,
   timeoutMs = 60000,
-  { notForBronze = false, modelFeature }: { notForBronze?: boolean; modelFeature?: AiFeature } = {}
+  {
+    notForBronze = false,
+    modelFeature,
+    payload,
+  }: { notForBronze?: boolean; modelFeature?: AiFeature; payload?: () => Promise<Record<string, unknown>> } = {}
 ) {
   async function GET() {
     if (!modelFeature) return ollamaAvailabilityResponse();
@@ -147,7 +156,7 @@ export function createRagRoute(
       }>(
         scriptFile,
         // units: the user's Preferred Units, for scripts that show measurements (racecar_analysis_rag.py)
-        { query, llmType, embeddingType, units: await getUnits(user), promptOnly },
+        { ...(await payload?.()), query, llmType, embeddingType, units: await getUnits(user), promptOnly },
         timeoutMs
       );
 

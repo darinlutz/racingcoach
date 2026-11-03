@@ -2,11 +2,14 @@
 
 import { Fragment, useMemo, useState } from 'react';
 import { useLanguage } from '@/components/LanguageProvider';
+import { useUnits } from '@/components/UnitsProvider';
 import { DEFAULT_TRACK_CATEGORY, TRACK_CATEGORIES, trackCategoriesOf } from '@/lib/trackCategories';
 import type { MaintenanceFocusArea, MaintenanceTrack } from '@/lib/trackMaintenance';
+import { mphFromSpeed, SPEED_UNIT, speedFromMph } from '@/lib/units';
 
 // The Coach page's Track and Focus Area Maintenance section: every track in racingcoach."Tracks" with its
-// key, name and number of corners, listed by Track Type like Track Data, adding tracks (POST /api/coach/tracks), and each track's focus areas, which
+// key, name and number of corners, listed by Track Type like Track Data, adding tracks (POST /api/coach/tracks), each
+// track's Racecar Analysis details (PUT /api/coach/tracks/[id]), and its focus areas, which
 // can be added, edited and deleted (/api/coach/tracks/[id]/focus-areas). Focus areas have no brake or throttle
 // targets: those come from each driver's Target Lap (targetLapTargets.ts).
 
@@ -29,8 +32,16 @@ type AreaForm = {
 
 const emptyAreaForm: AreaForm = { name: '', startPoint: '', endPoint: '' };
 
+// The open track's Racecar Analysis details, as typed: the speed in the user's Preferred Units
+type AnalysisForm = {
+  averageSpeed: string;
+  typicalLapSeconds: string;
+  notes: string;
+};
+
 export default function TrackMaintenance({ tracks: initialTracks }: { tracks: MaintenanceTrack[] }) {
   const { t, fmt } = useLanguage();
+  const units = useUnits();
   const a = t.admin;
   const [tracks, setTracks] = useState(initialTracks);
   const [search, setSearch] = useState('');
@@ -50,6 +61,7 @@ export default function TrackMaintenance({ tracks: initialTracks }: { tracks: Ma
   const [editing, setEditing] = useState<{ trackId: number; areaId: number | null } | null>(null);
   const [form, setForm] = useState<AreaForm>(emptyAreaForm);
   const [busy, setBusy] = useState(false);
+  const [analysisForm, setAnalysisForm] = useState<AnalysisForm>({ averageSpeed: '', typicalLapSeconds: '', notes: '' });
 
   const visible = useMemo(() => {
     const needle = search.trim().toLowerCase();
@@ -110,7 +122,7 @@ export default function TrackMaintenance({ tracks: initialTracks }: { tracks: Ma
       setNewKey('');
       setNewName('');
       setNewCorners('');
-      setOpenTrackId(track.id);
+      openTrack(track);
       setCategory(track.category ?? DEFAULT_TRACK_CATEGORY);
       setSearch(track.name);
       setMessage({ ok: true, text: fmt(a.trackAdded, { track: track.name }) });
@@ -118,6 +130,41 @@ export default function TrackMaintenance({ tracks: initialTracks }: { tracks: Ma
       setMessage({ ok: false, text: error instanceof Error ? error.message : t.api.failedSaveTrack });
     } finally {
       setAddingTrack(false);
+    }
+  };
+
+  const openTrack = (track: MaintenanceTrack | null) => {
+    setOpenTrackId(track?.id ?? null);
+    setEditing(null);
+    if (!track) return;
+    setAnalysisForm({
+      averageSpeed: track.averageSpeedMph == null ? '' : String(Math.round(speedFromMph(track.averageSpeedMph, units) * 10) / 10),
+      typicalLapSeconds: track.typicalLapSeconds == null ? '' : String(track.typicalLapSeconds),
+      notes: track.analysisNotes ?? '',
+    });
+  };
+
+  const saveAnalysis = async (trackId: number) => {
+    setBusy(true);
+    setMessage(null);
+    try {
+      const { track } = (await send(`/api/coach/tracks/${trackId}`, 'PUT', {
+        averageSpeedMph: analysisForm.averageSpeed.trim() === '' ? null : mphFromSpeed(Number(analysisForm.averageSpeed), units),
+        typicalLapSeconds: analysisForm.typicalLapSeconds.trim() === '' ? null : Number(analysisForm.typicalLapSeconds),
+        analysisNotes: analysisForm.notes,
+      })) as { track: MaintenanceTrack };
+      setTracks((list) =>
+        list.map((item) =>
+          item.id === trackId
+            ? { ...item, averageSpeedMph: track.averageSpeedMph, typicalLapSeconds: track.typicalLapSeconds, analysisNotes: track.analysisNotes }
+            : item
+        )
+      );
+      setMessage({ ok: true, text: fmt(a.trackAnalysisSaved, { track: track.name }) });
+    } catch (error) {
+      setMessage({ ok: false, text: error instanceof Error ? error.message : t.api.failedSaveTrack });
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -322,10 +369,7 @@ export default function TrackMaintenance({ tracks: initialTracks }: { tracks: Ma
                       <td className="px-3 py-2 text-right whitespace-nowrap">
                         <button
                           type="button"
-                          onClick={() => {
-                            setOpenTrackId(open ? null : track.id);
-                            setEditing(null);
-                          }}
+                          onClick={() => openTrack(open ? null : track)}
                           className={secondaryButton}
                         >
                           {open ? a.hideAreas : a.showAreas}
@@ -335,6 +379,55 @@ export default function TrackMaintenance({ tracks: initialTracks }: { tracks: Ma
                     {open && (
                       <tr>
                         <td colSpan={5} className="px-3 py-4 bg-secondary space-y-3">
+                          <div className="bg-card border border-border rounded-lg p-4 space-y-3">
+                            <div>
+                              <p className="text-sm font-medium text-foreground">{a.trackAnalysisTitle}</p>
+                              <p className="text-xs text-muted-foreground">{a.trackAnalysisHint}</p>
+                            </div>
+                            <div className="grid gap-3 sm:grid-cols-2">
+                              <div>
+                                <label htmlFor={`track-${track.id}-speed`} className={labelClass}>
+                                  {fmt(a.trackAverageSpeed, { unit: SPEED_UNIT[units] })}
+                                </label>
+                                <input
+                                  id={`track-${track.id}-speed`}
+                                  type="number"
+                                  min={0}
+                                  step="0.1"
+                                  value={analysisForm.averageSpeed}
+                                  onChange={(e) => setAnalysisForm((f) => ({ ...f, averageSpeed: e.target.value }))}
+                                  className={inputClass}
+                                />
+                              </div>
+                              <div>
+                                <label htmlFor={`track-${track.id}-lap`} className={labelClass}>{a.trackTypicalLap}</label>
+                                <input
+                                  id={`track-${track.id}-lap`}
+                                  type="number"
+                                  min={0}
+                                  step="0.1"
+                                  value={analysisForm.typicalLapSeconds}
+                                  onChange={(e) => setAnalysisForm((f) => ({ ...f, typicalLapSeconds: e.target.value }))}
+                                  className={inputClass}
+                                />
+                              </div>
+                            </div>
+                            <div>
+                              <label htmlFor={`track-${track.id}-notes`} className={labelClass}>{a.trackAnalysisNotes}</label>
+                              <textarea
+                                id={`track-${track.id}-notes`}
+                                rows={4}
+                                maxLength={5000}
+                                value={analysisForm.notes}
+                                onChange={(e) => setAnalysisForm((f) => ({ ...f, notes: e.target.value }))}
+                                placeholder={a.trackAnalysisNotesPlaceholder}
+                                className={inputClass}
+                              />
+                            </div>
+                            <button type="button" onClick={() => saveAnalysis(track.id)} disabled={busy} className={primaryButton}>
+                              {busy ? a.savingArea : a.saveArea}
+                            </button>
+                          </div>
                           {track.areas.length === 0 ? (
                             <p className="text-sm text-muted-foreground">{a.noAreas}</p>
                           ) : (

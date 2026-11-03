@@ -4,8 +4,8 @@ import { TRACK_CATEGORIES } from './trackCategories';
 import { ensureUserSchema } from './users';
 
 // The Coach page's Track and Focus Area Maintenance section (src/components/TrackMaintenance.tsx): every
-// track in racingcoach."Tracks" (with or without focus areas, unlike readTracks), adding tracks, and adding,
-// editing and deleting their "TrackFocusAreas". Focus areas stay numbered from 1 in order around the lap by
+// track in racingcoach."Tracks" (with or without focus areas, unlike readTracks), adding tracks, editing their
+// Racecar Analysis details (trackAnalysis.ts), and adding, editing and deleting their "TrackFocusAreas". Focus areas stay numbered from 1 in order around the lap by
 // start point, so positions are renumbered after every change.
 
 export type MaintenanceFocusArea = {
@@ -22,6 +22,9 @@ export type MaintenanceTrack = {
   name: string;
   numberOfCorners: number | null;
   category: string | null;
+  averageSpeedMph: number | null;
+  typicalLapSeconds: number | null;
+  analysisNotes: string | null;
   areas: MaintenanceFocusArea[];
 };
 
@@ -36,6 +39,15 @@ export type FocusAreaInput = {
 // category null: worked out like categorizeTracks (trackCorners.ts)
 export type TrackInput = { key: string; name: string; numberOfCorners: number | null; category: string | null };
 
+// Racecar Analysis's details of a track, null for none: average lap speed in mph, typical lap time in seconds
+export type TrackAnalysisInput = {
+  averageSpeedMph: number | null;
+  typicalLapSeconds: number | null;
+  analysisNotes: string | null;
+};
+
+const TRACK_COLUMNS = 'id, track_key, track_name, number_of_corners, track_category, average_speed_mph, typical_lap_seconds, analysis_notes';
+
 export class TrackMaintenanceError extends Error {
   constructor(
     public reason: 'track-not-found' | 'area-not-found' | 'duplicate-track'
@@ -47,7 +59,7 @@ export class TrackMaintenanceError extends Error {
 export async function listTracksForMaintenance(): Promise<MaintenanceTrack[]> {
   await ensureUserSchema();
   const [tracks, areas] = await Promise.all([
-    query(`SELECT id, track_key, track_name, number_of_corners, track_category FROM racingcoach."Tracks" ORDER BY lower(track_name)`),
+    query(`SELECT ${TRACK_COLUMNS} FROM racingcoach."Tracks" ORDER BY lower(track_name)`),
     query(
       `SELECT id, track_id, position, name, start_point, end_point
        FROM racingcoach."TrackFocusAreas" ORDER BY track_id, position`
@@ -59,14 +71,21 @@ export async function listTracksForMaintenance(): Promise<MaintenanceTrack[]> {
     list.push(toArea(a));
     byTrack.set(a.track_id as number, list);
   }
-  return tracks.map((t) => ({
+  return tracks.map((t) => toTrack(t, byTrack.get(t.id as number) ?? []));
+}
+
+function toTrack(t: Record<string, unknown>, areas: MaintenanceFocusArea[]): MaintenanceTrack {
+  return {
     id: t.id as number,
     key: t.track_key as string,
     name: t.track_name as string,
     numberOfCorners: t.number_of_corners as number | null,
     category: t.track_category as string | null,
-    areas: byTrack.get(t.id as number) ?? [],
-  }));
+    averageSpeedMph: t.average_speed_mph == null ? null : Number(t.average_speed_mph),
+    typicalLapSeconds: t.typical_lap_seconds == null ? null : Number(t.typical_lap_seconds),
+    analysisNotes: t.analysis_notes as string | null,
+    areas,
+  };
 }
 
 export async function createTrack(input: TrackInput): Promise<MaintenanceTrack> {
@@ -79,21 +98,27 @@ export async function createTrack(input: TrackInput): Promise<MaintenanceTrack> 
          WHEN $2 ~* '(dirt|rally)' THEN 'Dirt'
          WHEN $3::int <= 4 THEN 'Oval'
          ELSE 'Road Course' END))
-       RETURNING id, track_key, track_name, number_of_corners, track_category`,
+       RETURNING ${TRACK_COLUMNS}`,
       [input.key, input.name, input.numberOfCorners, input.category]
     );
-    return {
-      id: row.id as number,
-      key: row.track_key as string,
-      name: row.track_name as string,
-      numberOfCorners: row.number_of_corners as number | null,
-      category: row.track_category as string | null,
-      areas: [],
-    };
+    return toTrack(row, []);
   } catch (error) {
     if (isUniqueViolation(error)) throw new TrackMaintenanceError('duplicate-track');
     throw error;
   }
+}
+
+// Answers the track with its new details (without its focus areas)
+export async function updateTrackAnalysis(trackId: number, input: TrackAnalysisInput): Promise<MaintenanceTrack> {
+  await ensureUserSchema();
+  const [row] = await query(
+    `UPDATE racingcoach."Tracks"
+     SET average_speed_mph = $2, typical_lap_seconds = $3, analysis_notes = $4, updated_at = now()
+     WHERE id = $1 RETURNING ${TRACK_COLUMNS}`,
+    [trackId, input.averageSpeedMph, input.typicalLapSeconds, input.analysisNotes]
+  );
+  if (!row) throw new TrackMaintenanceError('track-not-found');
+  return toTrack(row, []);
 }
 
 // Each returns the track's focus areas after the change, renumbered
@@ -195,6 +220,23 @@ export function parseTrackInput(body: unknown): TrackInput | null {
     category = b.category;
   }
   return { key, name, numberOfCorners, category };
+}
+
+// Checks a request body's Racecar Analysis details, or null when they aren't valid. Empty values are none.
+export function parseTrackAnalysisInput(body: unknown): TrackAnalysisInput | null {
+  const b = (body ?? {}) as Record<string, unknown>;
+  const positive = (value: unknown, max: number): number | null | undefined => {
+    if (value === null || value === undefined || value === '') return null;
+    const n = Number(value);
+    return Number.isFinite(n) && n > 0 && n <= max ? n : undefined;
+  };
+  const averageSpeedMph = positive(b.averageSpeedMph, 500);
+  const typicalLapSeconds = positive(b.typicalLapSeconds, 3600);
+  if (averageSpeedMph === undefined || typicalLapSeconds === undefined) return null;
+  if (b.analysisNotes !== null && b.analysisNotes !== undefined && typeof b.analysisNotes !== 'string') return null;
+  const analysisNotes = typeof b.analysisNotes === 'string' ? b.analysisNotes.trim() : '';
+  if (analysisNotes.length > 5000) return null;
+  return { averageSpeedMph, typicalLapSeconds, analysisNotes: analysisNotes || null };
 }
 
 // The API dictionary's message and the status for each error (the routes under src/app/api/coach/tracks/)

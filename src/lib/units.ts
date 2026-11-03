@@ -56,6 +56,11 @@ export function speedFromMph(mph: number, units: Units): number {
   return speedFromMetersPerSecond(mph / MPH_PER_METER_PER_SECOND, units);
 }
 
+// mph or kph typed by the user -> mph, as Track Data's average speeds are stored
+export function mphFromSpeed(value: number, units: Units): number {
+  return units === 'metric' ? (value / KPH_PER_METER_PER_SECOND) * MPH_PER_METER_PER_SECOND : value;
+}
+
 const NEWTON_METERS_PER_LB_FT = 1.3558179483;
 
 // Car Data's torque: stored in lb-ft, shown in lb-ft or Nm

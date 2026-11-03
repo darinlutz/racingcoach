@@ -1,7 +1,7 @@
 import type { PoolClient } from 'pg';
 import type { RacingDiscipline } from './racingDisciplines';
 
-// The cars the site starts with (the GT3 cars from GT3_Car_Data.xlsx, then a few of each other discipline). They are
+// The cars the site starts with (GT3 cars, then a few of each other discipline). They are
 // seeded once into racingcoach."Cars", when that table is first created; after that the table is the source of truth,
 // kept by Coaches and Admins in the Cars tab, so a car added here doesn't reach an existing database.
 

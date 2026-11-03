@@ -37,7 +37,7 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 
 # Scripts invoked via execFile('python', ...) at runtime
-COPY app.py GetBankFromRoutingNumber.py GT3_Car_Data.xlsx Track_Information.xlsx ./
+COPY app.py GetBankFromRoutingNumber.py ./
 
 COPY src/intro_transformer.py ./src/intro_transformer.py
 COPY src/SampleDealGPT.py ./src/SampleDealGPT.py

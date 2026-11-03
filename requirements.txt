@@ -4,6 +4,5 @@ langchain-openai==1.6.2
 python-dotenv==1.2.3
 openai==3.14.0
 chromadb==1.5.9
-openpyxl==3.1.5
 langchain-community==0.4.2
 langchain-text-splitters==1.1.2

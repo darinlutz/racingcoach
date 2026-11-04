@@ -74,6 +74,10 @@ internal sealed class LiveRacing(Func<RacingCoachApi?> api, Action<string> log)
     // Each session's name (e.g. "QUALIFY", "HEAT 1") and the weekend's weather type (e.g. "Static", "Dynamic")
     private IReadOnlyDictionary<int, string> _sessionNames = new Dictionary<int, string>();
     private string? _weatherType;
+    // The car's setup from session info (SetSetup)
+    private string? _setupName;
+    private string? _setupLoadType;
+    private bool? _setupModified;
     private TrackMap? _map;
     // The site wants this run's approximate outline (it has none saved, and hasn't been sent one)
     private bool _sendOutline = true;
@@ -134,6 +138,18 @@ internal sealed class LiveRacing(Func<RacingCoachApi?> api, Action<string> log)
             _mapLoadedAt = DateTime.MinValue;
             _pendingAreas = null;
             ResetPath();
+        }
+    }
+
+    /// <summary>Session info: the car's setup (DriverSetupName, DriverSetupLoadTypeName, e.g. "fixed", and whether it's
+    /// been changed since it was loaded), sent with each update for the website's Setup Engineer.</summary>
+    public void SetSetup(string? name, string? loadType, bool? modified)
+    {
+        lock (_lock)
+        {
+            _setupName = string.IsNullOrWhiteSpace(name) ? null : name.Trim();
+            _setupLoadType = string.IsNullOrWhiteSpace(loadType) ? null : loadType.Trim();
+            _setupModified = modified;
         }
     }
 
@@ -453,6 +469,15 @@ internal sealed class LiveRacing(Func<RacingCoachApi?> api, Action<string> log)
                 coachSpeaking = Voice.Busy,
                 fuelLevel = d.FuelLevel is { } fuelLevel && fuelLevel >= 0 ? Math.Round(fuelLevel, 2) : (double?)null,
                 fuelPerLap = FuelPerLap(),
+                setup = new
+                {
+                    name = _setupName,
+                    loadType = _setupLoadType,
+                    modified = _setupModified,
+                    brakeBias = d.dcBrakeBias is { } bias && double.IsFinite(bias) && Math.Abs(bias) <= 100
+                        ? Math.Round(bias, 2)
+                        : (double?)null,
+                },
                 inputs = TakeInputs(),
                 outline = _sendOutline && _map is { Exact: false } map
                     ? new { kind = "meters", points = map.Points.Select(p => new[] { p.X, p.Y }).ToArray() }

@@ -5,30 +5,50 @@ import { useLanguage } from '@/components/LanguageProvider';
 
 // The Coach page's AI Coach Instructions box: what the AI coach should do, saved for every driver
 // (PUT /api/coach/instructions) with the Save AI Coach Instructions button. With inCar, its In-Car AI Coach
-// Instructions box instead, for every driver's In-Car AI Coach (PUT /api/coach/in-car-instructions).
+// Instructions box instead, for every driver's In-Car AI Coach (PUT /api/coach/in-car-instructions). With setup, its
+// Setup Engineer Instructions box, for every driver's Setup Engineer (PUT /api/coach/setup-engineer-instructions).
 export default function CoachInstructionsEditor({
   instructions: initial,
   maxLength,
   inCar = false,
+  setup = false,
 }: {
   instructions: string;
   maxLength: number;
   inCar?: boolean;
+  setup?: boolean;
 }) {
   const { t, fmt } = useLanguage();
-  const c = inCar
+  const c = setup
     ? {
         ...t.coach,
-        instructionsTitle: t.coach.inCarTitle,
-        instructionsIntro: t.coach.inCarIntro,
-        placeholder: t.coach.inCarPlaceholder,
-        save: t.coach.inCarSave,
-        saved: t.coach.inCarSaved,
+        instructionsTitle: t.coach.setupTitle,
+        instructionsIntro: t.coach.setupIntro,
+        placeholder: t.coach.setupPlaceholder,
+        save: t.coach.setupSave,
+        saved: t.coach.setupSaved,
       }
-    : t.coach;
-  const endpoint = inCar ? '/api/coach/in-car-instructions' : '/api/coach/instructions';
-  const failed = inCar ? t.api.failedSaveInCarInstructions : t.api.failedSaveInstructions;
-  const fieldId = inCar ? 'coach-in-car-instructions' : 'coach-instructions';
+    : inCar
+      ? {
+          ...t.coach,
+          instructionsTitle: t.coach.inCarTitle,
+          instructionsIntro: t.coach.inCarIntro,
+          placeholder: t.coach.inCarPlaceholder,
+          save: t.coach.inCarSave,
+          saved: t.coach.inCarSaved,
+        }
+      : t.coach;
+  const endpoint = setup
+    ? '/api/coach/setup-engineer-instructions'
+    : inCar
+      ? '/api/coach/in-car-instructions'
+      : '/api/coach/instructions';
+  const failed = setup
+    ? t.api.failedSaveSetupInstructions
+    : inCar
+      ? t.api.failedSaveInCarInstructions
+      : t.api.failedSaveInstructions;
+  const fieldId = setup ? 'coach-setup-engineer-instructions' : inCar ? 'coach-in-car-instructions' : 'coach-instructions';
   const [saved, setSaved] = useState(initial);
   const [text, setText] = useState(initial);
   const [saving, setSaving] = useState(false);

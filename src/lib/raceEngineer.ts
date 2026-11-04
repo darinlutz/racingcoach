@@ -22,7 +22,8 @@ import { DEFAULT_UNITS, formatTemperature, type Units } from './units';
 // session's laps and time left, fuel, the flag, the weather, recent race events), what was said on the radio in the
 // last few minutes, and, with the session's uploaded laps, the Debrief Coach's tools for where time is being lost.
 // Like the In-Car AI Coach it follows the head coach's and the driver's In-Car AI Coach Instructions, and never says
-// where on the track something happens.
+// where on the track something happens. Questions about the car's setup or handling it hands to the Setup Engineer
+// (src/lib/setupEngineer.ts), answering setupQuestion.
 
 const LITERS_PER_GALLON = 3.78541;
 
@@ -31,6 +32,9 @@ const replySchema = z.object({
     .boolean()
     .describe('True when the driver asked a question, asked for something, or said something a race engineer would answer'),
   reply: z.string().describe('What you say back over the radio, or an empty string when needsReply is false'),
+  setupQuestion: z
+    .boolean()
+    .describe('True when the driver asks about the car setup or how the car handles; the Setup Engineer answers it, so leave reply empty'),
 });
 
 const MAX_REPLY_CHARS = 300;
@@ -39,7 +43,12 @@ const enginePrompt = (units: Units, hasTools: boolean) =>
   'You are the race engineer of a sim racing driver who is in an iRacing session right now, talking on the team ' +
   'radio. The driver just pressed the radio button and said something. Decide whether it needs an answer: a ' +
   'question, a request ("tell me the gap", "how much fuel"), a call a real engineer acknowledges ("box this lap", ' +
-  '"I have a puncture"), or a complaint about the car you can help with all do. Small talk to nobody, swearing at ' +
+  '"I have a puncture"), or a complaint about the car you can help with all do. ' +
+  "Questions about the car's setup " +
+  'or handling balance (understeer, oversteer, a loose or tight car, brake bias, ' +
+  '"what should I change on the car", setup changes) belong to the setup engineer: set needsReply and setupQuestion ' +
+  'true, leave reply empty and call no tools. ' +
+  'Small talk to nobody, swearing at ' +
   'another driver, or words that make no sense as a message to you do not: set needsReply false. ' +
   'When you answer, it is spoken in the driver\'s ear at speed: one or two short sentences, the most useful number ' +
   'first, no lists, no markdown, talk to the driver as "you", calm and brisk like a real race engineer. Answer only ' +
@@ -251,7 +260,7 @@ export async function raceEngineerReply(input: {
   units?: Units;
   // What to say in the garage when the question can't be answered from what the engineer knows
   notKnownInGarage?: string;
-}): Promise<{ reply: string | null; steps: string[] }> {
+}): Promise<{ reply: string | null; steps: string[]; setupQuestion: boolean }> {
   if (!process.env.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY is not configured');
   const units = input.units ?? DEFAULT_UNITS;
   const measured = input.measured;
@@ -311,7 +320,9 @@ export async function raceEngineerReply(input: {
       ? message.tool_calls.filter((call) => toolNames.has(call.name)).map((call) => call.name)
       : []
   );
-  if (!first.response.needsReply || !first.response.reply.trim()) return { reply: null, steps };
+  // The Setup Engineer (src/lib/setupEngineer.ts) answers questions about the car's setup and handling
+  if (first.response.setupQuestion) return { reply: null, steps, setupQuestion: true };
+  if (!first.response.needsReply || !first.response.reply.trim()) return { reply: null, steps, setupQuestion: false };
   try {
     const reply = await withoutTrackPositions(first.response.reply.trim(), async (feedback) => {
       const again = await ask([
@@ -321,9 +332,9 @@ export async function raceEngineerReply(input: {
       ]);
       return again.response.reply;
     });
-    return { reply: reply.slice(0, MAX_REPLY_CHARS), steps };
+    return { reply: reply.slice(0, MAX_REPLY_CHARS), steps, setupQuestion: false };
   } catch {
     // only said where on the track things happen: better silent
-    return { reply: null, steps };
+    return { reply: null, steps, setupQuestion: false };
   }
 }

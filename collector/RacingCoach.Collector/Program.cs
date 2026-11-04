@@ -113,6 +113,8 @@ namespace RacingCoach.Collector;
     // Driver Radio (DriverRadio.cs): the car transmitting on iRacing's radio, the driver's own while they hold its button
     TelemetryVar.RadioTransmitCarIdx,
     TelemetryVar.PlayerCarIdx,
+    // the in-car brake bias adjustment, for the Setup Engineer (LiveRacing.cs; null in cars without one)
+    TelemetryVar.dcBrakeBias,
 ])]
 public static class Program
 {

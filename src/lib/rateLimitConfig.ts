@@ -19,6 +19,7 @@ export const RATE_LIMITED_FEATURES = [
   'raceAnnouncer',
   'driverRadio',
   'raceEngineer',
+  'setupEngineer',
 ] as const;
 
 export type RateLimitedFeature = (typeof RATE_LIMITED_FEATURES)[number];
@@ -177,6 +178,8 @@ export const DEFAULT_RATE_LIMITS: RateLimitSettings = {
     // Driver Radio's Race Engineer: an answer to what the driver says over the radio, counted like an In-Car AI
     // Coach callout
     raceEngineer: 1,
+    // Driver Radio's Setup Engineer: setup advice the Race Engineer hands over to it
+    setupEngineer: 1,
   },
   // Bronze only has the collector's spoken debrief and messages, the Listen buttons and other drivers' radio; the
   // Race Announcers, Hold to Talk and Driver Radio are Silver and above (canUseVoiceAi). An hour's race with both

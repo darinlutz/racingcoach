@@ -9,6 +9,7 @@ import { readEngineerSnapshot, recordDriverRadio } from '@/lib/liveRacing';
 import { raceEngineerReply } from '@/lib/raceEngineer';
 import { aiRateLimit, type AiRateLimit } from '@/lib/rateLimits';
 import { canUseInCarCoach, canUseVoiceAi } from '@/lib/roles';
+import { measureSessionRotation, setupEngineerReply } from '@/lib/setupEngineer';
 import { getEnableAiFeatures } from '@/lib/siteSettings';
 import { DEFAULT_UNITS } from '@/lib/units';
 import { getInCarCoachInstructions, getUserById, type User } from '@/lib/users';
@@ -29,7 +30,9 @@ const lapIdsSchema = z.array(z.uuid()).max(30);
 // it says back, for the collector to say in the coach voice, or null when what was said needs no answer; laps= (the
 // session's uploaded clientLapIds, comma separated, oldest first) lets it look at where time is lost. engineer is
 // 'answered', 'silent', 'membershipRequired' (Silver and Gold members and Admins only, like the In-Car AI Coach),
-// 'rateLimited' or 'failed'; the transcription is answered whatever happens to the reply.
+// 'rateLimited' or 'failed'; the transcription is answered whatever happens to the reply. A question about the car's
+// setup or handling the Race Engineer hands to the Setup Engineer (src/lib/setupEngineer.ts), rate limited on its own
+// as setupEngineer; its answer comes back as reply the same way, with setupEngineer: true.
 export async function POST(request: Request) {
   let limit: AiRateLimit | null = null;
   try {
@@ -72,6 +75,8 @@ export async function POST(request: Request) {
 
 type EngineerAnswer = {
   reply: string | null;
+  // The Setup Engineer answered
+  setupEngineer?: boolean;
   engineer: 'answered' | 'silent' | 'membershipRequired' | 'rateLimited' | 'failed';
 };
 
@@ -91,7 +96,7 @@ async function engineerAnswer(request: Request, user: User, said: string, lapIds
         return null;
       }),
     ]);
-    const { reply, steps } = await limit.track(() =>
+    const { reply, steps, setupQuestion } = await limit.track(() =>
       raceEngineerReply({
         said,
         snapshot,
@@ -103,12 +108,48 @@ async function engineerAnswer(request: Request, user: User, said: string, lapIds
         units: user.units ?? DEFAULT_UNITS,
       })
     );
+    if (setupQuestion) return await setupAnswer(request, user, said, lapIds, snapshot, instructions);
     console.log(`Race Engineer: user ${user.id}, ${reply ? 'answered' : 'silent'} (${steps.join(', ') || 'no tools'})`);
     if (!reply) return { reply: null, engineer: 'silent' };
     recordDriverRadio(user.id, reply, 'engineer');
     return { reply, engineer: 'answered' };
   } catch (error) {
     console.error('Race Engineer error:', error);
+    await limit?.refund();
+    return { reply: null, engineer: 'failed' };
+  }
+}
+
+// The Setup Engineer's answer to a question about the car's setup or handling the Race Engineer handed over; never throws
+async function setupAnswer(
+  request: Request,
+  user: User,
+  said: string,
+  lapIds: string[],
+  snapshot: ReturnType<typeof readEngineerSnapshot>,
+  instructions: string
+): Promise<EngineerAnswer> {
+  let limit: AiRateLimit | null = null;
+  try {
+    limit = await aiRateLimit(request, 'setupEngineer', user);
+    if (limit.response) return { reply: null, engineer: 'rateLimited' };
+    const rotation = await measureSessionRotation(user.id, lapIds);
+    const reply = await limit.track(() =>
+      setupEngineerReply({
+        said,
+        update: snapshot?.update ?? null,
+        rotation,
+        driverInstructions: instructions,
+        language: user.preferredLanguage ?? DEFAULT_LANGUAGE,
+        units: user.units ?? DEFAULT_UNITS,
+      })
+    );
+    console.log(`Setup Engineer: user ${user.id}, ${reply ? 'answered' : 'silent'}`);
+    if (!reply) return { reply: null, engineer: 'silent' };
+    recordDriverRadio(user.id, reply, 'engineer');
+    return { reply, engineer: 'answered', setupEngineer: true };
+  } catch (error) {
+    console.error('Setup Engineer error:', error);
     await limit?.refund();
     return { reply: null, engineer: 'failed' };
   }

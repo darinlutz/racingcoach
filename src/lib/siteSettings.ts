@@ -95,6 +95,19 @@ export async function setHeadCoachInCarInstructions(instructions: string, userId
   await setText(IN_CAR_COACH_INSTRUCTIONS, instructions, userId);
 }
 
+const SETUP_ENGINEER_INSTRUCTIONS = 'setup_engineer_instructions';
+
+// The Coach page's Setup Engineer Instructions, shared by every driver: how the Setup Engineer
+// (src/lib/setupEngineer.ts) suggests changes to the car when a driver asks over Driver Radio; empty when none are
+// saved. Same length limit as the AI Coach Instructions.
+export async function getSetupEngineerInstructions(): Promise<string> {
+  return getText(SETUP_ENGINEER_INSTRUCTIONS);
+}
+
+export async function setSetupEngineerInstructions(instructions: string, userId: number): Promise<void> {
+  await setText(SETUP_ENGINEER_INSTRUCTIONS, instructions, userId);
+}
+
 // Appended to the AI coaching prompts (Debrief Coach, the lap and stint summaries, Race
 // Trends and the Discord bot's coaching) so the coaches' instructions steer them. They can't override the
 // data rules: the model still only has the tools and data each feature gives it. A failed read only loses

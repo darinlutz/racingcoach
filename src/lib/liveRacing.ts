@@ -163,6 +163,17 @@ export const liveUpdateSchema = z.object({
   // Fuel left and the average used per green lap over the last few, in liters (from 1.58.0), for the Race Engineer
   fuelLevel: z.number().min(0).max(1000).nullish(),
   fuelPerLap: z.number().min(0).max(100).nullish(),
+  // The car's setup from session info (DriverInfo.DriverSetupName, DriverSetupLoadTypeName, DriverSetupIsModified)
+  // and the in-car brake bias adjustment (dcBrakeBias; a front percentage in most cars, an offset in some; null in
+  // cars without one), from collectors from 1.67.0, for the Setup Engineer (src/lib/setupEngineer.ts)
+  setup: z
+    .object({
+      name: z.string().max(200).nullish(),
+      loadType: z.string().max(50).nullish(),
+      modified: z.boolean().nullish(),
+      brakeBias: z.number().min(-100).max(100).nullish(),
+    })
+    .nullish(),
   // The In-Car AI Coach is speaking, or has something waiting to be said (from 1.55.0); the driver's own Race
   // Announcers wait for it
   coachSpeaking: z.boolean().nullish(),

@@ -464,6 +464,8 @@ internal sealed class CollectorEngine
             Live.SetTrack(_recorder.Session.Track, TrackKeys.For(_recorder.Session.Track), Session.Car, sessionTypes, sessionNames,
                 string.IsNullOrWhiteSpace(weekend?.TrackWeatherType) ? null : weekend.TrackWeatherType.Trim());
             Live.SetField(weekend?.SubSessionID ?? 0, driverIdx, FieldDrivers(session));
+            Live.SetSetup(session.DriverInfo?.DriverSetupName, session.DriverInfo?.DriverSetupLoadTypeName,
+                session.DriverInfo?.DriverSetupIsModified is { } modified ? modified != 0 : null);
 
             // iRacing re-sends session info every few seconds (flags, driver list, ...); only log changes
             if (previous is null || previous.Track != Session.Track || previous.TrackConfig != Session.TrackConfig || previous.Car != Session.Car)

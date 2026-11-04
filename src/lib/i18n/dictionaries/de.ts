@@ -1723,7 +1723,7 @@ export const de: Dictionary = {
     // Labels for "Tracks".track_category; a type without one shows as stored
     categories: {
       'Road Course': 'Rundkurs',
-      Oval: 'Oval',
+      Oval: 'Oval (Asphalt)',
       Dirt: 'Dirt',
     },
   },

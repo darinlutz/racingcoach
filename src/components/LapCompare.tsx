@@ -483,6 +483,12 @@ function LapUploader({ id, title, prompt, lap, error, onFiles, onRemove }: LapUp
   );
 }
 
+// The top of what's in view on the page: just under the focus areas' header while it's pinned (large screens), else
+// the window's top
+function viewTopUnder(header: HTMLElement | null): number {
+  return header && getComputedStyle(header).position === 'sticky' ? header.getBoundingClientRect().bottom : 0;
+}
+
 // initialLaps: laps to start with, e.g. two recorded laps sent from Debrief Coach's Compare button
 export default function LapCompare({ initialLaps = null }: { initialLaps?: { base: LapFile; compare: LapFile } | null }) {
   const { t: dictionary, locale } = useLanguage();
@@ -512,43 +518,39 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
   const [dataTab, setDataTab] = useState<LapDataTab>('slip');
   // The telemetry charts' toolbar, also kept when another focus area is picked
   const [chartSettings, setChartSettings] = useState<ChartSettings>(DEFAULT_CHART_SETTINGS);
-  // Where the pinned playback controls go, under the focus areas, and the box the area's telemetry scrolls in
+  // Where the pinned playback controls go, under the focus areas, and the focus areas' header they're pinned in
   const [playbackSlot, setPlaybackSlot] = useState<HTMLDivElement | null>(null);
-  const areaBodyRef = useRef<HTMLDivElement>(null);
-  // The chart wrapper inside it, which stays mounted from area to area while the area's charts are remounted
+  const areaHeaderRef = useRef<HTMLDivElement>(null);
+  // The chart wrapper under it, which stays mounted from area to area while the area's charts are remounted
   const areaContentRef = useRef<HTMLDivElement>(null);
   // What the user was looking at when another area was picked: the section ([data-scroll-anchor]) nearest above the
-  // top of what's in view and how far from that top it was. On large screens the area's box scrolls; on smaller
-  // ones the page does (inBox false)
-  const keptScroll = useRef<{ inBox: boolean; anchor: string | null; offset: number } | null>(null);
+  // top of what's in view and how far from that top it was
+  const keptScroll = useRef<{ anchor: string | null; offset: number } | null>(null);
 
   const selectArea = (name: string) => {
     if (name === selectedTrace?.name) return;
-    const body = areaBodyRef.current;
     const content = areaContentRef.current;
-    if (body && content) {
-      const inBox = body.scrollHeight > body.clientHeight + 1;
-      const viewTop = inBox ? body.getBoundingClientRect().top : 0;
+    if (content) {
+      const top = viewTopUnder(areaHeaderRef.current);
       let anchor: string | null = null;
       let offset = -Infinity;
       for (const el of Array.from(content.querySelectorAll<HTMLElement>('[data-scroll-anchor]'))) {
-        const top = el.getBoundingClientRect().top - viewTop;
-        if (top <= 1 && top > offset) [anchor, offset] = [el.dataset.scrollAnchor ?? null, top];
+        const below = el.getBoundingClientRect().top - top;
+        if (below <= 1 && below > offset) [anchor, offset] = [el.dataset.scrollAnchor ?? null, below];
       }
       // The new area's charts mount empty and draw over a few frames; holding the old height meanwhile stops the
       // browser pulling the scroll position back towards the top
       content.style.minHeight = `${content.offsetHeight}px`;
-      keptScroll.current = { inBox, anchor, offset };
+      keptScroll.current = { anchor, offset };
     }
     setSelectedArea(name);
   };
 
   // For a second after the switch, while the new area's charts draw, keep that section where it was; then let the
-  // box take the new area's own height. Scrolling by hand ends it at once
+  // area take its own height. Scrolling by hand ends it at once
   useEffect(() => {
-    const body = areaBodyRef.current;
     const content = areaContentRef.current;
-    if (!keptScroll.current || !body || !content) return;
+    if (!keptScroll.current || !content) return;
     const finish = () => {
       keptScroll.current = null;
       content.style.minHeight = '';
@@ -559,12 +561,8 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
       if (!kept) return;
       const el = kept.anchor ? content.querySelector<HTMLElement>(`[data-scroll-anchor="${kept.anchor}"]`) : null;
       if (el) {
-        const viewTop = kept.inBox ? body.getBoundingClientRect().top : 0;
-        const by = el.getBoundingClientRect().top - viewTop - kept.offset;
-        if (Math.abs(by) >= 1) {
-          if (kept.inBox) body.scrollTop += by;
-          else window.scrollBy(0, by);
-        }
+        const by = el.getBoundingClientRect().top - viewTopUnder(areaHeaderRef.current) - kept.offset;
+        if (Math.abs(by) >= 1) window.scrollBy(0, by);
       }
       if (now < settleUntil) frame = requestAnimationFrame(follow);
       else finish();
@@ -883,11 +881,10 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
           <div className="space-y-2">
             <h3 className="text-sm font-medium text-foreground">{t.pedalTraces}</h3>
             <p className="text-xs text-muted-foreground">{t.pedalTracesIntro}</p>
-            {/* On large screens the focus areas and playback stay pinned at the top of a box as tall as the window,
-                and the area's telemetry scrolls under them */}
-            <div className="flex flex-col gap-2 lg:h-[calc(100dvh-2rem)]">
-            <div className="shrink-0 space-y-2">
-              <FocusAreaTabs
+            {/* On large screens the focus areas and playback stick to the top of the window while the page scrolls
+                through the area's telemetry under them (below lg the nav bar is the sticky top bar) */}
+            <div className="flex flex-col gap-2">
+            <div ref={areaHeaderRef} className="space-y-2 lg:sticky lg:top-0 lg:z-30 lg:bg-secondary lg:py-2">              <FocusAreaTabs
                 areas={traces.map(({ name, diff }) => ({ name, diff }))}
                 selected={selectedTrace.name}
                 onSelect={selectArea}
@@ -897,11 +894,10 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
               <div ref={setPlaybackSlot} />
             </div>
             <div
-              ref={areaBodyRef}
               id="lap-compare-area"
               role="tabpanel"
               aria-label={selectedTrace.name}
-              className="bg-card border border-border rounded-lg lg:flex-1 lg:min-h-0 lg:overflow-y-auto"
+              className="bg-card border border-border rounded-lg"
             >
               <p className="px-4 pt-3 text-sm">
                 <span className="font-semibold text-foreground">{selectedTrace.name}</span>

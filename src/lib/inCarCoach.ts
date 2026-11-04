@@ -2,7 +2,8 @@ import { createHash } from 'node:crypto';
 import { createAgent } from 'langchain';
 import { z } from 'zod';
 import { brakeChangeRule, createTools, type DebriefSession } from './debriefCoach';
-import { hasTrackPosition } from './trackPositions';
+import { brakesLaterOnColdTires, tireWarmupFact, type TireWarmup } from './tireWarmup';
+import { hasTrackPosition, withKmh } from './trackPositions';
 import { DEFAULT_UNITS, DISTANCE_NAME, DISTANCE_UNIT, SPEED_UNIT, type Units } from './units';
 import { aiLanguageRule, DEFAULT_LANGUAGE, type Language } from './i18n/languages';
 import { getDictionary } from './i18n/server';
@@ -235,7 +236,7 @@ function cleanPlan(plan: InCarCoachPlan, areaNames: string[]): InCarCoachPlan {
       if (!rule.text?.trim() || hasTrackPosition(rule.text)) return [];
       // the built-in rules already say these
       if (rule.action === 'say' && (rule.event === 'newBestLap' || (rule.event === 'lapComplete' && rule.text.includes('{lapTime}')))) return [];
-      return [{ ...rule, area: area ?? null, text: rule.text.trim(), sound: null }];
+      return [{ ...rule, area: area ?? null, text: withKmh(rule.text.trim()), sound: null }];
     })
     .slice(0, MAX_RULES);
   return {
@@ -287,6 +288,8 @@ export async function inCarCoachCallouts(input: {
   recentCallouts: string[];
   language?: Language;
   units?: Units;
+  // Whether the newest lap's tires are still cold (src/lib/tireWarmup.ts)
+  tires?: TireWarmup | null;
 }): Promise<{ callouts: Callout[]; steps: string[] }> {
   if (!process.env.OPENAI_API_KEY) {
     throw new Error('OPENAI_API_KEY is not configured');
@@ -315,6 +318,7 @@ export async function inCarCoachCallouts(input: {
     hasAreas
       ? 'The Debrief Coach tools have every lap measured in the focus areas from my Track Data.'
       : 'This track has no focus areas in my Track Data, so only the lap times are available.',
+    ...(input.tires?.cold ? [tireWarmupFact(input.tires, units)] : []),
     input.recentCallouts.length > 0
       ? 'Already said recently, and I am working on it, so tell me how my newest lap went on it or move on to ' +
         'something else, rather than saying it the same way again: ' +
@@ -333,11 +337,13 @@ export async function inCarCoachCallouts(input: {
     const answer = await agent.invoke({ messages: [{ role: 'user', content }] }, { recursionLimit: 20, signal });
     return { callouts: structured(answer).callouts as Callout[], messages: answer.messages };
   });
-  // A callout that still says where on the track to brake (feet or meters from the line) is dropped; saying nothing is fine
+  // A callout that still says where on the track to brake (feet or meters from the line) is dropped, and so is one
+  // telling the driver to brake later on cold tires without saying it's for once they're warm; saying nothing is fine
+  const coldTires = !!input.tires?.cold;
   const callouts = result.callouts
-    .filter((c) => c.text.trim() && !hasTrackPosition(c.text))
+    .filter((c) => c.text.trim() && !hasTrackPosition(c.text) && !(coldTires && brakesLaterOnColdTires(c.text)))
     .slice(0, MAX_CALLOUTS)
-    .map((c) => ({ text: c.text.trim(), sound: c.sound ?? null }));
+    .map((c) => ({ text: withKmh(c.text.trim()), sound: c.sound ?? null }));
   const toolNames = new Set(tools.map((t) => t.name));
   const steps = result.messages.flatMap((message) =>
     'tool_calls' in message && Array.isArray(message.tool_calls)

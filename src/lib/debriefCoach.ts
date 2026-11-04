@@ -8,7 +8,7 @@ import { shiftLimit, type LapShifting } from './shifting';
 import { coachInstructionsRule } from './siteSettings';
 import { describeAreaTurns, findFocusArea } from './focusAreaTurns';
 import { formatSeconds } from './stintExport';
-import { hasTrackPosition, removeTrackPositions, trackPositionFeedback } from './trackPositions';
+import { hasTrackPosition, removeTrackPositions, trackPositionFeedback, withKmh } from './trackPositions';
 import {
   DEFAULT_UNITS,
   DISTANCE_NAME,
@@ -170,11 +170,11 @@ const avgMeasured = (values: (number | null | undefined)[], digits: number, unit
 const brakeFeetOf = (runs: DebriefRun[]) => runs.flatMap((r) => (r.brakeFeet === null ? [] : [r.brakeFeet]));
 
 // The session is always in feet and mph (line offsets in meters); the agent sees it in the user's units:
-// feet and mph for Standard, meters and kph for Metric
+// feet and mph for Standard, meters and km/h for Metric
 type UnitFormat = ReturnType<typeof unitFormat>;
 function unitFormat(units: Units) {
   return {
-    // " ft" or " m", " mph" or " kph", "feet" or "meters"
+    // " ft" or " m", " mph" or " km/h", "feet" or "meters"
     unit: ` ${DISTANCE_UNIT[units]}`,
     speed: ` ${SPEED_UNIT[units]}`,
     distanceName: DISTANCE_NAME[units],
@@ -1020,7 +1020,7 @@ export function brakeChangeRule(units: Units = DEFAULT_UNITS): string {
     `driver already does well: say how much later or earlier than a reference (e.g. "release the brake ${smaller} ` +
     `${unit} later than your fastest lap"), never a distance from the start/finish line or a share of the lap.` +
     (units === 'metric'
-      ? ''
+      ? ' Write every speed in km/h, never "kph".'
       : ' Round every brakepoint change to the nearest 5 feet, so it ends in 5 or 0 (22 feet earlier is "20 feet ' +
         'earlier", 48 feet later is "50 feet later"), and give driving line moves in whole feet with no decimals ' +
         '(not "2.1 ft to the left" but "2 ft to the left").')
@@ -1178,14 +1178,16 @@ export async function runDebriefCoach(
   }
 
   const toolNames = new Set<string>(tools.map((t) => t.name));
+  const debrief: Debrief = {
+    ...response,
+    fixes,
+    keepDoing,
+    headline: `${fixes[0].area}: ${fixes[0].fix}`,
+    optimalLap: optimalLap ? removeTrackPositions(response.optimalLap) : '',
+  };
   return {
-    debrief: {
-      ...response,
-      fixes,
-      keepDoing,
-      headline: `${fixes[0].area}: ${fixes[0].fix}`,
-      optimalLap: optimalLap ? removeTrackPositions(response.optimalLap) : '',
-    },
+    // every text in it with km/h, never kph
+    debrief: JSON.parse(withKmh(JSON.stringify(debrief))) as Debrief,
     steps: toolSteps(result.messages).filter((step) => toolNames.has(step.slice(0, step.indexOf('(')))),
     optimalLap,
   };

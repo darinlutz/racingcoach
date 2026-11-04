@@ -308,6 +308,8 @@ export async function readCollectorLapsByClientId(
     lapTimeSeconds: number;
     incidents: number;
     offTrack: boolean;
+    // When the lap was completed (ISO), for telling one stint from the next
+    completedAt: string;
     csv: string;
   }[]
 > {
@@ -321,9 +323,10 @@ export async function readCollectorLapsByClientId(
     lap_time_seconds: number;
     incidents: number;
     off_track: boolean;
+    completed_at: Date;
     csv_gzip: Buffer;
   }>(
-    `SELECT client_lap_id, track, track_key, car, lap_number, lap_time_seconds, incidents, off_track, csv_gzip FROM racingcoach."CollectorLaps"
+    `SELECT client_lap_id, track, track_key, car, lap_number, lap_time_seconds, incidents, off_track, completed_at, csv_gzip FROM racingcoach."CollectorLaps"
      WHERE user_id = $1 AND client_lap_id = ANY($2::uuid[]) AND expires_at > now()`,
     [userId, clientLapIds]
   );
@@ -340,6 +343,7 @@ export async function readCollectorLapsByClientId(
         lapTimeSeconds: Number(row.lap_time_seconds),
         incidents: row.incidents,
         offTrack: row.off_track,
+        completedAt: row.completed_at.toISOString(),
         csv: gunzipSync(row.csv_gzip).toString('utf8'),
       },
     ];

@@ -376,7 +376,7 @@ export const en = {
     standard: 'Standard',
     standardHint: 'feet, mph, °F',
     metric: 'Metric',
-    metricHint: 'meters, kph, °C',
+    metricHint: 'meters, km/h, °C',
     unitsFailed: 'Couldn’t save your units. Please try again.',
     // How distances are named in text, e.g. "measured in {units} from the start/finish line"
     distanceNames: { standard: 'feet', metric: 'meters' },
@@ -567,7 +567,7 @@ export const en = {
     lapTime: 'Lap time, {lapTime}',
     newBest: 'New best lap!',
     areaAverage: 'Area {n} average time was {seconds} seconds',
-    inGarage: 'You are in the garage. Head out onto the track.',
+    inGarage: "I don't have that information yet. Head out onto the track.",
   },
 
   pricing: {

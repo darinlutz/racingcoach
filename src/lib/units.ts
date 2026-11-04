@@ -1,6 +1,6 @@
 // The site's measurement units. Shared by server and client code: the user's choice is
 // racingcoach."Users".units, or the UNITS_COOKIE for visitors who aren't signed in.
-// Standard shows feet, mph and °F; Metric shows meters, kph and °C. Data keeps its own units (Track Data in feet,
+// Standard shows feet, mph and °F; Metric shows meters, km/h and °C. Data keeps its own units (Track Data in feet,
 // telemetry in meters and m/s, temperatures in °C); these convert it for display and back from what users type.
 
 export const UNITS = ['standard', 'metric'] as const;
@@ -21,7 +21,7 @@ const KPH_PER_METER_PER_SECOND = 3.6;
 
 // The symbols shown after a number
 export const DISTANCE_UNIT: Record<Units, string> = { standard: 'ft', metric: 'm' };
-export const SPEED_UNIT: Record<Units, string> = { standard: 'mph', metric: 'kph' };
+export const SPEED_UNIT: Record<Units, string> = { standard: 'mph', metric: 'km/h' };
 export const TEMPERATURE_UNIT: Record<Units, string> = { standard: '°F', metric: '°C' };
 export const PRESSURE_UNIT: Record<Units, string> = { standard: 'psi', metric: 'kPa' };
 export const RIDE_HEIGHT_UNIT: Record<Units, string> = { standard: 'in', metric: 'mm' };

@@ -129,6 +129,7 @@ export async function POST(request: Request) {
         recentCallouts: parsed.data.recentCallouts,
         language: user.language,
         units: user.units,
+        tires: measured.tires,
       })
     );
     console.log(`In-Car AI Coach: user ${user.userId}, ${measured.laps.length} laps, ${callouts.length} callouts (${steps.join(', ') || 'no tools'})`);

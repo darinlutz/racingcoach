@@ -78,13 +78,8 @@ type EngineerAnswer = {
 // The Race Engineer's answer to what the driver said; never throws, so the transcription still reaches the collector
 async function engineerAnswer(request: Request, user: User, said: string, lapIds: string[]): Promise<EngineerAnswer> {
   if (!canUseInCarCoach(user)) return { reply: null, engineer: 'membershipRequired' };
-  // Live but not in the car (in the garage): always the same answer, with no AI call
   const snapshot = readEngineerSnapshot(user.id);
-  if (snapshot && !snapshot.update.onTrack) {
-    const reply = getDictionary(user.preferredLanguage ?? DEFAULT_LANGUAGE).coachSpeech.inGarage;
-    recordDriverRadio(user.id, reply, 'engineer');
-    return { reply, engineer: 'answered' };
-  }
+  const language = user.preferredLanguage ?? DEFAULT_LANGUAGE;
   let limit: AiRateLimit | null = null;
   try {
     limit = await aiRateLimit(request, 'raceEngineer', user);
@@ -102,7 +97,9 @@ async function engineerAnswer(request: Request, user: User, said: string, lapIds
         snapshot,
         measured,
         instructions,
-        language: user.preferredLanguage ?? DEFAULT_LANGUAGE,
+        language,
+        // In the garage, when the engineer can't answer from what it knows
+        notKnownInGarage: getDictionary(language).coachSpeech.inGarage,
         units: user.units ?? DEFAULT_UNITS,
       })
     );

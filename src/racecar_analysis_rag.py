@@ -134,7 +134,7 @@ def load_cars(cars, units="standard"):
 def load_tracks(tracks, units="standard"):
     """Turn each Track Data track (racingcoach."Tracks", which the website sends as the payload's tracks) into one
     text document describing that track, in the user's Preferred Units: feet, miles and mph (standard) or meters, km
-    and kph (metric). Details a track doesn't have are left out."""
+    and km/h (metric). Details a track doesn't have are left out."""
     documents = []
     for track in tracks:
         details = []
@@ -152,7 +152,7 @@ def load_tracks(tracks, units="standard"):
                     f"{corners} corners" + (f" ({corners / length_km:.1f} corners per km)" if length_km else "")
                 )
             if speed_mph:
-                details.append(f"average speed {speed_mph * KPH_PER_MPH:.0f} kph")
+                details.append(f"average speed {speed_mph * KPH_PER_MPH:.0f} km/h")
         else:
             length_miles = length_ft / FEET_PER_MILE if length_ft else None
             if length_ft:

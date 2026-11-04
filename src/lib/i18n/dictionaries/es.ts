@@ -367,7 +367,7 @@ export const es: Dictionary = {
     standard: 'Estándar',
     standardHint: 'pies, mph, °F',
     metric: 'Métrico',
-    metricHint: 'metros, kph, °C',
+    metricHint: 'metros, km/h, °C',
     unitsFailed: 'No se pudieron guardar tus unidades. Inténtalo de nuevo.',
     distanceNames: { standard: 'pies', metric: 'metros' },
   },
@@ -547,7 +547,7 @@ export const es: Dictionary = {
     lapTime: 'Tiempo de vuelta, {lapTime}',
     newBest: '¡Nueva mejor vuelta!',
     areaAverage: 'El tiempo promedio en el área {n} fue de {seconds} segundos',
-    inGarage: 'Estás en el garaje. Sal a la pista.',
+    inGarage: 'Todavía no tengo esa información. Sal a la pista.',
   },
 
   pricing: {

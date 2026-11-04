@@ -59,8 +59,12 @@ export function trackPositionSentences(text: string): string[] {
 }
 
 // An answer without the sentences that give a place on the track; paragraphs are kept
+// AI coaches write metric speeds as km/h: the prompts say so (brakeChangeRule), and this catches the "kph" (or
+// "kmh") a model still writes. Every coach answer goes through removeTrackPositions, which applies it
+export const withKmh = (text: string) => text.replace(/\b(?:kph|kmh)\b/gi, 'km/h');
+
 export function removeTrackPositions(text: string): string {
-  return text
+  return withKmh(text)
     .split(/\n/)
     .map((paragraph) => sentences(paragraph).filter((s) => !hasTrackPosition(s)).join(' '))
     .join('\n')

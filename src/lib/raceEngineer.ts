@@ -11,6 +11,7 @@ import type { EngineerSnapshot, FieldCar, NumberedRaceEvent } from './liveRacing
 import { sessionFlag } from './raceFlags';
 import { coachInstructionsRule } from './siteSettings';
 import { formatSeconds } from './stintExport';
+import { tireWarmupFact } from './tireWarmup';
 import { TRACK_POSITION_RULE, withoutTrackPositions } from './trackPositions';
 import { DEFAULT_UNITS, formatTemperature, type Units } from './units';
 
@@ -48,6 +49,9 @@ const enginePrompt = (units: Units, hasTools: boolean) =>
   'number. Gaps in a race are time behind on the road ' +
   'from the live timing; outside a race, compare best laps. For fuel, give laps of fuel left, and whether it is ' +
   'enough to the end when the session has a limit. ' +
+  'At the start of a new stint (leaving the garage or the pits) the tires and brakes are cold: grip and braking ' +
+  'are down for the first lap or so until they come up to temperature, so a slow out lap is normal, and you warn ' +
+  'the driver to take it easy on them when it is relevant. ' +
   (hasTools
     ? 'For questions about where they lose time or what to change, use the Debrief Coach tools: start with ' +
       'get_session_overview, then get_area_detail for the focus area that loses the most, and give one change. ' +
@@ -159,7 +163,12 @@ export function engineerFacts(snapshot: EngineerSnapshot | null, units: Units): 
   const u = snapshot.update;
   const isRace = u.sessionType?.toLowerCase() === 'race';
   const facts = [`${u.track}, ${u.car}. Session: ${[u.sessionType, u.sessionName].filter(Boolean).join(', ') || 'unknown'}.`];
-  facts.push(u.onTrack ? (u.onPitRoad ? 'The driver is on pit road.' : 'The driver is on track.') : 'The driver is not in the car.');
+  facts.push(u.onTrack ? (u.onPitRoad ? 'The driver is on pit road.' : 'The driver is on track.') : 'The driver is in the garage, not in the car.');
+  if (!u.onTrack) {
+    facts.push('Their next stint starts on cold tires and cold brakes.');
+  } else if (!u.onPitRoad && snapshot.events.some(({ event }) => event.type === 'pitExit')) {
+    facts.push('They just left pit road on a new stint: the tires and brakes are still cold.');
+  }
   const flag = sessionFlag(u.sessionFlags, u.sessionState);
   if (flag) {
     facts.push(
@@ -240,6 +249,8 @@ export async function raceEngineerReply(input: {
   instructions: string;
   language?: Language;
   units?: Units;
+  // What to say in the garage when the question can't be answered from what the engineer knows
+  notKnownInGarage?: string;
 }): Promise<{ reply: string | null; steps: string[] }> {
   if (!process.env.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY is not configured');
   const units = input.units ?? DEFAULT_UNITS;
@@ -251,6 +262,11 @@ export async function raceEngineerReply(input: {
     tools,
     systemPrompt:
       enginePrompt(units, hasAreas) +
+      (input.snapshot && !input.snapshot.update.onTrack
+        ? ' The driver is in the garage, not in the car. Still answer their question as well as you can from the ' +
+          'facts, the laps uploaded this session and what any race engineer knows. Only when you really do not have ' +
+          `the information they asked for, reply exactly: "${input.notKnownInGarage ?? "I don't have that information yet. Head out onto the track."}"`
+        : '') +
       (await coachInstructionsRule()) +
       headCoachInCarRule(await readHeadCoachInCarInstructions()) +
       driverInstructionsRule(input.instructions) +
@@ -274,6 +290,7 @@ export async function raceEngineerReply(input: {
               .join(', ')}.`
           : ' This track has no focus areas in Track Data, so no corner is measured.')
       : 'No laps uploaded this session yet, so there is no focus area analysis.',
+    ...(measured?.tires?.cold && input.snapshot?.update.onTrack ? [tireWarmupFact(measured.tires, units)] : []),
     radio.length
       ? `Said on the radio in the last few minutes, oldest first:\n${radio.map((r) => `${r.from === 'driver' ? 'Driver' : 'You'}: "${r.text}"`).join('\n')}`
       : '',

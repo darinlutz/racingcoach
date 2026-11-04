@@ -5,6 +5,7 @@ import { measureDebriefSession } from './debriefSession';
 import type { InCarLap } from './inCarCoach';
 import { lapSamplesFromText } from './lapData';
 import { readTargetLap } from './targetLap';
+import { lapSurfaceTemp, tireWarmup, type TireWarmup } from './tireWarmup';
 import { targetLapIsOf, withTargetLap } from './targetLapTargets';
 import { findTrackByKey, readTracks, toLapTrack } from './tracks';
 
@@ -19,6 +20,8 @@ export type CollectorSession = {
   session: DebriefSession | null;
   // The car's rev limit from the user's Car Data, for get_shifting_points
   carRpmLimit: number | null;
+  // Whether the newest lap's tires are still cold (src/lib/tireWarmup.ts)
+  tires: TireWarmup | null;
 };
 
 export async function measureCollectorSession(userId: number, clientLapIds: string[]): Promise<CollectorSession | null> {
@@ -32,13 +35,22 @@ export async function measureCollectorSession(userId: number, clientLapIds: stri
   const laps = sameTrack.map((lap, i) => ({ ...lap, id: `Lap ${unique ? lap.lapNumber : i + 1}` }));
   const userTrack = findTrackByKey(await readTracks(), all[all.length - 1].trackKey);
   const targetLap = userTrack ? await readTargetLap(userId) : null;
+  const samples = laps.map((lap) => lapSamplesFromText(lap.csv));
   const session = userTrack
     ? measureDebriefSession(
         withTargetLap(toLapTrack(userTrack), targetLap && targetLapIsOf(targetLap, [trackName, userTrack.name], true) ? targetLap : null),
         laps[0].car,
-        laps.map((lap) => ({ id: lap.id, lapSeconds: lap.lapTimeSeconds, samples: lapSamplesFromText(lap.csv) }))
+        laps.map((lap, i) => ({ id: lap.id, lapSeconds: lap.lapTimeSeconds, samples: samples[i] }))
       )
     : null;
+  const tires = tireWarmup(
+    laps.map((lap, i) => ({
+      lapNumber: lap.lapNumber,
+      lapSeconds: lap.lapTimeSeconds,
+      completedAt: lap.completedAt,
+      surfaceC: samples[i] ? lapSurfaceTemp(samples[i]!.tireTemps, samples[i]!.tireLayers) : null,
+    }))
+  );
   return {
     track: trackName,
     car: laps[0].car,
@@ -51,5 +63,6 @@ export async function measureCollectorSession(userId: number, clientLapIds: stri
     })),
     session,
     carRpmLimit: await carRpmLimit(laps[0].car).catch(() => null),
+    tires,
   };
 }

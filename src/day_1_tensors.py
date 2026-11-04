@@ -104,3 +104,15 @@ loss.backward() # backward pass
 optim = torch.optim.SGD(model.parameters(), lr=1e-2, momentum=0.9)
 
 optim.step() #gradient descent
+
+
+# Starting work on Tuesday with autograd lilNicca
+w = torch.tensor(2.0, requires_grad=True)
+b = torch.tensor(0.5, requires_grad=True)
+x, y_true = torch.tensor(3.0), torch.tensor(10.0)
+
+y = w * x + b                  # 6.5
+loss = (y - y_true) ** 2       # 12.25
+loss.backward()
+print(w.grad, b.grad)          # expect -21, -7
+print(loss.grad_fn, loss.grad_fn.next_functions)  # walk the graph

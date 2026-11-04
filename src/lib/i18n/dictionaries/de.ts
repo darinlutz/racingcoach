@@ -1443,6 +1443,7 @@ export const de: Dictionary = {
     noPositions:
       'Keine der beiden Runden hat Streckenpositionen, daher kann keine Fahrlinie angezeigt werden. Runden aus Garage 61 haben sie, und Runden aus dem RacingCoach-Collector erhalten sie, sobald die iRacing-Telemetriedatei der Session verarbeitet wurde.',
     noImagery: 'Satellitenbilder sind nicht eingerichtet, daher werden nur die Linien angezeigt. ',
+    roadBand: 'Hier gibt es keine Satellitenbilder, daher zeigt das graue Band eine ungefähr {width} breite Fahrbahn um die Linien, nicht die echten Streckenränder. ',
     lapNoPositions: 'Die Runde ({laps}) hat hier keine Streckenpositionen. ',
     mapHelp: 'Scrollen, Pinch oder Doppelklick zum Zoomen, Ziehen zum Verschieben. Pfeile zeigen die Fahrtrichtung.',
     zoomIn: 'Vergrößern',

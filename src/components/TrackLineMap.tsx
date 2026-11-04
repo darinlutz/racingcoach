@@ -6,11 +6,15 @@ import { useLanguage } from '@/components/LanguageProvider';
 import type { PedalTraceLap } from '@/components/PedalTraces';
 import { useUnits } from '@/components/UnitsProvider';
 import { BASE_LAP_COLOR as BASE_COLOR, clamp, COMPARE_LAP_COLOR as COMPARE_COLOR, nearestIndex } from '@/lib/lapCharts';
-import { METERS_PER_PIXEL_Z0, project, SHARPEN_KERNEL, useMapSettings, viewTiles } from '@/lib/satelliteImagery';
+import { METERS_PER_PIXEL_Z0, project, SHARPEN_KERNEL, useImageryZoom, useMapSettings, viewTiles } from '@/lib/satelliteImagery';
 import { DISTANCE_UNIT, distanceFromMeters, type Units } from '@/lib/units';
 
 // Under each line, so it also holds up on light concrete and run-off
 const CASING_COLOR = 'rgba(0, 0, 0, 0.55)';
+// The approximate road drawn where there's no imagery: a typical road course width, like the 3D view's road
+const ROAD_WIDTH_M = 13;
+const ROAD_COLOR = '#3f4651';
+const ROAD_EDGE_COLOR = '#cbd5e1';
 
 const DEFAULT_HEIGHT = 360;
 const PADDING = 28; // px between the lines and the map's edge
@@ -153,6 +157,9 @@ export default function TrackLineMap({
     live.current = lines.length > 0 ? { view, frame } : null;
   });
 
+  // The deepest imagery there is here (Esri's stops at zoom 18 around Fuji, for example), lowered when a tile fails
+  const { maxZoom, tileFailed } = useImageryZoom(view.centerX, view.centerY);
+
   // The wheel zooms the map instead of scrolling the page, which needs a non-passive listener
   const hasLines = lines.length > 0;
   useEffect(() => {
@@ -190,11 +197,22 @@ export default function TrackLineMap({
 
   // Tiles one zoom level sharper than the view, drawn at 50-100% size (larger past MAX_TILE_ZOOM),
   // covering the whole view
-  const { zoom: tileZoom, size: tileScreen, tiles: coveringTiles } = viewTiles(centerX, centerY, scale, width, height);
-  const tiles = settings?.available ? coveringTiles : [];
+  const { zoom: tileZoom, size: tileScreen, tiles: coveringTiles } = viewTiles(
+    centerX,
+    centerY,
+    scale,
+    width,
+    height,
+    maxZoom ?? undefined
+  );
+  const tiles = settings?.available && maxZoom !== null ? coveringTiles : [];
+  // No imagery (not set up, or none here): an approximate road around the lines shows where the track goes
+  const noImagery = settings !== null && tiles.length === 0;
 
   const latitude = lines[0].positions[0][0];
-  const bar = scaleBar((METERS_PER_PIXEL_Z0 * Math.cos((latitude * Math.PI) / 180)) / scale, units);
+  const metersPerPixel = (METERS_PER_PIXEL_Z0 * Math.cos((latitude * Math.PI) / 180)) / scale;
+  const bar = scaleBar(metersPerPixel, units);
+  const roadPixels = ROAD_WIDTH_M / metersPerPixel;
 
   const pointerAt = (event: MouseEvent<SVGSVGElement>) => {
     const box = event.currentTarget.getBoundingClientRect();
@@ -296,7 +314,10 @@ export default function TrackLineMap({
               src={`/api/map-tiles/${tileZoom}/${tile.x}/${tile.y}`}
               alt=""
               draggable={false}
-              onError={(event) => (event.currentTarget.style.visibility = 'hidden')}
+              onError={(event) => {
+                event.currentTarget.style.visibility = 'hidden';
+                tileFailed(tileZoom);
+              }}
               className="absolute max-w-none select-none pointer-events-none"
               style={{ left: tile.left, top: tile.top, width: tileScreen + 0.5, height: tileScreen + 0.5 }}
             />
@@ -337,6 +358,18 @@ export default function TrackLineMap({
               </marker>
             ))}
           </defs>
+          {/* Without imagery, an approximate road: ROAD_WIDTH_M around each line, the two merged into one surface
+              with light edges. Not the real track edges, which nothing records */}
+          {noImagery && (
+            <g fill="none" strokeLinejoin="round" strokeLinecap="round">
+              {screenLines.map((points, i) => (
+                <path key={`edge-${lines[i].key}`} d={pathOf(points)} stroke={ROAD_EDGE_COLOR} strokeWidth={roadPixels + 4} />
+              ))}
+              {screenLines.map((points, i) => (
+                <path key={`road-${lines[i].key}`} d={pathOf(points)} stroke={ROAD_COLOR} strokeWidth={roadPixels} />
+              ))}
+            </g>
+          )}
           <g fill="none" strokeLinejoin="round" strokeLinecap="round">
             {screenLines.map((points, i) => (
               <path key={`casing-${lines[i].key}`} d={pathOf(points)} stroke={CASING_COLOR} strokeWidth={5} />
@@ -423,6 +456,10 @@ export default function TrackLineMap({
 
       <figcaption className="text-xs text-muted-foreground">
         {settings && !settings.available && t.noImagery}
+        {noImagery &&
+          fmt(t.roadBand, {
+            width: `${Math.round(distanceFromMeters(ROAD_WIDTH_M, units)).toLocaleString(locale)} ${DISTANCE_UNIT[units]}`,
+          })}
         {missing.length > 0 && fmt(t.lapNoPositions, { laps: missing.join(t.and) })}
         {t.mapHelp}
       </figcaption>

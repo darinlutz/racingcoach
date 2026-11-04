@@ -1448,6 +1448,7 @@ export const en = {
     noPositions:
       'Neither lap has track positions, so there’s no driving line to show. Garage 61 laps have them, and laps from the RacingCoach collector get them once iRacing’s telemetry file for the session is processed.',
     noImagery: 'Satellite imagery isn’t set up, so only the lines are shown. ',
+    roadBand: 'There’s no satellite imagery here, so the gray band shows an approximate {width} wide road around the lines, not the real track edges. ',
     lapNoPositions: 'The {laps} lap has no track positions here. ',
     mapHelp: 'Scroll, pinch or double-click to zoom, drag to move. Arrows show the direction of travel.',
     zoomIn: 'Zoom in',

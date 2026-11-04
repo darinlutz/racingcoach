@@ -1422,6 +1422,7 @@ export const pt: Dictionary = {
     noPositions:
       'Nenhuma das voltas tem posições na pista, então não há traçado para mostrar. As voltas do Garage 61 têm posições, e as voltas do coletor do RacingCoach passam a ter quando o arquivo de telemetria da sessão do iRacing é processado.',
     noImagery: 'As imagens de satélite não estão configuradas, então só os traçados são mostrados. ',
+    roadBand: 'Não há imagens de satélite aqui, então a faixa cinza mostra uma pista aproximada de {width} de largura em volta dos traçados, não os limites reais da pista. ',
     lapNoPositions: 'A volta {laps} não tem posições na pista aqui. ',
     mapHelp: 'Role, faça pinça ou clique duas vezes para dar zoom; arraste para mover. As setas mostram o sentido do percurso.',
     zoomIn: 'Aproximar',

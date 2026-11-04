@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 
 // Browser side of the satellite imagery (tiles from /api/map-tiles, src/lib/mapTiles.ts), shared by Lap
 // Compare's driving line maps (TrackLineMap) and Track Data's track pictures (TrackSatellite).
@@ -25,9 +25,17 @@ export function project([lat, lon]: [number, number]): [number, number] {
 }
 
 // The tiles covering a width x height view centered on (centerX, centerY) in zoom-0 pixels at scale screen
-// pixels per zoom-0 pixel, and where each goes on screen
-export function viewTiles(centerX: number, centerY: number, scale: number, width: number, height: number) {
-  const zoom = Math.max(0, Math.min(MAX_TILE_ZOOM, Math.ceil(Math.log2(scale))));
+// pixels per zoom-0 pixel, and where each goes on screen. maxZoom is the deepest zoom with imagery there
+// (useImageryZoom); past it the tiles are drawn larger
+export function viewTiles(
+  centerX: number,
+  centerY: number,
+  scale: number,
+  width: number,
+  height: number,
+  maxZoom: number = MAX_TILE_ZOOM
+) {
+  const zoom = Math.max(0, Math.min(maxZoom, MAX_TILE_ZOOM, Math.ceil(Math.log2(scale))));
   const tileWorld = TILE_SIZE / 2 ** zoom; // one tile's size in zoom-0 pixels
   const size = tileWorld * scale;
   const [left, top] = [centerX - width / 2 / scale, centerY - height / 2 / scale];
@@ -41,7 +49,41 @@ export function viewTiles(centerX: number, centerY: number, scale: number, width
   return { zoom, size, tiles };
 }
 
-export type MapSettings = { available: boolean; attribution: string | null };
+// The provider's imagery doesn't go as deep everywhere: Esri's stops at zoom 18 around Fuji Speedway, for
+// example, where zoom 19 tiles answer 404. So when a tile fails, the maps drop that region (the zoom-8 tile
+// it's in) a zoom level and try again, enlarging the deepest tiles there are, down to MIN_FALLBACK_ZOOM;
+// below that the region has no imagery (null). Kept for the page, shared by every map on it.
+const MIN_FALLBACK_ZOOM = 12;
+const regionZoom = new Map<string, number | null>();
+const zoomListeners = new Set<() => void>();
+let zoomVersion = 0;
+
+// The zoom-8 tile holding a zoom-0 pixel position: at zoom 8 the world is 256 tiles across, one per zoom-0 pixel
+const regionOf = (centerX: number, centerY: number) => `${Math.floor(centerX)}/${Math.floor(centerY)}`;
+
+function subscribeZoom(listener: () => void) {
+  zoomListeners.add(listener);
+  return () => void zoomListeners.delete(listener);
+}
+
+// The deepest zoom with imagery around (centerX, centerY) in zoom-0 pixels (null: none there), and what a
+// tile's onError calls with the zoom it was fetched at
+export function useImageryZoom(centerX: number, centerY: number) {
+  useSyncExternalStore(subscribeZoom, () => zoomVersion, () => 0);
+  const region = regionOf(centerX, centerY);
+  const maxZoom = regionZoom.has(region) ? regionZoom.get(region)! : MAX_TILE_ZOOM;
+  const tileFailed = (zoom: number) => {
+    const current = regionZoom.has(region) ? regionZoom.get(region)! : MAX_TILE_ZOOM;
+    // Only the first failure at a zoom lowers it; the view's other tiles at that zoom fail too
+    if (current === null || zoom > current) return;
+    regionZoom.set(region, zoom - 1 < MIN_FALLBACK_ZOOM ? null : zoom - 1);
+    zoomVersion++;
+    zoomListeners.forEach((listener) => listener());
+  };
+  return { maxZoom, tileFailed };
+}
+
+export type MapSettings ={ available: boolean; attribution: string | null };
 
 const NO_SETTINGS: MapSettings = { available: false, attribution: null };
 

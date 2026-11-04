@@ -1174,6 +1174,10 @@ export const en = {
     compareLapSlower: 'Compare lap {seconds} s slower',
     compareLapFaster: 'Compare lap {seconds} s faster',
     mostTimeLost: 'most time lost',
+    diffNote: {
+      title: 'How to read the numbers',
+      text: 'Every number is from the standpoint of the Compare lap: how it compares to the Target lap (Compare minus Target). A + time means the Compare lap was slower, a + brakepoint that it braked later, and a + speed that it was faster.',
+    },
     brakeKey: {
       title: 'Brake colors',
       light: 'Braking too early or too light relative to the target',

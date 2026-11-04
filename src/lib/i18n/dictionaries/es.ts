@@ -1149,6 +1149,10 @@ export const es: Dictionary = {
     compareLapSlower: 'Vuelta comparada {seconds} s más lenta',
     compareLapFaster: 'Vuelta comparada {seconds} s más rápida',
     mostTimeLost: 'mayor pérdida de tiempo',
+    diffNote: {
+      title: 'Cómo leer los números',
+      text: 'Cada número es desde el punto de vista de la vuelta comparada: cómo se compara con la vuelta objetivo (comparada menos objetivo). Un tiempo + significa que la vuelta comparada fue más lenta, un punto de frenada + que frenó más tarde y una velocidad + que fue más rápida.',
+    },
     brakeKey: {
       title: 'Colores de frenada',
       light: 'Frenas demasiado pronto o demasiado suave respecto al objetivo',

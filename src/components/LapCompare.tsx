@@ -803,6 +803,11 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
           </label>
         </div>
 
+        {/* Every Diff in the grid is the Compare lap minus the Target lap */}
+        <p className="text-xs text-muted-foreground">
+          <span className="font-semibold">{t.diffNote.title}:</span> {t.diffNote.text}
+        </p>
+
         {/* What the Brakepoint and Max Brake diff colors in the grid mean (brakeDiffText) */}
         <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs">
           <span className="font-semibold text-muted-foreground">{t.brakeKey.title}:</span>

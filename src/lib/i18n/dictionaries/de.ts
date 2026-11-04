@@ -1169,6 +1169,10 @@ export const de: Dictionary = {
     compareLapSlower: 'Vergleichsrunde {seconds} s langsamer',
     compareLapFaster: 'Vergleichsrunde {seconds} s schneller',
     mostTimeLost: 'größter Zeitverlust',
+    diffNote: {
+      title: 'So liest du die Zahlen',
+      text: 'Jede Zahl ist aus Sicht der Vergleichsrunde: wie sie im Vergleich zur Zielrunde abschneidet (Vergleich minus Ziel). Eine + Zeit bedeutet, dass die Vergleichsrunde langsamer war, ein + Bremspunkt, dass sie später gebremst hat, und eine + Geschwindigkeit, dass sie schneller war.',
+    },
     brakeKey: {
       title: 'Bremsfarben',
       light: 'Bremst im Vergleich zum Ziel zu früh oder zu schwach',

@@ -1149,6 +1149,10 @@ export const pt: Dictionary = {
     compareLapSlower: 'Volta comparada {seconds} s mais lenta',
     compareLapFaster: 'Volta comparada {seconds} s mais rápida',
     mostTimeLost: 'maior perda de tempo',
+    diffNote: {
+      title: 'Como ler os números',
+      text: 'Cada número é do ponto de vista da volta comparada: como ela se compara à volta alvo (comparada menos alvo). Um tempo + significa que a volta comparada foi mais lenta, um ponto de frenagem + que freou mais tarde e uma velocidade + que foi mais rápida.',
+    },
     brakeKey: {
       title: 'Cores da frenagem',
       light: 'Freando cedo demais ou leve demais em relação ao alvo',

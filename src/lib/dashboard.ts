@@ -45,7 +45,8 @@ const LAP_KEY_SQL = `CASE WHEN l.iracing_subsession_id > 0
     THEN concat_ws('|', l.iracing_subsession_id, l.session_num, l.lap_number)
     ELSE concat_ws('|', 'offline', lower(l.track), lower(l.car), l.session_num, l.lap_number, l.lap_time_seconds) END`;
 
-// As on the My Sessions page (RecordedLaps.tsx), laps in one offline session this far apart are separate sessions
+// As on the My Sessions page (RecordedLaps.tsx), laps in one offline session this far apart are separate sessions,
+// and so are laps whose lap number goes back (a new session counts laps from the start again)
 const OFFLINE_SESSION_GAP = `interval '30 minutes'`;
 
 // The track without its layout: the same rule as splitTrackName in dashboardRules.ts
@@ -66,9 +67,10 @@ export async function readCareerStats(userId: number): Promise<CareerStats> {
     last_active: Date | null;
   }>(
     `WITH laps AS (
-       SELECT DISTINCT ON (lap_key) lap_key, track, track_key, car, subsession_id, session_num, completed_at
+       SELECT DISTINCT ON (lap_key) lap_key, track, track_key, car, subsession_id, session_num, lap_number, completed_at
        FROM (
-         SELECT ${LAP_KEY_SQL} AS lap_key, l.track, l.track_key, l.car, l.iracing_subsession_id AS subsession_id, l.session_num, l.completed_at, l.id
+         SELECT ${LAP_KEY_SQL} AS lap_key, l.track, l.track_key, l.car, l.iracing_subsession_id AS subsession_id, l.session_num,
+                l.lap_number, l.completed_at, l.id
          FROM racingcoach."CollectorLaps" l
          WHERE l.user_id = $1 AND l.expires_at > now()
        ) keyed
@@ -76,14 +78,15 @@ export async function readCareerStats(userId: number): Promise<CareerStats> {
      ), detailed AS (
        SELECT l.car, l.subsession_id, l.session_num, l.completed_at, t.track_length_feet,
               COALESCE(t.track_name, l.track) AS track_name,
-              l.completed_at - lag(l.completed_at) OVER (
-                PARTITION BY lower(l.track), lower(l.car), l.subsession_id, l.session_num ORDER BY l.completed_at
-              ) AS since_previous
+              l.completed_at - lag(l.completed_at) OVER same_session AS since_previous,
+              l.lap_number - lag(l.lap_number) OVER same_session AS laps_since_previous
        FROM laps l LEFT JOIN racingcoach."Tracks" t ON lower(t.track_key) = lower(l.track_key)
+       WINDOW same_session AS (PARTITION BY lower(l.track), lower(l.car), l.subsession_id, l.session_num ORDER BY l.completed_at)
      )
      SELECT count(*)::int AS laps,
             (count(DISTINCT subsession_id::text || '|' || session_num::text) FILTER (WHERE subsession_id > 0)
-             + count(*) FILTER (WHERE subsession_id = 0 AND (since_previous IS NULL OR since_previous >= ${OFFLINE_SESSION_GAP})))::int AS sessions,
+             + count(*) FILTER (WHERE subsession_id = 0 AND (since_previous IS NULL OR since_previous >= ${OFFLINE_SESSION_GAP}
+                                                         OR laps_since_previous <= 0)))::int AS sessions,
             (count(*) FILTER (WHERE completed_at > now() - interval '7 days'))::int AS laps_this_week,
             sum(track_length_feet)::float8 AS distance_feet,
             (count(*) FILTER (WHERE track_length_feet IS NULL))::int AS laps_without_length,

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 import BrakeTrace from '@/components/BrakeTrace';
 import ChartToolbar from '@/components/ChartToolbar';
@@ -51,7 +52,8 @@ function useWidth() {
 // with the crosshair's position marked on each, under it both laps' steering wheels at the crosshair and the steering
 // statistics (SteeringAnalysisDashboard), then the values at the crosshair and what the laps measure differently.
 // On the right, top to bottom: the corner's phases, the time the Compare lap gains or loses (TimeDeltaTrace), throttle
-// and brake, steering angle (SteeringAngleChart), speed and how far left or right of the Target lap's line the Compare lap was, then playback.
+// and brake, steering angle (SteeringAngleChart), speed and how far left or right of the Target lap's line the Compare lap was, then playback
+// (unless playbackSlot is given: Lap Compare pins it under the focus areas, rendered there through a portal so it keeps the crosshair).
 // The columns stack when the container is narrower than SIDE_BY_SIDE_MIN_WIDTH.
 // Last, the Balance, Tire Temp, Tire Pressure, Ride Heights, Gear and Engine tabs (LapDataTabs).
 function TelemetryDashboard({
@@ -60,12 +62,14 @@ function TelemetryDashboard({
   width,
   dataTab,
   onDataTabChange,
+  playbackSlot,
 }: {
   id: string;
   areaName: string;
   width: number;
   dataTab: LapDataTab;
   onDataTabChange: (tab: LapDataTab) => void;
+  playbackSlot: HTMLElement | null;
 }) {
   const { t } = useLanguage();
   const { base, compare, axis, fullAxis, cursorPct, hoverFromChart, hoverFromMap } = useTelemetry();
@@ -75,6 +79,7 @@ function TelemetryDashboard({
 
   return (
     <>
+      {playbackSlot && createPortal(<PlaybackControls />, playbackSlot)}
       <LapComparisonHeader areaName={areaName} />
       <ChartToolbar />
       <div className={sideBySide ? 'flex items-start gap-4' : 'space-y-4'}>
@@ -93,7 +98,7 @@ function TelemetryDashboard({
           <SteeringAngleChart id={`${id}-steering`} width={half} />
           <SpeedTrace id={`${id}-speed`} width={half} />
           <DrivingLineDiffTrace id={`${id}-line`} width={half} />
-          <PlaybackControls />
+          {!playbackSlot && <PlaybackControls />}
         </div>
       </div>
       <LapDataTabs id={`${id}-data`} base={base} compare={compare} axis={axis} fullAxis={fullAxis} width={width} hoverPct={cursorPct} onHover={hoverFromChart} tab={dataTab} onTabChange={onDataTabChange} />
@@ -113,6 +118,7 @@ export default function PedalTraces({
   onDataTabChange,
   chartSettings,
   onChartSettingsChange,
+  playbackSlot = null,
 }: {
   id: string;
   areaName: string;
@@ -124,6 +130,8 @@ export default function PedalTraces({
   onDataTabChange: (tab: LapDataTab) => void;
   chartSettings: ChartSettings;
   onChartSettingsChange: (settings: ChartSettings) => void;
+  // Where to put the playback controls instead of under the charts
+  playbackSlot?: HTMLElement | null;
 }) {
   const [containerRef, width] = useWidth();
 
@@ -131,7 +139,7 @@ export default function PedalTraces({
     <div ref={containerRef} className="space-y-4">
       {width > 0 && (
         <TelemetryCursor base={base} compare={compare} lengthFeet={lengthFeet} settings={chartSettings} onSettingsChange={onChartSettingsChange}>
-          <TelemetryDashboard id={id} areaName={areaName} width={width} dataTab={dataTab} onDataTabChange={onDataTabChange} />
+          <TelemetryDashboard id={id} areaName={areaName} width={width} dataTab={dataTab} onDataTabChange={onDataTabChange} playbackSlot={playbackSlot} />
         </TelemetryCursor>
       )}
     </div>

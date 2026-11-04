@@ -23,7 +23,14 @@ const SESSION_GAP_MS = 30 * 60 * 1000;
 // key is unique per session (for React); sameAs is what laps of one session share
 type Session = { key: string; sameAs: string; laps: CollectorLapSummary[] };
 
-// Laps recorded by the RacingCoach collector, grouped into sessions, newest first. Within a session the
+// A new iRacing session counts its laps from the start again, so a lap numbered lower than the one before it (or the
+// same, unless it's that very lap uploaded twice, e.g. a played-back .ibt under --upload) starts a new session. Offline
+// sessions have no iRacing IDs, so back-to-back ones are told apart only this way
+const restartsLaps = (lap: CollectorLapSummary, previous: CollectorLapSummary) =>
+  lap.lapNumber < previous.lapNumber ||
+  (lap.lapNumber === previous.lapNumber && lap.lapTimeSeconds !== previous.lapTimeSeconds);
+
+// Laps recorded by the RacingCoach collector, grouped into sessions (stints), newest first. Within a session the
 // laps are in the order they were driven.
 function groupSessions(laps: CollectorLapSummary[]): Session[] {
   const sessions: Session[] = [];
@@ -38,6 +45,7 @@ function groupSessions(laps: CollectorLapSummary[]): Session[] {
       current &&
       previous &&
       current.sameAs === sameAs &&
+      !restartsLaps(lap, previous) &&
       Date.parse(lap.recordedAt) - Date.parse(previous.recordedAt) < SESSION_GAP_MS
     ) {
       current.laps.push(lap);

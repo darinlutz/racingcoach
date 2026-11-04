@@ -497,6 +497,39 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
   const [dataTab, setDataTab] = useState<LapDataTab>('slip');
   // The telemetry charts' toolbar, also kept when another focus area is picked
   const [chartSettings, setChartSettings] = useState<ChartSettings>(DEFAULT_CHART_SETTINGS);
+  // Where the pinned playback controls go, under the focus areas, and the box the area's telemetry scrolls in
+  const [playbackSlot, setPlaybackSlot] = useState<HTMLDivElement | null>(null);
+  const areaBodyRef = useRef<HTMLDivElement>(null);
+  // How far down the telemetry was scrolled when another area was picked, put back once the new area's charts are as tall
+  const keptScroll = useRef<number | null>(null);
+
+  const selectArea = (name: string) => {
+    keptScroll.current = areaBodyRef.current?.scrollTop || null;
+    setSelectedArea(name);
+  };
+
+  // The new area's charts draw over a few frames, so the scroll position is put back as soon as there's room for it
+  // (given up after 2 s, e.g. a shorter area)
+  const hasTraces = traces.length > 0;
+  useEffect(() => {
+    const body = areaBodyRef.current;
+    if (!body) return;
+    const restore = () => {
+      const top = keptScroll.current;
+      if (top === null || body.scrollHeight - body.clientHeight < top) return;
+      body.scrollTop = top;
+      keptScroll.current = null;
+    };
+    // The panel's title and chart wrapper stay mounted from area to area; only what's inside the wrapper changes
+    const observer = new ResizeObserver(restore);
+    for (const child of Array.from(body.children)) observer.observe(child);
+    return () => observer.disconnect();
+  }, [hasTraces]);
+  useEffect(() => {
+    if (keptScroll.current === null) return;
+    const timer = setTimeout(() => (keptScroll.current = null), 2000);
+    return () => clearTimeout(timer);
+  }, [selectedArea]);
 
   // Starts on the initial laps' track when there are any, otherwise the first track
   const initialTrack = initialLaps?.base.trackName;
@@ -751,13 +784,26 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
           <div className="space-y-2">
             <h3 className="text-sm font-medium text-foreground">{t.pedalTraces}</h3>
             <p className="text-xs text-muted-foreground">{t.pedalTracesIntro}</p>
-            <FocusAreaTabs
-              areas={traces.map(({ name, diff }) => ({ name, diff }))}
-              selected={selectedTrace.name}
-              onSelect={setSelectedArea}
-              panelId="lap-compare-area"
-            />
-            <div id="lap-compare-area" role="tabpanel" aria-label={selectedTrace.name} className="bg-card border border-border rounded-lg">
+            {/* On large screens the focus areas and playback stay pinned at the top of a box as tall as the window,
+                and the area's telemetry scrolls under them */}
+            <div className="flex flex-col gap-2 lg:h-[calc(100dvh-2rem)]">
+            <div className="shrink-0 space-y-2">
+              <FocusAreaTabs
+                areas={traces.map(({ name, diff }) => ({ name, diff }))}
+                selected={selectedTrace.name}
+                onSelect={selectArea}
+                panelId="lap-compare-area"
+              />
+              {/* PedalTraces puts the playback controls here (they share its crosshair) */}
+              <div ref={setPlaybackSlot} />
+            </div>
+            <div
+              ref={areaBodyRef}
+              id="lap-compare-area"
+              role="tabpanel"
+              aria-label={selectedTrace.name}
+              className="bg-card border border-border rounded-lg lg:flex-1 lg:min-h-0 lg:overflow-y-auto"
+            >
               <p className="px-4 pt-3 text-sm">
                 <span className="font-semibold text-foreground">{selectedTrace.name}</span>
                 <span className="text-muted-foreground">
@@ -784,8 +830,10 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
                   onDataTabChange={setDataTab}
                   chartSettings={chartSettings}
                   onChartSettingsChange={setChartSettings}
+                  playbackSlot={playbackSlot}
                 />
               </div>
+            </div>
             </div>
           </div>
         )}

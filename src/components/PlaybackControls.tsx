@@ -11,7 +11,7 @@ const STEP_SHARE = 1 / 100; // Of what's in view, per press of a step button
 const SLIDER_STEPS = 1000;
 const BUTTON = 'flex h-7 w-7 items-center justify-center rounded border border-border text-foreground hover:bg-secondary';
 
-// Under the telemetry charts: step and play the crosshair through what's in view at the Target lap's real pace (this
+// Pinned under Lap Compare's focus areas (or under the telemetry charts): step and play the crosshair through what's in view at the Target lap's real pace (this
 // rate times it), a slider over the whole focus area, where the crosshair is, and locking it there.
 export default function PlaybackControls() {
   const { t } = useLanguage();

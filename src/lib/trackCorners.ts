@@ -326,7 +326,7 @@ export const TRACK_CORNERS: TrackCorners[] = [
   { trackId: 'oran northa', track: 'Oran Park Raceway', config: 'North A', corners: 10 },
   { trackId: 'oran northb', track: 'Oran Park Raceway', config: 'North B', corners: 10 },
   { trackId: 'oran south', track: 'Oran Park Raceway', config: 'South', corners: 7 },
-  { trackId: 'oswego dirtoval', track: 'Oswego Speedway', config: 'Dirt', corners: 4 },
+  { trackId: 'oswego dirt', track: 'Oswego Speedway', config: 'Dirt', corners: 4 },
   { trackId: 'oswego mini', track: 'Oswego Speedway', config: 'Mini Oval', corners: 4 },
   { trackId: 'oswego oval', track: 'Oswego Speedway', config: 'Oval', corners: 4 },
   { trackId: 'oulton fosters', track: 'Oulton Park Circuit', config: 'Fosters', corners: 6 },

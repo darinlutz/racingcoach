@@ -1728,7 +1728,7 @@ export const en = {
     // Labels for "Tracks".track_category; a type without one shows as stored
     categories: {
       'Road Course': 'Road Course',
-      Oval: 'Oval',
+      Oval: 'Oval (Asphalt)',
       Dirt: 'Dirt',
     } as Record<string, string>,
   },

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useLanguage } from '@/components/LanguageProvider';
 import FocusAreaTabs from '@/components/FocusAreaTabs';
 import type { Tab as LapDataTab } from '@/components/LapDataTabs';
+import LapDeltaMap, { type DeltaMapArea } from '@/components/LapDeltaMap';
 import PedalTraces, { type PedalTraceLap } from '@/components/PedalTraces';
 import { DEFAULT_CHART_SETTINGS, type ChartSettings } from '@/components/TelemetryCursor';
 import SummaryPanel from '@/components/SummaryPanel';
@@ -21,6 +22,7 @@ import {
   lapTimeToSeconds,
   parseLapFile,
   readLapSamples,
+  type LapSamples,
   sameTrackName,
   type AreaStats,
   type LapFile,
@@ -239,6 +241,17 @@ function formatTopLosses(areas: { name: string; secondsDiff: number }[]) {
   );
 }
 
+// The whole lap's [lat, lon] points for the track map, every few samples (a lap has thousands), or null
+// when the lap file has no track positions (Garage 61 exports, or a live lap before its .ibt was read)
+function lapPositions({ lats, lons }: LapSamples): [number, number][] | null {
+  const step = Math.max(1, Math.floor(lats.length / 1500));
+  const points: [number, number][] = [];
+  for (let i = 0; i < lats.length; i += step) {
+    if (Number.isFinite(lats[i]) && Number.isFinite(lons[i]) && (lats[i] !== 0 || lons[i] !== 0)) points.push([lats[i], lons[i]]);
+  }
+  return points.length > 10 ? points : null;
+}
+
 // A table row: the comparison, or why there isn't one (in the user's language)
 type AreaRow = { name: string; comparison: AreaComparison | null; note: string };
 
@@ -284,7 +297,7 @@ function AreaTable({ rows }: { rows: AreaRow[] }) {
   const groupStart = 'border-l border-border';
 
   return (
-    <div className="mx-auto w-fit max-w-full overflow-x-auto rounded-lg border border-border bg-card">
+    <div className="w-fit max-w-full min-w-0 overflow-x-auto rounded-lg border border-border bg-card">
       <table className="text-[1.15rem] text-foreground">
         <thead className="bg-secondary">
           <tr>
@@ -484,6 +497,8 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
   const [compareError, setCompareError] = useState('');
   const [analysis, setAnalysis] = useState('');
   const [areaRows, setAreaRows] = useState<AreaRow[]>([]);
+  // The whole lap's [lat, lon] points for the track map beside the table: the Target lap's, else the Compare lap's
+  const [lapOutline, setLapOutline] = useState<[number, number][]>([]);
   // Brake/throttle charts for every measured focus area, in track order; diff is Compare minus Target (s)
   const [traces, setTraces] = useState<
     { name: string; diff: number; base: PedalTraceLap; compare: PedalTraceLap }[]
@@ -624,12 +639,23 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
   // The track shown above the laps: the selected one, when a loaded lap is from it
   const lapsTrack = selectedTrack && mismatchedLaps.length < [baseLap, compareLap].filter(Boolean).length ? selectedTrack : undefined;
 
+  // Each compared focus area's stretch on the track map, from the Target lap's positions there (the Compare
+  // lap's when the Target lap has none)
+  const deltaMapAreas: DeltaMapArea[] = traces.flatMap((trace) => {
+    const comparison = areaRows.find((row) => row.name === trace.name)?.comparison;
+    const positions = trace.base.trace.positions ?? trace.compare.trace.positions;
+    return comparison && positions
+      ? [{ name: trace.name, positions, secondsDiff: comparison.secondsDiff, baseSeconds: comparison.baseSeconds }]
+      : [];
+  });
+
   const analyzeLaps = async () => {
     if (!baseLap || !compareLap) return;
     setAnalyzing(true);
     setAnalysis('');
     setAreaRows([]);
     setTraces([]);
+    setLapOutline([]);
     try {
       const baseSeconds = lapTimeToSeconds(baseLap.lapTime);
       const compareSeconds = lapTimeToSeconds(compareLap.lapTime);
@@ -700,6 +726,7 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
         }
         setAreaRows(rows);
         setTraces(areaTraces);
+        setLapOutline(lapPositions(baseSamples) ?? lapPositions(compareSamples) ?? []);
         const worst = areaTraces.reduce<(typeof areaTraces)[number] | null>(
           (w, trace) => (!w || trace.diff > w.diff ? trace : w),
           null
@@ -825,7 +852,20 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
           ))}
         </div>
 
-        {areaRows.length > 0 && <AreaTable rows={areaRows} />}
+        {/* The table, and beside it on large screens the whole track, as tall as the table, colored by each
+            focus area's time (below it on smaller screens) */}
+        {areaRows.length > 0 && (
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch">
+            <AreaTable rows={areaRows} />
+            <LapDeltaMap
+              className="h-96 lg:h-auto lg:min-w-[18rem] lg:flex-1"
+              outline={lapOutline}
+              areas={deltaMapAreas}
+              selectedArea={selectedArea}
+              onSelectArea={setSelectedArea}
+            />
+          </div>
+        )}
 
         {/* Without a summary the panel only shows a message, e.g. no focus areas or an error */}
         {(provideSummary || analysis) && (

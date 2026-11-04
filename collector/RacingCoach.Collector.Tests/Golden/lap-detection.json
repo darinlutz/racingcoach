@@ -269,6 +269,31 @@
         "MissingSamples": 0,
         "Incidents": 0,
         "OnPitRoad": false,
+        "OffTrack": false
+      },
+      {
+        "LapNumber": 2,
+        "SessionNum": 0,
+        "LapTimeSeconds": 20,
+        "Samples": 1201,
+        "MissingSamples": 0,
+        "Incidents": 0,
+        "OnPitRoad": false,
+        "OffTrack": false
+      }
+    ],
+    "discarded": []
+  },
+  "off track with an incident": {
+    "laps": [
+      {
+        "LapNumber": 1,
+        "SessionNum": 0,
+        "LapTimeSeconds": 20,
+        "Samples": 1201,
+        "MissingSamples": 0,
+        "Incidents": 1,
+        "OnPitRoad": false,
         "OffTrack": true
       },
       {

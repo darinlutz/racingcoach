@@ -134,6 +134,7 @@ internal sealed class LapRecorder(Action<CompletedLap> onLapCompleted, Action<st
     {
         var first = samples[0];
         var last = samples[^1];
+        var incidents = Math.Max(0, (last.PlayerCarMyIncidentCount ?? 0) - (first.PlayerCarMyIncidentCount ?? 0));
         return new CompletedLap(
             Session,
             // The lap counter can lag the line by a sample, so take it from mid-lap.
@@ -142,9 +143,12 @@ internal sealed class LapRecorder(Action<CompletedLap> onLapCompleted, Action<st
             LapTimeSeconds: lapTime,
             Samples: new IRacingLapSamples(samples),
             MissingSamples: _missingSamples,
-            Incidents: Math.Max(0, (last.PlayerCarMyIncidentCount ?? 0) - (first.PlayerCarMyIncidentCount ?? 0)),
+            Incidents: incidents,
             OnPitRoad: samples.Any(s => s.OnPitRoad == true),
-            OffTrack: samples.Any(s => s.PlayerTrackSurface == TrackLocation.OffTrack));
+            // PlayerTrackSurface flickers to OffTrack for a sample or two when the car runs wide over a curb with
+            // wheels still on the track, which iRacing doesn't count as off track. A real off track (all four
+            // wheels off) always costs an incident, so the lap must have one too.
+            OffTrack: incidents > 0 && samples.Any(s => s.PlayerTrackSurface == TrackLocation.OffTrack));
     }
 
     private void Discard(string reason)

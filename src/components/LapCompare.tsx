@@ -500,35 +500,72 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
   // Where the pinned playback controls go, under the focus areas, and the box the area's telemetry scrolls in
   const [playbackSlot, setPlaybackSlot] = useState<HTMLDivElement | null>(null);
   const areaBodyRef = useRef<HTMLDivElement>(null);
-  // How far down the telemetry was scrolled when another area was picked, put back once the new area's charts are as tall
-  const keptScroll = useRef<number | null>(null);
+  // The chart wrapper inside it, which stays mounted from area to area while the area's charts are remounted
+  const areaContentRef = useRef<HTMLDivElement>(null);
+  // What the user was looking at when another area was picked: the section ([data-scroll-anchor]) nearest above the
+  // top of what's in view and how far from that top it was. On large screens the area's box scrolls; on smaller
+  // ones the page does (inBox false)
+  const keptScroll = useRef<{ inBox: boolean; anchor: string | null; offset: number } | null>(null);
 
   const selectArea = (name: string) => {
-    keptScroll.current = areaBodyRef.current?.scrollTop || null;
+    if (name === selectedTrace?.name) return;
+    const body = areaBodyRef.current;
+    const content = areaContentRef.current;
+    if (body && content) {
+      const inBox = body.scrollHeight > body.clientHeight + 1;
+      const viewTop = inBox ? body.getBoundingClientRect().top : 0;
+      let anchor: string | null = null;
+      let offset = -Infinity;
+      for (const el of Array.from(content.querySelectorAll<HTMLElement>('[data-scroll-anchor]'))) {
+        const top = el.getBoundingClientRect().top - viewTop;
+        if (top <= 1 && top > offset) [anchor, offset] = [el.dataset.scrollAnchor ?? null, top];
+      }
+      // The new area's charts mount empty and draw over a few frames; holding the old height meanwhile stops the
+      // browser pulling the scroll position back towards the top
+      content.style.minHeight = `${content.offsetHeight}px`;
+      keptScroll.current = { inBox, anchor, offset };
+    }
     setSelectedArea(name);
   };
 
-  // The new area's charts draw over a few frames, so the scroll position is put back as soon as there's room for it
-  // (given up after 2 s, e.g. a shorter area)
-  const hasTraces = traces.length > 0;
+  // For a second after the switch, while the new area's charts draw, keep that section where it was; then let the
+  // box take the new area's own height. Scrolling by hand ends it at once
   useEffect(() => {
     const body = areaBodyRef.current;
-    if (!body) return;
-    const restore = () => {
-      const top = keptScroll.current;
-      if (top === null || body.scrollHeight - body.clientHeight < top) return;
-      body.scrollTop = top;
+    const content = areaContentRef.current;
+    if (!keptScroll.current || !body || !content) return;
+    const finish = () => {
       keptScroll.current = null;
+      content.style.minHeight = '';
     };
-    // The panel's title and chart wrapper stay mounted from area to area; only what's inside the wrapper changes
-    const observer = new ResizeObserver(restore);
-    for (const child of Array.from(body.children)) observer.observe(child);
-    return () => observer.disconnect();
-  }, [hasTraces]);
-  useEffect(() => {
-    if (keptScroll.current === null) return;
-    const timer = setTimeout(() => (keptScroll.current = null), 2000);
-    return () => clearTimeout(timer);
+    const settleUntil = performance.now() + 1000;
+    let frame = requestAnimationFrame(function follow(now) {
+      const kept = keptScroll.current;
+      if (!kept) return;
+      const el = kept.anchor ? content.querySelector<HTMLElement>(`[data-scroll-anchor="${kept.anchor}"]`) : null;
+      if (el) {
+        const viewTop = kept.inBox ? body.getBoundingClientRect().top : 0;
+        const by = el.getBoundingClientRect().top - viewTop - kept.offset;
+        if (Math.abs(by) >= 1) {
+          if (kept.inBox) body.scrollTop += by;
+          else window.scrollBy(0, by);
+        }
+      }
+      if (now < settleUntil) frame = requestAnimationFrame(follow);
+      else finish();
+    });
+    const byHand = () => {
+      cancelAnimationFrame(frame);
+      finish();
+    };
+    window.addEventListener('wheel', byHand, { passive: true });
+    window.addEventListener('touchmove', byHand, { passive: true });
+    // Not finish(): picking another area meanwhile has already set up its own hold, which the next run follows
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener('wheel', byHand);
+      window.removeEventListener('touchmove', byHand);
+    };
   }, [selectedArea]);
 
   // Starts on the initial laps' track when there are any, otherwise the first track
@@ -766,6 +803,23 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
           </label>
         </div>
 
+        {/* What the Brakepoint and Max Brake diff colors in the grid mean (brakeDiffText) */}
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs">
+          <span className="font-semibold text-muted-foreground">{t.brakeKey.title}:</span>
+          {(
+            [
+              ['bg-sky-400', 'text-sky-400', t.brakeKey.light],
+              ['bg-primary', 'text-primary', t.brakeKey.hard],
+              ['bg-positive', 'text-positive', t.brakeKey.similar],
+            ] as const
+          ).map(([dot, text, label]) => (
+            <span key={label} className={`flex items-center gap-1.5 ${text}`}>
+              <span aria-hidden className={`h-2.5 w-2.5 rounded-full ${dot}`} />
+              {label}
+            </span>
+          ))}
+        </div>
+
         {areaRows.length > 0 && <AreaTable rows={areaRows} />}
 
         {/* Without a summary the panel only shows a message, e.g. no focus areas or an error */}
@@ -818,7 +872,7 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
                   <span className="ml-2 px-1.5 rounded text-xs bg-primary/15 text-red-300">{t.mostTimeLost}</span>
                 )}
               </p>
-              <div className="p-4">
+              <div ref={areaContentRef} className="p-4">
                 <PedalTraces
                   key={selectedTrace.name}
                   id={`pedal-${selectedIndex}`}

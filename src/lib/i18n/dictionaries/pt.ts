@@ -1149,6 +1149,12 @@ export const pt: Dictionary = {
     compareLapSlower: 'Volta comparada {seconds} s mais lenta',
     compareLapFaster: 'Volta comparada {seconds} s mais rápida',
     mostTimeLost: 'maior perda de tempo',
+    brakeKey: {
+      title: 'Cores da frenagem',
+      light: 'Freando cedo demais ou leve demais em relação ao alvo',
+      hard: 'Freando tarde demais ou forte demais em relação ao alvo',
+      similar: 'Freando em um ponto ou pressão semelhante ao alvo',
+    },
     areaTabs: 'Áreas de foco',
     sortByTimeLost: 'Ordenadas por tempo perdido. Ordenar pela pista',
     sortByTrackOrder: 'Na ordem da pista. Ordenar por tempo perdido',

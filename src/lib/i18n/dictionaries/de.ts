@@ -1169,6 +1169,12 @@ export const de: Dictionary = {
     compareLapSlower: 'Vergleichsrunde {seconds} s langsamer',
     compareLapFaster: 'Vergleichsrunde {seconds} s schneller',
     mostTimeLost: 'größter Zeitverlust',
+    brakeKey: {
+      title: 'Bremsfarben',
+      light: 'Bremst im Vergleich zum Ziel zu früh oder zu schwach',
+      hard: 'Bremst im Vergleich zum Ziel zu spät oder zu stark',
+      similar: 'Bremst an einem ähnlichen Punkt oder mit ähnlichem Druck wie das Ziel',
+    },
     areaTabs: 'Fokusbereiche',
     sortByTimeLost: 'Nach Zeitverlust sortiert. In Streckenreihenfolge sortieren',
     sortByTrackOrder: 'In Streckenreihenfolge. Nach Zeitverlust sortieren',

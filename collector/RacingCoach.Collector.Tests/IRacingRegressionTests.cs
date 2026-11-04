@@ -55,7 +55,13 @@ public sealed class IRacingRegressionTests
         ["replay"] = () => Ticks(0, 3 * Lap).Select(s => s.SessionTick is >= 700 and < 800 ? s with { IsReplayPlaying = true } : s),
         ["left the car"] = () => Ticks(0, 3 * Lap).Select(s => s.SessionTick is >= 700 and < 800 ? s with { IsOnTrack = false } : s),
         ["pit road"] = () => Ticks(0, 3 * Lap).Select(s => s.SessionTick is >= 700 and < 800 ? s with { OnPitRoad = true } : s),
+        // A one-sample off-track reading with no incident (a curb) isn't an off track lap
         ["off track"] = () => Ticks(0, 3 * Lap).Select(s => s.SessionTick == 750 ? s with { PlayerTrackSurface = TrackLocation.OffTrack } : s),
+        ["off track with an incident"] = () => Ticks(0, 3 * Lap).Select(s => s with
+        {
+            PlayerTrackSurface = s.SessionTick is >= 750 and < 790 ? TrackLocation.OffTrack : TrackLocation.OnTrack,
+            PlayerCarMyIncidentCount = s.SessionTick >= 760 ? 1 : 0,
+        }),
         ["incidents"] = () => Ticks(0, 3 * Lap).Select(s => s with { PlayerCarMyIncidentCount = s.SessionTick >= 750 ? 4 : 0 }),
         ["no lap position"] = () => Ticks(0, 3 * Lap).Select(s => s.SessionTick is >= 700 and < 710 ? s with { LapDistPct = null } : s),
         ["negative lap position"] = () => Ticks(0, 3 * Lap).Select(s => s.SessionTick is >= 700 and < 710 ? s with { LapDistPct = -1 } : s),

@@ -80,28 +80,57 @@ function TelemetryDashboard({
   return (
     <>
       {playbackSlot && createPortal(<PlaybackControls />, playbackSlot)}
-      <LapComparisonHeader areaName={areaName} />
-      <ChartToolbar />
+      {/* data-scroll-anchor names each section, so Lap Compare keeps the one in view in place when another focus area is picked */}
+      <div data-scroll-anchor="header">
+        <LapComparisonHeader areaName={areaName} />
+      </div>
+      <div data-scroll-anchor="toolbar">
+        <ChartToolbar />
+      </div>
       <div className={sideBySide ? 'flex items-start gap-4' : 'space-y-4'}>
         <div className="space-y-4" style={column}>
-          <DrivingLineMap base={base} compare={compare} width={half} height={Math.round(half * MAP_ASPECT)} hoverPct={cursorPct} onHover={hoverFromMap} />
-          <SteeringAnalysisDashboard width={half} />
-          <CursorValuesTable />
-          <EngineeringInsightsPanel areaName={areaName} />
+          <div data-scroll-anchor="map">
+            <DrivingLineMap base={base} compare={compare} width={half} height={Math.round(half * MAP_ASPECT)} hoverPct={cursorPct} onHover={hoverFromMap} />
+          </div>
+          <div data-scroll-anchor="steering">
+            <SteeringAnalysisDashboard width={half} />
+          </div>
+          <div data-scroll-anchor="values">
+            <CursorValuesTable />
+          </div>
+          <div data-scroll-anchor="insights">
+            <EngineeringInsightsPanel areaName={areaName} />
+          </div>
           <p className="px-1 text-[11px] leading-snug text-muted-foreground">{t.charts.telemetry.help}</p>
         </div>
         <div className="space-y-2" style={column}>
-          <CornerPhaseIndicator id={`${id}-phases`} width={half} />
-          <TimeDeltaTrace id={`${id}-delta`} width={half} />
-          <ThrottleTrace id={`${id}-throttle`} width={half} />
-          <BrakeTrace id={`${id}-brake`} width={half} />
-          <SteeringAngleChart id={`${id}-steering`} width={half} />
-          <SpeedTrace id={`${id}-speed`} width={half} />
-          <DrivingLineDiffTrace id={`${id}-line`} width={half} />
+          <div data-scroll-anchor="phases">
+            <CornerPhaseIndicator id={`${id}-phases`} width={half} />
+          </div>
+          <div data-scroll-anchor="delta">
+            <TimeDeltaTrace id={`${id}-delta`} width={half} />
+          </div>
+          <div data-scroll-anchor="throttle">
+            <ThrottleTrace id={`${id}-throttle`} width={half} />
+          </div>
+          <div data-scroll-anchor="brake">
+            <BrakeTrace id={`${id}-brake`} width={half} />
+          </div>
+          <div data-scroll-anchor="steeringAngle">
+            <SteeringAngleChart id={`${id}-steering`} width={half} />
+          </div>
+          <div data-scroll-anchor="speed">
+            <SpeedTrace id={`${id}-speed`} width={half} />
+          </div>
+          <div data-scroll-anchor="line">
+            <DrivingLineDiffTrace id={`${id}-line`} width={half} />
+          </div>
           {!playbackSlot && <PlaybackControls />}
         </div>
       </div>
-      <LapDataTabs id={`${id}-data`} base={base} compare={compare} axis={axis} fullAxis={fullAxis} width={width} hoverPct={cursorPct} onHover={hoverFromChart} tab={dataTab} onTabChange={onDataTabChange} />
+      <div data-scroll-anchor="data">
+        <LapDataTabs id={`${id}-data`} base={base} compare={compare} axis={axis} fullAxis={fullAxis} width={width} hoverPct={cursorPct} onHover={hoverFromChart} tab={dataTab} onTabChange={onDataTabChange} />
+      </div>
     </>
   );
 }

@@ -1174,6 +1174,12 @@ export const en = {
     compareLapSlower: 'Compare lap {seconds} s slower',
     compareLapFaster: 'Compare lap {seconds} s faster',
     mostTimeLost: 'most time lost',
+    brakeKey: {
+      title: 'Brake colors',
+      light: 'Braking too early or too light relative to the target',
+      hard: 'Braking too late or too hard relative to the target',
+      similar: 'Braking at a similar point or pressure to the target',
+    },
     areaTabs: 'Focus areas',
     sortByTimeLost: 'Sorted by time lost. Sort in track order',
     sortByTrackOrder: 'In track order. Sort by time lost',

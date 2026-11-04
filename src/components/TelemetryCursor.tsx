@@ -309,11 +309,14 @@ export default function TelemetryCursor({
     }
   };
 
-  // Playback drives the crosshair through the shown part of the area at the Target lap's real pace, by its
-  // sample times, and carries on from the start when it reaches the end
+  // Playback drives the crosshair through the whole focus area (the slider's range) at the Target lap's real pace,
+  // by its sample times, and carries on from the start when it reaches the end. It used to play only the zoomed-in
+  // part, so a chart zoomed by the wheel (easily done while scrolling the page) looped over a fraction of the area;
+  // now a zoomed view pans along to keep the crosshair in it.
   const setPlaying = (play: boolean) => {
     if (play) {
-      playFrom.current = cursorPct !== null && cursorPct >= domain[0] && cursorPct < domain[1] ? cursorPct : domain[0];
+      const [f0, f1] = fullDomain;
+      playFrom.current = cursorPct !== null && cursorPct >= f0 && cursorPct < f1 ? cursorPct : f0;
       setHoverPct(playFrom.current);
       setLockedPct(null);
     }
@@ -321,19 +324,28 @@ export default function TelemetryCursor({
   };
   useEffect(() => {
     if (!playing) return;
-    const [d0, d1] = domain;
+    const [f0, f1] = fullDomain;
     let last = performance.now();
     let frame = requestAnimationFrame(function tick(now) {
-      const seconds = timeAtPosition(base.trace, clamp(playFrom.current, d0, d1)) + ((now - last) / 1000) * playRate;
+      // A frame that took long (a busy page, a background tab) moves on at most a quarter of a second of real time
+      const elapsed = Math.min(Math.max(now - last, 0), 250) / 1000;
       last = now;
+      const seconds = timeAtPosition(base.trace, clamp(playFrom.current, f0, f1)) + elapsed * playRate;
       let pct = positionAtTime(base.trace, seconds);
-      if (pct >= d1) pct = d0;
+      if (pct >= f1) pct = f0;
       playFrom.current = pct;
       setHoverPct(pct);
+      // Zoomed in: once the crosshair leaves what's shown, the view moves on to put it at the left
+      setDomain(([d0, d1]) => {
+        if (pct >= d0 && pct <= d1) return [d0, d1];
+        const width = d1 - d0;
+        const start = clamp(pct - width * 0.05, f0, f1 - width);
+        return [start, start + width];
+      });
       frame = requestAnimationFrame(tick);
     });
     return () => cancelAnimationFrame(frame);
-  }, [playing, playRate, domain, base]);
+  }, [playing, playRate, fullDomain, base]);
 
   const value: TelemetryValue = {
     base,

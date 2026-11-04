@@ -177,6 +177,7 @@ public sealed class FrameLapTracker(Action<TrackedLap> onLap, Action<string> onD
         };
         // Not every simulator judges laps: unknown stays null rather than counting as valid
         bool? valid = native?.Valid ?? (frames.Any(f => f.LapValid == false) ? false : frames.Any(f => f.LapValid == true) ? true : null);
+        var incidents = Math.Max(0, (last.IncidentCount ?? 0) - (first.IncidentCount ?? 0));
         return new TrackedLap(
             frames,
             // The lap counter can lag the line by a sample, so take it from mid-lap
@@ -185,9 +186,10 @@ public sealed class FrameLapTracker(Action<TrackedLap> onLap, Action<string> onD
             lapTime,
             estimated,
             _missing,
-            Math.Max(0, (last.IncidentCount ?? 0) - (first.IncidentCount ?? 0)),
+            incidents,
             frames.Any(f => f.OnPitRoad == true),
-            frames.Any(f => f.OffTrack == true),
+            // As LapRecorder: a brief off-track reading without an incident is a curb, not an off track
+            incidents > 0 && frames.Any(f => f.OffTrack == true),
             valid,
             kind);
     }

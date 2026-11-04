@@ -279,35 +279,34 @@ function AreaTable({ rows }: { rows: AreaRow[] }) {
     { label: t.groups.exitSpeed, columns: ['diff'] },
   ] as const;
   const columnCount = groups.reduce((sum, group) => sum + group.columns.length, 0);
-  const cell = 'px-3 py-2 text-right whitespace-nowrap';
+  // Sized to its content (not stretched across a wide screen), every value centered in its column
+  const cell = 'min-w-[6.5rem] px-5 py-2.5 text-center tabular-nums whitespace-nowrap';
   const groupStart = 'border-l border-border';
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-border bg-card">
-      <table className="min-w-full text-sm text-foreground">
+    <div className="w-fit max-w-full overflow-x-auto rounded-lg border border-border bg-card">
+      <table className="text-base text-foreground">
         <thead className="bg-secondary">
           <tr>
-            <th rowSpan={2} className="sticky left-0 bg-secondary px-3 py-2 text-left align-bottom">
+            <th rowSpan={2} className="sticky left-0 bg-secondary px-5 py-2.5 text-left align-bottom">
               {t.focusArea}
             </th>
             {groups.map((group) => (
               <th
                 key={group.label}
                 colSpan={group.columns.length}
-                className={`${groupStart} px-3 py-2 text-center whitespace-nowrap`}
+                className={`${groupStart} px-5 pt-3 pb-1 text-center whitespace-nowrap`}
               >
                 {group.label}
               </th>
             ))}
           </tr>
-          <tr className="text-xs text-muted-foreground">
+          <tr className="text-sm text-muted-foreground">
             {groups.map((group) =>
               group.columns.map((column, i) => (
                 <th
                   key={group.label + column}
-                  className={`px-3 py-2 whitespace-nowrap font-medium ${column === 'diff' ? 'text-center' : 'text-right'} ${
-                    i === 0 ? groupStart : ''
-                  }`}
+                  className={`px-5 pt-1 pb-2.5 text-center whitespace-nowrap font-medium ${i === 0 ? groupStart : ''}`}
                 >
                   {t[column]}
                 </th>
@@ -318,11 +317,11 @@ function AreaTable({ rows }: { rows: AreaRow[] }) {
         <tbody className="divide-y divide-border">
           {rows.map(({ name, comparison: c, note }) => (
             <tr key={name}>
-              <th scope="row" className="sticky left-0 bg-card px-3 py-2 text-left font-semibold whitespace-nowrap">
+              <th scope="row" className="sticky left-0 bg-card px-5 py-2.5 text-left font-semibold whitespace-nowrap">
                 {name}
               </th>
               {!c ? (
-                <td colSpan={columnCount} className={`${groupStart} px-3 py-2 text-muted-foreground`}>
+                <td colSpan={columnCount} className={`${groupStart} px-5 py-2.5 text-muted-foreground`}>
                   {note}
                 </td>
               ) : (
@@ -365,7 +364,8 @@ function AreaTable({ rows }: { rows: AreaRow[] }) {
   );
 }
 
-// Asks the server for a 6-7 sentence coaching summary written for the Compare lap. lines are the focus
+// Asks the server for a short coaching summary, a paragraph for each of 3 or 4 focus areas,
+// written for the Compare lap. lines are the focus
 // areas' driving lines for the coach's analyze_driving_line tool, and areaNames every focus area's name.
 async function fetchSummary(comparison: string, track: string, lines: LapDrivingLine[], areaNames: string[], t: Dictionary) {
   try {

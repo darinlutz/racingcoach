@@ -437,7 +437,7 @@ export const TRACK_CORNERS: TrackCorners[] = [
   { trackId: 'watkinsglen 2021 cupcircuit', track: 'Watkins Glen International', config: 'Cup', corners: 8 },
   { trackId: null, track: 'WeatherTech Raceway at Laguna Seca', config: '2026', corners: 11 },
   { trackId: 'weedsport', track: 'Weedsport Speedway', config: 'Default', corners: 4 },
-  { trackId: 'wildwest', track: 'Wild West Motorsports Park', config: 'Default', corners: 4 },
+  { trackId: 'wildwest full', track: 'Wild West Motorsports Park', config: 'Default', corners: 4 },
   { trackId: 'williamsgrove', track: 'Williams Grove Speedway', config: 'Default', corners: 4 },
   { trackId: 'willow', track: 'Willow Springs International Raceway', config: 'Big Willow', corners: 9 },
   { trackId: 'winton club', track: 'Winton Motor Raceway', config: 'Club Circuit', corners: 10 },
@@ -484,6 +484,28 @@ export async function appendTrackCorners(client: PoolClient): Promise<void> {
      ORDER BY c.track_name, c.config_name
      ON CONFLICT DO NOTHING`
   );
+}
+
+// Track IDs that TRACK_CORNERS once had wrong, old to new. Databases seeded before the fix keep the old
+// one in TracksNumberOfCorners.track_id and Tracks.track_key, as the seed and append run once, so
+// renameTrackIds moves them, on the caller's transaction, unless the new key is already taken.
+const RENAMED_TRACK_IDS: [from: string, to: string][] = [['wildwest', 'wildwest full']];
+
+export async function renameTrackIds(client: PoolClient): Promise<void> {
+  for (const [from, to] of RENAMED_TRACK_IDS) {
+    await client.query(
+      `UPDATE racingcoach."TracksNumberOfCorners" SET track_id = $2
+       WHERE lower(track_id) = lower($1)
+         AND NOT EXISTS (SELECT 1 FROM racingcoach."TracksNumberOfCorners" WHERE lower(track_id) = lower($2))`,
+      [from, to]
+    );
+    await client.query(
+      `UPDATE racingcoach."Tracks" SET track_key = $2, updated_at = now()
+       WHERE lower(track_key) = lower($1)
+         AND NOT EXISTS (SELECT 1 FROM racingcoach."Tracks" WHERE lower(track_key) = lower($2))`,
+      [from, to]
+    );
+  }
 }
 
 // Deletes iRacing's retired "[Legacy]" tracks (e.g. "[Legacy] Phoenix Raceway - 2008 (Oval)") from

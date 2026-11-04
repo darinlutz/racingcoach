@@ -1047,7 +1047,7 @@ const systemPrompt = (units: Units) =>
   'nothing in the data explains the time, say the cause is not in the data instead of guessing. Use the numbers ' +
   `from the tools in the units they give (${DISTANCE_NAME[units]}, ${SPEED_UNIT[units]}), never invent data, write to ` +
   'the driver as "you", and use plain text with no markdown. When you mention a particular lap, call it by its name ' +
-  'from the tools, e.g. "Lap 3", never by an ID or file name. Once you have your fixes, call assemble_optimal_lap ' +
+  'from the tools, e.g. "Lap 3" (in the language you write in), never by an ID or file name. Once you have your fixes, call assemble_optimal_lap ' +
   'once and sum up the theoretical lap it builds in optimalLap.' +
   LAP_TIME_RULE;
 

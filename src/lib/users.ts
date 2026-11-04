@@ -17,7 +17,7 @@ import { mergeOwnerCars, seedDefaultCars } from './defaultCars';
 import { seedTrackAnalysis } from './defaultTrackAnalysis';
 import { seedDefaultTracks } from './defaultTracks';
 import { dropTrackLengthsTable } from './trackLengths';
-import { appendTrackCorners, categorizeTracks, removeLegacyTracks, seedTrackCorners } from './trackCorners';
+import { appendTrackCorners, categorizeTracks, removeLegacyTracks, renameTrackIds, seedTrackCorners } from './trackCorners';
 import { cleanCountry } from './countryCodes';
 import { DEFAULT_LANGUAGE, isLanguage, type Language } from './i18n/languages';
 import { DEFAULT_THEME, isTheme, type Theme } from './theme';
@@ -444,6 +444,8 @@ export function ensureUserSchema(): Promise<void> {
       if (tracksLackCorners) await appendTrackCorners(client);
       // Databases that got the "[Legacy]" layouts before appendTrackCorners left them out
       await removeLegacyTracks(client);
+      // Databases seeded with track IDs TRACK_CORNERS has since corrected (e.g. wildwest)
+      await renameTrackIds(client);
       // Once, when Tracks gets its track_category column (after the layouts above are appended)
       if (tracksLackCategory) await categorizeTracks(client);
       // Once, when Tracks gets its Racecar Analysis columns: the values Track_Information.xlsx had

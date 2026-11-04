@@ -33,13 +33,47 @@ export const AI_LANGUAGE_NAMES: Record<Language, string> = {
   de: 'German',
 };
 
+// The racing terms the coaches' data gives in English, and how to say them, so no English (or half-English
+// words like "pickup de gas") gets into an answer in another language
+const AI_RACING_TERMS: Record<Exclude<Language, 'en'>, string> = {
+  pt:
+    'brakepoint = ponto de frenagem, brake pressure = pressão de freio, trail braking = frenagem em degradê, ' +
+    'throttle pickup = retomada do acelerador, lift = tirada de pé do acelerador, re-application = nova aplicação ' +
+    'do acelerador, coasting = rolar sem pedal, apex = tangência, fastest/slowest lap = volta mais rápida/mais lenta, ' +
+    'Target Lap = Volta Alvo, Compare lap = volta comparada',
+  es:
+    'brakepoint = punto de frenada, brake pressure = presión de freno, trail braking = frenada degresiva, ' +
+    'throttle pickup = volver al acelerador, lift = levantar el pie del acelerador, re-application = nueva ' +
+    'aplicación del acelerador, coasting = rodar sin pedales, apex = vértice, fastest/slowest lap = vuelta más ' +
+    'rápida/más lenta, Target Lap = Vuelta Objetivo, Compare lap = vuelta comparada',
+  de:
+    'brakepoint = Bremspunkt, brake pressure = Bremsdruck, trail braking = Bremsen in die Kurve hinein, ' +
+    'throttle pickup = Gasannahme (zurück aufs Gas), lift = Gas lupfen, ' +
+    're-application = erneutes Gasgeben, coasting = Rollen ohne Pedal, apex = Scheitelpunkt, fastest/slowest lap = ' +
+    'schnellste/langsamste Runde, Target Lap = Zielrunde, Compare lap = Vergleichsrunde',
+};
+
+const AI_LAP_6: Record<Exclude<Language, 'en'>, string> = { pt: 'Volta 6', es: 'Vuelta 6', de: 'Runde 6' };
+
 // Added to the end of an AI feature's system prompt so it answers in the user's language. Names from the
 // data are kept as given, because the site matches them (e.g. a debrief fix's focus area) against Track Data.
+// The data and tool results are in English, often with phrases the answer must use (e.g. "brake about 10 m
+// LATER than your fastest lap"), which a model copies word for word unless told to translate them.
 export function aiLanguageRule(language: Language): string {
   if (language === 'en') return '';
+  const name = AI_LANGUAGE_NAMES[language];
   return (
-    ` Write all of your answer in ${AI_LANGUAGE_NAMES[language]}, but keep focus area, track, car and series ` +
-    'names exactly as they appear in the data.'
+    ` Write all of your answer in ${name}, every word of it, but keep focus area, track, car and series ` +
+    'names exactly as they appear in the data. The data and tool results are in English: translate everything ' +
+    'you take from them into natural ' +
+    `${name}, including phrases they tell you to use word for word (keep their direction and number, translate ` +
+    'the words) and words written in capitals such as LATER, EARLIER, AFTER, MORE or LESS, which you write in ' +
+    'ordinary lower case. Call laps by their number in your language, e.g. "Lap 6" from the data is ' +
+    `"${AI_LAP_6[language]}". Never use English words or English words with ` +
+    `${name} endings: use the ${name} racing terms (${AI_RACING_TERMS[language]}). When you say how much earlier ` +
+    'or later to do something, say it against the same reference the data gives (e.g. than your fastest lap, than ' +
+    'the Target Lap) in one clear sentence; never tie the distance to something else, such as the exit of a ' +
+    'brakepoint.'
   );
 }
 

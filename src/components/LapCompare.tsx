@@ -284,8 +284,8 @@ function AreaTable({ rows }: { rows: AreaRow[] }) {
   const groupStart = 'border-l border-border';
 
   return (
-    <div className="w-fit max-w-full overflow-x-auto rounded-lg border border-border bg-card">
-      <table className="text-base text-foreground">
+    <div className="mx-auto w-fit max-w-full overflow-x-auto rounded-lg border border-border bg-card">
+      <table className="text-[1.15rem] text-foreground">
         <thead className="bg-secondary">
           <tr>
             <th rowSpan={2} className="sticky left-0 bg-secondary px-5 py-2.5 text-left align-bottom">
@@ -301,7 +301,7 @@ function AreaTable({ rows }: { rows: AreaRow[] }) {
               </th>
             ))}
           </tr>
-          <tr className="text-sm text-muted-foreground">
+          <tr className="text-[0.875em] text-muted-foreground">
             {groups.map((group) =>
               group.columns.map((column, i) => (
                 <th

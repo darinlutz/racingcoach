@@ -6,10 +6,13 @@
         <ResourceDictionary Source="OverlayStyles.xaml" />
     </UserControl.Resources>
 
-    <!-- Peak brake pressure and minimum speed of the last few seconds, and the Rotation Model's label -->
+    <!-- Peak brake pressure and minimum speed of the last few seconds, the last focus area's largest steering
+         angle, and the Rotation Model's label -->
     <Grid HorizontalAlignment="Left">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="100" />
+            <ColumnDefinition Width="10" />
+            <ColumnDefinition Width="115" />
             <ColumnDefinition Width="10" />
             <ColumnDefinition Width="115" />
             <ColumnDefinition Width="10" />
@@ -24,9 +27,15 @@
             <TextBlock x:Name="MinSpeedHeading" Style="{StaticResource Heading}" />
             <TextBox x:Name="MinSpeedBox" Style="{StaticResource BigBox}" Foreground="#8AB4F8" />
         </StackPanel>
+        <!-- The focus area the car last left: its largest steering wheel angle, shown until the car leaves the next
+             one; in the website's Peak Steering Δ orange (its tele-neg color) -->
+        <StackPanel Grid.Column="4">
+            <TextBlock Style="{StaticResource Heading}" local:Loc.Key="overlay.maxSteering" />
+            <TextBox x:Name="MaxSteeringBox" Style="{StaticResource BigBox}" Foreground="#F98F3A" />
+        </StackPanel>
         <!-- UNDERSTEER or OVERSTEER from the Rotation Model while it's sure; hidden (keeping its space) otherwise.
              No heading: it sits at the bottom, level with the Max Brake and Min Speed boxes -->
-        <TextBox x:Name="HandlingBox" Grid.Column="4" Style="{StaticResource BigBox}" MinWidth="230" Visibility="Hidden"
+        <TextBox x:Name="HandlingBox" Grid.Column="6" Style="{StaticResource BigBox}" MinWidth="230" Visibility="Hidden"
                  VerticalAlignment="Bottom" />
     </Grid>
 </UserControl>

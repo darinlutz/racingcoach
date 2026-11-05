@@ -4,7 +4,8 @@ using System.Windows.Controls;
 namespace RacingCoach.Collector;
 
 /// <summary>
-/// The overlay's Max Brake (GetMaximumBrakePressure) and Min Speed (GetMinimumSpeed) boxes, and the Rotation
+/// The overlay's Max Brake (GetMaximumBrakePressure), Min Speed (GetMinimumSpeed) and Max Steering (the
+/// largest steering angle in the focus area the car last left, from OverlayEngine) boxes, and the Rotation
 /// Model's UNDERSTEER or OVERSTEER beside them; in the overlay and, as a copy, the Target Telemetry window.
 /// </summary>
 public partial class OverlayStats : UserControl
@@ -23,6 +24,7 @@ public partial class OverlayStats : UserControl
         }
         MaxBrakeBox.Text = snapshot.MaxBrake ?? "";
         MinSpeedBox.Text = snapshot.MinSpeed ?? "";
+        MaxSteeringBox.Text = snapshot.MaxSteering ?? "";
         ShowHandling(language, rotation);
     }
 

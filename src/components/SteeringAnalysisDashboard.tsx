@@ -21,7 +21,7 @@ const WARN = 'var(--tele-warn)';
 const GREEN = '#22c55e';
 const ENCODERS = [TARGET, COMPARE, WARN, GREEN];
 
-type WheelDisplay = { gearTarget: string; gearCompare: string; speed: string; rpm: string; steer: string };
+type WheelDisplay = { gear: string; speed: string; rpm: string; steer: string };
 
 // A GT3 wheel, in the hardware's own dark colors in both themes, turned by angle (degrees, right positive)
 function GT3SteeringWheel({ angle, lap, indicators, display, ledShare, size }: { angle: number; lap?: 'target' | 'compare'; indicators?: { angle: number; color: string; key: string }[]; display: WheelDisplay; ledShare: number; size: number }) {
@@ -69,11 +69,10 @@ function GT3SteeringWheel({ angle, lap, indicators, display, ledShare, size }: {
           return <circle key={i} cx={130 + i * 10} cy="74" r="3.2" fill={lit ? color : '#2b3440'} />;
         })}
         <rect x="140" y="84" width="120" height="64" rx="4" fill="#05080d" stroke="#2e333b" />
-        <text x="160" y="124" fontSize="30" fontWeight="700" textAnchor="middle" fill={TARGET} className="tele-num">{display.gearTarget}</text>
-        <text x="240" y="124" fontSize="30" fontWeight="700" textAnchor="middle" fill={COMPARE} className="tele-num">{display.gearCompare}</text>
-        <text x="200" y="100" fontSize="8" textAnchor="middle" fill="#9aa3ae" className="tele-num">{display.speed}</text>
-        <text x="200" y="118" fontSize="9" textAnchor="middle" fill="#e5e7eb" className="tele-num">{display.rpm}</text>
-        <text x="200" y="141" fontSize="9" textAnchor="middle" fill="#facc15" className="tele-num">{display.steer}</text>
+        <text x="172" y="129" fontSize="36" fontWeight="700" textAnchor="middle" fill={lap === 'target' ? TARGET : COMPARE} className="tele-num">{display.gear}</text>
+        <text x="226" y="102" fontSize="8" textAnchor="middle" fill="#9aa3ae" className="tele-num">{display.speed}</text>
+        <text x="226" y="120" fontSize="9" textAnchor="middle" fill="#e5e7eb" className="tele-num">{display.rpm}</text>
+        <text x="226" y="139" fontSize="9" textAnchor="middle" fill="#facc15" className="tele-num">{display.steer}</text>
         {[[110, 120], [290, 120], [118, 220], [282, 220]].map(([x, y], i) => (
           <g key={i}>
             <circle cx={x} cy={y} r="14" fill="#2e333b" stroke={ENCODERS[i]} strokeWidth="2.5" />
@@ -148,22 +147,24 @@ export default function SteeringAnalysisDashboard({ width }: { width: number }) 
   const wheelSize = Math.min(400, (width - 60) / (view === 'pair' ? 2 : 1));
 
   const [target, compare] = [atCursor(steerings[0]), atCursor(steerings[1])];
-  const rpm = atCursor(channels.rpms[0]);
-  const speed = atCursor(speeds[1]);
   const highestRpm = useMemo(() => Math.max(0, ...channels.rpms.flatMap((lap) => {
     const s = stats(lap);
     return s ? [s.max] : [];
   })), [channels.rpms]);
-  const ledShare = rpm !== null && highestRpm > 0 ? Math.max(0, Math.min(1, (rpm - highestRpm * LED_START_SHARE) / (highestRpm * (1 - LED_START_SHARE)))) : 0;
-
-  const gear = (value: number | null) => (value === null ? '–' : gearLabel(value));
-  const display = (steer: number | null): WheelDisplay => ({
-    gearTarget: gear(atCursor(channels.gears[0])),
-    gearCompare: gear(atCursor(channels.gears[1])),
-    speed: speed === null ? '' : `${num(speed, 0)} ${SPEED_UNIT[units]}`,
-    rpm: rpm === null ? '' : num(rpm, 0),
-    steer: steer === null ? '' : steeringLabel(-steer, t.charts),
-  });
+  // Each wheel shows its own lap's gear, speed, RPM, shift lights and wheel angle
+  const ledShare = (lap: 0 | 1) => {
+    const rpm = atCursor(channels.rpms[lap]);
+    return rpm !== null && highestRpm > 0 ? Math.max(0, Math.min(1, (rpm - highestRpm * LED_START_SHARE) / (highestRpm * (1 - LED_START_SHARE)))) : 0;
+  };
+  const display = (lap: 0 | 1): WheelDisplay => {
+    const [gear, speed, rpm, steer] = [atCursor(channels.gears[lap]), atCursor(speeds[lap]), atCursor(channels.rpms[lap]), atCursor(steerings[lap])];
+    return {
+      gear: gear === null ? '–' : gearLabel(gear),
+      speed: speed === null ? '' : `${num(speed, 0)} ${SPEED_UNIT[units]}`,
+      rpm: rpm === null ? '' : num(rpm, 0),
+      steer: steer === null ? '' : steeringLabel(-steer, t.charts),
+    };
+  };
 
   const reversals = useSteeringReversals();
   const inView = ({ pct }: { pct: number }) => pct >= pcts[i0] && pct <= pcts[i1];
@@ -197,11 +198,11 @@ export default function SteeringAnalysisDashboard({ width }: { width: number }) 
               <>
                 <div className="flex flex-col items-center">
                   <span className="tele-label !text-lap-target">{labels.target}</span>
-                  <GT3SteeringWheel angle={target ?? 0} lap="target" display={display(target)} ledShare={ledShare} size={wheelSize} />
+                  <GT3SteeringWheel angle={target ?? 0} lap="target" display={display(0)} ledShare={ledShare(0)} size={wheelSize} />
                 </div>
                 <div className="flex flex-col items-center">
                   <span className="tele-label !text-lap-compare">{labels.compare}</span>
-                  <GT3SteeringWheel angle={compare ?? 0} lap="compare" display={display(compare)} ledShare={ledShare} size={wheelSize} />
+                  <GT3SteeringWheel angle={compare ?? 0} lap="compare" display={display(1)} ledShare={ledShare(1)} size={wheelSize} />
                 </div>
               </>
             ) : (
@@ -214,8 +215,8 @@ export default function SteeringAnalysisDashboard({ width }: { width: number }) 
                     { key: 'target', angle: target ?? 0, color: TARGET },
                     { key: 'compare', angle: compare ?? 0, color: COMPARE },
                   ]}
-                  display={display(compare)}
-                  ledShare={ledShare}
+                  display={display(1)}
+                  ledShare={ledShare(1)}
                   size={wheelSize}
                 />
               </div>

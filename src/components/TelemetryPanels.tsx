@@ -81,10 +81,23 @@ export function DeltaIndicator({ value, digits = 1, unit, size = 'md', label = t
   return (
     <span className={`tele-num inline-flex items-baseline gap-1 font-semibold leading-none ${DELTA_SIZES[size]} ${tone}`}>
       {label && <span className="text-[0.6em] font-bold opacity-80">Δ</span>}
-      {signed(value, digits)}
-      {unit && known && <span className="text-[0.55em] font-medium opacity-80">{unit}</span>}
+      <span>
+        {signed(value, digits)}
+        {known && degreeOf(unit)}
+      </span>
+      {unit && known && restOf(unit) && <span className="text-[0.55em] font-medium opacity-80">{restOf(unit)}</span>}
     </span>
   );
+}
+
+// A degree sign drawn smaller sits on the baseline, halfway down the number, so it's drawn at the number's size, right
+// after it, and only what follows it (C, F) is drawn small
+function degreeOf(unit: string | undefined) {
+  return unit?.startsWith('°') ? <span className="font-medium opacity-80">°</span> : null;
+}
+
+function restOf(unit: string | undefined) {
+  return unit?.startsWith('°') ? unit.slice(1) : unit;
 }
 
 // One lap's value, marked with the lap's initial and color
@@ -95,8 +108,11 @@ export function LapValue({ lap, value, digits, unit }: { lap: 'target' | 'compar
   return (
     <span className="tele-num inline-flex items-baseline gap-1">
       <span className={`text-[9px] font-bold tracking-widest ${lap === 'target' ? 'text-lap-target' : 'text-lap-compare'}`}>{lap === 'target' ? labels.targetInitial : labels.compareInitial}</span>
-      <span className="text-foreground">{num(value, digits)}</span>
-      {unit && <span className="text-[9px] text-muted-foreground">{unit}</span>}
+      <span className="text-foreground">
+        {num(value, digits)}
+        {value != null && Number.isFinite(value) && degreeOf(unit)}
+      </span>
+      {restOf(unit) && <span className="text-[9px] text-muted-foreground">{restOf(unit)}</span>}
     </span>
   );
 }

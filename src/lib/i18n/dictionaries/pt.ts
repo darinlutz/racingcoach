@@ -3289,7 +3289,7 @@ export const pt: Dictionary = {
   },
   modelLearning: {
     title: 'Aprendizado de Modelos',
-    intro: 'Execute a lição de tensores do dia 1 (src/day_1_tensors.py) e veja o que ela imprime.',
+    intro: 'Execute a lição de tensores do dia 1 (learning/day1_tensors.py) e veja o que ela imprime.',
     runModel: 'Executar Modelo',
     running: 'Executando...',
     results: 'Resultados',

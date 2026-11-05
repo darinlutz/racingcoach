@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useLanguage } from '@/components/LanguageProvider';
 import { fmt } from '@/lib/i18n/languages';
 
-// The Model Learning page's Run Model button and the box showing what src/day_1_tensors.py printed
+// The Model Learning page's Run Model button and the box showing what learning/day1_tensors.py printed
 // (POST /api/model-learning)
 export default function ModelLearningRunner() {
   const { t } = useLanguage();

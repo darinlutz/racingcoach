@@ -3345,7 +3345,7 @@ export const en = {
   },
   modelLearning: {
     title: 'Model Learning',
-    intro: 'Run the day 1 tensors lesson (src/day_1_tensors.py) and see what it prints.',
+    intro: 'Run the day 1 tensors lesson (learning/day1_tensors.py) and see what it prints.',
     runModel: 'Run Model',
     running: 'Running...',
     results: 'Results',

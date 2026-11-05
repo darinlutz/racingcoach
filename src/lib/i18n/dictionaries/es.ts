@@ -3289,7 +3289,7 @@ export const es: Dictionary = {
   },
   modelLearning: {
     title: 'Aprendizaje de Modelos',
-    intro: 'Ejecuta la lección de tensores del día 1 (src/day_1_tensors.py) y mira lo que imprime.',
+    intro: 'Ejecuta la lección de tensores del día 1 (learning/day1_tensors.py) y mira lo que imprime.',
     runModel: 'Ejecutar Modelo',
     running: 'Ejecutando...',
     results: 'Resultados',

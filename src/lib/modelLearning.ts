@@ -8,10 +8,10 @@ const MODEL_LEARNING_ACCOUNTS = new Set(['darinlutz648@gmail.com']);
 export const canUseModelLearning = (user: { role: string; emailAddress: string }) =>
   isAdmin(user.role) || MODEL_LEARNING_ACCOUNTS.has(user.emailAddress.toLowerCase());
 
-// Runs src/day_1_tensors.py and resolves with everything it printed, stdout then stderr (an error's traceback is
+// Runs learning/day1_tensors.py and resolves with everything it printed, stdout then stderr (an error's traceback is
 // part of the lesson). Rejects only when Python can't be started or the script times out
 export function runModelLearning(timeoutMs = 120000): Promise<{ output: string; exitCode: number }> {
-  const scriptPath = path.join(process.cwd(), 'src', 'day_1_tensors.py');
+  const scriptPath = path.join(process.cwd(), 'learning', 'day1_tensors.py');
   return new Promise((resolve, reject) => {
     execFile(
       'python',

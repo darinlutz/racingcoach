@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { ABUSE_LIMITS, ipKey, limitReached, recordAttempt } from '@/lib/abuseGuards';
 import { createPasswordResetToken } from '@/lib/passwordReset';
 import { getPublicSiteUrl } from '@/lib/siteOrigin';
 import { getUserByEmail } from '@/lib/users';
@@ -6,6 +7,8 @@ import { apiText } from '@/lib/i18n/server';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+// At most 10 requests an hour per IP address (then 429), and 3 reset emails an hour per address: past that it
+// answers as if sent and sends nothing, so it can't be used to flood someone's inbox (src/lib/abuseGuards.ts).
 export async function POST(request: Request) {
   const t = await apiText();
   try {
@@ -26,10 +29,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: t.notConfigured }, { status: 500 });
     }
 
+    const ip = `reset-ip:${ipKey(request)}`;
+    if (limitReached(ip, ABUSE_LIMITS.resetPerIp)) {
+      return NextResponse.json({ error: t.tooManyAttempts }, { status: 429 });
+    }
+    recordAttempt(ip);
+
     const user = await getUserByEmail(emailAddress);
     if (!user) {
       return NextResponse.json({ error: t.emailNotFound }, { status: 404 });
     }
+    const email = `reset-email:${emailAddress}`;
+    if (limitReached(email, ABUSE_LIMITS.resetPerEmail)) {
+      return NextResponse.json({ success: true });
+    }
+    recordAttempt(email);
 
     // SITE_URL pins the link to the real domain so a forged Host header can't
     // send the reset token somewhere else; locally it falls back to the request.

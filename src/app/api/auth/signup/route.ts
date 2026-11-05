@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { ABUSE_LIMITS, checkFormGuard, ipKey, limitReached, recordAttempt } from '@/lib/abuseGuards';
 import { cleanCountry } from '@/lib/countryCodes';
 import { DEFAULT_LANGUAGE, fmt, isLanguage } from '@/lib/i18n/languages';
 import { setLanguageCookie } from '@/lib/i18n/server';
@@ -14,7 +15,8 @@ const MAX_NAME_LENGTH = 100;
 
 // Creates an account from a name, email address, password, Preferred Language, Country and optional promo code, recording that it accepted the
 // Terms of Service and Privacy Policy versions in acceptedPolicies. iRacePlan is connected later, from the
-// My Race Trends page (/api/race-trends/connection).
+// My Race Trends page (/api/race-trends/connection). At most 5 accounts an hour per IP address, and the form's trap field
+// and fill time (formTrap, formMs) keep out bots (src/lib/abuseGuards.ts).
 export async function POST(request: Request) {
   const t = await apiText();
   try {
@@ -44,6 +46,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: t.policiesChanged }, { status: 409 });
     }
 
+    const guard = checkFormGuard(body);
+    if (guard === 'trap') return NextResponse.json({ error: t.failedCreateAccount }, { status: 400 });
+    if (guard === 'tooFast') return NextResponse.json({ error: t.formTooFast }, { status: 400 });
+    const ip = `signup-ip:${ipKey(request)}`;
+    if (limitReached(ip, ABUSE_LIMITS.signupPerIp)) {
+      return NextResponse.json({ error: t.tooManyAttempts }, { status: 429 });
+    }
+
     const user = await createUser({
       userName,
       emailAddress,
@@ -53,6 +63,7 @@ export async function POST(request: Request) {
       promoCode,
       acceptedPolicies: { ...POLICY_VERSIONS },
     });
+    recordAttempt(ip);
     await createSession(user.id);
     await setLanguageCookie(preferredLanguage);
     await notifyOwner('signup', user.emailAddress);

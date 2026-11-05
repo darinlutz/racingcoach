@@ -1,6 +1,8 @@
+import { redirect } from 'next/navigation';
 import CarsTracksTabs from '@/components/CarsTracksTabs';
 import { CARS_TRACKS_TABS, type CarsTracksTab } from '@/lib/carsTracksTabs';
 import { getDictionary, getLanguage } from '@/lib/i18n/server';
+import { withReturnTo } from '@/lib/returnTo';
 import { canEditCars } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
 import { getEnableAiFeatures } from '@/lib/siteSettings';
@@ -13,11 +15,12 @@ export default async function CarsTracksPage({
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  const t = getDictionary(await getLanguage()).carsTracks;
   const { tab } = await searchParams;
+  const user = await getCurrentUser();
+  if (!user) redirect(withReturnTo('/login', typeof tab === 'string' ? `/cars-tracks?tab=${encodeURIComponent(tab)}` : '/cars-tracks'));
+  const t = getDictionary(await getLanguage(user)).carsTracks;
   const tabs = (await getEnableAiFeatures()) ? [...CARS_TRACKS_TABS] : CARS_TRACKS_TABS.filter((name) => name !== 'racecar');
   const initialTab = tabs.find((name) => name === tab) ?? ('cars' satisfies CarsTracksTab);
-  const user = await getCurrentUser();
 
   return (
     <div className="w-full">
@@ -32,7 +35,7 @@ export default async function CarsTracksPage({
 
       <section className="py-16 bg-card">
         <div className="site-container">
-          <CarsTracksTabs tabs={tabs} initialTab={initialTab} canEdit={canEditCars(user?.role)} />
+          <CarsTracksTabs tabs={tabs} initialTab={initialTab} canEdit={canEditCars(user.role)} />
         </div>
       </section>
     </div>

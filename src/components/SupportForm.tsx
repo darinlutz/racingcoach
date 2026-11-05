@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { FormGuardField, useFormGuard } from '@/components/FormGuard';
 import { useLanguage } from '@/components/LanguageProvider';
 
 // The Support page's form: name and email (pre-filled for signed-in users), the issue, and Send Report
@@ -13,6 +14,7 @@ export default function SupportForm({ name: initialName, email: initialEmail, ma
   const [description, setDescription] = useState('');
   const [sending, setSending] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const { trap, guardFields } = useFormGuard();
 
   const send = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,7 +24,7 @@ export default function SupportForm({ name: initialName, email: initialEmail, ma
       const res = await fetch('/api/support', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, description }),
+        body: JSON.stringify({ name, email, description, ...guardFields() }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -44,6 +46,7 @@ export default function SupportForm({ name: initialName, email: initialEmail, ma
   return (
     <form onSubmit={send} className="bg-secondary rounded-xl border border-border p-4 sm:p-6 space-y-4">
       <p className="text-sm text-muted-foreground">{s.intro}</p>
+      <FormGuardField inputRef={trap} />
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div>

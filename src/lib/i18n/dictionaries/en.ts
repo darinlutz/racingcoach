@@ -2055,6 +2055,8 @@ export const en = {
     sent: 'Support has been contacted. We will reply to {email}, hopefully within 24-48 hours.',
     missingFields: 'Please enter your name, a valid email address and a description of the issue.',
     tooLong: 'The description is too long (at most {max} characters).',
+    tooManyReports: 'You’ve sent several reports already. Please wait an hour before sending another.',
+    supportBusy: 'Support is receiving a lot of reports right now. Please try again tomorrow.',
     failed: 'Your report could not be sent. Please try again later.',
   },
 
@@ -3180,6 +3182,8 @@ export const en = {
     passwordTooShort: 'Password must be at least 8 characters',
     emailTaken: 'An account with that email address already exists',
     failedCreateAccount: 'Failed to create account',
+    tooManyAttempts: 'Too many attempts. Please wait a few minutes and try again.',
+    formTooFast: 'Please take a moment to check the form, then try again. If this keeps happening, reload the page.',
     policiesChanged: 'Our Terms of Service or Privacy Policy changed since this page loaded. Please reload the page and try again.',
     logInPolicies: 'Log in to accept the Terms of Service and Privacy Policy',
     failedSavePolicies: 'Failed to save your acceptance. Please try again.',

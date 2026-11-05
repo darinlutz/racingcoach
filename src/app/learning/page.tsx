@@ -1,17 +1,22 @@
 import type { Metadata } from 'next';
+import { redirect } from 'next/navigation';
 import { GraduationCap } from 'lucide-react';
 import LearningGuide from '@/components/LearningGuide';
 import { getDictionary, getLanguage } from '@/lib/i18n/server';
 import { getGuide } from '@/lib/learningGuide';
+import { withReturnTo } from '@/lib/returnTo';
+import { getCurrentUser } from '@/lib/session';
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = getDictionary(await getLanguage()).learning;
   return { title: t.metaTitle, description: t.metaDescription };
 }
 
-// The Learning page: the guide "The Art of Driving a Race Car" (src/lib/learningGuide.ts) in the user's language, open to everyone
+// The Learning page: the guide "The Art of Driving a Race Car" (src/lib/learningGuide.ts) in the user's language, for signed-in users only
 export default async function LearningPage() {
-  const language = await getLanguage();
+  const user = await getCurrentUser();
+  if (!user) redirect(withReturnTo('/login', '/learning'));
+  const language = await getLanguage(user);
   const t = getDictionary(language).learning;
   const GUIDE = getGuide(language);
 

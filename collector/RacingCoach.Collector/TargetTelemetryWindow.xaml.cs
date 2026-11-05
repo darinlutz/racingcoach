@@ -11,8 +11,9 @@ namespace RacingCoach.Collector;
 /// <summary>
 /// The window the Target Telemetry button opens: a see-through, always-on-top window, like the overlay, with the
 /// brake trace (red) and throttle trace (green) of the user's Target Lap (Debrief Coach, from
-/// /api/collector/target-lap) over the 500 ft of track around the car, and across the top the gear it shifted into at each gear change. The car is the vertical
-/// line, 200 ft from the left, so the trace and gear changes scroll left as the car drives: a gear reaches the car's
+/// /api/collector/target-lap) over the 250 ft of track around the car (short enough that pressing the brake shows
+/// as a slope, not a vertical line), its downshift throttle blips taken out, and across the top the gear it shifted into at each gear change. The car is the vertical
+/// line, 100 ft from the left, so the trace and gear changes scroll left as the car drives: a gear reaches the car's
 /// line where the Target Lap shifted into it. A short bar on the car's line is the
 /// driver's own brake, live (hidden off the brake), and a brighter, thicker red line over the Target Lap's trace is
 /// the driver's brake over the track behind the car, so the two can be compared. Positions come from live LapDistPct and the track's length (Track
@@ -23,8 +24,8 @@ namespace RacingCoach.Collector;
 /// </summary>
 public partial class TargetTelemetryWindow : Window
 {
-    private const double SpanFeet = 500;   // track shown, left to right
-    private const double BehindFeet = 200; // of it behind the car, so the recent past stays in view
+    private const double SpanFeet = 250;   // track shown, left to right
+    private const double BehindFeet = 100; // of it behind the car, so the recent past stays in view
     private const double MarginFeet = 30;  // samples just off each edge, so the trace runs to the edge
     private const double GearBand = 22;    // the gear changes across the top
     private const double TopPad = GearBand + 8; // so the 100% line is under them
@@ -163,12 +164,16 @@ public partial class TargetTelemetryWindow : Window
     {
         _lap = lap;
         _drawn = null;
+        // In lap order (before sorting), as a blip is judged by the samples around it
+        var throttles = lap?.Throttles is { } raw && raw.Length == lap.Brakes.Length
+            ? WithoutThrottleBlips(lap.Brakes, raw)
+            : null;
         var samples = lap is null
             ? []
             : lap.Pcts.Select((pct, i) => (
                     Pct: (pct % 1 + 1) % 1,
                     Brake: Math.Clamp(lap.Brakes[i], 0, 1) * 100,
-                    Throttle: lap.Throttles is { } throttles && i < throttles.Length
+                    Throttle: throttles is not null && i < throttles.Length
                         ? Math.Clamp(throttles[i], 0, 1) * 100
                         : double.NaN))
                 .OrderBy(s => s.Pct)
@@ -179,6 +184,36 @@ public partial class TargetTelemetryWindow : Window
         _gearChanges = (lap?.GearChanges ?? [])
             .Select(change => ((change.Pct % 1 + 1) % 1, change.Gear, change.Gear > change.From))
             .ToArray();
+    }
+
+    // Downshift throttle blips (the engine revved to match a lower gear) read as spikes in the throttle trace. A
+    // blip is a pulse that rises from (near) 0 and drops back to 0; it's flattened to 0 if it's shorter than
+    // BlipMaxSamples or the brake is on during it. Throttle that was already on (the lift as braking starts) and a
+    // pickup that stays on are real and kept. The same as the website's withoutThrottleBlips (src/lib/lapData.ts).
+    private const double PedalOff = 0.02;
+    private const int BlipMaxSamples = 24; // 0.4 s at 60 Hz
+
+    private static double[] WithoutThrottleBlips(double[] brakes, double[] throttles)
+    {
+        var output = (double[])throttles.Clone();
+        for (var i = 1; i < output.Length; i++)
+        {
+            if (output[i] <= PedalOff || output[i - 1] > PedalOff)
+                continue;
+            // A pulse starts at i (the previous sample is off); find where it ends
+            var j = i;
+            var braking = false;
+            while (j < output.Length && output[j] > PedalOff)
+            {
+                braking |= brakes[j] > PedalOff;
+                j++;
+            }
+            // Only pulses that drop back to off before the lap ends are judged
+            if (j < output.Length && (j - i < BlipMaxSamples || braking))
+                Array.Fill(output, 0, i, j - i);
+            i = j;
+        }
+        return output;
     }
 
     private void ShowStatus(bool live)
@@ -360,8 +395,8 @@ public partial class TargetTelemetryWindow : Window
         Plot.Children.Add(_brakeBar);
         Plot.Children.Add(_gears); // over the car's line, so the gear at the car is readable
 
-        // Distance from the car: every 100 ft, or 25 m for Metric Preferred Units
-        var step = _target.Metric ? 25 * FeetPerMeter : 100;
+        // Distance from the car: every 50 ft, or 25 m for Metric Preferred Units
+        var step = _target.Metric ? 25 * FeetPerMeter : 50;
         var unit = Loc.DistanceUnit(_target.Metric);
         for (var feet = -Math.Floor(BehindFeet / step) * step; feet <= SpanFeet - BehindFeet; feet += step)
         {

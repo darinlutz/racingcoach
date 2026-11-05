@@ -2025,6 +2025,8 @@ export const es: Dictionary = {
     sent: 'Se ha contactado a soporte. Te responderemos a {email}, esperamos que en un plazo de 24 a 48 horas.',
     missingFields: 'Ingresa tu nombre, un correo electrónico válido y una descripción del problema.',
     tooLong: 'La descripción es demasiado larga (máximo {max} caracteres).',
+    tooManyReports: 'Ya has enviado varios reportes. Espera una hora antes de enviar otro.',
+    supportBusy: 'Soporte está recibiendo muchos reportes en este momento. Inténtalo de nuevo mañana.',
     failed: 'No se pudo enviar tu reporte. Inténtalo de nuevo más tarde.',
   },
 
@@ -3131,6 +3133,8 @@ export const es: Dictionary = {
     passwordTooShort: 'La contraseña debe tener al menos 8 caracteres',
     emailTaken: 'Ya existe una cuenta con ese correo electrónico',
     failedCreateAccount: 'No se pudo crear la cuenta',
+    tooManyAttempts: 'Demasiados intentos. Espera unos minutos e inténtalo de nuevo.',
+    formTooFast: 'Revisa el formulario un momento e inténtalo de nuevo. Si sigue pasando, recarga la página.',
     policiesChanged: 'Nuestros Términos del servicio o nuestra Política de privacidad cambiaron desde que se cargó esta página. Vuelve a cargar la página e inténtalo de nuevo.',
     logInPolicies: 'Inicia sesión para aceptar los Términos del servicio y la Política de privacidad',
     failedSavePolicies: 'No se pudo guardar tu aceptación. Inténtalo de nuevo.',

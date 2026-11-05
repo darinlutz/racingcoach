@@ -23,7 +23,7 @@ internal sealed class CanonicalLapPipeline : ITelemetrySink
         _adapter = adapter;
         _save = save;
         _log = log;
-        _tracker = new FrameLapTracker(OnLap, message => log(message, false), options);
+        _tracker = new FrameLapTracker(OnLap, message => log(message, false), options ?? (adapter as IHasLapTrackerOptions)?.LapTrackerOptions);
     }
 
     /// <summary>Runs the adapter until it ends, then finishes the frames it read.</summary>

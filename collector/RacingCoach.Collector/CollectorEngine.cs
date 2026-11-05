@@ -6,7 +6,7 @@ namespace RacingCoach.Collector;
 /// <summary>Command line options. A played-back .ibt file (with a speed multiplier) replaces live iRacing.
 /// Simulator is --simulator: null is iRacing directly, as ever; "auto" looks for a running simulator, and otherwise
 /// it's a simulator's id.</summary>
-internal sealed record CollectorOptions(string? IbtFile, int Speed, bool SetKey, bool NoUpload, bool Upload, string? SiteUrl, bool NoPositions, string? Simulator = null)
+internal sealed record CollectorOptions(string? IbtFile, int Speed, bool SetKey, bool NoUpload, bool Upload, string? SiteUrl, bool NoPositions, string? Simulator = null, bool RecordRaw = false)
 {
     public const string AutoSimulator = "auto";
     public bool Playback => IbtFile is not null;
@@ -15,7 +15,13 @@ internal sealed record CollectorOptions(string? IbtFile, int Speed, bool SetKey,
 /// <summary>The simulators this build can read. Adding one is adding its adapter here.</summary>
 internal static class SimulatorRegistry
 {
-    public static IReadOnlyList<ISimulatorAdapter> Create(IRacingAdapter iRacing) => [iRacing];
+    /// <summary>The tested simulators, which --simulator auto chooses from, plus one still being proved (not supported
+    /// in simulators/capabilities.json, so the website refuses its laps) only when --simulator names it.</summary>
+    /// <param name="named">--simulator's id, or null for auto (or no --simulator).</param>
+    /// <param name="rawRecordingFolder">--record-raw: where adapters that can write their simulator's raw data (ACC's
+    /// shared memory pages) do, else null.</param>
+    public static IReadOnlyList<ISimulatorAdapter> Create(IRacingAdapter iRacing, string? named = null, string? rawRecordingFolder = null, Action<string>? log = null) =>
+        named == AccFrameBuilder.SimulatorId ? [iRacing, new AccAdapter(rawRecordingFolder, log)] : [iRacing];
 }
 
 /// <summary>Track, car, driver and session details from iRacing's session info, for the window.</summary>
@@ -95,8 +101,8 @@ internal sealed class CollectorEngine
         _options = options;
         _log = log;
         _iRacing = new IRacingAdapter(options.IbtFile, options.Speed);
-        _adapters = adapters ?? SimulatorRegistry.Create(_iRacing);
         documents ??= Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+        _adapters = adapters ?? SimulatorRegistry.Create(_iRacing, options.Simulator == CollectorOptions.AutoSimulator ? null : options.Simulator, options.RecordRaw ? Path.Combine(documents, "RacingCoach", "Raw") : null, message => Log(message));
         _documents = documents;
         LapsFolder = Path.Combine(documents, "RacingCoach", "Laps");
 

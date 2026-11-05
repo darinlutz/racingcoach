@@ -2,7 +2,7 @@
 // Coach's get_braking_detail, get_throttle_detail, get_steering_detail and get_driving_line tools. Measured in
 // the browser from an areaTrace, like areaStats, since the CSVs are too big to send.
 
-import { brakeFeet, type AreaTrace } from '@/lib/lapData';
+import { brakeFeet, type AreaTrace } from './lapData.ts';
 
 // Brake (0-1) above this counts as pressed; below it is pedal noise
 const BRAKE_ON = 0.02;
@@ -168,7 +168,7 @@ export function brakingDetail({ pcts, times, brakes, throttles, steerings }: Are
   }
 
   let brakeAtTurnInPct: number | null = null;
-  const maxSteer = Math.max(...steerings.map(Math.abs));
+  const maxSteer = Math.max(0, ...steerings.filter(Number.isFinite).map(Math.abs));
   if (maxSteer * DEGREES_PER_RADIAN >= MIN_TURN_DEGREES) {
     const turnIn = steerings.findIndex((s) => Math.abs(s) >= maxSteer / 2);
     brakeAtTurnInPct = Math.round(brakes[turnIn] * 100);
@@ -187,8 +187,11 @@ export function brakingDetail({ pcts, times, brakes, throttles, steerings }: Are
   };
 }
 
-export function steeringDetail({ steerings, speeds }: AreaTrace): SteeringDetail {
-  const degrees = steerings.map((s) => s * DEGREES_PER_RADIAN);
+// null when the lap has no steering in the area (a simulator that doesn't record it), so coaches say it wasn't
+// measured rather than read a straight wheel
+export function steeringDetail({ steerings, speeds }: AreaTrace): SteeringDetail | null {
+  if (!steerings.some(Number.isFinite)) return null;
+  const degrees = steerings.map((s) => (Number.isFinite(s) ? s * DEGREES_PER_RADIAN : 0));
   let slowest = 0;
   speeds.forEach((speed, i) => {
     if (speed < speeds[slowest]) slowest = i;

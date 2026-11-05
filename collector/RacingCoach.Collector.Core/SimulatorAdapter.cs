@@ -42,6 +42,13 @@ public interface ITelemetrySink
 /// it stays in order with the frames; a null means it didn't say.</summary>
 public sealed record NativeLapEvent(int? LapNumber, double? LapTimeSeconds, bool? Valid);
 
+/// <summary>An adapter whose simulator's frames are split into laps differently from iRacing's (LapTrackerOptions'
+/// defaults): its own lap events, another rate, no tick.</summary>
+public interface IHasLapTrackerOptions
+{
+    LapTrackerOptions LapTrackerOptions { get; }
+}
+
 /// <summary>An adapter that can give the finished results of a race.</summary>
 public interface IProvidesRaceResults;
 

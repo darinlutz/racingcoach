@@ -182,6 +182,9 @@ public sealed class AdapterContractTests
         Assert.Equal(["iracing"], supported);
         foreach (var adapter in SimulatorRegistry.Create(new IRacingAdapter()))
             Assert.Contains(adapter.SimulatorId, supported);
+        // ACC, still being proved, only when --simulator names it, never for auto
+        Assert.Equal(["iracing"], SimulatorRegistry.Create(new IRacingAdapter(), named: null).Select(a => a.SimulatorId));
+        Assert.Equal(["iracing", "acc"], SimulatorRegistry.Create(new IRacingAdapter(), named: "acc").Select(a => a.SimulatorId));
     }
 
     [Fact]
@@ -463,7 +466,10 @@ public sealed class PipelineTests
         Assert.Equal(LapCsvFormat.Header, lines[0]);
         foreach (var missing in new[] { "SteeringWheelAngle", "LFrideHeight", "RRpressure", "LFtempCM", "Lat", "OilTemp", "SessionTick" })
             Assert.Equal("", row[Array.IndexOf(header, missing)]);
-        Assert.Equal("41.666668", row[Array.IndexOf(header, "Speed")]); // 150 km/h, in m/s
+        // ACC's speed is only documented in the matrix until it's checked in the game, so it doesn't reach the lap
+        // file yet (ChannelGate); the lap's structure does
+        Assert.Equal("", row[Array.IndexOf(header, "Speed")]);
+        Assert.NotEqual("", row[Array.IndexOf(header, "LapDistPct")]);
     }
 
     [Fact]

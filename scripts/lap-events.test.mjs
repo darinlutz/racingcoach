@@ -2,7 +2,8 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { areaStats } from '../src/lib/lapData.ts';
+import { areaStats, lapSamplesFromText } from '../src/lib/lapData.ts';
+import { brakingDetail, steeringDetail } from '../src/lib/areaInputs.ts';
 import { deltas, lapFuel, largest, meanAbs, pairShifts, shiftEvents, stats, steeringReversals, stretchesWhere } from '../src/lib/lapChannels.ts';
 import { roundTicks } from '../src/lib/lapCharts.ts';
 import { cornerPhases, detectLapEvents, evenGrid, positionAtTime, resample, resampleNearest } from '../src/lib/lapEvents.ts';
@@ -253,4 +254,15 @@ test('positionAtTime is the inverse of the lap’s times and stays on the lap', 
   close(positionAtTime(trace, 11.5), 0.3);
   assert.equal(positionAtTime(trace, 5), 0.1);
   assert.equal(positionAtTime(trace, 50), 0.4);
+});
+
+test('a lap without steering (a simulator that only gives the input) has none, never a straight wheel', () => {
+  const csv = ['Speed,LapDistPct,Brake,Throttle,SteeringWheelAngle', '40,0.1,0,1,', '41,0.2,0.5,0,', '42,0.3,0,1,'].join('\n');
+  const samples = lapSamplesFromText(csv);
+  assert.ok(samples.steerings.every(Number.isNaN));
+  assert.deepEqual(samples.speeds, [40, 41, 42]);
+  const trace = { ...corner(), steerings: pcts.map(() => NaN) };
+  assert.equal(steeringDetail(trace), null);
+  assert.equal(brakingDetail(trace, 10000).brakeAtTurnInPct, null);
+  assert.notEqual(steeringDetail(corner()), null);
 });

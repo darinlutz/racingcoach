@@ -45,7 +45,7 @@ export default function EngineeringInsightsPanel({ areaName }: { areaName: strin
   gapRow('release', insights.release, target.brakeRelease, compare.brakeRelease, insights.releaseLater, insights.releaseEarlier);
 
   if (cursorIndex !== null) {
-    const steerGap = grid.steerings[1][cursorIndex] - grid.steerings[0][cursorIndex];
+    const steerGap = (grid.steerings[1]?.[cursorIndex] ?? NaN) - (grid.steerings[0]?.[cursorIndex] ?? NaN);
     if (Number.isFinite(steerGap)) {
       rows.push({ key: 'steering', label: insights.steering, text: fmt(steerGap >= 0 ? insights.steerRight : insights.steerLeft, { n: Math.abs(steerGap).toFixed(0) }) });
     }

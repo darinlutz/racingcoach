@@ -146,14 +146,14 @@ Uploaded laps (`"CollectorLaps"`), saved Debrief Coach runs (`"DebriefSessions"`
 
 ## Multi-Simulator Telemetry
 
-iRacing is the only supported simulator. The collector and website are ready for others behind an adapter contract; no other adapter exists. Design, the capability matrix, what's proven and not, how to add a simulator, and rollback are in `docs/multi-simulator.md`.
+iRacing is the only supported simulator. The collector and website are ready for others behind an adapter contract. An ACC adapter exists (`AccAdapter.cs`, `AccFrameBuilder.cs`), only with `--simulator acc`, and isn't supported yet: its laps carry only the channels the matrix marks collected (`ChannelGate.cs`), and the website refuses them until its `status` is `supported`. Design, the capability matrix, what's proven and not, how to add a simulator, and rollback are in `docs/multi-simulator.md`.
 
 - **Collector**: `collector/RacingCoach.Collector.Core/` (no simulator SDK or WPF): `ISimulatorAdapter`, `TelemetryFrame` (null means unavailable, never 0; iRacing's units and signs), `FrameLapTracker`, `LapCsvFormat`, `SimulatorSelection`, `FramePump`. `IRacingAdapter.cs` holds the SDK connection. iRacing keeps its own path (`RunNativeAsync`, `TelemetryData`, `LapRecorder`), as the coach, overlays, brake beeps, Rotation Model, Live Racing, Driver Radio and race results read `TelemetryData`; other simulators get laps only, through `CanonicalLapPipeline`. `--simulator auto|<id>` opts in; without it no detection runs
 - **Matrix**: `simulators/capabilities.json`, shared by the collector (`SimulatorCatalog`) and website (`src/lib/simulators.ts`). `status: supported` is what lets `POST /api/collector/laps` accept a simulator's laps (422 `simulatorNotSupported` otherwise): change it only after an adapter has passed the checklist against the real simulator
 - **Database** (`src/lib/simulatorSchema.ts`, additive only): `"CollectorLaps".simulator` (default `iracing`), `native_track_key`, `payload_version`, `adapter_version`; `"SimulatorTracks"` and `"SimulatorCars"` map other simulators' ids to the site's, only on purpose (`simulatorMappings.ts`), never by similar names. For another simulator `track_key` is the mapped site track or NULL. Only iRacing laps write `"Tracks"`' lengths, locations, bounds and outlines
 - **Payload**: a lap's details carry `simulator` and `payloadVersion`; none means iRacing, format 1. Bump it only when a field changes meaning, and keep reading older formats
 - **Golden files**: `collector/RacingCoach.Collector.Tests/Golden/` is iRacing's behavior from before this work. Never regenerate them to make a test pass: a difference is a change to iRacing to understand first
-- **Tests**: `npm run test:collector` (needs no simulator) and `npm run test:simulators` (with `SIMULATORS_TEST_DATABASE_URL`, see the test's header)
+- **Tests**: `npm run test:collector` (needs no simulator; Windows), `npm run test:collector-core` (Core alone, any OS: ACC's layout, frame builder, raw recordings, channel gate) and `npm run test:simulators` (with `SIMULATORS_TEST_DATABASE_URL`, see the test's header)
 
 ## My Dashboard
 

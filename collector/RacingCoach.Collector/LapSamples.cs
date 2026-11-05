@@ -113,8 +113,13 @@ internal sealed class IRacingLapSamples(List<TelemetryData> samples) : LapSample
 }
 
 /// <summary>A lap from any other simulator's adapter, written from canonical frames in the same CSV format.</summary>
-internal sealed class CanonicalLapSamples(IReadOnlyList<TelemetryFrame> frames) : LapSamples
+internal sealed class CanonicalLapSamples(IReadOnlyList<TelemetryFrame> rawFrames) : LapSamples
 {
+    // Only the channels the matrix marks collected for the simulator reach the lap file (ChannelGate)
+    private readonly IReadOnlyList<TelemetryFrame> frames = rawFrames.Count == 0
+        ? rawFrames
+        : rawFrames.Select(f => ChannelGate.ForLapFile(f, SimulatorCatalog.Shared.Find(f.SimulatorId))).ToList();
+
     public override int Count => frames.Count;
     public override string Header => LapCsvFormat.Header;
     public override double? LastSessionTime => frames[^1].SessionTimeSeconds;

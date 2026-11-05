@@ -98,7 +98,7 @@ export const LAP_TIME_RULE =
 // speeds are in m/s, as exported by Garage 61
 export const MPH_PER_METER_PER_SECOND = 2.23694;
 
-// steerings is SteeringWheelAngle in radians, positive to the left (0 where the CSV has none).
+// steerings is SteeringWheelAngle in radians, positive to the left (NaN where the CSV has none).
 // lats/lons are the car's position in degrees; NaN where the CSV has none (laps the collector hasn't
 // added positions to yet, see IbtEnricher.cs). alts is the car's altitude (m), NaN where the CSV has none. yaws is iRacing's Yaw (radians, NaN where the CSV has none).
 export type LapSamples = {
@@ -250,7 +250,8 @@ export function lapSamplesFromText(text: string): LapSamples {
     brakes.push(parseFloat(cells[brakeColumn]) || 0);
     speeds.push(parseFloat(cells[speedColumn]) || 0);
     throttles.push(parseFloat(cells[throttleColumn]) || 0);
-    steerings.push(parseFloat(cells[steeringColumn]) || 0);
+    // A simulator that doesn't measure the wheel leaves the cells empty: NaN, never a straight-ahead 0
+    steerings.push(steeringColumn < 0 ? NaN : parseFloat(cells[steeringColumn]));
     // parseFloat of a missing or empty cell is NaN
     lats.push(latColumn < 0 ? NaN : parseFloat(cells[latColumn]));
     lons.push(lonColumn < 0 ? NaN : parseFloat(cells[lonColumn]));

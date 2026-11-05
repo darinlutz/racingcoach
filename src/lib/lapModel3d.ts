@@ -218,7 +218,8 @@ export function poseAt(line: ModelLine, f: number): CarPose {
     travel: direction,
     pitch: -Math.atan(slope) * DEGREES,
     slip: Number.isFinite(sideslip) ? sideslip * DEGREES : null,
-    steer: (trace.steerings[i] / STEERING_RATIO) * DEGREES,
+    // Wheels straight when the lap has no steering: it's only the picture
+    steer: Number.isFinite(trace.steerings[i]) ? (trace.steerings[i] / STEERING_RATIO) * DEGREES : 0,
     brake: trace.brakes[i],
     speed: trace.speeds[i],
     gear: trace.engine.gears[i],

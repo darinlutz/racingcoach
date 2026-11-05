@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "eslint",
     "test:collector": "dotnet test collector/RacingCoach.Collector.Tests",
+    "test:collector-core": "dotnet test collector/RacingCoach.Collector.Core.Tests",
     "test:simulators": "node --experimental-transform-types --no-warnings --test scripts/simulators.test.mjs && node --experimental-transform-types --no-warnings --test scripts/simulators-db.test.mjs",
     "test:rotation": "node --test scripts/rotation-model.test.mjs",
     "test:track-positions": "node --test scripts/track-positions.test.mjs",

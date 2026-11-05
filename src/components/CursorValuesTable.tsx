@@ -10,14 +10,14 @@ export default function CursorValuesTable() {
   const { t, locale } = useLanguage();
   const labels = t.charts.telemetry;
   const { grid, cursorIndex } = useTelemetry();
-  const pair = ([target, other]: [number[], number[]]) => (cursorIndex === null ? [NaN, NaN] : [target[cursorIndex], other[cursorIndex]]);
-  const row = (key: string, label: string, values: [number[], number[]], show: (value: number) => string, delta: (value: number) => string) => {
+  const pair = ([target, other]: [number[] | null, number[] | null]) => (cursorIndex === null ? [NaN, NaN] : [target?.[cursorIndex] ?? NaN, other?.[cursorIndex] ?? NaN]);
+  const row = (key: string, label: string, values: [number[] | null, number[] | null], show: (value: number) => string, delta: (value: number) => string) => {
     const [target, other] = pair(values);
     const known = Number.isFinite(target) && Number.isFinite(other);
     return { key, label, target: Number.isFinite(target) ? show(target) : '–', other: Number.isFinite(other) ? show(other) : '–', delta: known ? delta(other - target) : '–' };
   };
   // Rounded as shown, so the differences match the two values beside them
-  const wholeDelta = (values: [number[], number[]]) => {
+  const wholeDelta = (values: [number[] | null, number[] | null]) => {
     const [target, other] = pair(values);
     return Math.round(other) - Math.round(target);
   };

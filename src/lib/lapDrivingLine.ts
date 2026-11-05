@@ -32,7 +32,7 @@ export function measureDrivingLine(area: string, secondsDiff: number, base: Area
   const offsetAt = lineOffsets(compare, base);
   const detail = lineDetail(compare, base);
   if (!offsetAt || !detail) return null;
-  const { apexDeg } = steeringDetail(base);
+  const apexDeg = steeringDetail(base)?.apexDeg ?? 0;
   return {
     area,
     secondsDiff,

@@ -131,7 +131,9 @@ public static class Program
           --no-positions      Don't turn on iRacing's .ibt recording or add track positions (Lat/Lon)
                               from .ibt files to live laps this time
           --simulator <id>    Which simulator to read: "auto" looks for one running; otherwise its id,
-                              e.g. iracing. Without it, iRacing as always
+                              e.g. iracing or acc. Without it, iRacing as always
+          --record-raw        Also save the simulator's raw data to Documents\RacingCoach\Raw (ACC's
+                              shared memory), for checking a new simulator's conversions
         """;
 
     // One collector at a time: two would both record every lap and upload it twice
@@ -196,6 +198,7 @@ public static class Program
                 case "--no-upload": options = options with { NoUpload = true }; break;
                 case "--upload": options = options with { Upload = true }; break;
                 case "--no-positions": options = options with { NoPositions = true }; break;
+                case "--record-raw": options = options with { RecordRaw = true }; break;
                 case "--site" when i + 1 < args.Length && Uri.TryCreate(args[i + 1], UriKind.Absolute, out _):
                     options = options with { SiteUrl = args[++i] };
                     break;

@@ -46,7 +46,8 @@ export async function GET(request: Request) {
         pcts: pcts.map((pct) => Math.round(pct * 1e6) / 1e6),
         brakes: brakes.map((brake) => Math.round(Math.min(Math.max(brake, 0), 1) * 1000) / 1000),
         throttles: throttles.map((throttle) => Math.round(Math.min(Math.max(throttle, 0), 1) * 1000) / 1000),
-        steerings: steerings.map((steering) => Math.round(steering * 10000) / 10000),
+        // null when the lap has no steering (the collector already takes null, from sites before it was sent)
+        steerings: steerings.some(Number.isFinite) ? steerings.map((steering) => (Number.isFinite(steering) ? Math.round(steering * 10000) / 10000 : 0)) : null,
         speeds: speeds.map((speed) => Math.round(speed * 100) / 100),
         gearChanges: gearChanges(pcts, gears),
       },

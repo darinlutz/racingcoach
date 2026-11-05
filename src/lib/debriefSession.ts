@@ -61,7 +61,7 @@ export function measureDebriefSession(track: Track, car: string, laps: MeasuredL
       exitSpeedMph: stats.exitSpeed * MPH_PER_METER_PER_SECOND,
       braking: brakingDetail(trace, track.lengthFeet),
       throttle: throttleDetail(trace, track.lengthFeet),
-      steering: steeringDetail(trace),
+      steering: steeringDetail(trace) ?? undefined,
       gears: gearDetail(trace),
       line: reference ? lineDetail(trace, reference.trace) : null,
     }));

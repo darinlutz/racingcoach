@@ -65,7 +65,7 @@ export type LapGrid = {
   pcts: number[];
   throttles: [number[], number[]];
   brakes: [number[], number[]];
-  steerings: [number[], number[]];
+  steerings: ChannelPair;
   speeds: [number[], number[]];
   timeDeltas: number[];
   lineOffsets: number[] | null;
@@ -183,7 +183,8 @@ function lapGrid(base: PedalTraceLap, compare: PedalTraceLap, units: ReturnType<
     pcts,
     throttles: both((lap) => lap.trace.throttles, (value) => value * 100),
     brakes: both((lap) => lap.trace.brakes, (value) => value * 100),
-    steerings: both((lap) => lap.trace.steerings, (radians) => -degrees(radians)),
+    // null for a lap whose simulator doesn't record the wheel, shown as no data rather than as straight ahead
+    steerings: [base, compare].map((lap) => (present(lap.trace.steerings) ? onGrid(lap, lap.trace.steerings).map((radians) => -degrees(radians)) : null)) as ChannelPair,
     speeds: both((lap) => lap.trace.speeds, (speed) => speedFromMetersPerSecond(speed, units)),
     timeDeltas: pcts.map((pct) => timeAtPosition(compare.trace, pct) - compareStart - (timeAtPosition(base.trace, pct) - baseStart)),
     lineOffsets: offsetAt && pcts.map((pct) => distanceFromMeters(offsetAt(clamp((pct - from) / (to - from), 0, 1)), units)),

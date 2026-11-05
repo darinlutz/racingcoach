@@ -140,10 +140,10 @@
       "status": "documented",
       "requiresSetup": null,
       "interfaces": [
-        { "kind": "sharedMemory", "name": "Local\\acpmf_physics, Local\\acpmf_graphics, Local\\acpmf_static", "rate": "Each graphics step", "note": "The same names as Assetto Corsa and AC Rally: tell them apart by the process and the static page's version strings" }
+        { "kind": "sharedMemory", "name": "Local\\acpmf_physics, Local\\acpmf_graphics, Local\\acpmf_static", "rate": "Each graphics step", "note": "The same names as Assetto Corsa and AC Rally, and AC's static page starts the same way, so only the process tells them apart (ACC's is AC2-Win64-Shipping.exe). Layout: the document's fields in its order, 4-byte aligned (wchar_t arrays padded to 4), physics 800 bytes, graphics 1588, static 820; collector/RacingCoach.Collector.Core/AccSharedMemory.cs" }
       ],
       "licensing": "Kunos publishes the shared memory documentation for tool makers; no licence text for it was found. Confirm before a commercial release.",
-      "sources": ["ACC Shared Memory v1.8.12 (Kunos): https://github.com/rrennoir/PyAccSharedMemory/blob/main/ACCSharedMemoryDocumentationV1.8.12.pdf (a copy; the original is at https://www.assettocorsa.net/forum/index.php?threads/acc-shared-memory-documentation.59965/). A later contributor reports running shared memory v1.9 without finding newer documentation: check smVersion in the static page."],
+      "sources": ["ACC Shared Memory v1.8.12 (Kunos): https://github.com/rrennoir/PyAccSharedMemory/blob/main/ACCSharedMemoryDocumentationV1.8.12.pdf (a copy, SHA-256 a0c279753f154e9145f6854313472a0e1270027057ce27e2db1547a63f56cabf; the original is at https://www.assettocorsa.net/forum/index.php?threads/acc-shared-memory-documentation.59965/). Offsets worked out from it on 2026-11-04 and compared with PyAccSharedMemory's reader, which walks the same fields with the same padding. The document gives no offsets or units for several fields, and its car appendices stop at the 2022 Challengers Pack. A later contributor reports running shared memory v1.9 without finding newer documentation: check smVersion in the static page."],
       "channels": {
         "speed": { "support": "documented", "note": "speedKmh, in km/h" },
         "lapDistance": { "support": "unavailable", "note": "distanceTraveled is the stint's, and trackSplineLength is marked not used, so no meters along the lap" },
@@ -161,10 +161,10 @@
         "throttle": { "support": "documented", "note": "gas" },
         "brake": { "support": "documented" },
         "clutch": { "support": "documented", "note": "A pedal input: confirm it needs inverting to 1 = engaged" },
-        "steeringAngle": { "support": "unavailable", "note": "steerAngle is the input from -1 to 1, not an angle" },
+        "steeringAngle": { "support": "unavailable", "note": "steerAngle is the input from -1 to 1, not an angle. The document's Appendix 5 gives each car's maximum steering angle (e.g. 400 for the Porsche 991 II GT3 R; AccCars.cs), so a consumer could estimate one as input × half of it, called estimated, for the cars listed. Confirm that it's lock to lock, in degrees at the wheel, first" },
         "steeringInput": { "support": "documented", "note": "steerAngle; confirm its sign" },
         "gear": { "support": "documented", "note": "Current gear; its numbering isn't stated. Confirm neutral and reverse in the simulator" },
-        "rpm": { "support": "documented" },
+        "rpm": { "support": "documented", "note": "rpm; the static page's maxRpm and the document's Appendix 7 give each car's limit" },
         "handbrake": { "support": "unknown" },
         "absActive": { "support": "documented", "note": "abs; absInAction is marked not used" },
         "tirePressure": { "support": "documented", "note": "wheelPressure; no unit stated. Confirm it" },
@@ -199,7 +199,7 @@
         "sessionType": { "support": "documented" },
         "trackId": { "support": "documented", "note": "track; trackConfiguration is marked not used" },
         "trackLength": { "support": "unavailable", "note": "trackSplineLength is marked not used" },
-        "carId": { "support": "documented", "note": "carModel" },
+        "carId": { "support": "documented", "note": "carModel, Kunos's id (e.g. porsche_991ii_gt3_r); the document's Appendix 2 names them up to the 2022 Challengers Pack" },
         "driverId": { "support": "documented", "note": "Names only; no stable account id" },
         "fieldCars": { "support": "documented", "note": "Positions and car IDs only: no names, times or running order here" }
       }

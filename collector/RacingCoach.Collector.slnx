@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="RacingCoach.Collector.Core.Tests/RacingCoach.Collector.Core.Tests.csproj" />
+  <Project Path="RacingCoach.Collector.Core/RacingCoach.Collector.Core.csproj" />
+  <Project Path="RacingCoach.Collector.Tests/RacingCoach.Collector.Tests.csproj" />
+  <Project Path="RacingCoach.Collector/RacingCoach.Collector.csproj" />
+  <Project Path="RotationModel.Replay/RotationModel.Replay.csproj" />
+</Solution>

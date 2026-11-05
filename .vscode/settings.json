@@ -1,4 +1,5 @@
 {
     "ShortcutMenuBar.commentLine": true,
+    "dotnet.defaultSolution": "collector/RacingCoach.Collector.slnx",
     "python.defaultInterpreterPath": "${workspaceFolder}/.venv/Scripts/python.exe"
 }

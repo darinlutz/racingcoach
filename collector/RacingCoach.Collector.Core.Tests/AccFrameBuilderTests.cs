@@ -92,7 +92,10 @@ internal sealed class AccDrive
             var physics = new AccPage(AccDocumentedLayout.Physics)
                 .Int("packetId", i + 1).Float("gas", 0.8f).Float("brake", 0.1f).Int("gear", 4).Int("rpm", 7000)
                 .Float("steerAngle", 0.25f).Float("speedKmh", 150).Float("waterTemp", 85).Float("airTemp", 21).Float("roadTemp", 30)
-                .Float("clutch", 0).Float("abs", 0);
+                // Engaged (ACC's clutch is engagement, like iRacing's); turning gently right: heading growing, yaw
+                // rate negative, pulled right; vertical without gravity, as ACC gives it
+                .Float("clutch", 1).Float("abs", 0).Float("heading", 0.5f)
+                .Float("localAngularVel", -0.2f, 1).Float("accG", -0.8f, 0).Float("accG", 0.1f, 1).Float("accG", -0.3f, 2);
             for (var w = 0; w < 4; w++)
                 physics.Float("wheelPressure", 27, w);
             var lapNumber = completed + 1;
@@ -138,7 +141,12 @@ public sealed class AccFrameBuilderTests
         Assert.Null(frame.OffTrack);
         Assert.Null(frame.IncidentCount);
         Assert.Null(frame.Tick);
-        Assert.Equal(1f, frame.ClutchEngagement); // pedal up
+        Assert.Equal(1f, frame.ClutchEngagement); // engaged, as ACC gives it
+        Assert.Equal(-0.5f, frame.YawRadians); // ACC's heading grows turning right; iRacing's Yaw turning left
+        Assert.Equal(-0.2f, frame.YawRateRadiansPerSecond); // turning right
+        Assert.Equal(-0.8f * 9.80665f, frame.LatAccelMps2!.Value, 3); // pulled right
+        Assert.Equal(-0.3f * 9.80665f, frame.LongAccelMps2!.Value, 3);
+        Assert.Equal(1.1f * 9.80665f, frame.VertAccelMps2!.Value, 3); // gravity added, as iRacing's includes it
         Assert.False(frame.AbsActive);
         Assert.True(frame.IsOnTrack);
         Assert.False(frame.IsReplay);

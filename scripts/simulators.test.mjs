@@ -30,13 +30,18 @@ test('every target simulator is listed, with sources and licensing noted', () =>
   }
 });
 
+// The simulators the collector has an adapter for (SimulatorRegistry): only they can have checked a channel in the game
+const WITH_ADAPTER = ['iracing', 'acc'];
+
 test('a simulator only lists real channels, and one with no adapter never says collected', () => {
   for (const simulator of SIMULATORS) {
     for (const [channel, { support }] of Object.entries(simulator.channels)) {
       assert.ok(CHANNELS.includes(channel), `${simulator.id}: ${channel}`);
-      if (simulator.status !== 'supported') assert.ok(!support.startsWith('collected'), `${simulator.id}: ${channel}`);
+      if (!WITH_ADAPTER.includes(simulator.id)) assert.ok(!support.startsWith('collected'), `${simulator.id}: ${channel}`);
     }
   }
+  // An adapter marks channels collected one at a time as they're checked; its laps are still refused until supported
+  assert.equal(findSimulator('acc').status, 'documented');
 });
 
 test('laps are only accepted from a tested simulator, and never an unknown one', () => {
@@ -57,7 +62,9 @@ test('a channel only shows where it has really been collected', () => {
   assert.equal(channelAvailable('iracing', 'brake'), true);
   assert.equal(channelAvailable('iracing', 'geoPosition'), true);
   assert.equal(channelAvailable('iracing', 'wheelSpeed'), false);
-  assert.equal(channelAvailable('acc', 'brake'), false); // documented, not yet read from the game
+  assert.equal(channelAvailable('acc', 'brake'), true); // checked against the Spa recording
+  assert.equal(channelAvailable('acc', 'yaw'), false); // documented: its zero isn't known yet
+  assert.equal(channelAvailable('acc', 'fuelLevel'), false); // documented: kg or liters not confirmed
   assert.equal(channelAvailable('acc', 'steeringAngle'), false);
   assert.equal(findSimulator('acc').channels.rideHeightAxle.support, 'unavailable');
   assert.equal(channelAvailable('nonsense', 'brake'), false);

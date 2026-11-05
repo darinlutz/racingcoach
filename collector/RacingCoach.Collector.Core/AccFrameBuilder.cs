@@ -11,41 +11,50 @@ namespace RacingCoach.Collector.Simulators;
 /// </summary>
 public static class AccConventions
 {
-    /// <summary>"Current gear", no encoding given. The community readers all use 0 reverse, 1 neutral, 2 first;
-    /// iRacing's is -1, 0, 1.</summary>
+    // Checked against the Spa recording of 2026-11-05 (smVersion 1.9, Huracán GT3 Evo; docs/multi-simulator.md) where
+    // marked "Spa:". The 1.8 layout read every field of it sensibly, so 1.9 moved nothing this reads.
+
+    /// <summary>"Current gear", no encoding given: 0 reverse, 1 neutral, 2 first, as the community readers have it;
+    /// iRacing's is -1, 0, 1. Spa: 1 standing still, 2 pulling away, 7 at the top of a six-speed car.</summary>
     public const int GearOffset = -1;
 
-    /// <summary>steerAngle is the input, -1 to 1, with no direction given. +1 is taken to be full right lock, so it's
-    /// negated into the frame's positive-left.</summary>
+    /// <summary>steerAngle is the input, -1 to 1, with no direction given; +1 is full right lock, so it's negated into
+    /// the frame's positive-left. Spa: +0.48 through La Source, a right hairpin.</summary>
     public const float SteeringInputSign = -1;
 
-    /// <summary>localVelocity and localAngularVel are "in local coordinates", with no axes given. AC's are taken:
-    /// x across the car (+ left), y up, z forward. Forward is z; left is x.</summary>
+    /// <summary>localVelocity and localAngularVel are "in local coordinates", with no axes given: x across the car
+    /// (+ left), y up, z forward. Spa: z reaches the top speed in m/s, and yaw rate about y tracks lateral g at 0.93
+    /// and the steering at -0.94.</summary>
     public const int ForwardAxis = 2;
     public const int LeftAxis = 0;
     public const float LeftSign = 1;
-    /// <summary>Yaw rate is about y (up); iRacing's YawRate is positive turning left.</summary>
+    /// <summary>Yaw rate is about y (up); iRacing's YawRate is positive turning left. Spa: -0.8 rad/s through La Source.</summary>
     public const int UpAxis = 1;
     public const float YawRateSign = 1;
 
-    /// <summary>accG is documented as "in global coordinates" without a unit, though the community readers treat it as
-    /// the car's own g: x lateral, y vertical, z longitudinal. Taken as that, in g; the Spa recording decides.</summary>
+    /// <summary>accG is documented as "in global coordinates" without a unit, but it's the car's own g: x lateral
+    /// (+ left), y vertical, z longitudinal (+ forward). Spa: 1.4 g through La Source, matching speed × yaw rate;
+    /// negative under braking.</summary>
     public const int LatAxis = 0;
     public const int VertAxis = 1;
     public const int LongAxis = 2;
     public const float LatSign = 1;
     public const float LongSign = 1;
+    /// <summary>Whether accG's vertical includes gravity, as iRacing's VertAccel does. Spa: it averages 0.02 g on the
+    /// move, so it doesn't, and 1 g is added.</summary>
+    public const bool VerticalIncludesGravity = false;
 
-    /// <summary>heading is "car yaw orientation", radians assumed; whether it matches iRacing's Yaw (its zero and
-    /// direction) isn't known, so it's passed as it is.</summary>
-    public const float YawSign = 1;
+    /// <summary>heading is "car yaw orientation" in radians, -π to π. Spa: it grows turning right (its rate is exactly
+    /// minus the yaw rate), the reverse of iRacing's Yaw, so it's negated. Its zero (which way is 0) isn't known, so
+    /// the yaw channel stays unconfirmed.</summary>
+    public const float YawSign = -1;
 
-    /// <summary>wheelPressure has no unit; ACC's own UI and every community tool show psi.</summary>
+    /// <summary>wheelPressure has no unit; ACC's own UI and every community tool show psi. Spa: 26-27 hot.</summary>
     public const bool PressureInPsi = true;
 
-    /// <summary>clutch is "clutch pedal input" from 0 to 1, so 1 is taken to be the pedal fully down (disengaged),
-    /// the reverse of iRacing's Clutch.</summary>
-    public const bool ClutchIsPedal = true;
+    /// <summary>clutch is documented as "clutch pedal input", but it's engagement like iRacing's Clutch: Spa: 1.00
+    /// throughout driving, lower only pulling away.</summary>
+    public const bool ClutchIsPedal = false;
 
     /// <summary>abs is "ABS in action" with no range; anything above this is taken as ABS working.</summary>
     public const float AbsActiveAbove = 0;
@@ -104,7 +113,7 @@ public sealed class AccFrameBuilder
             VelocityLeftMps = AccConventions.LeftSign * Axis(local, AccConventions.LeftAxis),
             LatAccelMps2 = Units.GToMps2(AccConventions.LatSign * Axis(g, AccConventions.LatAxis)),
             LongAccelMps2 = Units.GToMps2(AccConventions.LongSign * Axis(g, AccConventions.LongAxis)),
-            VertAccelMps2 = Units.GToMps2(Axis(g, AccConventions.VertAxis)),
+            VertAccelMps2 = Units.GToMps2(Axis(g, AccConventions.VertAxis) + (AccConventions.VerticalIncludesGravity ? 0 : 1)),
             YawRadians = AccConventions.YawSign * physics.Heading,
             YawRateRadiansPerSecond = AccConventions.YawRateSign * Axis(angular, AccConventions.UpAxis),
             Throttle = physics.Gas,

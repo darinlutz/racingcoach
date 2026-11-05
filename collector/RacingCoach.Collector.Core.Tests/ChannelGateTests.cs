@@ -75,21 +75,32 @@ public sealed class ChannelGateTests
     }
 
     [Fact]
-    public void ACC_in_the_matrix_today_writes_no_unconfirmed_channel()
+    public void ACC_in_the_matrix_today_writes_only_the_channels_checked_in_the_game()
     {
         var acc = SimulatorCatalog.Shared.Find("acc");
         Assert.NotNull(acc);
-        var gated = ChannelGate.ForLapFile(Full, acc);
+        var gated = ChannelGate.ForLapFile(Full with { YawRadians = 1.2f, AbsActive = true }, acc);
         Assert.Null(gated.SteeringWheelAngleRadians); // unavailable: ACC only gives the input
         Assert.Null(gated.FrontLeft.RideHeightMeters); // unavailable
-        // Documented, not yet checked in the game
-        Assert.Null(gated.SpeedMps);
-        Assert.Null(gated.Brake);
+        // Checked against the Spa recording (docs/multi-simulator.md)
+        Assert.Equal(41.7f, gated.SpeedMps);
+        Assert.Equal(0.1f, gated.Brake);
+        Assert.Equal(186, gated.FrontLeft.PressureKpa);
+        // Still only documented: yaw's zero, fuel's unit, ABS and the weather aren't confirmed yet
+        Assert.Null(gated.YawRadians);
+        Assert.Null(gated.FuelLiters);
+        Assert.Null(gated.AbsActive);
+        Assert.Null(gated.AirTempC);
         // Every value written is one the matrix says ACC's adapter collects
         var row = LapCsvFormat.Row(gated, null).Split(',');
         var header = LapCsvFormat.Header.Split(',');
-        var structure = new[] { "LapDistPct", "Lap", "SessionTime", "SessionTick" };
+        var allowed = new[]
+        {
+            "LapDistPct", "Lap", "SessionTime", "SessionTick", // the lap's structure
+            "Speed", "Brake", "Throttle", "RPM", "Gear", "Clutch", "LatAccel", "LongAccel", "VertAccel", "YawRate",
+            "VelocityX", "VelocityY", "WaterTemp", "LFpressure", "RFpressure", "LRpressure", "RRpressure",
+        };
         Assert.All(header.Select((name, i) => (name, value: row[i])).Where(c => c.value != "" && c.name != "FuelKgPerLtr"),
-            c => Assert.Contains(c.name, structure));
+            c => Assert.Contains(c.name, allowed));
     }
 }

@@ -195,8 +195,22 @@ export const CAR_PICTURE_HEIGHT = Math.round((CAR_PICTURE_WIDTH * 672) / 992);
 // Accents go first, as iRacing's names have them ("Lamborghini Huracán GT3 EVO")
 const slug = (name: string) => name.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
+// iRacing's names in session info (what laps carry) for cars whose picture is named differently
+const PICTURE_ALIASES: Record<string, string> = {
+  '87-chevy-monte-carlo': 'nascar-legends-chevrolet-monte-carlo-1987',
+  'audi-90-quattro-gto': 'audi-90-gto',
+  'lucas-oil-off-road-racing-series-pro-2-lite': 'lucas-oil-off-road-pro-2-lite-truck',
+  'mazda-mx-5-cup': 'global-mazda-mx-5-cup',
+  'mercedes-amg-w13-e-performance': 'mercedes-amg-f1-w13-e-performance',
+  'nascar-chevrolet-camaro-zl1': 'next-gen-nascar-cup-series-chevrolet-camaro-zl1',
+  'stock-non-winged-micro-sprint': 'dirt-micro-sprint-non-winged',
+  // One name for the dirt and asphalt street stocks
+  'street-stock': 'dirt-street-stock',
+};
+
 // The picture of a car by its name, or null for a car without one (e.g. one a user added)
 export function carPictureUrl(name: string): string | null {
-  const key = slug(name);
+  let key = slug(name);
+  if (!CAR_PICTURES.has(key)) key = PICTURE_ALIASES[key] ?? key;
   return CAR_PICTURES.has(key) ? `/assets/carPics/${key}.jpg` : null;
 }

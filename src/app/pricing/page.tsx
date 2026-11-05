@@ -103,16 +103,15 @@ export default async function PricingPage() {
   const levels: MembershipLevel[] = [MEMBERSHIP_LEVEL.bronze, MEMBERSHIP_LEVEL.silver, MEMBERSHIP_LEVEL.gold];
 
   return (
-    <div className="relative w-full overflow-hidden bg-background text-foreground">
-      <div className="checker-strip absolute inset-x-0 top-0 h-6" />
-      <section className="mx-auto max-w-6xl px-4 pb-24 pt-20 sm:px-6">
-        <header className="mx-auto max-w-2xl text-center">
-          <p className="text-sm font-semibold uppercase tracking-[0.3em] text-primary">{t.eyebrow}</p>
-          <h1 className="mt-4 font-display text-4xl font-extrabold uppercase tracking-tight md:text-6xl">{t.title}</h1>
-          <p className="mt-5 text-lg text-muted-foreground">{t.intro}</p>
-        </header>
+    // The title is styled like every other page's (e.g. Support, Cars & Tracks)
+    <section className="w-full py-10 px-4 text-foreground">
+      <div className="site-container">
+        <h1 className="text-3xl font-bold bg-gradient-to-r from-primary-strong via-primary to-primary-strong bg-clip-text text-transparent">
+          {t.eyebrow}
+        </h1>
+        <p className="mt-2 text-muted-foreground">{t.intro}</p>
 
-        <div className="mt-16 grid items-stretch gap-8 md:grid-cols-3">
+        <div className="mt-10 grid items-stretch gap-8 md:grid-cols-3">
           {levels.map((cardLevel) => {
             const text: { tagline: string; includes?: string; features: string[] } = t.levels[cardLevel];
             const featured = cardLevel === MEMBERSHIP_LEVEL.gold;
@@ -124,9 +123,7 @@ export default async function PricingPage() {
               <article
                 key={cardLevel}
                 style={{ '--tier': TIER_COLOR[cardLevel] } as CSSProperties}
-                className={`tier-card relative flex flex-col overflow-hidden rounded-2xl border bg-card ${
-                  featured ? 'md:-translate-y-4' : ''
-                }`}
+                className="tier-card relative flex flex-col overflow-hidden rounded-2xl border bg-card"
               >
                 <div className="tier-glow pointer-events-none absolute inset-0" />
                 {(featured || isCurrent) && (
@@ -171,7 +168,7 @@ export default async function PricingPage() {
           })}
         </div>
         <p className="mx-auto mt-12 max-w-2xl text-center text-sm text-muted-foreground">{t.fineprint}</p>
-      </section>
-    </div>
+      </div>
+    </section>
   );
 }

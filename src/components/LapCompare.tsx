@@ -298,7 +298,7 @@ function AreaTable({ rows }: { rows: AreaRow[] }) {
 
   return (
     <div className="w-fit max-w-full min-w-0 overflow-x-auto rounded-lg border border-border bg-card">
-      <table className="text-[1.15rem] text-foreground">
+      <table className="text-[1.035rem] text-foreground">
         <thead className="bg-secondary">
           <tr>
             <th rowSpan={2} className="sticky left-0 bg-secondary px-5 py-2.5 text-left align-bottom">

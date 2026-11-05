@@ -28,7 +28,8 @@ const REQUIRED_COLUMNS = ['Speed', 'LapDistPct', 'Brake', 'Throttle'];
 export const collectorLapSchema = z.object({
   // Which simulator (simulators/capabilities.json) and the format of these details, with the adapter's version;
   // collectors before they sent them are iRacing's, format 1. trackKey is that simulator's own id for the track, and
-  // carKey for the car (iRacing's car is matched by name, so it doesn't send one)
+  // carKey for the car (iRacing's CarPath, e.g. "mercedesw13", from collectors after 1.68.0; carPictures.ts finds the
+  // car's picture by it)
   simulator: z.string().trim().toLowerCase().min(1).max(40).nullish(),
   payloadVersion: z.number().int().positive().max(1000).nullish(),
   adapterVersion: z.string().trim().min(1).max(40).nullish(),
@@ -399,9 +400,9 @@ export async function saveCollectorLap(
          user_id, client_lap_id, track, car, driver, iracing_session_id, iracing_subsession_id, session_num,
          session_type, lap_number, lap_time_seconds, sample_count, missing_samples, incidents, pit_road,
          off_track, recorded_at, csv_bytes, csv_gzip, has_position, track_key, conditions, completed_at, expires_at,
-         simulator, native_track_key, payload_version, adapter_version)
+         simulator, native_track_key, payload_version, adapter_version, car_key)
        SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23,
-              racingcoach.lap_expires_at($23, membership_level), $24, $25, $26, $27
+              racingcoach.lap_expires_at($23, membership_level), $24, $25, $26, $27, $28
        FROM racingcoach."Users" WHERE id = $1
        RETURNING id`,
       [
@@ -433,6 +434,7 @@ export async function saveCollectorLap(
         nativeTrackKey,
         lap.payloadVersion ?? 1,
         lap.adapterVersion ?? null,
+        lap.carKey ?? null,
       ]
     );
     // "Tracks" holds iRacing's lengths, locations, bounds and outlines. Another simulator's are its own, even for a

@@ -24,6 +24,8 @@ export type CareerStats = {
 
 export type RecentSession = {
   car: string;
+  // iRacing's CarPath, which finds the car's picture (carPictures.ts); null for laps from older collectors
+  carKey: string | null;
   track: string;
   config: string | null;
   sessionType: string;
@@ -115,13 +117,14 @@ export async function readRecentSession(userId: number): Promise<RecentSession |
   const [row] = await query<{
     track: string;
     car: string;
+    car_key: string | null;
     session_type: string;
     completed_at: Date;
     track_name: string | null;
     config_name: string | null;
     track_outline: TrackOutline | null;
   }>(
-    `SELECT l.track, l.car, l.session_type, l.completed_at, t.track_name, t.config_name, t.track_outline
+    `SELECT l.track, l.car, l.car_key, l.session_type, l.completed_at, t.track_name, t.config_name, t.track_outline
      FROM racingcoach."CollectorLaps" l LEFT JOIN racingcoach."Tracks" t ON lower(t.track_key) = lower(l.track_key)
      WHERE l.user_id = $1 AND l.expires_at > now()
      ORDER BY l.completed_at DESC, l.id DESC LIMIT 1`,
@@ -132,6 +135,7 @@ export async function readRecentSession(userId: number): Promise<RecentSession |
   const layout = row.config_name ?? config;
   return {
     car: row.car,
+    carKey: row.car_key,
     track,
     // iRacing's name for a track with one layout
     config: layout && layout.toLowerCase() !== 'default' ? layout : null,

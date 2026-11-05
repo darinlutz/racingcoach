@@ -18,7 +18,7 @@ internal sealed record SessionContext(
     // Which simulator's adapter the session came from, and its version
     string Simulator = IRacingAdapter.Id,
     string? AdapterVersion = null,
-    // That simulator's own ids for the car and track; iRacing's cars are matched by name, and its track keys are in TrackKeys
+    // That simulator's own ids for the car and track; iRacing's car is its CarPath, and its track keys are in TrackKeys
     string? CarKey = null,
     string? TrackKey = null);
 

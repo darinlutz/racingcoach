@@ -75,7 +75,7 @@ export default function MyDashboard({ user, data, viewPlans, pictureVersion }: {
   const name = splitDriverName(user.userName);
   const tier = dictionary.pricing.levelNames[user.membershipLevel] ?? user.membershipLevel;
   const tierClass = TIER_CLASS[user.membershipLevel] ?? TIER_CLASS[MEMBERSHIP_LEVEL.bronze];
-  const carPicture = session && carPictureUrl(session.car);
+  const carPicture = session && carPictureUrl(session.car, session.carKey);
   // Long names get the smaller size so they fit on a phone
   const nameSize = Math.max(name.first.length, name.last.length) > 11 ? 'text-5xl sm:text-7xl lg:text-8xl' : 'text-7xl sm:text-8xl lg:text-9xl';
   // Offset in the name's own size: right of the letters' slant, its top level with the tops of the capitals

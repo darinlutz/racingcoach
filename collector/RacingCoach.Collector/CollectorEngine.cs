@@ -451,7 +451,9 @@ internal sealed class CollectorEngine
                 session.DriverInfo?.DriverCarFuelKgPerLtr,
                 session.SessionInfo?.Sessions?
                     .Where(s => !string.IsNullOrWhiteSpace(s.SessionTrackRubberState))
-                    .ToDictionary(s => s.SessionNum, s => s.SessionTrackRubberState!.Trim()));
+                    .ToDictionary(s => s.SessionNum, s => s.SessionTrackRubberState!.Trim()),
+                // iRacing's folder for the car (e.g. mercedesw13), which the site finds its picture by, as CarScreenName varies
+                CarKey: string.IsNullOrWhiteSpace(driver?.CarPath) ? null : driver.CarPath.Trim());
 
             TrackKeys.Set(_recorder.Session.Track, weekend?.TrackName, weekend?.TrackLength, weekend?.TrackLatitude, weekend?.TrackLongitude); // before anything asks the site about the track
             _coach.SetTrack(_recorder.Session.Track);

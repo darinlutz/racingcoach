@@ -13,6 +13,7 @@ import {
   subscriptionView,
   trackMapPath,
 } from '../src/lib/dashboardRules.ts';
+import { carPictureUrl, IRACING_CARS } from '../src/lib/carPictures.ts';
 
 test('every country has a flag and a name, in every language', () => {
   assert.equal(new Set(COUNTRY_CODES).size, COUNTRY_CODES.length);
@@ -196,4 +197,37 @@ test('the page and its data can only be about the signed-in user', () => {
   assert.ok(reads.length >= 2);
   assert.equal(data.match(/WHERE l\.user_id = \$1 AND l\.expires_at > now\(\)/g).length, reads.length);
   assert.doesNotMatch(data, /csv_gzip\s*(,|FROM)/);
+});
+
+test("every iRacing car finds its picture by CarPath, and the picture's file exists", () => {
+  const paths = new Set();
+  for (const [carPath, picture] of IRACING_CARS) {
+    assert.ok(!paths.has(carPath), `${carPath} is listed twice`);
+    paths.add(carPath);
+    assert.equal(carPictureUrl('Some Other Name', carPath), `/assets/carPics/${picture}.jpg`, `${carPath} has no picture`);
+    assert.ok(existsSync(`public${carPictureUrl('', carPath)}`), `${picture}.jpg is missing`);
+  }
+  // Session info's spaces, the support page's backslashes, any case
+  assert.equal(carPictureUrl('Street Stock', 'dirtsprint winged 410'), '/assets/carPics/world-of-outlaws-410-sprint-car.jpg');
+  assert.equal(carPictureUrl('Street Stock', '\\dirtsprint\\nonwinged\\360'), '/assets/carPics/usac-360-sprint-car.jpg');
+  assert.equal(carPictureUrl('Street Stock', 'StreetStock StreetStock2'), '/assets/carPics/street-stock-casino.jpg');
+});
+
+test('laps without a CarPath find the picture by official name or the screen names seen in laps', () => {
+  for (const [, picture, ...names] of IRACING_CARS) {
+    for (const name of names) assert.equal(carPictureUrl(name), `/assets/carPics/${picture}.jpg`, name);
+  }
+  for (const [name, picture] of [
+    ['Mercedes-AMG W13 E Performance', 'mercedes-amg-f1-w13-e-performance'],
+    ['Audi 90 Quattro GTO', 'audi-90-gto'],
+    ['Mazda MX-5 Cup', 'global-mazda-mx-5-cup'],
+    ['Lamborghini Huracan GT3 EVO', 'lamborghini-huracan-gt3-evo'],
+    // A Car Data name that is a picture's keeps it
+    ['Porsche 911 GT3 R (992)', 'porsche-911-gt3-r-992'],
+    ['Mclaren 570s GT4', 'mclaren-570s-gt4'],
+  ]) {
+    assert.equal(carPictureUrl(name), `/assets/carPics/${picture}.jpg`, name);
+  }
+  assert.equal(carPictureUrl('A Car Someone Added'), null);
+  assert.equal(carPictureUrl('A Car Someone Added', 'notacar'), null);
 });

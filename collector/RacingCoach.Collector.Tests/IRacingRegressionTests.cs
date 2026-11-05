@@ -205,7 +205,7 @@ public sealed class IRacingRegressionTests
             Files = files.Select(f => new { Name = Path.GetFileName(f), Sha256 = Golden.Sha256(f) }),
             Log = log.Where(m => m.StartsWith("Session:") || m.StartsWith("Lap ") || m.Contains("Playback finished")).Order(StringComparer.Ordinal).ToList(),
         });
-        Golden.CheckPreserved("engine-session-json", Manifest(folder), ["simulator"]);
+        Golden.CheckPreserved("engine-session-json", Manifest(folder), ["simulator", "carKey"]);
     }
 }
 

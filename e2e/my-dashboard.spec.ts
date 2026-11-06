@@ -66,7 +66,7 @@ test("the nav bar's link is My Dashboard, not Toolkit, and asks visitors to log 
   const visitor = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const visitorPage = await visitor.newPage();
   await answerCookieBanner(visitorPage);
-  await visitorPage.goto('/learning');
+  await visitorPage.goto('/');
   await visitorPage.locator('nav').first().hover();
   await visitorPage.locator('nav').first().getByRole('link', { name: 'My Dashboard' }).click();
   await expect(visitorPage.getByRole('dialog')).toBeVisible();

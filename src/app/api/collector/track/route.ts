@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { authenticateCollector } from '@/lib/collectorKeys';
 import { readTargetLap } from '@/lib/targetLap';
-import { targetLapIsOf, withTargetLap } from '@/lib/targetLapTargets';
+import { targetLapIsOf, targetMaxSteering, withTargetLap } from '@/lib/targetLapTargets';
 import { findTrackByKey, readTracks, toLapTrack } from '@/lib/tracks';
 import { getUserById } from '@/lib/users';
 
@@ -16,7 +16,8 @@ import { getUserById } from '@/lib/users';
 // Each area's BrakepointTarget, MaxBrakeTarget and ThrottlePickupTarget (the overlay's Brake Point and Brake
 // Pressure boxes, and the script's throttle pickup) come only from the user's Target Lap, never from Track Data's
 // targets: where it first brakes in the area (feet from the start/finish line), its max brake there (%) and where
-// the throttle comes back after that braking (feet), 0 for one it doesn't have. targetLap says whether they're set:
+// the throttle comes back after that braking (feet), 0 for one it doesn't have. MaxSteeringTarget (the overlay's
+// Max Steering box) is its largest steering wheel angle in the area, in degrees either way, 0 when it has none. targetLap says whether they're set:
 // "set", "none" (the user has no Target Lap) or "otherTrack" (its file name names another track); all targets are 0
 // unless it's "set", and the collector asks the driver to pick a Target Lap and press Reload.
 export async function GET(request: Request) {
@@ -42,7 +43,9 @@ export async function GET(request: Request) {
     const target = lap && targetLapIsOf(lap, [name, track.name], true) ? lap : null;
     const targetLap = target ? 'set' : lap ? 'otherTrack' : 'none';
     // Feet as the overlay measures them: with iRacing's length of the track (sent with collector laps), or the lap's own
-    const targeted = withTargetLap(toLapTrack(track), target);
+    const lapTrack = toLapTrack(track);
+    const targeted = withTargetLap(lapTrack, target);
+    const steeringTargets = targetMaxSteering(lapTrack, target);
 
     // The same names and order as a track in the Track_Area_Information.txt format, which is what
     // TelemetryEngine.js reads; targets that aren't set are 0
@@ -55,6 +58,7 @@ export async function GET(request: Request) {
         BrakepointTarget: targets.brakepointTarget ?? 0,
         MaxBrakeTarget: targets.maxBrakeTarget ?? 0,
         ThrottlePickupTarget: targets.throttlePickupTarget ?? 0,
+        MaxSteeringTarget: steeringTargets[i] ?? 0,
       };
     });
     return NextResponse.json({

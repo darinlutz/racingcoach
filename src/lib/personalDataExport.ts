@@ -12,6 +12,7 @@ import { readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { gunzipSync } from 'node:zlib';
+import { readOwnLapCsvBytes } from './collectorLaps';
 import { toCsv } from './csvExport';
 import { query } from './db';
 import { deleteVideoObject, readObjectStream, uploadVideoObject, videoStorageConfigured } from './objectStorage';
@@ -147,11 +148,9 @@ export async function writeExportZip(userId: number, kind: ExportKind, path: str
       await addCsv('laps/laps.csv', 'laps', laps);
       // One lap file at a time, so a long history never sits in memory whole
       for (const lap of laps) {
-        const [row] = await query(
-          'SELECT csv_gzip FROM racingcoach."CollectorLaps" WHERE id = $1 AND user_id = $2 AND expires_at > now()',
-          [lap.id, userId]
-        );
-        if (row) await add(`laps/files/${lap.client_lap_id}.csv`, 'laps', gunzipSync(row.csv_gzip as Buffer));
+        // Wherever the lap's CSV is kept, inline or in the telemetry store (collectorLaps.ts)
+        const csv = await readOwnLapCsvBytes(userId, Number(lap.id));
+        if (csv) await add(`laps/files/${lap.client_lap_id}.csv`, 'laps', csv);
       }
     }
 

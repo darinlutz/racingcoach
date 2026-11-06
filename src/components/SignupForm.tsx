@@ -7,6 +7,7 @@ import { withReturnTo } from '@/lib/returnTo';
 import { POLICY_VERSIONS } from '@/lib/policyVersions';
 import { MAX_PROMO_CODE_LENGTH } from '@/lib/promoCode';
 import CountrySelect from './CountrySelect';
+import { FormGuardField, useFormGuard } from './FormGuard';
 import ForgotPasswordForm from './ForgotPasswordForm';
 import GoogleSignInButton from './GoogleSignInButton';
 import LanguageSelect from './LanguageSelect';
@@ -39,6 +40,7 @@ export default function SignupForm({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [forgotPassword, setForgotPassword] = useState(false);
+  const { trap, guardFields } = useFormGuard();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -55,7 +57,7 @@ export default function SignupForm({
         headers: { 'Content-Type': 'application/json' },
         // The Preferred Language box switches the page as soon as it changes, so the page's language is the choice
         // and the policy versions are the ones the agreement line under the button links to
-        body: JSON.stringify({ ...formData, country, preferredLanguage: language, acceptedPolicies: POLICY_VERSIONS }),
+        body: JSON.stringify({ ...formData, country, preferredLanguage: language, acceptedPolicies: POLICY_VERSIONS, ...guardFields() }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -210,6 +212,7 @@ export default function SignupForm({
           {t.auth.clickHere}
         </a>
       </p>
+      <FormGuardField inputRef={trap} />
     </form>
   );
 }

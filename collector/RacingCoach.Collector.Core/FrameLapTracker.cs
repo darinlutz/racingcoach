@@ -151,6 +151,10 @@ public sealed class FrameLapTracker(Action<TrackedLap> onLap, Action<string> onD
             return;
         var last = frames[^1];
         var measured = (last.SessionTimeSeconds ?? _lapStartTime) - _lapStartTime;
+        // The event of the lap before the one recording started at the line, a read or two late (ACC at Spa
+        // counted laps a read after the line): it isn't this lap's, so carry on recording it
+        if (measured < _options.MinLapSeconds)
+            return;
         var seconds = lap.LapTimeSeconds ?? measured;
         if (seconds >= _options.MinLapSeconds)
             onLap(Complete(frames, seconds, lap.LapTimeSeconds is null, lap));

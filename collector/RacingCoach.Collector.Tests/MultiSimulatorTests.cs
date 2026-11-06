@@ -198,7 +198,8 @@ public sealed class AdapterContractTests
         Assert.All(catalog.Channels, channel => Assert.True(catalog.Find("acc")!.Channels.ContainsKey(channel), channel));
     }
 
-    [Theory] // What ACC Shared Memory v1.8.12 says, including what it marks as not used
+    [Theory] // What ACC Shared Memory v1.8.12 says, including what it marks as not used, and what the two Spa
+             // recordings of 2026-11-05 confirmed (docs/multi-simulator.md)
     [InlineData("steeringAngle", "Unavailable")]
     [InlineData("rideHeightAxle", "Unavailable")]
     [InlineData("tireSurfaceTemp", "Unavailable")]
@@ -206,7 +207,12 @@ public sealed class AdapterContractTests
     [InlineData("tireWear", "Unavailable")]
     [InlineData("geoPosition", "Unavailable")]
     [InlineData("trackLength", "Unavailable")]
-    [InlineData("speed", "Documented")]
+    [InlineData("speed", "Collected")]
+    [InlineData("clutch", "Collected")]
+    [InlineData("yaw", "Collected")]
+    [InlineData("fuelLevel", "Collected")]
+    [InlineData("lapValid", "Collected")]
+    [InlineData("slipRatio", "Documented")]
     [InlineData("tireCoreTemp", "Documented")]
     public void ACC_channels_stay_as_its_documentation_says(string channel, string support) =>
         Assert.Equal(support, SimulatorCatalog.Shared.Find("acc")!.Support(channel).ToString());
@@ -466,9 +472,9 @@ public sealed class PipelineTests
         Assert.Equal(LapCsvFormat.Header, lines[0]);
         foreach (var missing in new[] { "SteeringWheelAngle", "LFrideHeight", "RRpressure", "LFtempCM", "Lat", "OilTemp", "SessionTick" })
             Assert.Equal("", row[Array.IndexOf(header, missing)]);
-        // ACC's speed is only documented in the matrix until it's checked in the game, so it doesn't reach the lap
-        // file yet (ChannelGate); the lap's structure does
-        Assert.Equal("", row[Array.IndexOf(header, "Speed")]);
+        // ACC's speed was checked in the game, so it reaches the lap file (ChannelGate keeps out what wasn't); the
+        // lap's structure always does
+        Assert.NotEqual("", row[Array.IndexOf(header, "Speed")]);
         Assert.NotEqual("", row[Array.IndexOf(header, "LapDistPct")]);
     }
 
@@ -562,9 +568,10 @@ public sealed class PipelineTests
     {
         using var temp = new TempFolder();
         var log = new List<(string, bool)>();
-        var engine = new CollectorEngine(new CollectorOptions(null, 1, false, true, false, null, true, "acc"), (m, e) => { lock (log) log.Add((m, e)); }, _ => { }, temp.Path);
+        // A simulator in the matrix with no adapter yet (ACC has one, behind --simulator acc)
+        var engine = new CollectorEngine(new CollectorOptions(null, 1, false, true, false, null, true, "ams2"), (m, e) => { lock (log) log.Add((m, e)); }, _ => { }, temp.Path);
         await engine.RunAsync(new CancellationTokenSource(TimeSpan.FromSeconds(20)).Token);
-        Assert.Contains(log, l => l.Item2 && l.Item1.Contains("No adapter for simulator \"acc\""));
+        Assert.Contains(log, l => l.Item2 && l.Item1.Contains("No adapter for simulator \"ams2\""));
         Assert.DoesNotContain(log, l => l.Item1.Contains("Connected to iRacing"));
     }
 }

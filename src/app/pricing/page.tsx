@@ -1,7 +1,8 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Check, Info, Medal } from 'lucide-react';
-import { buttonVariants } from '@/components/Button';
+import type { CSSProperties } from 'react';
+import { Check } from 'lucide-react';
 import type Stripe from 'stripe';
 import {
   ACCOUNT_STATUS,
@@ -17,6 +18,8 @@ import { getCurrentUser } from '@/lib/session';
 import { formatPrice, getPlanPrice, getStripeConfig } from '@/lib/stripePlans';
 import { canBuy, type User } from '@/lib/users';
 
+// The layout came from the Lovable project darinlutz/eleven-laps-pricing
+
 type PaidLevel = typeof MEMBERSHIP_LEVEL.silver | typeof MEMBERSHIP_LEVEL.gold;
 
 // Each paid level's Monthly plan (Annual plans are no longer offered; existing annual subscriptions still renew)
@@ -25,11 +28,13 @@ const LEVEL_PLANS: Record<PaidLevel, Plan> = {
   Gold: 'gold_monthly',
 };
 
-const MEDAL_COLOR: Record<MembershipLevel, string> = {
-  Bronze: 'text-[#cd7f32]',
-  Silver: 'text-slate-300',
-  Gold: 'text-amber-400',
+// Each card's color (globals.css, per theme) and trophy
+const TIER_COLOR: Record<MembershipLevel, string> = {
+  Bronze: 'var(--tier-bronze)',
+  Silver: 'var(--tier-silver)',
+  Gold: 'var(--tier-gold)',
 };
+const trophyUrl = (level: MembershipLevel) => `/assets/pricing/trophy-${level.toLowerCase()}.webp`;
 
 // The plan's Stripe price, or null if Stripe isn't configured or can't be reached
 async function loadPrice(plan: Plan): Promise<Stripe.Price | null> {
@@ -43,7 +48,8 @@ async function loadPrice(plan: Plan): Promise<Stripe.Price | null> {
   }
 }
 
-const buttonClass = buttonVariants({ variant: 'racing', className: 'w-full' });
+const buttonClass =
+  'tier-btn mt-8 block w-full rounded-lg py-3 text-center font-display text-sm font-extrabold uppercase tracking-widest transition';
 
 function DisabledButton({ label }: { label: string }) {
   return (
@@ -60,19 +66,19 @@ function BronzeAction({ user, t }: { user: User | null; t: Dictionary['pricing']
   return <DisabledButton label={user.membershipLevel === MEMBERSHIP_LEVEL.bronze ? t.currentPlan : t.included} />;
 }
 
-// The Monthly button, or why there's nothing to buy at this level
+// The Subscribe button, or why there's nothing to buy at this level
 function PaidActions({ level, user, t }: { level: PaidLevel; user: User | null; t: Dictionary['pricing'] }) {
   const plan = LEVEL_PLANS[level];
   if (user && user.accountStatus === ACCOUNT_STATUS.subscribed && levelRank(user.membershipLevel) >= levelRank(level)) {
     return <DisabledButton label={user.membershipLevel === level ? t.currentPlan : t.included} />;
   }
   if (!user) {
-    return <Link href="/signup" className={buttonClass}>{t.monthly}</Link>;
+    return <Link href="/signup" className={buttonClass}>{t.subscribe}</Link>;
   }
   return (
     <form action="/api/create-checkout-session" method="POST">
       <button type="submit" name="plan" value={plan} disabled={!canBuy(user, plan)} className={buttonClass}>
-        {t.monthly}
+        {t.subscribe}
       </button>
     </form>
   );
@@ -97,88 +103,72 @@ export default async function PricingPage() {
   const levels: MembershipLevel[] = [MEMBERSHIP_LEVEL.bronze, MEMBERSHIP_LEVEL.silver, MEMBERSHIP_LEVEL.gold];
 
   return (
-    <div className="w-full">
-      <section className="py-16 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-background to-background border-b border-border">
-        <div className="max-w-3xl mx-auto text-center">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4 pb-2 bg-gradient-to-r from-primary-strong via-primary to-primary-strong bg-clip-text text-transparent">
-            {t.title}
-          </h1>
-          <p className="text-lg text-muted-foreground">{t.intro}</p>
-        </div>
-      </section>
+    // The title is styled like every other page's (e.g. Support, Cars & Tracks)
+    <section className="w-full py-10 px-4 text-foreground">
+      <div className="site-container">
+        <h1 className="text-3xl font-bold bg-gradient-to-r from-primary-strong via-primary to-primary-strong bg-clip-text text-transparent">
+          {t.eyebrow}
+        </h1>
+        <p className="mt-2 text-muted-foreground">{t.intro}</p>
 
-      <section className="py-16 px-4 sm:px-6 lg:px-10 bg-card flex flex-col items-center">
-        <div className="w-full max-w-6xl grid gap-6 lg:grid-cols-3">
+        <div className="mt-10 grid items-stretch gap-8 md:grid-cols-3">
           {levels.map((cardLevel) => {
-            const text = t.levels[cardLevel];
-            const highlighted = cardLevel === MEMBERSHIP_LEVEL.silver;
+            const text: { tagline: string; includes?: string; features: string[] } = t.levels[cardLevel];
+            const featured = cardLevel === MEMBERSHIP_LEVEL.gold;
             const isCurrent = level === cardLevel;
             const paid = cardLevel === MEMBERSHIP_LEVEL.bronze ? null : cardLevel;
             const monthly = paid && prices[paid];
+            const name = t.levelNames[cardLevel] ?? cardLevel;
             return (
-              <div
+              <article
                 key={cardLevel}
-                className={`relative flex flex-col bg-secondary rounded-xl border p-8 ${
-                  highlighted ? 'border-primary shadow-lg shadow-primary/10' : 'border-border'
-                }`}
+                style={{ '--tier': TIER_COLOR[cardLevel] } as CSSProperties}
+                className="tier-card relative flex flex-col overflow-hidden rounded-2xl border bg-card"
               >
-                {highlighted && (
-                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wide bg-primary text-white">
-                    {t.mostPopular}
+                <div className="tier-glow pointer-events-none absolute inset-0" />
+                {(featured || isCurrent) && (
+                  <span className="tier-btn absolute right-4 top-4 z-10 rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider">
+                    {isCurrent ? t.currentPlan : t.mostPopular}
                   </span>
                 )}
-                <div className="flex items-center gap-3 mb-2">
-                  <Medal className={`h-7 w-7 shrink-0 ${MEDAL_COLOR[cardLevel]}`} />
-                  <h2 className="text-2xl font-bold text-foreground">{t.levelNames[cardLevel]}</h2>
-                  {isCurrent && (
-                    <span className="ml-auto px-3 py-1 rounded-full text-xs font-semibold bg-green-500/15 text-green-400">
-                      {t.currentPlan}
+                {/* The trophies are on black, in either theme */}
+                <div className="relative flex justify-center bg-black pt-6">
+                  <Image src={trophyUrl(cardLevel)} alt="" width={192} height={192} className="h-48 w-48 object-contain" />
+                </div>
+                <div className="relative flex flex-1 flex-col p-8">
+                  <h2 className="tier-text font-display text-2xl font-extrabold uppercase tracking-wide">{name}</h2>
+                  <p className="mt-1 text-muted-foreground">{text.tagline}</p>
+                  <div className="mt-6 flex items-baseline gap-2">
+                    <span className="font-display text-4xl font-extrabold">
+                      {paid ? ((monthly && formatPrice(monthly)) ?? '—') : t.free}
                     </span>
+                    <span className="text-muted-foreground">{paid ? t.perMonth : t.forever}</span>
+                  </div>
+                  <div className="my-6 h-px bg-border" />
+                  {text.includes && (
+                    <p className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                      {text.includes}
+                    </p>
+                  )}
+                  <ul className="flex-1 space-y-3">
+                    {text.features.map((feature) => (
+                      <li key={feature} className="flex items-start gap-3">
+                        <Check className="tier-text mt-0.5 h-5 w-5 shrink-0" />
+                        <span>{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  {paid ? <PaidActions level={paid} user={user} t={t} /> : <BronzeAction user={user} t={t} />}
+                  {paid === MEMBERSHIP_LEVEL.gold && upgradingFromSilver && (
+                    <p className="mt-3 text-center text-xs text-muted-foreground">{t.upgradeNote}</p>
                   )}
                 </div>
-                <p className="text-muted-foreground mb-6 min-h-12">{text.tagline}</p>
-
-                {paid ? (
-                  <div className="mb-6">
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-4xl font-bold text-foreground">{(monthly && formatPrice(monthly)) ?? '—'}</span>
-                      <span className="text-muted-foreground">{t.perMonth}</span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="mb-6">
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-4xl font-bold text-foreground">{t.free}</span>
-                      <span className="text-muted-foreground">{t.forever}</span>
-                    </div>
-                  </div>
-                )}
-
-                <ul className="space-y-3 mb-8 flex-1">
-                  {text.features.map((feature) => (
-                    <li key={feature} className="flex gap-3 text-foreground">
-                      <Check className="h-5 w-5 shrink-0 text-primary mt-0.5" />
-                      <span>{feature}</span>
-                    </li>
-                  ))}
-                  {'limits' in text && (
-                    <li className="flex gap-3 text-muted-foreground">
-                      <Info className="h-5 w-5 shrink-0 mt-0.5" />
-                      <span>{text.limits}</span>
-                    </li>
-                  )}
-                </ul>
-
-                {paid ? <PaidActions level={paid} user={user} t={t} /> : <BronzeAction user={user} t={t} />}
-                {paid === MEMBERSHIP_LEVEL.gold && upgradingFromSilver && (
-                  <p className="mt-3 text-xs text-muted-foreground text-center">{t.upgradeNote}</p>
-                )}
-              </div>
+              </article>
             );
           })}
         </div>
-        <p className="mt-10 max-w-2xl text-center text-sm text-muted-foreground">{t.fineprint}</p>
-      </section>
-    </div>
+        <p className="mx-auto mt-12 max-w-2xl text-center text-sm text-muted-foreground">{t.fineprint}</p>
+      </div>
+    </section>
   );
 }

@@ -1,4 +1,4 @@
-import { areaStats, brakeFeet, lapSamplesFromText, sameTrackName, type Track } from './lapData';
+import { areaStats, brakeFeet, crossingIndex, lapSamplesFromText, sameTrackName, type Track } from './lapData';
 import { readTargetLap, targetLapTrackName } from './targetLap';
 import { lapCsvTrackLengthFeet } from './trackLengths';
 
@@ -28,6 +28,27 @@ export function withTargetLap(track: Track, lap: TargetLap | null): Track {
       };
     }),
   };
+}
+
+// The Target Lap's largest steering wheel angle in each of a track's areas (degrees, either way; the overlay's Max
+// Steering box), in the areas' order; null for an area it doesn't cover or has no steering in, and all null
+// without a lap
+export function targetMaxSteering(track: Track, lap: TargetLap | null): (number | null)[] {
+  const samples = lap ? lapSamplesFromText(lap.csv) : null;
+  return track.areas.map((area) => {
+    if (!samples || area.start === null || area.end === null) return null;
+    const startIndex = crossingIndex(samples.pcts, area.start, 0);
+    if (startIndex === null) return null;
+    // An area that crosses the start/finish line ends on the next lap
+    const endIndex = crossingIndex(samples.pcts, area.end < area.start ? area.end + 1 : area.end, startIndex);
+    if (endIndex === null) return null;
+    let max: number | null = null;
+    for (let i = Math.ceil(startIndex); i <= Math.floor(endIndex) && i < samples.steerings.length; i++) {
+      const steering = Math.abs(samples.steerings[i]);
+      if (Number.isFinite(steering) && (max === null || steering > max)) max = steering;
+    }
+    return max === null ? null : Math.round(((max * 180) / Math.PI) * 10) / 10;
+  });
 }
 
 // Whether a Target Lap is of a track: its file name names the track, or doesn't follow the Garage 61 / RacingCoach

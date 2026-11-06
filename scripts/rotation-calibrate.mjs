@@ -20,6 +20,7 @@ import { dirname, join, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import { gunzipSync } from 'node:zlib';
+import { createHash } from 'node:crypto';
 import { rotationSamplesFromCsv, analyzeRotationLap } from '../src/lib/rotationAnalysis.ts';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -60,21 +61,64 @@ function csvFiles(path) {
   return extname(path).toLowerCase() === '.csv' ? [path] : [];
 }
 
-async function lapsFromDb(car, limit) {
-  let url = process.env.DATABASE_URL;
+// .env.local's value for a setting, unless the environment has one
+function setting(name) {
+  if (process.env[name]) return process.env[name];
   const envFile = join(root, '.env.local');
-  if (!url && existsSync(envFile)) url = readFileSync(envFile, 'utf8').match(/^DATABASE_URL=(.*)$/m)?.[1]?.trim().replace(/^"|"$/g, '');
+  if (!existsSync(envFile)) return undefined;
+  return readFileSync(envFile, 'utf8').match(new RegExp(`^${name}=(.*)$`, 'm'))?.[1]?.trim().replace(/^"|"$/g, '');
+}
+
+// A lap's compressed CSV from the telemetry store (src/lib/telemetryStorage.ts), for laps stored there rather than
+// inline. Read-only, with the same TELEMETRY_S3_* settings as the site, and checked against the row's checksum.
+async function objectReader() {
+  const endpoint = setting('TELEMETRY_S3_ENDPOINT');
+  const accessKeyId = setting('TELEMETRY_S3_ACCESS_KEY_ID');
+  const secretAccessKey = setting('TELEMETRY_S3_SECRET_ACCESS_KEY');
+  if (!endpoint || !accessKeyId || !secretAccessKey) return null;
+  const { S3Client, GetObjectCommand } = createRequire(join(root, 'package.json'))('@aws-sdk/client-s3');
+  const client = new S3Client({
+    endpoint,
+    region: setting('TELEMETRY_S3_REGION') || 'auto',
+    forcePathStyle: true,
+    credentials: { accessKeyId, secretAccessKey },
+  });
+  return async (bucket, key, sha256) => {
+    const response = await client.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+    const bytes = Buffer.from(await response.Body.transformToByteArray());
+    if (sha256 && createHash('sha256').update(bytes).digest('hex') !== sha256) throw new Error(`Checksum mismatch for ${key}`);
+    return bytes;
+  };
+}
+
+async function lapsFromDb(car, limit) {
+  const url = setting('DATABASE_URL');
   if (!url) throw new Error('DATABASE_URL is not set');
   const pg = createRequire(join(root, 'package.json'))('pg');
   const client = new pg.Client({ connectionString: url });
   await client.connect();
   try {
     const { rows } = await client.query(
-      `SELECT id, lap_number, csv_gzip FROM racingcoach."CollectorLaps"
-        WHERE lower(car) = lower($1) AND NOT off_track ORDER BY recorded_at DESC LIMIT $2`,
+      `SELECT id, lap_number, storage_provider, storage_bucket, storage_key, checksum_sha256,
+              CASE WHEN storage_provider = 'postgres' THEN csv_gzip END AS csv_gzip
+       FROM racingcoach."CollectorLaps"
+       WHERE lower(car) = lower($1) AND NOT off_track AND expires_at > now() ORDER BY recorded_at DESC LIMIT $2`,
       [car, limit]
     );
-    return rows.map((r) => ({ id: r.id, lapNumber: r.lap_number, csv: gunzipSync(r.csv_gzip).toString('utf8') }));
+    const read = rows.some((r) => r.storage_provider !== 'postgres') ? await objectReader() : null;
+    const laps = [];
+    for (const r of rows) {
+      let gzip = r.csv_gzip;
+      if (r.storage_provider !== 'postgres') {
+        if (!read) {
+          console.warn(`Lap ${r.id} is in the telemetry store, but TELEMETRY_S3_* isn't set: skipped`);
+          continue;
+        }
+        gzip = await read(r.storage_bucket, r.storage_key, r.checksum_sha256);
+      }
+      laps.push({ id: r.id, lapNumber: r.lap_number, csv: gunzipSync(gzip).toString('utf8') });
+    }
+    return laps;
   } finally {
     await client.end();
   }

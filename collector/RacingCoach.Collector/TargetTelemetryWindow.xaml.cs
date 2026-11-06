@@ -10,9 +10,10 @@ namespace RacingCoach.Collector;
 
 /// <summary>
 /// The window the Target Telemetry button opens: a see-through, always-on-top window, like the overlay, with the
-/// brake trace (red) of the user's Target Lap (Debrief Coach, from /api/collector/target-lap) over the 500 ft of
-/// track around the car, and across the top the gear it shifted into at each gear change. The car is the vertical
-/// line, 200 ft from the left, so the trace and gear changes scroll left as the car drives: a gear reaches the car's
+/// brake trace (red) and throttle trace (green) of the user's Target Lap (Debrief Coach, from
+/// /api/collector/target-lap) over the 250 ft of track around the car (short enough that pressing the brake shows
+/// as a slope, not a vertical line), its downshift throttle blips taken out, and across the top the gear it shifted into at each gear change. The car is the vertical
+/// line, 100 ft from the left, so the trace and gear changes scroll left as the car drives: a gear reaches the car's
 /// line where the Target Lap shifted into it. A short bar on the car's line is the
 /// driver's own brake, live (hidden off the brake), and a brighter, thicker red line over the Target Lap's trace is
 /// the driver's brake over the track behind the car, so the two can be compared. Positions come from live LapDistPct and the track's length (Track
@@ -23,8 +24,8 @@ namespace RacingCoach.Collector;
 /// </summary>
 public partial class TargetTelemetryWindow : Window
 {
-    private const double SpanFeet = 500;   // track shown, left to right
-    private const double BehindFeet = 200; // of it behind the car, so the recent past stays in view
+    private const double SpanFeet = 250;   // track shown, left to right
+    private const double BehindFeet = 100; // of it behind the car, so the recent past stays in view
     private const double MarginFeet = 30;  // samples just off each edge, so the trace runs to the edge
     private const double GearBand = 22;    // the gear changes across the top
     private const double TopPad = GearBand + 8; // so the 100% line is under them
@@ -34,6 +35,7 @@ public partial class TargetTelemetryWindow : Window
     private static readonly Brush TraceBrush = Frozen(Color.FromRgb(0xEF, 0x44, 0x44));
     private static readonly Brush DriverTraceBrush = Frozen(Color.FromRgb(0xFF, 0x2D, 0x2D));
     private static readonly Brush FillBrush = Frozen(Color.FromArgb(0x40, 0xEF, 0x44, 0x44));
+    private static readonly Brush ThrottleBrush = Frozen(Color.FromRgb(0x22, 0xC5, 0x5E));
     private static readonly Brush UpshiftBrush = Frozen(Color.FromRgb(0x3B, 0x8B, 0xFF));
     private static readonly Brush DownshiftBrush = Frozen(Color.FromRgb(0xF5, 0x9E, 0x0B));
     private static readonly Brush BrakeBarBrush = Frozen(Color.FromRgb(0xFA, 0xCC, 0x15));
@@ -48,6 +50,8 @@ public partial class TargetTelemetryWindow : Window
     private readonly DispatcherTimer _overlayTimer = new() { Interval = TimeSpan.FromMilliseconds(100) };
     private readonly Polyline _trace = new() { Stroke = TraceBrush, StrokeThickness = 2, StrokeLineJoin = PenLineJoin.Round };
     private readonly Polygon _fill = new() { Fill = FillBrush };
+    // The Target Lap's throttle (the driver's own throttle isn't shown), under its brake trace
+    private readonly Polyline _throttleTrace = new() { Stroke = ThrottleBrush, StrokeThickness = 2, StrokeLineJoin = PenLineJoin.Round };
     // The driver's brake behind the car, over the Target Lap's trace
     private readonly Polyline _driverTrace = new() { Stroke = DriverTraceBrush, StrokeThickness = 3, StrokeLineJoin = PenLineJoin.Round };
     private readonly Canvas _gears = new();
@@ -57,9 +61,11 @@ public partial class TargetTelemetryWindow : Window
         StrokeEndLineCap = PenLineCap.Round, Visibility = Visibility.Collapsed };
     private const double BrakeBarHalfWidth = 14;
 
-    // The Target Lap as fractions of a lap (0-1, around the start/finish line), sorted, with Brake 0-100 for each
+    // The Target Lap as fractions of a lap (0-1, around the start/finish line), sorted, with Brake and Throttle
+    // 0-100 for each (Throttle NaN from sites before it was sent)
     private double[] _pcts = [];
     private double[] _brakes = [];
+    private double[] _throttles = [];
     // Its gear changes: where (0-1), the new gear, and whether that was an upshift
     private (double Pct, int Gear, bool Up)[] _gearChanges = [];
     // The driver's brake (0-100) at each new position (0-1) the car reached, oldest first, back to just beyond the
@@ -124,6 +130,7 @@ public partial class TargetTelemetryWindow : Window
         {
             _trace.Points = [];
             _fill.Points = [];
+            _throttleTrace.Points = [];
             _driverTrace.Points = [];
             _gears.Children.Clear();
             BrakeReadout.Text = "—";
@@ -157,18 +164,56 @@ public partial class TargetTelemetryWindow : Window
     {
         _lap = lap;
         _drawn = null;
+        // In lap order (before sorting), as a blip is judged by the samples around it
+        var throttles = lap?.Throttles is { } raw && raw.Length == lap.Brakes.Length
+            ? WithoutThrottleBlips(lap.Brakes, raw)
+            : null;
         var samples = lap is null
             ? []
             : lap.Pcts.Select((pct, i) => (
                     Pct: (pct % 1 + 1) % 1,
-                    Brake: Math.Clamp(lap.Brakes[i], 0, 1) * 100))
+                    Brake: Math.Clamp(lap.Brakes[i], 0, 1) * 100,
+                    Throttle: throttles is not null && i < throttles.Length
+                        ? Math.Clamp(throttles[i], 0, 1) * 100
+                        : double.NaN))
                 .OrderBy(s => s.Pct)
                 .ToArray();
         _pcts = samples.Select(s => s.Pct).ToArray();
         _brakes = samples.Select(s => s.Brake).ToArray();
+        _throttles = samples.Select(s => s.Throttle).ToArray();
         _gearChanges = (lap?.GearChanges ?? [])
             .Select(change => ((change.Pct % 1 + 1) % 1, change.Gear, change.Gear > change.From))
             .ToArray();
+    }
+
+    // Downshift throttle blips (the engine revved to match a lower gear) read as spikes in the throttle trace. A
+    // blip is a pulse that rises from (near) 0 and drops back to 0; it's flattened to 0 if it's shorter than
+    // BlipMaxSamples or the brake is on during it. Throttle that was already on (the lift as braking starts) and a
+    // pickup that stays on are real and kept. The same as the website's withoutThrottleBlips (src/lib/lapData.ts).
+    private const double PedalOff = 0.02;
+    private const int BlipMaxSamples = 24; // 0.4 s at 60 Hz
+
+    private static double[] WithoutThrottleBlips(double[] brakes, double[] throttles)
+    {
+        var output = (double[])throttles.Clone();
+        for (var i = 1; i < output.Length; i++)
+        {
+            if (output[i] <= PedalOff || output[i - 1] > PedalOff)
+                continue;
+            // A pulse starts at i (the previous sample is off); find where it ends
+            var j = i;
+            var braking = false;
+            while (j < output.Length && output[j] > PedalOff)
+            {
+                braking |= brakes[j] > PedalOff;
+                j++;
+            }
+            // Only pulses that drop back to off before the lap ends are judged
+            if (j < output.Length && (j - i < BlipMaxSamples || braking))
+                Array.Fill(output, 0, i, j - i);
+            i = j;
+        }
+        return output;
     }
 
     private void ShowStatus(bool live)
@@ -189,14 +234,21 @@ public partial class TargetTelemetryWindow : Window
             return;
 
         // The Target Lap's samples within the window, by distance from the car (negative is behind it)
-        var points = new List<(double Feet, double Brake)>();
+        var points = new List<(double Feet, double Brake, double Throttle)>();
         for (var i = 0; i < _pcts.Length; i++)
         {
             var feet = FeetFromCar(_pcts[i], position, lengthFeet);
             if (feet >= -BehindFeet - MarginFeet && feet <= SpanFeet - BehindFeet + MarginFeet)
-                points.Add((feet, _brakes[i]));
+                points.Add((feet, _brakes[i], _throttles[i]));
         }
         points.Sort((a, b) => a.Feet.CompareTo(b.Feet));
+
+        // The Target Lap's throttle (none from sites before it was sent)
+        var throttle = new PointCollection(points.Count);
+        foreach (var point in points)
+            if (!double.IsNaN(point.Throttle))
+                throttle.Add(new Point(X(point.Feet), Y(point.Throttle)));
+        _throttleTrace.Points = throttle;
 
         var trace = new PointCollection(points.Count);
         double? atCar = null;
@@ -205,8 +257,8 @@ public partial class TargetTelemetryWindow : Window
             trace.Add(new Point(X(points[i].Feet), Y(points[i].Brake)));
             if (i > 0 && points[i - 1].Feet <= 0 && points[i].Feet >= 0)
             {
-                var (f0, b0) = points[i - 1];
-                var (f1, b1) = points[i];
+                var (f0, b0, _) = points[i - 1];
+                var (f1, b1, _) = points[i];
                 atCar = f1 > f0 ? b0 + (b1 - b0) * (0 - f0) / (f1 - f0) : b1;
             }
         }
@@ -332,6 +384,7 @@ public partial class TargetTelemetryWindow : Window
             AddLabel(YAxis, $"{level:0}%", 0, y - 8, YAxis.ActualWidth - 6, TextAlignment.Right);
         }
         Plot.Children.Add(_fill);
+        Plot.Children.Add(_throttleTrace);
         Plot.Children.Add(_trace);
         Plot.Children.Add(_driverTrace);
 
@@ -342,8 +395,8 @@ public partial class TargetTelemetryWindow : Window
         Plot.Children.Add(_brakeBar);
         Plot.Children.Add(_gears); // over the car's line, so the gear at the car is readable
 
-        // Distance from the car: every 100 ft, or 25 m for Metric Preferred Units
-        var step = _target.Metric ? 25 * FeetPerMeter : 100;
+        // Distance from the car: every 50 ft, or 25 m for Metric Preferred Units
+        var step = _target.Metric ? 25 * FeetPerMeter : 50;
         var unit = Loc.DistanceUnit(_target.Metric);
         for (var feet = -Math.Floor(BehindFeet / step) * step; feet <= SpanFeet - BehindFeet; feet += step)
         {

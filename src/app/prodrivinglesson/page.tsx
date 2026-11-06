@@ -1,5 +1,7 @@
+import { redirect } from 'next/navigation';
 import { getDictionary, getLanguage } from '@/lib/i18n/server';
 import { getProDriverBio } from '@/lib/proDriverBio';
+import { withReturnTo } from '@/lib/returnTo';
 import { getCurrentUser } from '@/lib/session';
 
 const RACING_STYLES = ['sportsCar', 'formula', 'stockCar', 'dirt', 'offRoad'] as const;
@@ -18,6 +20,7 @@ function renderInline(text: string) {
 // The hour buttons do nothing yet.
 export default async function ProDrivingLessonPage() {
   const user = await getCurrentUser();
+  if (!user) redirect(withReturnTo('/login', '/prodrivinglesson'));
   const language = await getLanguage(user);
   const t = getDictionary(language).proDrivingLesson;
   const bio = getProDriverBio(language);

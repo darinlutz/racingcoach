@@ -11,43 +11,55 @@ namespace RacingCoach.Collector.Simulators;
 /// </summary>
 public static class AccConventions
 {
-    /// <summary>"Current gear", no encoding given. The community readers all use 0 reverse, 1 neutral, 2 first;
-    /// iRacing's is -1, 0, 1.</summary>
+    // Checked against the Spa recording of 2026-11-05 (smVersion 1.9, Huracán GT3 Evo; docs/multi-simulator.md) where
+    // marked "Spa:". The 1.8 layout read every field of it sensibly, so 1.9 moved nothing this reads.
+
+    /// <summary>"Current gear", no encoding given: 0 reverse, 1 neutral, 2 first, as the community readers have it;
+    /// iRacing's is -1, 0, 1. Spa: 1 standing still, 2 pulling away, 7 at the top of a six-speed car.</summary>
     public const int GearOffset = -1;
 
-    /// <summary>steerAngle is the input, -1 to 1, with no direction given. +1 is taken to be full right lock, so it's
-    /// negated into the frame's positive-left.</summary>
+    /// <summary>steerAngle is the input, -1 to 1, with no direction given; +1 is full right lock, so it's negated into
+    /// the frame's positive-left. Spa: +0.48 through La Source, a right hairpin. Spa 18:36: full lock either way read
+    /// ±0.752, not ±1, so it's a share of the wheel's range, not of the car's lock, and no angle can be made from it.</summary>
     public const float SteeringInputSign = -1;
 
-    /// <summary>localVelocity and localAngularVel are "in local coordinates", with no axes given. AC's are taken:
-    /// x across the car (+ left), y up, z forward. Forward is z; left is x.</summary>
+    /// <summary>localVelocity and localAngularVel are "in local coordinates", with no axes given: x across the car
+    /// (+ left), y up, z forward. Spa: z reaches the top speed in m/s, and yaw rate about y tracks lateral g at 0.93
+    /// and the steering at -0.94.</summary>
     public const int ForwardAxis = 2;
     public const int LeftAxis = 0;
     public const float LeftSign = 1;
-    /// <summary>Yaw rate is about y (up); iRacing's YawRate is positive turning left.</summary>
+    /// <summary>Yaw rate is about y (up); iRacing's YawRate is positive turning left. Spa: -0.8 rad/s through La Source.</summary>
     public const int UpAxis = 1;
     public const float YawRateSign = 1;
 
-    /// <summary>accG is documented as "in global coordinates" without a unit, though the community readers treat it as
-    /// the car's own g: x lateral, y vertical, z longitudinal. Taken as that, in g; the Spa recording decides.</summary>
+    /// <summary>accG is documented as "in global coordinates" without a unit, but it's the car's own g: x lateral
+    /// (+ left), y vertical, z longitudinal (+ forward). Spa: 1.4 g through La Source, matching speed × yaw rate;
+    /// negative under braking.</summary>
     public const int LatAxis = 0;
     public const int VertAxis = 1;
     public const int LongAxis = 2;
     public const float LatSign = 1;
     public const float LongSign = 1;
+    /// <summary>Whether accG's vertical includes gravity, as iRacing's VertAccel does. Spa: it averages 0.02 g on the
+    /// move, so it doesn't, and 1 g is added.</summary>
+    public const bool VerticalIncludesGravity = false;
 
-    /// <summary>heading is "car yaw orientation", radians assumed; whether it matches iRacing's Yaw (its zero and
-    /// direction) isn't known, so it's passed as it is.</summary>
-    public const float YawSign = 1;
+    /// <summary>heading is "car yaw orientation" in radians, -π to π. Spa: it grows turning right (its rate is exactly
+    /// minus the yaw rate), the reverse of iRacing's Yaw, so it's negated. Spa 18:36: it's atan2(-x, z) of the
+    /// world velocity to within 0.05 rad, so 0 is ACC's world +z, not north; the website works Yaw's zero out from
+    /// each lap's own positions anyway, as iRacing's isn't north either.</summary>
+    public const float YawSign = -1;
 
-    /// <summary>wheelPressure has no unit; ACC's own UI and every community tool show psi.</summary>
+    /// <summary>wheelPressure has no unit; ACC's own UI and every community tool show psi. Spa: 26-27 hot.</summary>
     public const bool PressureInPsi = true;
 
-    /// <summary>clutch is "clutch pedal input" from 0 to 1, so 1 is taken to be the pedal fully down (disengaged),
-    /// the reverse of iRacing's Clutch.</summary>
-    public const bool ClutchIsPedal = true;
+    /// <summary>clutch is documented as "clutch pedal input", but it's engagement like iRacing's Clutch: Spa: 1.00
+    /// throughout driving, lower only pulling away.</summary>
+    public const bool ClutchIsPedal = false;
 
-    /// <summary>abs is "ABS in action" with no range; anything above this is taken as ABS working.</summary>
+    /// <summary>abs is "ABS in action" with no range; anything above this is taken as ABS working. Spa 18:36: only ever
+    /// 0 or 1, in short bursts under heavy braking (99% of its samples with the brake on).</summary>
     public const float AbsActiveAbove = 0;
 }
 
@@ -64,8 +76,15 @@ public sealed class AccFrameBuilder
     public const string SimulatorId = "acc";
 
     private int? _completedLaps;
-    private bool? _lastValid;
     private int? _sessionIndex;
+    // ACC resets isValidLap as the car crosses the line (iCurrentTime back to 0), which can be a read before
+    // completedLaps goes up (Spa 18:36: 881.12 s, then 881.15 s), so a lap's validity is latched from the line rather
+    // than read off the frame before its event. A crossing with no lap counted (the out lap from the garage) just
+    // starts the latch again.
+    private int? _currentTimeMs;
+    private bool _lapInvalid;
+    private bool _endedLapInvalid;
+    private bool _crossedSinceEvent;
     private int _lastPhysicsPacket = int.MinValue;
 
     /// <summary>The frame for these pages, or null when physics hasn't moved on since the last call (the game is
@@ -81,12 +100,28 @@ public sealed class AccFrameBuilder
         {
             _sessionIndex = graphics.SessionIndex;
             _completedLaps = null;
+            _currentTimeMs = null;
+            _lapInvalid = _endedLapInvalid = _crossedSinceEvent = false;
+        }
+        var crossed = _currentTimeMs is { } msBefore && graphics.CurrentTimeMs < msBefore;
+        _currentTimeMs = graphics.CurrentTimeMs;
+        if (crossed)
+        {
+            _endedLapInvalid = _lapInvalid;
+            _lapInvalid = false;
+            _crossedSinceEvent = true;
         }
         NativeLapEvent? ended = null;
         if (_completedLaps is { } before && graphics.CompletedLaps == before + 1)
-            ended = new NativeLapEvent(graphics.CompletedLaps, graphics.LastTimeMs > 0 ? graphics.LastTimeMs / 1000.0 : null, _lastValid);
+        {
+            var invalid = _crossedSinceEvent ? _endedLapInvalid : _lapInvalid;
+            ended = new NativeLapEvent(graphics.CompletedLaps, graphics.LastTimeMs > 0 ? graphics.LastTimeMs / 1000.0 : null, !invalid);
+            if (!_crossedSinceEvent)
+                _lapInvalid = false; // no line crossing seen: the next lap starts here
+            _crossedSinceEvent = false;
+        }
         _completedLaps = graphics.CompletedLaps;
-        _lastValid = graphics.IsValidLap;
+        _lapInvalid |= !graphics.IsValidLap;
 
         var local = physics.LocalVelocity;
         var angular = physics.LocalAngularVelocity;
@@ -104,7 +139,7 @@ public sealed class AccFrameBuilder
             VelocityLeftMps = AccConventions.LeftSign * Axis(local, AccConventions.LeftAxis),
             LatAccelMps2 = Units.GToMps2(AccConventions.LatSign * Axis(g, AccConventions.LatAxis)),
             LongAccelMps2 = Units.GToMps2(AccConventions.LongSign * Axis(g, AccConventions.LongAxis)),
-            VertAccelMps2 = Units.GToMps2(Axis(g, AccConventions.VertAxis)),
+            VertAccelMps2 = Units.GToMps2(Axis(g, AccConventions.VertAxis) + (AccConventions.VerticalIncludesGravity ? 0 : 1)),
             YawRadians = AccConventions.YawSign * physics.Heading,
             YawRateRadiansPerSecond = AccConventions.YawRateSign * Axis(angular, AccConventions.UpAxis),
             Throttle = physics.Gas,
@@ -121,9 +156,10 @@ public sealed class AccFrameBuilder
             RearLeft = Wheel(physics.WheelPressure.RearLeft),
             RearRight = Wheel(physics.WheelPressure.RearRight),
             WaterTempC = physics.WaterTemp,
-            // ACC has only a core temperature per tire (not a carcass one), no oil temperature, and fuel in kg with
-            // no density to make it liters
-            FuelLiters = null,
+            // ACC has only a core temperature per tire (not a carcass one) and no oil temperature. Fuel is documented
+            // as kg, but it's liters: Spa 18:36 had 62 with fuelXLap (documented liters) 4.24 and fuelEstimatedLaps
+            // 14.6 = 62 / 4.24, and the Huracán's maxFuel 120 is its 120 L tank
+            FuelLiters = physics.Fuel,
             IsOnTrack = graphics.Status == AccStatus.Live,
             IsReplay = graphics.Status == AccStatus.Replay,
             OnPitRoad = graphics.IsInPitLane || graphics.IsInPit,
@@ -134,8 +170,9 @@ public sealed class AccFrameBuilder
             LapJustEnded = ended,
             AirTempC = physics.AirTemp,
             TrackTempC = physics.RoadTemp,
-            WindSpeedMps = graphics.WindSpeed,
-            WindDirectionRadians = graphics.WindDirection,
+            // windSpeed and windDirection read 0 throughout both Spa sessions: unknown until wind is seen in them
+            WindSpeedMps = null,
+            WindDirectionRadians = null,
         };
     }
 

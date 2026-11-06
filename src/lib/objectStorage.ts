@@ -2,8 +2,9 @@ import { createReadStream, createWriteStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import type { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
-import { DeleteObjectCommand, GetObjectCommand, HeadObjectCommand, ListObjectsV2Command, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, GetObjectCommand, HeadObjectCommand, ListObjectsV2Command, PutObjectCommand, type S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { createS3Client } from './s3Client';
 
 // Where the Broadcast Video Library's files live: any S3-compatible object store (Cloudflare R2 recommended, as serving
 // video from it costs no egress; AWS S3, Backblaze B2 and MinIO work too), never Postgres or Render's filesystem.
@@ -31,18 +32,7 @@ function storage(): { client: S3Client; bucket: string } {
   if (cached) return cached;
   const config = storageConfig();
   if (!config) throw new Error('Object storage for broadcast videos is not configured');
-  cached = {
-    bucket: config.bucket,
-    client: new S3Client({
-      endpoint: config.endpoint,
-      region: config.region,
-      forcePathStyle: true,
-      credentials: { accessKeyId: config.accessKeyId, secretAccessKey: config.secretAccessKey },
-      // Otherwise presigned PUTs carry a checksum of an empty body, which stores like R2 refuse
-      requestChecksumCalculation: 'WHEN_REQUIRED',
-      responseChecksumValidation: 'WHEN_REQUIRED',
-    }),
-  };
+  cached = { bucket: config.bucket, client: createS3Client(config) };
   return cached;
 }
 

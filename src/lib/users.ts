@@ -1,4 +1,5 @@
 import { SIMULATOR_SCHEMA } from './simulatorSchema';
+import { TELEMETRY_STORAGE_SCHEMA } from './telemetryStorageSchema';
 import { randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 import { isUniqueViolation, query, transaction } from './db';
@@ -673,6 +674,9 @@ export function ensureUserSchema(): Promise<void> {
       // Lap telemetry retention: each lap's and Debrief Coach run's expiry, kept in step with the owner's membership
       // level, and the cleanup job's tables (lapRetentionDb.ts)
       for (const statement of LAP_RETENTION_SCHEMA) await client.query(statement);
+      // Where each lap's CSV is (Postgres or the telemetry object store), and the queue of objects to delete
+      // (telemetryStorageSchema.ts, docs/telemetry-storage.md)
+      for (const statement of TELEMETRY_STORAGE_SCHEMA) await client.query(statement);
       // The Broadcast Video Library and Broadcast Director (broadcastVideoDb.ts)
       for (const statement of BROADCAST_VIDEO_SCHEMA) await client.query(statement);
       // The telemetry collector's activity log, sent as it's written (src/lib/collectorLogs.ts). A run is one start

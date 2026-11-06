@@ -31,7 +31,7 @@ How the lap retention policy is enforced, deployed and rolled back. The rules an
 
 | Where | What | Handling |
 |---|---|---|
-| `"CollectorLaps"` (the row and `csv_gzip`) | Raw lap telemetry, every 60 Hz sample | Expires by the rules above, then deleted |
+| `"CollectorLaps"` (the row, and its CSV in `csv_gzip` or the R2 telemetry bucket) | Raw lap telemetry, every 60 Hz sample | Expires by the rules above, then deleted; its R2 object is queued in the same statement and deleted by the cleanup worker (docs/telemetry-storage.md) |
 | `"DebriefSessions"` (`session`, `debrief`) | Per-lap measurements and the AI's debrief | Same rules, from `created_at` |
 | `"LapSummaries"` (`input`, `summary`) | Lap Compare, Multi-Lap and Stint measurements and the AI's summary | Same rules, from `created_at`; counted with debriefs in `"LapRetentionRuns"` |
 | `"ExpiredLaps"` | User ID, collector lap ID and completion time of deleted laps; no telemetry | Purged 90 days after completion |

@@ -129,7 +129,11 @@ internal static class Loc
         // Overlay boxes (OverlayStats, OverlayAreaRow, OverlayFeed)
         ["overlay.maxBrake"] = ("Max Brake", "Freio máx.", "Freno máx.", "Max. Bremse"),
         ["overlay.minSpeed"] = ("Min Speed ({0})", "Vel. mínima ({0})", "Vel. mínima ({0})", "Min. Tempo ({0})"),
-        ["overlay.focusArea"] = ("Area", "Área", "Zona", "Bereich"),
+        ["overlay.maxSteering"] = ("Max Steering", "Direção máx.", "Dirección máx.", "Max. Lenkung"),
+        // The focus area row's Max Steering against the Target Lap's, in whole degrees
+        ["overlay.steeringMore"] = ("{0}° more", "{0}° a mais", "{0}° más", "{0}° mehr"),
+        ["overlay.steeringLess"] = ("{0}° less", "{0}° a menos", "{0}° menos", "{0}° weniger"),
+        ["overlay.focusArea"] =("Area", "Área", "Zona", "Bereich"),
         ["overlay.nextArea"] = ("Next Area", "Próxima área", "Próxima zona", "Nächster Bereich"),
         ["overlay.brakePoint"] = ("Brake Point", "Ponto de frenagem", "Punto de frenado", "Bremspunkt"),
         ["overlay.brakePressure"] = ("Brake Pressure", "Pressão de freio", "Presión de freno", "Bremsdruck"),

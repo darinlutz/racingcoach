@@ -40,8 +40,9 @@ const links = [
   { href: '/support', key: 'support', icon: LifeBuoy },
 ] as const;
 
-// Signed-out visitors who click these get the Log in box instead of the page
-const loginRequiredLinks: ReadonlySet<string> = new Set(['myDashboard', 'installing', 'mySessions', 'liveRacing', 'carsTracks', 'expertLaps', 'support', 'pricing']);
+// Signed-out visitors who click any of these get the Log in box instead of the page (each page also redirects
+// visitors to Log In). Support stays open, as someone who can't sign in may need help
+const loginRequiredLinks: ReadonlySet<string> = new Set(['myDashboard', 'mySessions', 'liveRacing', 'carsTracks', 'expertLaps', 'proDriverLesson', 'learning', 'installing', 'pricing']);
 
 // At the bottom, just above My Settings (or Log In)
 const bottomLinks = [

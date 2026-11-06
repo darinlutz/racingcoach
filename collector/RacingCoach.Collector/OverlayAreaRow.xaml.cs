@@ -9,8 +9,9 @@ namespace RacingCoach.Collector;
 /// or the next one as soon as it leaves an area ("Next Area"), with its name and its values on this lap from
 /// TelemetryEngine.js; hidden without one. Inside an area, Area Time and Area Exit are blank; once it leaves, they
 /// show the area just left against the session's best (purple "BEST" for a new best) until it enters the next,
-/// and Brake Pressure shows the next area's target (blank when the Target Lap doesn't brake there). Max Steering
-/// shows the Target Lap's largest steering angle inside an area, and once it leaves, the driver's against it.
+/// and Brake Pressure shows the next area's target (blank when the Target Lap doesn't brake there). Wheel Diff
+/// shows, inside an area, how far the driver's live steering angle is from the Target Lap's largest there (blue
+/// short of it, green within 5°, red past it), and once it leaves, the driver's largest against it.
 /// In the Target Telemetry window.
 /// </summary>
 public partial class OverlayAreaRow : UserControl
@@ -19,7 +20,7 @@ public partial class OverlayAreaRow : UserControl
     private static readonly (string Heading, double Width)[] Columns =
     [
         ("overlay.focusArea", 95), ("overlay.brakePoint", 115), ("overlay.brakePressure", 105),
-        ("overlay.time", 115), ("overlay.exit", 120), ("overlay.maxSteering", 110), ("overlay.coast", 67), ("overlay.overlap", 67),
+        ("overlay.time", 115), ("overlay.exit", 120), ("overlay.wheelDiff", 110), ("overlay.coast", 67), ("overlay.overlap", 67),
     ];
     private static readonly Brush BoxBackground = Frozen(Color.FromRgb(0x1A, 0x1B, 0x1E));
     internal static readonly Brush LightText = Frozen(Color.FromRgb(0xF3, 0xF4, 0xF6));
@@ -100,10 +101,10 @@ public partial class OverlayAreaRow : UserControl
         // Purple for the session's best ("BEST")
         Show(_cells[3], last?.Time, last?.TimeColor, alertBackground);
         Show(_cells[4], last?.Exit, last?.ExitColor, alertBackground);
-        // Max Steering, like Brake Pressure (and, like it, never on the alert color): the Target Lap's in the area,
-        // then once the car leaves it, the area just left's against it until the car enters the next
+        // Wheel Diff, like Brake Pressure (and, like it, never on the alert color): in the area the Target Lap's max
+        // steering less the live angle, then once the car leaves it, the area just left's against it until the next
         if (inArea)
-            Show(_cells[5], area?.SteeringTarget, null, null);
+            Show(_cells[5], area?.WheelDiff, area?.WheelDiffColor, null);
         else
             Show(_cells[5], last?.Steering, last?.SteeringColor, null);
         Show(_cells[6], area?.Coast, null, alertBackground);

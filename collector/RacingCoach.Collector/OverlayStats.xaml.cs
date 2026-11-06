@@ -5,7 +5,7 @@ namespace RacingCoach.Collector;
 
 /// <summary>
 /// The overlay's Max Brake (GetMaximumBrakePressure), Min Speed (GetMinimumSpeed) and Max Steering (the
-/// largest steering angle in the focus area the car last left, from OverlayEngine) boxes, and the Rotation
+/// largest steering angle of the last few seconds, held like Min Speed, from OverlayEngine) boxes, and the Rotation
 /// Model's UNDERSTEER or OVERSTEER beside them; in the overlay and, as a copy, the Target Telemetry window.
 /// </summary>
 public partial class OverlayStats : UserControl

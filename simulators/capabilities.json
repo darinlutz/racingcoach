@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "comment": "The simulator capability matrix, read by the collector (SimulatorCatalog.cs, built in) and the website (src/lib/simulators.ts). status: supported = an adapter exists and has been tested; documented = channels read from the publisher's own documentation, and an adapter may exist that's still being checked (ACC's), whose channels are marked collected one at a time as they're confirmed in the game, while its laps are still refused; interfaceIdentified = interface found, channels not checked. support: collected, collectedAfterStint, documented (not yet confirmed in the simulator), unavailable, unknown (treat like unavailable). Only change a simulator to supported once its adapter has passed docs/multi-simulator.md's checklist against the real simulator. Researched 2026-11-01.",
+  "comment": "The simulator capability matrix, read by the collector (SimulatorCatalog.cs, built in) and the website (src/lib/simulators.ts). status: supported = an adapter exists and has been tested; documented = channels read from the publisher's own documentation, and an adapter may exist that's still being checked, whose channels are marked collected one at a time as they're confirmed in the game, while its laps are still refused; minAdapterVersion (optional) = laps from an older adapter of that simulator are refused, as their files aren't in the form the site reads; interfaceIdentified = interface found, channels not checked. support: collected, collectedAfterStint, documented (not yet confirmed in the simulator), unavailable, unknown (treat like unavailable). Only change a simulator to supported once its adapter has passed docs/multi-simulator.md's checklist against the real simulator. Researched 2026-11-01.",
   "channels": [
     { "id": "speed", "group": "motion", "unit": "m/s" },
     { "id": "lapDistance", "group": "motion", "unit": "m" },
@@ -137,7 +137,9 @@
       "id": "acc",
       "displayName": "Assetto Corsa Competizione",
       "priority": "P1",
-      "status": "documented",
+      "status": "supported",
+      "minAdapterVersion": 2,
+      "minAdapterVersionNote": "Adapter 2 (collector 1.80.0) writes lap files as iRacing's: the lap position counts from ACC's timing line, and a shift has no neutral in it. Adapter 1's laps are refused.",
       "requiresSetup": null,
       "interfaces": [
         { "kind": "sharedMemory", "name": "Local\\acpmf_physics, Local\\acpmf_graphics, Local\\acpmf_static", "rate": "Each graphics step", "note": "The same names as Assetto Corsa and AC Rally, and AC's static page starts the same way, so only the process tells them apart (ACC's is AC2-Win64-Shipping.exe). Layout: the document's fields in its order, 4-byte aligned (wchar_t arrays padded to 4), physics 800 bytes, graphics 1588, static 820; collector/RacingCoach.Collector.Core/AccSharedMemory.cs" }

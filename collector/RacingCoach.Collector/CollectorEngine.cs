@@ -15,8 +15,8 @@ internal sealed record CollectorOptions(string? IbtFile, int Speed, bool SetKey,
 /// <summary>The simulators this build can read. Adding one is adding its adapter here.</summary>
 internal static class SimulatorRegistry
 {
-    /// <summary>The tested simulators, which --simulator auto chooses from, plus one still being proved (not supported
-    /// in simulators/capabilities.json, so the website refuses its laps) only when --simulator names it.</summary>
+    /// <summary>iRacing, which --simulator auto chooses from, plus ACC only when --simulator names it: ACC is supported
+    /// (simulators/capabilities.json, so the website takes its laps), but detecting it beside iRacing isn't proven.</summary>
     /// <param name="named">--simulator's id, or null for auto (or no --simulator).</param>
     /// <param name="rawRecordingFolder">--record-raw: where adapters that can write their simulator's raw data (ACC's
     /// shared memory pages) do, else null.</param>

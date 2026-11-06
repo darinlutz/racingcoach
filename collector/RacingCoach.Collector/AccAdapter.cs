@@ -15,7 +15,7 @@ namespace RacingCoach.Collector;
 /// ACC's while ACC's process is running. With a raw recording folder, every page read is also written there
 /// (AccRawRecording), for checking the conversions at Spa.
 /// </summary>
-internal sealed class AccAdapter(string? rawRecordingFolder = null, Action<string>? log = null) : ISimulatorAdapter, IHasLapTrackerOptions
+internal sealed class AccAdapter(string? rawRecordingFolder = null, Action<string>? log = null) : ISimulatorAdapter, IHasLapTrackerOptions, IShapesLapFiles
 {
     private const string ProcessName = "AC2-Win64-Shipping";
     // The static page's smVersion this layout was written from (ACC Shared Memory v1.8.12)
@@ -28,8 +28,11 @@ internal sealed class AccAdapter(string? rawRecordingFolder = null, Action<strin
 
     public string SimulatorId => AccFrameBuilder.SimulatorId;
     public string DisplayName => "Assetto Corsa Competizione";
-    public string AdapterVersion => "1";
+    // 2: lap files count from ACC's timing line and have no neutral mid-shift (AccFrameBuilder.ForLapFile). The
+    // website refuses ACC laps from older adapters (minAdapterVersion in simulators/capabilities.json)
+    public string AdapterVersion => "2";
     public LapTrackerOptions LapTrackerOptions => AccFrameBuilder.LapTrackerOptions;
+    public IReadOnlyList<TelemetryFrame> ForLapFile(IReadOnlyList<TelemetryFrame> frames) => AccFrameBuilder.ForLapFile(frames);
 
     public SimulatorProbe Probe()
     {

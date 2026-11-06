@@ -69,7 +69,7 @@ internal sealed class CanonicalLapPipeline : ITelemetrySink
         lap.LapNumber,
         lap.SessionNumber,
         lap.LapTimeSeconds,
-        new CanonicalLapSamples(lap.Frames),
+        new CanonicalLapSamples((_adapter as IShapesLapFiles)?.ForLapFile(lap.Frames) ?? lap.Frames),
         lap.MissingFrames,
         lap.Incidents,
         lap.OnPitRoad,

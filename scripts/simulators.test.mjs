@@ -19,8 +19,8 @@ import { fillGaps, lapSamplesFromText } from '../src/lib/lapData.ts';
 
 const source = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 
-test('only iRacing is claimed as supported', () => {
-  assert.deepEqual(SIMULATORS.filter((s) => s.status === 'supported').map((s) => s.id), ['iracing']);
+test('only iRacing and ACC are claimed as supported', () => {
+  assert.deepEqual(SIMULATORS.filter((s) => s.status === 'supported').map((s) => s.id), ['iracing', 'acc']);
   assert.equal(DEFAULT_SIMULATOR, 'iracing');
 });
 
@@ -43,13 +43,14 @@ test('a simulator only lists real channels, and one with no adapter never says c
       if (!WITH_ADAPTER.includes(simulator.id)) assert.ok(!support.startsWith('collected'), `${simulator.id}: ${channel}`);
     }
   }
-  // An adapter marks channels collected one at a time as they're checked; its laps are still refused until supported
-  assert.equal(findSimulator('acc').status, 'documented');
+  // An adapter marks channels collected one at a time as they're checked, and ACC's passed the checklist (2026-11-06)
+  assert.equal(findSimulator('acc').status, 'supported');
 });
 
 test('laps are only accepted from a tested simulator, and never an unknown one', () => {
   assert.equal(acceptsLapsFrom('iracing'), true);
-  assert.equal(acceptsLapsFrom('acc'), false);
+  assert.equal(acceptsLapsFrom('acc'), true);
+  assert.equal(acceptsLapsFrom('ams2'), false);
   assert.equal(acceptsLapsFrom('nonsense'), false);
 });
 
@@ -57,7 +58,12 @@ test('an old collector is never refused, and a new format or simulator is, with 
   assert.equal(lapRefusal(undefined, undefined), null);
   assert.equal(lapRefusal(null, null), null);
   assert.equal(lapRefusal('iracing', 1), null);
-  assert.equal(lapRefusal('acc', 1), 'simulatorNotSupported');
+  assert.equal(lapRefusal('ams2', 1), 'simulatorNotSupported');
+  // ACC's laps only from an adapter that writes them as iRacing's
+  assert.equal(lapRefusal('acc', 1, '2'), null);
+  assert.equal(lapRefusal('acc', 1, '1'), 'adapterVersionNotSupported');
+  assert.equal(lapRefusal('acc', 1, null), 'adapterVersionNotSupported');
+  assert.equal(lapRefusal('iracing', 1, null), null);
   assert.equal(lapRefusal('iracing', 2), 'payloadVersionNotSupported');
 });
 

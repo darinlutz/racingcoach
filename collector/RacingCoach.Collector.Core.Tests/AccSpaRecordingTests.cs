@@ -114,4 +114,53 @@ public sealed class AccSpaRecordingTests
         // Never reverse on the move
         Assert.DoesNotContain(Frames, f => f.Gear < 0 && f.SpeedMps > 1);
     }
+
+    // The flying lap as the collector writes it: split by FrameLapTracker, then AccFrameBuilder.ForLapFile
+    private static TrackedLap FlyingLap()
+    {
+        var laps = new List<TrackedLap>();
+        var tracker = new FrameLapTracker(laps.Add, _ => { }, AccFrameBuilder.LapTrackerOptions);
+        foreach (var frame in Frames) tracker.OnFrame(frame);
+        return Assert.Single(laps, lap => lap.Valid == true);
+    }
+
+    [Fact]
+    public void The_lap_file_counts_from_ACCs_timing_line_like_iRacings()
+    {
+        var lap = FlyingLap();
+        var frames = AccFrameBuilder.ForLapFile(lap.Frames);
+        // ACC counted the lap at 0.99625 of its spline; from then on the position counts from there, so the lap runs
+        // from 0 to the next lap's first sample, at 0 again, as iRacing's lap files do
+        Assert.Equal(0, frames[0].LapDistancePct!.Value, 4);
+        Assert.Equal(0, frames[^1].LapDistancePct!.Value, 4);
+        for (var i = 1; i < frames.Count - 1; i++)
+            Assert.True(frames[i].LapDistancePct > frames[i - 1].LapDistancePct, $"position goes on increasing at {i}");
+        // Its samples cover ACC's own lap time, rather than starting at the spline's 0, 0.6 s late
+        var span = frames[^1].SessionTimeSeconds!.Value - frames[0].SessionTimeSeconds!.Value;
+        Assert.InRange(span, lap.LapTimeSeconds - 0.05, lap.LapTimeSeconds + 0.05);
+    }
+
+    [Fact]
+    public void A_shift_goes_straight_to_the_next_gear_like_iRacings()
+    {
+        var raw = FlyingLap().Frames;
+        Assert.Contains(raw, f => f.Gear == 0 && f.SpeedMps > 20); // ACC's neutral in the middle of a shift
+        var frames = AccFrameBuilder.ForLapFile(raw);
+        Assert.DoesNotContain(frames, f => f.Gear == 0);
+        // Every change is one gear up or down, and only the gear changed
+        for (var i = 1; i < frames.Count; i++)
+            Assert.InRange(Math.Abs(frames[i].Gear!.Value - frames[i - 1].Gear!.Value), 0, 1);
+        Assert.Equal(raw.Select(f => f.SpeedMps), frames.Select(f => f.SpeedMps));
+    }
+
+    [Fact]
+    public void A_real_neutral_is_kept()
+    {
+        TelemetryFrame At(double t, int gear, float speed) => new() { SimulatorId = "acc", SessionTimeSeconds = t, Gear = gear, SpeedMps = speed, LapDistancePct = (float)t / 1000 };
+        // Coasting in neutral for a second, and stopped in neutral, aren't shifts
+        var coasting = Enumerable.Range(0, 80).Select(i => At(i / 60.0, i is >= 10 and < 70 ? 0 : 3, 30)).ToList();
+        Assert.Equal(60, AccFrameBuilder.ForLapFile(coasting).Count(f => f.Gear == 0));
+        var stopped = Enumerable.Range(0, 20).Select(i => At(i / 60.0, i is >= 5 and < 9 ? 0 : 1, 0.5f)).ToList();
+        Assert.Equal(4, AccFrameBuilder.ForLapFile(stopped).Count(f => f.Gear == 0));
+    }
 }

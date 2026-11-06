@@ -67,7 +67,8 @@ export async function GET(request: Request) {
 // replaced: true if this copy's track positions replaced a stored copy without them). Answers 422 with
 // code: 'lapExpired' for a lap past its retention period (LapExpiredError), which isn't stored; the collector
 // stops uploading it and deletes its local copy. Answers 422 with code: 'simulatorNotSupported' for a simulator whose
-// adapter hasn't been tested yet, or 'payloadVersionNotSupported' for a format newer than this site reads (simulators.ts).
+// adapter hasn't been tested yet, 'payloadVersionNotSupported' for a format newer than this site reads, or
+// 'adapterVersionNotSupported' for laps from an adapter older than the simulator's minAdapterVersion (simulators.ts).
 export async function POST(request: Request) {
   try {
     const userId = await authenticateCollector(request);
@@ -103,7 +104,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: `Invalid lap details: ${fields.join(', ')}` }, { status: 400 });
     }
 
-    const refusal = lapRefusal(parsed.data.simulator, parsed.data.payloadVersion);
+    const refusal = lapRefusal(parsed.data.simulator, parsed.data.payloadVersion, parsed.data.adapterVersion);
     if (refusal) {
       return NextResponse.json({ error: `This lap can't be accepted yet: ${refusal}`, code: refusal }, { status: 422 });
     }

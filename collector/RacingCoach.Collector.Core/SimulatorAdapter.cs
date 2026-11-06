@@ -49,6 +49,13 @@ public interface IHasLapTrackerOptions
     LapTrackerOptions LapTrackerOptions { get; }
 }
 
+/// <summary>An adapter whose simulator's laps need putting into iRacing's form before they're written, beyond what
+/// one frame at a time can do (e.g. ACC's neutral in the middle of a shift, AccFrameBuilder.ForLapFile).</summary>
+public interface IShapesLapFiles
+{
+    IReadOnlyList<TelemetryFrame> ForLapFile(IReadOnlyList<TelemetryFrame> frames);
+}
+
 /// <summary>An adapter that can give the finished results of a race.</summary>
 public interface IProvidesRaceResults;
 

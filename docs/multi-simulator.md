@@ -1,6 +1,6 @@
 # Multi-simulator telemetry
 
-How the collector and website are set up to support simulators other than iRacing, what's done, what isn't, and how to add one. iRacing is the only supported simulator: nothing here has been run against any other simulator (see [What's been proven](#whats-been-proven)).
+How the collector and website are set up to support simulators other than iRacing, what's done, what isn't, and how to add one. iRacing and ACC are supported for laps (recording, upload and the website's analysis); ACC was checked against two real Spa recordings, see [What's been proven](#whats-been-proven). The live features are still iRacing's only.
 
 ## Current state
 
@@ -153,7 +153,7 @@ ACC's field status comes from the colors in Kunos's PDF, which plain text extrac
 | Simulator | Priority | Interface | Setup | Licensing | Status |
 | --- | --- | --- | --- | --- | --- |
 | iRacing | P0 | Shared memory, `.ibt` | None | Third-party SDK library | Supported |
-| ACC | P1 | `Local\acpmf_physics`, `_graphics`, `_static` | None | Kunos documents it for tools; no licence text found | Documented |
+| ACC | P1 | `Local\acpmf_physics`, `_graphics`, `_static` | None | Kunos documents it for tools; no licence text found | Supported (laps, adapter 2 on) |
 | Assetto Corsa | P1 | The same names as ACC, different layout | None | Not confirmed | Interface identified |
 | Automobilista 2 | P2 | Project CARS 2 shared memory, UDP | Must be turned on in settings | Not confirmed; no Reiza document found | Interface identified |
 | Le Mans Ultimate | P2 | Built-in shared memory `LMU_Data` | Enable Plugins on | Not confirmed; only community sources. TinyPedal is GPL-3.0: don't copy it | Interface identified |
@@ -217,8 +217,8 @@ ACC next. Nothing in the shared code should need to change; if it does, that's w
 5. **Compare** to the simulator's own displayed lap times, and to a known track's expected lap distance.
 6. **Fix the website first**: the `|| 0` in `lapSamplesFromText`, then show Not Available in Lap Compare, and hide coaching that depends on what's missing (for ACC: brakepoints in feet without a track length, steering, ride heights, GPS lines). Done for ACC on 2026-11-06 (see Missing values on the website above).
 7. **Map tracks and cars** on purpose, each layout checked: the Coach page's Simulator Mapping (`src/components/SimulatorMappings.tsx`, `/api/coach/simulator-mappings`), from the simulator's catalog (`src/lib/simulatorCatalogs.ts`) and any track or car seen in laps. Mapping re-labels the laps already stored, and unmapping gives them their own names back. The page exists; ACC's tracks and cars still need mapping, each checked.
-8. **Disable what can't be trusted**, by the matrix. The AI coaches read the CSV through `measureDebriefSession`, so check what they say with empty columns. Rotation Model calibrations don't transfer: each car needs its own, and an uncalibrated car already says UNKNOWN.
-9. **Only then** change its status to `supported`, which is what lets the website accept its laps, and move live features across one at a time, each against iRacing's golden behavior.
+8. **Disable what can't be trusted**, by the matrix. The AI coaches read the CSV through `measureDebriefSession`, so check what they say with empty columns. Rotation Model calibrations don't transfer: each car needs its own, and an uncalibrated car already says UNKNOWN. Done for ACC on 2026-11-06: the Spa recording's lap, written as the collector writes it, through `measureDebriefSession`, `lapSegmentTimes` and `lapShifting` gives no NaN or infinite value, and steering, driving line and tire temperatures are left out. It also found two differences from iRacing's lap files, fixed in adapter 2 (below).
+9. **Only then** change its status to `supported`, which is what lets the website accept its laps, and move live features across one at a time, each against iRacing's golden behavior. ACC: supported on 2026-11-06, with `minAdapterVersion` 2 so laps written before adapter 2 are refused. Live features not moved yet.
 
 ### For ACC specifically
 
@@ -231,7 +231,12 @@ Check first: `accG`'s frame, `steerAngle`'s sign, gear numbering, `wheelPressure
 - `AccFrameBuilder.cs` (Core) turns the pages into frames and the session. ACC has no session clock or matching sample counter in its pages, so frames are timed by the reader's own clock and `Tick` stays null (gaps are found by time). A frame whose physics `packetId` hasn't changed is skipped, so a pause or a repeated read isn't counted as a sample. Laps end on ACC's own events: `completedLaps` going up, with `iLastTime` as the lap time and whether `isValidLap` was false at any read since the line (`AccFrameBuilder.LapTrackerOptions`, picked up by `CanonicalLapPipeline` through `IHasLapTrackerOptions`). `LapNumber` is `completedLaps + 1`, like iRacing's `Lap`; `sessionIndex` is the session number.
 - Every unit, sign and axis the PDF leaves open is a named constant in `AccConventions`, with what it assumes: gear numbering (0 reverse, 1 neutral, 2 first), `steerAngle`'s direction, `localVelocity`/`localAngularVel`/`accG` axes and signs, `heading`, `wheelPressure` in psi, `clutch` as the pedal. Correct a convention there after the Spa recording, never in the builder.
 - Left out on purpose: the steering angle (ACC gives only the input, a share of the driver's wheel range), wind (0 in both Spa sessions), tire carcass temperatures (ACC has a core temperature only), off track and incidents (`numberOfTyresOut` is marked not used), track length (`trackSplineLength` is marked not used).
-- `AccAdapter.cs` (collector) opens the three maps while `AC2-Win64-Shipping.exe` runs, reads them 60 times a second (with the Windows timer at 1 ms, so the samples are even), copies a page again if its `packetId` changed mid-copy, re-reads the static page and checks the process each second, and warns once when `smVersion` isn't 1.8. It's in the registry only when `--simulator acc` names it, never for `auto`, as it isn't supported yet.
+- `AccAdapter.cs` (collector) opens the three maps while `AC2-Win64-Shipping.exe` runs, reads them 60 times a second (with the Windows timer at 1 ms, so the samples are even), copies a page again if its `packetId` changed mid-copy, re-reads the static page and checks the process each second, and warns once when `smVersion` isn't 1.8. It's in the registry only when `--simulator acc` names it, never for `auto`, as detection beside a running iRacing isn't proven.
+- **Adapter 2 (2026-11-06, collector 1.80.0): lap files as iRacing's** (`AccFrameBuilder.ForLapFile`, through `IShapesLapFiles` in `CanonicalLapPipeline`). Found replaying the Spa recording into a lap file:
+  - ACC counts a lap at 0.99625 of its track spline at Spa, 27 m before the spline's 0, so a lap file started at 0.996, and every focus area (fractions of iRacing's lap, from its start/finish line) would be measured 27 m off. The frame builder now learns the timing line from the read where `completedLaps` goes up and counts the lap position from it; until ACC has counted a lap the spline's own is used, so only the lap in progress when the collector starts differs.
+  - At the spline's 0 the position sticks at 1, then at 0, for about 4 reads each with the car moving; those reads are filled in by time.
+  - ACC shows neutral for 3 to 7 reads (50-100 ms) in the middle of every shift (4, 0, 0, 0, 5), so the shift points found none. A neutral up to 0.3 s between two gears with the car moving keeps the gear before it; a real neutral (longer, or stopped) is kept.
+  - The lap's samples now cover ACC's own lap time (154.144 s against 154.135 s). Tests: `AccSpaRecordingTests`.
 - `ChannelGate.cs` (Core): a lap file only gets the channels the matrix marks `collected` (or `collectedAfterStint`) for its simulator; the rest are empty cells, which the website shows as no data. So ACC's laps carry only their structure (LapDistPct, Lap, SessionTime) until each channel is checked and marked collected. iRacing's laps pass through unchanged.
 - `--record-raw` saves every page read to `Documents\RacingCoach\Raw\acc-<time>.accraw.gz` (`AccRawRecording.cs`: the static page when it changes, physics and graphics on every read, each with the reader's seconds). `AccRecordingImporter` plays one back through the same builder, which is how a recording becomes a test fixture.
 

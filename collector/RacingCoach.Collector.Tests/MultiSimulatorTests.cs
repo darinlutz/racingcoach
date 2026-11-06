@@ -179,10 +179,10 @@ public sealed class AdapterContractTests
     public void Only_tested_simulators_are_claimed_and_the_registry_only_has_those()
     {
         var supported = SimulatorCatalog.Shared.Simulators.Where(s => s.Status == SimulatorStatus.Supported).Select(s => s.Id).ToList();
-        Assert.Equal(["iracing"], supported);
-        foreach (var adapter in SimulatorRegistry.Create(new IRacingAdapter()))
+        Assert.Equal(["iracing", "acc"], supported);
+        foreach (var adapter in SimulatorRegistry.Create(new IRacingAdapter(), named: "acc"))
             Assert.Contains(adapter.SimulatorId, supported);
-        // ACC, still being proved, only when --simulator names it, never for auto
+        // ACC only when --simulator names it, never for auto: detection hasn't been proven beside a running iRacing
         Assert.Equal(["iracing"], SimulatorRegistry.Create(new IRacingAdapter(), named: null).Select(a => a.SimulatorId));
         Assert.Equal(["iracing", "acc"], SimulatorRegistry.Create(new IRacingAdapter(), named: "acc").Select(a => a.SimulatorId));
     }

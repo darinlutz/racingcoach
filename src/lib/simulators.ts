@@ -20,6 +20,8 @@ export type SimulatorDescription = {
   displayName: string;
   priority: string;
   status: SimulatorStatus;
+  // Laps from an older adapter than this are refused (lapRefusal): their files aren't in iRacing's form
+  minAdapterVersion?: number;
   channels: Record<string, { support: ChannelSupport; note?: string }>;
 };
 
@@ -37,10 +39,18 @@ export function acceptsLapsFrom(id: string): boolean {
 }
 
 // Why a lap's details can't be taken, or null when they can. Details without a simulator or version are an older
-// iRacing collector's, which always can be.
-export function lapRefusal(simulator: string | null | undefined, payloadVersion: number | null | undefined) {
-  if (!acceptsLapsFrom(simulator ?? DEFAULT_SIMULATOR)) return 'simulatorNotSupported';
+// iRacing collector's, which always can be. A simulator with a minAdapterVersion refuses laps from an older (or
+// unnamed) adapter of it as adapterVersionNotSupported, which the collector keeps locally and doesn't retry.
+export function lapRefusal(
+  simulator: string | null | undefined,
+  payloadVersion: number | null | undefined,
+  adapterVersion?: string | null
+) {
+  const id = simulator ?? DEFAULT_SIMULATOR;
+  if (!acceptsLapsFrom(id)) return 'simulatorNotSupported';
   if ((payloadVersion ?? 1) > LATEST_LAP_PAYLOAD_VERSION) return 'payloadVersionNotSupported';
+  const minimum = findSimulator(id)?.minAdapterVersion;
+  if (minimum !== undefined && !(Number(adapterVersion) >= minimum)) return 'adapterVersionNotSupported';
   return null;
 }
 

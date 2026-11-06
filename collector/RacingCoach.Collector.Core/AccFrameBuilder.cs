@@ -86,6 +86,10 @@ public sealed class AccFrameBuilder
     private bool _endedLapInvalid;
     private bool _crossedSinceEvent;
     private int _lastPhysicsPacket = int.MinValue;
+    // Where ACC's timing line is on its track spline (normalizedCarPosition when completedLaps goes up), so the lap
+    // position can count from it as iRacing's does. Learned from the first lap ACC counts; kept across sessions, as
+    // it belongs to the track and one builder reads one connection.
+    private float? _timingLine;
 
     /// <summary>The frame for these pages, or null when physics hasn't moved on since the last call (the game is
     /// paused, in a menu, or read again before its next step), so a repeat isn't counted as a sample.</summary>
@@ -122,6 +126,9 @@ public sealed class AccFrameBuilder
         }
         _completedLaps = graphics.CompletedLaps;
         _lapInvalid |= !graphics.IsValidLap;
+        // Spa 2026-11-05: ACC counts the lap at 0.99625 of its spline, 27 m before the spline's own 0
+        if (ended is not null && graphics.NormalizedCarPosition is var line && (line > 1 - TimingLineNearZero || line < TimingLineNearZero))
+            _timingLine = line;
 
         var local = physics.LocalVelocity;
         var angular = physics.LocalAngularVelocity;
@@ -133,7 +140,7 @@ public sealed class AccFrameBuilder
             SessionNumber = graphics.SessionIndex,
             // iRacing's Lap is the lap being driven, 1 on the first
             LapNumber = graphics.CompletedLaps + 1,
-            LapDistancePct = graphics.NormalizedCarPosition,
+            LapDistancePct = FromTimingLine(graphics.NormalizedCarPosition),
             SpeedMps = Units.KmhToMps(physics.SpeedKmh),
             VelocityForwardMps = Axis(local, AccConventions.ForwardAxis),
             VelocityLeftMps = AccConventions.LeftSign * Axis(local, AccConventions.LeftAxis),
@@ -195,6 +202,89 @@ public sealed class AccFrameBuilder
     public static bool SameSession(SimulatorSession a, SimulatorSession? b) =>
         b is not null && a.NativeTrackId == b.NativeTrackId && a.NativeCarId == b.NativeCarId && a.Driver == b.Driver
         && a.SessionTypes.SequenceEqual(b.SessionTypes);
+
+    /// <summary>How far from the spline's 0 ACC's timing line may be and still be taken for it: a lap counted further
+    /// away (a lap event read late after a pause, say) isn't where the line is.</summary>
+    public const float TimingLineNearZero = 0.05f;
+
+    /// <summary>The spline position as a share of the lap from ACC's timing line, 0 to 1 like iRacing's LapDistPct.
+    /// Until ACC has counted a lap the line isn't known, and the spline's own is given: the lap in progress then
+    /// ends at the first count (its file starts at the spline's 0, so it's shorter than its time), and every lap
+    /// after it starts on the line.</summary>
+    private float FromTimingLine(float pct)
+    {
+        if (_timingLine is not { } line || pct < 0) return pct;
+        var shifted = pct - line;
+        if (shifted < 0) shifted += 1;
+        return shifted >= 1 ? shifted - 1 : shifted;
+    }
+
+    /// <summary>
+    /// A completed lap's frames as the lap file holds them, the same as iRacing's would be:
+    /// - ACC shows neutral for a few reads in the middle of every shift (Spa: 4, 0, 0, 0, 5), where iRacing's gear
+    ///   goes straight to the next one. A neutral that short between two gears, with the car moving, keeps the gear
+    ///   before it, so a shift is one change and the gear charts and shift points read as iRacing's.
+    /// - ACC's spline position stops at 1 and then 0 for a few reads either side of the spline's 0 (Spa: 4 reads each,
+    ///   ~0.13 s at 47 m/s), with the car still moving. Those reads get the position worked out from the time between
+    ///   the reads either side, so distances through there aren't squashed.
+    /// </summary>
+    public static IReadOnlyList<TelemetryFrame> ForLapFile(IReadOnlyList<TelemetryFrame> frames)
+    {
+        var result = frames.ToArray();
+        BridgeShiftNeutrals(result);
+        UnstickPosition(result);
+        return result;
+    }
+
+    /// <summary>The longest neutral taken for part of a shift (Spa: 50-100 ms).</summary>
+    public const double MaxShiftNeutralSeconds = 0.3;
+    private const float MovingMps = 2;
+
+    private static void BridgeShiftNeutrals(TelemetryFrame[] frames)
+    {
+        for (var i = 1; i < frames.Length; i++)
+        {
+            if (frames[i].Gear != 0 || frames[i - 1].Gear is not { } before || before < 1) continue;
+            var end = i;
+            while (end < frames.Length && frames[end].Gear == 0) end++;
+            if (end == frames.Length || frames[end].Gear is not { } after || after < 1) { i = end; continue; }
+            var seconds = frames[end].SessionTimeSeconds - frames[i - 1].SessionTimeSeconds;
+            var moving = frames[i..end].All(f => f.SpeedMps > MovingMps);
+            if (seconds <= MaxShiftNeutralSeconds && moving)
+                for (var j = i; j < end; j++) frames[j] = frames[j] with { Gear = before };
+            i = end;
+        }
+    }
+
+    private static void UnstickPosition(TelemetryFrame[] frames)
+    {
+        for (var i = 1; i < frames.Length; i++)
+        {
+            if (frames[i].LapDistancePct != frames[i - 1].LapDistancePct || !(frames[i].SpeedMps > MovingMps)) continue;
+            // frames[i - 1] is the first of a run of one position; find the read after it that moved on
+            var from = i - 1;
+            var end = i;
+            while (end < frames.Length && frames[end].LapDistancePct == frames[from].LapDistancePct) end++;
+            if (from == 0 || end == frames.Length) { i = end; continue; }
+            var (a, b) = (frames[from - 1], frames[end]);
+            if (a.LapDistancePct is not { } pa || b.LapDistancePct is not { } pb || a.SessionTimeSeconds is not { } ta || b.SessionTimeSeconds is not { } tb || tb <= ta)
+            {
+                i = end;
+                continue;
+            }
+            // Across the line (before the timing line is known) the position wraps from near 1 to near 0
+            var span = pb - pa;
+            if (span < -0.5f) span += 1;
+            if (span <= 0 || span > 0.02f) { i = end; continue; }
+            for (var j = from; j < end; j++)
+            {
+                var share = (frames[j].SessionTimeSeconds!.Value - ta) / (tb - ta);
+                var pct = pa + (float)share * span;
+                frames[j] = frames[j] with { LapDistancePct = pct >= 1 ? pct - 1 : pct };
+            }
+            i = end;
+        }
+    }
 
     private static float Axis(Vector3 v, int axis) => axis switch { 0 => v.X, 1 => v.Y, _ => v.Z };
 

@@ -10,9 +10,9 @@ namespace RacingCoach.Collector;
 /// <summary>One focus area's values on this lap, as TelemetryEngine.js's functions return them, in the user's
 /// units and language (colors are SimHub color names such as "Firebrick", "#AARRGGBB", or "Transparent").
 /// ForceTarget is the area's target max brake ("Target 65"), or "" when the Target Lap doesn't brake there.
-/// WheelDiff, in WheelDiffColor, is the Target Lap's largest steering angle in the area less the driver's live
-/// angle, while the car is in the area ("12°", "-3°"; "" otherwise or without one), and Steering, in SteeringColor,
-/// how the driver's largest compared with it the last time through the area ("24° more", "NAILED").</summary>
+/// WheelDiff is the Target Lap's largest steering angle in the area ("Target 85°"), while the car is in the area
+/// ("" otherwise or without one), and Steering, in SteeringColor, how the driver's largest compared with it the
+/// last time through the area ("24° more", "NAILED").</summary>
 internal sealed record OverlayAreaValues(
     string AlertColor,
     string Brake, string BrakeColor,
@@ -21,12 +21,13 @@ internal sealed record OverlayAreaValues(
     string Time, string TimeColor,
     string Exit, string ExitColor,
     string Coast, string Overlap,
-    string WheelDiff = "", string WheelDiffColor = "", string Steering = "", string SteeringColor = "");
+    string WheelDiff = "", string Steering = "", string SteeringColor = "");
 
 /// <summary>What the overlay window shows, copied out of OverlayEngine for the UI thread. UpcomingArea is the
 /// index (0-based) of the focus area the car is in, or the next one ahead of it when it's between areas; InArea is
-/// true while the car is inside it (the Target Telemetry window's "In Area"). LastArea is the area the car last
-/// left, while it's between areas (null inside one), whose time and exit speed the row shows until the next.
+/// true while the car is inside it (the Target Telemetry window's "In Area"). LastArea is the values of the area the
+/// car last left, for LastAreaHoldMs after it left (null inside an area and after that), whose time, exit speed,
+/// brake point, brake pressure and steering the row shows meanwhile.
 /// MaxSteering is the largest steering wheel angle (degrees, either way) of the last few seconds, like MinSpeed:
 /// the angle now while it grows, then held 5 s from when it was reached before following the angle again.</summary>
 internal sealed record OverlaySnapshot(
@@ -39,7 +40,7 @@ internal sealed record OverlaySnapshot(
     string? Error,
     int? UpcomingArea,
     bool InArea,
-    int? LastArea,
+    OverlayAreaValues? LastArea,
     bool Metric);
 
 /// <summary>
@@ -104,7 +105,15 @@ internal sealed partial class OverlayEngine
     private (double Start, double End)?[] _areaRanges = [];
     private int? _upcomingArea;
     private bool _inArea;
+    // The area the car last left, while it's held on show (telemetry thread and under _lock), when it left
+    // (Environment.TickCount64) and where (LapDistPct), and its values (under _lock): followed while the car is
+    // still on the same lap, then kept as they were, since the script starts some of them over at the line
     private int? _lastArea;
+    private long _lastAreaLeftAt;
+    private double _lastAreaExitPos;
+    private OverlayAreaValues? _lastAreaValues;
+    // How long the area just left's values stay on show
+    private const long LastAreaHoldMs = 3000;
     private OverlayAreaValues?[] _areas = [];
     private string? _maxBrake;
     private string? _minSpeed;
@@ -178,7 +187,7 @@ internal sealed partial class OverlayEngine
     public OverlaySnapshot Snapshot()
     {
         lock (_lock)
-            return new OverlaySnapshot(_scriptTrack, [.. _areaNames], [.. _areas], _maxBrake, _minSpeed, _maxSteering, _error, _upcomingArea, _inArea, _lastArea, _shownMetric);
+            return new OverlaySnapshot(_scriptTrack, [.. _areaNames], [.. _areas], _maxBrake, _minSpeed, _maxSteering, _error, _upcomingArea, _inArea, _lastArea is null ? null : _lastAreaValues, _shownMetric);
     }
 
     /// <summary>Runs the script for one telemetry sample (on the telemetry thread).</summary>
@@ -208,15 +217,23 @@ internal sealed partial class OverlayEngine
                 (upcoming, wasInArea, lastArea) = (_upcomingArea, _inArea, _lastArea);
             var previousUpcoming = upcoming;
             var inArea = false;
+            double? onTrackPos = data.LapDistPct is { } p and >= 0 and <= 1 ? p : null;
             if (_scriptTrack is null)
                 upcoming = null;
-            else if (data.LapDistPct is { } pos and >= 0 and <= 1)
+            else if (onTrackPos is { } pos)
                 (upcoming, inArea) = UpcomingArea(pos);
-            // Leaving an area keeps its time and exit speed on show until the car enters the next one
+            // Leaving an area keeps its values on show for LastAreaHoldMs, or until the car enters the next one
+            var now = Environment.TickCount64;
+            var justLeft = false;
             if (inArea || upcoming is null)
                 lastArea = null;
             else if (wasInArea)
+            {
                 lastArea = previousUpcoming;
+                (_lastAreaLeftAt, _lastAreaExitPos, justLeft) = (now, onTrackPos ?? 0, true);
+            }
+            else if (lastArea is not null && now - _lastAreaLeftAt >= LastAreaHoldMs)
+                lastArea = null;
 
             // Max Steering box: the live angle while it grows, then the largest held for SteeringHoldMs from when it
             // was reached, then the live angle again (GetMinimumSpeed's way, turned around)
@@ -249,26 +266,32 @@ internal sealed partial class OverlayEngine
                     if (_areaNames[area - 1] is not null)
                     {
                         var steeringResult = _steeringResults[area - 1];
-                        // Every sample, not every TextEvery, so it follows the wheel as it turns
-                        var wheelDiff = inArea && upcoming == area - 1
-                            ? WheelDiff(data.SteeringWheelAngle, _steeringTargets[area - 1])
-                            : null;
+                        // The Target Lap's max steering, from entering the area until leaving it
+                        var wheelTarget = inArea && upcoming == area - 1 && _steeringTargets[area - 1] is { } target
+                            ? SteeringTargetText(target)
+                            : "";
                         results[area - 1] = AreaValues(area, withText ? null : previous[area - 1]) with
                         {
-                            WheelDiff = wheelDiff?.Text ?? "",
-                            WheelDiffColor = wheelDiff?.Color ?? "",
+                            WheelDiff = wheelTarget,
                             Steering = steeringResult?.Text ?? "",
                             SteeringColor = steeringResult?.Color ?? "",
                         };
                     }
                 }
             }
+            // The area just left's values follow the script's until the car crosses the start/finish line, where
+            // the script starts this lap's brake point and pressure over; then they stay as they were
+            var lastAreaValues = _lastAreaValues;
+            if (lastArea is { } held && held < results.Length
+                && (justLeft || onTrackPos is { } heldPos && heldPos >= _lastAreaExitPos))
+                lastAreaValues = results[held];
             lock (_lock)
             {
                 _areas = results;
                 _upcomingArea = upcoming;
                 _inArea = inArea;
                 _lastArea = lastArea;
+                _lastAreaValues = lastArea is null ? null : lastAreaValues;
                 _maxBrake = maxBrake;
                 _minSpeed = minSpeed;
                 _maxSteering = maxSteering;
@@ -413,6 +436,7 @@ internal sealed partial class OverlayEngine
             _upcomingArea = null;
             _inArea = false;
             _lastArea = null;
+            _lastAreaValues = null;
             _maxBrake = null;
             _minSpeed = null;
             _maxSteering = null;
@@ -450,17 +474,10 @@ internal sealed partial class OverlayEngine
         return (text, diff > SteeringTolerance ? "Firebrick" : diff < -SteeringTolerance ? "SteelBlue" : "ForestGreen");
     }
 
-    /// <summary>Wheel Diff: the Target Lap's max steering in the area (degrees) less the driver's angle now (radians,
-    /// either way), in whole degrees: blue while more than 5° is left to turn in, green within 5° either side, red
-    /// (and negative) more than 5° past it. Null without a target or steering telemetry.</summary>
-    private static (string Text, string Color)? WheelDiff(double? radians, double? targetDegrees)
-    {
-        if (targetDegrees is not { } target || radians is not { } angle)
-            return null;
-        var diff = Math.Round(target) - Math.Round(Math.Abs(angle) * 180 / Math.PI);
-        var color = diff > SteeringTolerance ? "SteelBlue" : diff < -SteeringTolerance ? "Firebrick" : "ForestGreen";
-        return (diff.ToString("0", CultureInfo.InvariantCulture) + "°", color);
-    }
+    /// <summary>Wheel Diff inside an area: the Target Lap's max steering there (degrees), e.g. "Target 85°" in the
+    /// user's language.</summary>
+    private string SteeringTargetText(double targetDegrees) =>
+        Loc.T(_language, "script.Target") + " " + Math.Round(targetDegrees).ToString("0", CultureInfo.InvariantCulture) + "°";
 
     // "56.2°": degrees of steering wheel angle, either way, with the language's decimal point
     private string SteeringText(double radians) =>

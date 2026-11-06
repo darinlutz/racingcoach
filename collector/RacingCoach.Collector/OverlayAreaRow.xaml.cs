@@ -7,11 +7,12 @@ namespace RacingCoach.Collector;
 /// <summary>
 /// The overlay's one row of focus area values, the Upcoming Focus Area (outlined): the area the car is in ("Area"),
 /// or the next one as soon as it leaves an area ("Next Area"), with its name and its values on this lap from
-/// TelemetryEngine.js; hidden without one. Inside an area, Area Time and Area Exit are blank; once it leaves, they
-/// show the area just left against the session's best (purple "BEST" for a new best) until it enters the next,
-/// and Brake Pressure shows the next area's target (blank when the Target Lap doesn't brake there). Wheel Diff
-/// shows, inside an area, how far the driver's live steering angle is from the Target Lap's largest there (blue
-/// short of it, green within 5°, red past it), and once it leaves, the driver's largest against it.
+/// TelemetryEngine.js; hidden without one. Inside an area, Brake Point and Brake Pressure are this lap's (Brake
+/// Pressure the area's target until the driver brakes), Wheel Diff the Target Lap's largest steering angle there
+/// ("Target 85°"), and Area Time and Area Exit blank. Once the car leaves an area, for 3 s (OverlayEngine's
+/// LastAreaHoldMs) the row shows the area just left's Brake Point, Brake Pressure, Area Time and Area Exit (purple
+/// "BEST" for a session best), and Wheel Diff the driver's largest steering angle there against the Target Lap's;
+/// then they go blank until the next area.
 /// In the Target Telemetry window.
 /// </summary>
 public partial class OverlayAreaRow : UserControl
@@ -76,11 +77,11 @@ public partial class OverlayAreaRow : UserControl
         }
         var upcoming = snapshot.UpcomingArea;
         ShowRow(upcoming is { } u ? snapshot.AreaNames[u] : null, upcoming is { } a ? snapshot.Areas[a] : null,
-            snapshot.InArea, snapshot.LastArea is { } l ? snapshot.Areas[l] : null);
+            snapshot.InArea, snapshot.LastArea);
     }
 
-    // The area's name, then its values on this lap; hidden without a name. Between areas, the time and exit speed
-    // are the last area's and the brake pressure is the next one's target
+    // The area's name, then its values on this lap; hidden without a name. Between areas, the brake point, brake
+    // pressure, time, exit speed and steering are the area just left's while it's held (last), then blank
     private void ShowRow(string? name, OverlayAreaValues? area, bool inArea, OverlayAreaValues? last)
     {
         foreach (var cell in _cells)
@@ -93,18 +94,16 @@ public partial class OverlayAreaRow : UserControl
         var alertBackground = alert is not null && alert.Color.A > 0 ? alert : null;
 
         Show(_cells[0], name, null, alertBackground);
-        Show(_cells[1], area?.Brake, area?.BrakeColor, alertBackground);
-        if (inArea)
-            Show(_cells[2], area?.Force, area?.ForceColor, null);
-        else
-            Show(_cells[2], area?.ForceTarget, null, null);
+        var shown = inArea ? area : last;
+        Show(_cells[1], shown?.Brake, shown?.BrakeColor, alertBackground);
+        Show(_cells[2], shown?.Force, shown?.ForceColor, null);
         // Purple for the session's best ("BEST")
         Show(_cells[3], last?.Time, last?.TimeColor, alertBackground);
         Show(_cells[4], last?.Exit, last?.ExitColor, alertBackground);
         // Wheel Diff, like Brake Pressure (and, like it, never on the alert color): in the area the Target Lap's max
-        // steering less the live angle, then once the car leaves it, the area just left's against it until the next
+        // steering, then once the car leaves it, the driver's largest there against it while it's held
         if (inArea)
-            Show(_cells[5], area?.WheelDiff, area?.WheelDiffColor, null);
+            Show(_cells[5], area?.WheelDiff, null, null);
         else
             Show(_cells[5], last?.Steering, last?.SteeringColor, null);
         Show(_cells[6], area?.Coast, null, alertBackground);

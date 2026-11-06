@@ -133,8 +133,6 @@ internal static class Loc
         // The focus area row's Wheel Diff: the Target Lap's max steering less the live angle, and the driver's max
         // against the Target Lap's, in whole degrees
         ["overlay.wheelDiff"] = ("Wheel Diff", "Dif. volante", "Dif. volante", "Lenkdiff."),
-        ["overlay.steeringMore"] = ("{0}° more", "{0}° a mais", "{0}° más", "{0}° mehr"),
-        ["overlay.steeringLess"] = ("{0}° less", "{0}° a menos", "{0}° menos", "{0}° weniger"),
         ["overlay.focusArea"] =("Area", "Área", "Zona", "Bereich"),
         ["overlay.nextArea"] = ("Next Area", "Próxima área", "Próxima zona", "Nächster Bereich"),
         ["overlay.brakePoint"] = ("Brake Point", "Ponto de frenagem", "Punto de frenado", "Bremspunkt"),

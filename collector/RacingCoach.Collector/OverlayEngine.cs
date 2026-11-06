@@ -11,8 +11,7 @@ namespace RacingCoach.Collector;
 /// units and language (colors are SimHub color names such as "Firebrick", "#AARRGGBB", or "Transparent").
 /// ForceTarget is the area's target max brake ("Target 65"), or "" when the Target Lap doesn't brake there.
 /// WheelDiff is the Target Lap's largest steering angle in the area ("Target 85°"), while the car is in the area
-/// ("" otherwise or without one), and Steering, in SteeringColor, how the driver's largest compared with it the
-/// last time through the area ("24° more", "NAILED").</summary>
+/// ("" otherwise or without one).</summary>
 internal sealed record OverlayAreaValues(
     string AlertColor,
     string Brake, string BrakeColor,
@@ -21,13 +20,13 @@ internal sealed record OverlayAreaValues(
     string Time, string TimeColor,
     string Exit, string ExitColor,
     string Coast, string Overlap,
-    string WheelDiff = "", string Steering = "", string SteeringColor = "");
+    string WheelDiff = "");
 
 /// <summary>What the overlay window shows, copied out of OverlayEngine for the UI thread. UpcomingArea is the
 /// index (0-based) of the focus area the car is in, or the next one ahead of it when it's between areas; InArea is
 /// true while the car is inside it (the Target Telemetry window's "In Area"). LastArea is the values of the area the
-/// car last left, for LastAreaHoldMs after it left (null inside an area and after that), whose time, exit speed,
-/// brake point, brake pressure and steering the row shows meanwhile.
+/// car last left, for LastAreaHoldMs after it left (null after that), even when it went straight into the next
+/// area, whose time and exit speed the row shows meanwhile.
 /// MaxSteering is the largest steering wheel angle (degrees, either way) of the last few seconds, like MinSpeed:
 /// the angle now while it grows, then held 5 s from when it was reached before following the angle again.</summary>
 internal sealed record OverlaySnapshot(
@@ -117,9 +116,6 @@ internal sealed partial class OverlayEngine
     private OverlayAreaValues?[] _areas = [];
     private string? _maxBrake;
     private string? _minSpeed;
-    // The largest steering wheel angle (radians, either way) so far in the area the car is in, for the focus area
-    // row's comparison with the Target Lap (telemetry thread only)
-    private double _areaSteering;
     // The Max Steering box, like Min Speed: the largest steering angle (radians, either way) of the last few seconds
     // and when it was reached (Environment.TickCount64; telemetry thread only), and its text (under _lock)
     private double? _peakSteering;
@@ -127,12 +123,9 @@ internal sealed partial class OverlayEngine
     private string? _maxSteering;
     // How long the largest steering angle stays on show, as GetMinimumSpeed holds the lowest speed
     private const long SteeringHoldMs = 5000;
-    // Each area's Target Lap max steering angle (degrees; null without one), from the track's MaxSteeringTarget, and
-    // how the driver's compared with it the last time through the area (telemetry thread only)
+    // Each area's Target Lap max steering angle (degrees; null without one), from the track's MaxSteeringTarget
+    // (telemetry thread only)
     private double?[] _steeringTargets = [];
-    private (string Text, string Color)?[] _steeringResults = [];
-    // Within this many degrees of the Target Lap's max steering is green
-    private const double SteeringTolerance = 5;
     // The units the values are in, for the window's headings (under _lock)
     private bool _shownMetric;
     private string? _error;
@@ -222,12 +215,13 @@ internal sealed partial class OverlayEngine
                 upcoming = null;
             else if (onTrackPos is { } pos)
                 (upcoming, inArea) = UpcomingArea(pos);
-            // Leaving an area keeps its values on show for LastAreaHoldMs, or until the car enters the next one
+            // Leaving an area keeps its values on show for LastAreaHoldMs, whether the car goes into a gap or
+            // straight into the next area (focus areas often join end to end), across the start/finish line too
             var now = Environment.TickCount64;
             var justLeft = false;
-            if (inArea || upcoming is null)
+            if (upcoming is null)
                 lastArea = null;
-            else if (wasInArea)
+            else if (wasInArea && (!inArea || upcoming != previousUpcoming))
             {
                 lastArea = previousUpcoming;
                 (_lastAreaLeftAt, _lastAreaExitPos, justLeft) = (now, onTrackPos ?? 0, true);
@@ -238,18 +232,6 @@ internal sealed partial class OverlayEngine
             // Max Steering box: the live angle while it grows, then the largest held for SteeringHoldMs from when it
             // was reached, then the live angle again (GetMinimumSpeed's way, turned around)
             var maxSteering = PeakSteering(data.SteeringWheelAngle);
-
-            // The focus area row's Max Steering: the area's largest steering angle, measured from entering it to
-            // leaving it (or going straight into the next), against the Target Lap's, shown between areas
-            if (wasInArea && (!inArea || upcoming != previousUpcoming))
-            {
-                if (previousUpcoming is { } left && left < _steeringResults.Length)
-                    _steeringResults[left] = SteeringResult(_areaSteering, _steeringTargets[left]);
-            }
-            if (inArea && (!wasInArea || upcoming != previousUpcoming))
-                _areaSteering = 0;
-            if (inArea && data.SteeringWheelAngle is { } steering && Math.Abs(steering) > _areaSteering)
-                _areaSteering = Math.Abs(steering);
 
             // The texts are worked out again at once when the car enters or leaves an area, so the area just left
             // shows this lap's time straight away rather than up to TextEvery samples later
@@ -265,7 +247,6 @@ internal sealed partial class OverlayEngine
                 {
                     if (_areaNames[area - 1] is not null)
                     {
-                        var steeringResult = _steeringResults[area - 1];
                         // The Target Lap's max steering, from entering the area until leaving it
                         var wheelTarget = inArea && upcoming == area - 1 && _steeringTargets[area - 1] is { } target
                             ? SteeringTargetText(target)
@@ -273,8 +254,6 @@ internal sealed partial class OverlayEngine
                         results[area - 1] = AreaValues(area, withText ? null : previous[area - 1]) with
                         {
                             WheelDiff = wheelTarget,
-                            Steering = steeringResult?.Text ?? "",
-                            SteeringColor = steeringResult?.Color ?? "",
                         };
                     }
                 }
@@ -446,9 +425,7 @@ internal sealed partial class OverlayEngine
             _minSpeed = null;
             _maxSteering = null;
         }
-        _areaSteering = 0;
         _peakSteering = null;
-        Array.Clear(_steeringResults);
     }
 
     /// <summary>The Max Steering box's text for one sample: a larger angle (either way) than the one on show
@@ -462,21 +439,6 @@ internal sealed partial class OverlayEngine
         if (_peakSteering is not { } peak || angle > peak || now - _peakSteeringAt >= SteeringHoldMs)
             (_peakSteering, _peakSteeringAt) = (angle, now);
         return SteeringText(_peakSteering.Value);
-    }
-
-    /// <summary>The driver's max steering in an area (radians, either way) against the Target Lap's (degrees), in
-    /// whole degrees: NAILED when they round the same, "3° more" or "3° less" in green within 5°, more in red and
-    /// less in blue beyond it. Null without a target.</summary>
-    private (string Text, string Color)? SteeringResult(double radians, double? targetDegrees)
-    {
-        if (targetDegrees is not { } target)
-            return null;
-        var diff = Math.Round(radians * 180 / Math.PI) - Math.Round(target);
-        if (diff == 0)
-            return (Loc.T(_language, "script.NAILED"), "ForestGreen");
-        var text = Loc.T(_language, diff > 0 ? "overlay.steeringMore" : "overlay.steeringLess",
-            Math.Abs(diff).ToString("0", CultureInfo.InvariantCulture));
-        return (text, diff > SteeringTolerance ? "Firebrick" : diff < -SteeringTolerance ? "SteelBlue" : "ForestGreen");
     }
 
     /// <summary>Wheel Diff inside an area: the Target Lap's max steering there (degrees), e.g. "Target 85°" in the
@@ -545,7 +507,6 @@ internal sealed partial class OverlayEngine
                 _areaNames = names;
                 _areaRanges = ranges;
                 _steeringTargets = steeringTargets;
-                _steeringResults = new (string, string)?[names.Length];
                 _areas = new OverlayAreaValues?[names.Length];
                 _shownMetric = track.Metric;
             }

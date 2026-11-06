@@ -137,8 +137,9 @@ internal static class Loc
         ["overlay.nextArea"] = ("Next Area", "Próxima área", "Próxima zona", "Nächster Bereich"),
         ["overlay.brakePoint"] = ("Brake Point", "Ponto de frenagem", "Punto de frenado", "Bremspunkt"),
         ["overlay.brakePressure"] = ("Brake Pressure", "Pressão de freio", "Presión de freno", "Bremsdruck"),
-        ["overlay.time"] = ("Area Time", "Tempo na área", "Tiempo en zona", "Bereichszeit"),
-        ["overlay.exit"] = ("Area Exit", "Saída da área", "Salida de zona", "Bereichsausgang"),
+        // The focus area just left, by its name ({0}, e.g. T3)
+        ["overlay.areaTime"] = ("{0} Time", "Tempo {0}", "Tiempo {0}", "{0} Zeit"),
+        ["overlay.areaExit"] = ("{0} Exit", "Saída {0}", "Salida {0}", "{0} Ausgang"),
         // Always the English word, whatever the language
         ["overlay.coast"] = ("Coast", "Coast", "Coast", "Coast"),
         ["overlay.overlap"] = ("Overlap", "Sobreposição", "Superposición", "Überlappung"),
@@ -280,6 +281,16 @@ internal static class Loc
         ["brake.heavy"] = ("Heavy braking", "Frenagem forte", "Frenada fuerte", "Starke Bremsung"),
         ["brake.medium"] = ("Medium braking", "Frenagem média", "Frenada media", "Mittlere Bremsung"),
 
+        // Steering Overlay window
+        ["steering.title"] = (" STEERING", " DIREÇÃO", " DIRECCIÓN", " LENKUNG"),
+        ["steering.target"] = ("target", "alvo", "objetivo", "Ziel"),
+        ["steering.you"] = ("you", "você", "tú", "du"),
+        ["steering.moreLock"] = ("more lock", "mais volante", "más giro", "mehr Lenkung"),
+        ["steering.lessLock"] = ("less lock", "menos volante", "menos giro", "weniger Lenkung"),
+        ["steering.difference"] = ("difference", "diferença", "diferencia", "Differenz"),
+        ["steering.noSteering"] = ("Your Target Lap has no steering data.", "Sua Volta Alvo não tem dados de direção.",
+            "Tu Vuelta Objetivo no tiene datos de dirección.", "Deine Zielrunde hat keine Lenkdaten."),
+
         // Target Telemetry window (and TargetLapSource)
         ["target.telemetryTitle"] = (" TARGET TELEMETRY", " TELEMETRIA ALVO", " TELEMETRÍA OBJETIVO", " ZIEL-TELEMETRIE"),
         ["target.brake"] = ("target brake", "freio alvo", "freno objetivo", "Ziel-Bremse"),
@@ -325,6 +336,7 @@ internal static class Loc
         ["main.rotationOverlay"] = ("Rotation Overlay", "Overlay de rotação", "Overlay de rotación", "Rotations-Overlay"),
         ["main.targetTelemetryOverlay"] = ("Target Telemetry Overlay", "Overlay de telemetria alvo", "Overlay de telemetría objetivo",
             "Ziel-Telemetrie-Overlay"),
+        ["main.steeringOverlay"] = ("Steering Overlay", "Overlay de direção", "Overlay de dirección", "Lenkungs-Overlay"),
         ["main.download"] = ("Download", "Baixar", "Descargar", "Herunterladen"),
         ["main.restartNow"] = ("Restart Now", "Reiniciar agora", "Reiniciar ahora", "Jetzt neu starten"),
         ["main.updateAvailable"] = ("RacingCoach.app Collector {0} is available (you have {1}). Download it, close this one and run the new one.",

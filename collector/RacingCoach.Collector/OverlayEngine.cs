@@ -26,7 +26,7 @@ internal sealed record OverlayAreaValues(
 /// index (0-based) of the focus area the car is in, or the next one ahead of it when it's between areas; InArea is
 /// true while the car is inside it (the Target Telemetry window's "In Area"). LastArea is the values of the area the
 /// car last left, for LastAreaHoldMs after it left (null after that), even when it went straight into the next
-/// area, whose time and exit speed the row shows meanwhile.
+/// area. LastAreaIndex is that area's index (0-based), for its name ("T3 Time", "T3 Exit"), null with LastArea.
 /// MaxSteering is the largest steering wheel angle (degrees, either way) of the last few seconds, like MinSpeed:
 /// the angle now while it grows, then held 5 s from when it was reached before following the angle again.</summary>
 internal sealed record OverlaySnapshot(
@@ -40,7 +40,8 @@ internal sealed record OverlaySnapshot(
     int? UpcomingArea,
     bool InArea,
     OverlayAreaValues? LastArea,
-    bool Metric);
+    bool Metric,
+    int? LastAreaIndex = null);
 
 /// <summary>
 /// Runs TelemetryEngine.js (scripts/ in the repo, a SimHub script) for the overlay. The script expects SimHub,
@@ -180,7 +181,8 @@ internal sealed partial class OverlayEngine
     public OverlaySnapshot Snapshot()
     {
         lock (_lock)
-            return new OverlaySnapshot(_scriptTrack, [.. _areaNames], [.. _areas], _maxBrake, _minSpeed, _maxSteering, _error, _upcomingArea, _inArea, _lastArea is null ? null : _lastAreaValues, _shownMetric);
+            return new OverlaySnapshot(_scriptTrack, [.. _areaNames], [.. _areas], _maxBrake, _minSpeed, _maxSteering, _error, _upcomingArea, _inArea, _lastArea is null ? null : _lastAreaValues, _shownMetric,
+                _lastAreaValues is null ? null : _lastArea);
     }
 
     /// <summary>Runs the script for one telemetry sample (on the telemetry thread).</summary>

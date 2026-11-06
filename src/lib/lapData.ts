@@ -316,8 +316,11 @@ export type AreaTrace = {
 
 // Downshift throttle blips (the engine revved to match a lower gear) read as spikes in a pedal trace.
 // A blip is a pulse that rises from (near) 0% and drops back to 0%; it's flattened to 0% if it's
-// shorter than BLIP_MAX_SAMPLES or the brake is on during it. Throttle that was already on (the lift
-// as braking starts) and a pickup that stays on are real and kept.
+// shorter than BLIP_MAX_SAMPLES or the brake is on for at least half of it (not any brake at all: a
+// real pickup often overlaps the brake for a few samples at either end, trailing off the brake or
+// squeezing it before the lift is finished). Throttle that was already on (the lift as braking
+// starts) and a pickup that stays on are real and kept. The collector's Target Telemetry window has
+// the same rule (WithoutThrottleBlips).
 const PEDAL_OFF = 0.02;
 const BLIP_MAX_SAMPLES = 24; // 0.4 s at 60 Hz
 
@@ -327,13 +330,13 @@ export function withoutThrottleBlips(brakes: number[], throttles: number[]): num
     if (out[i] <= PEDAL_OFF || out[i - 1] > PEDAL_OFF) continue;
     // A pulse starts at i (the previous sample is off); find where it ends
     let j = i;
-    let braking = false;
+    let braking = 0;
     while (j < out.length && out[j] > PEDAL_OFF) {
-      braking ||= brakes[j] > PEDAL_OFF;
+      if (brakes[j] > PEDAL_OFF) braking++;
       j++;
     }
     // Only pulses that drop back to off inside the area are judged
-    if (j < out.length && (j - i < BLIP_MAX_SAMPLES || braking)) out.fill(0, i, j);
+    if (j < out.length && (j - i < BLIP_MAX_SAMPLES || braking * 2 >= j - i)) out.fill(0, i, j);
     i = j;
   }
   return out;

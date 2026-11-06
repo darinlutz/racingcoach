@@ -1,0 +1,90 @@
+<Window x:Class="RacingCoach.Collector.SteeringWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:RacingCoach.Collector"
+        Title="RacingCoach Steering"
+        Width="732" Height="330" MinWidth="560" MinHeight="260"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        Opacity="0.85" Topmost="True" ShowInTaskbar="False" ResizeMode="CanResizeWithGrip"
+        WindowStartupLocation="Manual" Left="960" Top="180"
+        Icon="Assets/collector.ico"
+        FontFamily="Segoe UI" FontSize="13" Foreground="#F3F4F6"
+        UseLayoutRounding="True" TextOptions.TextFormattingMode="Display"
+        MouseLeftButtonDown="Window_MouseLeftButtonDown">
+
+    <Window.Resources>
+        <Style x:Key="HeaderButton" TargetType="Button">
+            <Setter Property="Height" Value="26" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="VerticalAlignment" Value="Top" />
+            <Setter Property="Foreground" Value="#F3F4F6" />
+            <Setter Property="Background" Value="#232428" />
+            <Setter Property="BorderBrush" Value="#303136" />
+        </Style>
+        <Style x:Key="Readout" TargetType="TextBlock">
+            <Setter Property="HorizontalAlignment" Value="Right" />
+            <Setter Property="FontSize" Value="26" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="FontFamily" Value="Consolas" />
+            <Setter Property="Text" Value="—" />
+        </Style>
+        <Style x:Key="ReadoutLabel" TargetType="TextBlock">
+            <Setter Property="HorizontalAlignment" Value="Right" />
+            <Setter Property="Foreground" Value="#9A9CA3" />
+            <Setter Property="FontSize" Value="11" />
+        </Style>
+    </Window.Resources>
+
+    <!-- See-through so the sim shows through, drag anywhere to move it -->
+    <Border Background="#121315" BorderBrush="#303136" BorderThickness="1" CornerRadius="10" Padding="14,10,14,14">
+        <DockPanel>
+            <!-- Header: the Target Lap's steering at the car, the driver's, the difference, Reload and a close button -->
+            <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                <Button DockPanel.Dock="Right" Style="{StaticResource HeaderButton}" Content="✕" Click="Close_Click" local:Loc.ToolTip="close"
+                        Width="26" Padding="0" />
+                <Button DockPanel.Dock="Right" Style="{StaticResource HeaderButton}" local:Loc.Key="reload" Click="Reload_Click"
+                        local:Loc.ToolTip="reloadTip" Padding="10,0" Margin="0,0,8,0" />
+                <StackPanel DockPanel.Dock="Right" Margin="0,0,14,0" VerticalAlignment="Center" MinWidth="96">
+                    <TextBlock x:Name="DiffReadout" Style="{StaticResource Readout}" Foreground="#F3F4F6" />
+                    <TextBlock x:Name="DiffLabel" Style="{StaticResource ReadoutLabel}" local:Loc.Key="steering.difference" />
+                </StackPanel>
+                <StackPanel DockPanel.Dock="Right" Margin="0,0,14,0" VerticalAlignment="Center" MinWidth="86">
+                    <TextBlock x:Name="LiveReadout" Style="{StaticResource Readout}" Foreground="#F98F3A" />
+                    <TextBlock Style="{StaticResource ReadoutLabel}" local:Loc.Key="steering.you" />
+                </StackPanel>
+                <StackPanel DockPanel.Dock="Right" Margin="0,0,14,0" VerticalAlignment="Center" MinWidth="86">
+                    <TextBlock x:Name="TargetReadout" Style="{StaticResource Readout}" Foreground="#3B8BFF" />
+                    <TextBlock Style="{StaticResource ReadoutLabel}" local:Loc.Key="steering.target" />
+                </StackPanel>
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock FontWeight="Bold" FontSize="14">
+                        <Run Text="RACINGCOACH" /><Run local:Loc.Key="steering.title" Foreground="#DE3341" FontWeight="Normal" />
+                    </TextBlock>
+                    <TextBlock x:Name="StatusText" Foreground="#9A9CA3" FontSize="12" TextTrimming="CharacterEllipsis" Text="Loading your Target Lap…" />
+                </StackPanel>
+            </DockPanel>
+
+            <!-- The Target Lap's steering (blue) and the driver's (orange) over the same 250 ft of track as the Target
+                 Telemetry window, scrolling left as the car moves; right is up, left down, straight ahead the middle.
+                 The vertical line is the car, and the bar on it the driver's steering now -->
+            <Border Background="#1A1B1E" BorderBrush="#303136" BorderThickness="1" CornerRadius="6" Padding="0,0,8,0">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="52" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="20" />
+                    </Grid.RowDefinitions>
+                    <Canvas x:Name="YAxis" Grid.Column="0" Grid.Row="0" />
+                    <Canvas x:Name="Plot" Grid.Column="1" Grid.Row="0" ClipToBounds="True" SizeChanged="Plot_SizeChanged" />
+                    <Canvas x:Name="XAxis" Grid.Column="1" Grid.Row="1" />
+                    <TextBlock x:Name="MessageText" Grid.Column="1" Grid.Row="0" HorizontalAlignment="Center" VerticalAlignment="Center"
+                               TextAlignment="Center" TextWrapping="Wrap" Margin="12" Foreground="#9A9CA3" Visibility="Collapsed" />
+                </Grid>
+            </Border>
+        </DockPanel>
+    </Border>
+</Window>

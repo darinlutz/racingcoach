@@ -9,9 +9,8 @@ namespace RacingCoach.Collector;
 /// or the next one as soon as it leaves an area ("Next Area"), with its name and its values on this lap from
 /// TelemetryEngine.js; hidden without one. Inside an area, Brake Point and Brake Pressure are this lap's (Brake
 /// Pressure the area's target until the driver brakes), Wheel Diff the Target Lap's largest steering angle there
-/// ("Target 85°"); between areas all three are blank. Once the car leaves an area, Area Time and Area Exit show the
-/// area just left's (purple "BEST" for a session best) for 3 s (OverlayEngine's LastAreaHoldMs), even when it went
-/// straight into the next area or across the start/finish line, then go blank.
+/// ("Target 85°"); between areas all three are blank. The area just left's time and exit speed are up top, in
+/// OverlayStats ("T3 Time", "T3 Exit").
 /// In the Target Telemetry window.
 /// </summary>
 public partial class OverlayAreaRow : UserControl
@@ -20,7 +19,7 @@ public partial class OverlayAreaRow : UserControl
     private static readonly (string Heading, double Width)[] Columns =
     [
         ("overlay.focusArea", 95), ("overlay.brakePoint", 115), ("overlay.brakePressure", 105),
-        ("overlay.time", 115), ("overlay.exit", 120), ("overlay.wheelDiff", 110), ("overlay.coast", 67), ("overlay.overlap", 67),
+        ("overlay.wheelDiff", 110), ("overlay.coast", 67), ("overlay.overlap", 67),
     ];
     private static readonly Brush BoxBackground = Frozen(Color.FromRgb(0x1A, 0x1B, 0x1E));
     internal static readonly Brush LightText = Frozen(Color.FromRgb(0xF3, 0xF4, 0xF6));
@@ -76,12 +75,12 @@ public partial class OverlayAreaRow : UserControl
         }
         var upcoming = snapshot.UpcomingArea;
         ShowRow(upcoming is { } u ? snapshot.AreaNames[u] : null, upcoming is { } a ? snapshot.Areas[a] : null,
-            snapshot.InArea, snapshot.LastArea);
+            snapshot.InArea);
     }
 
     // The area's name, then its values on this lap; hidden without a name. Brake point, brake pressure and wheel
-    // diff are only shown inside the area; time and exit speed are the area just left's while it's held (last)
-    private void ShowRow(string? name, OverlayAreaValues? area, bool inArea, OverlayAreaValues? last)
+    // diff are only shown inside the area
+    private void ShowRow(string? name, OverlayAreaValues? area, bool inArea)
     {
         foreach (var cell in _cells)
             cell.Visibility = name is null ? Visibility.Collapsed : Visibility.Visible;
@@ -96,13 +95,10 @@ public partial class OverlayAreaRow : UserControl
         var shown = inArea ? area : null;
         Show(_cells[1], shown?.Brake, shown?.BrakeColor, alertBackground);
         Show(_cells[2], shown?.Force, shown?.ForceColor, null);
-        // Purple for the session's best ("BEST")
-        Show(_cells[3], last?.Time, last?.TimeColor, alertBackground);
-        Show(_cells[4], last?.Exit, last?.ExitColor, alertBackground);
         // Wheel Diff, like Brake Pressure (and, like it, never on the alert color): the Target Lap's max steering
-        Show(_cells[5], shown?.WheelDiff, null, null);
-        Show(_cells[6], area?.Coast, null, alertBackground);
-        Show(_cells[7], area?.Overlap, null, alertBackground);
+        Show(_cells[3], shown?.WheelDiff, null, null);
+        Show(_cells[4], area?.Coast, null, alertBackground);
+        Show(_cells[5], area?.Overlap, null, alertBackground);
     }
 
     // A box's text in its own color, or during a brake point alert on the alert color in plain light or dark

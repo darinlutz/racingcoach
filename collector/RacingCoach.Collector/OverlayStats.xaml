@@ -7,7 +7,8 @@
     </UserControl.Resources>
 
     <!-- Peak brake pressure, minimum speed and largest steering angle of the last few seconds, and the Rotation
-         Model's label -->
+         Model's label; under them the focus area just left's time and exit speed -->
+    <StackPanel HorizontalAlignment="Left">
     <Grid HorizontalAlignment="Left">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="100" />
@@ -38,4 +39,19 @@
         <TextBox x:Name="HandlingBox" Grid.Column="6" Style="{StaticResource BigBox}" MinWidth="230" Visibility="Hidden"
                  VerticalAlignment="Bottom" />
     </Grid>
+
+    <!-- The focus area just left: "T3 Time" and "T3 Exit" (purple BEST for a session best), for 3 s after leaving it
+         (OverlayEngine's LastAreaHoldMs), then hidden. Hidden rather than collapsed, so the space stays and the
+         chart and the In-Car Coach's message under it don't move -->
+    <StackPanel x:Name="LastAreaPanel" Orientation="Horizontal" Margin="0,4,0,0" Visibility="Hidden">
+        <StackPanel Width="130">
+            <TextBlock x:Name="LastTimeHeading" Style="{StaticResource Heading}" />
+            <TextBox x:Name="LastTimeBox" Style="{StaticResource MidBox}" Margin="0" />
+        </StackPanel>
+        <StackPanel Width="130" Margin="10,0,0,0">
+            <TextBlock x:Name="LastExitHeading" Style="{StaticResource Heading}" />
+            <TextBox x:Name="LastExitBox" Style="{StaticResource MidBox}" Margin="0" />
+        </StackPanel>
+    </StackPanel>
+    </StackPanel>
 </UserControl>

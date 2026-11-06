@@ -32,4 +32,10 @@
         <Setter Property="FontWeight" Value="Bold" />
         <Setter Property="Padding" Value="6,0" />
     </Style>
+    <!-- The last focus area's time and exit speed under them: between the two, so "-12.3 km/h" fits in 130 px -->
+    <Style x:Key="MidBox" TargetType="TextBox" BasedOn="{StaticResource Box}">
+        <Setter Property="FontSize" Value="20" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="Padding" Value="6,2" />
+    </Style>
 </ResourceDictionary>

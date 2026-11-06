@@ -188,8 +188,12 @@ public partial class TargetTelemetryWindow : Window
 
     // Downshift throttle blips (the engine revved to match a lower gear) read as spikes in the throttle trace. A
     // blip is a pulse that rises from (near) 0 and drops back to 0; it's flattened to 0 if it's shorter than
-    // BlipMaxSamples or the brake is on during it. Throttle that was already on (the lift as braking starts) and a
-    // pickup that stays on are real and kept. The same as the website's withoutThrottleBlips (src/lib/lapData.ts).
+    // BlipMaxSamples or the brake is on for at least half of it. A share of it, not any brake at all: over a whole
+    // lap a real pulse runs from one corner's exit to the next corner's braking, and it nearly always overlaps the
+    // brake for a few samples at one end (trailing off the brake into the throttle, or squeezing the brake before
+    // the lift is finished), which used to flatten a whole straight's throttle. Throttle that was already on (the
+    // lift as braking starts) and a pickup that stays on are real and kept. The same as the website's
+    // withoutThrottleBlips (src/lib/lapData.ts).
     private const double PedalOff = 0.02;
     private const int BlipMaxSamples = 24; // 0.4 s at 60 Hz
 
@@ -202,14 +206,15 @@ public partial class TargetTelemetryWindow : Window
                 continue;
             // A pulse starts at i (the previous sample is off); find where it ends
             var j = i;
-            var braking = false;
+            var braking = 0;
             while (j < output.Length && output[j] > PedalOff)
             {
-                braking |= brakes[j] > PedalOff;
+                if (brakes[j] > PedalOff)
+                    braking++;
                 j++;
             }
             // Only pulses that drop back to off before the lap ends are judged
-            if (j < output.Length && (j - i < BlipMaxSamples || braking))
+            if (j < output.Length && (j - i < BlipMaxSamples || braking * 2 >= j - i))
                 Array.Fill(output, 0, i, j - i);
             i = j;
         }

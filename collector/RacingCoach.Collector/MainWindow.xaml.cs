@@ -87,6 +87,7 @@ public partial class MainWindow : Window
     private RotationWindow? _rotationWindow;
     private BrakePracticeWindow? _brakePracticeWindow;
     private TargetTelemetryWindow? _targetTelemetryWindow;
+    private SteeringWindow? _steeringWindow;
     // Driver Radio over the sim, while it's recording and for a few seconds after; and Set Wheel Button waiting for a press
     private RadioWindow? _radioWindow;
     private bool _pickingRadioButton;
@@ -1077,6 +1078,20 @@ public partial class MainWindow : Window
         _targetTelemetryWindow.Show();
     }
 
+    // Opens the Steering Overlay (or brings it to the front): the Target Lap's steering (blue) and the driver's
+    // (orange) scrolling past the car's position on track, with the difference between them
+    private void Steering_Click(object sender, RoutedEventArgs e)
+    {
+        if (_steeringWindow is not null)
+        {
+            _steeringWindow.Activate();
+            return;
+        }
+        _steeringWindow = new SteeringWindow(_engine);
+        _steeringWindow.Closed += (_, _) => _steeringWindow = null;
+        _steeringWindow.Show();
+    }
+
     private static void Open(string target)
     {
         try
@@ -1103,6 +1118,7 @@ public partial class MainWindow : Window
         _rotationWindow?.Close();
         _brakePracticeWindow?.Close();
         _targetTelemetryWindow?.Close();
+        _steeringWindow?.Close();
         _radioWindow?.Close();
         ClosingOverlay.Visibility = Visibility.Visible;
         _timer.Stop();

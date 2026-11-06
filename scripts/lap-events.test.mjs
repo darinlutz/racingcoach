@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { areaStats, lapSamplesFromText } from '../src/lib/lapData.ts';
 import { brakingDetail, steeringDetail } from '../src/lib/areaInputs.ts';
-import { deltas, lapFuel, largest, meanAbs, pairShifts, shiftEvents, stats, steeringReversals, stretchesWhere } from '../src/lib/lapChannels.ts';
+import { carBalance, deltas, lapFuel, largest, meanAbs, pairShifts, shiftEvents, stats, steeringReversals, stretchesWhere, tireSlipAngles } from '../src/lib/lapChannels.ts';
 import { roundTicks } from '../src/lib/lapCharts.ts';
 import { cornerPhases, detectLapEvents, evenGrid, positionAtTime, resample, resampleNearest } from '../src/lib/lapEvents.ts';
 
@@ -265,4 +265,19 @@ test('a lap without steering (a simulator that only gives the input) has none, n
   assert.equal(steeringDetail(trace), null);
   assert.equal(brakingDetail(trace, 10000).brakeAtTurnInPct, null);
   assert.notEqual(steeringDetail(corner()), null);
+});
+
+test('without steering: no turn-in, no reversals, and no front slip or balance made from it, while the rest stays', () => {
+  const trace = { ...corner(), steerings: pcts.map(() => NaN) };
+  const events = detectLapEvents(trace);
+  assert.equal(events.turnIn, null);
+  close(events.apex.pct, 0.26);
+  close(events.brakeRelease, 0.25);
+  assert.deepEqual(steeringReversals(pcts, trace.steerings), []);
+  const handling = { yawRates: pcts.map(() => 0.3), sideslips: pcts.map(() => 0.02) };
+  const { front, rear } = tireSlipAngles({ ...trace, handling });
+  assert.ok(front.every(Number.isNaN));
+  assert.ok(rear.every(Number.isFinite));
+  assert.ok(carBalance({ ...trace, handling }).every(Number.isNaN));
+  assert.equal(stats(front), null);
 });

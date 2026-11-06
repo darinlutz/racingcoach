@@ -168,12 +168,22 @@ export default function SteeringAnalysisDashboard({ width }: { width: number }) 
 
   const reversals = useSteeringReversals();
   const inView = ({ pct }: { pct: number }) => pct >= pcts[i0] && pct <= pcts[i1];
-  const count = (lap: 0 | 1) => reversals[lap].filter(inView).length;
-  const corrections = (lap: 0 | 1) => reversals[lap].filter((r) => inView(r) && r.amplitude < CORRECTION_LIMIT).length;
+  // A lap without steering (a simulator that doesn't record the wheel's angle) has no reversals to count, not none
+  const count = (lap: 0 | 1) => (steerings[lap] ? reversals[lap].filter(inView).length : null);
+  const corrections = (lap: 0 | 1) => (steerings[lap] ? reversals[lap].filter((r) => inView(r) && r.amplitude < CORRECTION_LIMIT).length : null);
+  const difference = (a: number | null, b: number | null) => (a !== null && b !== null ? b - a : null);
   const steerDelta = useMemo(() => deltas(steerings[0], steerings[1]), [steerings]);
   const peak = largest(steerDelta, i0, i1);
   const delta = target !== null && compare !== null ? Math.round(compare) - Math.round(target) : null;
   const direction = delta === null || delta === 0 ? '' : delta > 0 ? labels.right : labels.left;
+
+  if (!steerings[0] && !steerings[1]) {
+    return (
+      <Panel title={dash.steeringWheel} subtitle={dash.wheelNotRoadWheel}>
+        <p className="p-3 text-xs text-muted-foreground">{t.charts.lapDataNone}</p>
+      </Panel>
+    );
+  }
 
   return (
     <div className="flex min-w-0 flex-col gap-3">
@@ -245,8 +255,8 @@ export default function SteeringAnalysisDashboard({ width }: { width: number }) 
       <Panel title={dash.steeringStats} subtitle={dash.inView}>
         <div className="grid grid-cols-2 gap-2 p-2.5">
           <MetricCard label={dash.peakSteeringDelta} delta={peak?.value} unit="°" size="xl" className="col-span-2" />
-          <MetricCard label={dash.reversals} target={count(0)} compare={count(1)} delta={count(1) - count(0)} digits={0} />
-          <MetricCard label={dash.corrections} target={corrections(0)} compare={corrections(1)} delta={corrections(1) - corrections(0)} digits={0} />
+          <MetricCard label={dash.reversals} target={count(0)} compare={count(1)} delta={difference(count(0), count(1))} digits={0} />
+          <MetricCard label={dash.corrections} target={corrections(0)} compare={corrections(1)} delta={difference(corrections(0), corrections(1))} digits={0} />
         </div>
         <p className="px-2.5 pb-2.5 text-[9px] leading-snug text-muted-foreground">{dash.steeringNote}</p>
       </Panel>

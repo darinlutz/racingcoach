@@ -10,7 +10,7 @@ import { lapCsvBounds, saveTrackBounds, saveTrackLocation, trackNeedsBounds } fr
 import { lapCsvOutline, saveTrackOutline, trackNeedsOutline } from './trackOutlines';
 import { ensureUserSchema } from './users';
 import { lapCompletedAt } from './lapRetentionRules';
-import { recordSimulatorCar, resolveSimulatorTrackKey } from './simulatorMappings';
+import { resolveSimulatorCar, resolveSimulatorTrack } from './simulatorMappings';
 import { DEFAULT_SIMULATOR } from './simulators';
 
 // Laps uploaded by the telemetry collector (collector/ in this repo), stored in
@@ -132,6 +132,16 @@ export function checkLapCsv(csvGzip: Buffer, samples: number): { csvBytes: numbe
   }
   if (lines.length - 1 !== samples) {
     throw new InvalidLapCsvError(`csv has ${lines.length - 1} rows but the lap has ${samples} samples`);
+  }
+  // A simulator leaves a channel it doesn't give empty, never 0 (LapCsvFormat.cs); every analysis needs these, so a
+  // lap with one entirely empty can't be read as a lap at all. A cell missing here and there is filled from its
+  // neighbours when the lap is read (lapSamplesFromText).
+  const empty = REQUIRED_COLUMNS.filter((column) => {
+    const index = header.indexOf(column);
+    return !lines.slice(1).some((line) => (line.split(',')[index] ?? '').trim() !== '');
+  });
+  if (empty.length > 0) {
+    throw new InvalidLapCsvError(`csv has no values in columns: ${empty.join(', ')}`);
   }
 
   const positionIndexes = POSITION_COLUMNS.map((column) => header.indexOf(column));
@@ -457,9 +467,11 @@ export async function saveCollectorLap(
   await ensureUserSchema();
   const simulator = lap.simulator ?? DEFAULT_SIMULATOR;
   // The site's track: iRacing's key is one already, and another simulator's only through an explicit mapping
-  const siteTrackKey = await resolveSimulatorTrackKey(simulator, lap.trackKey ?? null, lap.track);
+  // A mapped track or car also gives the lap the site's names, so it lists, groups and compares with iRacing's laps
+  const site = await resolveSimulatorTrack(simulator, lap.trackKey ?? null, lap.track);
+  const siteTrackKey = site.trackKey;
   const nativeTrackKey = simulator === DEFAULT_SIMULATOR ? null : (lap.trackKey ?? null);
-  await recordSimulatorCar(simulator, lap.carKey ?? null, lap.car);
+  const siteCar = await resolveSimulatorCar(simulator, lap.carKey ?? null, lap.car);
   // The retention clock starts when the lap was completed, never later than now (lapCompletedAt)
   const completedAt = lapCompletedAt(new Date(lap.recordedAt), new Date());
   const [check] = await query<{ expired: boolean; deleted: boolean }>(
@@ -498,8 +510,8 @@ export async function saveCollectorLap(
           [
             userId,
             lap.clientLapId,
-            lap.track,
-            lap.car,
+            site.trackName ?? lap.track,
+            siteCar ?? lap.car,
             lap.driver,
             lap.sessionId,
             lap.subSessionId,

@@ -247,9 +247,10 @@ export function lapSamplesFromText(text: string): LapSamples {
     if (pcts.length === 0 && value > 0.5) offset = -1; // Lap starts just before the line
     if (pcts.length > 0 && value + offset < pcts[pcts.length - 1] - 0.5) offset += 1;
     pcts.push(value + offset);
-    brakes.push(parseFloat(cells[brakeColumn]) || 0);
-    speeds.push(parseFloat(cells[speedColumn]) || 0);
-    throttles.push(parseFloat(cells[throttleColumn]) || 0);
+    // NaN for an empty cell, filled from its neighbours below rather than read as a 0
+    brakes.push(brakeColumn < 0 ? NaN : parseFloat(cells[brakeColumn]));
+    speeds.push(speedColumn < 0 ? NaN : parseFloat(cells[speedColumn]));
+    throttles.push(throttleColumn < 0 ? NaN : parseFloat(cells[throttleColumn]));
     // A simulator that doesn't measure the wheel leaves the cells empty: NaN, never a straight-ahead 0
     steerings.push(steeringColumn < 0 ? NaN : parseFloat(cells[steeringColumn]));
     // parseFloat of a missing or empty cell is NaN
@@ -267,10 +268,23 @@ export function lapSamplesFromText(text: string): LapSamples {
     const density = densityColumn < 0 ? NaN : parseFloat(cells[densityColumn]);
     engine.fuelKgs.push(fuelLiters[fuelLiters.length - 1] * (density > 0 ? density : DEFAULT_FUEL_KG_PER_LTR));
   }
+  // Every analysis needs these at every sample. A lap upload can't have one entirely empty (checkLapCsv); a dropped
+  // file without the column reads as 0 throughout, as it always has
+  for (const values of [brakes, speeds, throttles]) fillGaps(values);
   return {
     pcts, brakes, speeds, throttles, steerings, lats, lons, alts, yaws, rpms, gears, yawRates, velocityXs, velocityYs,
     tireTemps, tireLayers, sessionTimes, tirePressures, rideHeights, engine,
   };
+}
+
+// Fills NaNs in place: each takes the value before it (the first ones the first value), as a sample a simulator
+// skipped is nearest its neighbours; with no values at all, 0
+export function fillGaps(values: number[]): void {
+  let last = values.find(Number.isFinite) ?? 0;
+  for (let i = 0; i < values.length; i++) {
+    if (Number.isFinite(values[i])) last = values[i];
+    else values[i] = last;
+  }
 }
 
 // Fractional sample index where the lap first reaches `target`, at or after `from`

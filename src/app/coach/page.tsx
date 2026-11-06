@@ -1,5 +1,6 @@
 import CoachInstructionsEditor from '@/components/CoachInstructionsEditor';
 import ExpertLapsManager from '@/components/ExpertLapsManager';
+import SimulatorMappings from '@/components/SimulatorMappings';
 import SubscribersLinkCard from '@/components/SubscribersLinkCard';
 import TrackMaintenance from '@/components/TrackMaintenance';
 import { listExpertLaps } from '@/lib/expertLaps';
@@ -12,13 +13,15 @@ import {
   getSetupEngineerInstructions,
   MAX_COACH_INSTRUCTIONS,
 } from '@/lib/siteSettings';
+import { MAPPABLE_SIMULATORS } from '@/lib/simulatorCatalogs';
 import { listTracksForMaintenance } from '@/lib/trackMaintenance';
 
 // The Coach page: a link to Subscribers (src/components/SubscribersLinkCard.tsx), Expert Laps
 // (src/components/ExpertLapsManager.tsx), the Setup Engineer Instructions every driver's Setup Engineer follows
 // (src/lib/setupEngineer.ts), the AI Coach Instructions every driver's AI coaching follows (src/lib/siteSettings.ts), the
 // In-Car AI Coach Instructions every driver's In-Car AI Coach follows, then Track and Focus Area Maintenance
-// (src/components/TrackMaintenance.tsx).
+// (src/components/TrackMaintenance.tsx), then Simulator Mapping (src/components/SimulatorMappings.tsx), which links other
+// simulators' tracks and cars to the site's.
 // Only Coaches and Admins can use it; anyone else (signed in or not) gets a message saying so.
 export default async function CoachPage() {
   const user = await getCurrentUser();
@@ -49,6 +52,7 @@ export default async function CoachPage() {
             <CoachInstructionsEditor instructions={instructions} maxLength={MAX_COACH_INSTRUCTIONS} />
             <CoachInstructionsEditor instructions={inCarInstructions} maxLength={MAX_COACH_INSTRUCTIONS} inCar />
             <TrackMaintenance tracks={tracks} />
+            <SimulatorMappings simulators={MAPPABLE_SIMULATORS} />
           </>
         ) : (
           <p role="status" className="bg-secondary rounded-xl border border-border p-4 sm:p-6 text-foreground">

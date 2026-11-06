@@ -13,7 +13,7 @@ import {
 } from './rotationModel.ts';
 
 // Without these the model can't run at all
-const REQUIRED_COLUMNS = ['SessionTime', 'Speed', 'SteeringWheelAngle', 'YawRate'];
+const REQUIRED_COLUMNS = ['SessionTime', 'Speed', 'SteeringWheelAngle', 'YawRate'] as const;
 
 export type LapSamples = { samples: RotationSample[]; columns: string[]; missing: string[] };
 
@@ -68,6 +68,16 @@ export function rotationSamplesFromCsv(csv: string): LapSamples {
       lapDistPct: num(at.pct),
     });
   }
+  // A column with no values at all is as missing as one that isn't there: a simulator leaves a channel it doesn't
+  // give empty (ACC has no steering wheel angle), and the lap should say why it can't be analysed
+  const fields: Record<(typeof REQUIRED_COLUMNS)[number], keyof RotationSample> = {
+    SessionTime: 'time',
+    Speed: 'speed',
+    SteeringWheelAngle: 'steeringWheelAngle',
+    YawRate: 'yawRate',
+  };
+  const empty = REQUIRED_COLUMNS.filter((c) => !samples.some((sample) => sample[fields[c]] !== null));
+  if (empty.length > 0) return { samples: [], columns, missing: empty };
   return { samples, columns, missing };
 }
 

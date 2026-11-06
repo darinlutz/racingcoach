@@ -237,7 +237,7 @@ export function LapChannelChart({
   references?: ChartReference[];
   caption?: ReactNode;
 }) {
-  const { t, locale } = useLanguage();
+  const { t, fmt, locale } = useLanguage();
   const labels = t.charts.telemetry;
   const { num, signed } = useNumbers();
   const { settings } = useTelemetry();
@@ -267,6 +267,17 @@ export function LapChannelChart({
   const cursorDelta = shownDelta(targetValue, compareValue, digits);
   const withUnit = (value: string) => (unit && value !== '–' ? `${value} ${unit}` : value);
   const lapText = (name: string, value: number | null) => `${name} ${withUnit(num(value, digits))}`;
+  // One lap without the channel draws the other alone, so say whose is missing rather than leave it looking like a
+  // lap that didn't move
+  const lapMissing = !target ? labels.targetLap : !compare ? labels.compareLap : null;
+  const shownCaption = lapMissing ? (
+    <>
+      {fmt(t.charts.lapDataLapNone, { lap: lapMissing })}
+      {caption && <> {caption}</>}
+    </>
+  ) : (
+    caption
+  );
 
   return (
     <TelemetryChart
@@ -286,7 +297,7 @@ export function LapChannelChart({
       delta={delta ? { values: delta, range, unit: unit ?? '' } : undefined}
       zeroLine={zeroLine ? { color: 'var(--muted-foreground)', width: 1 } : undefined}
       ariaLabel={`${title}. ${lapText(labels.target, targetValue)}. ${lapText(labels.compare, compareValue)}.`}
-      caption={caption}
+      caption={shownCaption}
       background={(s: Scales) => (
         <g>
           {regions.map(({ from, to, color }, i) => (

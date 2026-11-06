@@ -1505,6 +1505,8 @@ export const en = {
     tireTabs: { temp: 'Tire Temp', pressure: 'Tire Pressure', rideHeights: 'Ride Heights', gear: 'Gear', engine: 'Engine & Fuel', slip: 'Balance' },
     lapDataDiffLabel: 'Compare minus Target',
     lapDataNone: 'Neither lap has this.',
+    // A chart where only one of the two laps has the channel (e.g. a simulator that doesn't record it)
+    lapDataLapNone: 'Not available in the {lap}.',
     engineCharts: { rpm: 'RPM', waterTemp: 'Water Temp', oilTemp: 'Oil Temp', fuelLevel: 'Fuel Level', fuelUsage: 'Fuel Usage' },
     engineNone:
       'Neither lap has engine data. Laps recorded by an updated RacingCoach collector have it; older laps and Garage 61 exports don’t.',
@@ -2002,6 +2004,27 @@ export const en = {
     expertLapsExists: 'Expert lap for {car} at {track} already exists. Do you want to replace this expert lap?',
     expertLapsYes: 'Yes',
     expertLapsNo: 'No',
+    // The Coach page's Simulator Mapping (src/components/SimulatorMappings.tsx)
+    simulatorMapping: {
+      title: 'Simulator Mapping',
+      intro: 'Link another simulator’s tracks and cars to the site’s, which are iRacing’s. A mapped lap gets the site’s track and car names, Track Data’s focus areas and track length, and Target Lap targets, so it lists and compares with iRacing laps. Mapping also updates the laps already uploaded.',
+      notAcceptedYet: 'The website doesn’t accept {simulator} laps yet. Mappings you make now apply as soon as it does.',
+      simulator: 'Simulator',
+      tracks: 'Tracks',
+      cars: 'Cars',
+      search: 'Search',
+      onlyUnmapped: 'Only show unmapped',
+      nativeColumn: 'In {simulator}',
+      siteTrackColumn: 'Track Data track',
+      siteCarColumn: 'Car Data car',
+      lapsColumn: 'Laps',
+      notMapped: 'Not mapped',
+      withFocusAreas: 'Tracks with focus areas',
+      otherTracks: 'Other tracks',
+      mapped: '{name} is now mapped to {site}.',
+      unmapped: '{name} is no longer mapped.',
+      none: 'Nothing matches.',
+    },
   },
 
   // The Support page (src/app/support/page.tsx): emails the user's issue to the site owner
@@ -3188,6 +3211,8 @@ export const en = {
     focusAreaNotFound: 'Focus area not found',
     invalidFocusArea: 'Enter a name, and a start and end between 0 and 1 with the start before the end; max brake is 0-100',
     failedSaveTrack: 'Failed to save the track',
+    invalidSimulatorMapping: 'Pick a track or car of the simulator, and one of the site’s or none',
+    failedSaveSimulatorMapping: 'Failed to save the mapping',
     failedSaveFocusArea: 'Failed to save the focus area',
     failedSaveInstructions: 'Failed to save the AI Coach Instructions',
     instructionsTooLong: 'The AI Coach Instructions are too long',

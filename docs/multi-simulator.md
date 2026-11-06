@@ -9,9 +9,9 @@ How the collector and website are set up to support simulators other than iRacin
 | iRacing | Same as before. Lap files are byte-identical on the regression fixtures; uploads only gain fields the site ignores or defaults |
 | Adapter contracts, canonical frames, lap tracking, detection | Built and tested with synthetic telemetry |
 | Other simulators' laps through the shared pipeline | Built and tested with a scripted test adapter, and with a real ACC recording at Spa (2026-11-05): ACC's adapter, behind `--simulator acc`, has 23 channels checked in two Spa recordings and marked collected, the rest still documented |
-| Website | Stores which simulator a lap is from, and maps other simulators' ids. **Refuses laps from any simulator but iRacing** until its status in `simulators/capabilities.json` is `supported` |
+| Website | Stores which simulator a lap is from, and maps other simulators' tracks and cars to the site's on the Coach page's Simulator Mapping (a mapped lap takes the site's track key and names, so it compares with iRacing's). **Refuses laps from any simulator but iRacing** until its status in `simulators/capabilities.json` is `supported` |
 | In-Car AI Coach, overlays, brake beeps, Rotation Model, Live Racing, Driver Radio, race results | **Still read iRacing's `TelemetryData`.** Another simulator gets lap recording and upload only until these are moved to frames, one at a time, and checked |
-| Lap Compare's "Not Available" display | **Not wired up.** `channelAvailable` in `src/lib/simulators.ts` says what to show; see the [checklist](#adding-a-simulator) |
+| Lap Compare's "Not Available" display | Done from the data: a channel with no values in a lap's file (ChannelGate leaves every unconfirmed one empty) shows as not available in that lap, and the coaching inputs leave it out. `channelAvailable` in `src/lib/simulators.ts` is still there for a page that needs the matrix's own answer |
 
 ## Architecture
 
@@ -110,7 +110,7 @@ Each must be confirmed against the real simulator, by driving known maneuvers: a
 
 The frame holds what the lap CSV holds. The other channels the request listed (pitch, roll, wheel speed, slip, wear, load, travel, damper, oil pressure, boost, sectors, flags) are tracked in the matrix but have no frame fields yet, because nothing consumes them: add a field when an adapter and a consumer need it, as a nullable, without changing the CSV's existing columns.
 
-**Website gap**: `lapSamplesFromText` in `lapData.ts` turns missing Brake, Throttle, Speed and steering into 0 with `|| 0`. iRacing's laps always have them, so it does no harm today, but ACC has no steering angle, so its laps would chart straight-ahead steering. Fix this before accepting another simulator's laps.
+**Missing values on the website** (closed 2026-11-06): steering, positions and every optional column read as NaN where a cell is empty, never 0. Brake, Throttle and Speed, which every analysis needs at every sample, have a missing cell filled from its neighbours (`fillGaps` in `lapData.ts`), and `checkLapCsv` refuses an upload with any of them entirely empty.
 
 ## Capability matrix
 
@@ -215,8 +215,8 @@ ACC next. Nothing in the shared code should need to change; if it does, that's w
 3. **Register it** in `SimulatorRegistry.Create`. Available only through `--simulator` until it's the default.
 4. **Record real sessions** to fixtures: a clean lap, an out lap, a reset, a session restart, a replay, a known left turn, reverse gear. Test `AdapterContract.Violations` on them, and confirm each convention in the table above.
 5. **Compare** to the simulator's own displayed lap times, and to a known track's expected lap distance.
-6. **Fix the website first**: the `|| 0` in `lapSamplesFromText`, then show Not Available in Lap Compare with `channelAvailable`, and hide coaching that depends on what's missing (for ACC: brakepoints in feet without a track length, steering, ride heights, GPS lines).
-7. **Map tracks and cars** on purpose, each layout checked, and add a page for it.
+6. **Fix the website first**: the `|| 0` in `lapSamplesFromText`, then show Not Available in Lap Compare, and hide coaching that depends on what's missing (for ACC: brakepoints in feet without a track length, steering, ride heights, GPS lines). Done for ACC on 2026-11-06 (see Missing values on the website above).
+7. **Map tracks and cars** on purpose, each layout checked: the Coach page's Simulator Mapping (`src/components/SimulatorMappings.tsx`, `/api/coach/simulator-mappings`), from the simulator's catalog (`src/lib/simulatorCatalogs.ts`) and any track or car seen in laps. Mapping re-labels the laps already stored, and unmapping gives them their own names back. The page exists; ACC's tracks and cars still need mapping, each checked.
 8. **Disable what can't be trusted**, by the matrix. The AI coaches read the CSV through `measureDebriefSession`, so check what they say with empty columns. Rotation Model calibrations don't transfer: each car needs its own, and an uncalibrated car already says UNKNOWN.
 9. **Only then** change its status to `supported`, which is what lets the website accept its laps, and move live features across one at a time, each against iRacing's golden behavior.
 

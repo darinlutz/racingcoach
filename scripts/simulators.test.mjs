@@ -14,6 +14,9 @@ import {
   SIMULATORS,
 } from '../src/lib/simulators.ts';
 
+import { simulatorCatalog } from '../src/lib/simulatorCatalogs.ts';
+import { fillGaps, lapSamplesFromText } from '../src/lib/lapData.ts';
+
 const source = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 
 test('only iRacing is claimed as supported', () => {
@@ -87,4 +90,28 @@ test('another simulator can never write to iRacing track data, and neither path 
   assert.match(laps, /if \(simulator === DEFAULT_SIMULATOR\) await saveTrackShapeFromLap/);
   // and the backfill only reads iRacing's laps
   assert.match(laps, /l\.simulator = '\$\{DEFAULT_SIMULATOR\}'/);
+});
+
+test('the website\'s ACC cars are the collector\'s: the same ids and names', () => {
+  const collector = [...source('collector/RacingCoach.Collector.Core/AccCars.cs').matchAll(/new\("([^"]+)", "([^"]+)"/g)].map(([, key, name]) => ({ key, name }));
+  assert.ok(collector.length > 40);
+  assert.deepEqual(simulatorCatalog('acc').cars, collector);
+  // Spa is what ACC called it in the recordings (AccSpaRecordingTests)
+  assert.ok(simulatorCatalog('acc').tracks.some((track) => track.key === 'Spa'));
+  assert.deepEqual(simulatorCatalog('iracing'), { tracks: [], cars: [] });
+});
+
+test('an empty pedal or speed cell is filled from its neighbours, never read as 0', () => {
+  const lap = lapSamplesFromText('Speed,LapDistPct,Brake,Throttle,SteeringWheelAngle\n40,0.1,0.5,0,\n,0.2,,0.7,\n42,0.3,0.25,,\n');
+  assert.deepEqual(lap.speeds, [40, 40, 42]);
+  assert.deepEqual(lap.brakes, [0.5, 0.5, 0.25]);
+  assert.deepEqual(lap.throttles, [0, 0.7, 0.7]);
+  // A channel the simulator doesn't give stays unavailable
+  assert.ok(lap.steerings.every(Number.isNaN));
+  const leading = [NaN, NaN, 3, NaN];
+  fillGaps(leading);
+  assert.deepEqual(leading, [3, 3, 3, 3]);
+  const none = [NaN, NaN];
+  fillGaps(none);
+  assert.deepEqual(none, [0, 0]);
 });

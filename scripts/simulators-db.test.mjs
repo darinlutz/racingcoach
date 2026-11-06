@@ -186,6 +186,57 @@ describe('simulators in the database', { skip }, () => {
     assert.equal(row.track_id, null);
   });
 
+  test('mapping a track and car re-labels their stored laps like iRacing laps, and unmapping gives their own names back', async () => {
+    const acc = { simulator: 'acc', trackKey: 'Monza', track: 'monza', carKey: 'ferrari_488_gt3_evo', car: 'Ferrari 488 GT3 Evo 2020' };
+    const { id } = await save(oldPayload(acc));
+    const read = async (lapId) =>
+      (await q(`SELECT track, track_key, car, car_key, native_track_key FROM racingcoach."CollectorLaps" WHERE id = $1`, [lapId]))[0];
+    assert.deepEqual(await read(id), { track: 'monza', track_key: null, car: 'Ferrari 488 GT3 Evo 2020', car_key: 'ferrari_488_gt3_evo', native_track_key: 'Monza' });
+
+    const [{ id: trackId }] = await q(`SELECT id FROM racingcoach."Tracks" WHERE lower(track_key) = $1`, [IRACING_KEY]);
+    const [{ id: carId }] = await q(`INSERT INTO racingcoach."Cars" (car_name) VALUES ('Sim Test Ferrari') RETURNING id`);
+    const iracingBefore = await q(`SELECT id, track, track_key, car FROM racingcoach."CollectorLaps" WHERE simulator = 'iracing' ORDER BY id`);
+    assert.equal(await mappings.mapSimulatorTrack('acc', 'monza', trackId), true);
+    assert.equal(await mappings.mapSimulatorCar('acc', 'FERRARI_488_GT3_EVO', carId), true);
+    const mapped = { track: 'Lime Rock Park', track_key: IRACING_KEY, car: 'Sim Test Ferrari', car_key: 'ferrari_488_gt3_evo', native_track_key: 'Monza' };
+    assert.deepEqual(await read(id), mapped, 'the stored lap follows the mapping');
+
+    // A lap uploaded after the mapping is saved the same way
+    const { id: later } = await save(oldPayload(acc));
+    assert.deepEqual(await read(later), mapped);
+
+    assert.equal(await mappings.mapSimulatorTrack('acc', 'Monza', null), true);
+    assert.equal(await mappings.mapSimulatorCar('acc', 'ferrari_488_gt3_evo', null), true);
+    assert.deepEqual(await read(id), { track: 'monza', track_key: null, car: 'Ferrari 488 GT3 Evo 2020', car_key: 'ferrari_488_gt3_evo', native_track_key: 'Monza' });
+    assert.deepEqual(await q(`SELECT id, track, track_key, car FROM racingcoach."CollectorLaps" WHERE simulator = 'iracing' ORDER BY id`), iracingBefore);
+  });
+
+  test('a track or car in the simulator\'s catalog can be mapped before any lap of it arrives', async () => {
+    const [{ id: trackId }] = await q(`SELECT id FROM racingcoach."Tracks" WHERE lower(track_key) = $1`, [IRACING_KEY]);
+    assert.equal(await mappings.mapSimulatorTrack('acc', 'Suzuka', trackId), true);
+    const list = await mappings.listSimulatorMappings('acc');
+    assert.deepEqual(list.tracks.find((track) => track.nativeKey === 'Suzuka'), {
+      nativeKey: 'Suzuka', nativeName: 'Suzuka Circuit', seen: false, siteId: trackId, laps: 0,
+    });
+    assert.ok(list.cars.some((car) => car.nativeKey === 'porsche_992_gt3_cup' && car.siteId === null));
+    assert.ok(list.siteTracks.some((track) => track.id === trackId));
+    // Tracks seen in laps but not in the catalog are listed too
+    assert.ok(list.tracks.some((track) => track.nativeKey === 'lime_rock'));
+
+    const { id } = await save(oldPayload({ simulator: 'acc', trackKey: 'suzuka', track: 'suzuka' }));
+    const [row] = await q(`SELECT track, track_key FROM racingcoach."CollectorLaps" WHERE id = $1`, [id]);
+    assert.deepEqual(row, { track: 'Lime Rock Park', track_key: IRACING_KEY });
+
+    // iRacing's own tracks aren't mapped through here
+    assert.equal(await mappings.mapSimulatorTrack('iracing', IRACING_KEY, trackId), false);
+  });
+
+  test('a lap with a required channel entirely empty is refused, and one with a cell missing is kept', () => {
+    const rows = (brake) => [HEADER, ...Array.from({ length: 600 }, (_, i) => `40,${(i / 600).toFixed(4)},${brake(i)},1,,`)].join('\n') + '\n';
+    assert.throws(() => laps.checkLapCsv(gzipSync(rows(() => '')), 600), laps.InvalidLapCsvError);
+    assert.doesNotThrow(() => laps.checkLapCsv(gzipSync(rows((i) => (i === 5 ? '' : '0.5'))), 600));
+  });
+
   test('the migration keeps rows written before it, and running it again changes nothing', async () => {
     // A lap as the table was before: the new columns dropped, the row inserted, the migration run again
     await client.query(`ALTER TABLE racingcoach."CollectorLaps" DROP COLUMN simulator, DROP COLUMN native_track_key, DROP COLUMN payload_version, DROP COLUMN adapter_version`);

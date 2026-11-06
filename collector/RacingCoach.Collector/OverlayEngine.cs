@@ -326,8 +326,8 @@ internal sealed partial class OverlayEngine
             // GetSpeedArea takes the track name too
             Exit: Localize(Text(Call("GetSpeedArea", _trackName, area))),
             ExitColor: CallOptional("GetSpeedAreaColor", _trackName, area),
-            Coast: Localize(Text(Call("GetCoastingDistance", area))),
-            Overlap: Localize(Text(Call("GetControlOverlapDistance", area))));
+            Coast: Localize(BlankIfZero(Text(Call("GetCoastingDistance", area)))),
+            Overlap: Localize(BlankIfZero(Text(Call("GetControlOverlapDistance", area)))));
 
         if (keepText is not null)
         {
@@ -389,6 +389,11 @@ internal sealed partial class OverlayEngine
         _functions[function] is Jint.Native.Function.Function ? Text(Call(function, arguments)) : "";
 
     private static string Text(JsValue value) => value.IsNull() || value.IsUndefined() ? "" : value.ToString();
+
+    // Coast and Overlap show nothing rather than "0 ft" (the script answers 0, or e.g. "0 ft")
+    [GeneratedRegex(@"^\s*-?0+(?:\.0+)?\s*(?:ft)?\s*$")]
+    private static partial Regex ZeroDistance();
+    private static string BlankIfZero(string text) => ZeroDistance().IsMatch(text) ? "" : text;
 
     // "12 ft late" or "35 ft"; and "-1.2 mph" (the script labels SpeedLocal's speeds mph whatever their units)
     [GeneratedRegex(@"(-?\d+(?:\.\d+)?)\s*ft\b")]

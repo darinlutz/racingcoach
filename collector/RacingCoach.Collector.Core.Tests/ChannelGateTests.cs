@@ -80,7 +80,6 @@ public sealed class ChannelGateTests
         var acc = SimulatorCatalog.Shared.Find("acc");
         Assert.NotNull(acc);
         var gated = ChannelGate.ForLapFile(Full with { YawRadians = 1.2f, AbsActive = true, OilTempC = 100, FuelUseKgPerHour = 80 }, acc);
-        Assert.Null(gated.SteeringWheelAngleRadians); // unavailable: ACC only gives the input
         Assert.Null(gated.FrontLeft.RideHeightMeters); // unavailable
         Assert.Null(gated.OilTempC); // unavailable
         Assert.Null(gated.FuelUseKgPerHour); // unavailable: fuelXLap isn't a rate

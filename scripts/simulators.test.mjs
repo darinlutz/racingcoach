@@ -74,7 +74,8 @@ test('a channel only shows where it has really been collected', () => {
   assert.equal(channelAvailable('acc', 'brake'), true); // checked against the Spa recording
   assert.equal(channelAvailable('acc', 'fuelLevel'), true); // liters, from the second Spa recording
   assert.equal(channelAvailable('acc', 'slipRatio'), false); // documented: what it holds isn't confirmed
-  assert.equal(channelAvailable('acc', 'steeringAngle'), false);
+  assert.equal(channelAvailable('acc', 'steeringAngle'), true); // from adapter 3, with the driver's wheel rotation
+  assert.equal(channelAvailable('acc', 'tireSurfaceTemp'), false);
   assert.equal(findSimulator('acc').channels.rideHeightAxle.support, 'unavailable');
   assert.equal(channelAvailable('nonsense', 'brake'), false);
 });

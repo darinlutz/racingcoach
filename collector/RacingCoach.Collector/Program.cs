@@ -1,5 +1,6 @@
 using System.Windows;
 using SVappsLAB.iRacingTelemetrySDK;
+using RacingCoach.Collector.Simulators;
 
 namespace RacingCoach.Collector;
 
@@ -134,6 +135,8 @@ public static class Program
                               e.g. iracing or acc. Without it, iRacing as always
           --record-raw        Also save the simulator's raw data to Documents\RacingCoach\Raw (ACC's
                               shared memory), for checking a new simulator's conversions
+          --steering-range <degrees>  Your wheel's rotation lock to lock, e.g. 900, as set in ACC, for
+                              ACC's steering angle; remembered, so give it once
         """;
 
     // One collector at a time: two would both record every lap and upload it twice
@@ -201,6 +204,11 @@ public static class Program
                 case "--record-raw": options = options with { RecordRaw = true }; break;
                 case "--site" when i + 1 < args.Length && Uri.TryCreate(args[i + 1], UriKind.Absolute, out _):
                     options = options with { SiteUrl = args[++i] };
+                    break;
+                case "--steering-range" when i + 1 < args.Length && int.TryParse(args[i + 1], out var range)
+                    && range >= AccFrameBuilder.MinSteeringRange && range <= AccFrameBuilder.MaxSteeringRange:
+                    options = options with { SteeringRange = range };
+                    i++;
                     break;
                 case "--simulator" when i + 1 < args.Length:
                     options = options with { Simulator = args[++i].ToLowerInvariant() };

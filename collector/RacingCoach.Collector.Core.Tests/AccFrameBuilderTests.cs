@@ -143,7 +143,7 @@ public sealed class AccFrameBuilderTests
         Assert.Equal(150 / 3.6f, frame.SpeedMps!.Value, 4);
         Assert.Equal(3, frame.Gear); // ACC's 4 is third: 0 reverse, 1 neutral
         Assert.Equal(-0.25f, frame.SteeringInput); // positive left
-        Assert.Null(frame.SteeringWheelAngleRadians); // ACC has no angle
+        Assert.Null(frame.SteeringWheelAngleRadians); // no angle without the driver's wheel rotation
         Assert.Equal(27 * 6.894757f, frame.FrontLeft.PressureKpa!.Value, 3);
         Assert.Null(frame.FrontLeft.CarcassTempMiddleC); // only a core temperature, which isn't a carcass one
         Assert.Null(frame.FrontLeft.RideHeightMeters);

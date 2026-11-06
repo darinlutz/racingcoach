@@ -158,11 +158,7 @@ public sealed class AdapterContractTests
         var frames = ScriptedAdapter.Laps("acc", 1);
         Assert.Empty(AdapterContract.Violations("acc", frames, acc));
 
-        // ACC gives steering only as an input: an adapter that made up an angle fails
-        var faked = frames.Select(f => f with { SteeringWheelAngleRadians = 0f }).ToList();
-        Assert.Contains("steeringAngle is Unavailable in the matrix but has values", AdapterContract.Violations("acc", faked, acc));
-
-        // and so does one that filled ride heights with zeros
+        // An adapter that filled ride heights, which ACC doesn't give, with zeros fails
         var zeros = frames.Select(f => f with { FrontLeft = new WheelTelemetry { RideHeightMeters = 0f } }).ToList();
         Assert.Contains("rideHeightCorner is Unavailable in the matrix but has values", AdapterContract.Violations("acc", zeros, acc));
     }
@@ -200,7 +196,7 @@ public sealed class AdapterContractTests
 
     [Theory] // What ACC Shared Memory v1.8.12 says, including what it marks as not used, and what the two Spa
              // recordings of 2026-11-05 confirmed (docs/multi-simulator.md)
-    [InlineData("steeringAngle", "Unavailable")]
+    [InlineData("steeringAngle", "Collected")]
     [InlineData("rideHeightAxle", "Unavailable")]
     [InlineData("tireSurfaceTemp", "Unavailable")]
     [InlineData("tireLoad", "Unavailable")]

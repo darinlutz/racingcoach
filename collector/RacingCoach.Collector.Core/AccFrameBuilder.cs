@@ -20,7 +20,10 @@ public static class AccConventions
 
     /// <summary>steerAngle is the input, -1 to 1, with no direction given; +1 is full right lock, so it's negated into
     /// the frame's positive-left. Spa: +0.48 through La Source, a right hairpin. Spa 18:36: full lock either way read
-    /// ±0.752, not ±1, so it's a share of the wheel's range, not of the car's lock, and no angle can be made from it.</summary>
+    /// ±0.752, not ±1, so it's a share of the wheel's range, not of the car's lock: the angle is the input times half
+    /// the driver's wheel rotation (the collector's --steering-range, e.g. 900), which the shared memory doesn't give.
+    /// Spa, as a share of 900°: 216° at La Source, a GT3's steering ratio of 15-20 against the front wheels' angle
+    /// from yaw rate and speed; as a share of the Huracán's 310° lock (Appendix 5) it'd be 6, too quick for a GT3.</summary>
     public const float SteeringInputSign = -1;
 
     /// <summary>localVelocity and localAngularVel are "in local coordinates", with no axes given: x across the car
@@ -71,9 +74,16 @@ public static class AccConventions
 /// passed in), and no sample counter that matches the reads (physics' packetId counts physics steps), so Tick stays
 /// null and gaps are found by time. Lap times are ACC's own (iLastTime), on the frame after completedLaps goes up.
 /// </summary>
-public sealed class AccFrameBuilder
+public sealed class AccFrameBuilder(float? steeringRangeDegrees = null)
 {
     public const string SimulatorId = "acc";
+    /// <summary>The wheel rotations a steering range can be, lock to lock, in degrees.</summary>
+    public const int MinSteeringRange = 180, MaxSteeringRange = 3600;
+
+    // Half the driver's wheel rotation in radians, or null when it isn't set, so no angle is made
+    private readonly float? _halfRangeRadians = steeringRangeDegrees is >= MinSteeringRange and <= MaxSteeringRange
+        ? steeringRangeDegrees.Value / 2 * MathF.PI / 180
+        : null;
 
     private int? _completedLaps;
     private int? _sessionIndex;
@@ -152,8 +162,8 @@ public sealed class AccFrameBuilder
             Throttle = physics.Gas,
             Brake = physics.Brake,
             ClutchEngagement = AccConventions.ClutchIsPedal ? 1 - physics.Clutch : physics.Clutch,
-            // ACC gives only the input; an angle needs the car's lock (AccCars), which is an estimate for consumers
-            SteeringWheelAngleRadians = null,
+            // ACC gives only the input, a share of the driver's wheel rotation (see SteeringInputSign)
+            SteeringWheelAngleRadians = AccConventions.SteeringInputSign * physics.SteerAngle * _halfRangeRadians,
             SteeringInput = AccConventions.SteeringInputSign * physics.SteerAngle,
             Gear = physics.Gear + AccConventions.GearOffset,
             Rpm = physics.Rpm,

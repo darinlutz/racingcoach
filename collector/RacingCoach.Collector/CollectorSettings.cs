@@ -29,6 +29,9 @@ internal sealed class CollectorSettings
     public int SatelliteOpacity { get; set; } = 60;
     /// <summary>Driver Radio's microphone, by its Windows name, or null for Windows' default (<see cref="MicRecorder.DeviceName"/>).</summary>
     public string? Microphone { get; set; }
+    /// <summary>The driver's wheel rotation, lock to lock in degrees (--steering-range), which turns ACC's steering input
+    /// into an angle; null leaves ACC's steering angle out.</summary>
+    public int? SteeringRange { get; set; }
 
     public static CollectorSettings Load()
     {

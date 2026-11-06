@@ -6,7 +6,7 @@ namespace RacingCoach.Collector;
 /// <summary>Command line options. A played-back .ibt file (with a speed multiplier) replaces live iRacing.
 /// Simulator is --simulator: null is iRacing directly, as ever; "auto" looks for a running simulator, and otherwise
 /// it's a simulator's id.</summary>
-internal sealed record CollectorOptions(string? IbtFile, int Speed, bool SetKey, bool NoUpload, bool Upload, string? SiteUrl, bool NoPositions, string? Simulator = null, bool RecordRaw = false)
+internal sealed record CollectorOptions(string? IbtFile, int Speed, bool SetKey, bool NoUpload, bool Upload, string? SiteUrl, bool NoPositions, string? Simulator = null, bool RecordRaw = false, int? SteeringRange = null)
 {
     public const string AutoSimulator = "auto";
     public bool Playback => IbtFile is not null;
@@ -20,8 +20,9 @@ internal static class SimulatorRegistry
     /// <param name="named">--simulator's id, or null for auto (or no --simulator).</param>
     /// <param name="rawRecordingFolder">--record-raw: where adapters that can write their simulator's raw data (ACC's
     /// shared memory pages) do, else null.</param>
-    public static IReadOnlyList<ISimulatorAdapter> Create(IRacingAdapter iRacing, string? named = null, string? rawRecordingFolder = null, Action<string>? log = null) =>
-        named == AccFrameBuilder.SimulatorId ? [iRacing, new AccAdapter(rawRecordingFolder, log)] : [iRacing];
+    /// <param name="steeringRange">The driver's wheel rotation, lock to lock in degrees, for ACC's steering angle.</param>
+    public static IReadOnlyList<ISimulatorAdapter> Create(IRacingAdapter iRacing, string? named = null, string? rawRecordingFolder = null, Action<string>? log = null, int? steeringRange = null) =>
+        named == AccFrameBuilder.SimulatorId ? [iRacing, new AccAdapter(rawRecordingFolder, log, steeringRange)] : [iRacing];
 }
 
 /// <summary>Track, car, driver and session details from iRacing's session info, for the window.</summary>
@@ -102,7 +103,14 @@ internal sealed class CollectorEngine
         _log = log;
         _iRacing = new IRacingAdapter(options.IbtFile, options.Speed);
         documents ??= Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-        _adapters = adapters ?? SimulatorRegistry.Create(_iRacing, options.Simulator == CollectorOptions.AutoSimulator ? null : options.Simulator, options.RecordRaw ? Path.Combine(documents, "RacingCoach", "Raw") : null, message => Log(message));
+        var settings = CollectorSettings.Load();
+        // --steering-range is remembered, so it's given once
+        if (options.SteeringRange is { } range && range != settings.SteeringRange)
+        {
+            settings.SteeringRange = range;
+            settings.Save();
+        }
+        _adapters = adapters ?? SimulatorRegistry.Create(_iRacing, options.Simulator == CollectorOptions.AutoSimulator ? null : options.Simulator, options.RecordRaw ? Path.Combine(documents, "RacingCoach", "Raw") : null, message => Log(message), settings.SteeringRange);
         _documents = documents;
         LapsFolder = Path.Combine(documents, "RacingCoach", "Laps");
 
@@ -126,7 +134,6 @@ internal sealed class CollectorEngine
             : new RaceResultTracker(Path.Combine(documents, "RacingCoach", "Races"), message => Log(message));
         Rotation = new RotationMonitor(message => Log(message));
         Live = new LiveRacing(() => Api, message => Log(message));
-        var settings = CollectorSettings.Load();
         MicRecorder.DeviceName = settings.Microphone;
         Radio = new DriverRadio(() => Api, _coach.SessionLaps, Log, settings.RadioButton);
         Voice.UseSite(() => Api, message => Log(message)); // speech in the user's coach voice

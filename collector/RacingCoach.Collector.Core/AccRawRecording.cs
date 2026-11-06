@@ -158,9 +158,10 @@ public sealed class AccRecordingImporter : ITelemetryFileImporter
         return Task.CompletedTask;
     }
 
-    public static void Import(Stream file, ITelemetrySink sink, CancellationToken cancel = default)
+    /// <param name="steeringRangeDegrees">The driver's wheel rotation, as the collector's --steering-range.</param>
+    public static void Import(Stream file, ITelemetrySink sink, CancellationToken cancel = default, float? steeringRangeDegrees = null)
     {
-        var builder = new AccFrameBuilder();
+        var builder = new AccFrameBuilder(steeringRangeDegrees);
         AccStatic? info = null;
         var sessionSent = false;
         SimulatorSession? lastSession = null;

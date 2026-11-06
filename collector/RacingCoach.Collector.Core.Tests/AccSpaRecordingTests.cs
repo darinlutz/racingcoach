@@ -72,6 +72,23 @@ public sealed class AccSpaRecordingTests
     }
 
     [Fact]
+    public void With_a_900_degree_wheel_La_Source_is_a_GT3s_steering_angle_to_the_right()
+    {
+        var sink = new RecordingSink();
+        using (var file = File.OpenRead(FixturePath()))
+            AccRecordingImporter.Import(file, sink, steeringRangeDegrees: 900);
+        var zone = sink.Frames.Where(f => f.LapNumber == 2 && f.LapDistancePct is > 0.01f and < 0.08f).ToList();
+        var apex = zone.MinBy(f => f.SpeedMps)!;
+        var corner = zone.Where(f => Math.Abs(f.SessionTimeSeconds!.Value - apex.SessionTimeSeconds!.Value) < 0.7).ToList();
+        // Right is negative, as iRacing's; the input × 450°
+        var degrees = corner.Average(f => f.SteeringWheelAngleRadians!.Value) * 180 / MathF.PI;
+        Assert.InRange(degrees, -260, -170);
+        Assert.All(sink.Frames, f => Assert.InRange(f.SteeringWheelAngleRadians!.Value * 180 / MathF.PI - f.SteeringInput!.Value * 450, -0.01, 0.01));
+        // Without a range there's no angle, only the input
+        Assert.All(Frames, f => Assert.Null(f.SteeringWheelAngleRadians));
+    }
+
+    [Fact]
     public void Yaw_turns_the_same_way_as_the_yaw_rate()
     {
         var pairs = new List<(double Rate, double FromYaw)>();

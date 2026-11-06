@@ -15,7 +15,7 @@ namespace RacingCoach.Collector;
 /// ACC's while ACC's process is running. With a raw recording folder, every page read is also written there
 /// (AccRawRecording), for checking the conversions at Spa.
 /// </summary>
-internal sealed class AccAdapter(string? rawRecordingFolder = null, Action<string>? log = null) : ISimulatorAdapter, IHasLapTrackerOptions, IShapesLapFiles
+internal sealed class AccAdapter(string? rawRecordingFolder = null, Action<string>? log = null, int? steeringRangeDegrees = null) : ISimulatorAdapter, IHasLapTrackerOptions, IShapesLapFiles
 {
     private const string ProcessName = "AC2-Win64-Shipping";
     // The static page's smVersion this layout was written from (ACC Shared Memory v1.8.12)
@@ -29,8 +29,9 @@ internal sealed class AccAdapter(string? rawRecordingFolder = null, Action<strin
     public string SimulatorId => AccFrameBuilder.SimulatorId;
     public string DisplayName => "Assetto Corsa Competizione";
     // 2: lap files count from ACC's timing line and have no neutral mid-shift (AccFrameBuilder.ForLapFile). The
-    // website refuses ACC laps from older adapters (minAdapterVersion in simulators/capabilities.json)
-    public string AdapterVersion => "2";
+    // website refuses ACC laps from older adapters (minAdapterVersion in simulators/capabilities.json).
+    // 3: the steering wheel angle, from the driver's wheel rotation (--steering-range)
+    public string AdapterVersion => "3";
     public LapTrackerOptions LapTrackerOptions => AccFrameBuilder.LapTrackerOptions;
     public IReadOnlyList<TelemetryFrame> ForLapFile(IReadOnlyList<TelemetryFrame> frames) => AccFrameBuilder.ForLapFile(frames);
 
@@ -76,7 +77,7 @@ internal sealed class AccAdapter(string? rawRecordingFolder = null, Action<strin
         var physics = new byte[AccSharedMemory.PhysicsSize];
         var graphics = new byte[AccSharedMemory.GraphicsSize];
         var info = new byte[AccSharedMemory.StaticSize];
-        var builder = new AccFrameBuilder();
+        var builder = new AccFrameBuilder(steeringRangeDegrees);
         var clock = Stopwatch.StartNew();
         AccRawRecording.Writer? recording = null;
         SimulatorSession? session = null;

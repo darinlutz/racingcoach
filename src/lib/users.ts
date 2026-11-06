@@ -14,7 +14,7 @@ import {
   type MembershipLevel,
   type Plan,
 } from './accountStatus';
-import { mergeOwnerCars, seedDefaultCars } from './defaultCars';
+import { addAccCars, mergeOwnerCars, seedDefaultCars } from './defaultCars';
 import { seedTrackAnalysis } from './defaultTrackAnalysis';
 import { seedDefaultTracks } from './defaultTracks';
 import { dropTrackLengthsTable } from './trackLengths';
@@ -762,6 +762,8 @@ export function ensureUserSchema(): Promise<void> {
         updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
         updated_by INTEGER REFERENCES racingcoach."Users"(id) ON DELETE SET NULL
       )`);
+      // ACC's cars with pictures join Cars once (marked in SiteSettings, so deleting one later sticks)
+      await addAccCars(client);
       // Every AI call a user or visitor made, for the Admin page's Rate Limiting section (src/lib/rateLimits.ts):
       // allowed or blocked (reason), and its weight against the limit. counted is false once the call failed (a
       // refund) or an admin reset the usage, so it no longer counts against the limit but stays in the report.

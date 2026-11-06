@@ -12,5 +12,8 @@ export async function register() {
     startVideoProcessing();
     const { startPrivacyJobs } = await import('./lib/privacyJobs');
     startPrivacyJobs();
+    // The lap telemetry store's cleanup queue, reconciliation and counters (src/lib/telemetryStorageJobs.ts)
+    const { startTelemetryStorageJobs } = await import('./lib/telemetryStorageJobs');
+    startTelemetryStorageJobs();
   }
 }

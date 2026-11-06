@@ -1,6 +1,9 @@
 import { gunzipSync } from 'node:zlib';
 import { z } from 'zod';
-import { isUniqueViolation, query } from './db';
+import { isUniqueViolation, query, transaction } from './db';
+import { getLapObject, mapLimited, putLapObject, telemetryStorageMode, telemetryStore, type StoredLapObject } from './telemetryStorage';
+import { LAP_COMPRESSION, LAP_CONTENT_TYPE, lapObjectKey, sha256Hex, STORAGE_PROVIDERS, STORAGE_STATUS } from './telemetryStorageRules';
+import { PENDING_GRACE_SQL } from './telemetryStorageSchema';
 import { canSeeAllLaps, ROLES } from './roles';
 import { saveTrackLength } from './trackLengths';
 import { lapCsvBounds, saveTrackBounds, saveTrackLocation, trackNeedsBounds } from './trackLocations';
@@ -12,8 +15,9 @@ import { DEFAULT_SIMULATOR } from './simulators';
 
 // Laps uploaded by the telemetry collector (collector/ in this repo), stored in
 // racingcoach."CollectorLaps". Each lap is one CSV as the collector writes it (iRacing variable names
-// and units, one row per 60 Hz sample), kept gzip-compressed. Only this module touches csv_gzip, so
-// the CSVs can move from Postgres to object storage without changing its callers.
+// and units, one row per 60 Hz sample), kept gzip-compressed: inline in csv_gzip, or as an object in the telemetry
+// store (telemetryStorage.ts, docs/telemetry-storage.md), as each row's storage_provider says. Only this module reads
+// or writes the CSV bytes, so its callers never know which.
 
 // Same limit as the lap CSVs the Racing page's tabs accept (lapData.ts)
 const MAX_CSV_BYTES = 25 * 1024 * 1024;
@@ -139,6 +143,40 @@ export function checkLapCsv(csvGzip: Buffer, samples: number): { csvBytes: numbe
     });
   return { csvBytes: csv.length, hasPosition };
 }
+
+// Where a row's CSV is. csv_gzip only for inline rows: a migrated row may still hold its old copy until the legacy
+// purge, which isn't read (or even fetched from TOAST) once the row reads from the store.
+const STORAGE_COLUMNS = `l.id AS storage_row_id, l.storage_provider, l.storage_bucket, l.storage_key, l.checksum_sha256,
+  CASE WHEN l.storage_provider = '${STORAGE_PROVIDERS.postgres}' THEN l.csv_gzip END AS csv_gzip`;
+
+type StorageRow = {
+  storage_row_id: number;
+  storage_provider: string;
+  storage_bucket: string | null;
+  storage_key: string | null;
+  checksum_sha256: string | null;
+  csv_gzip: Buffer | null;
+};
+
+// The row's compressed CSV, or null when its object is gone (e.g. a database restored from a backup brought back a
+// row whose object was already deleted): the row is marked missing and the lap is treated as not there. A store that
+// can't be reached throws, so the caller fails rather than coaching from fewer laps than it was given.
+async function lapGzip(row: StorageRow): Promise<Buffer | null> {
+  if (row.storage_provider === STORAGE_PROVIDERS.postgres) return row.csv_gzip;
+  const bytes = await getLapObject(row.storage_bucket!, row.storage_key!, row.checksum_sha256);
+  if (bytes) return bytes;
+  console.error(`Lap object missing: lap ${row.storage_row_id}, ${row.storage_bucket}/${row.storage_key}`);
+  await query(
+    `UPDATE racingcoach."CollectorLaps" SET storage_status = $3 WHERE id = $1 AND storage_key = $2`,
+    [row.storage_row_id, row.storage_key, STORAGE_STATUS.missing]
+  ).catch(() => {});
+  return null;
+}
+
+const gunzipCsv = (gzip: Buffer) => gunzipSync(gzip, { maxOutputLength: MAX_CSV_BYTES });
+
+// How many laps' objects one reader fetches at once
+const READ_CONCURRENCY = 6;
 
 // A stored lap's details, as listed on the Racing page (the CSV itself comes from readCollectorLapCsv)
 export type CollectorLapSummary = {
@@ -266,12 +304,27 @@ export async function listCollectorLaps(viewer: LapViewer, driverIds: number[] |
 // The lap's CSV, or null if there's no lap with that id or the viewer can't see it (see LapViewer)
 export async function readCollectorLapCsv(viewer: LapViewer, id: number): Promise<string | null> {
   await ensureUserSchema();
-  const [row] = await query<{ csv_gzip: Buffer }>(
-    `SELECT l.csv_gzip FROM racingcoach."CollectorLaps" l JOIN racingcoach."Users" u ON u.id = l.user_id
+  const [row] = await query<StorageRow>(
+    `SELECT ${STORAGE_COLUMNS} FROM racingcoach."CollectorLaps" l JOIN racingcoach."Users" u ON u.id = l.user_id
      WHERE l.id = $1 AND ${visibleTo(2)}`,
     [id, lapViewerParam(viewer)]
   );
-  return row ? gunzipSync(row.csv_gzip).toString('utf8') : null;
+  if (!row) return null;
+  const gzip = await lapGzip(row);
+  return gzip ? gunzipCsv(gzip).toString('utf8') : null;
+}
+
+// One of the user's own laps as its uncompressed CSV bytes, for Download My Data (personalDataExport.ts); null when
+// it isn't theirs, has expired or its object is gone
+export async function readOwnLapCsvBytes(userId: number, lapId: number): Promise<Buffer | null> {
+  await ensureUserSchema();
+  const [row] = await query<StorageRow>(
+    `SELECT ${STORAGE_COLUMNS} FROM racingcoach."CollectorLaps" l WHERE l.id = $1 AND l.user_id = $2 AND l.expires_at > now()`,
+    [lapId, userId]
+  );
+  if (!row) return null;
+  const gzip = await lapGzip(row);
+  return gzip ? gunzipCsv(gzip) : null;
 }
 
 // Laps by id with their car and CSV, in the order asked for (ids that don't exist, or that the viewer can't see,
@@ -281,16 +334,23 @@ export async function readCollectorLapsById(
   ids: number[]
 ): Promise<{ id: number; car: string; lapNumber: number; csv: string }[]> {
   await ensureUserSchema();
-  const rows = await query<{ id: number; car: string; lap_number: number; csv_gzip: Buffer }>(
-    `SELECT l.id, l.car, l.lap_number, l.csv_gzip
+  const rows = await query<StorageRow & { id: number; car: string; lap_number: number }>(
+    `SELECT l.id, l.car, l.lap_number, ${STORAGE_COLUMNS}
      FROM racingcoach."CollectorLaps" l JOIN racingcoach."Users" u ON u.id = l.user_id
      WHERE l.id = ANY($1::integer[]) AND ${visibleTo(2)}`,
     [ids, lapViewerParam(viewer)]
   );
   const byId = new Map(rows.map((row) => [row.id, row]));
+  const ordered = [...new Set(ids)].flatMap((id) => (byId.has(id) ? [byId.get(id)!] : []));
+  const csvs = await mapLimited(ordered, READ_CONCURRENCY, async (row) => {
+    const gzip = await lapGzip(row);
+    return gzip ? gunzipCsv(gzip).toString('utf8') : null;
+  });
+  const csvById = new Map(ordered.map((row, i) => [row.id, csvs[i]]));
   return ids.flatMap((id) => {
     const row = byId.get(id);
-    return row ? [{ id, car: row.car, lapNumber: row.lap_number, csv: gunzipSync(row.csv_gzip).toString('utf8') }] : [];
+    const csv = csvById.get(id);
+    return row && csv ? [{ id, car: row.car, lapNumber: row.lap_number, csv }] : [];
   });
 }
 
@@ -315,25 +375,34 @@ export async function readCollectorLapsByClientId(
   }[]
 > {
   await ensureUserSchema();
-  const rows = await query<{
-    client_lap_id: string;
-    track: string;
-    track_key: string | null;
-    car: string;
-    lap_number: number;
-    lap_time_seconds: number;
-    incidents: number;
-    off_track: boolean;
-    completed_at: Date;
-    csv_gzip: Buffer;
-  }>(
-    `SELECT client_lap_id, track, track_key, car, lap_number, lap_time_seconds, incidents, off_track, completed_at, csv_gzip FROM racingcoach."CollectorLaps"
-     WHERE user_id = $1 AND client_lap_id = ANY($2::uuid[]) AND expires_at > now()`,
+  const rows = await query<
+    StorageRow & {
+      client_lap_id: string;
+      track: string;
+      track_key: string | null;
+      car: string;
+      lap_number: number;
+      lap_time_seconds: number;
+      incidents: number;
+      off_track: boolean;
+      completed_at: Date;
+    }
+  >(
+    `SELECT l.client_lap_id, l.track, l.track_key, l.car, l.lap_number, l.lap_time_seconds, l.incidents, l.off_track,
+            l.completed_at, ${STORAGE_COLUMNS}
+     FROM racingcoach."CollectorLaps" l
+     WHERE l.user_id = $1 AND l.client_lap_id = ANY($2::uuid[]) AND l.expires_at > now()`,
     [userId, clientLapIds]
   );
+  const csvs = await mapLimited(rows, READ_CONCURRENCY, async (row) => {
+    const gzip = await lapGzip(row);
+    return gzip ? gunzipCsv(gzip).toString('utf8') : null;
+  });
+  const csvByRow = new Map(rows.map((row, i) => [row, csvs[i]]));
   return clientLapIds.flatMap((id) => {
     const row = rows.find((r) => r.client_lap_id.toLowerCase() === id.toLowerCase());
-    if (!row) return [];
+    const csv = row ? csvByRow.get(row) : null;
+    if (!row || !csv) return [];
     return [
       {
         clientLapId: row.client_lap_id,
@@ -345,7 +414,7 @@ export async function readCollectorLapsByClientId(
         incidents: row.incidents,
         offTrack: row.off_track,
         completedAt: row.completed_at.toISOString(),
-        csv: gunzipSync(row.csv_gzip).toString('utf8'),
+        csv,
       },
     ];
   });
@@ -372,6 +441,12 @@ export async function listLapOwners(viewer: LapViewer): Promise<LapOwner[]> {
 // collector uploads each lap again once it has added them from the .ibt file, and that copy replaces it.
 // Either way the first copy's completion time and expiry stay. Throws LapExpiredError for a lap past its retention
 // period at the user's level, or one the cleanup job already deleted.
+//
+// With TELEMETRY_STORAGE_MODE=r2 the CSV goes to the telemetry store first and the row is written after, so a row
+// never points at an object that isn't there. Before the object is written a 'pending' cleanup entry names it, and
+// the transaction that writes the row removes it: an upload that fails or dies half way leaves an entry the cleanup
+// worker deletes the object for, never an orphan nobody knows about. When the store can't take it, the lap is stored
+// inline instead (the backfill moves it later), so the collector's uploads keep working through a store outage.
 export async function saveCollectorLap(
   userId: number,
   lap: CollectorLap,
@@ -394,81 +469,193 @@ export async function saveCollectorLap(
     [userId, lap.clientLapId, completedAt]
   );
   if (!check || check.expired || check.deleted) throw new LapExpiredError();
-  try {
-    const [row] = await query<{ id: number }>(
-      `INSERT INTO racingcoach."CollectorLaps" (
-         user_id, client_lap_id, track, car, driver, iracing_session_id, iracing_subsession_id, session_num,
-         session_type, lap_number, lap_time_seconds, sample_count, missing_samples, incidents, pit_road,
-         off_track, recorded_at, csv_bytes, csv_gzip, has_position, track_key, conditions, completed_at, expires_at,
-         simulator, native_track_key, payload_version, adapter_version, car_key)
-       SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23,
-              racingcoach.lap_expires_at($23, membership_level), $24, $25, $26, $27, $28
-       FROM racingcoach."Users" WHERE id = $1
-       RETURNING id`,
-      [
-        userId,
-        lap.clientLapId,
-        lap.track,
-        lap.car,
-        lap.driver,
-        lap.sessionId,
-        lap.subSessionId,
-        lap.sessionNum,
-        lap.sessionType,
-        lap.lapNumber,
-        lap.lapTimeSeconds,
-        lap.samples,
-        lap.missingSamples,
-        lap.incidents,
-        lap.pitRoad,
-        lap.offTrack,
-        lap.recordedAt,
-        csvBytes,
-        csvGzip,
-        hasPosition,
-        siteTrackKey,
-        // pg would send a plain object as JSON anyway; stringified so null stays SQL NULL
-        lap.conditions ? JSON.stringify(toLapConditions(lap.conditions)) : null,
-        completedAt,
-        simulator,
-        nativeTrackKey,
-        lap.payloadVersion ?? 1,
-        lap.adapterVersion ?? null,
-        lap.carKey ?? null,
-      ]
-    );
-    // "Tracks" holds iRacing's lengths, locations, bounds and outlines. Another simulator's are its own, even for a
-    // track mapped to one of the site's, as its layout and coordinates needn't match
-    if (simulator === DEFAULT_SIMULATOR) {
-      await saveTrackLength(lap.trackKey ?? null, lap.trackLengthFeet ?? null);
-      await saveTrackLocation(lap.trackKey ?? null, lap.trackLatitude ?? null, lap.trackLongitude ?? null);
+
+  // A retry of a lap already stored, which this copy wouldn't replace, is answered before anything is uploaded
+  const existing = await existingLap(userId, lap.clientLapId);
+  if (existing && !existing.live) throw new LapExpiredError();
+  if (existing && (!hasPosition || existing.hasPosition)) return { id: existing.id, duplicate: true, replaced: false };
+
+  const sha256 = sha256Hex(csvGzip);
+  const object = await storeLapObject(userId, lap, simulator, csvGzip, csvBytes, sha256);
+  const storage = storageValues(object, csvGzip, sha256);
+
+  if (!existing) {
+    try {
+      const id = await transaction(async (client) => {
+        const { rows } = await client.query<{ id: number }>(
+          `INSERT INTO racingcoach."CollectorLaps" (
+             user_id, client_lap_id, track, car, driver, iracing_session_id, iracing_subsession_id, session_num,
+             session_type, lap_number, lap_time_seconds, sample_count, missing_samples, incidents, pit_road,
+             off_track, recorded_at, csv_bytes, csv_gzip, has_position, track_key, conditions, completed_at, expires_at,
+             simulator, native_track_key, payload_version, adapter_version, car_key,
+             storage_provider, storage_status, storage_bucket, storage_key, stored_bytes, checksum_sha256, content_type,
+             compression, stored_at, verified_at)
+           SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23,
+                  racingcoach.lap_expires_at($23, membership_level), $24, $25, $26, $27, $28,
+                  $29, $30, $31, $32, $33, $34, $35, $36, $37, NULL
+           FROM racingcoach."Users" WHERE id = $1
+           RETURNING id`,
+          [
+            userId,
+            lap.clientLapId,
+            lap.track,
+            lap.car,
+            lap.driver,
+            lap.sessionId,
+            lap.subSessionId,
+            lap.sessionNum,
+            lap.sessionType,
+            lap.lapNumber,
+            lap.lapTimeSeconds,
+            lap.samples,
+            lap.missingSamples,
+            lap.incidents,
+            lap.pitRoad,
+            lap.offTrack,
+            lap.recordedAt,
+            csvBytes,
+            storage.csvGzip,
+            hasPosition,
+            siteTrackKey,
+            // pg would send a plain object as JSON anyway; stringified so null stays SQL NULL
+            lap.conditions ? JSON.stringify(toLapConditions(lap.conditions)) : null,
+            completedAt,
+            simulator,
+            nativeTrackKey,
+            lap.payloadVersion ?? 1,
+            lap.adapterVersion ?? null,
+            lap.carKey ?? null,
+            ...storage.params,
+          ]
+        );
+        if (!rows[0]) throw new Error(`No user ${userId} to save a lap for`);
+        await clearPendingEntry(client, object);
+        return rows[0].id;
+      });
+      // "Tracks" holds iRacing's lengths, locations, bounds and outlines. Another simulator's are its own, even for a
+      // track mapped to one of the site's, as its layout and coordinates needn't match
+      if (simulator === DEFAULT_SIMULATOR) {
+        await saveTrackLength(lap.trackKey ?? null, lap.trackLengthFeet ?? null);
+        await saveTrackLocation(lap.trackKey ?? null, lap.trackLatitude ?? null, lap.trackLongitude ?? null);
+      }
+      if (simulator === DEFAULT_SIMULATOR && hasPosition) await saveTrackShapeFromLap(lap.trackKey ?? null, csvGzip, !lap.pitRoad && !lap.offTrack);
+      return { id, duplicate: false, replaced: false };
+    } catch (error) {
+      // Another upload of the same lap got there first; carry on as a retry would
+      if (!isUniqueViolation(error)) throw error;
     }
-    if (simulator === DEFAULT_SIMULATOR && hasPosition) await saveTrackShapeFromLap(lap.trackKey ?? null, csvGzip, !lap.pitRoad && !lap.offTrack);
-    return { id: row.id, duplicate: false, replaced: false };
-  } catch (error) {
-    if (!isUniqueViolation(error)) throw error;
-    if (hasPosition) {
-      // The samples and lap details are the same as the first upload's; only the CSV gains columns
-      const [replaced] = await query<{ id: number }>(
+  }
+
+  if (hasPosition) {
+    // The samples and lap details are the same as the first upload's; only the CSV gains columns. Moving the row to a
+    // new object (or inline) queues its old object for deletion (the collector_laps_object_replaced trigger).
+    const replaced = await transaction(async (client) => {
+      const { rows } = await client.query<{ id: number }>(
         `UPDATE racingcoach."CollectorLaps"
-         SET csv_gzip = $3, csv_bytes = $4, has_position = true, uploaded_at = now()
+         SET csv_gzip = $3, csv_bytes = $4, has_position = true, uploaded_at = now(),
+             storage_provider = $5, storage_status = $6, storage_bucket = $7, storage_key = $8, stored_bytes = $9,
+             checksum_sha256 = $10, content_type = $11, compression = $12, stored_at = $13, verified_at = NULL
          WHERE user_id = $1 AND client_lap_id = $2 AND NOT has_position AND expires_at > now()
          RETURNING id`,
-        [userId, lap.clientLapId, csvGzip, csvBytes]
+        [userId, lap.clientLapId, storage.csvGzip, csvBytes, ...storage.params]
       );
-      if (replaced) {
-        if (simulator === DEFAULT_SIMULATOR) await saveTrackShapeFromLap(lap.trackKey ?? null, csvGzip, !lap.pitRoad && !lap.offTrack);
-        return { id: replaced.id, duplicate: true, replaced: true };
-      }
+      if (rows[0]) await clearPendingEntry(client, object);
+      return rows[0] ?? null;
+    });
+    if (replaced) {
+      if (simulator === DEFAULT_SIMULATOR) await saveTrackShapeFromLap(lap.trackKey ?? null, csvGzip, !lap.pitRoad && !lap.offTrack);
+      return { id: replaced.id, duplicate: true, replaced: true };
     }
-    const [existing] = await query<{ id: number; live: boolean }>(
-      'SELECT id, expires_at > now() AS live FROM racingcoach."CollectorLaps" WHERE user_id = $1 AND client_lap_id = $2',
-      [userId, lap.clientLapId]
-    );
-    // Expired since its first upload (e.g. the level went down) and not deleted yet
-    if (!existing?.live) throw new LapExpiredError();
-    return { id: existing.id, duplicate: true, replaced: false };
   }
+  const stored = await existingLap(userId, lap.clientLapId);
+  // Expired since its first upload (e.g. the level went down) and not deleted yet
+  if (!stored?.live) throw new LapExpiredError();
+  return { id: stored.id, duplicate: true, replaced: false };
+}
+
+async function existingLap(userId: number, clientLapId: string) {
+  const [row] = await query<{ id: number; live: boolean; has_position: boolean }>(
+    'SELECT id, expires_at > now() AS live, has_position FROM racingcoach."CollectorLaps" WHERE user_id = $1 AND client_lap_id = $2',
+    [userId, clientLapId]
+  );
+  return row ? { id: row.id, live: row.live, hasPosition: row.has_position } : null;
+}
+
+let warnedUnconfigured = false;
+
+// Writes the lap's object when new laps go to the telemetry store; null means store it inline
+async function storeLapObject(
+  userId: number,
+  lap: CollectorLap,
+  simulator: string,
+  csvGzip: Buffer,
+  csvBytes: number,
+  sha256: string
+): Promise<StoredLapObject | null> {
+  if (telemetryStorageMode() !== 'r2') return null;
+  const store = telemetryStore();
+  if (!store) {
+    if (!warnedUnconfigured) {
+      warnedUnconfigured = true;
+      console.error('TELEMETRY_STORAGE_MODE is r2 but TELEMETRY_S3_* is not set: storing laps in Postgres');
+    }
+    return null;
+  }
+  const key = lapObjectKey({ simulator, userId, clientLapId: lap.clientLapId, sha256 });
+  await query(
+    `INSERT INTO racingcoach."TelemetryObjectCleanup" (storage_provider, storage_bucket, storage_key, user_id, reason, not_before)
+     VALUES ($1, $2, $3, $4, 'pending', now() + ${PENDING_GRACE_SQL})
+     ON CONFLICT (storage_bucket, storage_key) DO UPDATE
+       SET reason = 'pending', not_before = GREATEST(racingcoach."TelemetryObjectCleanup".not_before, EXCLUDED.not_before)`,
+    [store.provider, store.bucket, key, userId]
+  );
+  try {
+    return await putLapObject(key, csvGzip, { sha256, csvBytes, userId, clientLapId: lap.clientLapId, simulator });
+  } catch (error) {
+    // Structured, and never the lap's contents
+    console.error(
+      JSON.stringify({
+        event: 'telemetry_put_failed',
+        userId,
+        clientLapId: lap.clientLapId,
+        bucket: store.bucket,
+        key,
+        bytes: csvGzip.length,
+        error: error instanceof Error ? error.message : String(error),
+        fallback: 'postgres',
+      })
+    );
+    return null;
+  }
+}
+
+// The storage columns' values, in the order the INSERT and replace UPDATE take them ($29-$37 / $5-$13), and csv_gzip.
+// Inline rows clear any key: a row backfilled while still read inline gets a new CSV here, so its copy would be stale,
+// and clearing the key queues that copy for deletion.
+function storageValues(object: StoredLapObject | null, csvGzip: Buffer, sha256: string) {
+  return {
+    csvGzip: object ? null : csvGzip,
+    params: [
+      object ? STORAGE_PROVIDERS.r2 : STORAGE_PROVIDERS.postgres,
+      object ? STORAGE_STATUS.stored : STORAGE_STATUS.inline,
+      object?.bucket ?? null,
+      object?.key ?? null,
+      csvGzip.length,
+      sha256,
+      LAP_CONTENT_TYPE,
+      LAP_COMPRESSION,
+      object ? new Date() : null,
+    ],
+  };
+}
+
+// The upload's pending cleanup entry goes in the same transaction as the row that now references its object
+async function clearPendingEntry(client: { query: (sql: string, params: unknown[]) => Promise<unknown> }, object: StoredLapObject | null) {
+  if (!object) return;
+  await client.query(
+    `DELETE FROM racingcoach."TelemetryObjectCleanup" WHERE storage_bucket = $1 AND storage_key = $2 AND reason = 'pending'`,
+    [object.bucket, object.key]
+  );
 }
 
 // Gives the lap's track its bounds (trackLocations.ts) from the lap's Lat/Lon, when it has none yet, and its outline
@@ -480,7 +667,7 @@ async function saveTrackShapeFromLap(trackKey: string | null, csvGzip: Buffer, c
     const needsBounds = await trackNeedsBounds(trackKey);
     const needsOutline = clean && (await trackNeedsOutline(trackKey));
     if (!needsBounds && !needsOutline) return;
-    const csv = gunzipSync(csvGzip, { maxOutputLength: MAX_CSV_BYTES }).toString('utf8');
+    const csv = gunzipCsv(csvGzip).toString('utf8');
     if (needsBounds) await saveTrackBounds(trackKey, lapCsvBounds(csv));
     if (needsOutline) await saveTrackOutline(trackKey, lapCsvOutline(csv));
   } catch (error) {
@@ -507,8 +694,12 @@ export function backfillTrackBounds(): Promise<void> {
          ORDER BY lower(l.track_key), (l.pit_road OR l.off_track), l.recorded_at DESC`
       );
       for (const lap of laps) {
-        const [row] = await query<{ csv_gzip: Buffer }>('SELECT csv_gzip FROM racingcoach."CollectorLaps" WHERE id = $1 AND expires_at > now()', [lap.id]);
-        if (row) await saveTrackShapeFromLap(lap.track_key, row.csv_gzip, lap.clean);
+        const [row] = await query<StorageRow>(
+          `SELECT ${STORAGE_COLUMNS} FROM racingcoach."CollectorLaps" l WHERE l.id = $1 AND l.expires_at > now()`,
+          [lap.id]
+        );
+        const gzip = row ? await lapGzip(row) : null;
+        if (gzip) await saveTrackShapeFromLap(lap.track_key, gzip, lap.clean);
       }
     } catch (error) {
       console.error('Backfill track shapes error:', error);

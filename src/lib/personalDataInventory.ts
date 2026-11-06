@@ -40,6 +40,9 @@ export type InventoryCategory = {
 const HOSTING = 'Render (application hosting and the PostgreSQL database, United States)';
 const AI_PROVIDERS =
   'The AI model provider set for the feature in AI Model Control: OpenAI (United States), Anthropic (United States) or DeepSeek (People’s Republic of China), only the measurements and text the feature sends';
+// Lap files moved out of the database (src/lib/telemetryStorage.ts, docs/telemetry-storage.md): a private bucket only
+// the web server can read
+const LAP_FILE_STORAGE = `${HOSTING}; the lap files themselves in Cloudflare R2 object storage (a private bucket only the web server reads)`;
 const SPEECH_PROVIDERS = 'Google Cloud Text-to-Speech, ElevenLabs or OpenAI (speech only, United States)';
 
 const lapPeriods = `Bronze ${RETENTION_DAYS.Bronze} days, Silver ${RETENTION_DAYS.Silver} days, Gold ${RETENTION_DAYS.Gold} days from each lap's completion, never more than ${MAX_RETENTION_DAYS} days (Privacy Policy, Section 8)`;
@@ -84,13 +87,14 @@ export const PERSONAL_DATA_INVENTORY: InventoryCategory[] = [
     title: 'Lap telemetry',
     description:
       'Every lap the RacingCoach collector uploaded: track, car, the driver name iRacing reported, session IDs, lap time, incidents, weather, and the full lap file of 60 samples per second (speed, pedals, steering, gear, tires, fuel, and track position once added).',
-    tables: ['CollectorLaps', 'ExpiredLaps'],
+    // TelemetryObjectCleanup: the queue of a deleted lap's file to delete from object storage (no telemetry)
+    tables: ['CollectorLaps', 'ExpiredLaps', 'TelemetryObjectCleanup'],
     purpose: 'Lap analysis, comparison and coaching.',
     legalBasis: ['contract'],
     source: 'The RacingCoach collector on your computer, reading the simulator.',
-    storage: HOSTING,
+    storage: LAP_FILE_STORAGE,
     retention: lapPeriods,
-    recipients: [HOSTING, AI_PROVIDERS],
+    recipients: [HOSTING, 'Cloudflare (lap files)', AI_PROVIDERS],
     personalData: true,
     access: true,
     portable: true,
@@ -387,6 +391,8 @@ export const NON_PERSONAL_TABLES = [
   'LapRetentionRuns',
   'BroadcastVideoHistory',
   'BroadcastDirectorEvents',
+  'TelemetryStorageCounters',
+  'TelemetryStorageRuns',
 ];
 
 export const LEGAL_BASIS_TEXT: Record<LegalBasis, string> = {

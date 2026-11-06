@@ -79,26 +79,27 @@ public sealed class ChannelGateTests
     {
         var acc = SimulatorCatalog.Shared.Find("acc");
         Assert.NotNull(acc);
-        var gated = ChannelGate.ForLapFile(Full with { YawRadians = 1.2f, AbsActive = true }, acc);
+        var gated = ChannelGate.ForLapFile(Full with { YawRadians = 1.2f, AbsActive = true, OilTempC = 100, FuelUseKgPerHour = 80 }, acc);
         Assert.Null(gated.SteeringWheelAngleRadians); // unavailable: ACC only gives the input
         Assert.Null(gated.FrontLeft.RideHeightMeters); // unavailable
-        // Checked against the Spa recording (docs/multi-simulator.md)
+        Assert.Null(gated.OilTempC); // unavailable
+        Assert.Null(gated.FuelUseKgPerHour); // unavailable: fuelXLap isn't a rate
+        // Checked against the two Spa recordings (docs/multi-simulator.md)
         Assert.Equal(41.7f, gated.SpeedMps);
         Assert.Equal(0.1f, gated.Brake);
         Assert.Equal(186, gated.FrontLeft.PressureKpa);
-        // Still only documented: yaw's zero, fuel's unit, ABS and the weather aren't confirmed yet
-        Assert.Null(gated.YawRadians);
-        Assert.Null(gated.FuelLiters);
-        Assert.Null(gated.AbsActive);
-        Assert.Null(gated.AirTempC);
+        Assert.Equal(1.2f, gated.YawRadians);
+        Assert.Equal(50, gated.FuelLiters);
+        Assert.True(gated.AbsActive);
+        Assert.Equal(22, gated.AirTempC);
         // Every value written is one the matrix says ACC's adapter collects
         var row = LapCsvFormat.Row(gated, null).Split(',');
         var header = LapCsvFormat.Header.Split(',');
         var allowed = new[]
         {
             "LapDistPct", "Lap", "SessionTime", "SessionTick", // the lap's structure
-            "Speed", "Brake", "Throttle", "RPM", "Gear", "Clutch", "LatAccel", "LongAccel", "VertAccel", "YawRate",
-            "VelocityX", "VelocityY", "WaterTemp", "LFpressure", "RFpressure", "LRpressure", "RRpressure",
+            "Speed", "Brake", "Throttle", "RPM", "Gear", "Clutch", "ABSActive", "LatAccel", "LongAccel", "VertAccel", "Yaw",
+            "YawRate", "VelocityX", "VelocityY", "FuelLevel", "WaterTemp", "LFpressure", "RFpressure", "LRpressure", "RRpressure",
         };
         Assert.All(header.Select((name, i) => (name, value: row[i])).Where(c => c.value != "" && c.name != "FuelKgPerLtr"),
             c => Assert.Contains(c.name, allowed));

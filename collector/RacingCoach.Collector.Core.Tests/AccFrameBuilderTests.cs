@@ -80,29 +80,38 @@ internal sealed class AccDrive
     public IEnumerable<(double Seconds, byte[] Physics, byte[] Graphics)> Reads(double seconds, int? invalidLap = null, int sessionIndex = 0)
     {
         var completed = 0;
+        var lines = 0;
+        var lineAt = -0.9 * LapSeconds;
         var lapStarted = 0.0;
         var lapMs = (int)(LapSeconds * 1000);
         float? prevPct = null;
+        var crossedLastRead = false;
         for (var i = 0; i < seconds * Hz; i++)
         {
             var t = i / (double)Hz;
             var pct = (float)((0.9 + t / LapSeconds) % 1.0);
-            var crossedLastRead = prevPct is > 0.9f && pct < 0.1f;
+            var crossedNow = prevPct is > 0.9f && pct < 0.1f;
             prevPct = pct;
+            // At the line ACC restarts iCurrentTime and isValidLap at once, a read before it counts the lap
+            if (crossedNow)
+            {
+                lines++;
+                lineAt = t;
+            }
             var physics = new AccPage(AccDocumentedLayout.Physics)
                 .Int("packetId", i + 1).Float("gas", 0.8f).Float("brake", 0.1f).Int("gear", 4).Int("rpm", 7000)
-                .Float("steerAngle", 0.25f).Float("speedKmh", 150).Float("waterTemp", 85).Float("airTemp", 21).Float("roadTemp", 30)
+                .Float("steerAngle", 0.25f).Float("speedKmh", 150).Float("waterTemp", 85).Float("fuel", 62).Float("airTemp", 21).Float("roadTemp", 30)
                 // Engaged (ACC's clutch is engagement, like iRacing's); turning gently right: heading growing, yaw
                 // rate negative, pulled right; vertical without gravity, as ACC gives it
                 .Float("clutch", 1).Float("abs", 0).Float("heading", 0.5f)
                 .Float("localAngularVel", -0.2f, 1).Float("accG", -0.8f, 0).Float("accG", 0.1f, 1).Float("accG", -0.3f, 2);
             for (var w = 0; w < 4; w++)
                 physics.Float("wheelPressure", 27, w);
-            var lapNumber = completed + 1;
             var graphics = new AccPage(AccDocumentedLayout.Graphics)
                 .Int("packetId", i + 1).Int("status", (int)AccStatus.Live).Int("session", (int)AccSessionType.Practice)
                 .Int("sessionIndex", sessionIndex).Float("normalizedCarPosition", pct)
-                .Int("isValidLap", lapNumber - 1 == invalidLap ? 0 : 1)
+                .Int("iCurrentTime", (int)((t - lineAt) * 1000))
+                .Int("isValidLap", lines == invalidLap ? 0 : 1)
                 .Float("windSpeed", 3).Float("windDirection", 1);
             // Counted one read after the line
             if (crossedLastRead && t - lapStarted > 1)
@@ -110,6 +119,7 @@ internal sealed class AccDrive
                 completed++;
                 lapStarted = t;
             }
+            crossedLastRead = crossedNow;
             graphics.Int("completedLaps", completed).Int("iLastTime", completed > 0 ? lapMs : 0);
             yield return (t, physics.Bytes, graphics.Bytes);
         }
@@ -137,7 +147,7 @@ public sealed class AccFrameBuilderTests
         Assert.Equal(27 * 6.894757f, frame.FrontLeft.PressureKpa!.Value, 3);
         Assert.Null(frame.FrontLeft.CarcassTempMiddleC); // only a core temperature, which isn't a carcass one
         Assert.Null(frame.FrontLeft.RideHeightMeters);
-        Assert.Null(frame.FuelLiters); // kg, with no density
+        Assert.Equal(62, frame.FuelLiters); // liters, whatever the document says
         Assert.Null(frame.OffTrack);
         Assert.Null(frame.IncidentCount);
         Assert.Null(frame.Tick);
@@ -154,7 +164,8 @@ public sealed class AccFrameBuilderTests
         Assert.Equal(0, frame.SessionNumber);
         Assert.Equal(0.9f, frame.LapDistancePct!.Value, 4);
         Assert.Equal(85, frame.WaterTempC);
-        Assert.Equal(3, frame.WindSpeedMps);
+        Assert.Null(frame.WindSpeedMps); // read 0 in both Spa sessions: not confirmed
+        Assert.Equal(21, frame.AirTempC);
     }
 
     [Fact]

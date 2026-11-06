@@ -63,8 +63,8 @@ test('a channel only shows where it has really been collected', () => {
   assert.equal(channelAvailable('iracing', 'geoPosition'), true);
   assert.equal(channelAvailable('iracing', 'wheelSpeed'), false);
   assert.equal(channelAvailable('acc', 'brake'), true); // checked against the Spa recording
-  assert.equal(channelAvailable('acc', 'yaw'), false); // documented: its zero isn't known yet
-  assert.equal(channelAvailable('acc', 'fuelLevel'), false); // documented: kg or liters not confirmed
+  assert.equal(channelAvailable('acc', 'fuelLevel'), true); // liters, from the second Spa recording
+  assert.equal(channelAvailable('acc', 'slipRatio'), false); // documented: what it holds isn't confirmed
   assert.equal(channelAvailable('acc', 'steeringAngle'), false);
   assert.equal(findSimulator('acc').channels.rideHeightAxle.support, 'unavailable');
   assert.equal(channelAvailable('nonsense', 'brake'), false);

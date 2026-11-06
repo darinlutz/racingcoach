@@ -8,7 +8,7 @@ How the collector and website are set up to support simulators other than iRacin
 | --- | --- |
 | iRacing | Same as before. Lap files are byte-identical on the regression fixtures; uploads only gain fields the site ignores or defaults |
 | Adapter contracts, canonical frames, lap tracking, detection | Built and tested with synthetic telemetry |
-| Other simulators' laps through the shared pipeline | Built and tested with a scripted test adapter, and with a real ACC recording at Spa (2026-11-05): ACC's adapter, behind `--simulator acc`, has 18 channels checked in the game and marked collected, the rest still documented |
+| Other simulators' laps through the shared pipeline | Built and tested with a scripted test adapter, and with a real ACC recording at Spa (2026-11-05): ACC's adapter, behind `--simulator acc`, has 23 channels checked in two Spa recordings and marked collected, the rest still documented |
 | Website | Stores which simulator a lap is from, and maps other simulators' ids. **Refuses laps from any simulator but iRacing** until its status in `simulators/capabilities.json` is `supported` |
 | In-Car AI Coach, overlays, brake beeps, Rotation Model, Live Racing, Driver Radio, race results | **Still read iRacing's `TelemetryData`.** Another simulator gets lap recording and upload only until these are moved to frames, one at a time, and checked |
 | Lap Compare's "Not Available" display | **Not wired up.** `channelAvailable` in `src/lib/simulators.ts` says what to show; see the [checklist](#adding-a-simulator) |
@@ -119,13 +119,13 @@ The frame holds what the lap CSV holds. The other channels the request listed (p
 | Channel | iRacing | ACC | Note on ACC |
 | --- | --- | --- | --- |
 | Speed, pedals, clutch, RPM, gear | collected | collected | km/h; gears 0 reverse, 1 neutral, 2 first; clutch is engagement despite the document calling it a pedal |
-| Steering angle | collected | **no** | `steerAngle` is -1 to 1 input, not an angle |
+| Steering angle | collected | **no** | `steerAngle` is -1 to 1 input, not an angle; full lock read ±0.752, a share of the driver's wheel range, so no angle can be made from it |
 | Steering input | **no** | collected | + right in ACC, negated to + left. No CSV column carries it yet |
 | Lap fraction | collected | collected | |
 | Lap distance, track length | collected | **no** | `trackSplineLength` not used. Brakepoints in feet need another source |
 | Accelerations | collected | collected | The car's own g despite "global coordinates"; vertical without gravity, so 1 g is added |
 | Yaw rate, local velocity | collected | collected | y up, x left, z forward |
-| Yaw | collected | documented | `heading` turns the other way to iRacing's Yaw (negated); its zero isn't known |
+| Yaw | collected | collected | `heading` turns the other way to iRacing's Yaw (negated); 0 is ACC's world +z, and the website finds Yaw's zero from each lap's positions anyway |
 | Pitch, roll | documented | documented | |
 | GPS position | after stint | **no** | World coordinates only, so no satellite maps |
 | Tire pressure | after stint | collected | psi |
@@ -137,10 +137,12 @@ The frame holds what the lap CSV holds. The other channels the request listed (p
 | Ride height | after stint | **no** | `rideHeight[2]` marked not used |
 | Water temperature | collected | collected | |
 | Oil temperature, pressure | collected, documented | **no** | Not in the document |
-| Fuel level | collected | documented | Document says kg, community readers say liters; it didn't change in the Spa recording |
+| Fuel level | collected | collected | Liters, though the document says kg: it matches `fuelXLap` and the Huracán's 120 L tank. ACC burned none in either Spa session |
+| ABS active | collected | collected | `abs`, only 0 or 1 |
+| Air and track temperature | collected | collected | °C. Wind read 0 throughout, so it's left out |
 | Lap time, pit lane | collected | collected | |
 | Sector times | **no** | documented | |
-| Lap validity | ? | documented | `isValidLap` |
+| Lap validity | ? | collected | `isValidLap`, latched from the line: ACC resets it there, sometimes a read before it counts the lap |
 | Incidents | collected | **no** | `numberOfTyresOut` also not used, so no off-track flag from it |
 | Other cars | collected | documented | Positions and ids only |
 
@@ -200,7 +202,7 @@ Run on 2026-11-01 on Windows, with no simulator. See `collector/RacingCoach.Coll
 
 - **`--simulator auto` against iRacing.** The live check used the default path, so `Probe` has only been tested against a stand-in for iRacing's shared memory.
 - **Performance while driving.** The tracker handles an hour of 60 Hz frames much faster than real time and the pump stays bounded under a stalled consumer, but CPU and memory beside a running simulator weren't measured. iRacing's path gains no per-sample work.
-- **ACC, beyond the channels the Spa recording checked**, and any other simulator. No other adapter exists, and every "documented" entry is still a reading of documentation. ACC's laps haven't been through the website (it refuses them until ACC is supported), and its yaw zero, fuel unit, ABS, weather, full right lock, a pit stop and online sessions are unchecked.
+- **ACC, beyond the channels the Spa recording checked**, and any other simulator. No other adapter exists, and every "documented" entry is still a reading of documentation. ACC's laps haven't been through the website (it refuses them until ACC is supported), and fuel being burned, wind, rain and online sessions are unchecked.
 
 Not changed, and worth knowing: `LapWriter`'s and `LapUploader`'s queues are unbounded, as they always were. Writes are quick and upload items are small, as the telemetry is on disk, so memory only grows if the disk stalls. Bounding them could lose laps or block telemetry, so that's a decision to make with evidence. `FramePump` bounds the new path. Lap uploads aren't batched, by design.
 
@@ -226,9 +228,9 @@ Check first: `accG`'s frame, `steerAngle`'s sign, gear numbering, `wheelPressure
 
 **Adapter (written 2026-11-05, without the game; not yet run against ACC):**
 
-- `AccFrameBuilder.cs` (Core) turns the pages into frames and the session. ACC has no session clock or matching sample counter in its pages, so frames are timed by the reader's own clock and `Tick` stays null (gaps are found by time). A frame whose physics `packetId` hasn't changed is skipped, so a pause or a repeated read isn't counted as a sample. Laps end on ACC's own events: `completedLaps` going up, with `iLastTime` as the lap time and the previous read's `isValidLap` (`AccFrameBuilder.LapTrackerOptions`, picked up by `CanonicalLapPipeline` through `IHasLapTrackerOptions`). `LapNumber` is `completedLaps + 1`, like iRacing's `Lap`; `sessionIndex` is the session number.
+- `AccFrameBuilder.cs` (Core) turns the pages into frames and the session. ACC has no session clock or matching sample counter in its pages, so frames are timed by the reader's own clock and `Tick` stays null (gaps are found by time). A frame whose physics `packetId` hasn't changed is skipped, so a pause or a repeated read isn't counted as a sample. Laps end on ACC's own events: `completedLaps` going up, with `iLastTime` as the lap time and whether `isValidLap` was false at any read since the line (`AccFrameBuilder.LapTrackerOptions`, picked up by `CanonicalLapPipeline` through `IHasLapTrackerOptions`). `LapNumber` is `completedLaps + 1`, like iRacing's `Lap`; `sessionIndex` is the session number.
 - Every unit, sign and axis the PDF leaves open is a named constant in `AccConventions`, with what it assumes: gear numbering (0 reverse, 1 neutral, 2 first), `steerAngle`'s direction, `localVelocity`/`localAngularVel`/`accG` axes and signs, `heading`, `wheelPressure` in psi, `clutch` as the pedal. Correct a convention there after the Spa recording, never in the builder.
-- Left out on purpose: the steering angle (ACC gives only the input; an angle from Appendix 5's lock would be an estimate), fuel in liters (ACC's is kg, with no density), tire carcass temperatures (ACC has a core temperature only), off track and incidents (`numberOfTyresOut` is marked not used), track length (`trackSplineLength` is marked not used).
+- Left out on purpose: the steering angle (ACC gives only the input, a share of the driver's wheel range), wind (0 in both Spa sessions), tire carcass temperatures (ACC has a core temperature only), off track and incidents (`numberOfTyresOut` is marked not used), track length (`trackSplineLength` is marked not used).
 - `AccAdapter.cs` (collector) opens the three maps while `AC2-Win64-Shipping.exe` runs, reads them 60 times a second (with the Windows timer at 1 ms, so the samples are even), copies a page again if its `packetId` changed mid-copy, re-reads the static page and checks the process each second, and warns once when `smVersion` isn't 1.8. It's in the registry only when `--simulator acc` names it, never for `auto`, as it isn't supported yet.
 - `ChannelGate.cs` (Core): a lap file only gets the channels the matrix marks `collected` (or `collectedAfterStint`) for its simulator; the rest are empty cells, which the website shows as no data. So ACC's laps carry only their structure (LapDistPct, Lap, SessionTime) until each channel is checked and marked collected. iRacing's laps pass through unchanged.
 - `--record-raw` saves every page read to `Documents\RacingCoach\Raw\acc-<time>.accraw.gz` (`AccRawRecording.cs`: the static page when it changes, physics and graphics on every read, each with the reader's seconds). `AccRecordingImporter` plays one back through the same builder, which is how a recording becomes a test fixture.
@@ -244,7 +246,22 @@ Check first: `accG`'s frame, `steerAngle`'s sign, gear numbering, `wheelPressure
 - **Changed:** accG's vertical has no gravity (0.02 g on average on the move), so 1 g is added (`VerticalIncludesGravity`); `heading` grows turning right (its rate is exactly minus the yaw rate), so it's negated (`YawSign`); `clutch` is engagement, 1.00 throughout driving, not the pedal (`ClutchIsPedal`)
 - Tire pressure 26-27 hot, so psi; lap times match the time between ACC's line crossings
 
-Its one valid lap, with 3 s either side, is `collector/RacingCoach.Collector.Core.Tests/Fixtures/acc-spa-huracan-gt3-evo-lap.accraw.gz` (4.4 MB), replayed by `AccSpaRecordingTests`. Still to record: a session with fuel being used (kg or liters), a pit stop, full right lock standing still, and a lap cut on purpose.
+Its one valid lap, with 3 s either side, is `collector/RacingCoach.Collector.Core.Tests/Fixtures/acc-spa-huracan-gt3-evo-lap.accraw.gz` (4.4 MB), replayed by `AccSpaRecordingTests`.
+
+**Second Spa recording (2026-11-05, 18:36):** 19 minutes, the same car and version: an out lap from the garage, five counted laps (2:31.192, 2:30.325, 2:45.130 with a trip off the track on purpose and the pit lane at its end, 2:58.242 through a pit stop, 2:30.470), a pause, and the wheel turned at low speed. Checked against it:
+
+- **Bug fixed:** ACC resets `isValidLap` at the line (with `iCurrentTime`), and at 881.12 s and 1159.38 s that was a read before `completedLaps` went up, so the lap off the track was reported valid. `AccFrameBuilder` now latches a lap's validity from the line. The first recording's laps happened to be counted on the same read
+- **Bug fixed:** when ACC counts a lap a read after the line, `FrameLapTracker` (which starts recording at the line) took that late event of the lap before as the end of a two-frame lap. A native event less than `MinLapSeconds` into the lap being recorded is now ignored
+- The out lap from the garage crosses the line without a lap being counted; the tracker starts at that crossing, so the next lap is saved whole
+- Fuel: 62 all session, `usedFuel` 0, so ACC burned none (likely a session setting). It's liters, whatever the document says: `fuelEstimatedLaps` 14.6 is exactly `fuel` 62 / `fuelXLap` 4.24, which the document gives in liters, and `maxFuel` 120 is the Huracán's 120 L tank. `FuelLiters` is now `fuel`, and `fuelLevel` collected
+- Pit stop: `isInPitLane` from the pit entry (0.984 of the lap) to the exit (0.139), and from the garage to the exit; `isInPit` in the box for 34 s. The lap ending in the pit lane is an in lap
+- `heading` is atan2(-x, z) of the world `velocity` to within 0.05 rad, so 0 is ACC's world +z. That's not north, but the website finds Yaw's zero from each lap's positions, so `yaw` is collected
+- `abs` is only 0 or 1, in bursts under braking (into trail braking too), so `absActive` is collected
+- Air 27.4 °C and road 28.8 °C, plausible, so `weather` is collected; `windSpeed` and `windDirection` read 0 in both sessions, so the builder leaves them null
+- Steering: full lock read ±0.752 both ways at low speed, never ±1, so `steerAngle` is a share of the driver's wheel range, not the car's lock: an angle from `AccCars`' lock would be wrong. Standing still it reached only 0.44
+- The in lap's frames span 0.6 s less than ACC's 2:45.130; the flying laps' match
+
+The off-track lap, with 3 s either side, is `Fixtures/acc-spa-huracan-gt3-evo-off-track-pit-entry.accraw.gz` (4.8 MB), replayed by `AccSpaOffTrackRecordingTests`. Still to record: a session that burns fuel, wind, rain, and an online session.
 
 ## Importing telemetry files
 

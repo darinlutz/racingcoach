@@ -198,8 +198,8 @@ public sealed class AdapterContractTests
         Assert.All(catalog.Channels, channel => Assert.True(catalog.Find("acc")!.Channels.ContainsKey(channel), channel));
     }
 
-    [Theory] // What ACC Shared Memory v1.8.12 says, including what it marks as not used, and what the Spa recording
-             // of 2026-11-05 confirmed (docs/multi-simulator.md)
+    [Theory] // What ACC Shared Memory v1.8.12 says, including what it marks as not used, and what the two Spa
+             // recordings of 2026-11-05 confirmed (docs/multi-simulator.md)
     [InlineData("steeringAngle", "Unavailable")]
     [InlineData("rideHeightAxle", "Unavailable")]
     [InlineData("tireSurfaceTemp", "Unavailable")]
@@ -209,8 +209,10 @@ public sealed class AdapterContractTests
     [InlineData("trackLength", "Unavailable")]
     [InlineData("speed", "Collected")]
     [InlineData("clutch", "Collected")]
-    [InlineData("yaw", "Documented")]
-    [InlineData("fuelLevel", "Documented")]
+    [InlineData("yaw", "Collected")]
+    [InlineData("fuelLevel", "Collected")]
+    [InlineData("lapValid", "Collected")]
+    [InlineData("slipRatio", "Documented")]
     [InlineData("tireCoreTemp", "Documented")]
     public void ACC_channels_stay_as_its_documentation_says(string channel, string support) =>
         Assert.Equal(support, SimulatorCatalog.Shared.Find("acc")!.Support(channel).ToString());
@@ -470,10 +472,9 @@ public sealed class PipelineTests
         Assert.Equal(LapCsvFormat.Header, lines[0]);
         foreach (var missing in new[] { "SteeringWheelAngle", "LFrideHeight", "RRpressure", "LFtempCM", "Lat", "OilTemp", "SessionTick" })
             Assert.Equal("", row[Array.IndexOf(header, missing)]);
-        // ACC's speed was checked in the game, so it reaches the lap file; its yaw is still only documented, so it
-        // doesn't (ChannelGate); the lap's structure always does
+        // ACC's speed was checked in the game, so it reaches the lap file (ChannelGate keeps out what wasn't); the
+        // lap's structure always does
         Assert.NotEqual("", row[Array.IndexOf(header, "Speed")]);
-        Assert.Equal("", row[Array.IndexOf(header, "Yaw")]);
         Assert.NotEqual("", row[Array.IndexOf(header, "LapDistPct")]);
     }
 

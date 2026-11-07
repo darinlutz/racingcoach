@@ -31,6 +31,7 @@ import {
 import { ROLES } from './roles';
 import { getShowPricing } from './siteSettings';
 import { ensureUserSchema, type User } from './users';
+import { assertMeteredServicesOn, meteredServicesOn } from './meteredServices';
 
 export * from './rateLimitConfig';
 
@@ -283,10 +284,22 @@ export type AiRateLimit = {
 
 const noRefund = async () => {};
 
+// The 503 a call gets while paid services are stopped, or when its limit couldn't be checked
+async function unavailable(user: User | null, reason: 'servicesStopped' | 'unavailable'): Promise<AiRateLimit> {
+  const language = await getLanguage(user).catch(() => 'en' as Language);
+  const error = getDictionary(language).rateLimit[reason];
+  return {
+    response: NextResponse.json({ error, unavailable: reason }, { status: 503, headers: { 'Retry-After': '60' } }),
+    refund: noRefund,
+    track: <T>(work: () => Promise<T>) => withAiUsage(null, aiModelCategoryOf(user), work),
+  };
+}
+
 // The gate before every AI call: logs it, and refuses it while limits are on and the caller has used theirs up.
 // user is the signed-in (or collector or Discord) user, null for a visitor; request is null where the caller's
-// IP address means nothing (the Discord bot calls from its own server). A failure here never costs the user the
-// AI call: it's logged and the call goes ahead. units multiplies the feature's weight: a Race Announcer call counts
+// IP address means nothing (the Discord bot calls from its own server). While the Admin page's emergency stop is on
+// (src/lib/meteredServices.ts) every call is refused with a 503. A failure here refuses the call too (503), as a
+// limiter that can't count would otherwise let every call through while the database is in trouble. units multiplies the feature's weight: a Race Announcer call counts
 // once per line it asks for. A live feature (LIVE_FEATURES) counts against the live limit instead of the level's.
 export async function aiRateLimit(
   request: Request | null,
@@ -299,6 +312,10 @@ export async function aiRateLimit(
   const category = aiModelCategoryOf(user);
   const untracked = <T>(work: () => Promise<T>) => withAiUsage(null, category, work);
   let decision: { id: number; refusal: Refusal | null; tier: LimitTier; settings: RateLimitSettings };
+  if (!(await meteredServicesOn())) {
+    console.log(`AI call ${feature} refused: paid services are stopped (Admin > Site Settings)`);
+    return unavailable(user, 'servicesStopped');
+  }
   try {
     const settings = await getRateLimitSettings();
     const tier: LimitTier = user ? tierOf(user.membershipLevel) : 'Anonymous';
@@ -317,8 +334,8 @@ export async function aiRateLimit(
     });
     pruneOldUsage();
   } catch (error) {
-    console.error(`AI rate limit check failed for ${feature}; allowing the call:`, error);
-    return { response: null, refund: noRefund, track: untracked };
+    console.error(`AI rate limit check failed for ${feature}; refusing the call:`, error);
+    return unavailable(user, 'unavailable');
   }
 
   if (!decision.refusal) {
@@ -327,7 +344,12 @@ export async function aiRateLimit(
       response: null,
       refund: async () => {
         try {
-          await query('UPDATE racingcoach."AiUsage" SET counted = false, failed = true WHERE id = $1', [id]);
+          // Only a call that never reached a model is given back: one whose model calls were paid for still counts,
+          // so failing answers (e.g. after the track positions check) can't be retried for free
+          await query(
+            `UPDATE racingcoach."AiUsage" SET failed = true, counted = counted AND COALESCE(model_calls, 0) > 0 WHERE id = $1`,
+            [id]
+          );
         } catch (error) {
           console.error('Failed to refund an AI call:', error);
         }
@@ -357,6 +379,7 @@ export async function aiRateLimit(
 // counted false, so the usage report shows their tokens and models but they never count against anyone, and run
 // with the Admin category's models (SYSTEM_AI_MODEL_CATEGORY). A failure to log never stops the call.
 export async function siteAiCall<T>(feature: SiteAiFeature, work: () => Promise<T>): Promise<T> {
+  await assertMeteredServicesOn();
   let id: number | null = null;
   try {
     await ensureUserSchema();

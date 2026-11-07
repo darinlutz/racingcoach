@@ -8,6 +8,7 @@
 // eleven_multilingual_v2, without it). The API key is ELEVENLABS_API_KEY, or ELEVEN_LABS_API_KEY.
 
 import type { Language } from './i18n/languages';
+import { assertMeteredServicesOn } from './meteredServices';
 
 const API_URL = 'https://api.elevenlabs.io/v1/text-to-speech';
 const DEFAULT_MODEL = 'eleven_multilingual_v2';
@@ -118,6 +119,7 @@ export async function elevenLabsSpeech(
   format: keyof typeof OUTPUT_FORMATS = 'mp3',
   intensity: number | null = null
 ): Promise<Buffer> {
+  await assertMeteredServicesOn();
   const key = apiKey();
   if (!key) throw new Error('ELEVENLABS_API_KEY must be set');
   const model = process.env.ELEVENLABS_MODEL_ID || DEFAULT_MODEL;

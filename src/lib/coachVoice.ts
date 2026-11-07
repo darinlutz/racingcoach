@@ -2,6 +2,7 @@ import { query } from './db';
 import { elevenLabsConfigured, elevenLabsSpeech, elevenLabsVoiceId, type ElevenLabsRole } from './elevenLabs';
 import { AI_LANGUAGE_NAMES, DEFAULT_LANGUAGE, type Language } from './i18n/languages';
 import { ensureUserSchema } from './users';
+import { assertMeteredServicesOn } from './meteredServices';
 
 // The In-Car AI Coach's voice: Google Cloud Text-to-Speech's Chirp 3 HD voices, in the voice the driver picks on the
 // Account page ("Users".coach_voice), spoken by a native voice of their Preferred Language (en-US, pt-BR, de-DE, and es-US or
@@ -248,6 +249,7 @@ export async function synthesizeSpeech(
   // OpenAI deliver it more or less excitedly; Chirp has no such control, so only the words carry it
   intensity: number | null = null
 ): Promise<Buffer> {
+  await assertMeteredServicesOn();
   // Units after time gaps, which leave "+1.5 ft" alone by its "ft"
   const input = spokenUnits(spokenTimeGaps(spokenTurnNames(text, language), language), language);
   if (voice === ELEVENLABS_COACH_VOICE) {

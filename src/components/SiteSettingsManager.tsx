@@ -4,9 +4,10 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useLanguage } from '@/components/LanguageProvider';
 
-type SettingKey = 'showPricing' | 'showProDriverLesson' | 'enableAiFeatures';
+type SettingKey = 'showPricing' | 'showProDriverLesson' | 'enableAiFeatures' | 'meteredServices';
 
-// The Admin page's Site Settings section: the Show Pricing, Show Pro Driver Lesson and Enable AI Features switches, saved for
+// The Admin page's Site Settings section: the Show Pricing, Show Pro Driver Lesson and Enable AI Features switches and the
+// paid services' emergency stop (src/lib/meteredServices.ts), saved for
 // everyone (PUT /api/admin/settings) as soon as they're flipped.
 export default function SiteSettingsManager(initial: Record<SettingKey, boolean>) {
   const { t } = useLanguage();
@@ -16,6 +17,7 @@ export default function SiteSettingsManager(initial: Record<SettingKey, boolean>
     showPricing: initial.showPricing,
     showProDriverLesson: initial.showProDriverLesson,
     enableAiFeatures: initial.enableAiFeatures,
+    meteredServices: initial.meteredServices,
   });
   const [saving, setSaving] = useState<SettingKey | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -52,6 +54,7 @@ export default function SiteSettingsManager(initial: Record<SettingKey, boolean>
     { key: 'showPricing', id: 'show-pricing', label: a.showPricing, hint: a.showPricingHint },
     { key: 'showProDriverLesson', id: 'show-pro-driver-lesson', label: a.showProDriverLesson, hint: a.showProDriverLessonHint },
     { key: 'enableAiFeatures', id: 'enable-ai-features', label: a.enableAiFeatures, hint: a.enableAiFeaturesHint },
+    { key: 'meteredServices', id: 'metered-services', label: a.meteredServices, hint: a.meteredServicesHint },
   ];
 
   return (

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { MAX_TILE_ZOOM, satelliteTileUrl } from '@/lib/mapTiles';
 import { cachedTile, cacheTile, returnTileFetch, takeTileFetch } from '@/lib/mapTileBudget';
+import { meteredServicesOn } from '@/lib/meteredServices';
 import { getCurrentUser } from '@/lib/session';
 import { getTvSession } from '@/lib/tvAuth';
 import { authenticateCollectorCached } from '@/lib/collectorKeys';
@@ -44,6 +45,10 @@ export async function GET(
     const cached = cachedTile(key);
     if (cached) return new Response(cached.body, { headers: headers(cached.contentType) });
 
+    // Cached tiles cost nothing; fetching one is refused while paid services are stopped (src/lib/meteredServices.ts)
+    if (!(await meteredServicesOn())) {
+      return NextResponse.json({ error: 'Satellite imagery is paused' }, { status: 503, headers: { 'Retry-After': '300' } });
+    }
     // The provider bills per tile: only so many fetches a day per user and for the site (src/lib/mapTileBudget.ts)
     const budget = takeTileFetch(user);
     if (budget !== 'ok') {

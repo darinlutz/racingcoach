@@ -2362,6 +2362,8 @@ export const de: Dictionary = {
     showProDriverLessonHint: 'Zeigt für alle den Link 1:1-Stunde mit Profifahrer in der Navigationsleiste.',
     enableAiFeatures: 'KI-Funktionen aktivieren',
     enableAiFeaturesHint: 'Wenn deaktiviert, lautet der Slogan des Logos für alle DEIN PERSÖNLICHER RENNINGENIEUR statt DEIN KI-RENNINGENIEUR, die Startseite spricht vom persönlichen Renningenieur und blendet KI-gestütztes Coaching aus, der In-Car-KI-Coach wird ausgeschaltet (die Kontoseite blendet Anweisungen für meinen In-Car-KI-Coach aus) und Autos & Strecken blendet die Rennwagenanalyse aus.',
+    meteredServices: 'Kostenpflichtige KI-, Sprach- und Kartendienste',
+    meteredServicesHint: 'Notaus: Wenn deaktiviert, wird jeder KI-Modellaufruf, jede Sprachausgabe, Spracherkennung und jede Satellitenkachel vom Anbieter sofort für alle abgelehnt (Nutzer sehen, dass die KI pausiert ist), ohne neues Deployment. Normalerweise aktiviert lassen.',
     rolesTitle: 'Benutzerrollen',
     rolesIntro: 'Suche einen Benutzer, wähle seine Rolle und Mitgliedschaftsstufe aus und speichere.',
     findUser: 'Benutzer suchen',
@@ -2794,6 +2796,8 @@ export const de: Dictionary = {
   },
 
   rateLimit: {
+    servicesStopped: 'KI-Funktionen sind wegen Wartung pausiert. Bitte versuche es später erneut.',
+    unavailable: 'KI-Funktionen sind kurz nicht verfügbar. Bitte versuche es in einer Minute erneut.',
     title: 'KI-Limit erreicht',
     titleBurst: 'Etwas langsamer, bitte',
     titleBlocked: 'KI-Coaching nicht verfügbar',

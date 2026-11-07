@@ -5,6 +5,7 @@
 import { before, beforeEach, describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { register } from 'node:module';
+import { readFileSync } from 'node:fs';
 
 register(new URL('./ts-resolve-hooks.mjs', import.meta.url));
 const src = new URL('../src/lib/', import.meta.url);
@@ -140,5 +141,65 @@ describe('Stripe subscription projection (F-02)', () => {
     const db = await import(new URL('lapRetentionDb.ts', src).href);
     assert.match(db.END_LAPSED_MEMBERSHIPS_SQL, /make_interval\(hours => 72\)/);
     assert.match(db.END_LAPSED_MEMBERSHIPS_SQL, /'Canceled'.*subscription_end_date < \$1/s);
+  });
+});
+
+describe('model call limits and the emergency stop (F-07, F-08, F-12, F-25, F-26)', () => {
+  let limits, models, config;
+  const source = (file) => readFileSync(new URL(file, src), 'utf8');
+  before(async () => {
+    limits = await import(new URL('aiCallLimits.ts', src).href);
+    models = await import(new URL('aiModelList.ts', src).href);
+    config = await import(new URL('rateLimitConfig.ts', src).href);
+  });
+
+  test('every AI feature has an output cap, a timeout and few retries', () => {
+    for (const feature of models.AI_FEATURE_VALUES) {
+      const limit = limits.AI_CALL_LIMITS[feature];
+      assert.ok(limit, `${feature} has no limits`);
+      assert.ok(limit.maxOutputTokens > 0 && limit.maxOutputTokens <= 10_000, feature);
+      assert.ok(limit.timeoutMs > 0 && limit.timeoutMs <= 90_000, feature);
+      assert.ok(limit.maxRetries <= 1, feature);
+    }
+    for (const live of ['raceAnnouncer', 'raceEngineer', 'setupEngineer', 'inCarCoachCallouts']) {
+      assert.equal(limits.AI_CALL_LIMITS[live].maxRetries, 0, `${live} is live: no retry`);
+    }
+  });
+
+  test('chatModel passes the limits to every provider', () => {
+    const code = source('aiModels.ts');
+    const body = code.slice(code.indexOf('export async function chatModel('));
+    assert.match(body, /assertMeteredServicesOn\(\)/);
+    assert.equal((body.match(/maxRetries/g) ?? []).length >= 4, true, 'Claude, DeepSeek, reasoning and plain OpenAI');
+    assert.match(body, /new ChatOpenAI\(\{[^}]*maxTokens: maxOutputTokens[^}]*timeout/);
+  });
+
+  test('every paid call checks the emergency stop itself', () => {
+    const fn = (file, name) => {
+      const code = source(file);
+      const at = code.search(new RegExp(`export async function ${name}[(<]`));
+      assert.ok(at >= 0, `${name} in ${file}`);
+      return code.slice(at, code.indexOf('\n}\n', at));
+    };
+    assert.match(fn('coachVoice.ts', 'synthesizeSpeech'), /assertMeteredServicesOn/);
+    assert.match(fn('elevenLabs.ts', 'elevenLabsSpeech'), /assertMeteredServicesOn/);
+    assert.match(fn('driverRadio.ts', 'transcribeRadio'), /assertMeteredServicesOn/);
+    assert.match(fn('rateLimits.ts', 'siteAiCall'), /assertMeteredServicesOn/);
+    assert.match(fn('rateLimits.ts', 'aiRateLimit'), /meteredServicesOn\(\)/);
+    assert.match(readFileSync(new URL('../app/api/map-tiles/[z]/[x]/[y]/route.ts', src), 'utf8'), /meteredServicesOn\(\)/);
+  });
+
+  test('the rate limiter refuses calls when it cannot count them', () => {
+    const body = source('rateLimits.ts');
+    assert.doesNotMatch(body, /allowing the call/);
+    assert.match(body, /refusing the call:[^\n]*\n\s*return unavailable\(user, 'unavailable'\)/);
+  });
+
+  test('a refund never gives back a call whose model calls were paid for', () => {
+    assert.match(source('rateLimits.ts'), /counted = counted AND COALESCE\(model_calls, 0\) > 0/);
+  });
+
+  test('the In-Car AI Coach plan counts against the limit', () => {
+    assert.equal(config.DEFAULT_RATE_LIMITS.weights.inCarCoachPlan, 1);
   });
 });

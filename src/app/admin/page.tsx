@@ -34,6 +34,7 @@ import { getDictionary } from '@/lib/i18n/server';
 import { isAdmin } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
 import { getEnableAiFeatures, getShowPricing, getShowProDriverLesson } from '@/lib/siteSettings';
+import { meteredServicesOn } from '@/lib/meteredServices';
 import { readRequestCounts } from '@/lib/privacyRequests';
 
 // The site owner's Admin page: a link to Subscribers (src/app/admin/subscribers/), Site Settings (src/components/SiteSettingsManager.tsx), AI Model Control
@@ -61,12 +62,13 @@ export default async function AdminPage({
   const t = getDictionary(user.preferredLanguage);
   const a = t.admin;
   const locale = LANGUAGE_LOCALES[user.preferredLanguage];
-  const [report, users, showPricing, showProDriverLesson, enableAiFeatures, aiModels, rateLimits, rateLimitOverrides, averageCallTokens, retentionRuns, privacyCounts] = await Promise.all([
+  const [report, users, showPricing, showProDriverLesson, enableAiFeatures, meteredServices, aiModels, rateLimits, rateLimitOverrides, averageCallTokens, retentionRuns, privacyCounts] = await Promise.all([
     readActivityReport(filters),
     listUsersForAdmin(),
     getShowPricing(),
     getShowProDriverLesson(),
     getEnableAiFeatures(),
+    meteredServicesOn(),
     getAiModels(),
     getRateLimitSettings(),
     listOverrides(),
@@ -111,7 +113,7 @@ export default async function AdminPage({
 
         <PrivacyRequestsLinkCard t={t.privacyAdmin} counts={privacyCounts} />
 
-        <SiteSettingsManager showPricing={showPricing} showProDriverLesson={showProDriverLesson} enableAiFeatures={enableAiFeatures} />
+        <SiteSettingsManager showPricing={showPricing} showProDriverLesson={showProDriverLesson} enableAiFeatures={enableAiFeatures} meteredServices={meteredServices} />
 
         <AiModelManager models={aiModels} />
 

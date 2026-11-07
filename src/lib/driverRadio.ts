@@ -9,6 +9,7 @@ import { getCoachVoice } from './coachVoice';
 import { elevenLabsRadioVoiceId, elevenLabsVoiceId } from './elevenLabs';
 import type { Language } from './i18n/languages';
 import type { User } from './users';
+import { assertMeteredServicesOn } from './meteredServices';
 
 // The accounts whose radio is said in ELEVENLABS_MY_VOICE_ID, the site owner's own voice; lower case
 const MY_VOICE_ACCOUNTS = new Set(['darinlutz@yahoo.com', 'darinlutz648@gmail.com']);
@@ -41,6 +42,7 @@ export class RadioTranscriptionError extends Error {}
 
 // The words in a WAV recording, in the driver's Preferred Language; empty when nothing was said
 export async function transcribeRadio(wav: Buffer, language: Language): Promise<string> {
+  await assertMeteredServicesOn();
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new RadioTranscriptionError('OPENAI_API_KEY is not configured');
   const form = new FormData();

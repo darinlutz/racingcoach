@@ -2334,6 +2334,8 @@ export const es: Dictionary = {
     showProDriverLessonHint: 'Muestra el enlace Clase 1:1 con piloto profesional en la barra de navegación para todos.',
     enableAiFeatures: 'Activar funciones de IA',
     enableAiFeaturesHint: 'Si está desactivado, el lema del logotipo dice TU INGENIERO DE CARRERA PERSONAL en lugar de TU INGENIERO DE CARRERA CON IA, la página de inicio dice ingeniero de carrera personal y oculta Coaching con IA, el entrenador IA en el auto se desactiva (la página de Cuenta oculta Mis instrucciones del entrenador IA en el auto) y Autos y pistas oculta Análisis de autos, para todos.',
+    meteredServices: 'Servicios de pago de IA, voz y mapas',
+    meteredServicesHint: 'Parada de emergencia: si está desactivado, toda llamada a modelos de IA, texto a voz, voz a texto y mosaico de mapa satelital del proveedor se rechaza al instante para todos (los usuarios ven que la IA está en pausa), sin volver a desplegar. Déjalo activado normalmente.',
     rolesTitle: 'Roles de usuario',
     rolesIntro: 'Busca un usuario, elige su rol y su nivel de membresía y guarda.',
     findUser: 'Buscar un usuario',
@@ -2757,6 +2759,8 @@ export const es: Dictionary = {
   },
 
   rateLimit: {
+    servicesStopped: 'Las funciones de IA están en pausa por mantenimiento. Inténtalo de nuevo más tarde.',
+    unavailable: 'Las funciones de IA no están disponibles por un momento. Inténtalo de nuevo en un minuto.',
     title: 'Llegaste al límite de IA',
     titleBurst: 'Ve un poco más despacio',
     titleBlocked: 'Coaching con IA no disponible',

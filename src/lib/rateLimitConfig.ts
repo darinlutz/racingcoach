@@ -168,7 +168,8 @@ export const DEFAULT_RATE_LIMITS: RateLimitSettings = {
     stintSummary: 1,
     raceTrends: 3,
     raceCoaching: 1,
-    inCarCoachPlan: 0,
+    // One per track change; its plans are cached, so it's rarely made, but each new one is a model call
+    inCarCoachPlan: 1,
     inCarCoachCallouts: 1,
     racecarAnalysis: 1,
     // The live features count against the live limit, by live.weights; these aren't used

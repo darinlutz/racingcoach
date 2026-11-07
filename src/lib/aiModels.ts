@@ -20,6 +20,8 @@ import {
   SYSTEM_AI_MODEL_CATEGORY,
 } from '@/lib/aiModelList';
 import { currentAiModelCategory, tokenUsageCallbacks } from '@/lib/aiTokenUsage';
+import { aiCallLimit, CLAUDE_MAX_OUTPUT_TOKENS, REASONING_OUTPUT_FACTOR } from '@/lib/aiCallLimits';
+import { assertMeteredServicesOn } from '@/lib/meteredServices';
 import { ensureUserSchema } from '@/lib/users';
 
 export * from '@/lib/aiModelList';
@@ -158,18 +160,32 @@ class DeepSeekChatModel extends ChatOpenAI {
 // (claude-*) always think and refuse a temperature, so they get low effort too. DeepSeek models (deepseek-*) go to
 // DeepSeek's API with thinking off. Inside an AI route's limit.track(), every call's tokens are added to its AiUsage
 // row (src/lib/aiTokenUsage.ts). Pass model to use it instead of the feature's picked model (e.g. a fallback).
+// Every model gets the feature's output cap, timeout and retries (src/lib/aiCallLimits.ts), and none is made while
+// the Admin page's emergency stop is on (src/lib/meteredServices.ts).
 export async function chatModel(feature: AiFeature, temperature: number, override?: AiModel): Promise<BaseChatModel> {
+  await assertMeteredServicesOn();
   const model = override ?? (await getAiModel(feature));
   const callbacks = tokenUsageCallbacks(model);
+  const { maxOutputTokens, timeoutMs: timeout, maxRetries } = aiCallLimit(feature);
   if (isClaudeModel(model)) {
     if (!process.env.ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY is not configured');
-    return new ClaudeChatModel({ model, maxTokens: 16000, outputConfig: { effort: 'low' }, callbacks });
+    return new ClaudeChatModel({
+      model,
+      maxTokens: CLAUDE_MAX_OUTPUT_TOKENS,
+      outputConfig: { effort: 'low' },
+      maxRetries,
+      clientOptions: { timeout },
+      callbacks,
+    });
   }
   if (isDeepSeekModel(model)) {
     if (!process.env.DEEPSEEK_API_KEY) throw new Error('DEEPSEEK_API_KEY is not configured');
     return new DeepSeekChatModel({
       model,
       temperature,
+      maxTokens: maxOutputTokens,
+      maxRetries,
+      timeout,
       apiKey: process.env.DEEPSEEK_API_KEY,
       configuration: { baseURL: DEEPSEEK_BASE_URL },
       modelKwargs: { thinking: { type: 'disabled' } },
@@ -177,6 +193,14 @@ export async function chatModel(feature: AiFeature, temperature: number, overrid
     });
   }
   return isReasoningModel(model)
-    ? new OpenAIReasoningChatModel({ model, reasoning: { effort: 'low' }, useResponsesApi: true, callbacks })
-    : new ChatOpenAI({ model, temperature, callbacks });
+    ? new OpenAIReasoningChatModel({
+        model,
+        reasoning: { effort: 'low' },
+        useResponsesApi: true,
+        maxTokens: maxOutputTokens * REASONING_OUTPUT_FACTOR,
+        maxRetries,
+        timeout,
+        callbacks,
+      })
+    : new ChatOpenAI({ model, temperature, maxTokens: maxOutputTokens, maxRetries, timeout, callbacks });
 }

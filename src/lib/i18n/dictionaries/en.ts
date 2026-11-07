@@ -2369,6 +2369,8 @@ export const en = {
     showProDriverLessonHint: 'Shows the 1:1 Pro Driver Lesson link in the navigation bar for everyone.',
     enableAiFeatures: 'Enable AI Features',
     enableAiFeaturesHint: "When off, the logo's tagline reads YOUR PERSONAL RACE ENGINEER instead of YOUR AI RACE ENGINEER, the home page says personal race engineer and hides AI-powered coaching, the In-Car AI Coach is turned off (the Account page hides My In-Car AI Coach Instructions) and Cars & Tracks hides Racecar Analysis, for everyone.",
+    meteredServices: 'Paid AI, speech and map services',
+    meteredServicesHint: 'Emergency stop: when off, every AI model call, text to speech, speech to text and satellite map tile from the provider is refused at once for everyone (users see that AI is paused), without a redeploy. Leave on normally.',
     rolesTitle: 'User Roles',
     rolesIntro: 'Find a user, choose their role and membership level and save.',
     findUser: 'Find a user',
@@ -2801,6 +2803,8 @@ export const en = {
   },
 
   rateLimit: {
+    servicesStopped: 'AI features are paused for maintenance. Please try again later.',
+    unavailable: 'AI features are briefly unavailable. Please try again in a minute.',
     title: 'AI limit reached',
     titleBurst: 'Slow down a little',
     titleBlocked: 'AI coaching unavailable',

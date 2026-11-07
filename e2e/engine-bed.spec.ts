@@ -517,6 +517,8 @@ test.describe.serial('the pages', () => {
     driver = await signUp(browser, 'Sam Driver', driverEmail);
     db = new pg.Client({ connectionString: process.env.E2E_DATABASE_URL });
     await db.connect();
+    // New accounts confirm their address by an emailed link (src/lib/emailVerification.ts); these are confirmed here
+    await db.query(`UPDATE racingcoach."Users" SET email_verified_at = now() WHERE email_verified_at IS NULL`);
     await db.query(`UPDATE racingcoach."Users" SET role = 'Admin' WHERE email_address = $1`, [`owner-${stamp}@example.test`]);
     // Everyone may watch a Coach
     await db.query(`UPDATE racingcoach."Users" SET role = 'Coach' WHERE email_address = $1`, [driverEmail]);

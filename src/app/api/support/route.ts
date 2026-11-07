@@ -3,6 +3,7 @@ import { ABUSE_LIMITS, checkFormGuard, ipKey, limitReached, recordAttempt } from
 import { fmt } from '@/lib/i18n/languages';
 import { getDictionary, getLanguage } from '@/lib/i18n/server';
 import { getCurrentUser } from '@/lib/session';
+import { JSON_BODY_LIMIT, readJsonLimited } from '@/lib/requestBody';
 import { MAX_SUPPORT_DESCRIPTION, sendSupportRequest } from '@/lib/supportRequest';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -16,7 +17,7 @@ export async function POST(request: Request) {
   const t = dictionary.support;
   const api = dictionary.api;
   try {
-    const body = await request.json().catch(() => ({}));
+    const body = await readJsonLimited(request, JSON_BODY_LIMIT).catch(() => ({}));
     const name = typeof body.name === 'string' ? body.name.trim() : '';
     const email = typeof body.email === 'string' ? body.email.trim() : '';
     const description = typeof body.description === 'string' ? body.description.trim() : '';

@@ -3,6 +3,7 @@ import { apiText } from '@/lib/i18n/server';
 import { canUseInCarCoach } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
 import { getEnableAiFeatures } from '@/lib/siteSettings';
+import { JSON_BODY_LIMIT, readJsonLimited } from '@/lib/requestBody';
 import { MAX_IN_CAR_COACH_INSTRUCTIONS, setInCarCoachInstructions } from '@/lib/users';
 
 // The Account page's In-Car AI Coach Instructions, saved for the signed-in user only
@@ -22,7 +23,7 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: t.inCarCoachMembersOnly, code: 'membershipRequired' }, { status: 403 });
     }
 
-    const body = await request.json().catch(() => ({}));
+    const body = await readJsonLimited(request, JSON_BODY_LIMIT).catch(() => ({}));
     if (typeof body.instructions !== 'string') {
       return NextResponse.json({ error: t.failedSaveInCarInstructions }, { status: 400 });
     }

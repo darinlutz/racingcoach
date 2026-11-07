@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getDictionary, getLanguage } from '@/lib/i18n/server';
 import { notifyOwnerOfRequest, quietly } from '@/lib/privacyEmail';
+import { JSON_BODY_LIMIT, readJsonLimited } from '@/lib/requestBody';
 import { verifyRequestByToken } from '@/lib/privacyRequests';
 
 // The Confirm Request button on /privacy-request/verify: POST { token } from the emailed link verifies the request
@@ -9,7 +10,7 @@ import { verifyRequestByToken } from '@/lib/privacyRequests';
 export async function POST(request: Request) {
   const t = getDictionary(await getLanguage()).privacyRights;
   try {
-    const body = await request.json().catch(() => ({}));
+    const body = await readJsonLimited(request, JSON_BODY_LIMIT).catch(() => ({}));
     const verified = typeof body.token === 'string' ? await verifyRequestByToken(body.token) : null;
     if (!verified) return NextResponse.json({ error: t.public.verifyFailed }, { status: 400 });
     await quietly(notifyOwnerOfRequest({ requestId: verified.id, type: verified.type, review: true }), 'owner notice');

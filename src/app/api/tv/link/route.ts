@@ -4,6 +4,7 @@ import { getDictionary } from '@/lib/i18n/server';
 import { clientIp } from '@/lib/rateLimits';
 import { getCurrentUser } from '@/lib/session';
 import { approvePairing, overAttemptLimit } from '@/lib/tvAuth';
+import { JSON_BODY_LIMIT, readJsonLimited } from '@/lib/requestBody';
 import { normalizePairingCode } from '@/lib/tvPairingCode';
 
 const bodySchema = z.object({ code: z.string().max(40) });
@@ -21,7 +22,7 @@ export async function POST(request: Request) {
     if (!user) {
       return NextResponse.json({ error: t.logIn }, { status: 401 });
     }
-    const parsed = bodySchema.safeParse(await request.json().catch(() => null));
+    const parsed = bodySchema.safeParse(await readJsonLimited(request, JSON_BODY_LIMIT).catch(() => null));
     if (!parsed.success) {
       return NextResponse.json({ error: 'Expected { code }' }, { status: 400 });
     }

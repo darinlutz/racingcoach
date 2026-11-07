@@ -23,13 +23,18 @@ let userId;
 const q = async (sql, params) => (await client.query(sql, params)).rows;
 
 const IRACING_KEY = 'simtest layout'; // not one of the seeded tracks' keys
-const HEADER = 'Speed,LapDistPct,Brake,Throttle,Lat,Lon';
-// A lap with track positions going round in a little circle
-const csv = (positions = true, center = 41.9) => {
+const HEADER = 'Speed,LapDistPct,LapDist,Brake,Throttle,Lat,Lon';
+// A lap with track positions going round in a little circle, as long round as its trackLengthFeet (7939.6 ft, 2420 m),
+// as a real lap is: Track Data only learns a length that agrees with LapDist and a map that fits it (trackDataTrust.ts)
+const LAP_METERS = 2420;
+const csv = (positions = true, center = 41.928) => {
   const rows = [HEADER];
+  const latRadius = LAP_METERS / (2 * Math.PI) / 111_320;
+  const lonRadius = latRadius / Math.cos((center * Math.PI) / 180);
   for (let i = 0; i < 600; i++) {
     const a = (i / 600) * 2 * Math.PI;
-    rows.push(`40,${(i / 600).toFixed(4)},0,1,${positions ? center + 0.01 * Math.sin(a) : ''},${positions ? -73.3 + 0.01 * Math.cos(a) : ''}`);
+    const pct = i / 600;
+    rows.push(`40,${pct.toFixed(4)},${(pct * LAP_METERS).toFixed(2)},0,1,${positions ? center + latRadius * Math.sin(a) : ''},${positions ? -73.381 + lonRadius * Math.cos(a) : ''}`);
   }
   return rows.join('\n') + '\n';
 };
@@ -232,7 +237,7 @@ describe('simulators in the database', { skip }, () => {
   });
 
   test('a lap with a required channel entirely empty is refused, and one with a cell missing is kept', () => {
-    const rows = (brake) => [HEADER, ...Array.from({ length: 600 }, (_, i) => `40,${(i / 600).toFixed(4)},${brake(i)},1,,`)].join('\n') + '\n';
+    const rows = (brake) => [HEADER, ...Array.from({ length: 600 }, (_, i) => `40,${(i / 600).toFixed(4)},${((i / 600) * LAP_METERS).toFixed(2)},${brake(i)},1,,`)].join('\n') + '\n';
     assert.throws(() => laps.checkLapCsv(gzipSync(rows(() => '')), 600), laps.InvalidLapCsvError);
     assert.doesNotThrow(() => laps.checkLapCsv(gzipSync(rows((i) => (i === 5 ? '' : '0.5'))), 600));
   });

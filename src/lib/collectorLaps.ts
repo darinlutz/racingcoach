@@ -5,7 +5,8 @@ import { getLapObject, mapLimited, putLapObject, telemetryStorageMode, telemetry
 import { LAP_COMPRESSION, LAP_CONTENT_TYPE, lapObjectKey, sha256Hex, STORAGE_PROVIDERS, STORAGE_STATUS } from './telemetryStorageRules';
 import { PENDING_GRACE_SQL } from './telemetryStorageSchema';
 import { canSeeAllLaps, ROLES } from './roles';
-import { saveTrackLength } from './trackLengths';
+import { lapCsvTrackLengthFeet, saveTrackLength } from './trackLengths';
+import { boundsPlausible, outlinePlausible } from './trackDataTrust';
 import { lapCsvBounds, saveTrackBounds, saveTrackLocation, trackNeedsBounds } from './trackLocations';
 import { lapCsvOutline, saveTrackOutline, trackNeedsOutline } from './trackOutlines';
 import { ensureUserSchema } from './users';
@@ -546,9 +547,14 @@ export async function saveCollectorLap(
       });
       // "Tracks" holds iRacing's lengths, locations, bounds and outlines. Another simulator's are its own, even for a
       // track mapped to one of the site's, as its layout and coordinates needn't match
+      // Shared by everyone, so only a Coach's or Admin's lap changes what's there (src/lib/trackDataTrust.ts)
       if (simulator === DEFAULT_SIMULATOR) {
-        await saveTrackLength(lap.trackKey ?? null, lap.trackLengthFeet ?? null);
-        await saveTrackLocation(lap.trackKey ?? null, lap.trackLatitude ?? null, lap.trackLongitude ?? null);
+        const trusted = await teachesTrackData(userId);
+        await saveTrackLength(lap.trackKey ?? null, lap.trackLengthFeet ?? null, {
+          trusted,
+          csvLengthFeet: () => lapCsvTrackLengthFeet(gunzipCsv(csvGzip).toString('utf8')),
+        });
+        await saveTrackLocation(lap.trackKey ?? null, lap.trackLatitude ?? null, lap.trackLongitude ?? null, trusted);
       }
       if (simulator === DEFAULT_SIMULATOR && hasPosition) await saveTrackShapeFromLap(lap.trackKey ?? null, csvGzip, !lap.pitRoad && !lap.offTrack);
       return { id, duplicate: false, replaced: false };
@@ -673,15 +679,36 @@ async function clearPendingEntry(client: { query: (sql: string, params: unknown[
 // Gives the lap's track its bounds (trackLocations.ts) from the lap's Lat/Lon, when it has none yet, and its outline
 // for Live Racing (trackOutlines.ts) when it has none and the lap is clean (no pit road, no off-track). A failure
 // is only logged: the lap is saved either way.
+// Whether this account's laps may change Track Data that's already there: Coaches and Admins only
+async function teachesTrackData(userId: number): Promise<boolean> {
+  const [row] = await query<{ role: string }>('SELECT role FROM racingcoach."Users" WHERE id = $1', [userId]);
+  return row?.role === ROLES.coach || row?.role === ROLES.admin;
+}
+
+// A track's first bounds and outline, kept for good, so they must fit the track: about as long round as its length,
+// and no wider than a lap of it, near its location (src/lib/trackDataTrust.ts). Until the track has a length, none.
 async function saveTrackShapeFromLap(trackKey: string | null, csvGzip: Buffer, clean: boolean): Promise<void> {
   try {
     if (!trackKey) return;
     const needsBounds = await trackNeedsBounds(trackKey);
     const needsOutline = clean && (await trackNeedsOutline(trackKey));
     if (!needsBounds && !needsOutline) return;
+    const [track] = await query<{ length: number | null; lat: number | null; lon: number | null }>(
+      `SELECT track_length_feet AS length, track_latitude AS lat, track_longitude AS lon
+       FROM racingcoach."Tracks" WHERE lower(track_key) = lower($1) LIMIT 1`,
+      [trackKey]
+    );
+    const length = track?.length != null ? Number(track.length) : null;
+    const location: [number, number] | null = track?.lat != null && track?.lon != null ? [Number(track.lat), Number(track.lon)] : null;
     const csv = gunzipCsv(csvGzip).toString('utf8');
-    if (needsBounds) await saveTrackBounds(trackKey, lapCsvBounds(csv));
-    if (needsOutline) await saveTrackOutline(trackKey, lapCsvOutline(csv));
+    if (needsBounds) {
+      const bounds = lapCsvBounds(csv);
+      if (bounds && boundsPlausible(bounds, length, location)) await saveTrackBounds(trackKey, bounds);
+    }
+    if (needsOutline) {
+      const outline = lapCsvOutline(csv);
+      if (outline && outlinePlausible(outline.points, length, location)) await saveTrackOutline(trackKey, outline);
+    }
   } catch (error) {
     console.error('Save track shape error:', error);
   }

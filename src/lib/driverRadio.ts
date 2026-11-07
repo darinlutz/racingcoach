@@ -16,8 +16,11 @@ const MY_VOICE_ACCOUNTS = new Set(['darinlutz@yahoo.com', 'darinlutz648@gmail.co
 
 // The ElevenLabs voice a driver's radio is said in: the site owner's own voice for their accounts, and for everyone
 // else the RaceCoach voice of their Preferred Language and Spanish accent; null when it isn't set up
-export async function radioVoiceId(driver: Pick<User, 'id' | 'emailAddress' | 'preferredLanguage'>): Promise<string | null> {
-  if (MY_VOICE_ACCOUNTS.has(driver.emailAddress.trim().toLowerCase())) return elevenLabsRadioVoiceId();
+// The owner's voice needs a confirmed address, as anyone can sign up with an address they don't own.
+export async function radioVoiceId(
+  driver: Pick<User, 'id' | 'emailAddress' | 'preferredLanguage' | 'emailVerified'>
+): Promise<string | null> {
+  if (driver.emailVerified && MY_VOICE_ACCOUNTS.has(driver.emailAddress.trim().toLowerCase())) return elevenLabsRadioVoiceId();
   const { spanishAccent } = await getCoachVoice(driver.id);
   return elevenLabsVoiceId('raceCoach', driver.preferredLanguage, spanishAccent);
 }

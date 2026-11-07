@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { authenticateCollector } from '@/lib/collectorKeys';
+import { readJsonLimited } from '@/lib/requestBody';
 import { collectorRaceResultSchema, saveCollectorRaceResult } from '@/lib/raceHistory';
 
 // A race result from the telemetry collector, read from iRacing's session info when a race session ends
@@ -13,7 +14,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing or unknown upload key' }, { status: 401 });
     }
 
-    const parsed = collectorRaceResultSchema.safeParse(await request.json().catch(() => null));
+    const parsed = collectorRaceResultSchema.safeParse(await readJsonLimited(request, 256 * 1024).catch(() => null));
     if (!parsed.success) {
       return NextResponse.json({ error: `Invalid race result: ${parsed.error.issues[0]?.message}` }, { status: 400 });
     }

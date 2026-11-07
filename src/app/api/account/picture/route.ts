@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { apiText, getDictionary } from '@/lib/i18n/server';
 import { looksLikeJpeg, MAX_PROFILE_PICTURE_BYTES } from '@/lib/profilePictureRules';
 import { readProfilePicture, removeProfilePicture, saveProfilePicture } from '@/lib/profilePictures';
+import { readFormDataLimited } from '@/lib/requestBody';
 import { getCurrentUser } from '@/lib/session';
 
 // The signed-in user's own picture on My Dashboard (src/lib/profilePictures.ts). It takes no user ID: nobody else's
@@ -42,7 +43,7 @@ export async function PUT(request: Request) {
     if (!user) {
       return NextResponse.json({ error: t.logInProfile }, { status: 401 });
     }
-    const form = await request.formData().catch(() => null);
+    const form = await readFormDataLimited(request, MAX_PROFILE_PICTURE_BYTES + 64 * 1024).catch(() => null);
     const file = form?.get('file');
     if (!(file instanceof File)) {
       return NextResponse.json({ error: p.unreadable }, { status: 400 });

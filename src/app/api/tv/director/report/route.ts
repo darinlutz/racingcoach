@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getTvSession } from '@/lib/tvAuth';
+import { JSON_BODY_LIMIT, readJsonLimited } from '@/lib/requestBody';
 import { reportClipFailed } from '@/lib/videoDirectorRuntime';
 
 const bodySchema = z.object({ seq: z.number().int().min(0), videoId: z.number().int().positive() });
@@ -11,7 +12,7 @@ export async function POST(request: Request) {
   const session = await getTvSession();
   try {
     if (!session) return NextResponse.json({ error: 'Not paired', code: 'notPaired' }, { status: 401 });
-    const parsed = bodySchema.safeParse(await request.json().catch(() => null));
+    const parsed = bodySchema.safeParse(await readJsonLimited(request, JSON_BODY_LIMIT).catch(() => null));
     if (!parsed.success) return NextResponse.json({ error: 'Expected { seq, videoId }' }, { status: 400 });
     return NextResponse.json({ counted: reportClipFailed(session.user.id, parsed.data.seq, parsed.data.videoId) });
   } catch (error) {

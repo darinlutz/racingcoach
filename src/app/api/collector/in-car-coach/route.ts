@@ -11,6 +11,7 @@ import { canUseInCarCoach } from '@/lib/roles';
 import { getEnableAiFeatures } from '@/lib/siteSettings';
 import { findTrackByKey, readTracks } from '@/lib/tracks';
 import { DEFAULT_UNITS } from '@/lib/units';
+import { readJsonLimited } from '@/lib/requestBody';
 import { getInCarCoachInstructions, getUserById } from '@/lib/users';
 
 // The telemetry collector's In-Car AI Coach (src/lib/inCarCoach.ts), authenticated with the upload key as a
@@ -102,7 +103,7 @@ export async function POST(request: Request) {
     }
     if (!(await getEnableAiFeatures())) return disabledResponse();
     if (!user.user || !canUseInCarCoach(user.user)) return membersOnlyResponse();
-    const parsed = bodySchema.safeParse(await request.json().catch(() => null));
+    const parsed = bodySchema.safeParse(await readJsonLimited(request, 256 * 1024).catch(() => null));
     if (!parsed.success) {
       return NextResponse.json({ error: 'Expected { clientLapIds: [uuid, ...], recentCallouts: [string, ...] }' }, { status: 400 });
     }

@@ -5,6 +5,7 @@ import { getDictionary } from '@/lib/i18n/server';
 import { canUseVoiceAi } from '@/lib/roles';
 import { getEnableAiFeatures } from '@/lib/siteSettings';
 import { getTvSession } from '@/lib/tvAuth';
+import { readJsonLimited } from '@/lib/requestBody';
 import { commentaryHeldFor, noteCommentaryPlaying } from '@/lib/videoDirectorRuntime';
 
 const bodySchema = z.object({
@@ -37,7 +38,7 @@ export async function POST(request: Request) {
     if (!canUseVoiceAi(session.user)) {
       return NextResponse.json({ error: t.announcersMembersOnly, code: 'membershipRequired' }, { status: 403 });
     }
-    const parsed = bodySchema.safeParse(await request.json().catch(() => null));
+    const parsed = bodySchema.safeParse(await readJsonLimited(request, 256 * 1024).catch(() => null));
     if (!parsed.success) {
       return NextResponse.json({ error: 'Expected { driverId, after, lead, color }' }, { status: 400 });
     }

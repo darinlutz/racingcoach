@@ -16,6 +16,7 @@ import { recordCookieConsent } from '@/lib/cookieConsentRecords';
 import { deleteRefusedCookies, getConsentState, setConsentCookie } from '@/lib/cookieConsentServer';
 import { isLanguage } from '@/lib/i18n/languages';
 import { getCurrentUser } from '@/lib/session';
+import { JSON_BODY_LIMIT, readJsonLimited } from '@/lib/requestBody';
 import { getSiteOrigin } from '@/lib/siteOrigin';
 
 const consentSchema = z.object({
@@ -40,7 +41,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Cross-site request refused' }, { status: 403 });
   }
 
-  const parsed = consentSchema.safeParse(await request.json().catch(() => null));
+  const parsed = consentSchema.safeParse(await readJsonLimited(request, JSON_BODY_LIMIT).catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: 'Invalid consent choice' }, { status: 400 });
   }

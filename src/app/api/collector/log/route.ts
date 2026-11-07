@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { authenticateCollector } from '@/lib/collectorKeys';
 import { scheduleCollectorLogReview } from '@/lib/collectorLogReview';
+import { readJsonLimited } from '@/lib/requestBody';
+import { ABUSE_LIMITS, limitReached, recordAttempt } from '@/lib/abuseGuards';
 import { collectorLogBatchSchema, MAX_LOG_LINES, saveCollectorLog } from '@/lib/collectorLogs';
 
 // The telemetry collector's activity log (LogUploader.cs), stored in racingcoach."CollectorLogs". Authenticated
@@ -14,7 +16,12 @@ export async function POST(request: Request) {
     if (userId === null) {
       return NextResponse.json({ error: 'Missing or unknown upload key' }, { status: 401 });
     }
-    const parsed = collectorLogBatchSchema.safeParse(await request.json().catch(() => null));
+    const key = `log-batches:${userId}`;
+    if (limitReached(key, ABUSE_LIMITS.logBatchesPerHour)) {
+      return NextResponse.json({ error: 'Too many log batches; try again later' }, { status: 429, headers: { 'Retry-After': '600' } });
+    }
+    recordAttempt(key);
+    const parsed = collectorLogBatchSchema.safeParse(await readJsonLimited(request, 4 * 1024 * 1024).catch(() => null));
     if (!parsed.success) {
       return NextResponse.json(
         { error: `Expected { runId, version, lines: [{ seq, at, message, isError }] } with 1 to ${MAX_LOG_LINES} lines` },

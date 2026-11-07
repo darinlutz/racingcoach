@@ -4,6 +4,8 @@ import { NextResponse } from 'next/server';
 import { activityBatchSchema, logActivity, VISITOR_COOKIE } from '@/lib/activityLog';
 import { deleteRefusedCookies, isCategoryGranted } from '@/lib/cookieConsentServer';
 import { getCurrentUser } from '@/lib/session';
+import { clientIp } from '@/lib/clientIp';
+import { readTextLimited } from '@/lib/requestBody';
 
 // A batch of 50 events is a few KB; anything much bigger isn't from the tracker
 const MAX_BODY_BYTES = 64 * 1024;
@@ -21,8 +23,8 @@ export async function POST(request: Request) {
       await deleteRefusedCookies({ analytics: false });
       return new NextResponse(null, { status: 204 });
     }
-    const body = await request.text();
-    if (body.length > MAX_BODY_BYTES) {
+    const body = await readTextLimited(request, MAX_BODY_BYTES).catch(() => null);
+    if (body === null) {
       return NextResponse.json({ error: 'Batch is too large' }, { status: 413 });
     }
     let json: unknown;
@@ -50,9 +52,7 @@ export async function POST(request: Request) {
     }
 
     const user = await getCurrentUser();
-    // Render (and most hosts) put the visitor's address first in X-Forwarded-For
-    const ipAddress =
-      request.headers.get('x-forwarded-for')?.split(',')[0].trim() || request.headers.get('x-real-ip') || null;
+    const ipAddress = clientIp(request);
 
     await logActivity(parsed.data, {
       userId: user?.id ?? null,

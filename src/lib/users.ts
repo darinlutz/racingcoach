@@ -2,6 +2,7 @@ import { SIMULATOR_SCHEMA } from './simulatorSchema';
 import { TELEMETRY_STORAGE_SCHEMA } from './telemetryStorageSchema';
 import { randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
+import type { PoolClient } from 'pg';
 import { isUniqueViolation, query, transaction } from './db';
 import { ROLES, type Role } from './roles';
 import {
@@ -62,10 +63,13 @@ export type User = {
   // False for an account made by signing in with another service (e.g. Google) that hasn't set a password since
   // (Forgot Password sets one); the Account page hides Change Password for it
   hasPassword: boolean;
+  // Whether the account's email address has been confirmed (src/lib/emailVerification.ts). AI features, upload keys,
+  // checkout and the owner's email-based privileges need it
+  emailVerified: boolean;
 };
 
 const USER_COLUMNS =
-  'id, user_name, email_address, account_status, membership_level, signup_date, subscription_end_date, stripe_subscription_id, stripe_customer_id, role, preferred_language, country, theme, units, brake_beeps, brake_beeps_volume, has_password';
+  'id, user_name, email_address, account_status, membership_level, signup_date, subscription_end_date, stripe_subscription_id, stripe_customer_id, role, preferred_language, country, theme, units, brake_beeps, brake_beeps_volume, has_password, email_verified_at';
 
 // The site owner is made Admin on sign-up; everyone else is a User
 export const OWNER_EMAIL = 'darinlutz@yahoo.com';
@@ -219,6 +223,27 @@ export function ensureUserSchema(): Promise<void> {
       await client.query('ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS promo_code TEXT');
       // False until an account made through Google sign-in (or another such service) sets a password of its own
       await client.query('ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS has_password BOOLEAN NOT NULL DEFAULT true');
+      // When the account's email address was confirmed (src/lib/emailVerification.ts), NULL until then. Accounts from
+      // before verification existed get the time the column was added (its default, dropped straight after), so only
+      // new signups have to confirm theirs
+      const verifiedColumn = await client.query(
+        `SELECT 1 FROM information_schema.columns
+         WHERE table_schema = 'racingcoach' AND table_name = 'Users' AND column_name = 'email_verified_at'`
+      );
+      if (verifiedColumn.rows.length === 0) {
+        await client.query('ALTER TABLE racingcoach."Users" ADD COLUMN email_verified_at TIMESTAMPTZ DEFAULT now()');
+        await client.query('ALTER TABLE racingcoach."Users" ALTER COLUMN email_verified_at DROP DEFAULT');
+      }
+      // The links emailed to confirm an address: a hash of the token only, like PasswordResets
+      await client.query(`CREATE TABLE IF NOT EXISTS racingcoach."EmailVerifications" (
+        token_hash TEXT PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES racingcoach."Users"(id) ON DELETE CASCADE,
+        expires_at TIMESTAMPTZ NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      )`);
+      await client.query(
+        'CREATE INDEX IF NOT EXISTS email_verifications_user_id_idx ON racingcoach."EmailVerifications" (user_id)'
+      );
       // Email addresses are unique regardless of case
       await client.query(
         'CREATE UNIQUE INDEX IF NOT EXISTS users_email_address_key ON racingcoach."Users" (lower(email_address))'
@@ -1030,6 +1055,7 @@ function rowToUser(row: Record<string, unknown>): User {
     brakeBeeps: row.brake_beeps !== false,
     brakeBeepsVolume: brakeBeepsVolume(row.brake_beeps_volume),
     hasPassword: row.has_password !== false,
+    emailVerified: row.email_verified_at != null,
     signupDate: (row.signup_date as string | null) ?? null,
     subscriptionEndDate: (row.subscription_end_date as string | null) ?? null,
     stripeSubscriptionId: (row.stripe_subscription_id as string | null) ?? null,
@@ -1037,10 +1063,8 @@ function rowToUser(row: Record<string, unknown>): User {
   };
 }
 
-// Everyone else starts as a User; admins change roles on the Admin page
-function initialRole(emailAddress: string): string {
-  return emailAddress.trim().toLowerCase() === OWNER_EMAIL ? ROLES.admin : ROLES.user;
-}
+// Every account starts as a User; admins change roles on the Admin page. The site owner's address becomes Admin only
+// once it's confirmed (ownerPrivileges), so registering it first gets nobody anything
 
 export async function createUser(input: {
   userName: string;
@@ -1051,6 +1075,8 @@ export async function createUser(input: {
   country: string | null;
   promoCode: string | null;
   acceptedPolicies: PolicyVersions;
+  // True when the address is already proven, e.g. by Google sign-in (its email_verified claim)
+  emailVerified?: boolean;
 }): Promise<User> {
   await ensureUserSchema();
   const passwordHash = await hashPassword(input.password ?? randomBytes(32).toString('hex'));
@@ -1061,24 +1087,25 @@ export async function createUser(input: {
       const { rows } = await client.query(
         `INSERT INTO racingcoach."Users"
            (user_name, email_address, password, account_status, membership_level, signup_date, role, preferred_language,
-            promo_code, has_password, country)
-         VALUES ($1, $2, $3, $6, $8, $4, $5, $7, $9, $10, $11)
+            promo_code, has_password, country, email_verified_at)
+         VALUES ($1, $2, $3, $6, $8, $4, $5, $7, $9, $10, $11, CASE WHEN $12::boolean THEN now() END)
          RETURNING ${USER_COLUMNS}`,
         [
           input.userName,
           input.emailAddress,
           passwordHash,
           new Date().toISOString(),
-          initialRole(input.emailAddress),
+          ROLES.user,
           ACCOUNT_STATUS.unsubscribed,
           input.preferredLanguage,
           MEMBERSHIP_LEVEL.bronze,
           input.promoCode,
           input.password !== null,
           input.country,
+          input.emailVerified === true,
         ]
       );
-      const user = rowToUser(rows[0]);
+      let user = rowToUser(rows[0]);
       // Creating the account accepts the Terms of Service and Privacy Policy versions the signup form showed
       for (const [policy, version] of Object.entries(input.acceptedPolicies)) {
         await client.query(
@@ -1086,16 +1113,7 @@ export async function createUser(input: {
           [user.id, policy, version]
         );
       }
-      // The site owner's other accounts (IRACEPLAN_SHARED_ACCOUNTS) start with the owner's iRacePlan API key, so Race
-      // Trends works straight away; nobody else gets it, as it carries the owner's iRacing identity
-      await client.query(
-        `INSERT INTO racingcoach."IRacePlanConnections" (user_id, api_key, iracing_customer_id, iracing_name)
-         SELECT $1, c.api_key, c.iracing_customer_id, c.iracing_name
-         FROM racingcoach."IRacePlanConnections" c
-         JOIN racingcoach."Users" u ON u.id = c.user_id
-         WHERE lower(u.email_address) = $2 AND u.id <> $1 AND lower($3) = ANY($4)`,
-        [user.id, OWNER_EMAIL, input.emailAddress.trim(), IRACEPLAN_SHARED_ACCOUNTS]
-      );
+      if (input.emailVerified) user = await ownerPrivileges(client, user);
       return user;
     });
   } catch (error) {
@@ -1104,6 +1122,64 @@ export async function createUser(input: {
     }
     throw error;
   }
+}
+
+// What the site owner's own addresses get, once confirmed: OWNER_EMAIL the Admin role, and the owner's other accounts
+// (IRACEPLAN_SHARED_ACCOUNTS) a copy of the owner's iRacePlan API key, so Race Trends works straight away (nobody else
+// gets it, as it carries the owner's iRacing identity). Never by the address alone: anyone can sign up with an address
+// they don't own, so this runs only when it has been proven (an emailed link, or Google). Returns the user as it is now.
+async function ownerPrivileges(client: PoolClient, user: User): Promise<User> {
+  const email = user.emailAddress.trim().toLowerCase();
+  await client.query(
+    `INSERT INTO racingcoach."IRacePlanConnections" (user_id, api_key, iracing_customer_id, iracing_name)
+     SELECT $1, c.api_key, c.iracing_customer_id, c.iracing_name
+     FROM racingcoach."IRacePlanConnections" c
+     JOIN racingcoach."Users" u ON u.id = c.user_id
+     WHERE lower(u.email_address) = $2 AND u.id <> $1 AND $3 = ANY($4)
+     ON CONFLICT DO NOTHING`,
+    [user.id, OWNER_EMAIL, email, IRACEPLAN_SHARED_ACCOUNTS]
+  );
+  if (email !== OWNER_EMAIL || user.role === ROLES.admin) return user;
+  const { rows } = await client.query(`UPDATE racingcoach."Users" SET role = $2 WHERE id = $1 RETURNING ${USER_COLUMNS}`, [
+    user.id,
+    ROLES.admin,
+  ]);
+  return rowToUser(rows[0]);
+}
+
+// For a sign-in that proves the address (Google) on an account whose address was never confirmed: whoever made the
+// account may not own the address, so their password and every session are cleared (has_password false, so the
+// Account page hides Change Password until Forgot Password sets one) and the address is marked confirmed. Returns the
+// account as it is now, or null when it no longer exists.
+export async function claimUnverifiedAccount(userId: number): Promise<User | null> {
+  await ensureUserSchema();
+  const passwordHash = await hashPassword(randomBytes(32).toString('hex'));
+  await transaction(async (client) => {
+    await client.query(
+      'UPDATE racingcoach."Users" SET password = $1, has_password = false WHERE id = $2 AND email_verified_at IS NULL',
+      [passwordHash, userId]
+    );
+    await client.query('DELETE FROM racingcoach."Sessions" WHERE user_id = $1', [userId]);
+    await client.query('DELETE FROM racingcoach."PasswordResets" WHERE user_id = $1', [userId]);
+    await client.query('DELETE FROM racingcoach."CollectorKeys" WHERE user_id = $1', [userId]);
+  });
+  return markEmailVerified(userId);
+}
+
+// Records that the account's email address is confirmed (an emailed link, or a Google sign-in for it), and gives the
+// owner's addresses their privileges. Returns the account, or null when it no longer exists.
+export async function markEmailVerified(userId: number): Promise<User | null> {
+  await ensureUserSchema();
+  return transaction(async (client) => {
+    const { rows } = await client.query(
+      `UPDATE racingcoach."Users" SET email_verified_at = COALESCE(email_verified_at, now()) WHERE id = $1
+       RETURNING ${USER_COLUMNS}`,
+      [userId]
+    );
+    if (!rows[0]) return null;
+    await client.query('DELETE FROM racingcoach."EmailVerifications" WHERE user_id = $1', [userId]);
+    return ownerPrivileges(client, rowToUser(rows[0]));
+  });
 }
 
 // Returns the user only when the email exists and the password matches.

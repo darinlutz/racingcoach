@@ -14,6 +14,7 @@ import { createExport, expireExports } from './personalDataExport';
 import { notifyOwnerOfRequest, quietly, sendRequestUpdate } from './privacyEmail';
 import { addEvent, expireUnverifiedRequests, purgeClosedRequests, transitionWith, type PrivacyRequest } from './privacyRequests';
 import { cleanCategories, type ExportKind } from './privacyRules';
+import { purgeOldCollectorLogs, redactStoredRadioText } from './collectorLogs';
 import { ensureUserSchema } from './users';
 
 type Queryable = { query: (sql: string, params?: unknown[]) => Promise<{ rows: Record<string, unknown>[] }> };
@@ -215,6 +216,15 @@ export async function retryJob(jobId: number): Promise<boolean> {
   return rows.length > 0;
 }
 
+// Sign-in sessions and password reset links past their expiry (milliseconds) and email confirmation links past theirs:
+// they no longer work, and were otherwise only deleted when their user signed out or reset again
+async function purgeExpiredAuthRows(): Promise<number> {
+  const sessions = await query('DELETE FROM racingcoach."Sessions" WHERE expires_at < $1 RETURNING 1', [Date.now()]);
+  const resets = await query('DELETE FROM racingcoach."PasswordResets" WHERE expires_at < $1 RETURNING 1', [Date.now()]);
+  const links = await query('DELETE FROM racingcoach."EmailVerifications" WHERE expires_at < now() RETURNING 1');
+  return sessions.length + resets.length + links.length;
+}
+
 export async function sweep(): Promise<void> {
   const steps: [string, () => Promise<number>][] = [
     ['expired exports', expireExports],
@@ -223,6 +233,9 @@ export async function sweep(): Promise<void> {
     ['old ledger', purgeOldLedger],
     ['ledger copies', mirrorLedger],
     ['rows past 13 months cleared of IP addresses and browser details', () => withClient(purgeNetworkDetails)],
+    ['collector log lines past 90 days deleted', purgeOldCollectorLogs],
+    ['collector log lines cleared of radio and message text', redactStoredRadioText],
+    ['expired sign-in sessions, reset and confirmation links deleted', purgeExpiredAuthRows],
   ];
   for (const [what, step] of steps) {
     try {

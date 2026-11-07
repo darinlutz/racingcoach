@@ -3,6 +3,7 @@ import { isUniqueViolation } from '@/lib/db';
 import { getCurrentUser } from '@/lib/session';
 import { addCar, CarNotFoundError, carInputSchema, deleteCar, readCars, updateCar } from '@/lib/carData';
 import { apiText } from '@/lib/i18n/server';
+import { readJsonLimited } from '@/lib/requestBody';
 import { canEditCars } from '@/lib/roles';
 
 // The one list of cars, for any signed-in user to read. Only Coaches and Admins can change it; anyone else's POST, PUT
@@ -37,7 +38,7 @@ export async function POST(request: Request) {
     if (!canEditCars(user.role)) {
       return NextResponse.json({ error: t.adminOnly }, { status: 404 });
     }
-    const body = await request.json().catch(() => ({}));
+    const body = await readJsonLimited(request, 256 * 1024).catch(() => ({}));
     const parsed = carInputSchema.safeParse(body.car);
     if (!parsed.success) return invalid(parsed.error);
 
@@ -60,7 +61,7 @@ export async function PUT(request: Request) {
     if (!canEditCars(user.role)) {
       return NextResponse.json({ error: t.adminOnly }, { status: 404 });
     }
-    const body = await request.json().catch(() => ({}));
+    const body = await readJsonLimited(request, 256 * 1024).catch(() => ({}));
     if (!Number.isInteger(body.id)) {
       return NextResponse.json({ error: 'id is required' }, { status: 400 });
     }
@@ -87,7 +88,7 @@ export async function DELETE(request: Request) {
     if (!canEditCars(user.role)) {
       return NextResponse.json({ error: t.adminOnly }, { status: 404 });
     }
-    const body = await request.json().catch(() => ({}));
+    const body = await readJsonLimited(request, 256 * 1024).catch(() => ({}));
     if (!Number.isInteger(body.id)) {
       return NextResponse.json({ error: 'id is required' }, { status: 400 });
     }

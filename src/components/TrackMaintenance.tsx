@@ -108,6 +108,18 @@ export default function TrackMaintenance({ tracks: initialTracks }: { tracks: Ma
     return data;
   };
 
+  // Clears the length, location and map uploaded laps taught the track, for one taught wrong
+  const resetLearned = async (track: MaintenanceTrack) => {
+    if (!window.confirm(fmt(a.resetLearnedConfirm, { track: track.name }))) return;
+    setMessage(null);
+    try {
+      await send(`/api/coach/tracks/${track.id}/learned`, 'DELETE');
+      setMessage({ ok: true, text: fmt(a.resetLearnedDone, { track: track.name }) });
+    } catch (error) {
+      setMessage({ ok: false, text: error instanceof Error ? error.message : t.api.failedSaveTrack });
+    }
+  };
+
   const addTrack = async () => {
     setAddingTrack(true);
     setMessage(null);
@@ -426,6 +438,12 @@ export default function TrackMaintenance({ tracks: initialTracks }: { tracks: Ma
                             </div>
                             <button type="button" onClick={() => saveAnalysis(track.id)} disabled={busy} className={primaryButton}>
                               {busy ? a.savingArea : a.saveArea}
+                            </button>
+                          </div>
+                          <div className="bg-card border border-border rounded-lg p-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <p className="text-xs text-muted-foreground">{a.resetLearnedHint}</p>
+                            <button type="button" onClick={() => resetLearned(track)} disabled={busy} className={secondaryButton}>
+                              {a.resetLearned}
                             </button>
                           </div>
                           {track.areas.length === 0 ? (

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { apiText } from '@/lib/i18n/server';
 import { MAX_MESSAGE_CHARS, queueDriverMessage } from '@/lib/liveRacing';
+import { JSON_BODY_LIMIT, readJsonLimited } from '@/lib/requestBody';
 import { getCurrentUser } from '@/lib/session';
 
 const messageSchema = z.object({
@@ -20,7 +21,7 @@ export async function POST(request: Request) {
     if (!user) {
       return NextResponse.json({ error: t.logInLiveRacing }, { status: 401 });
     }
-    const parsed = messageSchema.safeParse(await request.json().catch(() => null));
+    const parsed = messageSchema.safeParse(await readJsonLimited(request, JSON_BODY_LIMIT).catch(() => null));
     if (!parsed.success) {
       return NextResponse.json({ error: t.invalidDriverMessage }, { status: 400 });
     }

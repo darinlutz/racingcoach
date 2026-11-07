@@ -258,12 +258,14 @@ internal sealed class DriverRadio : IDisposable
                 }
                 var reply = string.IsNullOrWhiteSpace(answer.Reply) ? null : answer.Reply.Trim();
                 SetUnlessRecording(RadioState.Said, answer.Text, reply);
+                // The activity log goes to RacingCoach.app (LogUploader) and the log file, so it never holds what was said:
+                // the Privacy Policy keeps radio text in the server's memory for minutes only. The Radio window shows it
                 _log(answer.Shared
-                    ? $"Driver Radio: “{answer.Text}” (sent to Live Racing)"
-                    : $"Driver Radio: “{answer.Text}” (not on Live Racing: you're not sharing live right now)", false);
+                    ? $"Driver Radio: message sent ({answer.Text.Length} characters, shared on Live Racing)"
+                    : $"Driver Radio: message sent ({answer.Text.Length} characters, not on Live Racing: you're not sharing live right now)", false);
                 if (reply is not null)
                 {
-                    _log($"Race Engineer: “{reply}”", false);
+                    _log($"Race Engineer: answered ({reply.Length} characters)", false);
                     Voice.Say(reply);
                 }
                 else if (answer.Engineer == "membershipRequired" && !_toldMembersOnly)

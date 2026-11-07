@@ -3,6 +3,7 @@ import { IRacePlanAuthError } from '@/lib/iRacePlan';
 import { connect, disconnect, NoIRacingProfileError } from '@/lib/raceHistory';
 import { isAdmin } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
+import { JSON_BODY_LIMIT, readJsonLimited } from '@/lib/requestBody';
 import { apiText } from '@/lib/i18n/server';
 
 
@@ -18,7 +19,7 @@ export async function PUT(request: Request) {
     if (!isAdmin(user.role)) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
-    const body = await request.json().catch(() => ({}));
+    const body = await readJsonLimited(request, JSON_BODY_LIMIT).catch(() => ({}));
     const apiKey = typeof body.apiKey === 'string' ? body.apiKey.trim() : '';
     if (!apiKey || apiKey.length > 500) {
       return NextResponse.json({ error: t.enterApiKey }, { status: 400 });

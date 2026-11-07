@@ -452,7 +452,11 @@ describe('data subject rights in the database', { skip }, () => {
     const newcomer = await make(`${randomUUID()}@example.test`);
     const connection = async (id) =>
       (await q('SELECT api_key FROM racingcoach."IRacePlanConnections" WHERE user_id = $1', [id]))[0]?.api_key ?? null;
-    assert.equal(await connection(second.id), 'OWNER-KEY', 'the owner’s other account still gets it');
+    // Only once the address is confirmed: anyone can sign up with an address they don't own
+    assert.equal(await connection(second.id), null, 'not before the address is confirmed');
+    await users.markEmailVerified(second.id);
+    await users.markEmailVerified(newcomer.id);
+    assert.equal(await connection(second.id), 'OWNER-KEY', 'the owner’s other account gets it once confirmed');
     assert.equal(await connection(newcomer.id), null, 'nobody else does');
 
     // Copies made before the change, one with its synced races, and someone with their own key

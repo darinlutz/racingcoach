@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { apiText } from '@/lib/i18n/server';
 import { getCurrentUser } from '@/lib/session';
+import { readFormDataLimited } from '@/lib/requestBody';
 import {
   clearTargetLap,
   getTargetLapInfo,
@@ -52,7 +53,7 @@ export async function PUT(request: Request) {
     if (!user) {
       return NextResponse.json({ error: t.logInTargetLap }, { status: 401 });
     }
-    const form = await request.formData().catch(() => null);
+    const form = await readFormDataLimited(request, MAX_TARGET_LAP_BYTES + 64 * 1024).catch(() => null);
     const file = form?.get('file');
     if (!(file instanceof File)) {
       return NextResponse.json({ error: t.missingTargetLap }, { status: 400 });

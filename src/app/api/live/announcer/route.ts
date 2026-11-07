@@ -4,6 +4,7 @@ import { commentate } from '@/lib/announcerCommentary';
 import { apiText } from '@/lib/i18n/server';
 import { canUseVoiceAi } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
+import { readJsonLimited } from '@/lib/requestBody';
 import { getEnableAiFeatures } from '@/lib/siteSettings';
 
 const bodySchema = z.object({
@@ -37,7 +38,7 @@ export async function POST(request: Request) {
     if (!canUseVoiceAi(user)) {
       return NextResponse.json({ error: t.raceAnnouncersMembersOnly, code: 'membershipRequired' }, { status: 403 });
     }
-    const parsed = bodySchema.safeParse(await request.json().catch(() => null));
+    const parsed = bodySchema.safeParse(await readJsonLimited(request, 256 * 1024).catch(() => null));
     if (!parsed.success) {
       return NextResponse.json({ error: 'Expected { driverId, after, lead, color }' }, { status: 400 });
     }

@@ -7,6 +7,7 @@ import { countRecentRequestsByEmail, createRequest, createVerificationToken } fr
 import { isRequestType, MAX_DETAILS_LENGTH, SUBMITTABLE_TYPES } from '@/lib/privacyRules';
 import { clientIp } from '@/lib/rateLimits';
 import { getPublicSiteUrl } from '@/lib/siteOrigin';
+import { JSON_BODY_LIMIT, readJsonLimited } from '@/lib/requestBody';
 import { overAttemptLimit } from '@/lib/tvAuth';
 
 // The public privacy request form (/privacy-request), for someone without an account, a former user, or someone who
@@ -20,7 +21,7 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export async function POST(request: Request) {
   const t = getDictionary(await getLanguage()).privacyRights;
   try {
-    const body = await request.json().catch(() => ({}));
+    const body = await readJsonLimited(request, JSON_BODY_LIMIT).catch(() => ({}));
     const name = typeof body.name === 'string' ? body.name.trim() : '';
     const email = typeof body.email === 'string' ? body.email.trim() : '';
     const details = typeof body.details === 'string' ? body.details.trim() : '';

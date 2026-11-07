@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 import { resetPasswordWithToken } from '@/lib/passwordReset';
+import { JSON_BODY_LIMIT, readJsonLimited } from '@/lib/requestBody';
 import { apiText } from '@/lib/i18n/server';
 
 export async function POST(request: Request) {
   const t = await apiText();
   try {
-    const body = await request.json().catch(() => ({}));
+    const body = await readJsonLimited(request, JSON_BODY_LIMIT).catch(() => ({}));
     const token = typeof body.token === 'string' ? body.token : '';
     const password = typeof body.password === 'string' ? body.password : '';
 

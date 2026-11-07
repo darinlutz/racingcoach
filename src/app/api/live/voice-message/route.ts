@@ -6,6 +6,7 @@ import { checkDriverMessage, queueDriverMessage, type DriverMessageStatus } from
 import { aiRateLimit, type AiRateLimit } from '@/lib/rateLimits';
 import { canUseVoiceAi } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
+import { BodyTooLargeError, readBodyLimited } from '@/lib/requestBody';
 import { getEnableAiFeatures } from '@/lib/siteSettings';
 
 // The Live Racing page's Hold to Talk, beside Message Driver: ?driverId= with the watcher's recording as the body (a
@@ -35,8 +36,12 @@ export async function POST(request: Request) {
     }
     const refused = statusResponse(await checkDriverMessage(user, driverId), t);
     if (refused) return refused;
-    const audio = Buffer.from(await request.arrayBuffer());
-    if (audio.length > MAX_RADIO_BYTES) {
+    // Reading stops past the cap (src/lib/requestBody.ts), so a huge body can't fill the server's memory
+    const audio = await readBodyLimited(request, MAX_RADIO_BYTES).catch((error) => {
+      if (error instanceof BodyTooLargeError) return null;
+      throw error;
+    });
+    if (!audio || audio.length > MAX_RADIO_BYTES) {
       return NextResponse.json({ error: t.voiceMessageTooLong }, { status: 413 });
     }
     if (!looksLikeWav(audio)) {

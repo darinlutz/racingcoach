@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { authenticateCollectorCached } from '@/lib/collectorKeys';
 import { clearLiveUpdate, liveUpdateSchema, liveUser, recordLiveUpdate } from '@/lib/liveRacing';
+import { readJsonLimited } from '@/lib/requestBody';
 import { hasSavedOutline } from '@/lib/trackOutlines';
 
 // The telemetry collector's live position for Live Racing (src/lib/liveRacing.ts), twice a second while the driver
@@ -18,7 +19,7 @@ export async function POST(request: Request) {
     if (!user) {
       return NextResponse.json({ error: 'Missing or unknown upload key' }, { status: 401 });
     }
-    const parsed = liveUpdateSchema.safeParse(await request.json().catch(() => null));
+    const parsed = liveUpdateSchema.safeParse(await readJsonLimited(request, 2 * 1024 * 1024).catch(() => null));
     if (!parsed.success) {
       return NextResponse.json({ error: 'Invalid live update' }, { status: 400 });
     }

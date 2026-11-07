@@ -5,6 +5,7 @@ import { getCoachVoice, MAX_SPEECH_CHARS, synthesizeSpeech, withPronunciations }
 import { DEFAULT_LANGUAGE } from '@/lib/i18n/languages';
 import { getDictionary } from '@/lib/i18n/server';
 import { aiRateLimit, type AiRateLimit } from '@/lib/rateLimits';
+import { JSON_BODY_LIMIT, readJsonLimited } from '@/lib/requestBody';
 import { getUserById } from '@/lib/users';
 
 const bodySchema = z.union([
@@ -24,7 +25,7 @@ export async function POST(request: Request) {
     if (userId === null) {
       return NextResponse.json({ error: 'Missing or unknown upload key' }, { status: 401 });
     }
-    const parsed = bodySchema.safeParse(await request.json().catch(() => null));
+    const parsed = bodySchema.safeParse(await readJsonLimited(request, JSON_BODY_LIMIT).catch(() => null));
     if (!parsed.success) {
       return NextResponse.json({ error: `Expected { text } (at most ${MAX_SPEECH_CHARS} characters) or { phrase }` }, { status: 400 });
     }

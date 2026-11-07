@@ -8,6 +8,9 @@ import { isCurrentPolicyVersions, POLICY_VERSIONS } from '@/lib/policyVersions';
 import { cleanPromoCode } from '@/lib/promoCode';
 import { createSession } from '@/lib/session';
 import { createUser, EmailTakenError } from '@/lib/users';
+import { sendVerificationEmail } from '@/lib/emailVerification';
+import { getPublicSiteUrl } from '@/lib/siteOrigin';
+import { JSON_BODY_LIMIT, readJsonLimited } from '@/lib/requestBody';
 import { apiText } from '@/lib/i18n/server';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -20,7 +23,7 @@ const MAX_NAME_LENGTH = 100;
 export async function POST(request: Request) {
   const t = await apiText();
   try {
-    const body = await request.json().catch(() => ({}));
+    const body = await readJsonLimited(request, JSON_BODY_LIMIT).catch(() => ({}));
     const userName = typeof body.userName === 'string' ? body.userName.trim() : '';
     const emailAddress = typeof body.emailAddress === 'string' ? body.emailAddress.trim().toLowerCase() : '';
     const password = typeof body.password === 'string' ? body.password : '';
@@ -66,6 +69,9 @@ export async function POST(request: Request) {
     recordAttempt(ip);
     await createSession(user.id);
     await setLanguageCookie(preferredLanguage);
+    // The address isn't confirmed yet: AI features, the upload key and checkout wait for the link (src/lib/emailVerification.ts).
+    // A failed send isn't the signup's failure; the banner's Resend Link sends another
+    await sendVerificationEmail(user, getPublicSiteUrl(request)).catch((error) => console.error('Verification email error:', error));
     await notifyOwner('signup', user.emailAddress);
     return NextResponse.json({ user: { userName: user.userName } }, { status: 201 });
   } catch (error) {

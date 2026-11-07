@@ -123,13 +123,16 @@ async function waitForLive() {
 const videoTime = (page: Page) => page.locator('video').evaluate((v: HTMLVideoElement) => v.currentTime);
 
 test.beforeAll(async ({ browser }) => {
-  // The first account is the site owner's, by address, so it's the Admin
+  // The site owner's address; it becomes Admin once confirmed (markEmailVerified), which is done here in the database
   admin = await signUp(browser, 'Site Owner', 'darinlutz@yahoo.com');
   viewer = await signUp(browser, 'Plain Viewer', `viewer-${Date.now()}@example.test`);
   const driverEmail = `driver-${Date.now()}@example.test`;
   driver = await signUp(browser, 'Sam Driver', driverEmail);
   db = new pg.Client({ connectionString: process.env.E2E_DATABASE_URL });
   await db.connect();
+  // New accounts confirm their address by an emailed link (src/lib/emailVerification.ts); these are confirmed here
+  await db.query(`UPDATE racingcoach."Users" SET email_verified_at = now() WHERE email_verified_at IS NULL`);
+  await db.query(`UPDATE racingcoach."Users" SET role = 'Admin' WHERE email_address = 'darinlutz@yahoo.com'`);
   // Everyone may watch a Coach
   await db.query(`UPDATE racingcoach."Users" SET role = 'Coach' WHERE email_address = $1`, [driverEmail]);
   const me = await (await driver.request.post('/api/collector/key')).json();

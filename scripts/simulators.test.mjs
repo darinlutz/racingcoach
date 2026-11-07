@@ -92,7 +92,8 @@ test('laps from before simulators existed stay valid: every schema change is add
 test('another simulator can never write to iRacing track data, and neither path reads across', () => {
   const laps = source('src/lib/collectorLaps.ts');
   // The iRacing-only writes are guarded together
-  assert.match(laps, /if \(simulator === DEFAULT_SIMULATOR\) \{\s+await saveTrackLength/);
+  // (inside the same block: who may change them is decided in it too, src/lib/trackDataTrust.ts)
+  assert.match(laps, /if \(simulator === DEFAULT_SIMULATOR\) \{[^}]*?await saveTrackLength/);
   assert.match(laps, /simulator === DEFAULT_SIMULATOR && hasPosition\) await saveTrackShapeFromLap/);
   assert.match(laps, /if \(simulator === DEFAULT_SIMULATOR\) await saveTrackShapeFromLap/);
   // and the backfill only reads iRacing's laps

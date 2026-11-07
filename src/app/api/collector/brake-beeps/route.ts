@@ -4,6 +4,7 @@ import { areaStats, lapSamplesFromText } from '@/lib/lapData';
 import { readTargetLap, targetLapTrackName } from '@/lib/targetLap';
 import { findTrackByKey, namesSameTrack, readTracks } from '@/lib/tracks';
 import { DEFAULT_BRAKE_BEEPS_VOLUME, isBrakeBeepsVolume } from '@/lib/brakeBeepsVolume';
+import { JSON_BODY_LIMIT, readJsonLimited } from '@/lib/requestBody';
 import { getUserById, setBrakeBeeps, setBrakeBeepsVolume } from '@/lib/users';
 
 // The telemetry collector's "Play beeps before braking" (BrakeBeeps.cs): where the user's Target Lap first brakes
@@ -70,7 +71,7 @@ export async function PUT(request: Request) {
     if (userId === null) {
       return NextResponse.json({ error: 'Missing or unknown upload key' }, { status: 401 });
     }
-    const body = await request.json().catch(() => null);
+    const body = await readJsonLimited(request, JSON_BODY_LIMIT).catch(() => null);
     const enabled: unknown = body?.enabled;
     const volume: unknown = body?.volume;
     if ((enabled === undefined && volume === undefined) || (enabled !== undefined && typeof enabled !== 'boolean')) {

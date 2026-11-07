@@ -17,6 +17,7 @@ import {
   type RequestType,
 } from '@/lib/privacyRules';
 import { isRecentlyReauthenticated } from '@/lib/reauth';
+import { JSON_BODY_LIMIT, readJsonLimited } from '@/lib/requestBody';
 import { getCurrentUser } from '@/lib/session';
 
 // The signed-in user's own privacy requests (Privacy & Data Rights).
@@ -54,7 +55,7 @@ export async function POST(request: Request) {
   const t = getDictionary(user?.preferredLanguage ?? 'en').privacyRights;
   try {
     if (!user) return NextResponse.json({ error: t.errors.logIn }, { status: 401 });
-    const body = await request.json().catch(() => ({}));
+    const body = await readJsonLimited(request, JSON_BODY_LIMIT).catch(() => ({}));
     const type = body.type as RequestType;
     if (!isRequestType(type) || !SUBMITTABLE_TYPES.includes(type)) {
       return NextResponse.json({ error: t.errors.invalidType }, { status: 400 });

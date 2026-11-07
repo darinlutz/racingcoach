@@ -3,6 +3,7 @@ import { ExpertLapError, saveExpertLap } from '@/lib/expertLaps';
 import { apiText } from '@/lib/i18n/server';
 import { canCoach } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
+import { readFormDataLimited } from '@/lib/requestBody';
 import { MAX_TARGET_LAP_BYTES, TargetLapError } from '@/lib/targetLap';
 
 // The Coach page's Expert Laps section (src/lib/expertLaps.ts).
@@ -17,7 +18,7 @@ export async function POST(request: Request) {
     if (!user || !canCoach(user.role)) {
       return NextResponse.json({ error: t.adminOnly }, { status: 404 });
     }
-    const form = await request.formData().catch(() => null);
+    const form = await readFormDataLimited(request, MAX_TARGET_LAP_BYTES + 64 * 1024).catch(() => null);
     const file = form?.get('file');
     if (!(file instanceof File)) {
       return NextResponse.json({ error: t.missingExpertLap }, { status: 400 });

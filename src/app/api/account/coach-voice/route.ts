@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { coachVoicesFor, getCoachVoice, isCoachVoice, isSpanishAccent, setCoachVoice, setSpanishAccent } from '@/lib/coachVoice';
 import { apiText } from '@/lib/i18n/server';
+import { JSON_BODY_LIMIT, readJsonLimited } from '@/lib/requestBody';
 import { getCurrentUser } from '@/lib/session';
 
 // The Account page's Coach voice: the Chirp 3 HD voice the signed-in user's In-Car AI Coach speaks with
@@ -13,7 +14,7 @@ export async function PUT(request: Request) {
     if (!user) {
       return NextResponse.json({ error: t.logInInCarInstructions }, { status: 401 });
     }
-    const body = await request.json().catch(() => ({}));
+    const body = await readJsonLimited(request, JSON_BODY_LIMIT).catch(() => ({}));
     if (body.spanishAccent !== undefined) {
       if (!isSpanishAccent(body.spanishAccent)) {
         return NextResponse.json({ error: t.unknownSpanishAccent }, { status: 400 });

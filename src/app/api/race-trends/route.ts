@@ -5,6 +5,7 @@ import { aiRateLimit, type AiRateLimit } from '@/lib/rateLimits';
 import { incidentTrend, iRatingTrend, runRaceTrends } from '@/lib/raceTrends';
 import { isAdmin } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
+import { readJsonLimited } from '@/lib/requestBody';
 import { apiText, getLanguage } from '@/lib/i18n/server';
 
 // The agent makes several model calls (one per tool round), so give it more than the default
@@ -44,7 +45,7 @@ export async function POST(request: Request) {
     if (!isAdmin(user.role)) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
-    const body = await request.json().catch(() => ({}));
+    const body = await readJsonLimited(request, 256 * 1024).catch(() => ({}));
 
     if (body?.analysis === false) {
       const events = await readRaceEvents(user.id);

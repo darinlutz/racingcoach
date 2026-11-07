@@ -203,3 +203,129 @@ describe('model call limits and the emergency stop (F-07, F-08, F-12, F-25, F-26
     assert.equal(config.DEFAULT_RATE_LIMITS.weights.inCarCoachPlan, 1);
   });
 });
+
+describe('client IP address (F-10)', () => {
+  let ip;
+  before(async () => {
+    ip = await import(new URL('clientIp.ts', src).href);
+  });
+  const headers = (h) => ({ get: (name) => h[name] ?? null });
+
+  test('CF-Connecting-IP wins over a made-up X-Forwarded-For', () => {
+    assert.equal(ip.clientIpFromHeaders(headers({ 'cf-connecting-ip': '203.0.113.9', 'x-forwarded-for': '1.2.3.4, 203.0.113.9' }), ''), '203.0.113.9');
+  });
+
+  test('without it, the first X-Forwarded-For entry, then X-Real-IP', () => {
+    assert.equal(ip.clientIpFromHeaders(headers({ 'x-forwarded-for': '198.51.100.7, 10.0.0.1' }), ''), '198.51.100.7');
+    assert.equal(ip.clientIpFromHeaders(headers({ 'x-real-ip': '198.51.100.8' }), ''), '198.51.100.8');
+    assert.equal(ip.clientIpFromHeaders(headers({}), ''), null);
+  });
+
+  test('CLIENT_IP_HEADER takes the last entry of that header only', () => {
+    const h = headers({ 'x-forwarded-for': '1.2.3.4, 198.51.100.7', 'cf-connecting-ip': '203.0.113.9' });
+    assert.equal(ip.clientIpFromHeaders(h, 'x-forwarded-for'), '198.51.100.7');
+    assert.equal(ip.clientIpFromHeaders(headers({}), 'true-client-ip'), null);
+  });
+
+  test('values that are not IP addresses are ignored', () => {
+    assert.equal(ip.clientIpFromHeaders(headers({ 'cf-connecting-ip': 'evil', 'x-forwarded-for': 'x; DROP, 198.51.100.7' }), ''), null);
+    assert.equal(ip.clientIpFromHeaders(headers({ 'x-forwarded-for': '2001:db8::1' }), ''), '2001:db8::1');
+  });
+});
+
+describe('request body limits (F-13)', () => {
+  let body;
+  before(async () => {
+    body = await import(new URL('requestBody.ts', src).href);
+  });
+  const streamed = (bytes) =>
+    new Request('http://x/', {
+      method: 'POST',
+      // A chunked body: no Content-Length to check first
+      body: new ReadableStream({
+        start(c) {
+          for (let i = 0; i < bytes; i += 1024) c.enqueue(new Uint8Array(Math.min(1024, bytes - i)));
+          c.close();
+        },
+      }),
+      duplex: 'half',
+    });
+
+  test('a chunked body past the cap is refused without reading it all', async () => {
+    await assert.rejects(body.readBodyLimited(streamed(200 * 1024), 64 * 1024), body.BodyTooLargeError);
+  });
+
+  test('a declared Content-Length past the cap is refused before reading', async () => {
+    const request = new Request('http://x/', { method: 'POST', body: 'x'.repeat(10), headers: { 'content-length': '999999' } });
+    await assert.rejects(body.readBodyLimited(request, 1000), body.BodyTooLargeError);
+  });
+
+  test('JSON and form data under the cap read as usual', async () => {
+    assert.deepEqual(await body.readJsonLimited(new Request('http://x/', { method: 'POST', body: '{"a":1}' }), 100), { a: 1 });
+    const form = new FormData();
+    form.set('lap', '{"x":1}');
+    form.set('csv', new File([new Uint8Array(10)], 'lap.csv.gz'));
+    const read = await body.readFormDataLimited(new Request('http://x/', { method: 'POST', body: form }), 64 * 1024);
+    assert.equal(read.get('lap'), '{"x":1}');
+    assert.equal(read.get('csv').size, 10);
+  });
+
+  test('every route a visitor or collector can reach caps its body', () => {
+    const routes = ['auth/login', 'auth/signup', 'auth/forgot-password', 'auth/reset-password', 'support', 'privacy/requests',
+      'consent', 'activity', 'stripe-webhook', 'collector/laps', 'collector/log', 'collector/live', 'collector/radio',
+      'collector/speech', 'collector/in-car-coach', 'live/voice-message', 'debrief-coach', 'account/picture'];
+    for (const route of routes) {
+      const code = readFileSync(new URL(`../app/api/${route}/route.ts`, src), 'utf8');
+      assert.doesNotMatch(code, /request\.(json|formData|arrayBuffer|text)\(\)/, `${route} reads its body uncapped`);
+    }
+  });
+});
+
+describe('shared Track Data from uploaded laps (F-11)', () => {
+  let trust;
+  before(async () => {
+    trust = await import(new URL('trackDataTrust.ts', src).href);
+  });
+  // A 1 km square-ish loop near Lime Rock
+  const loop = (scale = 1) => {
+    const points = [];
+    const [lat, lon] = [41.93, -73.38];
+    const r = (0.00143 * scale);
+    for (let i = 0; i < 500; i++) {
+      const a = (i / 500) * 2 * Math.PI;
+      points.push([lat + r * Math.sin(a), lon + (r / Math.cos((lat * Math.PI) / 180)) * Math.cos(a)]);
+    }
+    return points;
+  };
+
+  test('a reported length must agree with the lap\'s own within 2%', () => {
+    assert.equal(trust.lengthConsistent(5000, 5050), true);
+    assert.equal(trust.lengthConsistent(5000, 6000), false);
+    assert.equal(trust.lengthConsistent(5000, null), false, 'nothing to check against is not trusted');
+  });
+
+  test('an outline must be about as long as the track', () => {
+    const points = loop();
+    const length = trust.outlineLengthFeet(points);
+    assert.equal(trust.outlinePlausible(points, length * 1.1), true);
+    assert.equal(trust.outlinePlausible(points, length * 2), false);
+    assert.equal(trust.outlinePlausible(loop(5), length), false, 'a made-up map five times the size');
+    assert.equal(trust.outlinePlausible(points, null), false, 'not before the track has a length');
+    assert.equal(trust.outlinePlausible(points, length, [41.93, -73.38]), true, 'where the track is');
+    assert.equal(trust.outlinePlausible(points, length, [48.85, 2.35]), false, 'the right size, somewhere else');
+  });
+
+  test('bounds must fit a lap of the track and sit near its location', () => {
+    const b = { south: 41.928, west: -73.382, north: 41.932, east: -73.378 };
+    assert.equal(trust.boundsPlausible(b, 5000, [41.93, -73.38]), true);
+    assert.equal(trust.boundsPlausible(b, 5000, [48.85, 2.35]), false, 'the other side of the world');
+    assert.equal(trust.boundsPlausible({ south: 40, west: -75, north: 43, east: -71 }, 5000, null), false, 'hundreds of miles wide');
+  });
+
+  test('an ordinary account only fills in missing values; Coaches and Admins can change them', () => {
+    const code = readFileSync(new URL('trackLocations.ts', src), 'utf8');
+    assert.match(code, /trusted \? '\(track_latitude IS DISTINCT FROM \$2 OR track_longitude IS DISTINCT FROM \$3\)' : 'track_latitude IS NULL'/);
+    const lengths = readFileSync(new URL('trackLengths.ts', src), 'utf8');
+    assert.match(lengths, /AND track_length_feet IS NULL`/);
+  });
+});

@@ -9,6 +9,7 @@ import { setThemeCookie } from '@/lib/themeServer';
 import { isUnits } from '@/lib/units';
 import { setUnitsCookie } from '@/lib/unitsServer';
 import { setCountry, setPreferredLanguage, setTheme, setUnits } from '@/lib/users';
+import { JSON_BODY_LIMIT, readJsonLimited } from '@/lib/requestBody';
 import { apiText } from '@/lib/i18n/server';
 
 // Saves the Preferred Language, the Preferred Units (Standard / Metric) or the theme (Dark Mode / Light
@@ -19,7 +20,7 @@ import { apiText } from '@/lib/i18n/server';
 // ("Play beeps before braking" and its volume are set in the telemetry collector, with PUT /api/collector/brake-beeps.)
 export async function PUT(request: Request) {
   const t = await apiText();
-  const body = (await request.json().catch(() => null)) ?? {};
+  const body = (await readJsonLimited(request, JSON_BODY_LIMIT).catch(() => null)) ?? {};
 
   // Only ever the signed-in user's: a visitor picks one on the Create an Account page, which sends it when signing up
   if (typeof body === 'object' && 'country' in body) {

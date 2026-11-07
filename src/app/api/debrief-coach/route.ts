@@ -6,6 +6,7 @@ import { saveDebrief } from '@/lib/debriefHistory';
 import { getCurrentUser } from '@/lib/session';
 import { apiText, getLanguage } from '@/lib/i18n/server';
 import { aiRateLimit, type AiRateLimit } from '@/lib/rateLimits';
+import { readJsonLimited } from '@/lib/requestBody';
 import { getUnits } from '@/lib/unitsServer';
 
 // The agent makes several model calls (one per tool round), so give it more than the default
@@ -15,7 +16,7 @@ export async function POST(request: Request) {
   const t = await apiText();
   let limit: AiRateLimit | null = null;
   try {
-    const body = await request.json().catch(() => ({}));
+    const body = await readJsonLimited(request, 4 * 1024 * 1024).catch(() => ({}));
     const parsed = debriefSessionSchema.safeParse(body.session);
 
     if (!parsed.success) {

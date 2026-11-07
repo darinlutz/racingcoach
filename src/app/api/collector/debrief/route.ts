@@ -6,6 +6,7 @@ import { readCollectorLapsByClientId } from '@/lib/collectorLaps';
 import { DEFAULT_LANGUAGE } from '@/lib/i18n/languages';
 import { getDictionary } from '@/lib/i18n/server';
 import { findTrackByKey, readTracks } from '@/lib/tracks';
+import { readJsonLimited } from '@/lib/requestBody';
 import { getUserById } from '@/lib/users';
 
 const bodySchema = z.object({ clientLapIds: z.array(z.uuid()).min(1).max(20) });
@@ -21,7 +22,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing or unknown upload key' }, { status: 401 });
     }
 
-    const parsed = bodySchema.safeParse(await request.json().catch(() => null));
+    const parsed = bodySchema.safeParse(await readJsonLimited(request, 256 * 1024).catch(() => null));
     if (!parsed.success) {
       return NextResponse.json({ error: 'Expected { clientLapIds: [uuid, ...] }' }, { status: 400 });
     }

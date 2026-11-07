@@ -7,6 +7,7 @@ import { summarizeLapComparison } from '@/lib/lapSummary';
 import { apiText, getLanguage } from '@/lib/i18n/server';
 import { getCurrentUser } from '@/lib/session';
 import { aiRateLimit, type AiRateLimit } from '@/lib/rateLimits';
+import { readJsonLimited } from '@/lib/requestBody';
 import { getUnits } from '@/lib/unitsServer';
 
 // Focus-area text for one track is a few KB; anything much bigger isn't a lap comparison
@@ -16,7 +17,7 @@ export async function POST(request: Request) {
   const t = await apiText();
   let limit: AiRateLimit | null = null;
   try {
-    const body = await request.json().catch(() => ({}));
+    const body = await readJsonLimited(request, 1024 * 1024).catch(() => ({}));
     const comparison = body.comparison;
     const track = typeof body.track === 'string' && body.track.trim() ? body.track.trim() : 'the track';
 

@@ -14,7 +14,9 @@ function getPool() {
     if (!connectionString) {
       throw new Error('DATABASE_URL is not set');
     }
-    pool = new pg.Pool({ connectionString, options: `-c search_path=${DB_SCHEMA}` });
+    pool = new pg.Pool({ connectionString, options: `-c search_path=${DB_SCHEMA} -c statement_timeout=30000` });
+    // A dropped idle connection would otherwise crash the bot (an unhandled 'error' event)
+    pool.on('error', (error) => console.error('Postgres pool error (idle connection dropped):', error.message));
   }
   return pool;
 }

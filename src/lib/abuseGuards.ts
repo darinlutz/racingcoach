@@ -4,7 +4,7 @@
 // counts over, and with more than one server instance each would count separately (they'd have to move to Postgres).
 // Off under NODE_ENV=test, as the e2e tests sign up many accounts from one address and fill forms at machine speed.
 
-import { clientIp } from './rateLimits';
+import { clientIp } from './clientIp';
 
 const MINUTE = 60 * 1000;
 const HOUR = 60 * MINUTE;
@@ -22,6 +22,14 @@ export const ABUSE_LIMITS = {
   // Reset requests per email address and per IP address an hour
   resetPerEmail: { max: 3, windowMs: HOUR },
   resetPerIp: { max: 10, windowMs: HOUR },
+  // Email address confirmation links resent per account an hour (signing up sends the first)
+  verifyEmailPerUser: { max: 3, windowMs: HOUR },
+  // The telemetry collector's uploads per account (upload key): normally a lap every minute or so plus its re-upload
+  // with track positions after the stint, and a log batch every 15 s; a played-back .ibt can send a session at once.
+  // Well above that, so only a runaway or abusive collector meets them (it retries a 429 later)
+  lapUploadsPerHour: { max: 300, windowMs: HOUR },
+  lapUploadsPerDay: { max: 1500, windowMs: DAY },
+  logBatchesPerHour: { max: 600, windowMs: HOUR },
 } as const;
 
 // A form submitted sooner than this after the page showed it was filled by a script

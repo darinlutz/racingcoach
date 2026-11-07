@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { ABUSE_LIMITS, clearAttempts, ipKey, limitReached, recordAttempt } from '@/lib/abuseGuards';
 import { createSession } from '@/lib/session';
 import { authenticateUser } from '@/lib/users';
+import { JSON_BODY_LIMIT, readJsonLimited } from '@/lib/requestBody';
 import { apiText } from '@/lib/i18n/server';
 
 // After 10 failed logins in 15 minutes from one IP address, or for one email address, the next are refused until
@@ -9,7 +10,7 @@ import { apiText } from '@/lib/i18n/server';
 export async function POST(request: Request) {
   const t = await apiText();
   try {
-    const body = await request.json().catch(() => ({}));
+    const body = await readJsonLimited(request, JSON_BODY_LIMIT).catch(() => ({}));
     const emailAddress = typeof body.emailAddress === 'string' ? body.emailAddress.trim().toLowerCase() : '';
     const password = typeof body.password === 'string' ? body.password : '';
 

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getDictionary } from '@/lib/i18n/server';
 import { quietly, sendReauthCode } from '@/lib/privacyEmail';
 import { createReauthCode, isRecentlyReauthenticated, reauthenticateWithCode, reauthenticateWithPassword } from '@/lib/reauth';
+import { JSON_BODY_LIMIT, readJsonLimited } from '@/lib/requestBody';
 import { getCurrentUser } from '@/lib/session';
 
 // Privacy & Data Rights' "Confirm it's you" (src/lib/reauth.ts), for the signed-in user only.
@@ -18,7 +19,7 @@ export async function POST(request: Request) {
   const t = getDictionary(user?.preferredLanguage ?? 'en').privacyRights;
   try {
     if (!user) return NextResponse.json({ error: t.errors.logIn }, { status: 401 });
-    const body = await request.json().catch(() => ({}));
+    const body = await readJsonLimited(request, JSON_BODY_LIMIT).catch(() => ({}));
     if (body.sendCode === true) {
       const code = await createReauthCode(user);
       if (!code) return NextResponse.json({ error: t.reauth.tooMany }, { status: 429 });

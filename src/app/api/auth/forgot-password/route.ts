@@ -3,6 +3,7 @@ import { ABUSE_LIMITS, ipKey, limitReached, recordAttempt } from '@/lib/abuseGua
 import { createPasswordResetToken } from '@/lib/passwordReset';
 import { getPublicSiteUrl } from '@/lib/siteOrigin';
 import { getUserByEmail } from '@/lib/users';
+import { JSON_BODY_LIMIT, readJsonLimited } from '@/lib/requestBody';
 import { apiText } from '@/lib/i18n/server';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -12,7 +13,7 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export async function POST(request: Request) {
   const t = await apiText();
   try {
-    const body = await request.json().catch(() => ({}));
+    const body = await readJsonLimited(request, JSON_BODY_LIMIT).catch(() => ({}));
     const emailAddress = typeof body.emailAddress === 'string' ? body.emailAddress.trim().toLowerCase() : '';
 
     if (!emailAddress) {

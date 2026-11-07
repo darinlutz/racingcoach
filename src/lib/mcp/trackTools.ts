@@ -15,6 +15,8 @@ function pool(): Pool {
     const connectionString = process.env.MCP_DATABASE_URL;
     if (!connectionString) throw new Error('MCP_DATABASE_URL not configured');
     globalForMcp.mcpDbPool = new Pool({ connectionString, max: 3, connectionTimeoutMillis: 5000 });
+    // Without a listener a dropped idle connection would crash the web server
+    globalForMcp.mcpDbPool.on('error', (error) => console.error('MCP Postgres pool error:', error.message));
   }
   return globalForMcp.mcpDbPool;
 }

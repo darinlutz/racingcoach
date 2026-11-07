@@ -29,12 +29,25 @@ export const collectorLogBatchSchema = z.object({
 
 export type CollectorLogBatch = z.infer<typeof collectorLogBatchSchema>;
 
+// Collectors before 1.83.0 logged what was said over Driver Radio, the Race Engineer's answers and watchers' messages
+// with their names. The Privacy Policy keeps those in the server's memory for minutes only, so their words and names
+// are taken out before a line is stored (and from lines stored before, redactStoredRadioText). Exported for tests.
+export function redactLogMessage(message: string): string {
+  const radio = /^Driver Radio: “([\s\S]*)” \(([^)]*)\)$/.exec(message);
+  if (radio) return `Driver Radio: message sent (${radio[1].length} characters; ${radio[2]})`;
+  const engineer = /^Race Engineer: “([\s\S]*)”$/.exec(message);
+  if (engineer) return `Race Engineer: answered (${engineer[1].length} characters)`;
+  if (message.startsWith('Live Racing: voice message from ')) return 'Live Racing: a voice message from a watcher';
+  if (message.startsWith('Live Racing: message from ')) return 'Live Racing: a message from a watcher';
+  return message;
+}
+
 // Stores a batch; lines already stored (a batch sent again after a timeout) are skipped
 export async function saveCollectorLog(userId: number, batch: CollectorLogBatch): Promise<void> {
   await ensureUserSchema();
   const params: unknown[] = [userId, batch.runId, batch.version ?? null];
   const rows = batch.lines.map((line) => {
-    params.push(line.seq, line.at, line.isError, line.message);
+    params.push(line.seq, line.at, line.isError, redactLogMessage(line.message));
     const n = params.length;
     return `($1, $2, $${n - 3}, $${n - 2}, $${n - 1}, $${n}, $3)`;
   });
@@ -48,6 +61,37 @@ export async function saveCollectorLog(userId: number, batch: CollectorLogBatch)
     `DELETE FROM racingcoach."CollectorLogs" WHERE user_id = $1 AND logged_at < now() - make_interval(days => $2)`,
     [userId, KEEP_DAYS]
   );
+}
+
+// Every user's lines past KEEP_DAYS (the Privacy Policy's 90 days), hourly from the privacy sweep: saveCollectorLog
+// only prunes the uploading user's, so an account whose collector stopped would keep its lines for good
+export async function purgeOldCollectorLogs(): Promise<number> {
+  await ensureUserSchema();
+  const rows = await query(
+    `DELETE FROM racingcoach."CollectorLogs" WHERE logged_at < now() - make_interval(days => $1) RETURNING 1`,
+    [KEEP_DAYS]
+  );
+  return rows.length;
+}
+
+// Takes radio text, engineer answers and watchers' names and messages out of lines stored before saveCollectorLog
+// did (redactLogMessage), once per server start from the privacy sweep
+let radioTextRedacted = false;
+export async function redactStoredRadioText(): Promise<number> {
+  if (radioTextRedacted) return 0;
+  await ensureUserSchema();
+  const rows = await query(
+    `UPDATE racingcoach."CollectorLogs" SET message = CASE
+       WHEN message LIKE 'Driver Radio: “%' THEN 'Driver Radio: message sent (text removed)'
+       WHEN message LIKE 'Race Engineer: “%' THEN 'Race Engineer: answered (text removed)'
+       WHEN message LIKE 'Live Racing: voice message from %' THEN 'Live Racing: a voice message from a watcher'
+       ELSE 'Live Racing: a message from a watcher' END
+     WHERE message LIKE 'Driver Radio: “%' OR message LIKE 'Race Engineer: “%'
+        OR message LIKE 'Live Racing: voice message from %' OR message LIKE 'Live Racing: message from %'
+     RETURNING 1`
+  );
+  radioTextRedacted = true;
+  return rows.length;
 }
 
 // The Admin page's Collector Logs section (src/components/CollectorLogsViewer.tsx), through

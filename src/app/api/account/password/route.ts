@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { apiText } from '@/lib/i18n/server';
 import { createSession, getCurrentUser } from '@/lib/session';
+import { JSON_BODY_LIMIT, readJsonLimited } from '@/lib/requestBody';
 import { updatePassword, verifyUserPassword } from '@/lib/users';
 
 // The Account page's Change Password, for the signed-in user only. Body: { currentPassword, newPassword }.
@@ -13,7 +14,7 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: t.logInChangePassword }, { status: 401 });
     }
 
-    const body = await request.json().catch(() => ({}));
+    const body = await readJsonLimited(request, JSON_BODY_LIMIT).catch(() => ({}));
     const currentPassword = typeof body.currentPassword === 'string' ? body.currentPassword : '';
     const newPassword = typeof body.newPassword === 'string' ? body.newPassword : '';
 

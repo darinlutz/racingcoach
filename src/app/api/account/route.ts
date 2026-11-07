@@ -7,6 +7,7 @@ import { notifyOwner } from '@/lib/ownerNotifications';
 import { quietly, sendRequestUpdate } from '@/lib/privacyEmail';
 import { isRecentlyReauthenticated, reauthenticateWithCode, reauthenticateWithPassword } from '@/lib/reauth';
 import { isAdmin } from '@/lib/roles';
+import { JSON_BODY_LIMIT, readJsonLimited } from '@/lib/requestBody';
 import { deleteSession, getCurrentUser } from '@/lib/session';
 
 // Delete My Account (My Settings and Privacy & Data Rights), for the signed-in user only (never an Admin). Body:
@@ -26,7 +27,7 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: t.adminCannotDeleteAccount }, { status: 403 });
     }
     const p = getDictionary(user.preferredLanguage).privacyRights;
-    const body = await request.json().catch(() => ({}));
+    const body = await readJsonLimited(request, JSON_BODY_LIMIT).catch(() => ({}));
     if (body.confirm !== 'DELETE') {
       return NextResponse.json({ error: p.errors.confirmDelete }, { status: 400 });
     }

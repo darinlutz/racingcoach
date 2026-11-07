@@ -16,7 +16,13 @@ export function getSiteOrigin(request: Request): string {
 // The site's public URL for links that leave the site (emails, OAuth redirects). SITE_URL pins it
 // to the real domain in production so a forged Host header can't redirect them; locally it falls
 // back to the request. Stray whitespace or a trailing slash in SITE_URL is ignored.
+// In production SITE_URL is required: without it a POST with a forged Host or X-Forwarded-Host header would get a
+// real password reset or confirmation link pointing at someone else's site, so this throws instead.
 export function getPublicSiteUrl(request: Request): string {
   const siteUrl = process.env.SITE_URL?.trim().replace(/\/+$/, '');
-  return siteUrl || getSiteOrigin(request);
+  if (siteUrl) return siteUrl;
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('SITE_URL is not set: links in emails and OAuth redirects need the real site address');
+  }
+  return getSiteOrigin(request);
 }

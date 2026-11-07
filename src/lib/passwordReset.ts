@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { query, transaction } from './db';
-import { ensureUserSchema, getUserById, updatePassword, type User } from './users';
+import { ensureUserSchema, getUserById, markEmailVerified, updatePassword, type User } from './users';
 
 const RESET_TTL_MS = 60 * 60 * 1000;
 
@@ -42,5 +42,8 @@ export async function resetPasswordWithToken(token: string, password: string): P
   if (!user) return false;
   await updatePassword(user.id, password);
   await query('DELETE FROM racingcoach."PasswordResets" WHERE user_id = $1', [user.id]);
+  // The link reached the address's inbox, which proves the address too (updatePassword already signed out every
+  // session, so whoever made an unconfirmed account with someone else's address loses it)
+  if (!user.emailVerified) await markEmailVerified(user.id);
   return true;
 }

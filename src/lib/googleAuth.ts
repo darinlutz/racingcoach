@@ -3,7 +3,7 @@ import { isUniqueViolation, query } from './db';
 import type { Language } from './i18n/languages';
 import type { PolicyVersions } from './policyVersions';
 import { getPublicSiteUrl } from './siteOrigin';
-import { createUser, ensureUserSchema, getUserById, getUserByEmail, type User } from './users';
+import { claimUnverifiedAccount, createUser, ensureUserSchema, getUserById, getUserByEmail, type User } from './users';
 
 // Sign in with Google, with Google's OpenID Connect authorization code flow
 // (https://developers.google.com/identity/openid-connect/openid-connect). The openid, email and profile scopes
@@ -142,8 +142,13 @@ export async function signInWithGoogle(
 
   const existing = await getUserByEmail(profile.email);
   if (existing) {
-    await saveGoogleConnection(existing.id, profile);
-    return { user: existing, created: false };
+    // Google has confirmed the address. An account made with it that never confirmed it may have been made by
+    // someone else first, so it's handed to the address's owner: its password and sessions are cleared
+    const user = existing.emailVerified ? existing : await claimUnverifiedAccount(existing.id);
+    if (!user) return null;
+    if (!existing.emailVerified) console.log(`Google sign-in claimed unconfirmed account ${existing.id}`);
+    await saveGoogleConnection(user.id, profile);
+    return { user, created: false };
   }
   if (!signup) return null;
 
@@ -155,6 +160,7 @@ export async function signInWithGoogle(
     country: signup.country,
     promoCode: signup.promoCode,
     acceptedPolicies: signup.acceptedPolicies,
+    emailVerified: true,
   });
   await saveGoogleConnection(user.id, profile);
   return { user, created: true };

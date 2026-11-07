@@ -10,14 +10,20 @@ import { getCurrentUser } from '@/lib/session';
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string | string[]; google?: string | string[] }>;
+  searchParams: Promise<{ next?: string | string[]; google?: string | string[]; emailVerified?: string | string[] }>;
 }) {
   const params = await searchParams;
   const next = safeReturnTo(params.next);
   if (await getCurrentUser()) redirect(next);
-  const t = getDictionary(await getLanguage(null)).auth;
+  const dictionary = getDictionary(await getLanguage(null));
+  const t = dictionary.auth;
   const googleResult = typeof params.google === 'string' ? params.google : '';
-  const googleMessage = Object.hasOwn(t.google, googleResult) ? t.google[googleResult as keyof typeof t.google] : undefined;
+  // A Google sign-in's result, or an email confirmation link that didn't work (GET /api/auth/verify-email)
+  const googleMessage = Object.hasOwn(t.google, googleResult)
+    ? t.google[googleResult as keyof typeof t.google]
+    : params.emailVerified === 'invalid'
+      ? dictionary.emailVerification.invalidLink
+      : undefined;
 
   return (
     <section className="py-12 px-4 bg-gradient-to-b from-background to-background flex justify-center">

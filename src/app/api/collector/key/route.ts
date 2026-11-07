@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createCollectorKey, deleteCollectorKey } from '@/lib/collectorKeys';
 import { getCurrentUser } from '@/lib/session';
-import { apiText } from '@/lib/i18n/server';
+import { apiText, getDictionary } from '@/lib/i18n/server';
 
 
 // Creates the signed-in user's upload key for the telemetry collector, replacing any earlier one.
@@ -12,6 +12,13 @@ export async function POST() {
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: t.logInUploadKey }, { status: 401 });
+    }
+    // An upload key spends the site's AI, speech and storage, so it waits for a confirmed address
+    if (!user.emailVerified) {
+      return NextResponse.json(
+        { error: getDictionary(user.preferredLanguage).emailVerification.required, emailNotVerified: true },
+        { status: 403 }
+      );
     }
     const { key, info } = await createCollectorKey(user.id);
     return NextResponse.json({ key, info });

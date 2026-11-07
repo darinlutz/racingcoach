@@ -1,5 +1,6 @@
 import type { PoolClient } from 'pg';
 import { query } from './db';
+import { lengthConsistent } from './trackDataTrust';
 
 // iRacing's track lengths, in racingcoach."Tracks".track_length_feet: iRacing's session info length
 // (WeekendInfo.TrackLength, e.g. "5.79 km"), which the collector sends with each lap it uploads along with the
@@ -29,13 +30,32 @@ export function lapCsvTrackLengthFeet(csv: string): number | null {
   return lengths[Math.floor(lengths.length / 2)] * FEET_PER_METER;
 }
 
-// Saves iRacing's length of the track an uploaded lap was driven on, on its "Tracks" row (by track key), when it
-// differs from the one there. Nothing without a key or length. The caller has run ensureUserSchema.
-export async function saveTrackLength(trackKey: string | null, lengthFeet: number | null): Promise<void> {
+// Saves iRacing's length of the track an uploaded lap was driven on, on its "Tracks" row (by track key). A Coach's or
+// Admin's lap (trusted) replaces a different one there; anyone else's only fills in a missing length, and only when it
+// agrees with the lap's own LapDist / LapDistPct (csvLengthFeet; src/lib/trackDataTrust.ts), as the collector's
+// details can be made up. Nothing without a key or length. The caller has run ensureUserSchema.
+export async function saveTrackLength(
+  trackKey: string | null,
+  lengthFeet: number | null,
+  { trusted, csvLengthFeet }: { trusted: boolean; csvLengthFeet: () => number | null }
+): Promise<void> {
   if (!trackKey || !lengthFeet) return;
+  if (trusted) {
+    await query(
+      `UPDATE racingcoach."Tracks" SET track_length_feet = $2, updated_at = now()
+       WHERE lower(track_key) = lower($1) AND track_length_feet IS DISTINCT FROM $2`,
+      [trackKey, lengthFeet]
+    );
+    return;
+  }
+  const missing = await query(
+    'SELECT 1 FROM racingcoach."Tracks" WHERE lower(track_key) = lower($1) AND track_length_feet IS NULL LIMIT 1',
+    [trackKey]
+  );
+  if (missing.length === 0 || !lengthConsistent(lengthFeet, csvLengthFeet())) return;
   await query(
     `UPDATE racingcoach."Tracks" SET track_length_feet = $2, updated_at = now()
-     WHERE lower(track_key) = lower($1) AND track_length_feet IS DISTINCT FROM $2`,
+     WHERE lower(track_key) = lower($1) AND track_length_feet IS NULL`,
     [trackKey, lengthFeet]
   );
 }

@@ -11,6 +11,7 @@ import {
   setRaceAnnouncerInstructions,
 } from '@/lib/raceAnnouncer';
 import { getCurrentUser } from '@/lib/session';
+import { JSON_BODY_LIMIT, readJsonLimited } from '@/lib/requestBody';
 import { getEnableAiFeatures } from '@/lib/siteSettings';
 
 // The Account page's Race Announcers (src/lib/raceAnnouncer.ts), saved for the signed-in user only.
@@ -27,7 +28,7 @@ export async function PUT(request: Request) {
     if (!(await getEnableAiFeatures())) {
       return NextResponse.json({ error: t.raceAnnouncersDisabled, code: 'aiFeaturesDisabled' }, { status: 403 });
     }
-    const body = await request.json().catch(() => ({}));
+    const body = await readJsonLimited(request, JSON_BODY_LIMIT).catch(() => ({}));
 
     if (body.broadcast !== undefined) {
       const patch = broadcastSettingsPatch(body.broadcast);

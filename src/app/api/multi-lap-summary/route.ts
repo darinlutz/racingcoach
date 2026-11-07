@@ -5,6 +5,7 @@ import { saveLapSummary } from '@/lib/lapSummaryHistory';
 import { summarizeMultiLap } from '@/lib/lapSummary';
 import { aiRateLimit, type AiRateLimit } from '@/lib/rateLimits';
 import { getCurrentUser } from '@/lib/session';
+import { readJsonLimited } from '@/lib/requestBody';
 import { getUnits } from '@/lib/unitsServer';
 
 // Multi-lap statistics for one track are a few KB; anything much bigger isn't a multi-lap analysis
@@ -13,7 +14,7 @@ const MAX_STATS_CHARS = 20000;
 export async function POST(request: Request) {
   let limit: AiRateLimit | null = null;
   try {
-    const body = await request.json().catch(() => ({}));
+    const body = await readJsonLimited(request, 1024 * 1024).catch(() => ({}));
     const stats = body.stats;
     const track = typeof body.track === 'string' && body.track.trim() ? body.track.trim() : 'the track';
 

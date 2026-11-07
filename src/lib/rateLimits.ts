@@ -32,6 +32,7 @@ import { ROLES } from './roles';
 import { getShowPricing } from './siteSettings';
 import { ensureUserSchema, type User } from './users';
 import { assertMeteredServicesOn, meteredServicesOn } from './meteredServices';
+import { clientIp } from './clientIp';
 
 export * from './rateLimitConfig';
 
@@ -72,11 +73,8 @@ export async function setRateLimitSettings(settings: RateLimitSettings, userId: 
   cachedSettings = { at: Date.now(), settings };
 }
 
-// The caller's IP address: Render (and most hosts) put it first in X-Forwarded-For. Null locally
-export function clientIp(request: Request): string | null {
-  const forwarded = request.headers.get('x-forwarded-for')?.split(',')[0].trim();
-  return forwarded || request.headers.get('x-real-ip') || null;
-}
+// The caller's IP address (src/lib/clientIp.ts: not one a browser can make up)
+export { clientIp };
 
 export function tierOf(membershipLevel: string): LimitTier {
   return (LIMIT_TIERS as readonly string[]).includes(membershipLevel) && membershipLevel !== 'Anonymous'
@@ -315,6 +313,19 @@ export async function aiRateLimit(
   if (!(await meteredServicesOn())) {
     console.log(`AI call ${feature} refused: paid services are stopped (Admin > Site Settings)`);
     return unavailable(user, 'servicesStopped');
+  }
+  // An account whose email address isn't confirmed gets no AI: otherwise anyone could make accounts with addresses
+  // they don't own for more free AI (src/lib/emailVerification.ts)
+  if (user && !user.emailVerified) {
+    const language = await getLanguage(user).catch(() => 'en' as Language);
+    return {
+      response: NextResponse.json(
+        { error: getDictionary(language).emailVerification.required, emailNotVerified: true },
+        { status: 403 }
+      ),
+      refund: noRefund,
+      track: untracked,
+    };
   }
   try {
     const settings = await getRateLimitSettings();

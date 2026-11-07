@@ -5,8 +5,9 @@ import { isAdmin } from './roles';
 // The Model Learning page (src/app/model-learning/) is for Admins and this account only
 const MODEL_LEARNING_ACCOUNTS = new Set(['darinlutz648@gmail.com']);
 
-export const canUseModelLearning = (user: { role: string; emailAddress: string }) =>
-  isAdmin(user.role) || MODEL_LEARNING_ACCOUNTS.has(user.emailAddress.toLowerCase());
+// The named account only once its address is confirmed, as anyone can sign up with an address they don't own
+export const canUseModelLearning = (user: { role: string; emailAddress: string; emailVerified: boolean }) =>
+  isAdmin(user.role) || (user.emailVerified && MODEL_LEARNING_ACCOUNTS.has(user.emailAddress.toLowerCase()));
 
 // Runs learning/day1_tensors.py and resolves with everything it printed, stdout then stderr (an error's traceback is
 // part of the lesson). Rejects only when Python can't be started or the script times out

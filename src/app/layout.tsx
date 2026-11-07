@@ -9,6 +9,7 @@ import LanguageProvider from "@/components/LanguageProvider";
 import Navigation from "@/components/Navigation";
 import { getProfilePictureVersion } from "@/lib/profilePictures";
 import PolicyUpdateNotice from "@/components/PolicyUpdateNotice";
+import EmailVerificationNotice from "@/components/EmailVerificationNotice";
 import RateLimitDialog from "@/components/RateLimitDialog";
 import UnitsProvider from "@/components/UnitsProvider";
 import { getConsentState } from "@/lib/cookieConsentServer";
@@ -102,6 +103,7 @@ export default async function RootLayout({
               {/* On large screens the nav is a fixed sidebar down the left (with the logo at its top), so the page
                   starts after its collapsed width, and it opens over the page */}
               <div className="flex-1 flex flex-col lg:pl-(--nav-width)">
+                {user && !user.emailVerified && <EmailVerificationNotice email={user.emailAddress} />}
                 {needsPolicyAcceptance && <PolicyUpdateNotice />}
                 <main className="flex-1">
                   {children}

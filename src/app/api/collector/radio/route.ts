@@ -12,6 +12,7 @@ import { canUseInCarCoach, canUseVoiceAi } from '@/lib/roles';
 import { measureSessionRotation, setupEngineerReply } from '@/lib/setupEngineer';
 import { getEnableAiFeatures } from '@/lib/siteSettings';
 import { DEFAULT_UNITS } from '@/lib/units';
+import { BodyTooLargeError, readBodyLimited } from '@/lib/requestBody';
 import { getInCarCoachInstructions, getUserById, type User } from '@/lib/users';
 
 // The engineer may look through the session's laps with the Debrief Coach's tools (several model calls)
@@ -48,8 +49,12 @@ export async function POST(request: Request) {
     if (!canUseVoiceAi(user)) {
       return NextResponse.json({ error: 'Driver Radio is for Silver and Gold members', code: 'membershipRequired' }, { status: 403 });
     }
-    const audio = Buffer.from(await request.arrayBuffer());
-    if (audio.length > MAX_RADIO_BYTES) {
+    // Reading stops past the cap (src/lib/requestBody.ts), so a huge body can't fill the server's memory
+    const audio = await readBodyLimited(request, MAX_RADIO_BYTES).catch((error) => {
+      if (error instanceof BodyTooLargeError) return null;
+      throw error;
+    });
+    if (!audio || audio.length > MAX_RADIO_BYTES) {
       return NextResponse.json({ error: 'The recording is too long' }, { status: 413 });
     }
     if (!looksLikeWav(audio)) {

@@ -306,8 +306,16 @@ export async function purgeLegacyTelemetry(options: { confirm: string; backupTak
 
 // A plain VACUUM: the purged space becomes reusable inside Postgres, without the exclusive lock VACUUM FULL takes. It
 // doesn't shrink the files; VACUUM FULL, by hand, does (docs/telemetry-storage.md).
+// The pool's statement timeout (src/lib/db.ts) would stop a VACUUM of a big table, so this connection has none
 export async function vacuumCollectorLaps(): Promise<void> {
-  await query('VACUUM (ANALYZE) racingcoach."CollectorLaps"');
+  await withClient(async (client) => {
+    await client.query('SET statement_timeout = 0');
+    try {
+      await client.query('VACUUM (ANALYZE) racingcoach."CollectorLaps"');
+    } finally {
+      await client.query('RESET statement_timeout');
+    }
+  });
 }
 
 // The Admin page's long-running actions, one at a time on this server, in the background so the request returns at

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { addFriend, deleteFriend, readFriends } from '@/lib/friendsRoster';
 import { COUNTRIES } from '@/lib/countries';
 import { getCurrentUser } from '@/lib/session';
+import { readJsonLimited } from '@/lib/requestBody';
 import { apiText } from '@/lib/i18n/server';
 
 // Each signed-in user has their own friends list.
@@ -28,7 +29,7 @@ export async function POST(request: Request) {
     if (!user) {
       return NextResponse.json({ error: t.logInFriends }, { status: 401 });
     }
-    const body = await request.json().catch(() => ({}));
+    const body = await readJsonLimited(request, 256 * 1024).catch(() => ({}));
     const name = typeof body.name === 'string' ? body.name.trim() : '';
     if (!name) {
       return NextResponse.json({ error: t.nameRequired }, { status: 400 });
@@ -55,7 +56,7 @@ export async function DELETE(request: Request) {
     if (!user) {
       return NextResponse.json({ error: t.logInFriends }, { status: 401 });
     }
-    const body = await request.json().catch(() => ({}));
+    const body = await readJsonLimited(request, 256 * 1024).catch(() => ({}));
     const id = typeof body.id === 'string' ? body.id : '';
     if (!id) {
       return NextResponse.json({ error: 'id is required' }, { status: 400 });

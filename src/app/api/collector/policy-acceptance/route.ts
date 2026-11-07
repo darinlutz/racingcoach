@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { authenticateCollector } from '@/lib/collectorKeys';
 import { recordPolicyAcceptance } from '@/lib/policyAcceptances';
+import { JSON_BODY_LIMIT, readJsonLimited } from '@/lib/requestBody';
 import { POLICY_VERSIONS } from '@/lib/policyVersions';
 
 // The collector reports the Terms of Service and Privacy Policy versions its installer's legal page accepted
@@ -15,7 +16,7 @@ export async function POST(request: Request) {
     if (userId === null) {
       return NextResponse.json({ error: 'Missing or unknown upload key' }, { status: 401 });
     }
-    const body = await request.json().catch(() => ({}));
+    const body = await readJsonLimited(request, JSON_BODY_LIMIT).catch(() => ({}));
     if (body.termsVersion !== POLICY_VERSIONS.terms || body.privacyVersion !== POLICY_VERSIONS.privacy) {
       return NextResponse.json({ recorded: false });
     }

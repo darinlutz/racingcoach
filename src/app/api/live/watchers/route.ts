@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { apiText } from '@/lib/i18n/server';
 import { addWatcher, readSharedWithMe, readWatchers, removeWatcher } from '@/lib/liveRacing';
+import { JSON_BODY_LIMIT, readJsonLimited } from '@/lib/requestBody';
 import { getCurrentUser } from '@/lib/session';
 
 // The Live Racing page's Who Can Watch Me (src/lib/liveRacing.ts): the accounts the signed-in user lets watch them
@@ -29,7 +30,7 @@ export async function POST(request: Request) {
     if (!user) {
       return NextResponse.json({ error: t.logInLiveRacing }, { status: 401 });
     }
-    const body = await request.json().catch(() => ({}));
+    const body = await readJsonLimited(request, JSON_BODY_LIMIT).catch(() => ({}));
     const emailAddress = typeof body.emailAddress === 'string' ? body.emailAddress.trim() : '';
     if (!emailAddress) {
       return NextResponse.json({ error: t.emailRequired }, { status: 400 });
@@ -59,7 +60,7 @@ export async function DELETE(request: Request) {
     if (!user) {
       return NextResponse.json({ error: t.logInLiveRacing }, { status: 401 });
     }
-    const body = await request.json().catch(() => ({}));
+    const body = await readJsonLimited(request, JSON_BODY_LIMIT).catch(() => ({}));
     const watcherId = Number(body.watcherId);
     if (!Number.isInteger(watcherId) || watcherId <= 0) {
       return NextResponse.json({ error: 'watcherId is required' }, { status: 400 });

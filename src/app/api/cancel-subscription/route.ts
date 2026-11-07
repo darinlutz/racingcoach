@@ -6,6 +6,7 @@ import { recordCancellation } from '@/lib/users';
 import { ACCOUNT_STATUS } from '@/lib/accountStatus';
 import { fmt } from '@/lib/i18n/languages';
 import { apiText } from '@/lib/i18n/server';
+import { JSON_BODY_LIMIT, readJsonLimited } from '@/lib/requestBody';
 import {
   CANCELLATION_REASONS,
   MAX_CANCELLATION_NOTES,
@@ -26,7 +27,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: t.noSubscription }, { status: 400 });
     }
 
-    const body = await request.json().catch(() => ({}));
+    const body = await readJsonLimited(request, JSON_BODY_LIMIT).catch(() => ({}));
     const reason = CANCELLATION_REASONS.find((r) => r.label === body.reason);
     if (!reason) {
       return NextResponse.json({ error: t.chooseReason }, { status: 400 });

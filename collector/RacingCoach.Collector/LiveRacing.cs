@@ -504,12 +504,13 @@ internal sealed class LiveRacing(Func<RacingCoachApi?> api, Action<string> log)
             {
                 if (message.AudioId is { } audioId)
                 {
-                    log($"Live Racing: voice message from {message.From}: {message.Text}");
+                    // Not the watcher's name or words: the activity log is uploaded (LogUploader); Voice says them
+                    log("Live Racing: a voice message from a watcher");
                     Voice.PlayRecording(() => client.GetVoiceMessageAsync(audioId, CancellationToken.None), message.Text);
                 }
                 else
                 {
-                    log($"Live Racing: message from {message.From}: {message.Text}");
+                    log("Live Racing: a message from a watcher");
                     Voice.Say(message.Text);
                 }
             }

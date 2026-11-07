@@ -14,6 +14,8 @@ import { retentionDays } from '@/lib/lapRetentionRules';
 import { lapRefusal } from '@/lib/simulators';
 import { recordedStintLimit } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
+import { readFormDataLimited } from '@/lib/requestBody';
+import { ABUSE_LIMITS, limitReached, recordAttempt } from '@/lib/abuseGuards';
 import { apiText } from '@/lib/i18n/server';
 
 const UNAUTHORIZED = { error: 'Missing or unknown upload key' };
@@ -76,13 +78,23 @@ export async function POST(request: Request) {
       return NextResponse.json(UNAUTHORIZED, { status: 401 });
     }
 
+    // A runaway or abusive collector can't fill storage: so many uploads per account an hour and a day
+    // (src/lib/abuseGuards.ts); the collector retries a 429 later
+    const hourKey = `lap-uploads-hour:${userId}`;
+    const dayKey = `lap-uploads-day:${userId}`;
+    if (limitReached(hourKey, ABUSE_LIMITS.lapUploadsPerHour) || limitReached(dayKey, ABUSE_LIMITS.lapUploadsPerDay)) {
+      return NextResponse.json({ error: 'Too many lap uploads; try again later' }, { status: 429, headers: { 'Retry-After': '600' } });
+    }
+    recordAttempt(hourKey);
+    recordAttempt(dayKey);
+
     // Leave room for the lap JSON and multipart boundaries around the CSV
     const contentLength = Number(request.headers.get('content-length') ?? 0);
     if (contentLength > MAX_UPLOAD_BYTES + 64 * 1024) {
       return NextResponse.json({ error: 'Upload is too large' }, { status: 413 });
     }
 
-    const form = await request.formData().catch(() => null);
+    const form = await readFormDataLimited(request, MAX_UPLOAD_BYTES + 64 * 1024).catch(() => null);
     const lapField = form?.get('lap');
     const csvField = form?.get('csv');
     if (typeof lapField !== 'string' || !(csvField instanceof File)) {

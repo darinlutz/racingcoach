@@ -4,6 +4,7 @@ import { getUserById, setStatusBySubscriptionId, startSubscription } from '@/lib
 import { ACCOUNT_STATUS, parsePlan, type Plan } from '@/lib/accountStatus';
 import { notifyOwner } from '@/lib/ownerNotifications';
 import { STRIPE_APP } from '@/lib/stripePlans';
+import { readTextLimited } from '@/lib/requestBody';
 import {
   claimWebhookEvent,
   finishWebhookEvent,
@@ -37,7 +38,7 @@ export async function POST(request: Request) {
   let event: Stripe.Event;
   try {
     event = stripe.webhooks.constructEvent(
-      await request.text(),
+      await readTextLimited(request, 1024 * 1024),
       signature,
       webhookSecret
     );

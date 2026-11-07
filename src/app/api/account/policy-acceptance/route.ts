@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { apiText } from '@/lib/i18n/server';
 import { recordPolicyAcceptance } from '@/lib/policyAcceptances';
 import { isCurrentPolicyVersions } from '@/lib/policyVersions';
+import { JSON_BODY_LIMIT, readJsonLimited } from '@/lib/requestBody';
 import { getCurrentUser } from '@/lib/session';
 
 // The signed-in user accepts the current Terms of Service and Privacy Policy, from the notice the root layout shows
@@ -14,7 +15,7 @@ export async function POST(request: Request) {
     if (!user) {
       return NextResponse.json({ error: t.logInPolicies }, { status: 401 });
     }
-    const body = await request.json().catch(() => ({}));
+    const body = await readJsonLimited(request, JSON_BODY_LIMIT).catch(() => ({}));
     if (!isCurrentPolicyVersions(body.acceptedPolicies)) {
       return NextResponse.json({ error: t.policiesChanged }, { status: 409 });
     }

@@ -33,6 +33,7 @@ import { getCurrentUser } from '@/lib/session';
 import { getEnableAiFeatures, getShowPricing } from '@/lib/siteSettings';
 import { canBuyAnything, getInCarCoachInstructions, MAX_IN_CAR_COACH_INSTRUCTIONS } from '@/lib/users';
 import { ACCOUNT_STATUS, MEMBERSHIP_LEVEL } from '@/lib/accountStatus';
+import EmailVerificationNotice from '@/components/EmailVerificationNotice';
 import 'flag-icons/css/flag-icons.min.css';
 
 // Each level's medal color
@@ -64,7 +65,9 @@ export default async function AccountPage({
   const locale = LANGUAGE_LOCALES[user.preferredLanguage];
   const formatDate = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString(locale, { dateStyle: 'long' }) : '—');
 
-  const { discord: discordResult } = await searchParams;
+  const { discord: discordResult, emailVerified: emailVerifiedResult } = await searchParams;
+  // Arrived from the email's confirmation link (GET /api/auth/verify-email)
+  const justVerified = emailVerifiedResult === '1' && user.emailVerified;
   const discordText = typeof discordResult === 'string' ? t.account.discordMessages[discordResult] : undefined;
   const discordOk = typeof discordResult === 'string' && DISCORD_OK.has(discordResult);
   const [discord, collectorKey, inCarCoachInstructions, coachVoice, raceAnnouncers, namePronunciation, engineAssets, showPricing, enableAiFeatures, aiUsage, aiLimits] = await Promise.all([
@@ -91,6 +94,8 @@ export default async function AccountPage({
   const showViewPlans = showPricing && canUpgrade;
 
   return (
+    <>
+    {justVerified && <EmailVerificationNotice email={user.emailAddress} verified />}
     <section className="py-12 px-4 bg-gradient-to-b from-background to-background flex justify-center">
       <div className="w-full max-w-2xl bg-secondary rounded-xl border border-border p-6 sm:p-8">
         <h1 className="text-3xl font-bold mb-2 bg-gradient-to-r from-primary-strong via-primary to-primary-strong bg-clip-text text-transparent">
@@ -310,5 +315,6 @@ export default async function AccountPage({
         {!isAdmin(user.role) && <DeleteAccountButton isSubscribed={isSubscribed} hasPassword={user.hasPassword} />}
       </div>
     </section>
+    </>
   );
 }

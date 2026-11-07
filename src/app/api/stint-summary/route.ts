@@ -4,6 +4,7 @@ import { saveLapSummary } from '@/lib/lapSummaryHistory';
 import { summarizeStint } from '@/lib/lapSummary';
 import { apiText, getLanguage } from '@/lib/i18n/server';
 import { aiRateLimit, type AiRateLimit } from '@/lib/rateLimits';
+import { readJsonLimited } from '@/lib/requestBody';
 import { getCurrentUser } from '@/lib/session';
 
 // A stint report is a few KB; anything much bigger isn't a stint report
@@ -13,7 +14,7 @@ export async function POST(request: Request) {
   const t = await apiText();
   let limit: AiRateLimit | null = null;
   try {
-    const body = await request.json().catch(() => ({}));
+    const body = await readJsonLimited(request, 1024 * 1024).catch(() => ({}));
     const report = body.report;
     const track = typeof body.track === 'string' && body.track.trim() ? body.track.trim() : 'the track';
 

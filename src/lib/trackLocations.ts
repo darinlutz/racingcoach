@@ -35,18 +35,21 @@ export function lapCsvBounds(csv: string): TrackBounds | null {
   return bounds;
 }
 
-// Saves iRacing's location of the track an uploaded lap was driven on, when it differs from the one there.
-// Nothing without a key or location. The caller has run ensureUserSchema.
+// Saves iRacing's location of the track an uploaded lap was driven on. A Coach's or Admin's lap (trusted) replaces a
+// different one there; anyone else's only fills in a missing location (src/lib/trackDataTrust.ts). Nothing without a
+// key or location. The caller has run ensureUserSchema.
 export async function saveTrackLocation(
   trackKey: string | null,
   latitude: number | null,
-  longitude: number | null
+  longitude: number | null,
+  trusted: boolean
 ): Promise<void> {
   if (!trackKey || latitude == null || longitude == null || (latitude === 0 && longitude === 0)) return;
+  if (Math.abs(latitude) > 85 || Math.abs(longitude) > 180) return;
   await query(
     `UPDATE racingcoach."Tracks" SET track_latitude = $2, track_longitude = $3, updated_at = now()
      WHERE lower(track_key) = lower($1)
-       AND (track_latitude IS DISTINCT FROM $2 OR track_longitude IS DISTINCT FROM $3)`,
+       AND ${trusted ? '(track_latitude IS DISTINCT FROM $2 OR track_longitude IS DISTINCT FROM $3)' : 'track_latitude IS NULL'}`,
     [trackKey, latitude, longitude]
   );
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { markAnnouncing } from '@/lib/liveRacing';
+import { JSON_BODY_LIMIT, readJsonLimited } from '@/lib/requestBody';
 import { getTvSession } from '@/lib/tvAuth';
 
 const bodySchema = z.object({ ms: z.number().min(0).max(60_000) });
@@ -13,7 +14,7 @@ export async function POST(request: Request) {
     if (!session) {
       return NextResponse.json({ error: 'Not paired', code: 'notPaired' }, { status: 401 });
     }
-    const parsed = bodySchema.safeParse(await request.json().catch(() => null));
+    const parsed = bodySchema.safeParse(await readJsonLimited(request, JSON_BODY_LIMIT).catch(() => null));
     if (!parsed.success) {
       return NextResponse.json({ error: 'Expected { ms }' }, { status: 400 });
     }

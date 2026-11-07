@@ -1,16 +1,17 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { getCurrentUser } from '@/lib/session';
-import { getSiteOrigin } from '@/lib/siteOrigin';
+import { getPublicSiteUrl } from '@/lib/siteOrigin';
 import { getPlanPrice, getStripeConfig, STRIPE_APP } from '@/lib/stripePlans';
 import { ACCOUNT_STATUS, isPlan } from '@/lib/accountStatus';
 import { canBuy } from '@/lib/users';
+import { JSON_BODY_LIMIT, readFormDataLimited } from '@/lib/requestBody';
 import { apiText } from '@/lib/i18n/server';
 
 export async function POST(request: Request) {
   const t = await apiText();
   try {
-    const formData = await request.formData();
+    const formData = await readFormDataLimited(request, JSON_BODY_LIMIT);
     const plan = formData.get('plan');
     if (!isPlan(plan)) {
       return NextResponse.json({ error: t.invalidPlan }, { status: 400 });
@@ -26,12 +27,17 @@ export async function POST(request: Request) {
     }
     const { stripe, productId } = config;
 
-    const origin = getSiteOrigin(request);
+    const origin = getPublicSiteUrl(request);
 
     // The webhook uses client_reference_id to find which user subscribed
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.redirect(`${origin}/login`, 303);
+    }
+    // A plan is bought by an account whose address is confirmed (src/lib/emailVerification.ts); the Account page's
+    // banner says how
+    if (!user.emailVerified) {
+      return NextResponse.redirect(`${origin}/account?verifyEmail=1`, 303);
     }
     // Prevents buying a plan the account already has (or one below it): a current
     // subscriber can only upgrade, from Silver to Gold

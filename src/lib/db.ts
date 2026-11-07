@@ -19,12 +19,18 @@ function getPool(): Pool {
     // 25 connections (pg's default is 10) so race-night lap uploads, live updates and AI routes don't queue. Render
     // Postgres allows at least 100: two of these pools while a deploy overlaps, the bot's 10 and the MCP tools' 3 fit.
     // A query that still can't get one within 10 s fails instead of waiting forever.
+    // No statement may run longer than PG_STATEMENT_TIMEOUT_MS (60 s by default), nor a transaction sit idle for a
+    // minute, so a stuck query can't hold a connection (and its locks) forever.
+    const statementTimeout = Number(process.env.PG_STATEMENT_TIMEOUT_MS) || 60_000;
     globalForDb.pgPool = new Pool({
       connectionString,
-      options: `-c search_path=${DB_SCHEMA}`,
-      max: 25,
+      options: `-c search_path=${DB_SCHEMA} -c statement_timeout=${statementTimeout} -c idle_in_transaction_session_timeout=60000`,
+      max: Number(process.env.PG_POOL_MAX) || 25,
       connectionTimeoutMillis: 10_000,
     });
+    // An idle connection the database drops (a restart, maintenance, a network blip) is reported here; without a
+    // listener Node treats it as an unhandled error and the whole server exits. The pool replaces the connection.
+    globalForDb.pgPool.on('error', (error) => console.error('Postgres pool error (idle connection dropped):', error.message));
   }
   return globalForDb.pgPool;
 }

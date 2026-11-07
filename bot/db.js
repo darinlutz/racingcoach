@@ -39,15 +39,17 @@ export async function getShowPricing() {
 export async function getLinkedUser(discordUserId) {
   const [row] = await query(
     // A Subscribed or Canceled account whose paid period is over is back at Bronze, as the website's
-    // getUserById makes it (this connection is read-only, so it isn't saved here)
+    // getUserById makes it (this connection is read-only, so it isn't saved here). A Subscribed one gets 72 hours
+    // past its date first, for the renewal (RENEWAL_GRACE_HOURS in src/lib/lapRetentionRules.ts)
     `SELECT u.id, u.user_name, u.account_status, u.role,
-            CASE WHEN u.account_status IN ('Subscribed', 'Canceled') AND u.subscription_end_date < $2
+            CASE WHEN (u.account_status = 'Subscribed' AND u.subscription_end_date < $3)
+                   OR (u.account_status = 'Canceled' AND u.subscription_end_date < $2)
                  THEN 'Bronze' ELSE u.membership_level END AS membership_level,
             u.created_at AS member_since
      FROM racingcoach."DiscordConnections" d
      JOIN racingcoach."Users" u ON u.id = d.user_id
      WHERE d.discord_user_id = $1`,
-    [discordUserId, new Date().toISOString()],
+    [discordUserId, new Date().toISOString(), new Date(Date.now() - 72 * 3600_000).toISOString()],
   );
   if (!row) return null;
   // role is Admin, Coach or User (the website's src/lib/roles.ts); membershipLevel Bronze, Silver or Gold

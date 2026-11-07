@@ -92,3 +92,53 @@ describe('map tile budget (F-06)', () => {
     assert.ok(tiles.cachedTile('t129', now), 'newest kept');
   });
 });
+
+describe('Stripe subscription projection (F-02)', () => {
+  let projection, rules;
+  before(async () => {
+    projection = await import(new URL('stripeProjection.ts', src).href);
+    rules = await import(new URL('lapRetentionRules.ts', src).href);
+  });
+  const end = Date.UTC(2026, 11, 7, 12) / 1000;
+
+  test('a paid renewal restores the plan level and moves the end to Stripe\'s period end', () => {
+    assert.deepEqual(
+      projection.accountProjection({ status: 'active', plan: 'gold_monthly', currentPeriodEnd: end, latestInvoiceStatus: 'paid' }),
+      { accountStatus: 'Subscribed', membershipLevel: 'Gold', subscriptionEndDate: '2026-12-07T12:00:00.000Z' }
+    );
+    assert.equal(
+      projection.accountProjection({ status: 'active', plan: 'silver_annual', currentPeriodEnd: end, latestInvoiceStatus: 'paid' }).membershipLevel,
+      'Silver'
+    );
+  });
+
+  test('a period not yet paid for keeps the account\'s end date', () => {
+    const p = projection.accountProjection({ status: 'active', plan: 'silver_monthly', currentPeriodEnd: end, latestInvoiceStatus: 'draft' });
+    assert.equal(p.subscriptionEndDate, null);
+    assert.equal(p.membershipLevel, 'Silver');
+  });
+
+  test('past due, canceled, unpaid, incomplete and other apps\' plans leave the account alone', () => {
+    for (const status of ['past_due', 'canceled', 'unpaid', 'incomplete', 'incomplete_expired', 'paused']) {
+      assert.equal(projection.accountProjection({ status, plan: 'gold_monthly', currentPeriodEnd: end, latestInvoiceStatus: 'paid' }), null, status);
+    }
+    assert.equal(projection.accountProjection({ status: 'active', plan: 'talkninja_pro', currentPeriodEnd: end, latestInvoiceStatus: 'paid' }), null);
+    assert.equal(projection.accountProjection({ status: 'active', plan: null, currentPeriodEnd: end, latestInvoiceStatus: 'paid' }), null);
+  });
+
+  test('a renewing membership gets 72 hours past its paid period; a canceled one ends on its date', () => {
+    const paidUntil = new Date(Date.UTC(2026, 10, 7, 12));
+    const hour = 3600_000;
+    assert.equal(rules.membershipLapsed('Subscribed', paidUntil, new Date(paidUntil.getTime() + hour)), false, 'renewal charged an hour later');
+    assert.equal(rules.membershipLapsed('Subscribed', paidUntil, new Date(paidUntil.getTime() + 71 * hour)), false);
+    assert.equal(rules.membershipLapsed('Subscribed', paidUntil, new Date(paidUntil.getTime() + 73 * hour)), true);
+    assert.equal(rules.membershipLapsed('Canceled', paidUntil, new Date(paidUntil.getTime() + hour)), true);
+    assert.equal(rules.membershipLapsed('Unsubscribed', paidUntil, new Date(paidUntil.getTime() + 999 * hour)), false);
+  });
+
+  test('the lapse SQL gives Subscribed accounts the same grace', async () => {
+    const db = await import(new URL('lapRetentionDb.ts', src).href);
+    assert.match(db.END_LAPSED_MEMBERSHIPS_SQL, /make_interval\(hours => 72\)/);
+    assert.match(db.END_LAPSED_MEMBERSHIPS_SQL, /'Canceled'.*subscription_end_date < \$1/s);
+  });
+});

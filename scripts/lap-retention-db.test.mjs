@@ -294,10 +294,22 @@ describe('lap retention in the database', { skip }, () => {
     assert.equal(keptDays(await lapRow(id)), 90);
   });
 
-  test('subscription expiration (failed renewal) of Silver: the hourly job ends it and laps drop to Bronze, no grace', async () => {
+  test('a renewing Silver membership is kept for the 72-hour renewal grace past its paid period', async () => {
     const user = await makeUser('Silver', {
       accountStatus: 'Subscribed',
       subscriptionEndDate: new Date(Date.now() - DAY).toISOString(),
+    });
+    const recent = await saveLap(user, 5);
+    await db.withClient((c) => job.runLapRetentionJob(c, { dryRun: true }));
+    const [row] = await q('SELECT membership_level, account_status FROM racingcoach."Users" WHERE id = $1', [user]);
+    assert.deepEqual(row, { membership_level: 'Silver', account_status: 'Subscribed' });
+    assert.equal(keptDays(await lapRow(recent.id)), 60);
+  });
+
+  test('subscription expiration (failed renewal) of Silver: after the renewal grace the hourly job ends it and laps drop to Bronze', async () => {
+    const user = await makeUser('Silver', {
+      accountStatus: 'Subscribed',
+      subscriptionEndDate: new Date(Date.now() - 4 * DAY).toISOString(),
     });
     const old = await saveLap(user, 35);
     const recent = await saveLap(user, 5);

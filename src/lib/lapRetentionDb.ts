@@ -13,7 +13,13 @@
 //   rows in small batches, each its own statement, leaving a tombstone in "ExpiredLaps" so the collector can't upload
 //   a deleted lap again. Tombstones carry no telemetry and go once the lap would be past MAX_RETENTION_DAYS anyway.
 import { ACCOUNT_STATUS, MEMBERSHIP_LEVEL } from './accountStatus.ts';
-import { FALLBACK_RETENTION_DAYS, GOLD_GRACE_DAYS, MAX_RETENTION_DAYS, RETENTION_DAYS } from './lapRetentionRules.ts';
+import {
+  FALLBACK_RETENTION_DAYS,
+  GOLD_GRACE_DAYS,
+  MAX_RETENTION_DAYS,
+  RENEWAL_GRACE_HOURS,
+  RETENTION_DAYS,
+} from './lapRetentionRules.ts';
 
 // The part of pg's Client and PoolClient used here
 export type Queryable = {
@@ -116,13 +122,19 @@ export const LAP_RETENTION_SCHEMA: string[] = [
 // canceled one stays Canceled). $1 is now as an ISO string (subscription_end_date is ISO text), $2 one user's id or
 // NULL for everyone. getUserById runs it for the user it loads, and the cleanup job for everyone, so a member who
 // never comes back still drops to Bronze, and their laps to Bronze's period, on time.
+// A Subscribed (renewing) membership gets RENEWAL_GRACE_HOURS past its date first, as the renewal is charged after
+// the period ends (membershipLapsed in lapRetentionRules.ts is the same rule). subscription_end_date is ISO text, so
+// the grace's cut-off is written the same way and compared as text, like $1.
 export const END_LAPSED_MEMBERSHIPS_SQL = `
   UPDATE racingcoach."Users"
   SET account_status = CASE WHEN account_status = ${quote(ACCOUNT_STATUS.subscribed)} THEN ${quote(ACCOUNT_STATUS.expired)} ELSE account_status END,
       membership_level = ${quote(MEMBERSHIP_LEVEL.bronze)}
-  WHERE ($2::integer IS NULL OR id = $2) AND subscription_end_date < $1
-    AND (account_status = ${quote(ACCOUNT_STATUS.subscribed)}
-         OR (account_status = ${quote(ACCOUNT_STATUS.canceled)} AND membership_level <> ${quote(MEMBERSHIP_LEVEL.bronze)}))`;
+  WHERE ($2::integer IS NULL OR id = $2)
+    AND ((account_status = ${quote(ACCOUNT_STATUS.subscribed)}
+          AND subscription_end_date < to_char(($1::text::timestamptz - make_interval(hours => ${RENEWAL_GRACE_HOURS})) AT TIME ZONE 'UTC',
+                                              'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'))
+         OR (account_status = ${quote(ACCOUNT_STATUS.canceled)} AND membership_level <> ${quote(MEMBERSHIP_LEVEL.bronze)}
+             AND subscription_end_date < $1))`;
 
 const LOCK_KEY = "hashtext('racingcoach_lap_retention')";
 

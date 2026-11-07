@@ -24,6 +24,18 @@ export const FALLBACK_RETENTION_DAYS = 30;
 // after the paid period ends, as a grace period and a measure of goodwill (never past MAX_RETENTION_DAYS)
 export const GOLD_GRACE_DAYS = 7;
 
+// A Subscribed (renewing) membership isn't ended until this long after its paid period: Stripe charges a renewal
+// about an hour after the period ends and retries a failed card over the following days, and the webhook then moves
+// the end date on (syncSubscription). A Canceled membership, which won't renew, ends on its date.
+export const RENEWAL_GRACE_HOURS = 72;
+
+// When a membership whose paid period ended at subscriptionEndDate is over at now
+export function membershipLapsed(accountStatus: string, subscriptionEndDate: Date, now: Date): boolean {
+  if (accountStatus === 'Canceled') return subscriptionEndDate.getTime() < now.getTime();
+  if (accountStatus === 'Subscribed') return subscriptionEndDate.getTime() + RENEWAL_GRACE_HOURS * 3600_000 < now.getTime();
+  return false;
+}
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 const addDays = (time: Date, days: number) => new Date(time.getTime() + days * DAY_MS);

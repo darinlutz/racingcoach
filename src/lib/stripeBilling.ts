@@ -3,13 +3,17 @@ import type { PoolClient } from 'pg';
 import { query, transaction } from './db';
 import { ensureUserSchema } from './users';
 import { planForProduct, STRIPE_APP } from './stripePlans';
+import { accountProjection } from './stripeProjection';
+import { isPlan } from './accountStatus';
 
 // Keeps racingcoach."StripeSubscriptions" and "StripeDiscounts" (see ensureUserSchema) in step with Stripe, for the
 // Admin page's Subscribers page. Stripe is the source of truth: every webhook event about a subscription, whatever
 // its type or order, re-reads the subscription from Stripe and saves what it says now, so duplicate and
 // out-of-order deliveries can't leave stale data. Discounts are only ever added or annotated, never deleted, so the
 // code a subscriber signed up with stays on record after it expires, the subscription ends or the code is deleted in
-// Stripe. Users' own billing columns (account_status, membership_level...) are still set by the webhook as before.
+// Stripe. The account tied to a live subscription is brought to what Stripe says too (accountProjection): Subscribed,
+// the plan's level and the end of the paid period. Checkout links the account first (startSubscription) and a
+// deletion marks it Canceled (setStatusBySubscriptionId); a lapse after the paid period is END_LAPSED_MEMBERSHIPS_SQL's.
 
 // Everything a subscription's discounts and pricing need, in one request. In this API version a Discount's coupon
 // is under source.coupon and a promotion code's under promotion.coupon.
@@ -196,7 +200,8 @@ async function saveSubscription(
   const items = subscription.items.data;
   const item = items[0];
   const productId = item ? idOf(item.price.product) : null;
-  const plan = planForProduct(productId) ?? (typeof subscription.metadata?.plan === 'string' ? subscription.metadata.plan : null);
+  // Only this app's plan names count from metadata: another app's subscription on the shared account may have its own
+  const plan = planForProduct(productId) ?? (isPlan(subscription.metadata?.plan) ? subscription.metadata.plan : null);
   const customerId = idOf(subscription.customer)!;
   if (!(await isOurs(client, subscription, plan, customerId))) return { status: 'ignored', discounts: 0 };
 
@@ -286,6 +291,24 @@ async function saveSubscription(
       next !== undefined,
     ]
   );
+
+  // The account tied to this subscription follows what Stripe says now (src/lib/stripeProjection.ts)
+  const projection = accountProjection({
+    status: subscription.status,
+    plan,
+    currentPeriodEnd: item?.current_period_end ?? null,
+    latestInvoiceStatus: latestInvoice?.status ?? null,
+  });
+  if (projection) {
+    await client.query(
+      `UPDATE racingcoach."Users" SET account_status = $2, membership_level = $3,
+         subscription_end_date = COALESCE($4, subscription_end_date)
+       WHERE stripe_subscription_id = $1
+         AND (account_status IS DISTINCT FROM $2 OR membership_level IS DISTINCT FROM $3
+              OR ($4::text IS NOT NULL AND subscription_end_date IS DISTINCT FROM $4))`,
+      [subscription.id, projection.accountStatus, projection.membershipLevel, projection.subscriptionEndDate]
+    );
+  }
 
   // The discounts on the subscription and its items now, then those on its invoices (which include ones that
   // already ran out, such as a first-invoice-only discount)

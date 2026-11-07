@@ -1248,7 +1248,8 @@ export async function getUserById(id: number): Promise<User | null> {
 
 // Links a completed Checkout Session to the user who started it and sets the
 // plan's level (Silver or Gold). The paid period is one month or one year from
-// now, depending on the plan; an upgrade starts a new period the same way.
+// now, depending on the plan, until syncSubscription (called next) sets Stripe's own
+// period end (stripeProjection.ts); an upgrade starts a new period the same way.
 export async function startSubscription(
   userId: number,
   stripeCustomerId: string,
@@ -1268,16 +1269,6 @@ export async function startSubscription(
       ACCOUNT_STATUS.subscribed,
       PLANS[plan].level,
     ]
-  );
-}
-
-// Called on each successful renewal payment, with the end of the period it paid for.
-export async function renewSubscription(stripeSubscriptionId: string, subscriptionEndDate: string): Promise<void> {
-  await ensureUserSchema();
-  await query(
-    `UPDATE racingcoach."Users" SET account_status = $3, subscription_end_date = $1
-     WHERE stripe_subscription_id = $2`,
-    [subscriptionEndDate, stripeSubscriptionId, ACCOUNT_STATUS.subscribed]
   );
 }
 

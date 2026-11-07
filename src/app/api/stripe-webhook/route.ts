@@ -1,11 +1,6 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import {
-  getUserById,
-  renewSubscription,
-  setStatusBySubscriptionId,
-  startSubscription,
-} from '@/lib/users';
+import { getUserById, setStatusBySubscriptionId, startSubscription } from '@/lib/users';
 import { ACCOUNT_STATUS, parsePlan, type Plan } from '@/lib/accountStatus';
 import { notifyOwner } from '@/lib/ownerNotifications';
 import { STRIPE_APP } from '@/lib/stripePlans';
@@ -102,21 +97,15 @@ export async function POST(request: Request) {
         await notifyOwnerOfPurchase(plan, userId);
         break;
       }
-      // Renewal paid: extend the subscription to the end of the period just paid for
+      // A payment went through (a renewal, or a failed one recovered): syncSubscription reads the subscription from
+      // Stripe and brings the account to it (Subscribed, the plan's level, the end of the paid period), so a late or
+      // repeated delivery can't revive a canceled account or move the date back
       case 'invoice.paid': {
         const invoice = event.data.object;
         const subscription = invoice.parent?.subscription_details?.subscription;
         if (!subscription) break;
         const subscriptionId = typeof subscription === 'string' ? subscription : subscription.id;
         await syncSubscription(stripe, subscriptionId, { invoiceIds: [invoice.id] });
-        // The first invoice is handled by checkout.session.completed
-        if (invoice.billing_reason !== 'subscription_cycle') break;
-        const periodEnd = Math.max(0, ...invoice.lines.data.map((line) => line.period.end));
-        if (!periodEnd) {
-          console.warn('Renewal invoice has no billing period:', invoice.id);
-          break;
-        }
-        await renewSubscription(subscriptionId, new Date(periodEnd * 1000).toISOString());
         break;
       }
       // A payment failed: the Subscribers page shows it (Stripe retries, then cancels per the Dashboard's settings)

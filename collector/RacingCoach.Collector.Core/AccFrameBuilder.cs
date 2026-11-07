@@ -81,8 +81,17 @@ public sealed class AccFrameBuilder(float? steeringRangeDegrees = null)
     public const int MinSteeringRange = 180, MaxSteeringRange = 3600;
 
     // Half the driver's wheel rotation in radians, or null when it isn't set, so no angle is made
-    private readonly float? _halfRangeRadians = steeringRangeDegrees is >= MinSteeringRange and <= MaxSteeringRange
-        ? steeringRangeDegrees.Value / 2 * MathF.PI / 180
+    private float? _halfRangeRadians = HalfRangeRadians(steeringRangeDegrees);
+
+    /// <summary>The driver's wheel rotation, lock to lock in degrees (outside MinSteeringRange-MaxSteeringRange or null:
+    /// no steering angle). Changeable while reading, e.g. from the collector's window; frames from then on use it.</summary>
+    public float? SteeringRangeDegrees
+    {
+        set => _halfRangeRadians = HalfRangeRadians(value);
+    }
+
+    private static float? HalfRangeRadians(float? degrees) => degrees is >= MinSteeringRange and <= MaxSteeringRange
+        ? degrees.Value / 2 * MathF.PI / 180
         : null;
 
     private int? _completedLaps;

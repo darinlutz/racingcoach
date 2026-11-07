@@ -84,6 +84,15 @@ internal sealed class InCarCoach(Func<RacingCoachApi?> api, Action<string> log)
         Refresh();
     }
 
+    /// <summary>Loads the plan again now, as for a new track: e.g. once ACC's track is found to be a Track Data one,
+    /// which gives it focus areas under the same name.</summary>
+    public void Reload()
+    {
+        lock (_lock)
+            _loadedTrack = null;
+        Refresh();
+    }
+
     /// <summary>Loads the plan again if the track or the upload key changed, or a failed load is due a retry.</summary>
     public void Refresh()
     {

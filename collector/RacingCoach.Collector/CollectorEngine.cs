@@ -4,8 +4,8 @@ using SVappsLAB.iRacingTelemetrySDK;
 namespace RacingCoach.Collector;
 
 /// <summary>Command line options. A played-back .ibt file (with a speed multiplier) replaces live iRacing.
-/// Simulator is --simulator: null is iRacing directly, as ever; "auto" looks for a running simulator, and otherwise
-/// it's a simulator's id.</summary>
+/// Simulator is --simulator: null is the window's Simulator picker (iRacing unless ACC was picked); "auto" looks for a
+/// running simulator, and otherwise it's a simulator's id, which the picker then remembers.</summary>
 internal sealed record CollectorOptions(string? IbtFile, int Speed, bool SetKey, bool NoUpload, bool Upload, string? SiteUrl, bool NoPositions, string? Simulator = null, bool RecordRaw = false, int? SteeringRange = null)
 {
     public const string AutoSimulator = "auto";
@@ -15,9 +15,10 @@ internal sealed record CollectorOptions(string? IbtFile, int Speed, bool SetKey,
 /// <summary>The simulators this build can read. Adding one is adding its adapter here.</summary>
 internal static class SimulatorRegistry
 {
-    /// <summary>iRacing, which --simulator auto chooses from, plus ACC only when --simulator names it: ACC is supported
-    /// (simulators/capabilities.json, so the website takes its laps), but detecting it beside iRacing isn't proven.</summary>
-    /// <param name="named">--simulator's id, or null for auto (or no --simulator).</param>
+    /// <summary>iRacing, which --simulator auto chooses from, plus ACC unless it's auto: ACC is supported
+    /// (simulators/capabilities.json, so the website takes its laps), but detecting it beside iRacing isn't proven, so
+    /// it's only read when picked (the window's Simulator picker, or --simulator acc).</summary>
+    /// <param name="named">ACC's id to include it, or null for auto.</param>
     /// <param name="rawRecordingFolder">--record-raw: where adapters that can write their simulator's raw data (ACC's
     /// shared memory pages) do, else null.</param>
     /// <param name="steeringRange">The driver's wheel rotation, lock to lock in degrees, for ACC's steering angle.</param>
@@ -76,6 +77,20 @@ internal sealed class CollectorEngine
     private readonly IRacingAdapter _iRacing;
     private readonly IReadOnlyList<ISimulatorAdapter> _adapters;
 
+    // The Simulator picker: which simulator is read, and the run that reads it, cancelled to switch
+    private string _simulator = IRacingAdapter.Id;
+    private CancellationTokenSource? _simulatorRun;
+    private static readonly TimeSpan SimulatorRetry = TimeSpan.FromSeconds(2);
+    // Another simulator's session (ACC's), its Track Data mapping and the key it was looked up with, and the tracks
+    // already logged as not mapped
+    private SimulatorSession? _canonicalSession;
+    private (string Track, RacingCoachApi? Api)? _mappedFor;
+    private readonly HashSet<string> _unmappedLogged = new(StringComparer.OrdinalIgnoreCase);
+    private string _canonicalStatus = "waiting for the start/finish line";
+    // The track and Track Data key the coach and brake beeps were last given (ApplyCanonicalTrack)
+    private string? _appliedTrack;
+    private string? _appliedKey;
+
     // .ibt recording: asked for once per connection (so turning it off with Alt+L sticks), and
     // a finished recording is the cue to add track positions to the stint's laps
     private bool _askedForIbt;
@@ -110,7 +125,23 @@ internal sealed class CollectorEngine
             settings.SteeringRange = range;
             settings.Save();
         }
-        _adapters = adapters ?? SimulatorRegistry.Create(_iRacing, options.Simulator == CollectorOptions.AutoSimulator ? null : options.Simulator, options.RecordRaw ? Path.Combine(documents, "RacingCoach", "Raw") : null, message => Log(message), settings.SteeringRange);
+        _adapters = adapters ?? SimulatorRegistry.Create(_iRacing, options.Simulator == CollectorOptions.AutoSimulator ? null : AccFrameBuilder.SimulatorId, options.RecordRaw ? Path.Combine(documents, "RacingCoach", "Raw") : null, message => Log(message), settings.UsableSteeringRange);
+        SteeringRange = settings.UsableSteeringRange;
+        // The live features read ACC's samples as TelemetryData, like iRacing's
+        foreach (var acc in _adapters.OfType<AccAdapter>())
+            acc.Live = OnLiveSample;
+        // The picker's simulator; --simulator <id> picks it for this run and is remembered (not with a test's own
+        // adapters, which mustn't change the PC's settings), and a played-back file is iRacing's
+        if (adapters is null && options.Simulator is { } named && IsPickable(named) && named != settings.Simulator)
+        {
+            settings.Simulator = named;
+            settings.Save();
+        }
+        _simulator = options.Playback || (options.Simulator is { } given && !IsPickable(given))
+            ? IRacingAdapter.Id
+            : options.Simulator ?? (IsPickable(settings.Simulator) ? settings.Simulator : IRacingAdapter.Id);
+        if (adapters is null)
+            DefaultSteeringRange(); // a first ACC run gets a steering angle (not a test's, which mustn't change the PC's settings)
         _documents = documents;
         LapsFolder = Path.Combine(documents, "RacingCoach", "Laps");
 
@@ -163,7 +194,81 @@ internal sealed class CollectorEngine
     public SessionDetails? Session { get; private set; }
     /// <summary>iRacing is writing an .ibt file right now.</summary>
     public bool RecordingIbt { get; private set; }
-    public string RecorderStatus => _recorder.Status;
+    public string RecorderStatus => _simulator == IRacingAdapter.Id ? _recorder.Status : _canonicalStatus;
+
+    /// <summary>The simulators the window's Simulator picker offers, by id, with their names.</summary>
+    public static readonly IReadOnlyList<(string Id, string Name)> PickableSimulators =
+        [(IRacingAdapter.Id, "iRacing"), (AccFrameBuilder.SimulatorId, "Assetto Corsa Competizione")];
+
+    private static bool IsPickable(string id) => PickableSimulators.Any(s => s.Id == id);
+
+    /// <summary>The simulator being read: the picker's ("iracing" or "acc").</summary>
+    public string Simulator => _simulator;
+    /// <summary>The picker can change the simulator: not while playing an .ibt file back, or with --simulator auto.</summary>
+    public bool CanPickSimulator => !Playback && (_options.Simulator is null || IsPickable(_options.Simulator));
+    /// <summary>The upload key's account is a Coach or an Admin (the Rotation Overlay button is theirs only). Loaded
+    /// with the units; false without a key.</summary>
+    public bool CanCoach { get; private set; }
+
+    /// <summary>The window's Simulator picker: saves it and reads that simulator from now on. A lap in progress isn't
+    /// saved; laps already completed are.</summary>
+    public void SelectSimulator(string id)
+    {
+        if (!CanPickSimulator || !IsPickable(id) || id == _simulator)
+            return;
+        var settings = CollectorSettings.Load();
+        settings.Simulator = id;
+        settings.Save();
+        _simulator = id;
+        Log($"Simulator: {PickableSimulators.First(s => s.Id == id).Name}.");
+        DefaultSteeringRange();
+        _simulatorRun?.Cancel(); // RunAsync starts reading the new one
+    }
+
+    /// <summary>ACC's steering angle is its input times half the driver's wheel rotation, which ACC doesn't share: the
+    /// window's Wheel rotation, lock to lock in degrees (saved as steeringRange; --steering-range sets it too), or null
+    /// for no steering angle.</summary>
+    public int? SteeringRange { get; private set; }
+
+    /// <summary>The rotation a first ACC session gets until the driver sets their own: most direct-drive wheels'.</summary>
+    public const int DefaultSteeringRangeDegrees = 900;
+
+    /// <summary>The window's Wheel rotation: saved, and ACC's steering angle uses it from the next sample. Null (an
+    /// empty box) leaves the angle out, and says so.</summary>
+    public void SetSteeringRange(int? degrees)
+    {
+        if (degrees is { } d && (d < AccFrameBuilder.MinSteeringRange || d > AccFrameBuilder.MaxSteeringRange))
+            return;
+        if (degrees == SteeringRange)
+            return;
+        var settings = CollectorSettings.Load();
+        settings.SteeringRange = degrees ?? CollectorSettings.SteeringRangeCleared;
+        settings.Save();
+        UseSteeringRange(degrees);
+        Log(degrees is { } set
+            ? $"Wheel rotation: {set}°, for ACC's steering angle."
+            : "Wheel rotation cleared: ACC laps and overlays have no steering angle until it's set.", isError: degrees is null);
+    }
+
+    private void UseSteeringRange(int? degrees)
+    {
+        SteeringRange = degrees;
+        foreach (var acc in _adapters.OfType<AccAdapter>())
+            acc.SteeringRange = degrees;
+    }
+
+    // Reading ACC with no wheel rotation ever saved gives it the default, so a new driver gets a steering angle without
+    // knowing about it; the window shows it to change. One the driver cleared stays cleared.
+    private void DefaultSteeringRange()
+    {
+        var settings = CollectorSettings.Load();
+        if (_simulator != AccFrameBuilder.SimulatorId || settings.SteeringRange is not null)
+            return;
+        settings.SteeringRange = DefaultSteeringRangeDegrees;
+        settings.Save();
+        UseSteeringRange(DefaultSteeringRangeDegrees);
+        Log($"Wheel rotation set to {DefaultSteeringRangeDegrees}° for ACC's steering angle. If your wheel is set to another rotation in ACC, change it under the Simulator picker.");
+    }
     public double SamplesPerSecond { get; private set; }
     public LapUploader? Uploader => _uploader;
     /// <summary>The site connection for the upload key in use, or null without one (the overlay loads Track Data with it).</summary>
@@ -228,6 +333,8 @@ internal sealed class CollectorEngine
         _brakeBeeps.Refresh(); // and so do the brakepoints and the beeps setting
         Live.Refresh(); // and the track's map
         RefreshUnits(); // and the units and language
+        if (_canonicalSession is { } session)
+            MapCanonicalTrack(session); // and which Track Data track ACC's is
         if (old is not null)
             _ = old.DisposeAsync().AsTask(); // its queued laps are queued again on the new one
     }
@@ -245,6 +352,7 @@ internal sealed class CollectorEngine
             BrakeBeepsVolume = BrakeBeeps.DefaultVolume;
             BrakeBeepsLoaded++;
             PoliciesAccepted = null;
+            CanCoach = false;
             return;
         }
         _ = Task.Run(async () =>
@@ -267,6 +375,7 @@ internal sealed class CollectorEngine
                         BrakeBeepsLoaded++;
                     }
                     PoliciesAccepted = preferences.PoliciesAccepted;
+                    CanCoach = preferences.CanCoach;
                 }
             }
             catch (Exception e) when (e is HttpRequestException or TaskCanceledException or UnauthorizedAccessException or System.Text.Json.JsonException)
@@ -330,7 +439,7 @@ internal sealed class CollectorEngine
         _writer.Start();
         var playback = _options.IbtFile is not null;
 
-        Log(_options.Simulator is not null ? "Looking for a simulator…" : !playback ? "Waiting for iRacing…" : $"Playing back {Path.GetFileName(_options.IbtFile)}…");
+        Log(_options.Simulator == CollectorOptions.AutoSimulator ? "Looking for a simulator…" : playback ? $"Playing back {Path.GetFileName(_options.IbtFile)}…" : WaitingMessage());
         if (playback)
             State = SimState.PlayingBack;
         if (_enricher is not null)
@@ -345,10 +454,12 @@ internal sealed class CollectorEngine
         var live = Live.RunAsync(cancel);
         try
         {
-            if (_options.Simulator is null)
+            if (playback)
                 await _iRacing.RunNativeAsync(Handlers(), cancel);
+            else if (_options.Simulator is { } named && !IsPickable(named))
+                await RunSelectedAsync(named, cancel); // auto, or an id with no adapter, which is an error, never iRacing instead
             else
-                await RunSelectedAsync(_options.Simulator, cancel);
+                await RunPickedAsync(cancel);
             if (playback)
             {
                 State = SimState.PlaybackFinished;
@@ -376,8 +487,63 @@ internal sealed class CollectorEngine
         }
     }
 
-    // --simulator: runs whichever simulator is selected, one at a time. iRacing keeps its own path, with all its live
-    // features; other simulators' laps go through the shared pipeline.
+    private string WaitingMessage() => _simulator == IRacingAdapter.Id ? "Waiting for iRacing…" : "Waiting for Assetto Corsa Competizione…";
+
+    // The picker's simulator, until closing; picking another (SelectSimulator) cancels this run and starts its own.
+    // iRacing keeps its own path, with .ibt track positions and race results; ACC's laps go through the shared
+    // pipeline, and its samples to the same live features (OnLiveSample).
+    private async Task RunPickedAsync(CancellationToken cancel)
+    {
+        while (!cancel.IsCancellationRequested)
+        {
+            using var run = CancellationTokenSource.CreateLinkedTokenSource(cancel);
+            _simulatorRun = run;
+            var simulator = _simulator;
+            try
+            {
+                if (simulator == IRacingAdapter.Id)
+                    await _iRacing.RunNativeAsync(Handlers(), run.Token);
+                else
+                    await new SimulatorSupervisor(_adapters, simulator, Log).RunAsync(RunCanonicalAsync, run.Token);
+            }
+            catch (OperationCanceledException) when (run.IsCancellationRequested && !cancel.IsCancellationRequested)
+            {
+                // switched to another simulator
+            }
+            finally
+            {
+                _simulatorRun = null;
+            }
+            if (cancel.IsCancellationRequested)
+                break;
+            Stopped(simulator);
+            if (simulator == _simulator)
+                await Task.Delay(SimulatorRetry, cancel); // it ended on its own; try again
+            else
+                Log(WaitingMessage());
+        }
+    }
+
+    // A simulator's reading ended because another was picked: what its disconnecting would have done
+    private void Stopped(string simulator)
+    {
+        lock (_sampleLock)
+            _hasLatest = false;
+        Rotation.Clear();
+        State = SimState.Waiting;
+        Session = null;
+        _canonicalSession = null;
+        _canonicalStatus = "waiting for the start/finish line";
+        Live.OnDisconnected();
+        if (simulator == IRacingAdapter.Id)
+        {
+            RecordingIbt = _wasRecordingIbt = false;
+            _writer.AddPositionsFromIbt();
+            _races?.SaveUnfinished();
+        }
+    }
+
+    // --simulator auto: runs whichever simulator is found, one at a time
     private Task RunSelectedAsync(string simulator, CancellationToken cancel)
     {
         var manual = simulator == CollectorOptions.AutoSimulator ? null : simulator;
@@ -389,17 +555,118 @@ internal sealed class CollectorEngine
                 await iRacing.RunNativeAsync(Handlers(), ct);
                 return;
             }
-            State = SimState.Connected;
-            try
-            {
-                await new CanonicalLapPipeline(adapter, _writer.Enqueue, Log).RunAsync(ct);
-            }
-            finally
-            {
-                State = SimState.Waiting;
-            }
+            await RunCanonicalAsync(adapter, ct);
         }, cancel);
     }
+
+    // A simulator other than iRacing: laps through the shared pipeline; its adapter gives the live features its samples
+    private async Task RunCanonicalAsync(ISimulatorAdapter adapter, CancellationToken cancel)
+    {
+        State = SimState.Connected;
+        try
+        {
+            await new CanonicalLapPipeline(adapter, _writer.Enqueue, Log) { SessionChanged = OnCanonicalSession }.RunAsync(cancel);
+        }
+        finally
+        {
+            State = SimState.Waiting;
+            Session = null;
+            _canonicalSession = null;
+            lock (_sampleLock)
+                _hasLatest = false;
+            Rotation.Clear();
+            Live.OnDisconnected();
+        }
+    }
+
+    // ACC's session: the window's details, and the track for the live features once its Track Data mapping is known
+    private void OnCanonicalSession(SimulatorSession s)
+    {
+        var previous = Session;
+        Session = new SessionDetails(s.Track, s.TrackLayout, LengthText(TrackKeys.LengthFeet(s.Track)), null, s.Car, null, null,
+            s.Driver, null, s.SessionTypes, s.SessionId, s.SubSessionId);
+        _canonicalSession = s;
+        Rotation.SetCar(s.NativeCarId, s.Car); // no Rotation Model calibration for ACC's cars yet, so it stays UNKNOWN
+        Live.SetField(0, null, []);
+        Live.SetSetup(null, null, null);
+        if (previous is null || previous.Track != s.Track || previous.Car != s.Car)
+        {
+            Log($"Session: {s.Track} / {s.Car}");
+            RefreshUnits();
+            if (s.SimulatorId == AccFrameBuilder.SimulatorId && SteeringRange is null)
+                Log("No wheel rotation is set, so this session's ACC laps and overlays have no steering angle. Set your wheel's rotation (as in ACC, e.g. 900) under the Simulator picker.", isError: true);
+        }
+        MapCanonicalTrack(s);
+    }
+
+    // Finds the Track Data track ACC's is mapped to (the Coach page's Simulator Mapping), so the coach, brake beeps,
+    // overlays and Live Racing get its focus areas, Target Lap and map as iRacing's do; then gives them the track.
+    // Looked up again with a new upload key.
+    private void MapCanonicalTrack(SimulatorSession s)
+    {
+        var api = Api;
+        if (_mappedFor is { } done && done.Track == s.Track && done.Api == api)
+        {
+            ApplyCanonicalTrack(s, TrackKeys.For(s.Track) is null ? null : LiveTrackName(s.Track));
+            return;
+        }
+        _mappedFor = (s.Track, api);
+        if (api is null || s.NativeTrackId is not { } nativeKey)
+        {
+            TrackKeys.SetMapped(s.Track, null, null);
+            ApplyCanonicalTrack(s, null);
+            return;
+        }
+        _ = Task.Run(async () =>
+        {
+            SimulatorTrackInfo? site = null;
+            try
+            {
+                site = await api.GetSimulatorTrackAsync(s.SimulatorId, nativeKey, s.Track, CancellationToken.None);
+            }
+            catch (Exception e) when (e is HttpRequestException or TaskCanceledException or UnauthorizedAccessException or System.Text.Json.JsonException)
+            {
+                Log($"Couldn't find which Track Data track {s.Track} is ({e.Message}); trying again with the next session.", isError: true);
+                _mappedFor = null;
+            }
+            if (_canonicalSession?.Track != s.Track || Api != api)
+                return; // moved on meanwhile
+            TrackKeys.SetMapped(s.Track, site?.TrackKey, site?.LengthFeet);
+            _siteTrackNames[s.Track] = site?.TrackName ?? s.Track;
+            if (site is null && _mappedFor is not null && _unmappedLogged.Add(s.Track))
+                Log($"{s.Track} isn't mapped to a Track Data track yet, so the In-Car AI Coach, brake beeps and overlays have no focus areas or Target Lap for it. A Coach can map it in the Coach page's Simulator Mapping.");
+            else if (site is not null)
+                Log($"{s.Track} is Track Data's {site.TrackName ?? site.TrackKey}.");
+            ApplyCanonicalTrack(s, site is null ? null : LiveTrackName(s.Track));
+        });
+    }
+
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, string> _siteTrackNames = new(StringComparer.OrdinalIgnoreCase);
+    private string LiveTrackName(string track) => _siteTrackNames.TryGetValue(track, out var name) ? name : track;
+
+    private void ApplyCanonicalTrack(SimulatorSession s, string? siteName)
+    {
+        var length = LengthText(TrackKeys.LengthFeet(s.Track));
+        if (Session is { } details && details.Track == s.Track)
+            Session = details with { TrackLength = length };
+        // The coach and brake beeps ask the site by the laps' name, with Track Data's key (TrackKeys); a key found
+        // after they loaded (the same name) loads them again
+        var key = TrackKeys.For(s.Track);
+        var keyChanged = _appliedTrack == s.Track && _appliedKey != key;
+        (_appliedTrack, _appliedKey) = (s.Track, key);
+        _coach.SetTrack(s.Track);
+        _brakeBeeps.SetTrack(s.Track, length);
+        if (keyChanged)
+        {
+            _coach.Reload();
+            _brakeBeeps.Reload();
+        }
+        Live.SetTrack(siteName ?? s.Track, TrackKeys.For(s.Track), s.Car, s.SessionTypes, new Dictionary<int, string>(), null);
+    }
+
+    // A length in feet as iRacing's session info writes it ("7.00 km"), which the beeps and overlays read
+    private static string? LengthText(double? feet) =>
+        feet is > 0 and var f ? (f / 3.28084 / 1000).ToString("0.000", System.Globalization.CultureInfo.InvariantCulture) + " km" : null;
 
     private TelemetryHandlers<TelemetryData> Handlers() => new()
     {
@@ -493,31 +760,9 @@ internal sealed class CollectorEngine
         OnTelemetryUpdate = data =>
         {
             _recorder.OnSample(data);
-            Overlay?.OnSample(data, Session);
-            _coach.OnSample(data);
-            if (!Playback)
-                _brakeBeeps.OnSample(data); // a played-back file can run far faster than real time
             _races?.OnSample(data.SessionNum, data.SessionTime);
-            Rotation.OnSample(data);
-            Live.OnSample(data);
-            Radio.OnSample(data);
-            lock (_sampleLock)
-            {
-                _latest = data;
-                _hasLatest = true;
-            }
-
-            _samplesInWindow++;
+            OnLiveSample(data);
             var now = DateTime.UtcNow;
-            if (now - _windowStart >= TimeSpan.FromSeconds(1))
-            {
-                SamplesPerSecond = _samplesInWindow / (now - _windowStart).TotalSeconds;
-                _samplesInWindow = 0;
-                _windowStart = now;
-            }
-            // A change of units or language on the Account page shows within a minute, not only at the next session
-            if (Api is not null && now - _unitsLoadedAt >= UnitsReloadEvery)
-                RefreshUnits();
 
             if (_enricher is not null)
             {
@@ -556,6 +801,40 @@ internal sealed class CollectorEngine
             return Task.CompletedTask;
         },
     };
+
+    // Every live sample, iRacing's or ACC's (AccLiveTelemetry): the overlays, coach, brake beeps, Rotation Model, Live
+    // Racing, Driver Radio and the window. On the thread reading telemetry.
+    private void OnLiveSample(TelemetryData data)
+    {
+        Overlay?.OnSample(data, Session);
+        _coach.OnSample(data);
+        if (!Playback)
+            _brakeBeeps.OnSample(data); // a played-back file can run far faster than real time
+        Rotation.OnSample(data);
+        Live.OnSample(data);
+        Radio.OnSample(data);
+        lock (_sampleLock)
+        {
+            _latest = data;
+            _hasLatest = true;
+        }
+        if (_simulator != IRacingAdapter.Id)
+            _canonicalStatus = data.IsOnTrack == true && data.OnPitRoad != true && data.Lap is { } lap
+                ? $"lap {lap}"
+                : "waiting for the start/finish line";
+
+        _samplesInWindow++;
+        var now = DateTime.UtcNow;
+        if (now - _windowStart >= TimeSpan.FromSeconds(1))
+        {
+            SamplesPerSecond = _samplesInWindow / (now - _windowStart).TotalSeconds;
+            _samplesInWindow = 0;
+            _windowStart = now;
+        }
+        // A change of units or language on the Account page shows within a minute, not only at the next session
+        if (Api is not null && now - _unitsLoadedAt >= UnitsReloadEvery)
+            RefreshUnits();
+    }
 
     private void Log(string message, bool isError = false) => _log(message, isError);
 

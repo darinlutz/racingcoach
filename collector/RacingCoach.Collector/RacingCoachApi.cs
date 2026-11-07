@@ -64,6 +64,20 @@ internal static class TrackKeys
             : null;
     }
 
+    /// <summary>Another simulator's track (as its laps name it, e.g. ACC's "spa"), mapped to a Track Data track: the
+    /// live features' requests then carry Track Data's key, as iRacing's do. Null forgets the mapping.</summary>
+    public static void SetMapped(string track, string? siteKey, double? lengthFeet)
+    {
+        if (siteKey is null)
+            Keys.TryRemove(track, out _);
+        else
+            Keys[track] = siteKey;
+        if (lengthFeet is > 0 and var feet)
+            LengthsFeet[track] = feet;
+        else
+            LengthsFeet.TryRemove(track, out _);
+    }
+
     public static string? For(string track) => Keys.TryGetValue(track, out var key) ? key : null;
 
     /// <summary>iRacing's length of the track in feet, or null when it isn't known.</summary>
@@ -117,7 +131,21 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
         response.EnsureSuccessStatusCode();
         var body = await response.Content.ReadFromJsonAsync<MeResponse>(JsonOptions, ct);
         return new AccountPreferences(body?.Units == "metric", Loc.Normalize(body?.Language), body?.BrakeBeeps, body?.BrakeBeepsVolume,
-            body?.PoliciesAccepted);
+            body?.PoliciesAccepted, body?.Role);
+    }
+
+    /// <summary>The Track Data track another simulator's track is mapped to (the Coach page's Simulator Mapping), or
+    /// null when it isn't mapped. Throws like GetTrackOutlineAsync.</summary>
+    public async Task<SimulatorTrackInfo?> GetSimulatorTrackAsync(string simulator, string nativeKey, string name, CancellationToken ct)
+    {
+        using var response = await _http.GetAsync(
+            $"api/collector/simulator-track?simulator={Uri.EscapeDataString(simulator)}&key={Uri.EscapeDataString(nativeKey)}&name={Uri.EscapeDataString(name)}", ct);
+        if (response.StatusCode == HttpStatusCode.Unauthorized)
+            throw new UnauthorizedAccessException("RacingCoach.app doesn't accept the upload key");
+        if (!response.IsSuccessStatusCode)
+            throw new HttpRequestException(await ErrorMessageAsync(response, ct));
+        var body = await response.Content.ReadFromJsonAsync<SimulatorTrackResponse>(JsonOptions, ct);
+        return body?.Track;
     }
 
     /// <summary>Reports the installer's acceptance of the Terms of Service and Privacy Policy to the account; true if
@@ -526,7 +554,9 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
     public void Dispose() => _http.Dispose();
 
     private sealed record MeResponse(string? UserName, string? Units, string? Language, bool? BrakeBeeps, int? BrakeBeepsVolume,
-        bool? PoliciesAccepted);
+        bool? PoliciesAccepted, string? Role = null);
+
+    private sealed record SimulatorTrackResponse(SimulatorTrackInfo? Track);
 
     private sealed record RecordedResponse(bool? Recorded);
 
@@ -568,7 +598,15 @@ internal sealed record MapSettings(bool Available, string? Attribution);
 
 /// <summary>The account's preferences from GET /api/collector/me, and whether it has accepted the current Terms of
 /// Service and Privacy Policy (null from a site from before it was sent).</summary>
-internal sealed record AccountPreferences(bool Metric, string Language, bool? BrakeBeeps, int? BrakeBeepsVolume, bool? PoliciesAccepted);
+internal sealed record AccountPreferences(bool Metric, string Language, bool? BrakeBeeps, int? BrakeBeepsVolume, bool? PoliciesAccepted,
+    string? Role = null)
+{
+    /// <summary>Coaches and Admins (canCoach in src/lib/roles.ts), who get the Rotation Overlay button.</summary>
+    public bool CanCoach => Role is "Admin" or "Coach";
+}
+
+/// <summary>GET /api/collector/simulator-track: the Track Data track another simulator's track is mapped to.</summary>
+internal sealed record SimulatorTrackInfo(string TrackKey, string? TrackName, double? LengthFeet);
 
 /// <summary>GET /api/collector/in-car-coach (src/lib/inCarCoach.ts in the website).</summary>
 /// <summary>The site doesn't give this account the In-Car AI Coach (it's for Silver and Gold members); Message says why.</summary>

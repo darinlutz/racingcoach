@@ -29,9 +29,17 @@ internal sealed class CollectorSettings
     public int SatelliteOpacity { get; set; } = 60;
     /// <summary>Driver Radio's microphone, by its Windows name, or null for Windows' default (<see cref="MicRecorder.DeviceName"/>).</summary>
     public string? Microphone { get; set; }
-    /// <summary>The driver's wheel rotation, lock to lock in degrees (--steering-range), which turns ACC's steering input
-    /// into an angle; null leaves ACC's steering angle out.</summary>
+    /// <summary>The driver's wheel rotation, lock to lock in degrees (the window's Wheel rotation, or --steering-range),
+    /// which turns ACC's steering input into an angle. Null: never set (reading ACC sets the default, 900);
+    /// <see cref="SteeringRangeCleared"/>: the driver emptied the box, so ACC's steering angle is left out.</summary>
     public int? SteeringRange { get; set; }
+
+    public const int SteeringRangeCleared = 0;
+
+    /// <summary>The wheel rotation to use, or null for none.</summary>
+    public int? UsableSteeringRange => SteeringRange is > 0 and var range ? range : null;
+    /// <summary>The window's Simulator picker: "iracing" (the default) or "acc". --simulator overrides it and is saved.</summary>
+    public string Simulator { get; set; } = IRacingAdapter.Id;
 
     public static CollectorSettings Load()
     {

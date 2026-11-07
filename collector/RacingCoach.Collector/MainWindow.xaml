@@ -225,7 +225,9 @@
                     <Button Style="{StaticResource Button}" local:Loc.Key="main.uploadKey" Click="ChangeKey_Click" Margin="0,0,8,0" x:Name="KeyButton" />
                     <Button Style="{StaticResource Button}" Content="RacingCoach.app" Click="OpenSite_Click" Margin="0,0,8,0" />
                     <Button Style="{StaticResource BlueButton}" local:Loc.Key="main.brakePractice" Click="BrakePractice_Click" Margin="0,0,8,0" />
-                    <Button Style="{StaticResource PrimaryButton}" local:Loc.Key="main.rotationOverlay" Click="Rotation_Click" Margin="0,0,8,0" />
+                    <!-- Coaches and Admins only (CollectorEngine.CanCoach) -->
+                    <Button x:Name="RotationButton" Style="{StaticResource PrimaryButton}" local:Loc.Key="main.rotationOverlay" Click="Rotation_Click" Margin="0,0,8,0"
+                            Visibility="Collapsed" />
                     <Button Style="{StaticResource PrimaryButton}" local:Loc.Key="main.targetTelemetryOverlay" Click="TargetTelemetry_Click" Margin="0,0,8,0" />
                     <Button Style="{StaticResource PrimaryButton}" local:Loc.Key="main.steeringOverlay" Click="Steering_Click" />
                 </StackPanel>
@@ -265,12 +267,30 @@
             <UniformGrid DockPanel.Dock="Top" Columns="4" Margin="-6,0,-6,14">
                 <Border Style="{StaticResource Card}" Margin="6,0">
                     <StackPanel>
-                        <TextBlock Style="{StaticResource Label}" Text="IRACING" />
+                        <TextBlock Style="{StaticResource Label}" local:Loc.Key="main.simulator" />
                         <StackPanel Orientation="Horizontal">
                             <Ellipse x:Name="SimDot" Style="{StaticResource Dot}" />
                             <TextBlock x:Name="SimText" Style="{StaticResource Value}" local:Loc.Key="main.starting" />
                         </StackPanel>
                         <TextBlock x:Name="SimDetail" Style="{StaticResource Muted}" Margin="18,2,0,0" />
+                        <!-- Which simulator is read (CollectorEngine.SelectSimulator, saved in collector.json); iRacing by default -->
+                        <ComboBox x:Name="SimulatorCombo" Style="{StaticResource Combo}" Margin="18,8,0,0" local:Loc.ToolTip="main.simulatorTip"
+                                  SelectionChanged="SimulatorCombo_SelectionChanged" />
+                        <!-- ACC only: the wheel's rotation lock to lock, which ACC's steering angle needs (CollectorEngine.SetSteeringRange,
+                             saved as steeringRange); saved on Enter or leaving the box, empty for none -->
+                        <StackPanel x:Name="SteeringRangePanel" Margin="18,8,0,0" Visibility="Collapsed">
+                            <TextBlock local:Loc.Key="main.wheelRotation" FontSize="12" Margin="0,0,0,3" />
+                            <StackPanel Orientation="Horizontal">
+                                <TextBox x:Name="SteeringRangeBox" Width="64" FontSize="12" Padding="6,3" MaxLength="4"
+                                         Background="{StaticResource SecondaryBrush}" Foreground="{StaticResource FgBrush}"
+                                         BorderBrush="{StaticResource BorderBrush}" CaretBrush="{StaticResource FgBrush}"
+                                         local:Loc.ToolTip="main.wheelRotationTip"
+                                         KeyDown="SteeringRangeBox_KeyDown" LostKeyboardFocus="SteeringRangeBox_LostFocus" />
+                                <TextBlock Text="°" FontSize="12" Margin="4,0,0,0" VerticalAlignment="Center" />
+                            </StackPanel>
+                            <TextBlock x:Name="SteeringRangeHint" Style="{StaticResource Muted}" FontSize="11" Margin="0,2,0,0"
+                                       TextWrapping="Wrap" Visibility="Collapsed" />
+                        </StackPanel>
                     </StackPanel>
                 </Border>
                 <Border Style="{StaticResource Card}" Margin="6,0">

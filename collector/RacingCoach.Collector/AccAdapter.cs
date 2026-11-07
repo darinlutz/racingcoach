@@ -2,14 +2,16 @@ using System.Diagnostics;
 using System.IO.MemoryMappedFiles;
 using System.Runtime.InteropServices;
 using RacingCoach.Collector.Simulators;
+using SVappsLAB.iRacingTelemetrySDK;
 
 namespace RacingCoach.Collector;
 
 /// <summary>
 /// Assetto Corsa Competizione, through its shared memory (Local\acpmf_physics, _graphics, _static; layout in
-/// AccSharedMemory, conversions in AccFrameBuilder). Laps only, through CanonicalLapPipeline: none of iRacing's live
-/// features. The pages are read 60 times a second; ACC has no session clock or matching sample counter in them, so the
-/// reader's own clock times the frames.
+/// AccSharedMemory, conversions in AccFrameBuilder). Laps go through CanonicalLapPipeline; with a live callback, each
+/// sample also goes to the live features as iRacing's TelemetryData (AccLiveTelemetry), on the reading thread like the
+/// SDK's samples. The pages are read 60 times a second; ACC has no session clock or matching sample counter in them, so
+/// the reader's own clock times the frames.
 ///
 /// AC, ACC and AC Rally all use these map names, and AC's static page starts the same way, so the maps only count as
 /// ACC's while ACC's process is running. With a raw recording folder, every page read is also written there
@@ -17,6 +19,20 @@ namespace RacingCoach.Collector;
 /// </summary>
 internal sealed class AccAdapter(string? rawRecordingFolder = null, Action<string>? log = null, int? steeringRangeDegrees = null) : ISimulatorAdapter, IHasLapTrackerOptions, IShapesLapFiles
 {
+    /// <summary>Called with each sample as TelemetryData, for the live features; null for laps only.</summary>
+    public Action<TelemetryData>? Live { get; set; }
+
+    // The window's Wheel rotation, which may change while ACC is being read; the reading loop picks it up
+    private volatile int _steeringRange = steeringRangeDegrees ?? 0;
+
+    /// <summary>The driver's wheel rotation, lock to lock in degrees, or null for no steering angle. Takes effect from
+    /// the next sample, also while reading.</summary>
+    public int? SteeringRange
+    {
+        get => _steeringRange > 0 ? _steeringRange : null;
+        set => _steeringRange = value ?? 0;
+    }
+
     private const string ProcessName = "AC2-Win64-Shipping";
     // The static page's smVersion this layout was written from (ACC Shared Memory v1.8.12)
     private const string DocumentedVersion = "1.8";
@@ -77,12 +93,14 @@ internal sealed class AccAdapter(string? rawRecordingFolder = null, Action<strin
         var physics = new byte[AccSharedMemory.PhysicsSize];
         var graphics = new byte[AccSharedMemory.GraphicsSize];
         var info = new byte[AccSharedMemory.StaticSize];
-        var builder = new AccFrameBuilder(steeringRangeDegrees);
+        var steeringRange = _steeringRange;
+        var builder = new AccFrameBuilder(SteeringRange);
         var clock = Stopwatch.StartNew();
         AccRawRecording.Writer? recording = null;
         SimulatorSession? session = null;
         var nextSlowCheck = TimeSpan.Zero;
         var versionChecked = false;
+        var staticPage = new AccStatic();
 
         // Windows' timer ticks every 15.6 ms unless asked for finer, which would make 60 Hz uneven
         TimeBeginPeriod(1);
@@ -108,15 +126,15 @@ internal sealed class AccAdapter(string? rawRecordingFolder = null, Action<strin
                         return; // ACC closed; the caller waits for it again
                     staticView.ReadArray(0, info, 0, info.Length);
                     recording?.Static(now.TotalSeconds, info);
-                    var staticPage = AccSharedMemory.ReadStatic(info);
+                    staticPage = AccSharedMemory.ReadStatic(info);
                     if (!versionChecked && staticPage.SmVersion.Length > 0)
                     {
                         versionChecked = true;
                         if (!staticPage.SmVersion.StartsWith(DocumentedVersion, StringComparison.Ordinal))
                             sink.OnError($"shared memory version {staticPage.SmVersion}, not the {DocumentedVersion} its layout was written from: laps may be wrong");
                     }
-                    var graphicsPage = AccSharedMemory.ReadGraphics(ReadConsistent(graphicsView, graphics));
-                    var current = AccFrameBuilder.Session(staticPage, graphicsPage);
+                    var sessionGraphics = AccSharedMemory.ReadGraphics(ReadConsistent(graphicsView, graphics));
+                    var current = AccFrameBuilder.Session(staticPage, sessionGraphics);
                     if (current.Track.Length > 0 && !AccFrameBuilder.SameSession(current, session))
                     {
                         session = current;
@@ -127,8 +145,29 @@ internal sealed class AccAdapter(string? rawRecordingFolder = null, Action<strin
                 ReadConsistent(physicsView, physics);
                 ReadConsistent(graphicsView, graphics);
                 recording?.Sample(now.TotalSeconds, physics, graphics);
-                if (builder.Next(AccSharedMemory.ReadPhysics(physics), AccSharedMemory.ReadGraphics(graphics), now.TotalSeconds) is { } frame)
+                if (_steeringRange != steeringRange)
+                {
+                    steeringRange = _steeringRange;
+                    builder.SteeringRangeDegrees = steeringRange > 0 ? steeringRange : null;
+                }
+                var physicsPage = AccSharedMemory.ReadPhysics(physics);
+                var graphicsPage = AccSharedMemory.ReadGraphics(graphics);
+                if (builder.Next(physicsPage, graphicsPage, now.TotalSeconds) is { } frame)
+                {
                     sink.OnFrame(frame);
+                    if (Live is { } live)
+                    {
+                        try
+                        {
+                            live(AccLiveTelemetry.From(frame, physicsPage, graphicsPage, staticPage));
+                        }
+                        catch (Exception e) when (e is not OperationCanceledException)
+                        {
+                            // a live feature's failure never stops the laps
+                            log?.Invoke($"ACC live telemetry: {e.Message}");
+                        }
+                    }
+                }
             }
         }
         catch (OperationCanceledException) when (cancel.IsCancellationRequested)

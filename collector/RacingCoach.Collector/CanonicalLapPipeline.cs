@@ -5,8 +5,8 @@ namespace RacingCoach.Collector;
 /// <summary>
 /// The path for simulators other than iRacing: an adapter's frames become laps (FrameLapTracker) that are saved and
 /// uploaded by the same LapWriter and LapUploader as iRacing's. Frames are moved off the adapter's reading thread with
-/// a bounded queue. Only laps so far: the live features (coach, overlays, brake beeps, Live Racing) read iRacing's
-/// TelemetryData, and aren't on this path until they've been moved to frames and checked for each simulator.
+/// a bounded queue. Only laps: the live features (coach, overlays, brake beeps, Live Racing) read iRacing's
+/// TelemetryData, which an adapter gives them itself (AccAdapter.Live); SessionChanged tells the engine the session.
 /// </summary>
 internal sealed class CanonicalLapPipeline : ITelemetrySink
 {
@@ -16,6 +16,9 @@ internal sealed class CanonicalLapPipeline : ITelemetrySink
     private readonly FramePump _pump;
     private readonly FrameLapTracker _tracker;
     private SessionContext? _session;
+
+    /// <summary>Called with each new session the adapter sends, on its reading thread.</summary>
+    public Action<SimulatorSession>? SessionChanged { get; init; }
 
     public CanonicalLapPipeline(ISimulatorAdapter adapter, Action<CompletedLap> save, Action<string, bool> log, LapTrackerOptions? options = null, int pumpCapacity = FramePump.DefaultCapacity)
     {
@@ -53,6 +56,7 @@ internal sealed class CanonicalLapPipeline : ITelemetrySink
         Volatile.Write(ref _session, new SessionContext(
             session.Track, session.Car, session.Driver, session.SessionId, session.SubSessionId, session.SessionTypes,
             session.FuelKgPerLiter, session.TrackUsage, session.SimulatorId, _adapter.AdapterVersion, session.NativeCarId, session.NativeTrackId));
+        SessionChanged?.Invoke(session);
     }
 
     public void OnFrame(TelemetryFrame frame)

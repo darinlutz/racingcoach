@@ -8,7 +8,8 @@ import { getUserById } from '@/lib/users';
 // speeds, distances, temperatures and fuel in, Preferred Language ("en", "pt", "es" or "de"), which its overlays are in,
 // and "Beeps before braking" (brakeBeeps) and its volume (brakeBeepsVolume, 10-100), which its window shows and changes
 // (PUT /api/collector/brake-beeps), and whether the account has accepted the current Terms of Service and Privacy
-// Policy (policiesAccepted; when not, the collector's window asks the user to review them on the website).
+// Policy (policiesAccepted; when not, the collector's window asks the user to review them on the website), and the
+// account's role ("Admin", "Coach" or "User"; only Coaches and Admins get the collector's Rotation Overlay button).
 // Authenticated with the key as a bearer token, like /api/collector/laps.
 export async function GET(request: Request) {
   try {
@@ -24,6 +25,7 @@ export async function GET(request: Request) {
       brakeBeeps: user.brakeBeeps,
       brakeBeepsVolume: user.brakeBeepsVolume,
       policiesAccepted: await hasAcceptedCurrentPolicies(user.id),
+      role: user.role,
     });
   } catch (error) {
     console.error('Collector key check error:', error);

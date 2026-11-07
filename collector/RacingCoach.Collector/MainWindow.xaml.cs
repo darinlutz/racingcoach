@@ -120,6 +120,12 @@ public partial class MainWindow : Window
         TrackMap.ImageryOpacity = SatelliteSlider.Value / 100;
         _satelliteSave.Tick += (_, _) => SaveSatelliteOpacity();
         ListMicrophones();
+        foreach (var (id, name) in CollectorEngine.PickableSimulators)
+            SimulatorCombo.Items.Add(new System.Windows.Controls.ComboBoxItem { Content = name, Tag = id });
+        SimulatorCombo.SelectedItem = SimulatorCombo.Items.Cast<System.Windows.Controls.ComboBoxItem>()
+            .FirstOrDefault(item => (string)item.Tag == _engine.Simulator);
+        SimulatorCombo.IsEnabled = _engine.CanPickSimulator;
+        ShowSteeringRange();
         Loaded += async (_, _) => await StartAsync();
         SourceInitialized += (_, _) => UseDarkTitleBar();
     }
@@ -415,6 +421,7 @@ public partial class MainWindow : Window
         KeyStatusText.Text = _keyStatusKey is null ? "" : T(_keyStatusKey);
         KeySkipButton.Content = T(_uploadState == UploadSetupState.Active ? "main.cancel" : "main.skip");
         ListMicrophones(); // Windows default, in this language
+        ShowSteeringRangeHint(null);
         RefreshLaps();
     }
 
@@ -680,14 +687,78 @@ public partial class MainWindow : Window
 
     private void OpenLiveRacing_Click(object sender, RoutedEventArgs e) => Open($"{_siteUrl}/live-racing");
 
+    private void SimulatorCombo_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        if (!IsLoaded || SimulatorCombo.SelectedItem is not System.Windows.Controls.ComboBoxItem { Tag: string id } || id == _engine.Simulator)
+            return;
+        // The lap being driven is only saved once it's complete
+        if (_engine.State == SimState.Connected && MessageBox.Show(this, T("main.switchSimulatorConfirm"), T("main.simulatorTitle"),
+                MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+        {
+            SimulatorCombo.SelectedItem = SimulatorCombo.Items.Cast<System.Windows.Controls.ComboBoxItem>()
+                .First(item => (string)item.Tag == _engine.Simulator);
+            return;
+        }
+        _engine.SelectSimulator(id);
+        ShowSteeringRange();
+    }
+
+    // ACC's Wheel rotation: shown while ACC is picked, with the saved value (picking ACC saves the default the first time)
+    private void ShowSteeringRange()
+    {
+        var acc = _engine.Simulator == Simulators.AccFrameBuilder.SimulatorId;
+        SteeringRangePanel.Visibility = acc ? Visibility.Visible : Visibility.Collapsed;
+        SteeringRangeBox.Text = _engine.SteeringRange?.ToString(CultureInfo.InvariantCulture) ?? "";
+        ShowSteeringRangeHint(null);
+    }
+
+    // key: a Loc key for a problem with what was typed, else the box's own state
+    private void ShowSteeringRangeHint(string? key)
+    {
+        key ??= _engine.SteeringRange is null ? "main.wheelRotationMissing" : null;
+        SteeringRangeHint.Visibility = key is null ? Visibility.Collapsed : Visibility.Visible;
+        SteeringRangeHint.Foreground = key is null ? Muted : Amber;
+        SteeringRangeHint.Text = key is null ? "" : T(key);
+    }
+
+    private void SteeringRangeBox_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter)
+            SaveSteeringRange();
+    }
+
+    private void SteeringRangeBox_LostFocus(object sender, KeyboardFocusChangedEventArgs e) => SaveSteeringRange();
+
+    private void SaveSteeringRange()
+    {
+        var text = SteeringRangeBox.Text.Trim();
+        if (text.Length == 0)
+        {
+            _engine.SetSteeringRange(null);
+            ShowSteeringRangeHint(null);
+            return;
+        }
+        if (!int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out var degrees)
+            || degrees < Simulators.AccFrameBuilder.MinSteeringRange || degrees > Simulators.AccFrameBuilder.MaxSteeringRange)
+        {
+            ShowSteeringRangeHint("main.wheelRotationInvalid");
+            return;
+        }
+        _engine.SetSteeringRange(degrees);
+        ShowSteeringRangeHint(null);
+    }
+
     private void RefreshStatus()
     {
         PoliciesBanner.Visibility = _engine.PoliciesAccepted == false ? Visibility.Visible : Visibility.Collapsed;
+        RefreshRotationButton();
+        var iRacing = _engine.Simulator == IRacingAdapter.Id;
         var connected = _engine.State is SimState.Connected or SimState.PlayingBack;
         switch (_engine.State)
         {
             case SimState.Waiting:
-                SetTile(SimDot, SimText, SimDetail, Amber, T("main.waitingForIRacing"), T("main.startIRacing"));
+                SetTile(SimDot, SimText, SimDetail, Amber, T(iRacing ? "main.waitingForIRacing" : "main.waitingForAcc"),
+                    T(iRacing ? "main.startIRacing" : "main.startAcc"));
                 break;
             case SimState.Connected:
                 SetTile(SimDot, SimText, SimDetail, Green, T("main.connected"), T("main.samplesPerSecond", _engine.SamplesPerSecond));
@@ -749,7 +820,9 @@ public partial class MainWindow : Window
         if (showPreferences && _beepsShown != _engine.BrakeBeepsLoaded && !_beepsVolumeSave.IsEnabled)
             ShowBeeps();
 
-        if (_engine.IbtFolder is null)
+        if (!iRacing)
+            SetTile(IbtDot, IbtText, IbtDetail, Grey, T("main.iRacingOnly"), T("main.positionsIRacingOnly"));
+        else if (_engine.IbtFolder is null)
             SetTile(IbtDot, IbtText, IbtDetail, Grey, T(_engine.Playback ? "main.fromFile" : "main.off"),
                 T(_engine.Playback ? "main.playbackHasPositions" : "main.positionsOff"));
         else if (_engine.RecordingIbt)
@@ -1032,9 +1105,21 @@ public partial class MainWindow : Window
         _overlayFeed = null;
     }
 
+    // Rotation Overlay is for Coaches and Admins: shown once the upload key's account is known to be one, and its
+    // window closed if the account stops being one
+    private void RefreshRotationButton()
+    {
+        var allowed = _uploadState == UploadSetupState.Active && _engine.CanCoach;
+        RotationButton.Visibility = allowed ? Visibility.Visible : Visibility.Collapsed;
+        if (!allowed && _rotationWindow is not null)
+            _rotationWindow.Close();
+    }
+
     // Opens the Rotation window (or brings it to the front): live steering, yaw, velocities, accelerations and pedals
     private void Rotation_Click(object sender, RoutedEventArgs e)
     {
+        if (!_engine.CanCoach)
+            return;
         if (_rotationWindow is not null)
         {
             _rotationWindow.Activate();

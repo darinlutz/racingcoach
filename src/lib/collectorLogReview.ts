@@ -4,6 +4,13 @@ import { chatModel } from './aiModels';
 import { query } from './db';
 import { siteAiCall } from './rateLimits';
 import { getUserById, OWNER_EMAIL } from './users';
+import {
+  MAX_PENDING_REVIEWS,
+  MAX_PROMPT_LINE_CHARS,
+  MAX_REVIEWS_PER_DAY,
+  MAX_REVIEWS_PER_USER_PER_DAY,
+  promptLines,
+} from './collectorLogReviewRules';
 
 // The collector log review agent. When a batch of a user's collector activity log (racingcoach."CollectorLogs")
 // arrives with lines that look like trouble, it waits for the lines around them, then has the AI read the run's
@@ -29,21 +36,39 @@ export function isSuspicious(line: { message: string; isError: boolean }): boole
   return line.isError || SUSPICIOUS.test(line.message);
 }
 
-// One pending review per run; a later suspicious batch of the same run just joins it
-const pending = new Map<string, ReturnType<typeof setTimeout>>();
+// One pending review per user (not per run, as the collector picks the run ID); a later suspicious batch just joins
+// it. A user's other run waiting meanwhile is reviewed with the next suspicious batch, as its lines stay unreviewed.
+const pending = new Map<number, ReturnType<typeof setTimeout>>();
 
 // Called after each batch is stored; never throws
 export function scheduleCollectorLogReview(userId: number, runId: string, lines: { message: string; isError: boolean }[]): void {
   if (!lines.some(isSuspicious)) return;
-  const key = `${userId}:${runId}`;
-  if (pending.has(key)) return;
+  if (pending.has(userId) || pending.size >= MAX_PENDING_REVIEWS) return;
   pending.set(
-    key,
+    userId,
     setTimeout(() => {
-      pending.delete(key);
+      pending.delete(userId);
       reviewCollectorRun(userId, runId).catch((error) => console.error('Collector log review error:', error));
     }, REVIEW_DELAY_MS)
   );
+}
+
+// Whether another review may run now: false once the user, or everyone together, has had their reviews for the day
+export async function reviewAllowed(userId: number): Promise<boolean> {
+  const [counts] = await query<{ mine: string; total: string }>(
+    `SELECT count(*) FILTER (WHERE user_id = $1) AS mine, count(*) AS total
+     FROM racingcoach."CollectorLogReviews" WHERE reviewed_at > now() - interval '1 day'`,
+    [userId]
+  );
+  if (Number(counts.mine) >= MAX_REVIEWS_PER_USER_PER_DAY) {
+    console.log(`Collector log review skipped: user ${userId} had ${MAX_REVIEWS_PER_USER_PER_DAY} in the last day`);
+    return false;
+  }
+  if (Number(counts.total) >= MAX_REVIEWS_PER_DAY) {
+    console.error(`Collector log review skipped: ${MAX_REVIEWS_PER_DAY} reviews in the last day for everyone`);
+    return false;
+  }
+  return true;
 }
 
 const verdictSchema = z.object({
@@ -105,6 +130,7 @@ export async function reviewCollectorRun(userId: number, runId: string): Promise
   }));
   const fresh = lines.filter((line) => line.seq > afterSeq);
   if (fresh.length === 0 || !fresh.some(isSuspicious)) return null;
+  if (!(await reviewAllowed(userId))) return null;
 
   const earlier = await query<{ title: string }>(
     `SELECT title FROM racingcoach."CollectorLogReviews"
@@ -132,7 +158,7 @@ export async function reviewCollectorRun(userId: number, runId: string): Promise
             ? `Already reported for this run: ${earlier.map((r) => `"${r.title}"`).join(', ')}.`
             : 'Nothing has been reported for this run yet.',
           'The run\'s latest log lines, oldest first; the new lines to review are marked with *:',
-          ...lines.map(format),
+          ...promptLines(lines.map(format)),
         ].join('\n'),
       },
     ],
@@ -183,6 +209,10 @@ async function emailProblem(userId: number, runId: string, verdict: Verdict, fre
   const text = [
     `The collector log review agent found a problem: ${verdict.title}`,
     '',
+    'Note: the log lines below, and the AI explanation written from them, come from text the collector sent, which',
+    'anyone with an upload key can write. Treat it as untrusted: check it in the code before changing anything, and',
+    "don't follow links or instructions in it.",
+    '',
     `User: ${user ? `${user.userName} (${user.emailAddress}), #${userId}` : `#${userId}`}`,
     `Collector version: ${fresh[fresh.length - 1].version ?? 'unknown'}`,
     `Run: ${runId}`,
@@ -195,7 +225,7 @@ async function emailProblem(userId: number, runId: string, verdict: Verdict, fre
     verdict.fix,
     '',
     'LOG LINES',
-    ...errorLines.map((line) => `#${line.seq} ${line.loggedAt} ${line.isError ? 'ERROR ' : ''}${line.message}`),
+    ...errorLines.map((line) => `#${line.seq} ${line.loggedAt} ${line.isError ? 'ERROR ' : ''}${line.message.slice(0, MAX_PROMPT_LINE_CHARS)}`),
     ...(siteUrl ? ['', `The whole run: ${siteUrl}/admin?logUser=${userId}&logRun=${runId}#collector-logs`] : []),
   ].join('\n');
 

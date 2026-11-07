@@ -25,7 +25,8 @@
     "test:my-dashboard": "node --experimental-transform-types --no-warnings --test scripts/my-dashboard.test.mjs && node --experimental-transform-types --no-warnings --test scripts/my-dashboard-db.test.mjs",
     "test:telemetry-storage": "node --experimental-transform-types --no-warnings --test scripts/telemetry-storage.test.mjs && node --experimental-transform-types --no-warnings --test scripts/telemetry-ingest-db.test.mjs && node --experimental-transform-types --no-warnings --test scripts/telemetry-cleanup-db.test.mjs",
     "test:privacy-rights": "node --experimental-transform-types --no-warnings --test scripts/privacy-rights.test.mjs && node --experimental-transform-types --no-warnings --test scripts/privacy-rights-db.test.mjs",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:launch-hardening": "node --experimental-transform-types --no-warnings --test scripts/launch-hardening.test.mjs"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.187",
@@ -44,14 +45,14 @@
     "langchain": "^1.5.1",
     "langsmith": "^0.7.11",
     "lucide-react": "^1.44.0",
-    "next": "^16.2.6",
+    "next": "^16.4.5",
     "pg": "^8.23.1",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "resend": "^6.12.4",
     "simple-icons": "16.35.0",
     "stripe": "^23.0.0",
-    "zod": "^4.4.3"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@playwright/test": "1.56.1",
@@ -61,7 +62,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.3.8",
+    "eslint-config-next": "^16.4.5",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

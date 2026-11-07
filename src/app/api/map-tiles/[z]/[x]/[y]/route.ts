@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { MAX_TILE_ZOOM, satelliteTileUrl } from '@/lib/mapTiles';
+import { cachedTile, cacheTile, returnTileFetch, takeTileFetch } from '@/lib/mapTileBudget';
 import { getCurrentUser } from '@/lib/session';
 import { getTvSession } from '@/lib/tvAuth';
 import { authenticateCollectorCached } from '@/lib/collectorKeys';
@@ -37,18 +38,31 @@ export async function GET(
     if (!url) {
       return NextResponse.json({ error: 'Satellite imagery is not set up' }, { status: 404 });
     }
-    const upstream = await fetch(url, { signal: AbortSignal.timeout(15_000) });
+    // Imagery changes rarely; the browser keeps tiles for a week
+    const headers = (contentType: string) => ({ 'Content-Type': contentType, 'Cache-Control': 'private, max-age=604800' });
+    const key = `${zoom}/${column}/${row}`;
+    const cached = cachedTile(key);
+    if (cached) return new Response(cached.body, { headers: headers(cached.contentType) });
+
+    // The provider bills per tile: only so many fetches a day per user and for the site (src/lib/mapTileBudget.ts)
+    const budget = takeTileFetch(user);
+    if (budget !== 'ok') {
+      console.error(`Map tile ${key} refused: ${budget === 'user' ? `user ${user}'s` : "the site's"} daily tile budget is used up`);
+      return NextResponse.json({ error: 'Tile limit reached for today' }, { status: 429, headers: { 'Retry-After': '3600' } });
+    }
+    const upstream = await fetch(url, { signal: AbortSignal.timeout(15_000) }).catch((error) => {
+      returnTileFetch(user);
+      throw error;
+    });
     if (!upstream.ok) {
-      console.error(`Map tile ${zoom}/${column}/${row}: provider answered ${upstream.status}`);
+      returnTileFetch(user);
+      console.error(`Map tile ${key}: provider answered ${upstream.status}`);
       return NextResponse.json({ error: 'Tile unavailable' }, { status: 502 });
     }
-    return new Response(await upstream.arrayBuffer(), {
-      headers: {
-        'Content-Type': upstream.headers.get('content-type') ?? 'image/jpeg',
-        // Imagery changes rarely; the browser keeps tiles for a week
-        'Cache-Control': 'private, max-age=604800',
-      },
-    });
+    const body = await upstream.arrayBuffer();
+    const contentType = upstream.headers.get('content-type') ?? 'image/jpeg';
+    cacheTile(key, body, contentType);
+    return new Response(body, { headers: headers(contentType) });
   } catch (error) {
     console.error('Map tile error:', error);
     return NextResponse.json({ error: 'Tile unavailable' }, { status: 502 });

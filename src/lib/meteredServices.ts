@@ -37,7 +37,8 @@ export async function assertMeteredServicesOn(): Promise<void> {
   if (!(await meteredServicesOn())) throw new MeteredServicesStoppedError();
 }
 
-export async function setMeteredServices(on: boolean, userId: number): Promise<void> {
+// userId is the Admin who flipped it, or null for the spend monitor's automatic stop (src/lib/spendMonitor.ts)
+export async function setMeteredServices(on: boolean, userId: number | null): Promise<void> {
   await ensureUserSchema();
   await query(
     `INSERT INTO racingcoach."SiteSettings" (key, value, updated_by) VALUES ($1, $2, $3)

@@ -373,3 +373,79 @@ describe('security headers (F-24)', () => {
     assert.match(config, /source: '\/:path\*', headers: securityHeaders/);
   });
 });
+
+describe('error monitoring (F-33)', () => {
+  let fp;
+  before(async () => {
+    fp = await import(new URL('errorFingerprint.ts', src).href);
+  });
+
+  test('email addresses, keys, tokens, query strings and database passwords are scrubbed', () => {
+    const text = fp.scrub(
+      'Failed for jane.doe@example.com with sk_live_abcdefghijklmnop, Bearer abc.def.ghi, ' +
+        'GET /api/x?token=secret&a=1 at postgres://user:pass@host/db and ' + 'a'.repeat(40)
+    );
+    for (const secret of ['jane.doe', 'sk_live_abc', 'abc.def.ghi', 'secret', 'user:pass', 'a'.repeat(40)]) {
+      assert.ok(!text.includes(secret), `${secret} left in: ${text}`);
+    }
+  });
+
+  test('the same mistake with different IDs and numbers is one kind of error', () => {
+    const a = fp.fingerprint('server', 'Lap 1234 of user 7 failed: 3f2504e0-4f89-11d3-9a0c-0305e82c3301 "Monza"');
+    const b = fp.fingerprint('server', 'Lap 99 of user 12 failed: 8a2504e0-4f89-11d3-9a0c-0305e82c3302 "Spa"');
+    assert.equal(a, b);
+    assert.notEqual(a, fp.fingerprint('server', 'Something else failed'));
+    assert.notEqual(a, fp.fingerprint('GET /api/x', 'Lap 1 of user 1 failed: x'));
+  });
+
+  test('an Error and its label become the message; its stack the detail', () => {
+    const { message, detail } = fp.describeError(['Debrief error:', new TypeError('boom for a@b.co')]);
+    assert.equal(message, 'Debrief error: TypeError: boom for [email]');
+    assert.match(detail, /TypeError/);
+  });
+
+  test('console.error is counted, and the monitor never logs its own failures through it', () => {
+    const code = readFileSync(new URL('errorMonitor.ts', src), 'utf8');
+    assert.match(code, /console\.error = \(\.\.\.args: unknown\[\]\) => \{\s+original\(\.\.\.args\);\s+recordError/);
+    assert.doesNotMatch(code.replace(/console\.error = /, ''), /console\.error\(/);
+  });
+});
+
+describe('spend alerts and the automatic stop', () => {
+  let rules;
+  before(async () => {
+    rules = await import(new URL('spendRules.ts', src).href);
+  });
+
+  test('AI cost from recorded tokens, cached input at its own price', () => {
+    const cost = rules.aiCostUsd([
+      { model: 'gpt-4o', inputTokens: 1_000_000, cachedInputTokens: 0, outputTokens: 100_000 },
+      { model: 'gpt-4o-mini', inputTokens: 2_000_000, cachedInputTokens: 1_000_000, outputTokens: 0 },
+    ]);
+    // gpt-4o: 2.50 + 1.00; mini: 1M uncached × 0.15 + 1M cached × 0.075
+    assert.ok(Math.abs(cost - (3.5 + 0.225)) < 1e-9, String(cost));
+  });
+
+  test('an unknown model counts at the dearest price, never for free', () => {
+    const unknown = rules.aiCostUsd([{ model: 'some-new-model', inputTokens: 0, cachedInputTokens: 0, outputTokens: 1_000_000 }]);
+    const mini = rules.aiCostUsd([{ model: 'gpt-4o-mini', inputTokens: 0, cachedInputTokens: 0, outputTokens: 1_000_000 }]);
+    assert.ok(unknown > mini);
+  });
+
+  test('warn once, stop once, each once a UTC day', () => {
+    const limits = { warnUsd: 25, ceilingUsd: 100 };
+    const fresh = { day: '', warned: false, stopped: false };
+    assert.equal(rules.spendAction(10, limits, fresh, '2026-11-08'), 'none');
+    assert.equal(rules.spendAction(30, limits, fresh, '2026-11-08'), 'warn');
+    assert.equal(rules.spendAction(30, limits, { day: '2026-11-08', warned: true, stopped: false }, '2026-11-08'), 'none');
+    assert.equal(rules.spendAction(150, limits, { day: '2026-11-08', warned: true, stopped: false }, '2026-11-08'), 'stop');
+    assert.equal(rules.spendAction(150, limits, { day: '2026-11-08', warned: true, stopped: true }, '2026-11-08'), 'none');
+    assert.equal(rules.spendAction(150, limits, { day: '2026-11-07', warned: true, stopped: true }, '2026-11-08'), 'stop', 'a new day');
+  });
+
+  test('limits come from the environment, and the ceiling is never below the warning', () => {
+    assert.deepEqual(rules.spendLimitsFromEnv({}), { warnUsd: 25, ceilingUsd: 100 });
+    assert.deepEqual(rules.spendLimitsFromEnv({ SPEND_ALERT_DAILY_USD: '50', SPEND_CEILING_DAILY_USD: '20' }), { warnUsd: 50, ceilingUsd: 50 });
+    assert.deepEqual(rules.spendLimitsFromEnv({ SPEND_ALERT_DAILY_USD: 'x', SPEND_CEILING_DAILY_USD: '-3' }), { warnUsd: 25, ceilingUsd: 100 });
+  });
+});

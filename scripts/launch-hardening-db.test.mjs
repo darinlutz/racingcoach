@@ -232,6 +232,62 @@ describe('collector logs keep no radio text, and nothing past 90 days (F-20)', {
   });
 });
 
+describe('error and spend monitoring (F-33, F-07)', { skip }, () => {
+  let monitor, spend, metered;
+  before(async () => {
+    delete process.env.RESEND_API_KEY;
+    monitor = await import(new URL('../src/lib/errorMonitor.ts', import.meta.url).href);
+    spend = await import(new URL('../src/lib/spendMonitor.ts', import.meta.url).href);
+    metered = await import(new URL('../src/lib/meteredServices.ts', import.meta.url).href);
+    await monitor.ensureErrorTable();
+  });
+
+  test('errors are grouped and counted; a kind is new once, not every minute', async () => {
+    monitor.recordError('server', ['Save lap error:', new Error('lap 12 failed')]);
+    monitor.recordError('server', ['Save lap error:', new Error('lap 13 failed')]);
+    await monitor.flushErrors();
+    monitor.recordError('server', ['Save lap error:', new Error('lap 14 failed')]);
+    await monitor.flushErrors();
+    const rows = await q(`SELECT message, count FROM racingcoach."ServerErrors" WHERE message LIKE 'Save lap error:%'`);
+    assert.equal(rows.length, 1);
+    assert.equal(Number(rows[0].count), 3);
+    const recent = await monitor.readRecentErrors();
+    assert.ok(recent.some((e) => e.message.startsWith('Save lap error:') && e.count === 3));
+  });
+
+  test('errors not seen for 30 days are deleted', async () => {
+    await q(`INSERT INTO racingcoach."ServerErrors" (fingerprint, source, message, last_seen) VALUES ('old', 'server', 'old', now() - interval '31 days')`);
+    assert.ok((await monitor.purgeOldErrors()) >= 1);
+    assert.equal((await q(`SELECT 1 FROM racingcoach."ServerErrors" WHERE fingerprint = 'old'`)).length, 0);
+  });
+
+  test('today\'s AI spend warns past the warning level, and switches paid services off past the ceiling', async () => {
+    process.env.SPEND_ALERT_DAILY_USD = '1';
+    process.env.SPEND_CEILING_DAILY_USD = '5';
+    await metered.setMeteredServices(true, null);
+    await q(`DELETE FROM racingcoach."SiteSettings" WHERE key = 'spend_monitor_state'`);
+    await q(`DELETE FROM racingcoach."AiUsage"`);
+    // $2.50 of gpt-4o input: past the warning, under the ceiling
+    await q(`INSERT INTO racingcoach."AiUsage" (feature, tier, weight, allowed, model, input_tokens) VALUES ('debriefCoach', 'Gold', 1, true, 'gpt-4o', 1000000)`);
+    let result = await spend.checkSpend();
+    assert.equal(result.action, 'warn');
+    assert.ok(Math.abs(result.spend.aiUsd - 2.5) < 1e-6);
+    assert.equal(await metered.meteredServicesOn(), true);
+    assert.equal((await spend.checkSpend()).action, 'none', 'warned once');
+    // Another $7.50: past the ceiling
+    await q(`INSERT INTO racingcoach."AiUsage" (feature, tier, weight, allowed, model, input_tokens) VALUES ('debriefCoach', 'Gold', 1, true, 'gpt-4o', 3000000)`);
+    result = await spend.checkSpend();
+    assert.equal(result.action, 'stop');
+    assert.equal(await metered.meteredServicesOn(), false, 'paid services switched off');
+    // The owner switches them back on; not switched off again the same day
+    await metered.setMeteredServices(true, null);
+    assert.equal((await spend.checkSpend()).action, 'none');
+    assert.equal(await metered.meteredServicesOn(), true);
+    delete process.env.SPEND_ALERT_DAILY_USD;
+    delete process.env.SPEND_CEILING_DAILY_USD;
+  });
+});
+
 // After every group: they share the connection and the pool
 after(async () => {
   await client?.end();

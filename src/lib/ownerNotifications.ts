@@ -57,3 +57,28 @@ export async function notifyOwner(event: OwnerEvent, userEmail: string): Promise
     console.error('Owner notification error:', error);
   }
 }
+
+// Any email to the site owner (the error and spend monitors). Never throws; false when it wasn't sent.
+export async function emailOwner(subject: string, text: string): Promise<boolean> {
+  const resendApiKey = process.env.RESEND_API_KEY;
+  if (!resendApiKey) {
+    console.warn(`Resend API key not configured. Owner email skipped: ${subject}`);
+    return false;
+  }
+  try {
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${resendApiKey}` },
+      signal: AbortSignal.timeout(10_000),
+      body: JSON.stringify({ from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev', to: OWNER_EMAIL, subject, text }),
+    });
+    if (!response.ok) {
+      console.warn('Resend API error (owner email):', JSON.stringify(await response.json().catch(() => ({}))).slice(0, 300));
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.warn('Owner email error:', error instanceof Error ? error.message : error);
+    return false;
+  }
+}

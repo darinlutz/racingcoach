@@ -9,6 +9,9 @@ import EngineAudioLibrary from '@/components/EngineAudioLibrary';
 import CollectorLogsViewer from '@/components/CollectorLogsViewer';
 import LapRetentionRuns from '@/components/LapRetentionRuns';
 import RateLimitManager from '@/components/RateLimitManager';
+import MonitoringCard from '@/components/MonitoringCard';
+import { readSpendToday } from '@/lib/spendMonitor';
+import { readRecentErrors } from '@/lib/errorMonitor';
 import SiteSettingsManager from '@/components/SiteSettingsManager';
 import PrivacyRequestsLinkCard from '@/components/PrivacyRequestsLinkCard';
 import SubscribersLinkCard from '@/components/SubscribersLinkCard';
@@ -77,6 +80,11 @@ export default async function AdminPage({
     readRequestCounts(),
   ]);
   const { summary, topPages, topClicks, rows } = report;
+  // The Monitoring section: shown even when one of them can't be read
+  const [spendToday, serverErrors] = await Promise.all([
+    readSpendToday().catch(() => null),
+    readRecentErrors().catch(() => []),
+  ]);
 
   const href = (changes: Partial<ActivityFilters>) => `/admin?${activityFilterParams(filters, changes)}`;
   const number = (n: number) => n.toLocaleString(locale);
@@ -114,6 +122,8 @@ export default async function AdminPage({
         <PrivacyRequestsLinkCard t={t.privacyAdmin} counts={privacyCounts} />
 
         <SiteSettingsManager showPricing={showPricing} showProDriverLesson={showProDriverLesson} enableAiFeatures={enableAiFeatures} meteredServices={meteredServices} />
+
+        <MonitoringCard t={a} spend={spendToday} errors={serverErrors} locale={locale} timeZone={filters.timeZone} />
 
         <AiModelManager models={aiModels} />
 

@@ -95,3 +95,9 @@ export function resetTileBudget(): void {
   cache.clear();
   cacheBytes = 0;
 }
+
+// Tiles fetched from the provider so far today (UTC), for the spend monitor (src/lib/spendMonitor.ts)
+export function tileFetchesToday(now = Date.now()): number {
+  rollDay(now);
+  return total;
+}

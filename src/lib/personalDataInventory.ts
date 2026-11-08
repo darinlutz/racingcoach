@@ -382,6 +382,9 @@ export const PERSONAL_DATA_INVENTORY: InventoryCategory[] = [
 // The racingcoach tables that hold no user's personal data (shared reference data, or per-browser data without an
 // account), so the inventory guard in scripts/privacy-rights.test.mjs knows they weren't forgotten
 export const NON_PERSONAL_TABLES = [
+  // The error monitor's kinds of server error (src/lib/errorMonitor.ts): scrubbed of email addresses, keys and query
+  // strings, with no user or IP address, and kept 30 days after an error was last seen
+  'ServerErrors',
   'Tracks',
   'TrackFocusAreas',
   'TracksNumberOfCorners',

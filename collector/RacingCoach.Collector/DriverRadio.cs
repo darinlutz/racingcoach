@@ -281,7 +281,16 @@ internal sealed class DriverRadio : IDisposable
             catch (Exception e) when (e is HttpRequestException or UnauthorizedAccessException or TaskCanceledException)
             {
                 var problem = e is TaskCanceledException ? "RacingCoach.app didn't answer in time" : e.Message;
-                SetUnlessRecording(RadioState.Problem, problem, textKey: e is TaskCanceledException ? "main.siteTimeout" : null);
+                // The Radio window is in the driver's language: the site's own messages already are, and the rest (Windows'
+                // network errors are in Windows' language) are shown as one of the window's own
+                var textKey = e switch
+                {
+                    TaskCanceledException => "main.siteTimeout",
+                    UnauthorizedAccessException => "main.keyNotAccepted",
+                    HttpRequestException { StatusCode: null } => "main.siteUnreachable",
+                    _ => null,
+                };
+                SetUnlessRecording(RadioState.Problem, problem, textKey: textKey);
                 _log($"Driver Radio: {problem}", true);
             }
         });

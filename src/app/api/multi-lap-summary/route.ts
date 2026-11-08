@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { aiErrorResponse } from '@/lib/aiErrors';
-import { apiText } from '@/lib/i18n/server';
+import { apiText, getLanguage } from '@/lib/i18n/server';
 import { saveLapSummary } from '@/lib/lapSummaryHistory';
 import { summarizeMultiLap } from '@/lib/lapSummary';
 import { aiRateLimit, type AiRateLimit } from '@/lib/rateLimits';
@@ -38,7 +38,8 @@ export async function POST(request: Request) {
     limit = await aiRateLimit(request, 'multiLapSummary', user);
     if (limit.response) return limit.response;
     const units = await getUnits(user);
-    const summary = await limit.track(() => summarizeMultiLap(stats, track, undefined, units));
+    const language = await getLanguage(user);
+    const summary = await limit.track(() => summarizeMultiLap(stats, track, language, units));
 
     // Kept for signed-in users, like Debrief Coach runs. Saving is extra, so a failure is logged rather than costing
     // them the summary.

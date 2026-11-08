@@ -47,7 +47,7 @@ export async function getLinkedUser(discordUserId) {
             CASE WHEN (u.account_status = 'Subscribed' AND u.subscription_end_date < $3)
                    OR (u.account_status = 'Canceled' AND u.subscription_end_date < $2)
                  THEN 'Bronze' ELSE u.membership_level END AS membership_level,
-            u.created_at AS member_since
+            u.created_at AS member_since, u.preferred_language
      FROM racingcoach."DiscordConnections" d
      JOIN racingcoach."Users" u ON u.id = d.user_id
      WHERE d.discord_user_id = $1`,
@@ -62,6 +62,8 @@ export async function getLinkedUser(discordUserId) {
     role: row.role,
     membershipLevel: row.membership_level ?? 'Bronze',
     memberSince: row.member_since ? new Date(row.member_since) : null,
+    // The website's Preferred Language (en, pt, es or de), which every reply is in (i18n.js)
+    language: row.preferred_language,
   };
 }
 

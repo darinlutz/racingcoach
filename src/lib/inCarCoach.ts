@@ -5,7 +5,9 @@ import { brakeChangeRule, createTools, type DebriefSession } from './debriefCoac
 import { brakesLaterOnColdTires, tireWarmupFact, type TireWarmup } from './tireWarmup';
 import { hasTrackPosition, withKmh } from './trackPositions';
 import { DEFAULT_UNITS, DISTANCE_NAME, DISTANCE_UNIT, SPEED_UNIT, type Units } from './units';
-import { aiLanguageRule, DEFAULT_LANGUAGE, type Language } from './i18n/languages';
+import { languageCheck, type LanguageCheck } from './answerChecks';
+import { englishWords, hasEnglish } from './i18n/englishWords';
+import { aiLanguageFeedback, aiLanguageRule, DEFAULT_LANGUAGE, type Language } from './i18n/languages';
 import { getDictionary } from './i18n/server';
 import { LAP_TIME_RULE } from './lapData';
 import { coachInstructionsRule, getHeadCoachInCarInstructions } from './siteSettings';
@@ -208,6 +210,11 @@ export async function inCarCoachPlan(
     `Focus areas on this track: ${areaNames.length > 0 ? areaNames.join(', ') : 'none (no areaEntry or areaExit rules)'}.\n` +
     (headCoach ? `${headCoachInCarBlock(headCoach)}\n` : '') +
     (instructions.trim() ? `<driver_instructions>\n${instructions.trim()}\n</driver_instructions>` : '');
+  // Rule texts are spoken and shown as they are, so a plan for a user of another language with English in them gets
+  // one rewrite, and a rule whose text still has English is left out (cleanPlan)
+  const check = await languageCheck(language, areaNames);
+  const englishIn = (plan: InCarCoachPlan) =>
+    check ? englishWords(plan.rules.map((rule) => rule.text ?? '').join('\n'), language, check.names) : [];
   const answer = await withFallbackModel('inCarCoachPlan', COACH_TIMES, async (aiModel, signal) => {
     const agent = createAgent({
       model: await chatModel('inCarCoachPlan', 0, aiModel),
@@ -215,10 +222,17 @@ export async function inCarCoachPlan(
       systemPrompt: PLAN_PROMPT + BUILT_IN_RULES_PROMPT + unitsRule(units) + aiLanguageRule(language),
       responseFormat: planSchema,
     });
-    return structured(await agent.invoke({ messages: [{ role: 'user', content }] }, { signal }));
+    const first = await agent.invoke({ messages: [{ role: 'user', content }] }, { signal });
+    const english = englishIn(structured(first));
+    if (english.length === 0) return structured(first);
+    const again = await agent.invoke(
+      { messages: [...first.messages, { role: 'user', content: aiLanguageFeedback(language, english) }] },
+      { signal }
+    );
+    return structured(again);
   });
 
-  const plan = cleanPlan(answer, areaNames);
+  const plan = cleanPlan(answer, areaNames, check);
   if (planCache.size >= PLAN_CACHE_SIZE) planCache.delete(planCache.keys().next().value!);
   planCache.set(key, plan);
   return withBuiltInRules(plan, language);
@@ -226,7 +240,7 @@ export async function inCarCoachPlan(
 
 // Drops rules the collector couldn't run (a say or message with no text, a sound with none, an unknown area), and
 // any whose text says where on the track something happens (src/lib/trackPositions.ts)
-function cleanPlan(plan: InCarCoachPlan, areaNames: string[]): InCarCoachPlan {
+function cleanPlan(plan: InCarCoachPlan, areaNames: string[], check?: LanguageCheck): InCarCoachPlan {
   const rules = plan.rules
     .flatMap((rule): CoachRule[] => {
       const isAreaEvent = rule.event === 'areaEntry' || rule.event === 'areaExit';
@@ -234,6 +248,10 @@ function cleanPlan(plan: InCarCoachPlan, areaNames: string[]): InCarCoachPlan {
       if (isAreaEvent && rule.area && !area) return [];
       if (rule.action === 'sound') return [{ ...rule, area: area ?? null, text: null, sound: rule.sound ?? 'beep' }];
       if (!rule.text?.trim() || hasTrackPosition(rule.text)) return [];
+      if (check && hasEnglish(rule.text, check.language, check.names)) {
+        console.warn(`In-Car AI Coach rule left out, its text still has English for a ${check.language} user: ${rule.text}`);
+        return [];
+      }
       // the built-in rules already say these
       if (rule.action === 'say' && (rule.event === 'newBestLap' || (rule.event === 'lapComplete' && rule.text.includes('{lapTime}')))) return [];
       return [{ ...rule, area: area ?? null, text: withKmh(rule.text.trim()), sound: null }];
@@ -340,8 +358,20 @@ export async function inCarCoachCallouts(input: {
   // A callout that still says where on the track to brake (feet or meters from the line) is dropped, and so is one
   // telling the driver to brake later on cold tires without saying it's for once they're warm; saying nothing is fine
   const coldTires = !!input.tires?.cold;
+  // and so is one with English words in it for a user of another language (the spare is said instead)
+  const check = await languageCheck(input.language ?? DEFAULT_LANGUAGE, [
+    input.track,
+    input.car,
+    ...(input.session?.areas.map((area) => area.name) ?? []),
+  ]);
   const callouts = result.callouts
-    .filter((c) => c.text.trim() && !hasTrackPosition(c.text) && !(coldTires && brakesLaterOnColdTires(c.text)))
+    .filter(
+      (c) =>
+        c.text.trim() &&
+        !hasTrackPosition(c.text) &&
+        !(coldTires && brakesLaterOnColdTires(c.text)) &&
+        !(check && hasEnglish(c.text, check.language, check.names))
+    )
     .slice(0, MAX_CALLOUTS)
     .map((c) => ({ text: withKmh(c.text.trim()), sound: c.sound ?? null }));
   const toolNames = new Set(tools.map((t) => t.name));

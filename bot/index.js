@@ -4,6 +4,7 @@ import { getCoaching } from './api.js';
 import { buildCoachEmbed } from './coach.js';
 import { closeDb, getLatestDebrief, getLinkedUser, getRecentDebriefs, getRecentRaces, getShowPricing } from './db.js';
 import { buildDebriefEmbed } from './debrief.js';
+import { fmt, languageFor, localeOf, textsFor } from './i18n.js';
 import { buildRecentEmbed } from './recent.js';
 
 // The RacingCoach Discord bot. Keeps a connection open to Discord and answers slash commands.
@@ -32,7 +33,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
   try {
     if (subcommand === 'status') {
-      await interaction.reply('RacingCoach is online! Your racing coach is ready.');
+      const user = await getLinkedUser(interaction.user.id).catch(() => null);
+      await interaction.reply(textsFor(languageFor(user, interaction.locale)).online);
     } else if (subcommand === 'whoami') {
       await handleWhoami(interaction);
     } else if (subcommand === 'results') {
@@ -44,7 +46,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
   } catch (error) {
     console.error(`Error handling /coach ${subcommand}:`, error);
-    const message = { content: 'Something went wrong running that command.', flags: MessageFlags.Ephemeral };
+    const message = { content: textsFor(languageFor(null, interaction.locale)).somethingWrong, flags: MessageFlags.Ephemeral };
     if (interaction.deferred && !interaction.replied) {
       await interaction.editReply(message).catch(() => {});
     } else if (interaction.replied) {
@@ -61,9 +63,10 @@ function sitePage(path, fallback) {
   return siteUrl ? `${siteUrl}${path}` : fallback;
 }
 
-function notLinkedMessage() {
-  const accountPage = sitePage('/account', 'the RacingCoach Account page');
-  return `Your Discord account isn't linked to RacingCoach yet. Sign in and click **Connect Discord** on ${accountPage}.`;
+// Before an account is linked, Discord's language for the user picks the reply's
+function notLinkedMessage(interaction) {
+  const t = textsFor(languageFor(null, interaction.locale));
+  return fmt(t.notLinked, { page: sitePage('/account', t.accountPage) });
 }
 
 // AI features are for Silver and Gold members and Admins, like the website's (notForBronze in src/lib/ragRoute.ts).
@@ -73,28 +76,28 @@ function needsUpgrade(user) {
 }
 
 // Points to the Pricing page, or the Account page while the Admin page's Show Pricing is off
-async function upgradeMessage(command) {
-  const page = (await getShowPricing())
-    ? sitePage('/pricing', 'the RacingCoach Pricing page')
-    : sitePage('/account', 'the RacingCoach Account page');
-  return `\`${command}\` uses AI coaching, which isn't included with a Bronze membership. To use it, upgrade to Silver or Gold on ${page}.`;
+async function upgradeMessage(command, language) {
+  const t = textsFor(language);
+  const page = (await getShowPricing()) ? sitePage('/pricing', t.pricingPage) : sitePage('/account', t.accountPage);
+  return fmt(t.upgrade, { command, page });
 }
 
-// e.g. "Silver Member since March 2026"
-function membershipText(user) {
-  const level = `${user.membershipLevel} Member`;
-  if (!user.memberSince) return level;
-  const since = user.memberSince.toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
-  return `${level} since ${since}`;
+// e.g. "Silver Member since March 2026", in the user's language
+function membershipText(user, language) {
+  const t = textsFor(language);
+  if (!user.memberSince) return fmt(t.member, { level: user.membershipLevel });
+  const since = user.memberSince.toLocaleDateString(localeOf(language), { month: 'long', year: 'numeric', timeZone: 'UTC' });
+  return fmt(t.memberSince, { level: user.membershipLevel, since });
 }
 
 // Only the person who ran it sees the reply, since it names their account
 async function handleWhoami(interaction) {
   const user = await getLinkedUser(interaction.user.id);
+  const language = languageFor(user, interaction.locale);
   await interaction.reply({
     content: user
-      ? `You're linked to the RacingCoach account **${user.userName}**, ${membershipText(user)}.`
-      : notLinkedMessage(),
+      ? fmt(textsFor(language).linked, { name: user.userName, membership: membershipText(user, language) })
+      : notLinkedMessage(interaction),
     flags: MessageFlags.Ephemeral,
   });
 }
@@ -109,41 +112,40 @@ async function handleCoach(interaction) {
 
   const user = await getLinkedUser(interaction.user.id);
   if (!user) {
-    await interaction.editReply(notLinkedMessage());
+    await interaction.editReply(notLinkedMessage(interaction));
     return;
   }
+  const language = languageFor(user, interaction.locale);
+  const t = textsFor(language);
   if (needsUpgrade(user)) {
-    await interaction.editReply(await upgradeMessage('/coach results'));
+    await interaction.editReply(await upgradeMessage('/coach results', language));
     return;
   }
   if (user.role !== 'Admin') {
-    await interaction.editReply('`/coach results` is only available to RacingCoach Admins.');
+    await interaction.editReply(t.adminsOnly);
     return;
   }
 
   const races = await getRecentRaces(user.id, COACH_RACE_COUNT);
   if (!races.length) {
-    const raceTrends = sitePage('/race-trends', 'the My Race Trends page');
-    await interaction.editReply(
-      `No races found for **${user.userName}** yet. Connect iRacePlan and load your races on ${raceTrends}.`,
-    );
+    await interaction.editReply(fmt(t.noRaces, { name: user.userName, page: sitePage('/race-trends', t.raceTrendsPage) }));
     return;
   }
 
   // Show the stats right away; the AI coaching takes longer and is added when it's ready
-  await interaction.editReply({ embeds: [buildCoachEmbed(races, null)] });
+  await interaction.editReply({ embeds: [buildCoachEmbed(races, null, { language })] });
 
   try {
     const coaching = await getCoaching(interaction.user.id);
-    await interaction.editReply({ embeds: [buildCoachEmbed(races, coaching)] });
+    await interaction.editReply({ embeds: [buildCoachEmbed(races, coaching, { language })] });
   } catch (error) {
     console.error('Coaching error:', error);
     if (error.code === 'membership_required') {
-      await interaction.editReply({ content: await upgradeMessage('/coach results'), embeds: [] });
+      await interaction.editReply({ content: await upgradeMessage('/coach results', language), embeds: [] });
       return;
     }
     const outOfCredits = error.code === 'out_of_credits';
-    await interaction.editReply({ embeds: [buildCoachEmbed(races, null, { failed: true, outOfCredits })] });
+    await interaction.editReply({ embeds: [buildCoachEmbed(races, null, { failed: true, outOfCredits, language })] });
   }
 }
 
@@ -154,20 +156,18 @@ async function handleDebrief(interaction) {
 
   const user = await getLinkedUser(interaction.user.id);
   if (!user) {
-    await interaction.editReply(notLinkedMessage());
+    await interaction.editReply(notLinkedMessage(interaction));
     return;
   }
+  const language = languageFor(user, interaction.locale);
 
   const saved = await getLatestDebrief(user.id);
   if (!saved) {
-    const racingPage = sitePage('/racing', 'the Racing page');
-    await interaction.editReply(
-      `No debriefs saved for **${user.userName}** yet. Sign in, run **Debrief Coach** on ${racingPage}, then try again.`,
-    );
+    await interaction.editReply(noDebriefsMessage(user, language));
     return;
   }
 
-  await interaction.editReply({ embeds: [buildDebriefEmbed(saved)] });
+  await interaction.editReply({ embeds: [buildDebriefEmbed(saved, language)] });
 }
 
 const RECENT_SESSION_COUNT = 5;
@@ -178,20 +178,23 @@ async function handleRecent(interaction) {
 
   const user = await getLinkedUser(interaction.user.id);
   if (!user) {
-    await interaction.editReply(notLinkedMessage());
+    await interaction.editReply(notLinkedMessage(interaction));
     return;
   }
+  const language = languageFor(user, interaction.locale);
 
   const sessions = await getRecentDebriefs(user.id, RECENT_SESSION_COUNT);
   if (!sessions.length) {
-    const racingPage = sitePage('/racing', 'the Racing page');
-    await interaction.editReply(
-      `No debriefs saved for **${user.userName}** yet. Sign in, run **Debrief Coach** on ${racingPage}, then try again.`,
-    );
+    await interaction.editReply(noDebriefsMessage(user, language));
     return;
   }
 
-  await interaction.editReply({ embeds: [buildRecentEmbed(sessions)] });
+  await interaction.editReply({ embeds: [buildRecentEmbed(sessions, language)] });
+}
+
+function noDebriefsMessage(user, language) {
+  const t = textsFor(language);
+  return fmt(t.noDebriefs, { name: user.userName, page: sitePage('/racing', t.racingPage) });
 }
 
 // Let Render stop the worker cleanly on redeploys

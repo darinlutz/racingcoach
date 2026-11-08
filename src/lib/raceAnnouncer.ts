@@ -9,6 +9,8 @@ import { spokenCarName } from './carBrands';
 import { ELEVENLABS_COACH_VOICE, isCoachVoice, voicesFor, type CoachVoice, type Pronunciation, type SpanishAccent } from './coachVoice';
 import { query } from './db';
 import type { ElevenLabsRole } from './elevenLabs';
+import { languageCheck, namesIn } from './answerChecks';
+import { englishWords } from './i18n/englishWords';
 import { aiLanguageRule, type Language } from './i18n/languages';
 import type { RaceEvent } from './liveRacing';
 import { formatSeconds } from './stintExport';
@@ -378,6 +380,9 @@ export async function raceAnnouncerLines(input: {
   };
   const result = await agent.invoke({ messages: [{ role: 'user', content: JSON.stringify(request) }] });
   const written = result.structuredResponse.lines as z.infer<typeof linesSchema>['lines'];
+  // A line for a user of another language with English words in it is dropped like one that breaks the facts: the
+  // names it may say as they are are the field's, and the cars, track and series in the request
+  const check = await languageCheck(input.language, [...input.facts.fieldNames, ...input.facts.allowedNames, ...namesIn(input.request)]);
   const lines: AnnouncerLine[] = [];
   const dropped: DroppedLine[] = [];
   for (let i = 0; i < input.plans.length; i++) {
@@ -388,14 +393,24 @@ export async function raceAnnouncerLines(input: {
       break;
     }
     const text = line.text.trim();
-    const check = checkLine(text, input.facts);
-    const reason = !text ? 'empty' : hasTrackPosition(text) ? 'trackPosition' : !check.ok ? `${check.reason}:${check.detail}` : null;
+    const lineCheck = checkLine(text, input.facts);
+    const spokenText = (line.spoken || line.text).trim();
+    const english = check ? englishWords(`${text}\n${spokenText}`, check.language, check.names) : [];
+    const reason = !text
+      ? 'empty'
+      : hasTrackPosition(text)
+        ? 'trackPosition'
+        : !lineCheck.ok
+          ? `${lineCheck.reason}:${lineCheck.detail}`
+          : english.length > 0
+            ? `english:${english.join(',')}`
+            : null;
     if (reason) {
       // the lines after it answer it, so they go too
       dropped.push({ speaker: plan.speaker, text, reason });
       break;
     }
-    const spoken = (line.spoken || line.text).trim();
+    const spoken = spokenText;
     lines.push({
       speaker: plan.speaker,
       text: deliveryText(fitToSeconds(text, plan.maxSeconds), plan.intensity),

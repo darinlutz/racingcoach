@@ -386,8 +386,9 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
         using var response = await _http.PostAsync($"api/collector/radio?engineer=1&laps={laps}", content, ct);
         if (response.StatusCode == HttpStatusCode.Unauthorized)
             throw new UnauthorizedAccessException("RacingCoach.app doesn't accept the upload key");
+        // With its status code, so Driver Radio can tell the site's own message (in the driver's language) from no answer
         if (!response.IsSuccessStatusCode)
-            throw new HttpRequestException(await ErrorMessageAsync(response, ct));
+            throw new HttpRequestException(await ErrorMessageAsync(response, ct), null, response.StatusCode);
         return await response.Content.ReadFromJsonAsync<RadioAnswer>(JsonOptions, ct)
             ?? throw new HttpRequestException("the site sent no answer");
     }

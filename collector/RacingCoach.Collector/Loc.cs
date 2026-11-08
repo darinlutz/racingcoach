@@ -140,8 +140,7 @@ internal static class Loc
         // The focus area just left, by its name ({0}, e.g. T3)
         ["overlay.areaTime"] = ("{0} Time", "Tempo {0}", "Tiempo {0}", "{0} Zeit"),
         ["overlay.areaExit"] = ("{0} Exit", "Saída {0}", "Salida {0}", "{0} Ausgang"),
-        // Always the English word, whatever the language
-        ["overlay.coast"] = ("Coast", "Coast", "Coast", "Coast"),
+        ["overlay.coast"] = ("Coast", "Inércia", "Inercia", "Rollen"),
         ["overlay.overlap"] = ("Overlap", "Sobreposição", "Superposición", "Überlappung"),
         ["overlay.loading"] = ("Loading your focus areas…", "Carregando suas áreas de foco…", "Cargando tus zonas de enfoque…",
             "Deine Fokusbereiche werden geladen…"),

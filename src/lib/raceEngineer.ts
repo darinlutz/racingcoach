@@ -12,7 +12,8 @@ import { sessionFlag } from './raceFlags';
 import { coachInstructionsRule } from './siteSettings';
 import { formatSeconds } from './stintExport';
 import { tireWarmupFact } from './tireWarmup';
-import { TRACK_POSITION_RULE, withoutTrackPositions } from './trackPositions';
+import { TRACK_POSITION_RULE } from './trackPositions';
+import { checkedAnswer, languageCheck, namesIn } from './answerChecks';
 import { DEFAULT_UNITS, formatTemperature, type Units } from './units';
 
 // The Race Engineer: Driver Radio's other half. When the driver says something over the radio (src/lib/driverRadio.ts,
@@ -324,14 +325,22 @@ export async function raceEngineerReply(input: {
   if (first.response.setupQuestion) return { reply: null, steps, setupQuestion: true };
   if (!first.response.needsReply || !first.response.reply.trim()) return { reply: null, steps, setupQuestion: false };
   try {
-    const reply = await withoutTrackPositions(first.response.reply.trim(), async (feedback) => {
-      const again = await ask([
-        { role: 'user', content },
-        { role: 'assistant', content: first.response.reply },
-        { role: 'user', content: feedback },
-      ]);
-      return again.response.reply;
-    });
+    const check = await languageCheck(input.language ?? DEFAULT_LANGUAGE, [
+      ...namesIn(input.snapshot),
+      ...(measured?.session?.areas.map((area) => area.name) ?? []),
+    ]);
+    const reply = await checkedAnswer(
+      first.response.reply.trim(),
+      async (feedback) => {
+        const again = await ask([
+          { role: 'user', content },
+          { role: 'assistant', content: first.response.reply },
+          { role: 'user', content: feedback },
+        ]);
+        return again.response.reply;
+      },
+      check
+    );
     return { reply: reply.slice(0, MAX_REPLY_CHARS), steps, setupQuestion: false };
   } catch {
     // only said where on the track things happen: better silent

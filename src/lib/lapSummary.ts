@@ -7,7 +7,8 @@ import { aiLanguageRule, DEFAULT_LANGUAGE, type Language } from './i18n/language
 import { LAP_TIME_RULE } from './lapData';
 import type { LapDrivingLine } from './lapDrivingLine';
 import { coachInstructionsRule } from './siteSettings';
-import { TRACK_POSITION_RULE, withoutTrackPositions } from './trackPositions';
+import { TRACK_POSITION_RULE } from './trackPositions';
+import { checkedAnswer, languageCheck, type LanguageCheck } from './answerChecks';
 import { DEFAULT_UNITS, DISTANCE_NAME, DISTANCE_UNIT, distanceFromMeters, roundLineOffset, SPEED_UNIT, type Units } from './units';
 import { chatModel } from '@/lib/aiModels';
 
@@ -156,10 +157,14 @@ export async function summarizeLapComparison(
     responseFormat: lapSummarySchema,
   });
   const result = await agent.invoke({ messages: [{ role: 'user', content: comparison }] }, { recursionLimit: 20 });
-  return withoutTrackPositions(result.structuredResponse.summary.trim(), async (feedback) => {
-    const rewritten = await agent.invoke({ messages: [...result.messages, { role: 'user', content: feedback }] }, { recursionLimit: 20 });
-    return rewritten.structuredResponse.summary.trim();
-  });
+  return checkedAnswer(
+    result.structuredResponse.summary.trim(),
+    async (feedback) => {
+      const rewritten = await agent.invoke({ messages: [...result.messages, { role: 'user', content: feedback }] }, { recursionLimit: 20 });
+      return rewritten.structuredResponse.summary.trim();
+    },
+    await languageCheck(language, [track, ...areaNames])
+  );
 }
 
 const MULTI_LAP_PROMPT_TEMPLATE = ChatPromptTemplate.fromMessages([
@@ -195,7 +200,7 @@ export async function summarizeMultiLap(
   }
 
   const model = await chatModel('multiLapSummary', 0.3);
-  return invokeWithoutTrackPositions(MULTI_LAP_PROMPT_TEMPLATE, model, {
+  return invokeChecked(MULTI_LAP_PROMPT_TEMPLATE, model, await languageCheck(language, [track]), {
     stats,
     track,
     ...unitWords(units),
@@ -221,16 +226,20 @@ const STINT_PROMPT_TEMPLATE = ChatPromptTemplate.fromMessages([
   ['user', '{report}'],
 ]);
 
-// A prompt and model's answer, rewritten once and then cut if it says where on the track something happens
-async function invokeWithoutTrackPositions(
+// A prompt and model's answer, rewritten once if it says where on the track something happens or has English words
+// for a user of another language, then cut if it still gives a place on the track (src/lib/answerChecks.ts)
+async function invokeChecked(
   prompt: ChatPromptTemplate,
   model: Awaited<ReturnType<typeof chatModel>>,
+  check: LanguageCheck | undefined,
   values: Record<string, string>
 ): Promise<string> {
   const messages = await prompt.formatMessages(values);
   const response = await model.invoke(messages);
-  return withoutTrackPositions(response.text.trim(), async (feedback) =>
-    (await model.invoke([...messages, new AIMessage(response.text), new HumanMessage(feedback)])).text.trim()
+  return checkedAnswer(
+    response.text.trim(),
+    async (feedback) => (await model.invoke([...messages, new AIMessage(response.text), new HumanMessage(feedback)])).text.trim(),
+    check
   );
 }
 
@@ -241,7 +250,7 @@ export async function summarizeStint(report: string, track: string, language: La
   }
 
   const model = await chatModel('stintSummary', 0.3);
-  return invokeWithoutTrackPositions(STINT_PROMPT_TEMPLATE, model, {
+  return invokeChecked(STINT_PROMPT_TEMPLATE, model, await languageCheck(language, [track]), {
     report,
     track,
     rules: TRACK_POSITION_RULE + LAP_TIME_RULE + (await coachInstructionsRule()) + aiLanguageRule(language),

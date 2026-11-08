@@ -1,7 +1,9 @@
 import { AIMessage } from '@langchain/core/messages';
 import { createAgent, tool } from 'langchain';
 import { z } from 'zod';
-import { aiLanguageRule, DEFAULT_LANGUAGE, type Language } from './i18n/languages';
+import { languageCheck } from './answerChecks';
+import { englishWords } from './i18n/englishWords';
+import { aiLanguageFeedback, aiLanguageRule, DEFAULT_LANGUAGE, type Language } from './i18n/languages';
 import { LAP_TIME_RULE } from './lapData';
 import { planOptimalLap, segmentName, type OptimalLap } from './optimalLap';
 import { shiftLimit, type LapShifting } from './shifting';
@@ -1132,6 +1134,16 @@ export async function runDebriefCoach(
   // The model can still flip "later" and "earlier" or say where to brake, so check everything it wrote and give it
   // one chance to correct itself before dropping any fix, keep-doing item or sentence that still breaks the rules
   const check = (response: DebriefFixes) => [...brakeContradictions(response, areas, u), ...trackPositions(response, u)];
+  // and, for a user of another language, that every text is in it (src/lib/answerChecks.ts)
+  const langCheck = await languageCheck(language, [session.track, session.car, ...session.areas.map((area) => area.name)]);
+  const englishIn = (response: DebriefFixes) =>
+    langCheck
+      ? englishWords(
+          [...response.fixes.flatMap((f) => [f.problem, f.fix, f.evidence]), ...response.keepDoing, response.optimalLap].join('\n'),
+          language,
+          langCheck.names
+        )
+      : [];
 
   const { result, response, problems } = await withFallbackModel('debriefCoach', DEBRIEF_TIMES, async (model, signal) => {
     const agent = createAgent({
@@ -1147,23 +1159,20 @@ export async function runDebriefCoach(
     );
     let response: DebriefFixes = structured(result);
     let problems = check(response);
-    if (problems.length > 0) {
-      result = await agent.invoke(
-        {
-          messages: [
-            ...result.messages,
-            {
-              role: 'user',
-              content:
-                `Your debrief breaks the brakepoint rules: ${problems.map((p) => p.message).join(' ')} ` +
-                'Rewrite the whole debrief so every brakepoint fix, problem and evidence agrees with the brakepoint ' +
-                `verdicts, and no fix, keep-doing item or theoretical lap summary says where on the track something ` +
-                `happens. ${brakeChangeRule(units)}`,
-            },
-          ],
-        },
-        { recursionLimit: 40, signal }
-      );
+    const english = englishIn(response);
+    if (problems.length > 0 || english.length > 0) {
+      const feedback = [
+        problems.length > 0
+          ? `Your debrief breaks the brakepoint rules: ${problems.map((p) => p.message).join(' ')} ` +
+            'Rewrite the whole debrief so every brakepoint fix, problem and evidence agrees with the brakepoint ' +
+            `verdicts, and no fix, keep-doing item or theoretical lap summary says where on the track something ` +
+            `happens. ${brakeChangeRule(units)}`
+          : '',
+        aiLanguageFeedback(language, english),
+      ]
+        .filter(Boolean)
+        .join(' ');
+      result = await agent.invoke({ messages: [...result.messages, { role: 'user', content: feedback }] }, { recursionLimit: 40, signal });
       response = structured(result);
       problems = check(response);
     }
@@ -1171,6 +1180,8 @@ export async function runDebriefCoach(
   });
 
   for (const p of problems) console.error(`Debrief coach dropped what broke the rules: ${p.message}`, JSON.stringify(p.fix ?? ''));
+  const stillEnglish = englishIn(response);
+  if (stillEnglish.length > 0) console.warn(`Debrief coach answer still has English words for a ${language} user: ${stillEnglish.join(', ')}`);
   const fixes = response.fixes.filter((fix) => !problems.some((p) => p.fix === fix));
   const keepDoing = response.keepDoing.filter((text) => !hasTrackPosition(text));
   if (fixes.length === 0) {

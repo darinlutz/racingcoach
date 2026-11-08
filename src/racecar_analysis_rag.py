@@ -279,8 +279,10 @@ SYSTEM_PROMPT = (
 )
 
 
-def build_messages(query, collection, top_k=None):
-    """The chat messages for a question, and the documents they were built from."""
+def build_messages(query, collection, top_k=None, language_rule=""):
+    """The chat messages for a question, and the documents they were built from. language_rule is the website's
+    instruction to answer in the user's Preferred Language (aiLanguageRule in src/lib/i18n/languages.ts), empty
+    for English."""
     print(f"\nProcessing query: {query}")
 
     # The car and track data sets are small, and questions like "which car is
@@ -294,15 +296,15 @@ def build_messages(query, collection, top_k=None):
     augmented_prompt = augment_prompt(query, related_chunks)
 
     messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "system", "content": SYSTEM_PROMPT + (language_rule or "")},
         {"role": "user", "content": augmented_prompt},
     ]
     references = [chunk[0] for chunk in related_chunks]
     return messages, references
 
 
-def rag_pipeline(query, collection, llm_model, top_k=None):
-    messages, references = build_messages(query, collection, top_k)
+def rag_pipeline(query, collection, llm_model, top_k=None, language_rule=""):
+    messages, references = build_messages(query, collection, top_k, language_rule)
     response = llm_model.generate_completion(messages)
 
     print("\nGenerated response:")
@@ -323,6 +325,8 @@ def run_query(payload: dict) -> dict:
     # an answer. The website sends them to the model picked for Racecar Analysis
     # in the Admin page's AI Model Control, which records its token counts.
     prompt_only = bool(payload.get("promptOnly", False))
+    # The website's instruction to answer in the user's Preferred Language (empty for English)
+    language_rule = payload.get("languageRule", "") or ""
 
     # load_documents/setup_chromadb/rag_pipeline print a lot of
     # human-readable progress info for the interactive CLI mode below;
@@ -334,14 +338,14 @@ def run_query(payload: dict) -> dict:
         collection = setup_chromadb(documents, metadatas, embedding_model)
 
         if prompt_only:
-            messages, references = build_messages(query, collection)
+            messages, references = build_messages(query, collection, language_rule=language_rule)
             return {
                 "system": messages[0]["content"],
                 "prompt": messages[1]["content"],
                 "references": references,
             }
 
-        response, references = rag_pipeline(query, collection, LLMModel(llm_type))
+        response, references = rag_pipeline(query, collection, LLMModel(llm_type), language_rule=language_rule)
 
     return {"response": response, "references": references}
 

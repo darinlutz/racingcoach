@@ -2774,7 +2774,18 @@ export const es: Dictionary = {
     close: 'Cerrar',
   },
 
+  passwordResetEmail: {
+    subject: "Restablece tu contraseña de RacingCoach.app",
+    heading: "Restablece tu contraseña",
+    intro: "Recibimos una solicitud para restablecer la contraseña de tu cuenta de RacingCoach.app. Pulsa el botón para elegir una nueva.",
+    button: "Restablecer Contraseña",
+    expires: "Este enlace caduca en 1 hora y solo se puede usar una vez.",
+    ignore: "Si no lo solicitaste, puedes ignorar este correo. Tu contraseña no cambiará.",
+    linkFallback: "Si el botón no funciona, copia este enlace en tu navegador:",
+  },
+
   emailVerification: {
+    emailLinkFallback: "Si el botón no funciona, copia este enlace en tu navegador:",
     emailSubject: "Confirma tu correo electrónico de RacingCoach.app",
     emailHeading: "Confirma tu correo electrónico",
     emailIntro: "Gracias por crear una cuenta en RacingCoach.app. Confirma que este es tu correo para activar el coaching con IA, la clave de carga del recolector de telemetría y los planes de membresía.",

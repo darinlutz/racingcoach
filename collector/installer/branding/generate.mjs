@@ -113,3 +113,25 @@ for (const height of WIZARD_HEIGHTS) {
 for (const size of HEADER_SIZES) {
   await render(headerSvg(), size, size, `header-${size}.png`, false);
 }
+
+// The logo at the top of the site's emails (src/lib/emailLayout.ts): the flag and RACINGCOACH.APP on one line, on the
+// emails' header color, rendered at 2x for sharp screens and shown 280 wide. A PNG, as many email apps (Gmail,
+// Outlook) don't show SVG. No tagline: it changes with Enable AI Features, and the email can't.
+function emailLogoSvg() {
+  const markWidth = 228;
+  const markHeight = (wordmark.h * markWidth) / wordmark.w;
+  const flagSize = 34;
+  const W = 280, H = 48;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}">
+  <rect width="${W}" height="${H}" fill="${colors.background}"/>
+  ${flag(4, (H - flagSize) / 2, flagSize)}
+  ${place(wordmark, 48, (H - markHeight) / 2, markWidth)}
+</svg>`;
+}
+const emailDir = path.join(dir, '../../../public/assets/email');
+fs.mkdirSync(emailDir, { recursive: true });
+await sharp(Buffer.from(emailLogoSvg()), { density: 144 * 2 })
+  .resize(560, 96)
+  .png({ compressionLevel: 9 })
+  .toFile(path.join(emailDir, 'racingcoach-logo.png'));
+

@@ -2818,7 +2818,18 @@ export const en = {
     close: 'Close',
   },
 
+  passwordResetEmail: {
+    subject: "Reset your RacingCoach.app password",
+    heading: "Reset your password",
+    intro: "We received a request to reset the password for your RacingCoach.app account. Press the button to choose a new one.",
+    button: "Reset Password",
+    expires: "This link expires in 1 hour and can only be used once.",
+    ignore: "If you didn't ask for this, you can ignore this email. Your password won't change.",
+    linkFallback: "If the button doesn't work, copy this link into your browser:",
+  },
+
   emailVerification: {
+    emailLinkFallback: "If the button doesn't work, copy this link into your browser:",
     emailSubject: "Confirm your RacingCoach.app email address",
     emailHeading: "Confirm your email address",
     emailIntro: "Thanks for creating a RacingCoach.app account. Confirm this is your email address to turn on AI coaching, the telemetry collector's upload key and membership plans.",

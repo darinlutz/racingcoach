@@ -2811,7 +2811,18 @@ export const de: Dictionary = {
     close: 'Schließen',
   },
 
+  passwordResetEmail: {
+    subject: "Setze dein RacingCoach.app-Passwort zurück",
+    heading: "Passwort zurücksetzen",
+    intro: "Wir haben eine Anfrage erhalten, das Passwort deines RacingCoach.app-Kontos zurückzusetzen. Drücke die Schaltfläche, um ein neues zu wählen.",
+    button: "Passwort zurücksetzen",
+    expires: "Dieser Link ist 1 Stunde gültig und kann nur einmal verwendet werden.",
+    ignore: "Wenn du das nicht angefordert hast, kannst du diese E-Mail ignorieren. Dein Passwort bleibt unverändert.",
+    linkFallback: "Wenn die Schaltfläche nicht funktioniert, kopiere diesen Link in deinen Browser:",
+  },
+
   emailVerification: {
+    emailLinkFallback: "Wenn die Schaltfläche nicht funktioniert, kopiere diesen Link in deinen Browser:",
     emailSubject: "Bestätige deine E-Mail-Adresse für RacingCoach.app",
     emailHeading: "Bestätige deine E-Mail-Adresse",
     emailIntro: "Danke für dein Konto bei RacingCoach.app. Bestätige, dass dies deine E-Mail-Adresse ist, um KI-Coaching, den Upload-Schlüssel des Telemetrie-Collectors und die Mitgliedschaften freizuschalten.",

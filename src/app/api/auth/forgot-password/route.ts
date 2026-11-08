@@ -4,7 +4,8 @@ import { createPasswordResetToken } from '@/lib/passwordReset';
 import { getPublicSiteUrl } from '@/lib/siteOrigin';
 import { getUserByEmail } from '@/lib/users';
 import { JSON_BODY_LIMIT, readJsonLimited } from '@/lib/requestBody';
-import { apiText } from '@/lib/i18n/server';
+import { apiText, getDictionary } from '@/lib/i18n/server';
+import { renderEmail } from '@/lib/emailLayout';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -52,34 +53,32 @@ export async function POST(request: Request) {
     const token = await createPasswordResetToken(user.id);
     const resetUrl = `${siteUrl}/reset-password?token=${token}`;
 
+    // In the account's own language, like the email address confirmation (src/lib/emailLayout.ts)
+    const words = getDictionary(user.preferredLanguage).passwordResetEmail;
+    const { html, text } = renderEmail({
+      siteUrl,
+      language: user.preferredLanguage,
+      subject: words.subject,
+      heading: words.heading,
+      intro: [words.intro],
+      button: { label: words.button, url: resetUrl },
+      note: words.expires,
+      linkFallback: words.linkFallback,
+      footnote: words.ignore,
+    });
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${resendApiKey}`,
       },
+      signal: AbortSignal.timeout(10_000),
       body: JSON.stringify({
         from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
         to: user.emailAddress,
-        subject: 'Reset your RacingCoach password',
-        html: `
-          <div style="font-family: Arial, sans-serif; background-color: #0f172a; color: #f1f5f9; padding: 20px;">
-            <div style="max-width: 600px; margin: 0 auto; background-color: #1e293b; border: 1px solid #87ceeb; border-radius: 8px; padding: 20px;">
-              <h2 style="color: #87ceeb; margin-bottom: 20px;">Reset Your Password</h2>
-              <p style="color: #e2e8f0;">We received a request to reset the password for your RacingCoach account.</p>
-              <p style="margin: 24px 0;">
-                <a href="${resetUrl}" style="display: inline-block; background-color: #87ceeb; color: #0f172a; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: bold;">
-                  Reset Password
-                </a>
-              </p>
-              <p style="color: #e2e8f0;">This link expires in 1 hour and can only be used once.</p>
-              <hr style="border: none; border-top: 1px solid #087cea; margin: 20px 0;">
-              <p style="font-size: 12px; color: #64748b;">
-                If you didn't request this, you can ignore this email. Your password won't change.
-              </p>
-            </div>
-          </div>
-        `,
+        subject: words.subject,
+        text,
+        html,
       }),
     });
 

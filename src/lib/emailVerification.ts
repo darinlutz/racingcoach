@@ -49,7 +49,18 @@ export async function sendVerificationEmail(user: User, siteUrl: string): Promis
   const { getDictionary } = await import('./i18n/server');
   const t = getDictionary(user.preferredLanguage).emailVerification;
   const link = `${siteUrl}/api/auth/verify-email?token=${await createEmailVerificationToken(user.id)}`;
-  const escape = (text: string) => text.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+  const { renderEmail } = await import('./emailLayout');
+  const { html, text } = renderEmail({
+    siteUrl,
+    language: user.preferredLanguage,
+    subject: t.emailSubject,
+    heading: t.emailHeading,
+    intro: [t.emailIntro],
+    button: { label: t.emailButton, url: link },
+    note: t.emailExpires,
+    linkFallback: t.emailLinkFallback,
+    footnote: t.emailIgnore,
+  });
   try {
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -59,20 +70,8 @@ export async function sendVerificationEmail(user: User, siteUrl: string): Promis
         from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
         to: user.emailAddress,
         subject: t.emailSubject,
-        text: `${t.emailIntro}\n\n${link}\n\n${t.emailExpires}\n\n${t.emailIgnore}`,
-        html: `
-          <div style="font-family: Arial, sans-serif; background-color: #0f172a; color: #f1f5f9; padding: 20px;">
-            <div style="max-width: 600px; margin: 0 auto; background-color: #1e293b; border: 1px solid #87ceeb; border-radius: 8px; padding: 20px;">
-              <h2 style="color: #87ceeb; margin-bottom: 20px;">${escape(t.emailHeading)}</h2>
-              <p style="color: #e2e8f0;">${escape(t.emailIntro)}</p>
-              <p style="margin: 24px 0;">
-                <a href="${link}" style="display: inline-block; background-color: #87ceeb; color: #0f172a; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: bold;">${escape(t.emailButton)}</a>
-              </p>
-              <p style="color: #e2e8f0;">${escape(t.emailExpires)}</p>
-              <hr style="border: none; border-top: 1px solid #087cea; margin: 20px 0;">
-              <p style="font-size: 12px; color: #64748b;">${escape(t.emailIgnore)}</p>
-            </div>
-          </div>`,
+        text,
+        html,
       }),
     });
     if (!response.ok) {

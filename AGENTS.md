@@ -296,7 +296,7 @@ Optional cookies and browser storage only run with the visitor's consent, given 
 
 ### Resend Email Service
 - **Docs**: https://resend.com/docs
-- **Usage**: Password reset emails sent via Resend
+- **Usage**: Password reset and email address confirmation emails sent via Resend, in the user's language (`passwordResetEmail` and `emailVerification` in the dictionaries), both built by `renderEmail` (`src/lib/emailLayout.ts`): the logo and pit lane banner from `public/assets/email/` (PNG/JPEG, as email apps drop SVG; the logo rendered by `collector/installer/branding/generate.mjs`), a card in the site's dark colors, a red button with the link written out under it, and a plain text part. A new email to users should use it too; its images load from `SITE_URL`, so a local server's emails show their alt text
 - **Config**: API key in `.env.local`
 
 ## Discord Bot

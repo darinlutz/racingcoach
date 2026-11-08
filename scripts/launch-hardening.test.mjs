@@ -534,3 +534,40 @@ describe('disputed and refunded payments (F-22)', () => {
     assert.match(code, /revokeForReversedPayment\(stripe, reversal\)/);
   });
 });
+
+describe('account emails (src/lib/emailLayout.ts)', () => {
+  let layout;
+  before(async () => {
+    layout = await import(new URL('emailLayout.ts', src).href);
+  });
+  const sample = (extra = {}) => layout.renderEmail({
+    siteUrl: 'https://racingcoach.app/', language: 'en', subject: 'S', heading: 'H <b>', intro: ['Intro & more'],
+    button: { label: 'Go', url: 'https://racingcoach.app/reset-password?token=a&b=1' }, note: 'N', linkFallback: 'F', footnote: 'Foot', ...extra,
+  });
+
+  test('the logo and banner come from the site, with alt text and sizes', () => {
+    const { html } = sample();
+    assert.match(html, /src="https:\/\/racingcoach\.app\/assets\/email\/racingcoach-logo\.png" width="280" height="48" alt="RACINGCOACH\.APP"/);
+    assert.match(html, /src="https:\/\/racingcoach\.app\/assets\/email\/pitlane-banner\.jpg"/);
+    for (const file of ['racingcoach-logo.png', 'pitlane-banner.jpg']) {
+      assert.ok(readFileSync(new URL(`../../public/assets/email/${file}`, src)).length > 1000, file);
+    }
+  });
+
+  test('text is escaped, and the link works in both parts', () => {
+    const { html, text } = sample();
+    assert.match(html, /H &#60;b&#62;/);
+    assert.match(html, /Intro &#38; more/);
+    assert.match(html, /href="https:\/\/racingcoach\.app\/reset-password\?token=a&#38;b=1"/);
+    assert.match(text, /Go: https:\/\/racingcoach\.app\/reset-password\?token=a&b=1/);
+    assert.doesNotMatch(html, /<svg|<style|<link/);
+  });
+
+  test('both account emails use it, with plain text too', () => {
+    for (const file of ['../lib/emailVerification.ts', '../app/api/auth/forgot-password/route.ts']) {
+      const code = readFileSync(new URL(file, src), 'utf8');
+      assert.match(code, /renderEmail\(/, file);
+      assert.match(code, /\btext,\s*html,/, file);
+    }
+  });
+});

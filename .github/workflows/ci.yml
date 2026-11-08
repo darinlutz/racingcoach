@@ -1,0 +1,104 @@
+# The website's checks, on every push and pull request: lint, types, every test that needs no paid service (unit,
+# database, collector core and browser tests, each database suite against this job's own throwaway Postgres) and the
+# production build. Render deploys main only after these pass (its Auto-Deploy set to "After CI checks pass").
+# The collector's Windows tests and its signed release are in collector-release.yml.
+name: CI
+
+on:
+  push:
+    branches: ['**']
+    tags-ignore: ['**']
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Never a real service: the tests stub or skip anything paid, and nothing here has a key
+  NEXT_TELEMETRY_DISABLED: '1'
+
+jobs:
+  checks:
+    name: Lint, types, tests and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: rctest
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      # Each database suite drops and recreates the racingcoach schema; they run one after another
+      LAP_RETENTION_TEST_DATABASE_URL: postgres://postgres:test@127.0.0.1:5432/rctest
+      COOKIE_CONSENT_TEST_DATABASE_URL: postgres://postgres:test@127.0.0.1:5432/rctest
+      TELEMETRY_STORAGE_TEST_DATABASE_URL: postgres://postgres:test@127.0.0.1:5432/rctest
+      PRIVACY_TEST_DATABASE_URL: postgres://postgres:test@127.0.0.1:5432/rctest
+      MY_DASHBOARD_TEST_DATABASE_URL: postgres://postgres:test@127.0.0.1:5432/rctest
+      SIMULATORS_TEST_DATABASE_URL: postgres://postgres:test@127.0.0.1:5432/rctest
+      LAUNCH_HARDENING_TEST_DATABASE_URL: postgres://postgres:test@127.0.0.1:5432/rctest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+      # The Rotation Model's C#/Node parity test and the collector core tests
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          dotnet-version: 10.0.x
+      - run: npm ci
+      - run: npm run lint
+      - run: npx tsc --noEmit -p .
+      - name: Unit and database tests
+        run: |
+          set -e
+          for suite in track-positions tire-warmup tv broadcast engine-bed video-director tire-temps lap-events rotation \
+                       my-dashboard telemetry-storage privacy-rights cookie-consent simulators lap-retention launch-hardening; do
+            echo "::group::test:$suite"
+            npm run "test:$suite"
+            echo "::endgroup::"
+          done
+      - name: Collector core tests
+        run: npm run test:collector-core
+      - name: Production build
+        run: npm run build
+
+  e2e:
+    name: Browser tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: rce2e
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      E2E_DATABASE_URL: postgres://postgres:test@127.0.0.1:5432/rce2e
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - name: Keep the traces of failed tests
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: playwright-traces
+          path: test-results/
+          retention-days: 7

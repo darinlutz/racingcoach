@@ -32,6 +32,8 @@ export const ABUSE_LIMITS = {
   lapUploadsPerHour: { max: 300, windowMs: HOUR },
   lapUploadsPerDay: { max: 1500, windowMs: DAY },
   logBatchesPerHour: { max: 600, windowMs: HOUR },
+  // Content-Security-Policy violation reports per IP address an hour (/api/csp-report): enough to see a problem
+  cspReportsPerIp: { max: 30, windowMs: HOUR },
 } as const;
 
 // A form submitted sooner than this after the page showed it was filled by a script

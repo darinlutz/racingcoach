@@ -329,3 +329,47 @@ describe('shared Track Data from uploaded laps (F-11)', () => {
     assert.match(lengths, /AND track_length_feet IS NULL`/);
   });
 });
+
+describe('security headers (F-24)', () => {
+  let h;
+  before(async () => {
+    h = await import(new URL('../security-headers.mjs', import.meta.url).href);
+  });
+  const header = (name, dev = false) => h.securityHeaders({ dev }).find((x) => x.key === name)?.value;
+
+  test('the site can never be framed (clickjacking)', () => {
+    assert.match(header('Content-Security-Policy'), /frame-ancestors 'none'/);
+    assert.equal(header('X-Frame-Options'), 'DENY');
+  });
+
+  test('checkout can still reach Stripe, and nothing else outside the site gets a form', () => {
+    assert.match(header('Content-Security-Policy'), /form-action 'self' https:\/\/checkout\.stripe\.com(;|$)/);
+  });
+
+  test('HTTPS for two years, no sniffing, a careful referrer', () => {
+    assert.match(header('Strict-Transport-Security'), /max-age=63072000/);
+    assert.equal(header('X-Content-Type-Options'), 'nosniff');
+    assert.equal(header('Referrer-Policy'), 'strict-origin-when-cross-origin');
+  });
+
+  test('the microphone is allowed for the site itself only (Hold to Talk); camera and location never', () => {
+    const policy = header('Permissions-Policy');
+    assert.match(policy, /microphone=\(self\)/);
+    assert.match(policy, /camera=\(\)/);
+    assert.match(policy, /geolocation=\(\)/);
+  });
+
+  test('the full policy is report-only, reports to the site, and allows eval only in development', () => {
+    const production = header('Content-Security-Policy-Report-Only');
+    assert.match(production, /default-src 'self'/);
+    assert.match(production, /report-uri \/api\/csp-report/);
+    assert.doesNotMatch(production, /unsafe-eval/);
+    assert.match(header('Content-Security-Policy-Report-Only', true), /unsafe-eval/);
+    assert.doesNotMatch(header('Content-Security-Policy'), /default-src|script-src/, 'nothing that could break a page is enforced yet');
+  });
+
+  test('next.config.js sends them on every path', () => {
+    const config = readFileSync(new URL('../next.config.js', import.meta.url), 'utf8');
+    assert.match(config, /source: '\/:path\*', headers: securityHeaders/);
+  });
+});

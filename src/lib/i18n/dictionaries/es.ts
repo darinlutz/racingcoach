@@ -382,6 +382,9 @@ export const es: Dictionary = {
   },
 
   account: {
+    manageBilling: "Administrar facturación",
+    manageBillingHint: "Actualiza tu tarjeta y descarga facturas y recibos en la página segura de Stripe.",
+    billingUnavailable: "No se pudo abrir la facturación en este momento. Inténtalo de nuevo en unos minutos o contacta con Soporte.",
     title: 'Mi configuración',
     intro: 'Los datos de tu cuenta.',
     email: 'Correo electrónico',

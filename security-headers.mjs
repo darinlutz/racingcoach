@@ -6,7 +6,7 @@
 // - ENFORCED: what can't break a working page. frame-ancestors 'none' stops the site being framed (clickjacking of
 //   Delete Account, Change Password or the Admin page); object-src, base-uri; form-action allows the site and Stripe,
 //   as Chrome checks form-action on the redirect too (Pricing's form posts to /api/create-checkout-session, which
-//   redirects to checkout.stripe.com).
+//   redirects to checkout.stripe.com; Manage Billing's to /api/billing-portal, which redirects to billing.stripe.com).
 // - REPORT_ONLY: the whole policy, which browsers only report against (to /api/csp-report, logged as "CSP report"),
 //   so it can be enforced once a while of real use shows nothing legitimate would be blocked. Scripts still need
 //   'unsafe-inline': Next.js's own inline scripts would need a nonce per response to drop it.
@@ -19,7 +19,7 @@ export const ENFORCED_CSP = [
   "frame-ancestors 'none'",
   "object-src 'none'",
   "base-uri 'self'",
-  "form-action 'self' https://checkout.stripe.com",
+  "form-action 'self' https://checkout.stripe.com https://billing.stripe.com",
 ].join('; ');
 
 export function reportOnlyCsp({ dev = false } = {}) {
@@ -40,7 +40,7 @@ export function reportOnlyCsp({ dev = false } = {}) {
     "frame-ancestors 'none'",
     "object-src 'none'",
     "base-uri 'self'",
-    "form-action 'self' https://checkout.stripe.com",
+    "form-action 'self' https://checkout.stripe.com https://billing.stripe.com",
     'report-uri /api/csp-report',
   ].join('; ');
 }

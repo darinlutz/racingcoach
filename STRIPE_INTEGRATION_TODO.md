@@ -43,7 +43,7 @@ and the `whsec_...` it prints.
 
 ## Restricted key permissions
 
-If `STRIPE_SECRET_KEY` is a restricted key (`rk_...`), it needs **Write** on Checkout Sessions and Subscriptions, and
+If `STRIPE_SECRET_KEY` is a restricted key (`rk_...`), it needs **Write** on Checkout Sessions, Subscriptions and Customer portal (the billing portal's configuration and sessions), and
 **Read** on Products and Prices, Customers, Invoices, Coupons and Promotion Codes (the Subscribers page and Sync from
 Stripe read them).
 
@@ -77,7 +77,16 @@ sites' checkouts.
 Test cards (test mode, any future expiry, any CVC): `4242 4242 4242 4242` succeeds, `4000 0025 0000 3155` asks for
 3D Secure, `4000 0000 0000 9995` is declined. More at https://docs.stripe.com/testing.
 
+## Billing portal
+
+The Account page's **Manage Billing** (anyone with a Stripe customer) opens Stripe's customer portal through
+`/api/billing-portal`, for the account's own customer only. The site makes its own portal configuration the first
+time (named RacingCoach.app, `metadata.app: racingcoach`) and keeps its ID in `"SiteSettings"` key
+`stripe_portal_configuration`, so the account's default configuration (TalkNinja's too) is never changed. It offers
+updating the payment method and the invoice history only: cancelling stays on the Account page's Cancel Subscription,
+which asks why, and plan changes on the Pricing page. A configuration Stripe no longer has (e.g. after switching
+between test and live keys) is made again. `src/lib/billingPortal.ts`.
+
 ## Still to do
 
-- A Stripe billing portal, so subscribers can update their card and download invoices (audit F-34)
 - Handle `charge.dispute.created` and refunds, so a disputed payment loses its access (audit F-22)

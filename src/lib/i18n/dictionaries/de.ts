@@ -391,6 +391,9 @@ export const de: Dictionary = {
   },
 
   account: {
+    manageBilling: "Abrechnung verwalten",
+    manageBillingHint: "Aktualisiere deine Karte und lade Rechnungen und Belege auf der sicheren Seite von Stripe herunter.",
+    billingUnavailable: "Die Abrechnung konnte gerade nicht geöffnet werden. Bitte versuche es in ein paar Minuten erneut oder wende dich an den Support.",
     title: 'Meine Einstellungen',
     intro: 'Deine Kontodaten.',
     email: 'E-Mail',

@@ -392,6 +392,9 @@ export const en = {
   },
 
   account: {
+    manageBilling: "Manage Billing",
+    manageBillingHint: "Update your card and download invoices and receipts, on Stripe's secure page.",
+    billingUnavailable: "Billing couldn't be opened just now. Please try again in a few minutes, or contact Support.",
     title: 'My Settings',
     intro: 'Your account details.',
     email: 'Email',

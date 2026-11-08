@@ -343,7 +343,7 @@ describe('security headers (F-24)', () => {
   });
 
   test('checkout can still reach Stripe, and nothing else outside the site gets a form', () => {
-    assert.match(header('Content-Security-Policy'), /form-action 'self' https:\/\/checkout\.stripe\.com(;|$)/);
+    assert.match(header('Content-Security-Policy'), /form-action 'self' https:\/\/checkout\.stripe\.com https:\/\/billing\.stripe\.com(;|$)/);
   });
 
   test('HTTPS for two years, no sniffing, a careful referrer', () => {

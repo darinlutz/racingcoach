@@ -65,7 +65,7 @@ export default async function AccountPage({
   const locale = LANGUAGE_LOCALES[user.preferredLanguage];
   const formatDate = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString(locale, { dateStyle: 'long' }) : '—');
 
-  const { discord: discordResult, emailVerified: emailVerifiedResult } = await searchParams;
+  const { discord: discordResult, emailVerified: emailVerifiedResult, billing: billingResult } = await searchParams;
   // Arrived from the email's confirmation link (GET /api/auth/verify-email)
   const justVerified = emailVerifiedResult === '1' && user.emailVerified;
   const discordText = typeof discordResult === 'string' ? t.account.discordMessages[discordResult] : undefined;
@@ -306,6 +306,25 @@ export default async function AccountPage({
             >
               {t.account.viewPlans}
             </Link>
+          )}
+
+          {/* Stripe's customer portal: the card and the invoices, for anyone who has paid (src/lib/billingPortal.ts) */}
+          {user.stripeCustomerId && (
+            <form action="/api/billing-portal" method="POST" className="mt-4">
+              <button
+                type="submit"
+                data-track="manage-billing"
+                className="block w-full px-6 py-3 rounded-lg font-semibold text-center text-foreground bg-card border border-border hover:border-primary transition-colors cursor-pointer"
+              >
+                {t.account.manageBilling}
+              </button>
+              <p className="mt-2 text-sm text-muted-foreground">{t.account.manageBillingHint}</p>
+            </form>
+          )}
+          {billingResult === 'unavailable' && (
+            <p role="alert" className="mt-3 p-3 rounded-lg text-sm bg-primary/15 border border-primary/40 text-foreground">
+              {t.account.billingUnavailable}
+            </p>
           )}
 
           {isSubscribed && <CancelSubscriptionButton />}

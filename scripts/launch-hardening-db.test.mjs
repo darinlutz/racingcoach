@@ -9,6 +9,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { register } from 'node:module';
 import pg from 'pg';
+import { readFileSync } from 'node:fs';
 
 const url = process.env.LAUNCH_HARDENING_TEST_DATABASE_URL;
 const local = url && ['localhost', '127.0.0.1', '::1', '[::1]'].includes(new URL(url).hostname);
@@ -285,6 +286,74 @@ describe('error and spend monitoring (F-33, F-07)', { skip }, () => {
     assert.equal(await metered.meteredServicesOn(), true);
     delete process.env.SPEND_ALERT_DAILY_USD;
     delete process.env.SPEND_CEILING_DAILY_USD;
+  });
+});
+
+describe('Stripe billing portal (F-34)', { skip }, () => {
+  let portal;
+  const fakeStripe = () => {
+    const calls = { created: [], retrieved: [], sessions: [] };
+    const configs = new Map();
+    return {
+      calls,
+      configs,
+      billingPortal: {
+        configurations: {
+          async create(params) {
+            const id = `bpc_${calls.created.length + 1}`;
+            configs.set(id, { id, active: true, ...params });
+            calls.created.push(params);
+            return configs.get(id);
+          },
+          async retrieve(id) {
+            calls.retrieved.push(id);
+            if (!configs.has(id)) throw Object.assign(new Error('No such configuration'), { statusCode: 404 });
+            return configs.get(id);
+          },
+        },
+        sessions: {
+          async create(params) {
+            calls.sessions.push(params);
+            return { url: `https://billing.stripe.com/p/session/${params.customer}` };
+          },
+        },
+      },
+    };
+  };
+  before(async () => {
+    portal = await import(new URL('../src/lib/billingPortal.ts', import.meta.url).href);
+    await q(`DELETE FROM racingcoach."SiteSettings" WHERE key = 'stripe_portal_configuration'`);
+  });
+
+  test('its own configuration: card and invoices only, never cancelling or changing plans', async () => {
+    const stripe = fakeStripe();
+    const url = await portal.billingPortalUrl(stripe, 'cus_123', 'https://racingcoach.app', 'en');
+    assert.equal(url, 'https://billing.stripe.com/p/session/cus_123');
+    const [config] = stripe.calls.created;
+    assert.equal(config.features.payment_method_update.enabled, true);
+    assert.equal(config.features.invoice_history.enabled, true);
+    assert.equal(config.features.subscription_cancel.enabled, false);
+    assert.equal(config.features.subscription_update.enabled, false);
+    assert.equal(config.features.customer_update.enabled, false);
+    assert.equal(config.metadata.app, 'racingcoach');
+    assert.equal(stripe.calls.sessions[0].configuration, 'bpc_1');
+    assert.equal(stripe.calls.sessions[0].return_url, 'https://racingcoach.app/account#subscription');
+  });
+
+  test('the saved configuration is reused, and a new one made when Stripe no longer has it', async () => {
+    const stripe = fakeStripe();
+    stripe.configs.set('bpc_1', { id: 'bpc_1', active: true });
+    await portal.billingPortalUrl(stripe, 'cus_1', 'https://racingcoach.app', 'en');
+    assert.equal(stripe.calls.created.length, 0, 'reused');
+    const other = fakeStripe(); // test mode keys: the live configuration isn't there
+    await portal.billingPortalUrl(other, 'cus_1', 'https://racingcoach.app', 'en');
+    assert.equal(other.calls.created.length, 1, 'made again');
+  });
+
+  test('the route opens the signed-in account\'s own customer, never one from the request', () => {
+    const code = readFileSync(new URL('../src/app/api/billing-portal/route.ts', import.meta.url), 'utf8');
+    assert.match(code, /billingPortalUrl\(stripe, user\.stripeCustomerId,/);
+    assert.doesNotMatch(code, /request\.(json|formData)|readJsonLimited|readFormDataLimited|searchParams/);
   });
 });
 

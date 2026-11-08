@@ -49,7 +49,8 @@ internal sealed class AccAdapter(string? rawRecordingFolder = null, Action<strin
     // 2: lap files count from ACC's timing line and have no neutral mid-shift (AccFrameBuilder.ForLapFile). The
     // website refuses ACC laps from older adapters (minAdapterVersion in simulators/capabilities.json).
     // 3: the steering wheel angle, from the driver's wheel rotation (--steering-range)
-    public string AdapterVersion => "3";
+    // 4: the car's world coordinates (WorldX, WorldY, WorldZ), from which the website draws the driving line
+    public string AdapterVersion => "4";
     public LapTrackerOptions LapTrackerOptions => AccFrameBuilder.LapTrackerOptions;
     public IReadOnlyList<TelemetryFrame> ForLapFile(IReadOnlyList<TelemetryFrame> frames) => AccFrameBuilder.ForLapFile(frames);
 

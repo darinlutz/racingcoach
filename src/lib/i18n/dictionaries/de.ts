@@ -1141,6 +1141,7 @@ export const de: Dictionary = {
       faster: 'Schneller',
       muchFaster: 'Viel schneller',
       noPositions: 'Keine der Runden hat Streckenpositionen, daher kann die Streckenkarte nicht gezeichnet werden.',
+      fromTrackOutline: 'Keine der Runden hat Streckenpositionen, daher ist dies der Streckenverlauf aus den Streckendaten, mit jedem Fokusbereich an seiner Stelle der Runde, nicht die Linien der Runden selbst.',
       help: 'Die Vergleichsrunde gegen die Zielrunde. Viel heißt mehr als 1 % der Zeit der Zielrunde im Bereich. Klicke auf einen Bereich, um seine Diagramme zu sehen.',
     },
     noDataBase: 'keine Daten für die Zielrunde',

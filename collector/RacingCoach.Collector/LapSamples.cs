@@ -120,8 +120,12 @@ internal sealed class CanonicalLapSamples(IReadOnlyList<TelemetryFrame> rawFrame
         ? rawFrames
         : rawFrames.Select(f => ChannelGate.ForLapFile(f, SimulatorCatalog.Shared.Find(f.SimulatorId))).ToList();
 
+    // World coordinates (ACC's) go in columns of their own after the rest, for the website to place on the earth
+    private bool HasWorld => hasWorld ??= LapCsvFormat.HasWorld(frames);
+    private bool? hasWorld;
+
     public override int Count => frames.Count;
-    public override string Header => LapCsvFormat.Header;
+    public override string Header => HasWorld ? LapCsvFormat.HeaderWithWorld : LapCsvFormat.Header;
     public override double? LastSessionTime => frames[^1].SessionTimeSeconds;
     public override bool HasPosition => frames.All(f => f.Latitude is { } lat && f.Longitude is { } lon && (lat != 0 || lon != 0));
     public override bool PositionsMayFollow => false;
@@ -129,7 +133,7 @@ internal sealed class CanonicalLapSamples(IReadOnlyList<TelemetryFrame> rawFrame
     public override void WriteRows(TextWriter writer, double? fuelKgPerLiter)
     {
         foreach (var frame in frames)
-            writer.WriteLine(LapCsvFormat.Row(frame, fuelKgPerLiter));
+            writer.WriteLine(LapCsvFormat.Row(frame, fuelKgPerLiter, HasWorld));
     }
 
     public override LapConditions? Conditions(string? trackUsage)

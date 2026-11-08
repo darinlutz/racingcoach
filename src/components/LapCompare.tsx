@@ -252,6 +252,30 @@ function lapPositions({ lats, lons }: LapSamples): [number, number][] | null {
   return points.length > 10 ? points : null;
 }
 
+// A focus area's stretch of a Track Data outline (point i at LapDistPct i / its length), for laps without track
+// positions. An area over the start/finish line has an end before its start (or past 1).
+function outlineStretch(outline: [number, number][], start: number, end: number): [number, number][] | null {
+  const n = outline.length;
+  if (n < 2 || !Number.isFinite(start) || !Number.isFinite(end)) return null;
+  const to = end < start ? end + 1 : end;
+  const points: [number, number][] = [];
+  for (let i = Math.ceil(start * n); i <= Math.floor(to * n); i++) points.push(outline[((i % n) + n) % n]);
+  return points.length > 1 ? points : null;
+}
+
+// The track's outline from Track Data (its iRacing outline) by its key, or null without one
+async function fetchTrackOutline(trackKey: string): Promise<[number, number][] | null> {
+  try {
+    const res = await fetch(`/api/live/outline?key=${encodeURIComponent(trackKey)}`);
+    if (!res.ok) return null;
+    const data: { track: { outline: { kind: string; points: [number, number][] } | null } | null } = await res.json();
+    const outline = data.track?.outline;
+    return outline?.kind === 'latlon' && outline.points.length > 10 ? outline.points : null;
+  } catch {
+    return null;
+  }
+}
+
 // A table row: the comparison, or why there isn't one (in the user's language)
 type AreaRow = { name: string; comparison: AreaComparison | null; note: string };
 
@@ -505,6 +529,11 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
   const [areaRows, setAreaRows] = useState<AreaRow[]>([]);
   // The whole lap's [lat, lon] points for the track map beside the table: the Target lap's, else the Compare lap's
   const [lapOutline, setLapOutline] = useState<[number, number][]>([]);
+  // Neither lap has track positions (e.g. ACC laps of a track not placed yet, Garage 61 exports), so lapOutline is
+  // the track's outline from Track Data, and each area is cut from it by where it is on the lap
+  const [outlineFromTrack, setOutlineFromTrack] = useState(false);
+  // Which Analyze Laps is the latest, so a track outline that arrives after another has started is dropped
+  const analysisRun = useRef(0);
   // Brake/throttle charts for every measured focus area, in track order; diff is Compare minus Target (s)
   const [traces, setTraces] = useState<
     { name: string; diff: number; base: PedalTraceLap; compare: PedalTraceLap }[]
@@ -641,7 +670,11 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
   // lap's when the Target lap has none)
   const deltaMapAreas: DeltaMapArea[] = traces.flatMap((trace) => {
     const comparison = areaRows.find((row) => row.name === trace.name)?.comparison;
-    const positions = trace.base.trace.positions ?? trace.compare.trace.positions;
+    const area = selectedTrack?.areas.find((a) => a.name === trace.name);
+    const positions =
+      trace.base.trace.positions ??
+      trace.compare.trace.positions ??
+      (outlineFromTrack && area && area.start !== null && area.end !== null ? outlineStretch(lapOutline, area.start, area.end) : null);
     return comparison && positions
       ? [{ name: trace.name, positions, secondsDiff: comparison.secondsDiff, baseSeconds: comparison.baseSeconds }]
       : [];
@@ -654,6 +687,8 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
     setAreaRows([]);
     setTraces([]);
     setLapOutline([]);
+    setOutlineFromTrack(false);
+    const run = ++analysisRun.current;
     try {
       const baseSeconds = lapTimeToSeconds(baseLap.lapTime);
       const compareSeconds = lapTimeToSeconds(compareLap.lapTime);
@@ -724,7 +759,16 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
         }
         setAreaRows(rows);
         setTraces(areaTraces);
-        setLapOutline(lapPositions(baseSamples) ?? lapPositions(compareSamples) ?? []);
+        const lapLine = lapPositions(baseSamples) ?? lapPositions(compareSamples);
+        setLapOutline(lapLine ?? []);
+        if (!lapLine) {
+          // Without the laps' own positions, the map is drawn from the track's iRacing outline
+          void fetchTrackOutline(selectedTrack.name).then((outline) => {
+            if (!outline || run !== analysisRun.current) return;
+            setLapOutline(outline);
+            setOutlineFromTrack(true);
+          });
+        }
         const worst = areaTraces.reduce<(typeof areaTraces)[number] | null>(
           (w, trace) => (!w || trace.diff > w.diff ? trace : w),
           null
@@ -861,6 +905,7 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
               areas={deltaMapAreas}
               selectedArea={selectedArea}
               onSelectArea={setSelectedArea}
+              fromTrackOutline={outlineFromTrack}
             />
           </div>
         )}

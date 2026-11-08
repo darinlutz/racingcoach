@@ -1,6 +1,7 @@
 import { query, transaction } from './db';
 import { simulatorCatalog } from './simulatorCatalogs';
 import { DEFAULT_SIMULATOR } from './simulators';
+import { forgetWorldAlignment } from './worldPositions';
 
 // Which of the site's tracks and cars another simulator's own ids are, in racingcoach."SimulatorTracks" and
 // "SimulatorCars". iRacing's stay where they've always been ("Tracks".track_key, and car names), so nothing about its
@@ -83,11 +84,14 @@ export async function mapSimulatorTrack(simulator: string, nativeKey: string, tr
       );
     }
     const { rows } = await client.query<{ native_name: string }>(
-      `UPDATE racingcoach."SimulatorTracks" SET track_id = $3, mapped_at = CASE WHEN $3::integer IS NULL THEN NULL ELSE now() END
+      `UPDATE racingcoach."SimulatorTracks" SET track_id = $3, mapped_at = CASE WHEN $3::integer IS NULL THEN NULL ELSE now() END,
+         world_alignment = CASE WHEN track_id IS NOT DISTINCT FROM $3::integer THEN world_alignment END
        WHERE simulator = $1 AND lower(native_key) = lower($2) RETURNING native_name`,
       [simulator, nativeKey, trackId]
     );
     if (rows.length === 0) return false;
+    // Another track's outline needs another fit of the world coordinates (cleared above)
+    forgetWorldAlignment(simulator, nativeKey);
     await client.query(
       `UPDATE racingcoach."CollectorLaps" l
        SET track_key = t.track_key, track = COALESCE(t.track_name, $3)

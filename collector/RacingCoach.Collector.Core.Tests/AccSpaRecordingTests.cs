@@ -171,6 +171,31 @@ public sealed class AccSpaRecordingTests
     }
 
     [Fact]
+    public void World_coordinates_are_meters_round_the_lap_and_mirrored_against_east_and_north()
+    {
+        var frames = AccFrameBuilder.ForLapFile(FlyingLap().Frames);
+        Assert.All(frames, f => Assert.True(f.WorldX is not null && f.WorldY is not null && f.WorldZ is not null));
+        // A new position every sample, and as far round as Spa's 7004 m (a racing line is a little shorter)
+        double length = 0;
+        for (var i = 1; i < frames.Count; i++)
+        {
+            var (a, b) = (frames[i - 1], frames[i]);
+            var step = Math.Sqrt(Math.Pow(b.WorldX!.Value - a.WorldX!.Value, 2) + Math.Pow(b.WorldY!.Value - a.WorldY!.Value, 2) + Math.Pow(b.WorldZ!.Value - a.WorldZ!.Value, 2));
+            Assert.True(step > 0, $"the position moves at {i}");
+            length += step;
+        }
+        Assert.InRange(length, 6850, 7050);
+        // y is up: Spa climbs about 100 m from the bottom of Eau Rouge to Les Combes
+        Assert.InRange(frames.Max(f => f.WorldY!.Value) - frames.Min(f => f.WorldY!.Value), 90, 115);
+        // Spa runs clockwise, but with x as east and z as north the lap goes round anticlockwise (positive area):
+        // the website takes east, north as (-x, z) turned (src/lib/worldAlignment.ts)
+        double area = 0;
+        for (var i = 1; i < frames.Count; i++)
+            area += frames[i - 1].WorldX!.Value * frames[i].WorldZ!.Value - frames[i].WorldX!.Value * frames[i - 1].WorldZ!.Value;
+        Assert.True(area > 0);
+    }
+
+    [Fact]
     public void A_real_neutral_is_kept()
     {
         TelemetryFrame At(double t, int gear, float speed) => new() { SimulatorId = "acc", SessionTimeSeconds = t, Gear = gear, SpeedMps = speed, LapDistancePct = (float)t / 1000 };

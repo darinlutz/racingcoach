@@ -1123,6 +1123,7 @@ export const es: Dictionary = {
       faster: 'Más rápida',
       muchFaster: 'Mucho más rápida',
       noPositions: 'Ninguna de las vueltas tiene posiciones en la pista, así que no se puede dibujar el mapa de la pista.',
+      fromTrackOutline: 'Ninguna de las vueltas tiene posiciones en la pista, así que este es el trazado de la pista de los Datos de Pista, con cada área de enfoque en su lugar de la vuelta, no las líneas de las vueltas.',
       help: 'La vuelta comparada contra la vuelta objetivo. Mucho es más del 1% del tiempo de la vuelta objetivo en el área. Haz clic en un área para ver sus gráficas.',
     },
     noDataBase: 'no hay datos de la vuelta objetivo',

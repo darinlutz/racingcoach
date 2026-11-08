@@ -32,6 +32,12 @@ public sealed record TelemetryFrame
     public double? Latitude { get; init; }
     public double? Longitude { get; init; }
     public double? AltitudeMeters { get; init; }
+    /// <summary>The car's position in the simulator's own world, meters, exactly as the simulator gives it (ACC's
+    /// carCoordinates: y up, x and z across the ground, mirrored against east and north). Not latitude and longitude:
+    /// the website places these on the earth itself (src/lib/worldAlignment.ts), from the mapped iRacing track.</summary>
+    public float? WorldX { get; init; }
+    public float? WorldY { get; init; }
+    public float? WorldZ { get; init; }
 
     // Motion
     public float? SpeedMps { get; init; }

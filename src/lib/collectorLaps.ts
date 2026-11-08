@@ -13,6 +13,7 @@ import { ensureUserSchema } from './users';
 import { lapCompletedAt } from './lapRetentionRules';
 import { resolveSimulatorCar, resolveSimulatorTrack } from './simulatorMappings';
 import { DEFAULT_SIMULATOR } from './simulators';
+import { withWorldPositions } from './worldPositions';
 
 // Laps uploaded by the telemetry collector (collector/ in this repo), stored in
 // racingcoach."CollectorLaps". Each lap is one CSV as the collector writes it (iRacing variable names
@@ -157,8 +158,11 @@ export function checkLapCsv(csvGzip: Buffer, samples: number): { csvBytes: numbe
 
 // Where a row's CSV is. csv_gzip only for inline rows: a migrated row may still hold its old copy until the legacy
 // purge, which isn't read (or even fetched from TOAST) once the row reads from the store.
+// The simulator, its own track id and whether the lap is clean are for placing world coordinates (worldPositions.ts).
 const STORAGE_COLUMNS = `l.id AS storage_row_id, l.storage_provider, l.storage_bucket, l.storage_key, l.checksum_sha256,
-  CASE WHEN l.storage_provider = '${STORAGE_PROVIDERS.postgres}' THEN l.csv_gzip END AS csv_gzip`;
+  CASE WHEN l.storage_provider = '${STORAGE_PROVIDERS.postgres}' THEN l.csv_gzip END AS csv_gzip,
+  l.simulator AS storage_simulator, l.native_track_key AS storage_native_track_key,
+  NOT (l.pit_road OR l.off_track) AS storage_clean`;
 
 type StorageRow = {
   storage_row_id: number;
@@ -167,6 +171,9 @@ type StorageRow = {
   storage_key: string | null;
   checksum_sha256: string | null;
   csv_gzip: Buffer | null;
+  storage_simulator: string;
+  storage_native_track_key: string | null;
+  storage_clean: boolean;
 };
 
 // The row's compressed CSV, or null when its object is gone (e.g. a database restored from a backup brought back a
@@ -185,6 +192,18 @@ async function lapGzip(row: StorageRow): Promise<Buffer | null> {
 }
 
 const gunzipCsv = (gzip: Buffer) => gunzipSync(gzip, { maxOutputLength: MAX_CSV_BYTES });
+
+// The row's CSV as analysis reads it: another simulator's world coordinates placed on the earth as Lat/Lon/Alt
+// (worldPositions.ts); null when its object is gone (lapGzip)
+async function lapCsvText(row: StorageRow): Promise<string | null> {
+  const gzip = await lapGzip(row);
+  if (!gzip) return null;
+  return withWorldPositions(gunzipCsv(gzip).toString('utf8'), {
+    simulator: row.storage_simulator,
+    nativeTrackKey: row.storage_native_track_key,
+    clean: row.storage_clean,
+  });
+}
 
 // How many laps' objects one reader fetches at once
 const READ_CONCURRENCY = 6;
@@ -321,8 +340,7 @@ export async function readCollectorLapCsv(viewer: LapViewer, id: number): Promis
     [id, lapViewerParam(viewer)]
   );
   if (!row) return null;
-  const gzip = await lapGzip(row);
-  return gzip ? gunzipCsv(gzip).toString('utf8') : null;
+  return lapCsvText(row);
 }
 
 // One of the user's own laps as its uncompressed CSV bytes, for Download My Data (personalDataExport.ts); null when
@@ -353,10 +371,7 @@ export async function readCollectorLapsById(
   );
   const byId = new Map(rows.map((row) => [row.id, row]));
   const ordered = [...new Set(ids)].flatMap((id) => (byId.has(id) ? [byId.get(id)!] : []));
-  const csvs = await mapLimited(ordered, READ_CONCURRENCY, async (row) => {
-    const gzip = await lapGzip(row);
-    return gzip ? gunzipCsv(gzip).toString('utf8') : null;
-  });
+  const csvs = await mapLimited(ordered, READ_CONCURRENCY, lapCsvText);
   const csvById = new Map(ordered.map((row, i) => [row.id, csvs[i]]));
   return ids.flatMap((id) => {
     const row = byId.get(id);
@@ -405,10 +420,7 @@ export async function readCollectorLapsByClientId(
      WHERE l.user_id = $1 AND l.client_lap_id = ANY($2::uuid[]) AND l.expires_at > now()`,
     [userId, clientLapIds]
   );
-  const csvs = await mapLimited(rows, READ_CONCURRENCY, async (row) => {
-    const gzip = await lapGzip(row);
-    return gzip ? gunzipCsv(gzip).toString('utf8') : null;
-  });
+  const csvs = await mapLimited(rows, READ_CONCURRENCY, lapCsvText);
   const csvByRow = new Map(rows.map((row, i) => [row, csvs[i]]));
   return clientLapIds.flatMap((id) => {
     const row = rows.find((r) => r.client_lap_id.toLowerCase() === id.toLowerCase());

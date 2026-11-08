@@ -158,7 +158,7 @@
         "pitch": { "support": "documented" },
         "roll": { "support": "documented" },
         "velocityLocal": { "support": "collected", "note": "localVelocity: z forward, x left. Spa recording 2026-11-05: z reaches top speed in m/s; x's sign is consistent with the turns but less certain" },
-        "worldPosition": { "support": "documented", "note": "carCoordinates, for the cars on track" },
+        "worldPosition": { "support": "collected", "note": "carCoordinates by playerCarID, written as WorldX/WorldY/WorldZ from adapter 4. Spa recording 2026-11-05: meters, a new value every physics step, 6938 m round the lap, y up (102 m from lowest to highest); x and z are mirrored against east and north (La Source turns left and the lap runs anticlockwise when x is east), so east, north is (-x, z) turned. The website places them on the mapped iRacing track (src/lib/worldAlignment.ts)" },
         "geoPosition": { "support": "unavailable", "note": "No latitude or longitude, so no satellite maps or GPS driving lines" },
         "throttle": { "support": "collected", "note": "gas. Spa recording 2026-11-05: 0 to 1" },
         "brake": { "support": "collected", "note": "Spa recording 2026-11-05: 0 to 1, tracks negative longitudinal g" },

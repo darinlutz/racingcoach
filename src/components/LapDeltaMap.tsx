@@ -31,18 +31,21 @@ const LEGEND: Exclude<DeltaShade, 'same'>[] = ['muchSlower', 'slower', 'faster',
 // The whole lap, north up, with each focus area drawn in red where the Compare lap was slower than the Target
 // lap and green where it was faster, darker when it's much. outline is the whole lap's [lat, lon] points.
 // Fills the height its parent gives it (Lap Compare puts it beside the table, as tall as the table).
-// Clicking an area picks it for the charts below.
+// Clicking an area picks it for the charts below. fromTrackOutline: neither lap has track positions, so outline is
+// the track's from Track Data (its iRacing outline) and each area is where it is on the lap, which the map says.
 export default function LapDeltaMap({
   outline,
   areas,
   selectedArea,
   onSelectArea,
+  fromTrackOutline = false,
   className = '',
 }: {
   outline: [number, number][];
   areas: DeltaMapArea[];
   selectedArea: string;
   onSelectArea: (name: string) => void;
+  fromTrackOutline?: boolean;
   className?: string;
 }) {
   const { t: dictionary } = useLanguage();
@@ -65,6 +68,7 @@ export default function LapDeltaMap({
       ) : (
         <TrackDrawing track={track} areas={areas} selectedArea={selectedArea} onSelectArea={onSelectArea} />
       )}
+      {fromTrackOutline && track.length >= 2 && <p className="mt-1 text-xs text-muted-foreground">{t.fromTrackOutline}</p>}
       <p className="mt-1 text-xs text-muted-foreground">{t.help}</p>
     </div>
   );

@@ -103,4 +103,34 @@ public sealed class ChannelGateTests
         Assert.All(header.Select((name, i) => (name, value: row[i])).Where(c => c.value != "" && c.name != "FuelKgPerLtr"),
             c => Assert.Contains(c.name, allowed));
     }
+
+    [Fact]
+    public void World_coordinates_reach_an_ACC_lap_file_in_columns_of_their_own()
+    {
+        var acc = SimulatorCatalog.Shared.Find("acc");
+        Assert.NotNull(acc);
+        var gated = ChannelGate.ForLapFile(Full with { WorldX = -996.07f, WorldY = 16.7f, WorldZ = -1773.08f }, acc);
+        Assert.Equal(-996.07f, gated.WorldX);
+        // After FuelKgPerLtr, so the header iRacing's files have always had stays as it is
+        Assert.StartsWith(LapCsvFormat.Header + ",", LapCsvFormat.HeaderWithWorld);
+        Assert.EndsWith(",WorldX,WorldY,WorldZ", LapCsvFormat.HeaderWithWorld);
+        Assert.True(LapCsvFormat.HasWorld([gated]));
+        Assert.False(LapCsvFormat.HasWorld([Full]));
+        var row = LapCsvFormat.Row(gated, 0.75, withWorld: true).Split(',');
+        Assert.Equal(LapCsvFormat.HeaderWithWorld.Split(',').Length, row.Length);
+        Assert.Equal(["-996.07", "16.7", "-1773.08"], row[^3..]);
+        // Without the flag, the row is iRacing's shape
+        Assert.Equal(LapCsvFormat.Header.Split(',').Length, LapCsvFormat.Row(gated, 0.75).Split(',').Length);
+        // Not latitude and longitude: those stay empty
+        var header = LapCsvFormat.HeaderWithWorld.Split(',');
+        Assert.Equal("", row[Array.IndexOf(header, "Lat")]);
+    }
+
+    [Fact]
+    public void A_simulator_whose_world_position_isnt_collected_keeps_it_out()
+    {
+        var gated = ChannelGate.ForLapFile(Full with { WorldX = 1, WorldY = 2, WorldZ = 3 }, With(("worldPosition", ChannelSupport.Documented)));
+        Assert.Null(gated.WorldX);
+        Assert.False(LapCsvFormat.HasWorld([gated]));
+    }
 }

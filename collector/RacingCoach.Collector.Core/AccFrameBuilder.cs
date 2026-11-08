@@ -160,6 +160,11 @@ public sealed class AccFrameBuilder(float? steeringRangeDegrees = null)
             // iRacing's Lap is the lap being driven, 1 on the first
             LapNumber = graphics.CompletedLaps + 1,
             LapDistancePct = FromTimingLine(graphics.NormalizedCarPosition),
+            // carCoordinates, found by playerCarID. Spa recording 2026-11-05: meters, a new value every physics step,
+            // 6938 m round the lap and 102 m from lowest to highest
+            WorldX = graphics.PlayerCoordinates?.X,
+            WorldY = graphics.PlayerCoordinates?.Y,
+            WorldZ = graphics.PlayerCoordinates?.Z,
             SpeedMps = Units.KmhToMps(physics.SpeedKmh),
             VelocityForwardMps = Axis(local, AccConventions.ForwardAxis),
             VelocityLeftMps = AccConventions.LeftSign * Axis(local, AccConventions.LeftAxis),

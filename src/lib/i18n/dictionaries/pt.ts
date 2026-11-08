@@ -1123,6 +1123,7 @@ export const pt: Dictionary = {
       faster: 'Mais rápida',
       muchFaster: 'Muito mais rápida',
       noPositions: 'Nenhuma das voltas tem posições na pista, então o mapa da pista não pode ser desenhado.',
+      fromTrackOutline: 'Nenhuma das voltas tem posições na pista, então este é o traçado da pista dos Dados de Pista, com cada área de foco no seu lugar da volta, não as linhas das próprias voltas.',
       help: 'A volta comparada contra a volta alvo. Muito é mais de 1% do tempo da volta alvo na área. Clique em uma área para ver seus gráficos.',
     },
     noDataBase: 'sem dados da volta alvo',

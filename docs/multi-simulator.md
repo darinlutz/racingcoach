@@ -127,7 +127,8 @@ The frame holds what the lap CSV holds. The other channels the request listed (p
 | Yaw rate, local velocity | collected | collected | y up, x left, z forward |
 | Yaw | collected | collected | `heading` turns the other way to iRacing's Yaw (negated); 0 is ACC's world +z, and the website finds Yaw's zero from each lap's positions anyway |
 | Pitch, roll | documented | documented | |
-| GPS position | after stint | **no** | World coordinates only, so no satellite maps |
+| GPS position | after stint | **no** | World coordinates only; the website places them on the earth (next row) |
+| World position | **no** | collected | `carCoordinates` by `playerCarID`, meters, every sample (Spa: 6938 m round the lap, y up, 102 m of climb), written as `WorldX`/`WorldY`/`WorldZ` after `FuelKgPerLtr` from adapter 4. x and z are mirrored against east and north. The website fits them once per track to the mapped iRacing track's outline and reads them as Lat/Lon/Alt (`src/lib/worldAlignment.ts`, `src/lib/worldPositions.ts`) |
 | Tire pressure | after stint | collected | psi |
 | Tire surface temperature | after stint | **no** | `tyreTempI/M/O` not shown |
 | Tire carcass (three across) | after stint | **no** | ACC has one core value instead: a different channel |

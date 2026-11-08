@@ -242,6 +242,85 @@ describe('simulators in the database', { skip }, () => {
     assert.doesNotThrow(() => laps.checkLapCsv(gzipSync(rows((i) => (i === 5 ? '' : '0.5'))), 600));
   });
 
+  test('an ACC lap with world coordinates reads back with Lat/Lon on the mapped iRacing track', async () => {
+    // An iRacing track whose outline is a lopsided loop (a circle would let the fit slide round), and an ACC lap of
+    // the same shape in ACC's world: mirrored, turned 70° and moved, with its start line 3% later
+    const KEY = 'worldtest gp';
+    const [lat0, lon0] = [50.437, 5.971];
+    const R = 6371008.8;
+    const shape = (t) => {
+      const a = 2 * Math.PI * t;
+      return [900 * Math.cos(a) + 250 * Math.cos(2 * a), 500 * Math.sin(a) + 120 * Math.sin(3 * a)]; // east, north (m)
+    };
+    const toLatLon = ([e, n]) => [lat0 + (n / R) * (180 / Math.PI), lon0 + (e / (R * Math.cos((lat0 * Math.PI) / 180))) * (180 / Math.PI)];
+    const outline = Array.from({ length: 500 }, (_, i) => toLatLon(shape(i / 500)));
+    const [{ id: trackId }] = await q(
+      `INSERT INTO racingcoach."Tracks" (track_name, config_name, track_key, track_outline) VALUES ('World Test', 'GP', $1, $2) RETURNING id`,
+      [KEY, JSON.stringify({ kind: 'latlon', points: outline })]
+    );
+    const angle = (70 * Math.PI) / 180;
+    // world x, z for an east, north: (-x, z) = turn(-angle)(e - 300, n + 150)
+    const toWorld = ([e, n]) => {
+      const [de, dn] = [e - 300, n + 150];
+      const [ue, un] = [Math.cos(-angle) * de - Math.sin(-angle) * dn, Math.sin(-angle) * de + Math.cos(-angle) * dn];
+      return [-ue, un];
+    };
+    const header = 'Speed,LapDistPct,Brake,Throttle,Lat,Lon,Alt,FuelKgPerLtr,WorldX,WorldY,WorldZ';
+    const accCsv = () =>
+      [
+        header,
+        ...Array.from({ length: 600 }, (_, i) => {
+          const pct = i / 600;
+          const [x, z] = toWorld(shape((pct + 0.03) % 1));
+          return `40,${pct.toFixed(5)},0,1,,,,0.75,${x.toFixed(3)},${(12 + 10 * Math.sin(2 * Math.PI * pct)).toFixed(3)},${z.toFixed(3)}`;
+        }),
+      ].join('\n') + '\n';
+    const viewer = { id: userId, role: 'User' };
+    const noPositions = /\n40,0\.00000,0,1,,,,/;
+    const alignment = async () =>
+      (await q(`SELECT world_alignment FROM racingcoach."SimulatorTracks" WHERE native_key = 'world_test'`))[0].world_alignment;
+
+    // Unmapped, it reads as stored: no positions
+    const { id: unmapped } = await save(oldPayload({ simulator: 'acc', adapterVersion: '4', trackKey: 'world_test' }), accCsv());
+    assert.match(await laps.readCollectorLapCsv(viewer, unmapped), noPositions);
+
+    assert.equal(await mappings.mapSimulatorTrack('acc', 'world_test', trackId), true);
+    // A lap with pit road in it doesn't teach the track where its world is
+    const { id: inPits } = await save(oldPayload({ simulator: 'acc', adapterVersion: '4', trackKey: 'world_test', pitRoad: true }), accCsv());
+    assert.match(await laps.readCollectorLapCsv(viewer, inPits), noPositions);
+    assert.equal(await alignment(), null);
+
+    // A clean one does, and then every lap of the track has positions where the outline says
+    const read = await laps.readCollectorLapCsv(viewer, unmapped);
+    const rows = read.trim().split('\n').slice(1).map((line) => line.split(',').map(Number));
+    for (const [i, row] of rows.entries()) {
+      const [lat, lon] = toLatLon(shape((i / 600 + 0.03) % 1));
+      const meters = Math.hypot((row[4] - lat) * 111_200, (row[5] - lon) * 111_200 * Math.cos((lat0 * Math.PI) / 180));
+      assert.ok(meters < 0.5, `sample ${i} is ${meters.toFixed(2)} m out`);
+      assert.ok(Math.abs(row[6] - (12 + 10 * Math.sin((2 * Math.PI * i) / 600))) < 0.01, 'Alt is the world height');
+    }
+    const stored = await alignment();
+    assert.equal(stored.trackKey, KEY);
+    assert.ok(Math.abs(stored.startOffset - 0.03) < 0.005, `start offset ${stored.startOffset}`);
+    assert.ok(stored.rmsMeters < 1);
+    // The lap in the pits now reads with positions too, the coaches' reads have them, and the stored file is unchanged
+    assert.doesNotMatch(await laps.readCollectorLapCsv(viewer, inPits), noPositions);
+    const [byId] = await laps.readCollectorLapsById(viewer, [unmapped]);
+    assert.doesNotMatch(byId.csv, noPositions);
+    assert.match((await laps.readOwnLapCsvBytes(userId, unmapped)).toString('utf8'), noPositions);
+
+    // Unmapping it forgets the fit
+    assert.equal(await mappings.mapSimulatorTrack('acc', 'world_test', null), true);
+    assert.equal(await alignment(), null);
+    assert.match(await laps.readCollectorLapCsv(viewer, unmapped), noPositions);
+  });
+
+  test('an iRacing lap CSV reads back exactly as stored', async () => {
+    const content = csv(false);
+    const { id } = await save(oldPayload(), content);
+    assert.equal(await laps.readCollectorLapCsv({ id: userId, role: 'User' }, id), content);
+  });
+
   test('the migration keeps rows written before it, and running it again changes nothing', async () => {
     // A lap as the table was before: the new columns dropped, the row inserted, the migration run again
     await client.query(`ALTER TABLE racingcoach."CollectorLaps" DROP COLUMN simulator, DROP COLUMN native_track_key, DROP COLUMN payload_version, DROP COLUMN adapter_version`);

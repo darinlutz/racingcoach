@@ -62,12 +62,32 @@ public static class LapCsvFormat
         ("Alt", f => D(f.AltitudeMeters)),
     ];
 
+    // The simulator's own world coordinates (TelemetryFrame.WorldX), after FuelKgPerLtr, only in the lap files of a
+    // simulator that gives them, so iRacing's files stay exactly as they've always been. The website reads columns by
+    // name, and turns these into Lat/Lon/Alt (src/lib/worldPositions.ts).
+    private static readonly (string Name, Func<TelemetryFrame, string> Value)[] WorldColumns =
+    [
+        ("WorldX", f => F(f.WorldX)),
+        ("WorldY", f => F(f.WorldY)),
+        ("WorldZ", f => F(f.WorldZ)),
+    ];
+
     /// <summary>The header row, ending with the car's fuel density.</summary>
     public static string Header { get; } = string.Join(',', Columns.Select(c => c.Name)) + ",FuelKgPerLtr";
 
-    /// <summary>One row; fuelKgPerLiter is the same on every row, or null.</summary>
-    public static string Row(TelemetryFrame frame, double? fuelKgPerLiter) =>
-        string.Join(',', Columns.Select(c => c.Value(frame))) + "," + (fuelKgPerLiter is { } density ? density.ToString(Inv) : "");
+    /// <summary>The header row of a lap with world coordinates: Header, then WorldX, WorldY, WorldZ.</summary>
+    public static string HeaderWithWorld { get; } = Header + "," + string.Join(',', WorldColumns.Select(c => c.Name));
+
+    /// <summary>Whether a lap's file has the world columns: any of its frames has a world position.</summary>
+    public static bool HasWorld(IEnumerable<TelemetryFrame> frames) => frames.Any(f => f.WorldX is not null && f.WorldZ is not null);
+
+    /// <summary>One row; fuelKgPerLiter is the same on every row, or null. withWorld adds the world columns
+    /// (HeaderWithWorld).</summary>
+    public static string Row(TelemetryFrame frame, double? fuelKgPerLiter, bool withWorld = false)
+    {
+        var row = string.Join(',', Columns.Select(c => c.Value(frame))) + "," + (fuelKgPerLiter is { } density ? density.ToString(Inv) : "");
+        return withWorld ? row + "," + string.Join(',', WorldColumns.Select(c => c.Value(frame))) : row;
+    }
 
     private static string F(float? v) => v?.ToString(Inv) ?? "";
     private static string D(double? v) => v?.ToString(Inv) ?? "";

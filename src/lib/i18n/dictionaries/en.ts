@@ -1146,6 +1146,7 @@ export const en = {
       faster: 'Faster',
       muchFaster: 'Much faster',
       noPositions: 'Neither lap has track positions, so the track map can’t be drawn.',
+      fromTrackOutline: 'Neither lap has track positions, so this is the track’s outline from Track Data, with each focus area where it is on the lap, not the laps’ own lines.',
       help: 'The Compare lap against the Target lap. Much is more than 1% of the Target lap’s time in the area. Click an area to see its charts.',
     },
     noDataBase: 'no data for the Target lap',

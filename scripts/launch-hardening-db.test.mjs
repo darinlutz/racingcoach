@@ -362,3 +362,46 @@ after(async () => {
   await client?.end();
   await globalThis.pgPool?.end();
 });
+
+describe('the production database guard (src/lib/db.ts)', { skip }, () => {
+  let db;
+  const saved = { LIVE_SERVER: process.env.LIVE_SERVER, ALLOW_PRODUCTION_DATABASE: process.env.ALLOW_PRODUCTION_DATABASE };
+  const fresh = () => { globalThis.dbGuard = undefined; };
+  before(async () => {
+    // The first group connected `client` and set DATABASE_URL
+    db = await import(new URL('../src/lib/db.ts', import.meta.url).href);
+    await client.query('DROP TABLE IF EXISTS racingcoach."DatabaseEnvironment"');
+  });
+  after(async () => {
+    await client.query('DROP TABLE IF EXISTS racingcoach."DatabaseEnvironment"');
+    Object.assign(process.env, saved);
+    for (const [k, v] of Object.entries(saved)) if (v === undefined) delete process.env[k];
+    fresh();
+  });
+
+  test('an unmarked database is used by any server, and the live server marks it', async () => {
+    process.env.LIVE_SERVER = 'off';
+    fresh();
+    assert.deepEqual(await db.query('SELECT 1 AS one'), [{ one: 1 }]);
+    assert.equal((await q(`SELECT to_regclass('racingcoach."DatabaseEnvironment"') AS t`))[0].t, null, 'not marked by a dev server');
+    process.env.LIVE_SERVER = 'on';
+    fresh();
+    await db.query('SELECT 1');
+    assert.deepEqual((await q('SELECT environment FROM racingcoach."DatabaseEnvironment"')).map((r) => r.environment), ['production']);
+  });
+
+  test('a non-production server then refuses every query, transactions too', async () => {
+    process.env.LIVE_SERVER = 'off';
+    fresh();
+    await assert.rejects(db.query('SELECT 1'), db.ProductionDatabaseError);
+    await assert.rejects(db.transaction(async () => 1), db.ProductionDatabaseError);
+    await assert.rejects(db.withClient(async () => 1), db.ProductionDatabaseError);
+  });
+
+  test('ALLOW_PRODUCTION_DATABASE=yes lets it through', async () => {
+    process.env.LIVE_SERVER = 'off';
+    process.env.ALLOW_PRODUCTION_DATABASE = 'yes';
+    fresh();
+    assert.deepEqual(await db.query('SELECT 2 AS two'), [{ two: 2 }]);
+  });
+});

@@ -2,8 +2,8 @@ import { defineConfig, devices } from '@playwright/test';
 
 // Browser tests (e2e/), run with: npm run test:e2e. See e2e/cookie-consent.spec.ts's header for the database they need.
 //
-// The site runs with NODE_ENV=test, so Next.js doesn't load .env.local (which points at the production database and
-// holds live keys), against the disposable local database in E2E_DATABASE_URL only, with every outside service off.
+// The site runs with NODE_ENV=test, so Next.js doesn't load .env.local (which holds live keys), against the disposable
+// local database in E2E_DATABASE_URL only, with every outside service off.
 // Consent runs in 'regional' mode with a test country header, so the tests can be an EU, UK, US or unknown visitor;
 // production's default is 'global'.
 
@@ -50,6 +50,9 @@ export default defineConfig({
       NODE_ENV: 'test',
       // The spam guards (src/lib/abuseGuards.ts) would refuse the tests' quick signups from one address
       ABUSE_GUARDS: 'off',
+      // The background jobs run only on the live server (src/lib/serverEnvironment.ts); the tests want the video
+      // worker and the rest, against their own database
+      BACKGROUND_JOBS: 'on',
       DATABASE_URL: databaseUrl,
       CONSENT_MODE: 'regional',
       CONSENT_COUNTRY_HEADER: E2E_COUNTRY_HEADER,

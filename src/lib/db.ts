@@ -1,8 +1,9 @@
 import { Pool, type PoolClient, type QueryResultRow } from 'pg';
+import { databaseVerdict } from './serverEnvironment';
 
 // Cached on globalThis so dev-server hot reloads reuse one pool instead of
 // opening a new set of connections on every edit.
-const globalForDb = globalThis as typeof globalThis & { pgPool?: Pool };
+const globalForDb = globalThis as typeof globalThis & { pgPool?: Pool; dbGuard?: Promise<void> };
 
 // DATABASE_URL is a standard Postgres connection string; hosted providers
 // that require TLS take `?sslmode=require` on the end of it.
@@ -35,17 +36,68 @@ function getPool(): Pool {
   return globalForDb.pgPool;
 }
 
+// Thrown by every query when a non-production server is pointed at the production database (serverEnvironment.ts)
+export class ProductionDatabaseError extends Error {}
+
+// Before the first query, checks how the database is marked (racingcoach."DatabaseEnvironment") and refuses the
+// production database outside the live server; the live server marks its own database 'production' here. Checked once
+// per process; a refusal sticks (every query fails with the same message), a connection error is tried again.
+async function checkDatabaseEnvironment(pool: Pool): Promise<void> {
+  const [{ present }] = (await pool.query<{ present: boolean }>(
+    `SELECT to_regclass('racingcoach."DatabaseEnvironment"') IS NOT NULL AS present`
+  )).rows;
+  const marked = present
+    ? (await pool.query<{ environment: string }>('SELECT environment FROM racingcoach."DatabaseEnvironment" LIMIT 1')).rows[0]
+        ?.environment ?? null
+    : null;
+  const verdict = databaseVerdict(marked);
+  if (!verdict.allowed) {
+    console.error(verdict.reason);
+    throw new ProductionDatabaseError(verdict.reason);
+  }
+  if (verdict.warning) console.warn(verdict.warning);
+  // Best effort: a failure (e.g. two instances creating the table at once during a deploy) never stops the live
+  // site's queries, and the next start tries again
+  if (verdict.mark) await markProduction(pool).catch((error) => console.warn('Could not mark the database as production:', error.message));
+}
+
+async function markProduction(pool: Pool): Promise<void> {
+  await pool.query('CREATE SCHEMA IF NOT EXISTS racingcoach');
+  await pool.query(`CREATE TABLE IF NOT EXISTS racingcoach."DatabaseEnvironment" (
+    id boolean PRIMARY KEY DEFAULT true CHECK (id),
+    environment text NOT NULL,
+    marked_at timestamptz NOT NULL DEFAULT now()
+  )`);
+  await pool.query(
+    `INSERT INTO racingcoach."DatabaseEnvironment" (environment) VALUES ('production')
+     ON CONFLICT (id) DO UPDATE SET environment = 'production', marked_at = now()`
+  );
+  console.log('Database marked as production (racingcoach."DatabaseEnvironment")');
+}
+
+async function readyPool(): Promise<Pool> {
+  const pool = getPool();
+  if (!globalForDb.dbGuard) {
+    globalForDb.dbGuard = checkDatabaseEnvironment(pool).catch((error) => {
+      if (!(error instanceof ProductionDatabaseError)) globalForDb.dbGuard = undefined;
+      throw error;
+    });
+  }
+  await globalForDb.dbGuard;
+  return pool;
+}
+
 export async function query<Row extends QueryResultRow = QueryResultRow>(
   sql: string,
   params: unknown[] = []
 ): Promise<Row[]> {
-  const result = await getPool().query<Row>(sql, params);
+  const result = await (await readyPool()).query<Row>(sql, params);
   return result.rows;
 }
 
 // Runs `fn` inside a transaction on a single connection, rolling back if it throws.
 export async function transaction<T>(fn: (client: PoolClient) => Promise<T>): Promise<T> {
-  const client = await getPool().connect();
+  const client = await (await readyPool()).connect();
   try {
     await client.query('BEGIN');
     const result = await fn(client);
@@ -62,7 +114,7 @@ export async function transaction<T>(fn: (client: PoolClient) => Promise<T>): Pr
 // Runs `fn` on one connection outside a transaction (each statement commits on its own), e.g. to hold a session-level
 // advisory lock across several statements.
 export async function withClient<T>(fn: (client: PoolClient) => Promise<T>): Promise<T> {
-  const client = await getPool().connect();
+  const client = await (await readyPool()).connect();
   try {
     return await fn(client);
   } finally {

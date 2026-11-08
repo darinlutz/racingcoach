@@ -385,6 +385,8 @@ export const NON_PERSONAL_TABLES = [
   // The error monitor's kinds of server error (src/lib/errorMonitor.ts): scrubbed of email addresses, keys and query
   // strings, with no user or IP address, and kept 30 days after an error was last seen
   'ServerErrors',
+  // One row saying the live site's database is production's (src/lib/db.ts), so a local server refuses it
+  'DatabaseEnvironment',
   'Tracks',
   'TrackFocusAreas',
   'TracksNumberOfCorners',

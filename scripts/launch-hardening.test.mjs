@@ -449,3 +449,55 @@ describe('spend alerts and the automatic stop', () => {
     assert.deepEqual(rules.spendLimitsFromEnv({ SPEND_ALERT_DAILY_USD: 'x', SPEND_CEILING_DAILY_USD: '-3' }), { warnUsd: 25, ceilingUsd: 100 });
   });
 });
+
+describe('development and production servers (docs/development-database.md)', () => {
+  let env;
+  before(async () => {
+    env = await import(new URL('serverEnvironment.ts', src).href);
+  });
+
+  test('only the production build on Render is the live server', () => {
+    assert.equal(env.isLiveServer({ NODE_ENV: 'production', RENDER: 'true' }), true);
+    assert.equal(env.isLiveServer({ NODE_ENV: 'production' }), false, 'npm start on a Mac');
+    assert.equal(env.isLiveServer({ NODE_ENV: 'development', RENDER: 'true' }), false);
+    assert.equal(env.isLiveServer({ NODE_ENV: 'development', LIVE_SERVER: 'on' }), true);
+    assert.equal(env.isLiveServer({ NODE_ENV: 'production', RENDER: 'true', LIVE_SERVER: 'off' }), false);
+  });
+
+  test('background jobs and monitors run on the live server only, unless turned on', () => {
+    assert.equal(env.backgroundJobsEnabled({ NODE_ENV: 'development' }), false);
+    assert.equal(env.backgroundJobsEnabled({ NODE_ENV: 'test', BACKGROUND_JOBS: 'on' }), true);
+    assert.equal(env.backgroundJobsEnabled({ NODE_ENV: 'production', RENDER: 'true' }), true);
+    assert.equal(env.backgroundJobsEnabled({ NODE_ENV: 'production', RENDER: 'true', BACKGROUND_JOBS: 'off' }), false);
+    assert.equal(env.monitorsEnabled({ NODE_ENV: 'production' }), false);
+    assert.equal(env.monitorsEnabled({ NODE_ENV: 'development', MONITORS: 'on' }), true);
+  });
+
+  test('a non-production server refuses the production database unless told otherwise', () => {
+    const dev = { NODE_ENV: 'development' };
+    assert.equal(env.databaseVerdict('production', dev).allowed, false);
+    assert.deepEqual(env.databaseVerdict(null, dev), { allowed: true, mark: false });
+    const allowed = env.databaseVerdict('production', { ...dev, ALLOW_PRODUCTION_DATABASE: 'yes' });
+    assert.equal(allowed.allowed, true);
+    assert.ok(allowed.warning);
+    assert.equal(env.databaseVerdict('production', { ...dev, ALLOW_PRODUCTION_DATABASE: 'true' }).allowed, false, 'only yes');
+  });
+
+  test('the live server marks its database once', () => {
+    const live = { NODE_ENV: 'production', RENDER: 'true' };
+    assert.deepEqual(env.databaseVerdict(null, live), { allowed: true, mark: true });
+    assert.deepEqual(env.databaseVerdict('production', live), { allowed: true, mark: false });
+  });
+
+  test('every query goes through the guard, and the jobs through the switch', () => {
+    const db = readFileSync(new URL('db.ts', src), 'utf8');
+    assert.equal((db.match(/getPool\(\)/g) ?? []).length, 2, 'getPool is called only by readyPool');
+    const instrumentation = readFileSync(new URL('../instrumentation.ts', src), 'utf8');
+    const jobs = instrumentation.indexOf('backgroundJobsEnabled()');
+    assert.ok(jobs > 0);
+    for (const start of ['startLapRetentionSchedule()', 'startConsentRecordPurge()', 'startVideoProcessing()', 'startPrivacyJobs()', 'startTelemetryStorageJobs()']) {
+      assert.ok(instrumentation.indexOf(start) > jobs, `${start} is behind the switch`);
+    }
+    assert.match(readFileSync(new URL('../../playwright.config.ts', src), 'utf8'), /BACKGROUND_JOBS: 'on'/);
+  });
+});

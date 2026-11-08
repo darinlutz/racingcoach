@@ -3,6 +3,8 @@
 # production build. Render deploys main only after these pass (its Auto-Deploy set to "After CI checks pass").
 # The collector's Windows tests and its signed release are in collector-release.yml.
 name: CI
+# A fixed Ubuntu rather than ubuntu-latest: Playwright's --with-deps knows only the versions it was released for, and
+# ubuntu-latest became Ubuntu 26 in October 2026, which Playwright 1.60 can't install its browser's libraries on
 
 on:
   push:
@@ -24,7 +26,7 @@ env:
 jobs:
   checks:
     name: Lint, types, tests and build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     services:
       postgres:
@@ -73,7 +75,7 @@ jobs:
 
   e2e:
     name: Browser tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     services:
       postgres:

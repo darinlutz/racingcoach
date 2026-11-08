@@ -157,7 +157,8 @@ test('a new account picks a country with its flag, changes it in My Settings, an
   await page.locator('#country').click();
   const countries = page.getByRole('listbox', { name: 'Country' }).getByRole('option');
   await expect(countries).toHaveCount(251);
-  await page.getByRole('combobox', { name: 'Search countries' }).fill('braz');
+  // A whole name: "braz" also finds Congo - Brazzaville, as the browser's region names call it
+  await page.getByRole('combobox', { name: 'Search countries' }).fill('brazil');
   await expect(countries).toHaveCount(1);
   await expect(countries.filter({ hasText: 'Brazil' }).locator('.fi-br')).toBeVisible();
   // Enter picks the country and doesn't submit the form
@@ -295,7 +296,9 @@ test('deleting an account deletes its picture', async ({ browser }) => {
   const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0]);
   const saved = await page.request.put('/api/account/picture', { multipart: { file: { name: 'x.jpg', mimeType: 'image/jpeg', buffer: jpeg } } });
   expect(saved.status()).toBe(200);
-  expect((await page.request.delete('/api/account')).status()).toBe(200);
+  // As the Delete Account dialog sends it: the typed word and the password (a step-up sign-in)
+  const deleted = await page.request.delete('/api/account', { data: { confirm: 'DELETE', password: 'correct-horse-9' } });
+  expect(deleted.status()).toBe(200);
   const { rows } = await db.query('SELECT 1 FROM racingcoach."UserPictures" WHERE user_id = $1', [id]);
   expect(rows).toHaveLength(0);
   await context.close();

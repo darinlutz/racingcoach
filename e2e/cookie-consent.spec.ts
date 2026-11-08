@@ -512,7 +512,8 @@ test('15b. the banner is usable on a phone: no sideways scrolling, nothing hidde
     expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(24);
   }
   // The page leaves room for the banner, so the footer's links can be scrolled clear of it
-  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  // Instantly: the site scrolls smoothly (globals.css), so a plain scrollTo would still be moving when measured
+  await page.evaluate(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'instant' }));
   const footerLink = page.getByRole('contentinfo').getByRole('button', { name: 'Cookie Settings' });
   const linkBox = (await footerLink.boundingBox())!;
   const bannerTop = (await region.boundingBox())!.y;

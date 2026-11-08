@@ -501,3 +501,36 @@ describe('development and production servers (docs/development-database.md)', ()
     assert.match(readFileSync(new URL('../../playwright.config.ts', src), 'utf8'), /BACKGROUND_JOBS: 'on'/);
   });
 });
+
+describe('disputed and refunded payments (F-22)', () => {
+  let rules;
+  before(async () => {
+    rules = await import(new URL('stripeReversalRules.ts', src).href);
+  });
+
+  test('any dispute takes the payment back', () => {
+    assert.deepEqual(
+      rules.paymentReversal({ type: 'charge.dispute.created', data: { object: { charge: 'ch_1', payment_intent: { id: 'pi_1' } } } }),
+      { reason: 'disputed', paymentIntentId: 'pi_1', chargeId: 'ch_1' }
+    );
+  });
+
+  test('only a full refund does; a partial one leaves the subscription alone', () => {
+    assert.deepEqual(
+      rules.paymentReversal({ type: 'charge.refunded', data: { object: { id: 'ch_2', refunded: true, payment_intent: 'pi_2' } } }),
+      { reason: 'refunded', paymentIntentId: 'pi_2', chargeId: 'ch_2' }
+    );
+    assert.equal(rules.paymentReversal({ type: 'charge.refunded', data: { object: { id: 'ch_3', refunded: false, payment_intent: 'pi_3' } } }), null);
+  });
+
+  test('a payment that was no PaymentIntent, or another event, is none', () => {
+    assert.equal(rules.paymentReversal({ type: 'charge.dispute.created', data: { object: { charge: 'ch_4', payment_intent: null } } }), null);
+    assert.equal(rules.paymentReversal({ type: 'charge.dispute.closed', data: { object: {} } }), null);
+  });
+
+  test('the webhook handles both events through the revocation', () => {
+    const code = readFileSync(new URL('../app/api/stripe-webhook/route.ts', src), 'utf8');
+    assert.match(code, /case 'charge\.dispute\.created':\s*case 'charge\.refunded':/);
+    assert.match(code, /revokeForReversedPayment\(stripe, reversal\)/);
+  });
+});

@@ -904,6 +904,12 @@ export function ensureUserSchema(): Promise<void> {
       await client.query(
         'CREATE INDEX IF NOT EXISTS stripe_subscriptions_user_id_idx ON racingcoach."StripeSubscriptions" (user_id, start_date)'
       );
+      // When a disputed or fully refunded payment ended the subscription's paid access, and which it was
+      // (revokeForReversedPayment in src/lib/stripeBilling.ts)
+      await client.query(
+        `ALTER TABLE racingcoach."StripeSubscriptions" ADD COLUMN IF NOT EXISTS access_revoked_at TIMESTAMPTZ,
+           ADD COLUMN IF NOT EXISTS access_revoked_reason TEXT`
+      );
       // Every discount Stripe applied to one of those subscriptions or its invoices, one row per Stripe discount
       // (discount_key is its di_ ID, or checkout:<session>:<coupon> when only the Checkout Session showed it). Rows are
       // history: they are never deleted, and the code and coupon details are kept even after the code is disabled or

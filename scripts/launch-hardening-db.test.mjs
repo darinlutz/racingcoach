@@ -405,3 +405,74 @@ describe('the production database guard (src/lib/db.ts)', { skip }, () => {
     assert.deepEqual(await db.query('SELECT 2 AS two'), [{ two: 2 }]);
   });
 });
+
+describe('a disputed or refunded payment ends its paid access (F-22)', { skip }, () => {
+  let billing;
+  before(async () => {
+    billing = await import(new URL('../src/lib/stripeBilling.ts', import.meta.url).href);
+  });
+
+  // Stripe as far as the revocation asks it: the payment's invoice, its subscription, and cancel
+  function reversalStripe(subscription) {
+    const cancels = [];
+    return {
+      cancels,
+      invoicePayments: { list: async () => ({ data: [{ invoice: 'in_1' }] }) },
+      invoices: { retrieve: async () => ({ id: 'in_1', parent: { subscription_details: { subscription: subscription.id } } }) },
+      subscriptions: {
+        retrieve: async () => subscription,
+        cancel: async (id, params) => {
+          cancels.push({ id, params });
+          subscription.status = 'canceled';
+        },
+      },
+    };
+  }
+  const goldAccount = async (subscriptionId) => {
+    const user = await signUp(`${randomUUID()}@example.test`);
+    await q(
+      `UPDATE racingcoach."Users" SET account_status = 'Subscribed', membership_level = 'Gold', stripe_customer_id = 'cus_r',
+         stripe_subscription_id = $2, subscription_end_date = to_char((now() + interval '20 days') AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') WHERE id = $1`,
+      [user.id, subscriptionId]
+    );
+    return user.id;
+  };
+  const account = async (id) => (await q('SELECT account_status, membership_level, subscription_end_date FROM racingcoach."Users" WHERE id = $1', [id]))[0];
+
+  test('the subscription is canceled without a refund and the account is Bronze at once', async () => {
+    process.env.LIVE_SERVER = 'off';
+    globalThis.dbGuard = undefined;
+    const id = await goldAccount('sub_disputed');
+    const stripe = reversalStripe({ id: 'sub_disputed', status: 'active', customer: 'cus_r', metadata: { app: 'racingcoach', user_id: String(id) } });
+    const result = await billing.revokeForReversedPayment(stripe, { reason: 'disputed', paymentIntentId: 'pi_1' });
+    assert.deepEqual(result, { status: 'revoked', subscriptionId: 'sub_disputed', userId: id });
+    assert.equal(stripe.cancels.length, 1);
+    assert.equal(stripe.cancels[0].params.prorate, false);
+    const after1 = await account(id);
+    assert.equal(after1.account_status, 'Canceled');
+    assert.equal(after1.membership_level, 'Bronze');
+    assert.ok(after1.subscription_end_date <= new Date().toISOString());
+
+    // Stripe delivers it again: nothing more is canceled and the end doesn't move later
+    const again = await billing.revokeForReversedPayment(stripe, { reason: 'disputed', paymentIntentId: 'pi_1' });
+    assert.equal(again.status, 'revoked');
+    assert.equal(stripe.cancels.length, 1);
+    assert.ok((await account(id)).subscription_end_date <= after1.subscription_end_date);
+  });
+
+  test('another app\'s subscription on the shared Stripe account is left alone', async () => {
+    const stripe = reversalStripe({ id: 'sub_talkninja', status: 'active', customer: 'cus_other', metadata: { app: 'talkninja' } });
+    const result = await billing.revokeForReversedPayment(stripe, { reason: 'refunded', paymentIntentId: 'pi_2' });
+    assert.equal(result.status, 'ignored');
+    assert.equal(stripe.cancels.length, 0);
+  });
+
+  test('an old subscription\'s payment cancels it but leaves the account\'s current one', async () => {
+    const id = await goldAccount('sub_current');
+    const stripe = reversalStripe({ id: 'sub_old', status: 'active', customer: 'cus_r', metadata: { app: 'racingcoach', user_id: String(id) } });
+    const result = await billing.revokeForReversedPayment(stripe, { reason: 'refunded', paymentIntentId: 'pi_3' });
+    assert.deepEqual(result, { status: 'notCurrent', subscriptionId: 'sub_old', userId: id });
+    assert.equal(stripe.cancels.length, 1);
+    assert.equal((await account(id)).membership_level, 'Gold');
+  });
+});

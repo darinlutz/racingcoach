@@ -1,10 +1,11 @@
 import { PLANS, type Plan } from './accountStatus';
 import { OWNER_EMAIL } from './users';
 
-// Emails the site owner when a user signs up, buys a plan, cancels, or deletes their account.
+// Emails the site owner when a user signs up, buys a plan, cancels, deletes their account, or disputes a payment or
+// has one refunded.
 const APP_NAME = 'RacingCoach';
 
-export type OwnerEvent = 'signup' | Plan | 'canceled' | 'deleted';
+export type OwnerEvent = 'signup' | Plan | 'canceled' | 'deleted' | 'disputed' | 'refunded';
 
 function describe(event: OwnerEvent): { subject: string; action: string } {
   switch (event) {
@@ -14,6 +15,17 @@ function describe(event: OwnerEvent): { subject: string; action: string } {
       return { subject: 'Subscription canceled', action: 'canceled their subscription' };
     case 'deleted':
       return { subject: 'Account deleted', action: 'deleted their account' };
+    // revokeForReversedPayment (src/lib/stripeBilling.ts)
+    case 'disputed':
+      return {
+        subject: 'Payment disputed',
+        action: 'disputed a payment with their bank (its subscription was canceled and its paid access removed)',
+      };
+    case 'refunded':
+      return {
+        subject: 'Payment refunded',
+        action: 'had a payment refunded in full (its subscription was canceled and its paid access removed)',
+      };
     default: {
       // e.g. "Gold annual"
       const { level, period } = PLANS[event];

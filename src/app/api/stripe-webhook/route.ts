@@ -9,8 +9,10 @@ import {
   claimWebhookEvent,
   finishWebhookEvent,
   releaseWebhookEvent,
+  revokeForReversedPayment,
   syncSubscription,
 } from '@/lib/stripeBilling';
+import { paymentReversal } from '@/lib/stripeReversalRules';
 
 export async function POST(request: Request) {
   // Check if Stripe keys are configured
@@ -133,6 +135,23 @@ export async function POST(request: Request) {
         await syncSubscription(stripe, event.data.object.id);
         break;
       }
+      // A payment taken back: a dispute (chargeback) or a full refund ends the paid access it bought at once
+      // (src/lib/stripeReversalRules.ts): its subscription is canceled and the account goes back to Bronze
+      case 'charge.dispute.created':
+      case 'charge.refunded': {
+        const reversal = paymentReversal(event);
+        if (!reversal) break;
+        const result = await revokeForReversedPayment(stripe, reversal);
+        if (result.status === 'ignored') {
+          console.log(`Stripe ${reversal.reason} payment not for one of this app's subscriptions:`, reversal.paymentIntentId);
+          break;
+        }
+        console.warn(`Stripe payment ${reversal.reason}: subscription ${result.subscriptionId} canceled (${result.status})`);
+        // The Subscribers page's copy, now canceled
+        await syncSubscription(stripe, result.subscriptionId!);
+        if (result.userId) await notifyOwnerOfReversal(reversal.reason, result.userId);
+        break;
+      }
       default:
         console.log('Unhandled Stripe event type:', event.type);
     }
@@ -163,6 +182,16 @@ async function cancelReplacedSubscription(stripe: Stripe, subscriptionId: string
     prorate: true,
     cancellation_details: { comment: `Upgraded to ${plan}` },
   });
+}
+
+// Never throws, like notifyOwnerOfPurchase
+async function notifyOwnerOfReversal(reason: 'disputed' | 'refunded', userId: number) {
+  try {
+    const user = await getUserById(userId);
+    if (user) await notifyOwner(reason, user.emailAddress);
+  } catch (error) {
+    console.error('Owner reversal notification error:', error);
+  }
 }
 
 // Never throws: an error here would make Stripe retry an event already applied

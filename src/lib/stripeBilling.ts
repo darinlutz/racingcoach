@@ -4,7 +4,7 @@ import { query, transaction } from './db';
 import { ensureUserSchema } from './users';
 import { planForProduct, STRIPE_APP } from './stripePlans';
 import { accountProjection } from './stripeProjection';
-import { isPlan } from './accountStatus';
+import { ACCOUNT_STATUS, isPlan, MEMBERSHIP_LEVEL } from './accountStatus';
 
 // Keeps racingcoach."StripeSubscriptions" and "StripeDiscounts" (see ensureUserSchema) in step with Stripe, for the
 // Admin page's Subscribers page. Stripe is the source of truth: every webhook event about a subscription, whatever
@@ -533,4 +533,86 @@ export async function finishWebhookEvent(eventId: string): Promise<void> {
 // Handling failed: lets Stripe's retry handle it again
 export async function releaseWebhookEvent(eventId: string): Promise<void> {
   await query('DELETE FROM racingcoach."StripeWebhookEvents" WHERE event_id = $1 AND processed_at IS NULL', [eventId]);
+}
+
+// The subscription a payment paid for: the invoice its PaymentIntent paid (this API version ties them through
+// InvoicePayments, not the charge), and that invoice's subscription. null for a payment that wasn't an invoice's.
+async function subscriptionOfPayment(stripe: Stripe, paymentIntentId: string): Promise<string | null> {
+  const payments = await stripe.invoicePayments.list({
+    payment: { type: 'payment_intent', payment_intent: paymentIntentId },
+    limit: 10,
+  });
+  for (const payment of payments.data) {
+    const invoice =
+      typeof payment.invoice === 'string' ? await stripe.invoices.retrieve(payment.invoice).catch(notFoundAsNull) : payment.invoice;
+    if (!invoice || invoice.deleted) continue;
+    const subscription = idOf(invoice.parent?.subscription_details?.subscription);
+    if (subscription) return subscription;
+  }
+  return null;
+}
+
+export type ReversalResult = {
+  // revoked: the account's current subscription, canceled and the account back to Bronze; notCurrent: canceled, but
+  // the account had already moved to another subscription, which it keeps; ignored: not one of this app's
+  status: 'revoked' | 'notCurrent' | 'ignored';
+  subscriptionId: string | null;
+  userId: number | null;
+};
+
+// A disputed or fully refunded payment (src/lib/stripeReversalRules.ts) ends the paid access it bought at once: the
+// subscription it paid for is canceled in Stripe (no proration or refund, so nothing more is charged or credited), and
+// the account tied to it becomes Canceled, Bronze, its paid period ending now. Under the subscription's lock, like
+// syncSubscription, so an event read from Stripe before the cancellation can't make the account Subscribed again; after
+// it, Stripe says canceled and accountProjection leaves the account alone. Safe to repeat. Throws on Stripe or database
+// errors, so Stripe retries the event.
+export async function revokeForReversedPayment(
+  stripe: Stripe,
+  reversal: { reason: 'disputed' | 'refunded'; paymentIntentId: string }
+): Promise<ReversalResult> {
+  await ensureUserSchema();
+  const subscriptionId = await subscriptionOfPayment(stripe, reversal.paymentIntentId);
+  if (!subscriptionId) return { status: 'ignored', subscriptionId: null, userId: null };
+  return transaction(async (client) => {
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`stripe_subscription:${subscriptionId}`]);
+    let subscription: Stripe.Subscription;
+    try {
+      subscription = await stripe.subscriptions.retrieve(subscriptionId);
+    } catch (error) {
+      if (isNotFound(error)) return { status: 'ignored', subscriptionId, userId: null };
+      throw error;
+    }
+    const customerId = idOf(subscription.customer) ?? '';
+    if (!(await isOurs(client, subscription, null, customerId))) return { status: 'ignored', subscriptionId, userId: null };
+
+    if (subscription.status !== 'canceled' && subscription.status !== 'incomplete_expired') {
+      await stripe.subscriptions.cancel(subscriptionId, {
+        prorate: false,
+        invoice_now: false,
+        cancellation_details: { comment: `Payment ${reversal.reason}` },
+      });
+    }
+    // subscription_end_date is ISO text, so it compares as text; the end never moves later on a repeated delivery
+    const { rows } = await client.query<{ id: number }>(
+      `UPDATE racingcoach."Users" SET account_status = $2, membership_level = $3,
+         subscription_end_date = CASE WHEN subscription_end_date ~ '^\\d{4}-\\d{2}-\\d{2}T' AND subscription_end_date < $4
+                                      THEN subscription_end_date ELSE $4 END
+       WHERE stripe_subscription_id = $1 RETURNING id`,
+      [subscriptionId, ACCOUNT_STATUS.canceled, MEMBERSHIP_LEVEL.bronze, new Date().toISOString()]
+    );
+    await client.query(
+      `UPDATE racingcoach."StripeSubscriptions"
+          SET access_revoked_at = COALESCE(access_revoked_at, now()), access_revoked_reason = COALESCE(access_revoked_reason, $2)
+        WHERE stripe_subscription_id = $1`,
+      [subscriptionId, reversal.reason]
+    );
+    if (rows.length) return { status: 'revoked', subscriptionId, userId: Number(rows[0].id) };
+    const named = Number(subscription.metadata?.user_id);
+    const owner = await client.query<{ user_id: number }>(
+      'SELECT user_id FROM racingcoach."StripeSubscriptions" WHERE stripe_subscription_id = $1 AND user_id IS NOT NULL',
+      [subscriptionId]
+    );
+    const userId = owner.rows[0] ? Number(owner.rows[0].user_id) : Number.isInteger(named) ? named : null;
+    return { status: 'notCurrent', subscriptionId, userId };
+  });
 }

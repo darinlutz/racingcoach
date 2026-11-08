@@ -211,8 +211,13 @@
         <DockPanel Margin="20,16,20,20">
 
             <!-- Header -->
+            <!-- Two columns, so the buttons never cover the title -->
             <Grid DockPanel.Dock="Top" Margin="0,0,0,14">
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0">
                     <Image Source="Assets/collector.ico" Width="34" Height="34" Margin="0,0,12,0" />
                     <StackPanel>
                         <TextBlock FontSize="20" FontWeight="Bold">
@@ -221,15 +226,18 @@
                         <TextBlock x:Name="SubtitleText" Style="{StaticResource Muted}" FontSize="12" local:Loc.Key="main.subtitle" />
                     </StackPanel>
                 </StackPanel>
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <Button Style="{StaticResource Button}" local:Loc.Key="main.uploadKey" Click="ChangeKey_Click" Margin="0,0,8,0" x:Name="KeyButton" />
-                    <Button Style="{StaticResource Button}" Content="RacingCoach.app" Click="OpenSite_Click" Margin="0,0,8,0" />
-                    <Button Style="{StaticResource BlueButton}" local:Loc.Key="main.brakePractice" Click="BrakePractice_Click" Margin="0,0,8,0" />
-                    <!-- Coaches and Admins only (CollectorEngine.CanCoach) -->
-                    <Button x:Name="RotationButton" Style="{StaticResource PrimaryButton}" local:Loc.Key="main.rotationOverlay" Click="Rotation_Click" Margin="0,0,8,0"
-                            Visibility="Collapsed" />
-                    <Button Style="{StaticResource PrimaryButton}" local:Loc.Key="main.targetTelemetryOverlay" Click="TargetTelemetry_Click" Margin="0,0,8,0" />
-                    <Button Style="{StaticResource PrimaryButton}" local:Loc.Key="main.steeringOverlay" Click="Steering_Click" />
+                <StackPanel Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Style="{StaticResource Button}" local:Loc.Key="main.uploadKey" Click="ChangeKey_Click" Margin="0,0,8,0" x:Name="KeyButton" />
+                        <Button Style="{StaticResource Button}" Content="RacingCoach.app" Click="OpenSite_Click" Margin="0,0,8,0" />
+                        <!-- Coaches and Admins only (CollectorEngine.CanCoach) -->
+                        <Button x:Name="RotationButton" Style="{StaticResource PrimaryButton}" local:Loc.Key="main.rotationOverlay" Click="Rotation_Click" Margin="0,0,8,0"
+                                Visibility="Collapsed" />
+                        <Button Style="{StaticResource PrimaryButton}" local:Loc.Key="main.targetTelemetryOverlay" Click="TargetTelemetry_Click" Margin="0,0,8,0" />
+                        <Button Style="{StaticResource PrimaryButton}" local:Loc.Key="main.steeringOverlay" Click="Steering_Click" />
+                    </StackPanel>
+                    <Button Style="{StaticResource BlueButton}" local:Loc.Key="main.brakePractice" Click="BrakePractice_Click"
+                            HorizontalAlignment="Right" Margin="0,8,0,0" />
                 </StackPanel>
             </Grid>
 

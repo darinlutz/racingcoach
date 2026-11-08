@@ -34,8 +34,10 @@ internal sealed class AccAdapter(string? rawRecordingFolder = null, Action<strin
     }
 
     private const string ProcessName = "AC2-Win64-Shipping";
-    // The static page's smVersion this layout was written from (ACC Shared Memory v1.8.12)
-    private const string DocumentedVersion = "1.8";
+    // The static page's smVersions this layout is known to read: 1.8, which it was written from (ACC Shared Memory
+    // v1.8.12), and 1.9, which the Spa recordings of 2026-11-05 checked field by field (AccSpaRecordingTests; 1.9
+    // moved nothing this reads). Any other version is warned about once, as its fields may have moved
+    private static readonly string[] VerifiedVersions = ["1.8", "1.9"];
     private static readonly TimeSpan Period = TimeSpan.FromSeconds(1 / 60.0);
     // How often the static page and the process are looked at again
     private static readonly TimeSpan SlowCheck = TimeSpan.FromSeconds(1);
@@ -130,8 +132,8 @@ internal sealed class AccAdapter(string? rawRecordingFolder = null, Action<strin
                     if (!versionChecked && staticPage.SmVersion.Length > 0)
                     {
                         versionChecked = true;
-                        if (!staticPage.SmVersion.StartsWith(DocumentedVersion, StringComparison.Ordinal))
-                            sink.OnError($"shared memory version {staticPage.SmVersion}, not the {DocumentedVersion} its layout was written from: laps may be wrong");
+                        if (!VerifiedVersions.Any(v => staticPage.SmVersion.StartsWith(v, StringComparison.Ordinal)))
+                            sink.OnError($"shared memory version {staticPage.SmVersion}, not one this layout was checked against ({string.Join(", ", VerifiedVersions)}): laps may be wrong");
                     }
                     var sessionGraphics = AccSharedMemory.ReadGraphics(ReadConsistent(graphicsView, graphics));
                     var current = AccFrameBuilder.Session(staticPage, sessionGraphics);

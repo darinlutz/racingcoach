@@ -140,7 +140,7 @@ jobs:
 
       # Signed in as late as possible: GitHub's sign-in token lasts minutes, so the code signing token is fetched
       # straight away, and SignTool's plug-in uses it from the Azure CLI's cache (it lasts about an hour)
-      - uses: azure/login@v2
+      - uses: azure/login@v3
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}

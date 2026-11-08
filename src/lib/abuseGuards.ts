@@ -2,7 +2,9 @@
 //
 // Attempt limits are counted in this server's memory, like overAttemptLimit in tvAuth.ts: a restart starts the
 // counts over, and with more than one server instance each would count separately (they'd have to move to Postgres).
-// Off under NODE_ENV=test, as the e2e tests sign up many accounts from one address and fill forms at machine speed.
+// Off for the e2e tests, which sign up many accounts from one address and fill forms at machine speed: ABUSE_GUARDS=off,
+// set only by playwright.config.ts (NODE_ENV=test too, though Next.js can fix NODE_ENV in the code it compiles, so
+// it can't be relied on alone).
 
 import { clientIp } from './clientIp';
 
@@ -35,7 +37,7 @@ export const ABUSE_LIMITS = {
 // A form submitted sooner than this after the page showed it was filled by a script
 export const MIN_FORM_FILL_MS = 2000;
 
-const guardsOn = () => process.env.NODE_ENV !== 'test';
+const guardsOn = () => process.env.ABUSE_GUARDS !== 'off' && process.env.NODE_ENV !== 'test';
 
 const attempts = new Map<string, number[]>();
 const longestWindow = Math.max(...Object.values(ABUSE_LIMITS).map((limit) => limit.windowMs));

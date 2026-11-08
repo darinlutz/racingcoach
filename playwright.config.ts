@@ -48,6 +48,8 @@ export default defineConfig({
     timeout: 300_000,
     env: {
       NODE_ENV: 'test',
+      // The spam guards (src/lib/abuseGuards.ts) would refuse the tests' quick signups from one address
+      ABUSE_GUARDS: 'off',
       DATABASE_URL: databaseUrl,
       CONSENT_MODE: 'regional',
       CONSENT_COUNTRY_HEADER: E2E_COUNTRY_HEADER,

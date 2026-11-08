@@ -36,18 +36,21 @@ const lapIdsSchema = z.array(z.uuid()).max(30);
 // as setupEngineer; its answer comes back as reply the same way, with setupEngineer: true.
 export async function POST(request: Request) {
   let limit: AiRateLimit | null = null;
+  let failed = getDictionary(DEFAULT_LANGUAGE).api.driverRadioFailed;
   try {
     const userId = await authenticateCollector(request);
     const user = userId === null ? null : await getUserById(userId);
     if (!user) {
       return NextResponse.json({ error: 'Missing or unknown upload key' }, { status: 401 });
     }
+    // The collector shows these messages in the Radio window, so they're in the driver's language
+    const text = getDictionary(user.preferredLanguage ?? DEFAULT_LANGUAGE).api;
+    failed = text.driverRadioFailed;
     if (!(await getEnableAiFeatures())) {
-      return NextResponse.json({ error: 'Driver Radio is turned off on RacingCoach.app', code: 'aiFeaturesDisabled' }, { status: 403 });
+      return NextResponse.json({ error: text.driverRadioOff, code: 'aiFeaturesDisabled' }, { status: 403 });
     }
-    // The collector shows the message in the Radio window
     if (!canUseVoiceAi(user)) {
-      return NextResponse.json({ error: 'Driver Radio is for Silver and Gold members', code: 'membershipRequired' }, { status: 403 });
+      return NextResponse.json({ error: text.driverRadioMembersOnly, code: 'membershipRequired' }, { status: 403 });
     }
     // Reading stops past the cap (src/lib/requestBody.ts), so a huge body can't fill the server's memory
     const audio = await readBodyLimited(request, MAX_RADIO_BYTES).catch((error) => {
@@ -55,26 +58,26 @@ export async function POST(request: Request) {
       throw error;
     });
     if (!audio || audio.length > MAX_RADIO_BYTES) {
-      return NextResponse.json({ error: 'The recording is too long' }, { status: 413 });
+      return NextResponse.json({ error: text.driverRadioTooLong }, { status: 413 });
     }
     if (!looksLikeWav(audio)) {
-      return NextResponse.json({ error: 'Expected a WAV recording' }, { status: 400 });
+      return NextResponse.json({ error: text.driverRadioNotWav }, { status: 400 });
     }
 
     limit = await aiRateLimit(request, 'driverRadio', user);
     if (limit.response) return limit.response;
-    const text = await transcribeRadio(audio, user.preferredLanguage ?? DEFAULT_LANGUAGE);
-    const shared = text ? recordDriverRadio(user.id, text) !== null : false;
+    const said = await transcribeRadio(audio, user.preferredLanguage ?? DEFAULT_LANGUAGE);
+    const shared = said ? recordDriverRadio(user.id, said) !== null : false;
     limit = null;
 
     const params = new URL(request.url).searchParams;
-    if (!text || params.get('engineer') !== '1') return NextResponse.json({ text, shared });
+    if (!said || params.get('engineer') !== '1') return NextResponse.json({ text: said, shared });
     const lapIds = lapIdsSchema.safeParse((params.get('laps') ?? '').split(',').filter(Boolean));
-    return NextResponse.json({ text, shared, ...(await engineerAnswer(request, user, text, lapIds.success ? lapIds.data : [])) });
+    return NextResponse.json({ text: said, shared, ...(await engineerAnswer(request, user, said, lapIds.success ? lapIds.data : [])) });
   } catch (error) {
     console.error('Driver Radio error:', error);
     await limit?.refund();
-    return NextResponse.json({ error: 'Failed to turn the radio message into text' }, { status: 502 });
+    return NextResponse.json({ error: failed }, { status: 502 });
   }
 }
 

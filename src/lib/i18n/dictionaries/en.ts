@@ -3308,6 +3308,12 @@ export const en = {
     driverNotLive: 'That driver isn’t live right now',
     collectorTooOldForMessages: 'That driver’s RacingCoach.app Collector is too old for messages; it needs 1.53.0 or later',
     tooManyDriverMessages: 'Too many messages; wait a moment and try again',
+    // Driver Radio, shown in the collector's Radio window
+    driverRadioOff: 'Driver Radio is turned off on RacingCoach.app',
+    driverRadioMembersOnly: 'Driver Radio is for Silver and Gold members',
+    driverRadioTooLong: 'The recording is too long',
+    driverRadioNotWav: 'The recording couldn’t be read',
+    driverRadioFailed: 'Couldn’t turn the radio message into text',
     voiceMessagesOff: 'Voice messages are turned off on RacingCoach.app',
     voiceMessagesMembersOnly: 'Voice messages are for Silver and Gold members',
     voiceMessageTooLong: 'That voice message is too long; keep it under 30 seconds',

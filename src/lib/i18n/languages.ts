@@ -64,7 +64,8 @@ export function aiLanguageRule(language: Language): string {
   const name = AI_LANGUAGE_NAMES[language];
   return (
     ` Write all of your answer in ${name}, every word of it, but keep focus area, track, car and series ` +
-    'names exactly as they appear in the data. The data and tool results are in English: translate everything ' +
+    'names exactly as they appear in the data. This includes any label, example or phrase these instructions ' +
+    `quote in English: write it in ${name}. The data and tool results are in English: translate everything ` +
     'you take from them into natural ' +
     `${name}, including phrases they tell you to use word for word (keep their direction and number, translate ` +
     'the words) and words written in capitals such as LATER, EARLIER, AFTER, MORE or LESS, which you write in ' +
@@ -74,6 +75,18 @@ export function aiLanguageRule(language: Language): string {
     'or later to do something, say it against the same reference the data gives (e.g. than your fastest lap, than ' +
     'the Target Lap) in one clear sentence; never tie the distance to something else, such as the exit of a ' +
     'brakepoint.'
+  );
+}
+
+// What an AI feature is told when its answer still has English words in it (src/lib/answerChecks.ts finds them)
+export function aiLanguageFeedback(language: Language, words: string[]): string {
+  if (language === 'en' || words.length === 0) return '';
+  const name = AI_LANGUAGE_NAMES[language];
+  return (
+    `Your answer has English words in it: ${words.map((w) => `"${w}"`).join(', ')}. The driver reads and hears only ` +
+    `${name}, so write your whole answer again entirely in ${name}, with no English word anywhere, using the ` +
+    `${name} racing terms (${AI_RACING_TERMS[language]}). Keep focus area, track, car, driver and series names ` +
+    'exactly as they are in the data, and keep everything else the same.'
   );
 }
 

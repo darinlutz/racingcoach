@@ -56,11 +56,43 @@ internal static class Voice
 
     static Voice() => _ = Task.Factory.StartNew(RunAsync, TaskCreationOptions.LongRunning).Unwrap();
 
-    /// <summary>Where speech comes from (the site connection for the upload key in use), and where problems are logged.</summary>
-    public static void UseSite(Func<RacingCoachApi?> site, Action<string> log)
+    /// <summary>Where speech comes from (the site connection for the upload key in use), the driver's Preferred
+    /// Language (for Windows' voice), and where problems are logged.</summary>
+    public static void UseSite(Func<RacingCoachApi?> site, Func<string> language, Action<string> log)
     {
         _site = site;
+        _language = language;
         _log = log;
+    }
+
+    private static Func<string> _language = () => Loc.English;
+    private static string? _windowsVoiceLanguage;
+
+    // Windows' voice in the driver's language when one is installed, as the text is in their language and a voice of
+    // another language mangles it. Windows has voices for its own display language, and others can be added in
+    // Settings > Time & language > Speech. Without one, Windows' default voice says it, and the log says so once.
+    private static void UseWindowsVoiceFor(SpeechSynthesizer voice)
+    {
+        var language = Loc.Normalize(_language());
+        if (language == _windowsVoiceLanguage)
+            return;
+        _windowsVoiceLanguage = language;
+        try
+        {
+            var match = voice.GetInstalledVoices()
+                .Where(v => v.Enabled)
+                .Select(v => v.VoiceInfo)
+                .FirstOrDefault(v => v.Culture.TwoLetterISOLanguageName == language);
+            if (match is not null)
+                voice.SelectVoice(match.Name);
+            else
+                _log($"Windows has no voice for the {language} language installed, so its default voice speaks instead " +
+                     "(add one in Settings > Time & language > Speech).");
+        }
+        catch (Exception e) when (e is InvalidOperationException or ArgumentException)
+        {
+            // keep whichever voice it has
+        }
     }
 
     /// <summary>Says text (in the driver's language) after anything already being said, or instead of it with interrupt.</summary>
@@ -69,11 +101,6 @@ internal static class Voice
         if (!string.IsNullOrWhiteSpace(text))
             Enqueue(new Item(text.Trim(), null, text.Trim(), 0), interrupt);
     }
-
-    /// <summary>Says a fixed phrase in the driver's language (coachSpeech in the website's dictionaries, e.g.
-    /// "newLap"); Windows' voice says the English fallback when the site can't.</summary>
-    public static void SayPhrase(string phrase, string fallback, bool interrupt = false) =>
-        Enqueue(new Item(null, phrase, fallback, 0), interrupt);
 
     /// <summary>Plays a recording (a watcher's voice message from the Live Racing page) in turn with everything else,
     /// fetched when its turn comes; text is said in the coach voice when it can't be fetched.</summary>
@@ -141,6 +168,7 @@ internal static class Voice
                 }
                 else if (Synthesizer.Value is { } windowsVoice)
                 {
+                    UseWindowsVoiceFor(windowsVoice);
                     // Async so an interrupt (SpeakAsyncCancelAll) can cut it short
                     var prompt = windowsVoice.SpeakAsync(item.Fallback);
                     while (!prompt.IsCompleted)

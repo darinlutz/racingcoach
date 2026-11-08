@@ -10,7 +10,9 @@ import { aiRateLimit, type RateLimitedFeature } from './rateLimits';
 import { isAdmin } from './roles';
 import { getCurrentUser } from './session';
 import { getEnableAiFeatures, getShowPricing } from './siteSettings';
-import { apiText } from './i18n/server';
+import { checkedAnswer, languageCheck, namesIn } from './answerChecks';
+import { aiLanguageRule } from './i18n/languages';
+import { apiText, getLanguage } from './i18n/server';
 import { getUnits } from './unitsServer';
 
 const LLM_TYPES = ['openai', 'ollama'];
@@ -147,6 +149,8 @@ export function createRagRoute(
 
     try {
       const promptOnly = Boolean(modelFeature) && llmType === 'openai';
+      const language = await getLanguage(user);
+      const extra = (await payload?.()) ?? {};
       const result = await runPythonJson<{
         response?: string;
         system?: string;
@@ -155,17 +159,25 @@ export function createRagRoute(
         error?: string;
       }>(
         scriptFile,
-        // units: the user's Preferred Units, for scripts that show measurements (racecar_analysis_rag.py)
-        { ...(await payload?.()), query, llmType, embeddingType, units: await getUnits(user), promptOnly },
+        // units: the user's Preferred Units, for scripts that show measurements (racecar_analysis_rag.py);
+        // languageRule: added to the system prompt so the answer is in the user's Preferred Language
+        { ...extra, query, llmType, embeddingType, units: await getUnits(user), promptOnly, languageRule: aiLanguageRule(language) },
         timeoutMs
       );
 
       if (promptOnly && modelFeature && result.system && result.prompt) {
         const { system, prompt } = result;
+        const check = await languageCheck(language, namesIn(extra));
         result.response = await limit.track(async () => {
           const model = await chatModel(modelFeature, 0);
-          const reply = await model.invoke([new SystemMessage(system), new HumanMessage(prompt)]);
-          return reply.text.trim();
+          const messages = [new SystemMessage(system), new HumanMessage(prompt)];
+          const reply = await model.invoke(messages);
+          // A user of another language gets one rewrite of an answer with English words in it (src/lib/answerChecks.ts)
+          return checkedAnswer(
+            reply.text.trim(),
+            async (feedback) => (await model.invoke([...messages, reply, new HumanMessage(feedback)])).text.trim(),
+            check
+          ).catch(() => reply.text.trim());
         });
       }
 

@@ -1,9 +1,11 @@
 import { AIMessage } from '@langchain/core/messages';
 import { createAgent, tool } from 'langchain';
 import { z } from 'zod';
-import { aiLanguageRule, DEFAULT_LANGUAGE, type Language } from './i18n/languages';
+import { aiLanguageFeedback, aiLanguageRule, DEFAULT_LANGUAGE, type Language } from './i18n/languages';
 import { coachInstructionsRule } from './siteSettings';
 import { removeTrackPositions } from './trackPositions';
+import { checkedAnswer, languageCheck } from './answerChecks';
+import { englishWords } from './i18n/englishWords';
 import { chatModel } from '@/lib/aiModels';
 
 // My Race Trends page. The driver's races are synced from iRacePlan into racingcoach."RaceResults"
@@ -281,11 +283,21 @@ export async function runRaceTrends(
       : []
   );
 
+  // Race results have no track positions, but no coach ever says where on the track something happens; and an answer
+  // for a user of another language gets one rewrite if it has English words in it
+  const commentary = await checkedAnswer(
+    String(result.structuredResponse.commentary ?? '').trim(),
+    async (feedback) => {
+      const again = await agent.invoke({ messages: [...result.messages, { role: 'user', content: feedback }] }, { recursionLimit: 30 });
+      return String(again.structuredResponse.commentary ?? '').trim();
+    },
+    await languageCheck(language, raceNames(driver, events))
+  ).catch(() => removeTrackPositions(result.structuredResponse.commentary));
+
   return {
     trend: iRatingTrend(events),
     incidents: incidentTrend(events),
-    // Race results have no track positions, but no coach ever says where on the track something happens
-    commentary: removeTrackPositions(result.structuredResponse.commentary),
+    commentary,
     steps,
   };
 }
@@ -316,7 +328,13 @@ const COACHING_PROMPT =
   'safety rating), not telemetry, so never mention corners, braking points or lap-by-lap driving. Use only numbers ' +
   'from the tools, never invent data, write to the driver as "you", and use plain text with no markdown.';
 
-export async function runRaceCoaching(driver: string, events: RaceEvent[]): Promise<RaceCoaching> {
+// The series, tracks and cars of the races, and the driver, which answers use as they are
+const raceNames = (driver: string, events: RaceEvent[]) => [driver, ...new Set(events.flatMap((e) => [e.series, e.track, e.car, e.category]))];
+
+// Every text of a coaching card, for the language check
+const coachingTexts = (c: RaceCoaching) => [c.summary, ...c.opportunities.flatMap((o) => [o.title, o.advice, o.impact])].join('\n');
+
+export async function runRaceCoaching(driver: string, events: RaceEvent[], language: Language = DEFAULT_LANGUAGE): Promise<RaceCoaching> {
   if (!process.env.OPENAI_API_KEY) {
     throw new Error('OPENAI_API_KEY is not configured');
   }
@@ -324,14 +342,23 @@ export async function runRaceCoaching(driver: string, events: RaceEvent[]): Prom
   const agent = createAgent({
     model: await chatModel('raceCoaching', 0.2),
     tools: createTools(driver, events),
-    systemPrompt: COACHING_PROMPT + (await coachInstructionsRule()),
+    systemPrompt: COACHING_PROMPT + (await coachInstructionsRule()) + aiLanguageRule(language),
     responseFormat: coachingSchema,
   });
 
-  const result = await agent.invoke(
+  let result = await agent.invoke(
     { messages: [{ role: 'user', content: `Coach ${driver} on their race results.` }] },
     { recursionLimit: 30 }
   );
+  // A card for a user of another language with English words in it gets one rewrite
+  const check = await languageCheck(language, raceNames(driver, events));
+  const english = check ? englishWords(coachingTexts(result.structuredResponse), language, check.names) : [];
+  if (english.length > 0) {
+    result = await agent.invoke(
+      { messages: [...result.messages, { role: 'user', content: aiLanguageFeedback(language, english) }] },
+      { recursionLimit: 30 }
+    );
+  }
   // Race results have no track positions, but no coach ever says where on the track something happens
   const coaching: RaceCoaching = result.structuredResponse;
   return {

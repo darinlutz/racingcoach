@@ -7,7 +7,8 @@ import type { EngineerSnapshot, LiveUpdate } from './liveRacing';
 import { analyzeRotationSession, type SessionRotation } from './rotationAnalysis';
 import { calibrationForCar, ROTATION_MODEL_CONFIG } from './rotationModelConfig';
 import { getSetupEngineerInstructions } from './siteSettings';
-import { TRACK_POSITION_RULE, withoutTrackPositions } from './trackPositions';
+import { TRACK_POSITION_RULE } from './trackPositions';
+import { checkedAnswer, languageCheck, namesIn } from './answerChecks';
 import { DEFAULT_UNITS, type Units } from './units';
 
 // The Setup Engineer: Driver Radio's car setup specialist. When the driver asks the Race Engineer (src/lib/raceEngineer.ts)
@@ -203,12 +204,15 @@ export async function setupEngineerReply(input: {
   const first = (await ask([{ role: 'user', content }])).trim();
   if (!first) return null;
   try {
-    const reply = await withoutTrackPositions(first, (feedback) =>
-      ask([
-        { role: 'user', content },
-        { role: 'assistant', content: first },
-        { role: 'user', content: feedback },
-      ])
+    const reply = await checkedAnswer(
+      first,
+      (feedback) =>
+        ask([
+          { role: 'user', content },
+          { role: 'assistant', content: first },
+          { role: 'user', content: feedback },
+        ]),
+      await languageCheck(input.language ?? DEFAULT_LANGUAGE, namesIn(input.update))
     );
     return reply.slice(0, MAX_REPLY_CHARS);
   } catch {

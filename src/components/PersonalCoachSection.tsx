@@ -24,10 +24,11 @@ const voices = [
 ] as const;
 
 export default function PersonalCoachSection() {
-  const { t: dictionary } = useLanguage();
+  const { t: dictionary, language: siteLanguage } = useLanguage();
   const t = dictionary.home;
   const styles = dictionary.inCarCoach.voiceStyles;
-  const [language, setLanguage] = useState(0);
+  // Opens on the visitor's own language, so its sample is the first thing they read
+  const [language, setLanguage] = useState(() => Math.max(0, languages.findIndex((l) => l.code.toLowerCase() === siteLanguage)));
   const [voice, setVoice] = useState(0);
   const [notes, setNotes] = useState(t.instructionsSample);
 

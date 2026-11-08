@@ -292,6 +292,24 @@ public sealed class SimulatorSelectionTests
     }
 
     [Fact]
+    public async Task A_picked_simulator_that_is_not_running_is_waited_for_quietly_not_retried()
+    {
+        var sim = Sim("acc", false, false, false);
+        var log = new List<string>();
+        var supervisor = new SimulatorSupervisor([sim], "acc", (m, _) => { lock (log) log.Add(m); }) { PollInterval = TimeSpan.FromMilliseconds(5) };
+        using var cancel = new CancellationTokenSource();
+        var ran = new TaskCompletionSource();
+        var run = supervisor.RunAsync((_, _) => { ran.TrySetResult(); cancel.Cancel(); return Task.CompletedTask; }, cancel.Token);
+        await Task.Delay(50);
+        Assert.False(ran.Task.IsCompleted);
+        lock (log)
+            Assert.Empty(log);
+        sim.ProbeResult = new SimulatorProbe(null, true, true, false);
+        await ran.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => run);
+    }
+
+    [Fact]
     public async Task An_unknown_simulator_is_an_error_not_a_silent_fallback()
     {
         var log = new List<string>();

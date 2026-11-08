@@ -17,7 +17,7 @@ public static class SimulatorSelection
             ?? probes.FirstOrDefault(p => p.Probe.ProcessRunning && p.Probe.InterfaceOpen).Adapter;
     }
 
-    private static SimulatorProbe SafeProbe(ISimulatorAdapter adapter)
+    internal static SimulatorProbe SafeProbe(ISimulatorAdapter adapter)
     {
         try
         {
@@ -56,6 +56,13 @@ public sealed class SimulatorSupervisor(IReadOnlyList<ISimulatorAdapter> adapter
             if (adapter is null)
             {
                 last = null;
+                await Task.Delay(PollInterval, cancel);
+                continue;
+            }
+            // The user's pick is chosen whether it's running or not: wait quietly until it's running with its interface
+            // open, rather than starting it to fail (and log) again every few seconds
+            if (manualId is not null && SimulatorSelection.SafeProbe(adapter) is not { ProcessRunning: true, InterfaceOpen: true })
+            {
                 await Task.Delay(PollInterval, cancel);
                 continue;
             }

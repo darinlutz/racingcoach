@@ -515,13 +515,18 @@ function viewTopUnder(header: HTMLElement | null): number {
 
 // initialLaps: laps to start with, e.g. two recorded laps sent from Debrief Coach's Compare button. lapSummary: the
 // user may ask for the AI summary (canUseLapSummary); otherwise (Bronze members) Provide summary is disabled, and
-// hovering it says why
+// hovering it says why. autoAnalyze: press Analyze Laps for the initial laps as soon as the tracks have loaded, with
+// Provide summary checked when the user may have it; onAutoAnalyzed is called once it has started
 export default function LapCompare({
   initialLaps = null,
   lapSummary = false,
+  autoAnalyze = false,
+  onAutoAnalyzed,
 }: {
   initialLaps?: { base: LapFile; compare: LapFile } | null;
   lapSummary?: boolean;
+  autoAnalyze?: boolean;
+  onAutoAnalyzed?: () => void;
 }) {
   const { t: dictionary, locale } = useLanguage();
   const units = useUnits();
@@ -548,7 +553,9 @@ export default function LapCompare({
   >([]);
   const [analyzing, setAnalyzing] = useState(false);
   // Provide summary: off, Analyze Laps still measures every focus area but skips the AI summary
-  const [provideSummary, setProvideSummary] = useState(false);
+  const [provideSummary, setProvideSummary] = useState(autoAnalyze && lapSummary && initialLaps !== null);
+  // The automatic Analyze Laps has run (a ref, so React's development double effects don't run it twice)
+  const autoAnalyzed = useRef(false);
   // The focus area whose telemetry is shown, picked across the top
   const [selectedArea, setSelectedArea] = useState('');
   // The data tab under the charts (Balance, Engine, ...), kept when another focus area is picked; the leftmost first
@@ -809,6 +816,18 @@ export default function LapCompare({
       setAnalyzing(false);
     }
   };
+
+  // Laps sent from Debrief Coach's Compare buttons are analyzed straight away, once the tracks (and so the laps'
+  // focus areas) have loaded
+  const analyzeLapsRef = useRef(analyzeLaps);
+  analyzeLapsRef.current = analyzeLaps;
+  const tracksReady = tracks.length > 0 && trackName !== '';
+  useEffect(() => {
+    if (!autoAnalyze || autoAnalyzed.current || !tracksReady || !baseLap || !compareLap) return;
+    autoAnalyzed.current = true;
+    onAutoAnalyzed?.();
+    void analyzeLapsRef.current();
+  }, [autoAnalyze, tracksReady, baseLap, compareLap, onAutoAnalyzed]);
 
   return (
     <div className="bg-secondary rounded-xl border border-border p-8 space-y-6">

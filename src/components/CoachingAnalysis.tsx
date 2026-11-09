@@ -28,8 +28,11 @@ export default function CoachingAnalysis({ lapSummary }: { lapSummary: boolean }
   const [activeTab, setActiveTab] = useState<Tab>('debrief');
   // Laps sent from Debrief Coach's Compare button, opened in Lap Compare (Target = the faster one)
   const [lapsToCompare, setLapsToCompare] = useState<{ base: LapFile; compare: LapFile } | null>(null);
+  // Lap Compare presses Analyze Laps itself once for laps just sent, not again when its tab is reopened later
+  const [autoAnalyze, setAutoAnalyze] = useState(false);
   const compareLaps = (base: LapFile, compare: LapFile) => {
     setLapsToCompare({ base, compare });
+    setAutoAnalyze(true);
     setActiveTab('lapCompare');
   };
 
@@ -76,7 +79,14 @@ export default function CoachingAnalysis({ lapSummary }: { lapSummary: boolean }
 
             {activeTab === 'friends' && <FriendsRoster />}
             {activeTab === 'stint' && <StintAnalysis />}
-            {activeTab === 'lapCompare' && <LapCompare initialLaps={lapsToCompare} lapSummary={lapSummary} />}
+            {activeTab === 'lapCompare' && (
+              <LapCompare
+                initialLaps={lapsToCompare}
+                lapSummary={lapSummary}
+                autoAnalyze={autoAnalyze}
+                onAutoAnalyzed={() => setAutoAnalyze(false)}
+              />
+            )}
             {activeTab === 'debrief' && <DebriefCoach onCompare={compareLaps} />}          </div>
         </div>
       </section>

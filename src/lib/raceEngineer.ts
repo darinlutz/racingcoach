@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { chatModel } from './aiModels';
 import type { CollectorSession } from './collectorSession';
 import { brakeChangeRule, createTools } from './debriefCoach';
+import { engineeringKnowledgeTool } from './engineering/knowledgeTool';
 import { describeAreaTurns } from './focusAreaTurns';
 import { aiLanguageRule, DEFAULT_LANGUAGE, type Language } from './i18n/languages';
 import { driverInstructionsRule, headCoachInCarRule, readHeadCoachInCarInstructions } from './inCarCoach';
@@ -73,6 +74,10 @@ const enginePrompt = (units: Units, hasTools: boolean) =>
       'nothing is known about it or where it is: say so. ' +
       ' Do not call tools for questions the live facts answer (gaps, position, fuel, laps left). '
     : TRACK_POSITION_RULE + ' ') +
+  'For a question about driving technique or why the car does something that is not a setup question (e.g. "how ' +
+  'do I trail brake", "why do I lose the rear on the kerbs"), you may call get_engineering_knowledge once and answer ' +
+  'with the driving correction it gives, in your own short words; never turn it into a setup change, and never say ' +
+  'something happened that the live facts or the laps do not show. ' +
   'Name focus areas by their names, never by a distance from the start/finish line. ' +
   LAP_TIME_RULE +
   ' Your answer is spoken, though, so round every time difference to the nearest tenth of a second and write it ' +
@@ -266,7 +271,13 @@ export async function raceEngineerReply(input: {
   const units = input.units ?? DEFAULT_UNITS;
   const measured = input.measured;
   const hasAreas = !!measured?.session && measured.session.areas.some((area) => area.runs.length > 0);
-  const tools = hasAreas ? createTools(measured!.session!, units, measured!.carRpmLimit) : [];
+  // The Race Engineering knowledge base, for questions about driving technique and why the car behaves as it does
+  // (src/lib/engineering/knowledgeTool.ts); setup questions still go to the Setup Engineer
+  const car = input.snapshot?.update.car ?? measured?.session?.car ?? null;
+  const tools = [
+    ...(hasAreas ? createTools(measured!.session!, units, measured!.carRpmLimit) : []),
+    ...(car ? [engineeringKnowledgeTool(car, { maxTokens: 700 })] : []),
+  ];
   const agent = createAgent({
     model: await chatModel('raceEngineer', 0.3),
     tools,

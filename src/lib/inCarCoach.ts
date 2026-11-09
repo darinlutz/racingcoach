@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { createAgent } from 'langchain';
 import { z } from 'zod';
 import { brakeChangeRule, createTools, type DebriefSession } from './debriefCoach';
+import { engineeringKnowledgeTool } from './engineering/knowledgeTool';
 import { brakesLaterOnColdTires, tireWarmupFact, type TireWarmup } from './tireWarmup';
 import { hasTrackPosition, withKmh } from './trackPositions';
 import { DEFAULT_UNITS, DISTANCE_NAME, DISTANCE_UNIT, SPEED_UNIT, type Units } from './units';
@@ -284,6 +285,9 @@ const calloutPrompt = (units: Units) =>
   'lap to lap: prefer a focus area or change you have not mentioned recently, tell the driver how the newest lap ' +
   'went on something you said before (better or worse, with its number), or give the next most useful change. ' +
   'Only repeat earlier advice word for word when nothing else in the data is worth saying. ' +
+  'When the data shows the car misbehaving in a focus area (e.g. steering held long with the speed down, the ' +
+  'throttle picked up and dropped again), you may call get_engineering_knowledge at most once to choose the right ' +
+  'driving correction; a callout is always a driving change, never a setup change. ' +
   'Use the numbers from the data, never ' +
   'invent data, talk to the driver as "you", and use plain text with no markdown.' +
   LAP_TIME_RULE +
@@ -315,7 +319,10 @@ export async function inCarCoachCallouts(input: {
 
   const units = input.units ?? DEFAULT_UNITS;
   const hasAreas = !!input.session && input.session.areas.some((area) => area.runs.length > 0);
-  const tools = hasAreas ? createTools(input.session!, units, input.carRpmLimit ?? null) : [];
+  // The Race Engineering knowledge base (src/lib/engineering/knowledgeTool.ts), only alongside lap data to judge
+  const tools = hasAreas
+    ? [...createTools(input.session!, units, input.carRpmLimit ?? null), engineeringKnowledgeTool(input.car, { maxTokens: 600 })]
+    : [];
   const systemPrompt =
     calloutPrompt(units) +
     (await coachInstructionsRule()) +

@@ -21,6 +21,12 @@ DATABASE_URL=postgres://<your Mac user>@127.0.0.1:5432/racingcoach_dev
 PRODUCTION_DATABASE_URL=<the live database's URL>   # read only by --copy-from production
 ```
 
+On Windows, with PostgreSQL from postgresql.org (EDB's installer, running as a Windows service), one script does all of
+this: `powershell -ExecutionPolicy Bypass -File scripts\setupDevDatabase.ps1` (`-Port` if it isn't 5432). It asks for
+the `postgres` superuser's password (not saved), creates the login role and database `racingcoach_dev` with a random
+password, moves a `DATABASE_URL` that isn't on this computer to `PRODUCTION_DATABASE_URL` (keeping `.env.local.bak`),
+points `DATABASE_URL` at the new database, and runs `npm run db:dev -- --copy-from production`.
+
 `--copy-from production` copies the shared reference data, read only, from the database in `PRODUCTION_DATABASE_URL`:
 Track Data (`"Tracks"`, `"TrackFocusAreas"`, with their outlines and lengths), Car Data (`"Cars"`), `"TracksNumberOfCorners"`,
 the simulator mappings and `"SiteSettings"` (coach instructions, AI model choices, rate limits; not the Stripe portal

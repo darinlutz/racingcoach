@@ -8,9 +8,9 @@ namespace RacingCoach.Collector;
 /// The overlay's one row of focus area values, the Upcoming Focus Area (outlined): the area the car is in ("Area"),
 /// or the next one as soon as it leaves an area ("Next Area"), with its name and its values on this lap from
 /// TelemetryEngine.js; hidden without one. Inside an area, Brake Point and Brake Pressure are this lap's (Brake
-/// Pressure the area's target until the driver brakes), Wheel Diff the Target Lap's largest steering angle there
-/// ("Target 85°"); between areas all three are blank. The area just left's time and exit speed are up top, in
-/// OverlayStats ("T3 Time", "T3 Exit").
+/// Pressure the area's target until the driver brakes), Max Wheel° the Target Lap's largest steering angle there
+/// ("Target 85°"); between areas all three are blank. The area just left's time, exit speed and steering against the
+/// Target Lap's are up top, in OverlayStats ("T3 Time", "T3 Exit", "T3 Wheel° Diff", "T3 Wheel Point Diff").
 /// In the Target Telemetry window.
 /// </summary>
 public partial class OverlayAreaRow : UserControl
@@ -95,7 +95,7 @@ public partial class OverlayAreaRow : UserControl
         var shown = inArea ? area : null;
         Show(_cells[1], shown?.Brake, shown?.BrakeColor, alertBackground);
         Show(_cells[2], shown?.Force, shown?.ForceColor, null);
-        // Wheel Diff, like Brake Pressure (and, like it, never on the alert color): the Target Lap's max steering
+        // Max Wheel°, like Brake Pressure (and, like it, never on the alert color): the Target Lap's max steering
         Show(_cells[3], shown?.WheelDiff, null, null);
         Show(_cells[4], area?.Coast, null, alertBackground);
         Show(_cells[5], area?.Overlap, null, alertBackground);

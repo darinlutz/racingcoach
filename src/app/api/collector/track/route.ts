@@ -17,7 +17,9 @@ import { getUserById } from '@/lib/users';
 // Pressure boxes, and the script's throttle pickup) come only from the user's Target Lap, never from Track Data's
 // targets: where it first brakes in the area (feet from the start/finish line), its max brake there (%) and where
 // the throttle comes back after that braking (feet), 0 for one it doesn't have. MaxSteeringTarget (the overlay's
-// Max Steering box) is its largest steering wheel angle in the area, in degrees either way, 0 when it has none. targetLap says whether they're set:
+// Max Wheel° box and Wheel° Diff) is its largest steering wheel angle in the area, in degrees either way, and
+// MaxSteeringPointTarget (Wheel Point Diff) where that was, in feet from the start/finish line; 0 when it has none.
+// targetLap says whether they're set:
 // "set", "none" (the user has no Target Lap) or "otherTrack" (its file name names another track); all targets are 0
 // unless it's "set", and the collector asks the driver to pick a Target Lap and press Reload.
 export async function GET(request: Request) {
@@ -58,7 +60,8 @@ export async function GET(request: Request) {
         BrakepointTarget: targets.brakepointTarget ?? 0,
         MaxBrakeTarget: targets.maxBrakeTarget ?? 0,
         ThrottlePickupTarget: targets.throttlePickupTarget ?? 0,
-        MaxSteeringTarget: steeringTargets[i] ?? 0,
+        MaxSteeringTarget: steeringTargets[i]?.degrees ?? 0,
+        MaxSteeringPointTarget: steeringTargets[i]?.feet ?? 0,
       };
     });
     return NextResponse.json({

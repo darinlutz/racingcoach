@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:RacingCoach.Collector"
         Title="RacingCoach Target Telemetry"
-        Width="732" Height="550" MinWidth="560" MinHeight="470"
+        Width="1000" Height="470" MinWidth="760" MinHeight="400"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         Opacity="0.85" Topmost="True" ShowInTaskbar="False" ResizeMode="CanResizeWithGrip"
         WindowStartupLocation="Manual" Left="960" Top="520"
@@ -46,8 +46,9 @@
                 </StackPanel>
             </DockPanel>
 
-            <!-- The overlay's Max Brake, Min Speed and UNDERSTEER or OVERSTEER, and under them the focus area just left's
-                 time and exit ("T3 Time", "T3 Exit") for 3 s (collapsed if TelemetryEngine.js didn't load) -->
+            <!-- One row: the overlay's Max Brake, Min Speed and Max Steering, the focus area just left's time, exit,
+                 Wheel° Diff and Wheel Point Diff for 3 s, and UNDERSTEER or OVERSTEER (collapsed if TelemetryEngine.js
+                 didn't load) -->
             <local:OverlayStats x:Name="Stats" DockPanel.Dock="Top" Margin="0,0,0,8" />
 
             <!-- The In-Car Coach's latest message, for a while after it's shown; two lines' space is always kept for

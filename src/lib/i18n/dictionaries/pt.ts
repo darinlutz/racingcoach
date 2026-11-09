@@ -272,7 +272,7 @@ export const pt: Dictionary = {
     ],
     overlayShotAlt: 'O overlay de Telemetria Alvo, com as curvas de freio e acelerador da Volta Alvo e o freio do piloto desenhado por cima',
     brakeEyebrow: 'Treino de Frenagem',
-    brakeTitle: 'TREINE SEU PÉ DIREITO.',
+    brakeTitle: 'TREINE SEU PÉ ESQUERDO.',
     brakeCopy: 'O Treino de Frenagem lê seus pedais diretamente, então funciona com o simulador fechado. Siga zonas de frenagem reais da sua Volta Alvo enquanto elas passam e receba uma pontuação em cada uma.',
     brakePoints: [
       'Zonas de frenagem fortes e médias da sua própria Volta Alvo',

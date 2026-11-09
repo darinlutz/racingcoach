@@ -279,7 +279,7 @@ export const en = {
     ],
     overlayShotAlt: 'The Target Telemetry overlay, with the Target Lap’s brake and throttle traces and the driver’s own brake drawn over them',
     brakeEyebrow: 'Brake Practice',
-    brakeTitle: 'TRAIN YOUR RIGHT FOOT.',
+    brakeTitle: 'TRAIN YOUR LEFT FOOT.',
     brakeCopy: 'Brake Practice reads your pedals directly, so it works with the sim closed. Follow real braking zones from your Target Lap as they scroll past, and get a score for every one.',
     brakePoints: [
       'Heavy and medium braking zones from your own Target Lap',

@@ -278,7 +278,7 @@ export const de: Dictionary = {
     ],
     overlayShotAlt: 'Das Ziel-Telemetrie-Overlay mit Brems- und Gaskurve der Ziel-Runde und der eigenen Bremse des Fahrers darüber',
     brakeEyebrow: 'Bremstraining',
-    brakeTitle: 'TRAINIERE DEINEN RECHTEN FUSS.',
+    brakeTitle: 'TRAINIERE DEINEN LINKEN FUSS.',
     brakeCopy: 'Das Bremstraining liest deine Pedale direkt aus und funktioniert deshalb auch bei geschlossener Simulation. Folge echten Bremszonen deiner Ziel-Runde, während sie vorbeilaufen, und bekomme für jede eine Punktzahl.',
     brakePoints: [
       'Harte und mittlere Bremszonen aus deiner eigenen Ziel-Runde',

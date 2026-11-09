@@ -6,17 +6,18 @@
         <ResourceDictionary Source="OverlayStyles.xaml" />
     </UserControl.Resources>
 
-    <!-- Peak brake pressure, minimum speed and largest steering angle of the last few seconds, and the Rotation
-         Model's label; under them the focus area just left's time and exit speed -->
-    <StackPanel HorizontalAlignment="Left">
+    <!-- One row: peak brake pressure, minimum speed and largest steering angle of the last few seconds; the focus area
+         just left's time, exit speed, Wheel° Diff and Wheel Point Diff; and the Rotation Model's label -->
     <Grid HorizontalAlignment="Left">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="100" />
-            <ColumnDefinition Width="10" />
-            <ColumnDefinition Width="115" />
-            <ColumnDefinition Width="10" />
-            <ColumnDefinition Width="115" />
-            <ColumnDefinition Width="10" />
+            <ColumnDefinition Width="8" />
+            <ColumnDefinition Width="110" />
+            <ColumnDefinition Width="8" />
+            <ColumnDefinition Width="110" />
+            <ColumnDefinition Width="8" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="8" />
             <ColumnDefinition Width="Auto" />
         </Grid.ColumnDefinitions>
         <StackPanel Grid.Column="0">
@@ -34,24 +35,32 @@
             <TextBlock Style="{StaticResource Heading}" local:Loc.Key="overlay.maxSteering" />
             <TextBox x:Name="MaxSteeringBox" Style="{StaticResource BigBox}" Foreground="#F98F3A" />
         </StackPanel>
+
+        <!-- The focus area just left: "T3 Time", "T3 Exit" (purple BEST for a session best), "T3 Wheel° Diff" and
+             "T3 Wheel Point Diff", for 3 s after leaving it (OverlayEngine's LastAreaHoldMs), then hidden. Hidden
+             rather than collapsed, so nothing beside or under it moves. Level with the bottoms of the big boxes -->
+        <StackPanel x:Name="LastAreaPanel" Grid.Column="6" Orientation="Horizontal" VerticalAlignment="Bottom" Visibility="Hidden">
+            <StackPanel Width="100">
+                <TextBlock x:Name="LastTimeHeading" Style="{StaticResource Heading}" />
+                <TextBox x:Name="LastTimeBox" Style="{StaticResource MidBox}" />
+            </StackPanel>
+            <StackPanel Width="110" Margin="8,0,0,0">
+                <TextBlock x:Name="LastExitHeading" Style="{StaticResource Heading}" />
+                <TextBox x:Name="LastExitBox" Style="{StaticResource MidBox}" />
+            </StackPanel>
+            <StackPanel Width="110" Margin="8,0,0,0">
+                <TextBlock x:Name="LastWheelDiffHeading" Style="{StaticResource Heading}" />
+                <TextBox x:Name="LastWheelDiffBox" Style="{StaticResource MidBox}" />
+            </StackPanel>
+            <StackPanel Width="130" Margin="8,0,0,0">
+                <TextBlock x:Name="LastWheelPointHeading" Style="{StaticResource Heading}" />
+                <TextBox x:Name="LastWheelPointBox" Style="{StaticResource MidBox}" />
+            </StackPanel>
+        </StackPanel>
+
         <!-- UNDERSTEER or OVERSTEER from the Rotation Model while it's sure; hidden (keeping its space) otherwise.
-             No heading: it sits at the bottom, level with the Max Brake and Min Speed boxes -->
-        <TextBox x:Name="HandlingBox" Grid.Column="6" Style="{StaticResource BigBox}" MinWidth="230" Visibility="Hidden"
+             No heading: it sits at the bottom, level with the other boxes -->
+        <TextBox x:Name="HandlingBox" Grid.Column="8" Style="{StaticResource MidBox}" MinWidth="130" Visibility="Hidden"
                  VerticalAlignment="Bottom" />
     </Grid>
-
-    <!-- The focus area just left: "T3 Time" and "T3 Exit" (purple BEST for a session best), for 3 s after leaving it
-         (OverlayEngine's LastAreaHoldMs), then hidden. Hidden rather than collapsed, so the space stays and the
-         chart and the In-Car Coach's message under it don't move -->
-    <StackPanel x:Name="LastAreaPanel" Orientation="Horizontal" Margin="0,4,0,0" Visibility="Hidden">
-        <StackPanel Width="130">
-            <TextBlock x:Name="LastTimeHeading" Style="{StaticResource Heading}" />
-            <TextBox x:Name="LastTimeBox" Style="{StaticResource MidBox}" Margin="0" />
-        </StackPanel>
-        <StackPanel Width="130" Margin="10,0,0,0">
-            <TextBlock x:Name="LastExitHeading" Style="{StaticResource Heading}" />
-            <TextBox x:Name="LastExitBox" Style="{StaticResource MidBox}" Margin="0" />
-        </StackPanel>
-    </StackPanel>
-    </StackPanel>
 </UserControl>

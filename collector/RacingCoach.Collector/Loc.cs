@@ -130,9 +130,12 @@ internal static class Loc
         ["overlay.maxBrake"] = ("Max Brake", "Freio máx.", "Freno máx.", "Max. Bremse"),
         ["overlay.minSpeed"] = ("Min Speed ({0})", "Vel. mínima ({0})", "Vel. mínima ({0})", "Min. Tempo ({0})"),
         ["overlay.maxSteering"] = ("Max Steering", "Direção máx.", "Dirección máx.", "Max. Lenkung"),
-        // The focus area row's Wheel Diff: the Target Lap's max steering less the live angle, and the driver's max
-        // against the Target Lap's, in whole degrees
-        ["overlay.wheelDiff"] = ("Wheel Diff", "Dif. volante", "Dif. volante", "Lenkdiff."),
+        // The focus area row's Max Wheel°: the Target Lap's max steering wheel angle in the area ("Target 85°")
+        ["overlay.wheelDiff"] = ("Max Wheel°", "Volante máx.°", "Volante máx.°", "Max. Lenkrad°"),
+        // The area just left, for 3 s: the driver's max steering wheel angle less the Target Lap's, and where it was
+        // against where the Target Lap's was ("5 ft early")
+        ["overlay.areaWheelDiff"] = ("{0} Wheel° Diff", "Dif. volante° {0}", "Dif. volante° {0}", "{0} Lenkrad° Diff."),
+        ["overlay.areaWheelPoint"] = ("{0} Wheel Point Diff", "Dif. ponto volante {0}", "Dif. punto volante {0}", "{0} Lenkpunkt Diff."),
         ["overlay.focusArea"] =("Area", "Área", "Zona", "Bereich"),
         ["overlay.nextArea"] = ("Next Area", "Próxima área", "Próxima zona", "Nächster Bereich"),
         ["overlay.brakePoint"] = ("Brake Point", "Ponto de frenagem", "Punto de frenado", "Bremspunkt"),

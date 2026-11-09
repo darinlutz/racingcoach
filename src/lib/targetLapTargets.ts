@@ -31,10 +31,15 @@ export function withTargetLap(track: Track, lap: TargetLap | null): Track {
 }
 
 // The Target Lap's largest steering wheel angle in each of a track's areas (degrees, either way; the overlay's Max
-// Steering box), in the areas' order; null for an area it doesn't cover or has no steering in, and all null
-// without a lap
-export function targetMaxSteering(track: Track, lap: TargetLap | null): (number | null)[] {
+// Wheel° box and its Wheel° Diff), and where it was (feet from the start/finish line, the overlay's Wheel Point
+// Diff; null without the track's length), in the areas' order; null for an area it doesn't cover or has no
+// steering in, and all null without a lap
+export function targetMaxSteering(
+  track: Track,
+  lap: TargetLap | null,
+): ({ degrees: number; feet: number | null } | null)[] {
   const samples = lap ? lapSamplesFromText(lap.csv) : null;
+  const lengthFeet = lap ? (track.lengthFeet ?? lapCsvTrackLengthFeet(lap.csv)) : null;
   return track.areas.map((area) => {
     if (!samples || area.start === null || area.end === null) return null;
     const startIndex = crossingIndex(samples.pcts, area.start, 0);
@@ -43,11 +48,20 @@ export function targetMaxSteering(track: Track, lap: TargetLap | null): (number 
     const endIndex = crossingIndex(samples.pcts, area.end < area.start ? area.end + 1 : area.end, startIndex);
     if (endIndex === null) return null;
     let max: number | null = null;
+    let at = -1;
     for (let i = Math.ceil(startIndex); i <= Math.floor(endIndex) && i < samples.steerings.length; i++) {
       const steering = Math.abs(samples.steerings[i]);
-      if (Number.isFinite(steering) && (max === null || steering > max)) max = steering;
+      if (Number.isFinite(steering) && (max === null || steering > max)) {
+        max = steering;
+        at = i;
+      }
     }
-    return max === null ? null : Math.round(((max * 180) / Math.PI) * 10) / 10;
+    if (max === null) return null;
+    const pct = samples.pcts[at];
+    return {
+      degrees: Math.round(((max * 180) / Math.PI) * 10) / 10,
+      feet: lengthFeet && Number.isFinite(pct) ? brakeFeet(pct, lengthFeet) : null,
+    };
   });
 }
 

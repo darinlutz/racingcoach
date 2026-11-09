@@ -21,8 +21,9 @@ const TAB_ROWS: Tab[][] = [
   ['friends'],
 ];
 
-// The My Sessions page's tabs (src/app/racing/page.tsx, which only shows them to signed-in users)
-export default function CoachingAnalysis() {
+// The My Sessions page's tabs (src/app/racing/page.tsx, which only shows them to signed-in users). lapSummary: the
+// user may use Lap Compare's Provide summary (canUseLapSummary: not Bronze members)
+export default function CoachingAnalysis({ lapSummary }: { lapSummary: boolean }) {
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<Tab>('debrief');
   // Laps sent from Debrief Coach's Compare button, opened in Lap Compare (Target = the faster one)
@@ -75,7 +76,7 @@ export default function CoachingAnalysis() {
 
             {activeTab === 'friends' && <FriendsRoster />}
             {activeTab === 'stint' && <StintAnalysis />}
-            {activeTab === 'lapCompare' && <LapCompare initialLaps={lapsToCompare} />}
+            {activeTab === 'lapCompare' && <LapCompare initialLaps={lapsToCompare} lapSummary={lapSummary} />}
             {activeTab === 'debrief' && <DebriefCoach onCompare={compareLaps} />}          </div>
         </div>
       </section>

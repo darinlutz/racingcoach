@@ -41,6 +41,10 @@ export const canUseInCarCoach = (user: { membershipLevel: string; role: string }
 // are for the same members, as each makes AI or speech calls all race long
 export const canUseVoiceAi = canUseInCarCoach;
 
+// Lap Compare's Provide summary (the AI Lap Summary, /api/lap-summary) is for the same members; Bronze members see the
+// checkbox disabled, with a tooltip saying why
+export const canUseLapSummary = canUseInCarCoach;
+
 // How many of the newest stints (sessions) Debrief Coach's recorded laps list shows: 8 for Bronze, 20 for Silver,
 // 50 for Gold members, Coaches and Admins (the most anyone sees)
 export const STINT_LIMITS = { bronze: 8, silver: 20, max: 50 } as const;

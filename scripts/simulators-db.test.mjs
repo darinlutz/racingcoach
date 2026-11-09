@@ -253,7 +253,9 @@ describe('simulators in the database', { skip }, () => {
       return [900 * Math.cos(a) + 250 * Math.cos(2 * a), 500 * Math.sin(a) + 120 * Math.sin(3 * a)]; // east, north (m)
     };
     const toLatLon = ([e, n]) => [lat0 + (n / R) * (180 / Math.PI), lon0 + (e / (R * Math.cos((lat0 * Math.PI) / 180))) * (180 / Math.PI)];
-    const outline = Array.from({ length: 500 }, (_, i) => toLatLon(shape(i / 500)));
+    // Like a learned outline (trackOutlines.ts): point i is the average of a lap's samples from i / 500 to (i + 1) / 500,
+    // so it's where the car is at the middle of that
+    const outline = Array.from({ length: 500 }, (_, i) => toLatLon(shape((i + 0.5) / 500)));
     const [{ id: trackId }] = await q(
       `INSERT INTO racingcoach."Tracks" (track_name, config_name, track_key, track_outline) VALUES ('World Test', 'GP', $1, $2) RETURNING id`,
       [KEY, JSON.stringify({ kind: 'latlon', points: outline })]
@@ -297,6 +299,9 @@ describe('simulators in the database', { skip }, () => {
       const [lat, lon] = toLatLon(shape((i / 600 + 0.03) % 1));
       const meters = Math.hypot((row[4] - lat) * 111_200, (row[5] - lon) * 111_200 * Math.cos((lat0 * Math.PI) / 180));
       assert.ok(meters < 0.5, `sample ${i} is ${meters.toFixed(2)} m out`);
+      // The lap position is iRacing's (its start line 3% before ACC's), so focus areas cut it where they cut iRacing's
+      const pctOff = row[1] - (i / 600 + 0.03);
+      assert.ok(Math.abs(pctOff - Math.round(pctOff)) < 0.001, `sample ${i} lap position ${row[1]}`);
       assert.ok(Math.abs(row[6] - (12 + 10 * Math.sin((2 * Math.PI * i) / 600))) < 0.01, 'Alt is the world height');
     }
     const stored = await alignment();

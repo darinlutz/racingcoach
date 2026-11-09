@@ -15,6 +15,7 @@ import {
   fitWorldAlignment,
   lapSteps,
   outlineHash,
+  outlineLapPcts,
   worldToLatLon,
 } from '../src/lib/worldAlignment.ts';
 
@@ -116,6 +117,44 @@ test('two laps of one track go through the same alignment, so their lines differ
     const onEarth = metersBetween(worldToLatLon(alignment, a.x, a.z), worldToLatLon(alignment, b.x, b.z));
     assert.ok(Math.abs(inAcc - onEarth) < 0.05, `${inAcc} vs ${onEarth}`);
   }
+});
+
+// The distance between two lap positions, the short way round
+const pctGap = (a, b) => Math.abs(a - b - Math.round(a - b));
+
+test('every sample gets the lap position iRacing would give it, so focus areas cut both laps at the same places', () => {
+  // The stand-in outline's start line is 10 steps (2% of the lap) before ACC's: an iRacing lap position is ACC's
+  // minus 0.02 here, as the two recordings are of the same ACC spline
+  const truth = placed(37 * rad, 812.5, -233.1);
+  const outline = outlineFrom(lapB, truth, 10);
+  const { alignment } = fitWorldAlignment(asLap(lapA), outline, 'spa gp');
+  const pcts = outlineLapPcts(alignment, outline, asLap(lapA));
+  assert.equal(pcts.length, lapA.length);
+  assert.ok(pcts.every((p) => p >= 0 && p < 1));
+  // The stand-in's lap B turns into pit entry at the end (a real outline is only ever from a clean lap), so its last
+  // few percent aren't the track's line and are left out
+  const gaps = lapA.flatMap((s, i) => (s.pct < 0.94 ? [pctGap(pcts[i], s.pct - 0.02)] : []));
+  const mean = gaps.reduce((sum, g) => sum + g, 0) / gaps.length;
+  // A step of the outline is 0.2% of the lap (about 14 m at Spa)
+  assert.ok(mean < 0.0005, `mean ${(mean * 100).toFixed(3)}% of the lap out`);
+  assert.ok(Math.max(...gaps) < 0.0015, `worst ${(Math.max(...gaps) * 100).toFixed(3)}% of the lap out`);
+  // Never backwards round the lap: it crosses iRacing's line once, just after ACC's
+  let wraps = 0;
+  for (let i = 1; i < pcts.length; i++) {
+    const step = pcts[i] - pcts[i - 1];
+    if (step < -0.5) wraps++;
+    else assert.ok(step >= 0, `sample ${i} goes back ${step}`);
+  }
+  assert.equal(wraps, 1);
+});
+
+test('a lap without world coordinates is moved by the start line offset alone', () => {
+  const outline = outlineFrom(lapB, placed(1, 2, 3), 10);
+  const { alignment } = fitWorldAlignment(asLap(lapA), outline, 'spa gp');
+  const lap = { pcts: [0, 0.25, 0.5, NaN, 0.99], xs: [], zs: [] };
+  const pcts = outlineLapPcts(alignment, outline, lap);
+  for (const [i, expected] of [[0, 0.98], [1, 0.23], [2, 0.48], [4, 0.97]]) assert.ok(pctGap(pcts[i], expected) < 1e-9, `${i}: ${pcts[i]}`);
+  assert.ok(Number.isNaN(pcts[3]));
 });
 
 test('a lap that isnt the outlines track is refused', () => {

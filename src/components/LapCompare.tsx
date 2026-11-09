@@ -513,8 +513,16 @@ function viewTopUnder(header: HTMLElement | null): number {
   return header && getComputedStyle(header).position === 'sticky' ? header.getBoundingClientRect().bottom : 0;
 }
 
-// initialLaps: laps to start with, e.g. two recorded laps sent from Debrief Coach's Compare button
-export default function LapCompare({ initialLaps = null }: { initialLaps?: { base: LapFile; compare: LapFile } | null }) {
+// initialLaps: laps to start with, e.g. two recorded laps sent from Debrief Coach's Compare button. lapSummary: the
+// user may ask for the AI summary (canUseLapSummary); otherwise (Bronze members) Provide summary is disabled, and
+// hovering it says why
+export default function LapCompare({
+  initialLaps = null,
+  lapSummary = false,
+}: {
+  initialLaps?: { base: LapFile; compare: LapFile } | null;
+  lapSummary?: boolean;
+}) {
   const { t: dictionary, locale } = useLanguage();
   const units = useUnits();
   const t = dictionary.lapCompare;
@@ -775,7 +783,7 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
         );
         // Start on the area where the Compare lap loses the most time
         setSelectedArea(worst?.name ?? '');
-        if (!provideSummary) return;
+        if (!provideSummary || !lapSummary) return;
 
         // The table shows right away; the summary follows once the coach has written it
         setAnalysis(t.writing);
@@ -860,15 +868,26 @@ export default function LapCompare({ initialLaps = null }: { initialLaps?: { bas
             {analyzing ? t.analyzing : t.analyze}
           </button>
 
-          <label className="flex items-center gap-2 text-sm text-foreground">
+          {/* Bronze members can't ask for the summary: the box stays off and disabled, and its tooltip says why. The
+              title is on the label, as browsers show no tooltip over a disabled input */}
+          <label
+            title={lapSummary ? undefined : t.provideSummaryBronze}
+            className={`flex items-center gap-2 text-sm ${lapSummary ? 'text-foreground' : 'text-muted-foreground cursor-not-allowed'}`}
+          >
             <input
               type="checkbox"
-              checked={provideSummary}
+              checked={lapSummary && provideSummary}
               onChange={(e) => setProvideSummary(e.target.checked)}
-              disabled={analyzing}
-              className="accent-primary"
+              disabled={analyzing || !lapSummary}
+              aria-describedby={lapSummary ? undefined : 'provide-summary-bronze'}
+              className="accent-primary disabled:cursor-not-allowed"
             />
             {t.provideSummary}
+            {!lapSummary && (
+              <span id="provide-summary-bronze" className="sr-only">
+                {t.provideSummaryBronze}
+              </span>
+            )}
           </label>
         </div>
 

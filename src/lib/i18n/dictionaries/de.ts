@@ -1123,6 +1123,7 @@ export const de: Dictionary = {
     bothNotFrom: 'Beide hochgeladenen Runden stammen nicht von {track}.',
     analyze: 'Runden analysieren',
     provideSummary: 'Zusammenfassung erstellen',
+    provideSummaryBronze: 'Die Rundenzusammenfassung ist für Bronze-Mitglieder nicht verfügbar. Upgraden Sie auf Silber oder Gold, um die Rundenzusammenfassung zu nutzen.',
     analyzing: 'Wird analysiert…',
     summary: 'Zusammenfassung',
     summaryPlaceholderNoLaps: 'Lade eine Zielrunde und eine Vergleichsrunde hoch und klicke dann auf Runden analysieren.',
@@ -3463,6 +3464,7 @@ export const de: Dictionary = {
     stintTooLong: 'Der Stint-Bericht ist zu lang für eine Analyse',
     failedDebrief: 'Debrief konnte nicht gestartet werden',
     failedLapSummary: 'Die Runden konnten nicht zusammengefasst werden',
+    lapSummaryMembersOnly: 'Die Rundenzusammenfassung ist für Bronze-Mitglieder nicht verfügbar. Upgraden Sie auf Silber oder Gold, um sie zu nutzen.',
     failedStintSummary: 'Der Stint konnte nicht analysiert werden',
     failedRaceTrends: 'Die Renntrends konnten nicht abgerufen werden',
     // Race trends

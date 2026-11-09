@@ -202,6 +202,26 @@ internal sealed class CollectorEngine
 
     private static bool IsPickable(string id) => PickableSimulators.Any(s => s.Id == id);
 
+    // Everything in the Raw folder; a file another program has open is left for the next run
+    private static void DeleteRawRecordings(string folder)
+    {
+        if (!Directory.Exists(folder))
+            return;
+        foreach (var path in Directory.EnumerateFileSystemEntries(folder))
+        {
+            try
+            {
+                if (Directory.Exists(path))
+                    Directory.Delete(path, recursive: true);
+                else
+                    File.Delete(path);
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+            }
+        }
+    }
+
     /// <summary>The simulator being read: the picker's ("iracing" or "acc").</summary>
     public string Simulator => _simulator;
     /// <summary>The picker can change the simulator: not while playing an .ibt file back, or with --simulator auto.</summary>
@@ -450,6 +470,10 @@ internal sealed class CollectorEngine
             var ibtFolder = Path.Combine(_documents, "iRacing", "telemetry");
             _ = Task.Run(() => IbtEnricher.DeleteOldIbtFiles(ibtFolder, message => Log(message)));
         }
+        // Raw recordings (--record-raw, for checking an adapter against its simulator) are never uploaded; a run
+        // without the option clears what an earlier one left, so the folder stays empty. Not logged
+        if (!_options.RecordRaw)
+            _ = Task.Run(() => DeleteRawRecordings(Path.Combine(_documents, "RacingCoach", "Raw")));
 
         var live = Live.RunAsync(cancel);
         try

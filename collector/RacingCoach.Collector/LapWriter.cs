@@ -173,6 +173,8 @@ internal sealed class LapWriter : IAsyncDisposable
     {
         var session = lap.Session ?? new SessionContext(UnknownTrack, "Unknown Car", "Unknown Driver", 0, 0, new Dictionary<int, string>());
         var folder = FolderFor(session);
+        // Made again when RemoveIfFinished deleted it after the session's earlier laps uploaded
+        Directory.CreateDirectory(folder);
 
         var lapTime = FormatLapTime(lap.LapTimeSeconds);
         var id = $"S{lap.SessionNum}L{lap.LapNumber:000}";
@@ -254,8 +256,10 @@ internal sealed class LapWriter : IAsyncDisposable
         lap.Uploaded = result.Error is null;
         lap.UploadError = result.Error;
         DeleteUploadedCsvs(result.Folder, manifest);
-        manifest.Save(result.Folder);
+        // Reported before a finished folder goes, so the window's lap list shows the last lap uploaded
         Report(result.Folder, manifest, newLap: false);
+        if (!RemoveIfFinished(result.Folder, manifest))
+            manifest.Save(result.Folder);
     }
 
     private void AddPositionsFromIbt(AddPositions add)
@@ -273,9 +277,10 @@ internal sealed class LapWriter : IAsyncDisposable
         foreach (var (folder, manifest) in changed)
         {
             // Laps already uploaded that the .ibt didn't cover are finished now
-            if (DeleteUploadedCsvs(folder, manifest))
-                manifest.Save(folder);
+            var deleted = DeleteUploadedCsvs(folder, manifest);
             Report(folder, manifest, newLap: false);
+            if (deleted && !RemoveIfFinished(folder, manifest))
+                manifest.Save(folder);
         }
 
         // iRacing can take a moment to close the file after the car leaves the track
@@ -357,33 +362,42 @@ internal sealed class LapWriter : IAsyncDisposable
         return deleted > 0;
     }
 
+    // Deletes a session's folder (date, track and car) once every one of its laps is finished with: uploaded with its
+    // track positions settled, or past its retention period, so nothing is left once a session's uploads succeed.
+    // A lap that hasn't uploaded keeps the folder. When the session goes on (back in the car), its next lap makes the
+    // same folder again (Save), so the In-Car Coach and Race Engineer, which know a session by its folder, still
+    // see one session. True when the folder is gone (the caller doesn't save its manifest then).
+    private bool RemoveIfFinished(string folder, SessionManifest manifest)
+    {
+        if (manifest.Laps.Count == 0 || manifest.Laps.Any(l => !l.CsvDeleted))
+            return false;
+        Directory.Delete(folder, recursive: true);
+        return true;
+    }
+
     // At startup: deletes the CSVs DeleteUploadedCsvs would, and the entries of laps older than MaxLocalAge, and
-    // then the folders of sessions with no laps left
+    // then the folders of sessions with no laps left or all of them finished with
     private void DeleteAllUploadedCsvs()
     {
         if (!Directory.Exists(_root))
             return;
         var cutoff = DateTimeOffset.UtcNow - MaxLocalAge;
-        var removedLaps = 0;
-        var removedFolders = 0;
         foreach (var folder in Directory.GetDirectories(_root))
         {
             if (SessionManifest.Load(folder) is not { } manifest)
                 continue;
             var changed = DeleteUploadedCsvs(folder, manifest);
             var old = manifest.Laps.RemoveAll(l => l.RecordedAt < cutoff);
-            removedLaps += old;
-            if (manifest.Laps.Count == 0 && (old > 0 || changed))
+            // Sessions whose laps are all finished with, from earlier runs (or earlier versions, which kept them)
+            if (manifest.Laps.Count == 0 && (old > 0 || changed) || RemoveIfFinished(folder, manifest))
             {
-                Directory.Delete(folder, recursive: true);
-                removedFolders++;
+                if (Directory.Exists(folder))
+                    Directory.Delete(folder, recursive: true);
             }
             else if (changed || old > 0)
                 manifest.Save(folder);
         }
-        if (removedLaps > 0)
-            _log($"Removed {removedLaps} lap(s) completed more than {MaxLocalAge.TotalDays:0} days ago from this PC"
-                + (removedFolders > 0 ? $", and {removedFolders} empty session folder(s)." : "."));
+        // Not logged, like the rest of the clean-up
     }
 
     // One folder per iRacing session (track, car and session IDs); a new one when any of them changes.

@@ -10,7 +10,9 @@ internal sealed record LogEntry(DateTime Time, string Message, bool IsError);
 /// </summary>
 internal sealed class ActivityLog
 {
-    // The file is cut back to its newest half when it grows past this
+    // At each start the file keeps only the messages of the last few days, and is cut back to its newest half when
+    // it's still past MaxFileBytes
+    public static readonly TimeSpan MaxAge = TimeSpan.FromDays(3);
     private const long MaxFileBytes = 2 * 1024 * 1024;
 
     public static ActivityLog Shared { get; } = new();
@@ -23,17 +25,41 @@ internal sealed class ActivityLog
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
-            if (File.Exists(FilePath) && new FileInfo(FilePath).Length > MaxFileBytes)
+            if (File.Exists(FilePath))
             {
-                var text = File.ReadAllText(FilePath);
-                var keep = text[(text.Length / 2)..];
-                File.WriteAllText(FilePath, keep[(keep.IndexOf('\n') + 1)..]);
+                var text = KeepRecent(File.ReadAllText(FilePath), DateTime.Now - MaxAge);
+                if (text.Length > MaxFileBytes)
+                {
+                    var keep = text[(text.Length / 2)..];
+                    text = keep[(keep.IndexOf('\n') + 1)..];
+                }
+                File.WriteAllText(FilePath, text);
             }
         }
         catch (IOException)
         {
             // the log file is a convenience; the window still shows everything
         }
+    }
+
+    /// <summary>The log's text from its first message at or after <paramref name="since"/> (each line starts with
+    /// its time, "yyyy-MM-dd HH:mm:ss"); "" when every message is older.</summary>
+    internal static string KeepRecent(string text, DateTime since)
+    {
+        var start = 0;
+        while (start < text.Length)
+        {
+            var end = text.IndexOf('\n', start);
+            var line = text.AsSpan(start, (end < 0 ? text.Length : end) - start);
+            if (line.Length >= 19 && DateTime.TryParseExact(line[..19], "yyyy-MM-dd HH:mm:ss",
+                    System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var time)
+                && time >= since)
+                return text[start..];
+            if (end < 0)
+                break;
+            start = end + 1;
+        }
+        return "";
     }
 
     public string FilePath { get; }

@@ -29,8 +29,9 @@ public partial class OverlayStats : UserControl
         ShowHandling(language, rotation);
     }
 
-    // The focus area just left, while OverlayEngine holds it (3 s): its name in the headings ("T3 Time", "T3 Exit")
-    // and its time and exit speed, purple for a session best; hidden otherwise, and when neither has a value yet
+    // The focus area just left, while OverlayEngine holds it (3 s): its name in the headings ("T3 Time", "T3 Exit",
+    // "T3 Wheel° Diff", "T3 Wheel Point Diff"), its time and exit speed, purple for a session best, and its steering
+    // against the Target Lap's, colored like the Brake Point; hidden otherwise, and when none has a value yet
     private void ShowLastArea(OverlaySnapshot snapshot, string language)
     {
         var last = snapshot.LastArea;
@@ -38,17 +39,27 @@ public partial class OverlayStats : UserControl
             ? snapshot.AreaNames[index] : null;
         var time = last?.Time?.Trim() ?? "";
         var exit = last?.Exit?.Trim() ?? "";
-        if (last is null || string.IsNullOrEmpty(name) || (time.Length == 0 && exit.Length == 0))
+        var wheel = snapshot.LastWheel;
+        var wheelDiff = wheel?.Diff ?? "";
+        var wheelPoint = wheel?.Point ?? "";
+        if (last is null || string.IsNullOrEmpty(name)
+            || (time.Length == 0 && exit.Length == 0 && wheelDiff.Length == 0 && wheelPoint.Length == 0))
         {
             LastAreaPanel.Visibility = Visibility.Hidden;
             return;
         }
         LastTimeHeading.Text = Loc.T(language, "overlay.areaTime", name);
         LastExitHeading.Text = Loc.T(language, "overlay.areaExit", name);
+        LastWheelDiffHeading.Text = Loc.T(language, "overlay.areaWheelDiff", name);
+        LastWheelPointHeading.Text = Loc.T(language, "overlay.areaWheelPoint", name);
         LastTimeBox.Text = time;
         LastExitBox.Text = exit;
+        LastWheelDiffBox.Text = wheelDiff;
+        LastWheelPointBox.Text = wheelPoint;
         LastTimeBox.Foreground = ValueBrush(last.TimeColor);
         LastExitBox.Foreground = ValueBrush(last.ExitColor);
+        LastWheelDiffBox.Foreground = ValueBrush(wheel?.DiffColor);
+        LastWheelPointBox.Foreground = ValueBrush(wheel?.PointColor);
         LastAreaPanel.Visibility = Visibility.Visible;
     }
 

@@ -272,7 +272,7 @@ export const es: Dictionary = {
     ],
     overlayShotAlt: 'El overlay de Telemetría Objetivo, con las curvas de freno y acelerador de la Vuelta Objetivo y el freno del piloto dibujado encima',
     brakeEyebrow: 'Práctica de Frenado',
-    brakeTitle: 'ENTRENA TU PIE DERECHO.',
+    brakeTitle: 'ENTRENA TU PIE IZQUIERDO.',
     brakeCopy: 'Práctica de Frenado lee tus pedales directamente, así que funciona con el simulador cerrado. Sigue zonas de frenado reales de tu Vuelta Objetivo mientras pasan y obtén una puntuación en cada una.',
     brakePoints: [
       'Zonas de frenado fuertes y medias de tu propia Vuelta Objetivo',

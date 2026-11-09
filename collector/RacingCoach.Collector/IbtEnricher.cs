@@ -77,17 +77,20 @@ internal sealed class IbtEnricher(string ibtFolder, Action<string> log)
     // A lap CSV read into memory, with each row's SessionTick and SessionTime (null if a row lacks them)
     private sealed record LapCsv(string Path, List<string> Header, List<string[]> Rows, (int Tick, double Time)[]? Samples);
 
-    /// <summary>Fills in positions for every recent lap waiting for them whose .ibt file is finished.</summary>
+    /// <summary>Fills in positions for every recent lap waiting for them whose .ibt file is finished, then deletes
+    /// every finished .ibt file no lap is still waiting on: its laps have their positions now (in their CSVs, which
+    /// upload from there) or never will, so nothing is left in iRacing's telemetry folder after a session. A file
+    /// still being recorded is left alone.</summary>
     public Result Run(string lapsRoot)
     {
         var enriched = new List<EnrichedLap>();
         var changed = new Dictionary<string, SessionManifest>(); // folder -> manifest to save
-        if (!Directory.Exists(ibtFolder) || !Directory.Exists(lapsRoot))
+        if (!Directory.Exists(ibtFolder))
             return new Result(enriched, changed, false, 0);
 
         var since = DateTimeOffset.UtcNow - MaxLapAge;
         var waiting = new List<WaitingLap>();
-        foreach (var folder in Directory.GetDirectories(lapsRoot))
+        foreach (var folder in Directory.Exists(lapsRoot) ? Directory.GetDirectories(lapsRoot) : [])
         {
             var manifest = SessionManifest.Load(folder);
             if (manifest is null)
@@ -96,15 +99,10 @@ internal sealed class IbtEnricher(string ibtFolder, Action<string> log)
                 if (!lap.HasPosition && !lap.PositionMissing && lap.RecordedAt >= since)
                     waiting.Add(new WaitingLap(folder, manifest, lap));
         }
-        if (waiting.Count == 0)
-            return new Result(enriched, changed, false, 0);
 
         var stillWriting = false;
         foreach (var path in Directory.GetFiles(ibtFolder, "*.ibt").Order(StringComparer.Ordinal))
         {
-            var lastWrite = File.GetLastWriteTimeUtc(path);
-            if (waiting.Count == 0 || lastWrite + Slack < since)
-                continue;
             try
             {
                 if (IbtFile.IsBeingWritten(path))
@@ -114,46 +112,17 @@ internal sealed class IbtEnricher(string ibtFolder, Action<string> log)
                         stillWriting = true;
                     continue;
                 }
+                var lastWrite = File.GetLastWriteTimeUtc(path);
+                if (waiting.Count > 0 && lastWrite + Slack >= since)
+                    AddPositionsFrom(path, lastWrite, waiting, enriched, changed);
 
-                var ibt = new IbtFile(path);
-                if (!ibt.HasPositions)
-                    continue;
-                // The file covers the laps saved while it was being recorded
-                var from = (ibt.StartedAt?.UtcDateTime ?? File.GetCreationTimeUtc(path)) - Slack;
+                // Kept while a lap saved during its recording still waits for positions (e.g. another session's
+                // file overlapping in time); deleted once there's nothing more to take from it. Not logged, like
+                // the rest of the clean-up
+                var from = File.GetCreationTimeUtc(path) - Slack;
                 var to = lastWrite + Slack;
-                var laps = waiting.Where(w => w.Lap.RecordedAt.UtcDateTime >= from && w.Lap.RecordedAt.UtcDateTime <= to
-                    // Another session's file that happens to overlap in time
-                    && (w.Manifest.SubSessionId == 0 || ibt.SubSessionId == 0 || w.Manifest.SubSessionId == ibt.SubSessionId)).ToList();
-                if (laps.Count == 0)
-                    continue;
-
-                var csvs = laps.ToDictionary(w => w, w => ReadCsv(Path.Combine(w.Folder, w.Lap.File)));
-                var wanted = new HashSet<(int, int)>();
-                foreach (var (w, csv) in csvs)
-                    foreach (var (tick, _) in csv.Samples ?? [])
-                        wanted.Add((w.Lap.SessionNum, tick));
-                var extras = ibt.Has(IbtColumns);
-                var positions = ibt.ReadPositions(wanted, extras);
-
-                var added = 0;
-                foreach (var (w, csv) in csvs)
-                {
-                    if (TryAddPositions(csv, w.Lap.SessionNum, positions, extras))
-                    {
-                        w.Lap.HasPosition = true;
-                        enriched.Add(new EnrichedLap(w.Folder, w.Manifest, w.Lap));
-                        added++;
-                    }
-                    else
-                    {
-                        w.Lap.PositionMissing = true;
-                    }
-                    changed[w.Folder] = w.Manifest;
-                }
-                waiting.RemoveAll(laps.Contains);
-                log(added == laps.Count
-                    ? $"Added track positions to {added} lap(s) from {Path.GetFileName(path)}."
-                    : $"Added track positions to {added} of {laps.Count} lap(s) from {Path.GetFileName(path)}; it doesn't cover the others completely.");
+                if (!waiting.Any(w => w.Lap.RecordedAt.UtcDateTime >= from && w.Lap.RecordedAt.UtcDateTime <= to))
+                    TryDelete(path);
             }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException)
             {
@@ -164,6 +133,63 @@ internal sealed class IbtEnricher(string ibtFolder, Action<string> log)
         foreach (var (folder, manifest) in changed)
             manifest.Save(folder);
         return new Result(enriched, changed, stillWriting, waiting.Count);
+    }
+
+    // A file another program has open (e.g. a telemetry viewer) is left for the next run, silently
+    private static void TryDelete(string path)
+    {
+        try
+        {
+            File.Delete(path);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+        }
+    }
+
+    // Fills in the waiting laps an .ibt file covers, and takes them off the waiting list
+    private void AddPositionsFrom(string path, DateTime lastWrite, List<WaitingLap> waiting, List<EnrichedLap> enriched,
+        Dictionary<string, SessionManifest> changed)
+    {
+        var ibt = new IbtFile(path);
+        if (!ibt.HasPositions)
+            return;
+        // The file covers the laps saved while it was being recorded
+        var from = (ibt.StartedAt?.UtcDateTime ?? File.GetCreationTimeUtc(path)) - Slack;
+        var to = lastWrite + Slack;
+        var laps = waiting.Where(w => w.Lap.RecordedAt.UtcDateTime >= from && w.Lap.RecordedAt.UtcDateTime <= to
+            // Another session's file that happens to overlap in time
+            && (w.Manifest.SubSessionId == 0 || ibt.SubSessionId == 0 || w.Manifest.SubSessionId == ibt.SubSessionId)).ToList();
+        if (laps.Count == 0)
+            return;
+
+        var csvs = laps.ToDictionary(w => w, w => ReadCsv(Path.Combine(w.Folder, w.Lap.File)));
+        var wanted = new HashSet<(int, int)>();
+        foreach (var (w, csv) in csvs)
+            foreach (var (tick, _) in csv.Samples ?? [])
+                wanted.Add((w.Lap.SessionNum, tick));
+        var extras = ibt.Has(IbtColumns);
+        var positions = ibt.ReadPositions(wanted, extras);
+
+        var added = 0;
+        foreach (var (w, csv) in csvs)
+        {
+            if (TryAddPositions(csv, w.Lap.SessionNum, positions, extras))
+            {
+                w.Lap.HasPosition = true;
+                enriched.Add(new EnrichedLap(w.Folder, w.Manifest, w.Lap));
+                added++;
+            }
+            else
+            {
+                w.Lap.PositionMissing = true;
+            }
+            changed[w.Folder] = w.Manifest;
+        }
+        waiting.RemoveAll(laps.Contains);
+        log(added == laps.Count
+            ? $"Added track positions to {added} lap(s) from {Path.GetFileName(path)}."
+            : $"Added track positions to {added} of {laps.Count} lap(s) from {Path.GetFileName(path)}; it doesn't cover the others completely.");
     }
 
     private static LapCsv ReadCsv(string path)

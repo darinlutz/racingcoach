@@ -36,7 +36,8 @@ export type LiveFeature = (typeof LIVE_FEATURES)[number];
 export const isLiveFeature = (feature: string): feature is LiveFeature => (LIVE_FEATURES as readonly string[]).includes(feature);
 
 // The site's own AI calls, made for no user, logged in AiUsage (tier SITE_TIER) but never counted against anyone
-export const SITE_AI_FEATURES = ['collectorLogReview', 'broadcastDirector'] as const;
+// localAiTest is the Admin page's Local AI Test Console (src/lib/localAi/testConsole.ts)
+export const SITE_AI_FEATURES = ['collectorLogReview', 'broadcastDirector', 'localAiTest'] as const;
 export type SiteAiFeature = (typeof SITE_AI_FEATURES)[number];
 export const SITE_TIER = 'Site';
 

@@ -3,6 +3,9 @@ import { notFound } from 'next/navigation';
 import AdminTimeZone from '@/components/AdminTimeZone';
 import AiModelCostTable from '@/components/AiModelCostTable';
 import AiModelManager from '@/components/AiModelManager';
+import AiInferenceMonitoring from '@/components/AiInferenceMonitoring';
+import LocalAiServerMode from '@/components/LocalAiServerMode';
+import LocalAiTestConsole from '@/components/LocalAiTestConsole';
 import BroadcastDirectorManager from '@/components/BroadcastDirectorManager';
 import BroadcastVideoLibrary from '@/components/BroadcastVideoLibrary';
 import EngineAudioLibrary from '@/components/EngineAudioLibrary';
@@ -42,7 +45,8 @@ import { meteredServicesOn } from '@/lib/meteredServices';
 import { readRequestCounts } from '@/lib/privacyRequests';
 
 // The site owner's Admin page: a link to Subscribers (src/app/admin/subscribers/), Site Settings (src/components/SiteSettingsManager.tsx), AI Model Control
-// (src/components/AiModelManager.tsx), AI Model Costs (src/components/AiModelCostTable.tsx), Rate Limiting (src/components/RateLimitManager.tsx), the Broadcast Video Library, Engine Sounds and Broadcast Director (src/components/BroadcastVideoLibrary.tsx, EngineAudioLibrary.tsx, BroadcastDirectorManager.tsx), User Roles (src/components/UserRoleManager.tsx), Collector Logs
+// (src/components/AiModelManager.tsx), Local AI Server Mode, AI Inference Monitoring and the Local AI Test Console
+// (src/components/LocalAiServerMode.tsx, AiInferenceMonitoring.tsx, LocalAiTestConsole.tsx; docs/local-ai.md), AI Model Costs (src/components/AiModelCostTable.tsx), Rate Limiting (src/components/RateLimitManager.tsx), the Broadcast Video Library, Engine Sounds and Broadcast Director (src/components/BroadcastVideoLibrary.tsx, EngineAudioLibrary.tsx, BroadcastDirectorManager.tsx), User Roles (src/components/UserRoleManager.tsx), Collector Logs
 // (src/components/CollectorLogsViewer.tsx), then racingcoach."ActivityLog",
 // every page view and click, filtered through the URL (so a filtered view can be bookmarked), with totals,
 // the top pages and controls, and a CSV export.
@@ -127,6 +131,13 @@ export default async function AdminPage({
         <MonitoringCard t={a} spend={spendToday} errors={serverErrors} locale={locale} timeZone={filters.timeZone} />
 
         <AiModelManager models={aiModels} />
+
+        {/* Local AI (docs/local-ai.md): the mode and servers, every model call counted, and the test console */}
+        <LocalAiServerMode />
+
+        <AiInferenceMonitoring timeZone={filters.timeZone} />
+
+        <LocalAiTestConsole />
 
         <AiModelCostTable t={a} locale={locale} measured={averageCallTokens} />
 

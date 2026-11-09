@@ -8,6 +8,8 @@ const src = new URL('../src/', import.meta.url);
 
 export async function resolve(specifier, context, nextResolve) {
   let candidate = null;
+  // Route handlers import next/server, which Next.js resolves through its own aliases; Node needs the file
+  if (specifier === 'next/server') return nextResolve('next/server.js', context);
   if (specifier.startsWith('@/')) candidate = new URL(specifier.slice(2), src);
   else if ((specifier.startsWith('./') || specifier.startsWith('../')) && context.parentURL?.startsWith('file:'))
     candidate = new URL(specifier, context.parentURL);

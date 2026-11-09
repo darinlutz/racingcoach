@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Starts the RacingCoach local AI gateway and heartbeat when you log in, and restarts it if it stops
+  (docs/local-ai.md, "Start automatically"). Replace REPO with the repository's full path and NODE with
+  the output of `which node`, then:
+    cp local-ai/launchd/app.racingcoach.local-ai.plist ~/Library/LaunchAgents/
+    launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/app.racingcoach.local-ai.plist
+  Stop it: launchctl bootout gui/$(id -u)/app.racingcoach.local-ai
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>app.racingcoach.local-ai</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>NODE</string>
+    <string>REPO/local-ai/gateway.ts</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>REPO</string>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
+  <key>StandardOutPath</key>
+  <string>/tmp/racingcoach-local-ai.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/racingcoach-local-ai.log</string>
+</dict>
+</plist>

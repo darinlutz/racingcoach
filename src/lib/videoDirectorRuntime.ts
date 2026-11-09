@@ -11,8 +11,12 @@ import { readDirectorFeed } from './liveRacing';
 import { videoObjectSize, videoStorageConfigured } from './objectStorage';
 import { ANNOUNCER_ROLES, getRaceAnnouncerSettings, raceAnnouncerLines, type Announcer, type LinePlan } from './raceAnnouncer';
 import { siteAiCall } from './rateLimits';
+import { canUseVoiceAi } from './roles';
 import { getEnableAiFeatures } from './siteSettings';
 import type { User } from './users';
+
+// The TV's account, as the Director needs it: its language, and its membership for whether its announcers speak
+type DirectorViewer = Pick<User, 'id' | 'preferredLanguage' | 'membershipLevel' | 'role'>;
 import {
   clipSelected,
   clipValidated,
@@ -517,8 +521,15 @@ async function openSession(key: string, label: string, driverId: number, trackKe
   return session;
 }
 
-async function loadVoices(viewer: Viewer, user: Pick<User, 'id' | 'preferredLanguage'>): Promise<void> {
+async function loadVoices(viewer: Viewer, user: DirectorViewer): Promise<void> {
   viewer.voicesAt = Date.now();
+  // Speaking announcers are for Silver and Gold members and Admins (canUseVoiceAi): no lines are written or voiced
+  // for anyone else, and their TV gets none to play
+  if (!canUseVoiceAi(user)) {
+    viewer.voices = null;
+    viewer.announcersOff = true;
+    return;
+  }
   try {
     const [announcers, coach] = await Promise.all([getRaceAnnouncerSettings(user.id), getCoachVoice(user.id)]);
     viewer.voices = { language: user.preferredLanguage, accent: coach.spanishAccent, lead: announcers.leadVoice, color: announcers.colorVoice };
@@ -575,7 +586,7 @@ export function directorSessionKey(sessionKey: string, driverId: number, subSess
 // A TV's picture of the race asks for this each time: counts the TV as watching, and answers what it should show, or
 // null when there's nothing for the Director to do (clips off, storage not set up)
 export async function observeDirector(
-  viewer: Pick<User, 'id' | 'preferredLanguage'>,
+  viewer: DirectorViewer,
   session: { key: string; label: string; driverId: number; trackKey: string | null; offline: boolean }
 ): Promise<DirectorSnapshot | null> {
   if (session.offline) return null;

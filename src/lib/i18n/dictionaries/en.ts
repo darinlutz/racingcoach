@@ -1128,6 +1128,8 @@ export const en = {
     bothNotFrom: 'Both uploaded laps are not from {track}.',
     analyze: 'Analyze Laps',
     provideSummary: 'Provide summary',
+    // The checkbox's tooltip for Bronze members, who can't use it
+    provideSummaryBronze: 'The Lap Summary is not available for Bronze members. Upgrade to Silver or Gold to use the Lap Summary.',
     analyzing: 'Analyzing…',
     summary: 'Summary',
     summaryPlaceholderNoLaps: 'Upload a Target lap and a Compare lap, then press Analyze Laps.',
@@ -3471,6 +3473,7 @@ export const en = {
     stintTooLong: 'Stint report is too long to analyze',
     failedDebrief: 'Failed to run the debrief',
     failedLapSummary: 'Failed to summarize the laps',
+    lapSummaryMembersOnly: 'The Lap Summary is not available for Bronze members. Upgrade to Silver or Gold to use it.',
     failedStintSummary: 'Failed to analyze the stint',
     failedRaceTrends: 'Failed to get the race trends',
     // Race trends

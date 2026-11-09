@@ -297,6 +297,9 @@ describe('simulators in the database', { skip }, () => {
       const [lat, lon] = toLatLon(shape((i / 600 + 0.03) % 1));
       const meters = Math.hypot((row[4] - lat) * 111_200, (row[5] - lon) * 111_200 * Math.cos((lat0 * Math.PI) / 180));
       assert.ok(meters < 0.5, `sample ${i} is ${meters.toFixed(2)} m out`);
+      // The lap position is iRacing's (its start line 3% before ACC's), so focus areas cut it where they cut iRacing's
+      const pctOff = row[1] - (i / 600 + 0.03);
+      assert.ok(Math.abs(pctOff - Math.round(pctOff)) < 0.001, `sample ${i} lap position ${row[1]}`);
       assert.ok(Math.abs(row[6] - (12 + 10 * Math.sin((2 * Math.PI * i) / 600))) < 0.01, 'Alt is the world height');
     }
     const stored = await alignment();

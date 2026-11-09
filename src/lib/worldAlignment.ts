@@ -151,9 +151,11 @@ const apply = ({ angle, east, north }: { angle: number; east: number; north: num
   Math.sin(angle) * x + Math.cos(angle) * y + north,
 ];
 
-// The nearest point to p on the outline's segments within SEARCH_STEPS of step `around`
-function nearestOnOutline(outline: Point[], p: Point, around: number): { point: Point; distance: number } {
-  let best: { point: Point; distance: number } = { point: outline[around], distance: Infinity };
+// The nearest point to p on the outline's segments within SEARCH_STEPS of step `around`, and where that is round the
+// outline's lap (0-1, a segment's points in between in proportion). Point i is the average of a lap's samples from
+// LapDistPct i / n to (i + 1) / n (trackOutlines.ts, lapSteps), so it stands for the middle of that, (i + 0.5) / n
+function nearestOnOutline(outline: Point[], p: Point, around: number): { point: Point; distance: number; pct: number } {
+  let best: { point: Point; distance: number; pct: number } = { point: outline[around], distance: Infinity, pct: around / outline.length };
   const n = outline.length;
   for (let k = -SEARCH_STEPS; k <= SEARCH_STEPS; k++) {
     const i = (((around + k) % n) + n) % n;
@@ -163,9 +165,49 @@ function nearestOnOutline(outline: Point[], p: Point, around: number): { point: 
     const t = lengthSq > 0 ? Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / lengthSq)) : 0;
     const q: Point = [a[0] + dx * t, a[1] + dy * t];
     const distance = Math.hypot(p[0] - q[0], p[1] - q[1]);
-    if (distance < best.distance) best = { point: q, distance };
+    if (distance < best.distance) best = { point: q, distance, pct: ((i + t + 0.5) / n) % 1 };
   }
   return best;
+}
+
+const wrapPct = (pct: number) => ((pct % 1) + 1) % 1;
+
+// The lap position of every sample as iRacing counts it, so focus areas (iRacing's shares of the lap) cut another
+// simulator's laps at the same places on the track as iRacing's. The simulator's own LapDistPct counts from its own
+// timing line along its own spline, which needn't be iRacing's start/finish line or spread round the lap like
+// iRacing's, so a focus area cut by it starts and ends somewhere else. Each sample's world position, placed by the
+// alignment, is found on the iRacing outline (point i at LapDistPct i / 500): near where its own lap position plus the
+// start line offset says, so a track that crosses itself can't snap to the other level. A sample without a world
+// position is moved by the start line offset alone. The positions never go backwards (a car only goes forward round
+// a lap), and come back wrapped to 0-1, as lap files have them. NaN where the sample has no lap position.
+export function outlineLapPcts(
+  alignment: WorldAlignment,
+  outlineLatLon: Point[],
+  lap: { pcts: number[]; xs: number[]; zs: number[] }
+): number[] {
+  const outline = outlineLatLon.map((p) => toMeters(p, alignment.originLat, alignment.originLon));
+  const n = outline.length;
+  const offset = Number.isFinite(alignment.startOffset) ? alignment.startOffset : 0;
+  const out: number[] = new Array(lap.pcts.length).fill(NaN);
+  let previous: number | null = null; // unwrapped
+  for (let i = 0; i < lap.pcts.length; i++) {
+    const [pct, x, z] = [lap.pcts[i], lap.xs[i], lap.zs[i]];
+    if (!Number.isFinite(pct)) continue;
+    const shifted = wrapPct(pct + offset);
+    const projected =
+      n > 1 && Number.isFinite(x) && Number.isFinite(z)
+        ? nearestOnOutline(outline, apply(alignment, unturned(x, z)), Math.round(shifted * n) % n).pct
+        : shifted;
+    let unwrapped = projected;
+    if (previous !== null) {
+      // The step from the last sample, the short way round (across the line too), never backwards
+      const step = projected - wrapPct(previous);
+      unwrapped = previous + Math.max(0, step - Math.round(step));
+    }
+    previous = unwrapped;
+    out[i] = wrapPct(unwrapped);
+  }
+  return out;
 }
 
 // Fits a simulator track's world to the iRacing outline from one clean lap of it: pcts are the lap's LapDistPct

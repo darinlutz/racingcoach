@@ -8,6 +8,7 @@ import { apiText, getLanguage } from '@/lib/i18n/server';
 import { getCurrentUser } from '@/lib/session';
 import { aiRateLimit, type AiRateLimit } from '@/lib/rateLimits';
 import { readJsonLimited } from '@/lib/requestBody';
+import { canUseLapSummary } from '@/lib/roles';
 import { getUnits } from '@/lib/unitsServer';
 
 // Focus-area text for one track is a few KB; anything much bigger isn't a lap comparison
@@ -43,6 +44,10 @@ export async function POST(request: Request) {
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: t.logInAi }, { status: 401 });
+    }
+    // Silver and Gold members and Admins only, before any AI call
+    if (!canUseLapSummary(user)) {
+      return NextResponse.json({ error: t.lapSummaryMembersOnly, code: 'membershipRequired' }, { status: 403 });
     }
     limit = await aiRateLimit(request, 'lapSummary', user);
     if (limit.response) return limit.response;

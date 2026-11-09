@@ -1,6 +1,6 @@
 # Local-only extras (not installed in the Docker image): scripts that no
 # deployed API route runs.
 -r requirements.txt
-transformers==5.16.1
-torch==2.14.0
-streamlit==1.64.0
+transformers==5.22.1
+torch==2.15.0
+streamlit==1.67.0

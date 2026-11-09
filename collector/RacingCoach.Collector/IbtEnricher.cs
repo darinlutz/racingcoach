@@ -60,8 +60,7 @@ internal sealed class IbtEnricher(string ibtFolder, Action<string> log)
                 log($"Could not delete the old iRacing telemetry file {Path.GetFileName(path)}: {e.Message}");
             }
         }
-        if (deleted > 0)
-            log($"Deleted {deleted} iRacing telemetry (.ibt) file(s) more than {MaxIbtAge.TotalDays:0} days old from {folder}.");
+        // Not logged: the activity log doesn't announce the clean-up, only a file that couldn't be deleted
         return deleted;
     }
 

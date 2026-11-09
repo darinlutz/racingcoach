@@ -353,8 +353,7 @@ internal sealed class LapWriter : IAsyncDisposable
             lap.CsvDeleted = true;
             deleted++;
         }
-        if (deleted > 0)
-            _log($"Deleted {deleted} uploaded lap file(s) from {Path.GetFileName(folder)}.");
+        // Not logged: the activity log doesn't announce the clean-up, only a failure (Run's catch)
         return deleted > 0;
     }
 

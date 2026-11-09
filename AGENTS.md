@@ -414,7 +414,7 @@ npm run lint         # Check all files
 ## Troubleshooting
 
 **npm run dev fails with "command not found"?**
-- Ensure Node.js 18+ is installed
+- Ensure Node.js 22+ is installed (24 is what the Docker image and CI use; the AWS SDK warns below 22)
 - Run `npm install` first
 - Check that `.env.local` exists (can be empty initially)
 

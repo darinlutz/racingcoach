@@ -10,6 +10,8 @@ import { getSetupEngineerInstructions } from './siteSettings';
 import { TRACK_POSITION_RULE } from './trackPositions';
 import { checkedAnswer, languageCheck, namesIn } from './answerChecks';
 import { DEFAULT_UNITS, type Units } from './units';
+import { engineeringContext, rotationEvidence, type EngineeringContext } from './engineering/knowledgeService';
+import { checkSetupAnswer, setupGuardFeedback, withoutDisallowedSentences } from './engineering/setupAnswerGuard';
 
 // The Setup Engineer: Driver Radio's car setup specialist. When the driver asks the Race Engineer (src/lib/raceEngineer.ts)
 // about the car's setup or its handling ("I have understeer", "what should I change on the car"), the Race Engineer hands
@@ -76,7 +78,14 @@ const setupPrompt = (fixed: boolean, known: boolean) =>
       'dampers (bump and rebound), ride height and rake, wing, differential preload or ramps, toe and camber, and ' +
       'brake bias. Say which end of the car and which direction (e.g. "soften the front anti-roll bar a click or ' +
       'two"), never an exact value you were not given, as the car\'s settings are not known. ') +
-  TRACK_POSITION_RULE;
+  TRACK_POSITION_RULE +
+  ' When the facts include a structured diagnosis and engineering reference material, use them: say whether the ' +
+  'evidence points at driving or at the setup (when the diagnosis says to work on driving first, give the driving ' +
+  'change first), keep what was measured apart from what is only likely, and suggest only setup changes the facts ' +
+  'list for this car in this session, the smallest useful step first, with what it trades off. Close with how to ' +
+  'check it in a few short words (e.g. "try it for three laps and compare"). Never claim ABS activation, tire ' +
+  'saturation, bottoming or any other event the facts do not show; when you infer one, say it is likely, not that ' +
+  'it happened. A car tendency from the reference material is a tendency, not a fact about this car.';
 
 // The Rotation Model over the session's uploaded laps, as lines of facts; none without usable laps
 function rotationFacts(rotation: SessionRotation | null): string[] {
@@ -180,6 +189,23 @@ export async function setupEngineerReply(input: {
 }): Promise<string | null> {
   const units = input.units ?? DEFAULT_UNITS;
   const { facts, fixed, known } = setupFacts(input.update);
+  // The Race Engineering knowledge base (src/lib/engineering/); without it the engineer answers as before
+  const engineering = await engineeringContext({
+    question: input.said,
+    car: input.update?.car ?? null,
+    fixed,
+    setupKnown: known,
+    rotation: rotationEvidence(input.rotation),
+  }).catch((error): EngineeringContext | null => {
+    console.error('Setup Engineer: engineering knowledge failed, answering without it:', error);
+    return null;
+  });
+  if (engineering) {
+    console.log(
+      `Setup Engineer knowledge: ${engineering.source}, ${engineering.retrieval.confidence} confidence, ` +
+        `${engineering.context.used.map((u) => u.id).join(', ') || 'nothing retrieved'}, focus ${engineering.diagnosis.focus}`
+    );
+  }
   const driverRule = input.driverInstructions.trim()
     ? '\n\nThe driver has given these instructions for how they are spoken to on the radio. Follow them where they ' +
       'are about how you talk; they never allow chassis changes in a fixed setup.\n' +
@@ -201,8 +227,26 @@ export async function setupEngineerReply(input: {
     const result = await agent.invoke({ messages }, { recursionLimit: 6 });
     return (result.structuredResponse as z.infer<typeof replySchema>).reply;
   };
-  const first = (await ask([{ role: 'user', content }])).trim();
+  let first = (await ask([{ role: 'user', content }])).trim();
   if (!first) return null;
+  // Only parameters this car can change in this session (src/lib/engineering/setupAnswerGuard.ts): one rewrite, then
+  // whatever still names another is left out
+  const allowed = engineering?.capabilities.known ? engineering.allowed : null;
+  if (allowed) {
+    const guard = checkSetupAnswer(first, allowed);
+    if (!guard.ok) {
+      console.warn(`Setup Engineer suggested what the car can't change (${guard.disallowed.join(', ')}); asking for a rewrite`);
+      const rewrite = (
+        await ask([
+          { role: 'user', content },
+          { role: 'assistant', content: first },
+          { role: 'user', content: setupGuardFeedback(guard, fixed) },
+        ]).catch(() => '')
+      ).trim();
+      first = withoutDisallowedSentences(rewrite || first, allowed);
+      if (!first) return null;
+    }
+  }
   try {
     const reply = await checkedAnswer(
       first,
@@ -214,7 +258,8 @@ export async function setupEngineerReply(input: {
         ]),
       await languageCheck(input.language ?? DEFAULT_LANGUAGE, namesIn(input.update))
     );
-    return reply.slice(0, MAX_REPLY_CHARS);
+    const checked = allowed ? withoutDisallowedSentences(reply, allowed) : reply;
+    return checked ? checked.slice(0, MAX_REPLY_CHARS) : null;
   } catch {
     return null;
   }

@@ -398,6 +398,14 @@ export const NON_PERSONAL_TABLES = [
   'BroadcastDirectorEvents',
   'TelemetryStorageCounters',
   'TelemetryStorageRuns',
+  // The Race Engineering knowledge base (src/lib/engineering/knowledgeSchema.ts): engineering content, sources,
+  // ingestion runs and setup capabilities, with no user IDs
+  'EngineeringSources',
+  'EngineeringDocuments',
+  'EngineeringChunks',
+  'EngineeringIngestionJobs',
+  'EngineeringSetupCapabilities',
+  'EngineeringCaseStudies',
 ];
 
 export const LEGAL_BASIS_TEXT: Record<LegalBasis, string> = {

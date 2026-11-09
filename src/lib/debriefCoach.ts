@@ -24,6 +24,7 @@ import {
   type Units,
 } from './units';
 import { chatModel, structured, withFallbackModel } from '@/lib/aiModels';
+import { engineeringKnowledgeTool } from '@/lib/engineering/knowledgeTool';
 
 // Post-session debrief coach for the Debrief Coach tab. The browser measures every lap in every
 // focus area (the CSVs are too big to send) and posts the numbers here; the agent digs through
@@ -1050,7 +1051,12 @@ const systemPrompt = (units: Units) =>
   `from the tools in the units they give (${DISTANCE_NAME[units]}, ${SPEED_UNIT[units]}), never invent data, write to ` +
   'the driver as "you", and use plain text with no markdown. When you mention a particular lap, call it by its name ' +
   'from the tools, e.g. "Lap 3" (in the language you write in), never by an ID or file name. Once you have your fixes, call assemble_optimal_lap ' +
-  'once and sum up the theoretical lap it builds in optimalLap.' +
+  'once and sum up the theoretical lap it builds in optimalLap. ' +
+  'When a fix is about how the car behaves (understeer, oversteer, traction, stability on the brakes), you may call ' +
+  'get_engineering_knowledge to ground the explanation in engineering principles. The lap data comes first: correct ' +
+  'the driving when the data shows a driving cause, and never blame the setup for what the driving explains. Only ' +
+  'when the same problem shows in the fast and the slow runs alike may the evidence say a setup change could help, ' +
+  'suggesting the driver ask the Setup Engineer over Driver Radio; never give a setup change as a fix.' +
   LAP_TIME_RULE;
 
 // "brake about 30 ft later", "braking earlier", "brake later" -> the direction words in a fix. Also
@@ -1129,7 +1135,11 @@ export async function runDebriefCoach(
     session,
     cleanLaps.map((lap) => lap.id)
   );
-  const tools = [...createTools(session, units, carRpmLimit), assembleOptimalLapTool(optimalLap, session)];
+  const tools = [
+    ...createTools(session, units, carRpmLimit),
+    assembleOptimalLapTool(optimalLap, session),
+    engineeringKnowledgeTool(session.car),
+  ];
   const prompt = systemPrompt(units) + (await coachInstructionsRule()) + aiLanguageRule(language);
   // The model can still flip "later" and "earlier" or say where to brake, so check everything it wrote and give it
   // one chance to correct itself before dropping any fix, keep-doing item or sentence that still breaks the rules

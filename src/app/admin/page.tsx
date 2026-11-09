@@ -16,6 +16,7 @@ import SiteSettingsManager from '@/components/SiteSettingsManager';
 import PrivacyRequestsLinkCard from '@/components/PrivacyRequestsLinkCard';
 import SubscribersLinkCard from '@/components/SubscribersLinkCard';
 import TelemetryStorageManager from '@/components/TelemetryStorageManager';
+import EngineeringKnowledgeManager from '@/components/EngineeringKnowledgeManager';
 import UserRoleManager from '@/components/UserRoleManager';
 import {
   ACTIVITY_PAGE_SIZE,
@@ -148,6 +149,8 @@ export default async function AdminPage({
         />
 
         <TelemetryStorageManager timeZone={filters.timeZone} />
+
+        <EngineeringKnowledgeManager />
 
         <CollectorLogsViewer
           initialUser={typeof params.logUser === 'string' ? params.logUser : null}

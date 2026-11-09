@@ -47,7 +47,7 @@ GPT-OSS 20B: Lap Summary, Multi-Lap Summary, Stint Summary, Racecar Analysis. Cl
 | `gpt-oss:20b` | GPT-OSS 20B | Apache 2.0 | 131,072 | 32,768 | ~14 GB |
 | `qwen3:8b` | Qwen3 8B | Apache 2.0 | 40,960 | 32,768 | ~5 GB |
 
-Both support tool calling in Ollama's OpenAI-compatible API. Requests whose estimated input is over 75% of the served context go to the cloud (`contextTooLarge`). GPT-OSS gets `reasoning_effort: low`. The gateway strips `<think>…</think>` from answers. MLX could replace Ollama later behind the same gateway, since the gateway only needs an OpenAI-compatible `/v1/chat/completions`.
+Both support tool calling in Ollama's OpenAI-compatible API. Requests whose estimated input is over 75% of the served context go to the cloud (`contextTooLarge`). GPT-OSS gets `reasoning_effort: low`, Qwen3 `reasoning_effort: none`: without it Qwen3 thinks before answering, which used up an 8-token answer entirely in testing and only adds time to a summary. The gateway strips `<think>…</think>` from answers. MLX could replace Ollama later behind the same gateway, since the gateway only needs an OpenAI-compatible `/v1/chat/completions`.
 
 ### Data
 

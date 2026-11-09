@@ -39,7 +39,7 @@ export const LOCAL_MODELS = {
     contextTokens: 32_768,
     license: 'Apache-2.0',
     approxMemoryGb: 5.2,
-    requestExtras: {},
+    requestExtras: { reasoning_effort: 'none' }, // else Qwen3 thinks first, spending the output cap and seconds on text the gateway strips
   },
 } as const satisfies Record<string, LocalModelInfo>;
 

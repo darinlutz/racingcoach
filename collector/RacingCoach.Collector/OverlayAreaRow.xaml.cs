@@ -18,8 +18,8 @@ public partial class OverlayAreaRow : UserControl
     // Each column's heading (a Loc key) and share of the width (the area's name first)
     private static readonly (string Heading, double Width)[] Columns =
     [
-        ("overlay.focusArea", 95), ("overlay.brakePoint", 115), ("overlay.brakePressure", 105),
-        ("overlay.wheelDiff", 110), ("overlay.coast", 67), ("overlay.overlap", 67),
+        ("overlay.focusArea", 150), ("overlay.brakePoint", 110), ("overlay.brakePressure", 110),
+        ("overlay.wheelDiff", 130), ("overlay.coast", 85), ("overlay.overlap", 85),
     ];
     private static readonly Brush BoxBackground = Frozen(Color.FromRgb(0x1A, 0x1B, 0x1E));
     internal static readonly Brush LightText = Frozen(Color.FromRgb(0xF3, 0xF4, 0xF6));

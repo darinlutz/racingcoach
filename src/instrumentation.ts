@@ -23,6 +23,9 @@ export async function register() {
     // The lap telemetry store's cleanup queue, reconciliation and counters (src/lib/telemetryStorageJobs.ts)
     const { startTelemetryStorageJobs } = await import('./lib/telemetryStorageJobs');
     startTelemetryStorageJobs();
+    // Deletes AI inference events older than 90 days (src/lib/localAi/store.ts)
+    const { startLocalAiJobs } = await import('./lib/localAi/store');
+    startLocalAiJobs();
   }
   // Error and spend monitoring (src/lib/errorMonitor.ts, src/lib/spendMonitor.ts): on the live site only, so a
   // local server never emails the owner about its own errors or switches the live site's paid services off

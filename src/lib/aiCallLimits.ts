@@ -21,6 +21,9 @@ export const AI_CALL_LIMITS = {
   raceAnnouncer: { maxOutputTokens: 7500, timeoutMs: 20_000, maxRetries: 0 },
   raceEngineer: { maxOutputTokens: 2500, timeoutMs: 25_000, maxRetries: 0 },
   setupEngineer: { maxOutputTokens: 2000, timeoutMs: 25_000, maxRetries: 0 },
+  // The Admin page's Local AI Test Console (not an AI feature: no AI Model Control row). Long, as a local model may
+  // have to load first; no retry, so a test shows what happened
+  localAiTest: { maxOutputTokens: 1500, timeoutMs: 120_000, maxRetries: 0 },
 } as const satisfies Record<string, AiCallLimit>;
 
 // For a feature without its own row

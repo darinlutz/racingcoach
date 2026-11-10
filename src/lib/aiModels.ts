@@ -23,6 +23,9 @@ import { currentAiModelCategory, tokenUsageCallbacks } from '@/lib/aiTokenUsage'
 import { aiCallLimit, CLAUDE_MAX_OUTPUT_TOKENS, REASONING_OUTPUT_FACTOR } from '@/lib/aiCallLimits';
 import { assertMeteredServicesOn } from '@/lib/meteredServices';
 import { ensureUserSchema } from '@/lib/users';
+import type { CallbackHandlerMethods } from '@langchain/core/callbacks/base';
+import { cloudEventCallbacks } from '@/lib/localAi/events';
+import { createRoutedModel, localRouteFor } from '@/lib/localAi/router';
 
 export * from '@/lib/aiModelList';
 
@@ -162,11 +165,41 @@ class DeepSeekChatModel extends ChatOpenAI {
 // row (src/lib/aiTokenUsage.ts). Pass model to use it instead of the feature's picked model (e.g. a fallback).
 // Every model gets the feature's output cap, timeout and retries (src/lib/aiCallLimits.ts), and none is made while
 // the Admin page's emergency stop is on (src/lib/meteredServices.ts).
+//
+// Local AI (docs/local-ai.md): while the Admin page's Local AI Server Mode is Automatic and the feature is mapped to
+// a local model, the cloud model is wrapped in a router that sends each model call to a healthy local server with a
+// free slot, else to this cloud model, falling back to it when the local attempt fails (src/lib/localAi/router.ts).
+// In Cloud Only (the default) and Development modes the cloud model is returned as before. Either way every model
+// call is recorded for AI Inference Monitoring (src/lib/localAi/events.ts).
 export async function chatModel(feature: AiFeature, temperature: number, override?: AiModel): Promise<BaseChatModel> {
   await assertMeteredServicesOn();
   const model = override ?? (await getAiModel(feature));
-  const callbacks = tokenUsageCallbacks(model);
-  const { maxOutputTokens, timeoutMs: timeout, maxRetries } = aiCallLimit(feature);
+  const context = { feature, category: currentAiModelCategory() ?? null, source: 'app' as const };
+  const route = await localRouteFor(feature);
+  if (route.kind === 'cloud') {
+    return cloudChatModel(model, feature, temperature, cloudEventCallbacks(context, model, route.reason));
+  }
+  const { maxOutputTokens, timeoutMs } = aiCallLimit(feature);
+  return createRoutedModel({
+    context,
+    temperature,
+    cloud: cloudChatModel(model, feature, temperature, []),
+    cloudModelName: model,
+    maxOutputTokens,
+    featureTimeoutMs: timeoutMs,
+  });
+}
+
+// The cloud chat model itself, with the feature's limits (limitsFeature: an AI feature, or another key of
+// AI_CALL_LIMITS such as the test console's). extraCallbacks are added to the token usage ones.
+export function cloudChatModel(
+  model: AiModel,
+  limitsFeature: string,
+  temperature: number,
+  extraCallbacks: CallbackHandlerMethods[]
+): BaseChatModel {
+  const callbacks = [...tokenUsageCallbacks(model), ...extraCallbacks];
+  const { maxOutputTokens, timeoutMs: timeout, maxRetries } = aiCallLimit(limitsFeature);
   if (isClaudeModel(model)) {
     if (!process.env.ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY is not configured');
     return new ClaudeChatModel({

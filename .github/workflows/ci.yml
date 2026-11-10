@@ -47,6 +47,7 @@ jobs:
       SIMULATORS_TEST_DATABASE_URL: postgres://postgres:test@127.0.0.1:5432/rctest
       LAUNCH_HARDENING_TEST_DATABASE_URL: postgres://postgres:test@127.0.0.1:5432/rctest
       ENGINEERING_TEST_DATABASE_URL: postgres://postgres:test@127.0.0.1:5432/rctest
+      LOCAL_AI_TEST_DATABASE_URL: postgres://postgres:test@127.0.0.1:5432/rctest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -64,7 +65,7 @@ jobs:
         run: |
           set -e
           for suite in track-positions language tire-warmup tv broadcast engine-bed video-director tire-temps lap-events rotation \
-                       my-dashboard telemetry-storage privacy-rights cookie-consent simulators lap-retention launch-hardening engineering; do
+                       my-dashboard telemetry-storage privacy-rights cookie-consent simulators lap-retention launch-hardening engineering local-ai; do
             echo "::group::test:$suite"
             npm run "test:$suite"
             echo "::endgroup::"

@@ -71,3 +71,7 @@ next-env.d.ts
 # where a local ISCC build puts the installer
 /collector/installer/legal/
 /collector/installer/Output/
+
+# local AI gateway settings (docs/local-ai.md)
+local-ai/.env
+!local-ai/.env.example

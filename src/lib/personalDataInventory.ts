@@ -406,6 +406,10 @@ export const NON_PERSONAL_TABLES = [
   'EngineeringIngestionJobs',
   'EngineeringSetupCapabilities',
   'EngineeringCaseStudies',
+  // Local AI (src/lib/localAi/store.ts): the owner's own inference servers, and one row per model call with the
+  // feature, caller category, models, tokens and times, never a user, IP address, prompt or answer
+  'LocalAiServers',
+  'AiInferenceEvents',
 ];
 
 export const LEGAL_BASIS_TEXT: Record<LegalBasis, string> = {

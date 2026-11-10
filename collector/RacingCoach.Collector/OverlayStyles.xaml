@@ -20,22 +20,21 @@
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="Padding" Value="6,5" />
         <Setter Property="Margin" Value="0,0,0,5" />
-        <Setter Property="FontSize" Value="15" />
+        <Setter Property="FontSize" Value="18" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="TextWrapping" Value="NoWrap" />
         <Setter Property="TextAlignment" Value="Center" />
     </Style>
-    <!-- Max Brake and Min Speed: about twice the size of the focus area boxes, the most that fits a
+    <!-- Max Brake and Min Speed: nearly twice the size of the focus area boxes, the most that fits a
          speed like 123.4 in their 100 px width -->
     <Style x:Key="BigBox" TargetType="TextBox" BasedOn="{StaticResource Box}">
         <Setter Property="FontSize" Value="32" />
         <Setter Property="FontWeight" Value="Bold" />
         <Setter Property="Padding" Value="6,0" />
     </Style>
-    <!-- The last focus area's time, exit speed and steering diffs beside them, and the handling label: between the
-         two sizes, so "-12.3 km/h" fits in 110 px -->
+    <!-- The last focus area's time, exit speed and steering diffs beside them, and the handling label: the focus area
+         boxes' size, bold, so "-12.3 km/h" fits in 110 px -->
     <Style x:Key="MidBox" TargetType="TextBox" BasedOn="{StaticResource Box}">
-        <Setter Property="FontSize" Value="20" />
         <Setter Property="FontWeight" Value="Bold" />
         <Setter Property="Padding" Value="6,2" />
     </Style>

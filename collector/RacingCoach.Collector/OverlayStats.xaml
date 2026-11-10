@@ -11,13 +11,13 @@
     <Grid HorizontalAlignment="Left">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="100" />
-            <ColumnDefinition Width="8" />
-            <ColumnDefinition Width="110" />
-            <ColumnDefinition Width="8" />
-            <ColumnDefinition Width="110" />
-            <ColumnDefinition Width="8" />
+            <ColumnDefinition Width="6" />
+            <ColumnDefinition Width="98" />
+            <ColumnDefinition Width="6" />
+            <ColumnDefinition Width="86" />
+            <ColumnDefinition Width="6" />
             <ColumnDefinition Width="Auto" />
-            <ColumnDefinition Width="8" />
+            <ColumnDefinition Width="6" />
             <ColumnDefinition Width="Auto" />
         </Grid.ColumnDefinitions>
         <StackPanel Grid.Column="0">
@@ -40,19 +40,19 @@
              "T3 Wheel Point Diff", for 3 s after leaving it (OverlayEngine's LastAreaHoldMs), then hidden. Hidden
              rather than collapsed, so nothing beside or under it moves. Level with the bottoms of the big boxes -->
         <StackPanel x:Name="LastAreaPanel" Grid.Column="6" Orientation="Horizontal" VerticalAlignment="Bottom" Visibility="Hidden">
-            <StackPanel Width="100">
+            <StackPanel Width="72">
                 <TextBlock x:Name="LastTimeHeading" Style="{StaticResource Heading}" />
                 <TextBox x:Name="LastTimeBox" Style="{StaticResource MidBox}" />
             </StackPanel>
-            <StackPanel Width="110" Margin="8,0,0,0">
+            <StackPanel Width="110" Margin="6,0,0,0">
                 <TextBlock x:Name="LastExitHeading" Style="{StaticResource Heading}" />
                 <TextBox x:Name="LastExitBox" Style="{StaticResource MidBox}" />
             </StackPanel>
-            <StackPanel Width="110" Margin="8,0,0,0">
+            <StackPanel Width="82" Margin="6,0,0,0">
                 <TextBlock x:Name="LastWheelDiffHeading" Style="{StaticResource Heading}" />
                 <TextBox x:Name="LastWheelDiffBox" Style="{StaticResource MidBox}" />
             </StackPanel>
-            <StackPanel Width="130" Margin="8,0,0,0">
+            <StackPanel Width="106" Margin="6,0,0,0">
                 <TextBlock x:Name="LastWheelPointHeading" Style="{StaticResource Heading}" />
                 <TextBox x:Name="LastWheelPointBox" Style="{StaticResource MidBox}" />
             </StackPanel>
@@ -60,7 +60,7 @@
 
         <!-- UNDERSTEER or OVERSTEER from the Rotation Model while it's sure; hidden (keeping its space) otherwise.
              No heading: it sits at the bottom, level with the other boxes -->
-        <TextBox x:Name="HandlingBox" Grid.Column="8" Style="{StaticResource MidBox}" MinWidth="130" Visibility="Hidden"
+        <TextBox x:Name="HandlingBox" Grid.Column="8" Style="{StaticResource MidBox}" MinWidth="126" Visibility="Hidden"
                  VerticalAlignment="Bottom" />
     </Grid>
 </UserControl>

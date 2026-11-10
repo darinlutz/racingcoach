@@ -19,7 +19,7 @@ internal abstract class LapSamples
     /// <summary>A lap without track positions can get them later (iRacing's .ibt files), so it isn't finished with yet.</summary>
     public abstract bool PositionsMayFollow { get; }
     /// <summary>The weather on the last sample; null when there's none.</summary>
-    public abstract LapConditions? Conditions(string? trackUsage);
+    public abstract LapConditions? Conditions(string? trackUsage, IReadOnlyDictionary<int, string>? tireTypes = null);
 }
 
 /// <summary>An iRacing lap, written from iRacing's own samples.</summary>
@@ -100,10 +100,13 @@ internal sealed class IRacingLapSamples(List<TelemetryData> samples) : LapSample
             writer.WriteLine(string.Join(',', Columns.Select(c => c.Value(sample))) + "," + fuelKgPerLtr);
     }
 
-    public override LapConditions? Conditions(string? trackUsage)
+    public override LapConditions? Conditions(string? trackUsage, IReadOnlyDictionary<int, string>? tireTypes = null)
     {
         var last = samples[^1];
-        return LapConditions.Create(last.TrackTempCrew, last.AirTemp, last.RelativeHumidity, last.WindVel, last.WindDir, trackUsage);
+        var compound = last.PlayerTireCompound;
+        return LapConditions.Create(last.TrackTempCrew, last.AirTemp, last.RelativeHumidity, last.WindVel, last.WindDir, trackUsage,
+            last.Precipitation, last.TrackWetness is { } wetness ? (int)wetness : null, last.WeatherDeclaredWet,
+            compound, compound is { } index ? tireTypes?.GetValueOrDefault(index) : null);
     }
 
     private static string F(float? v) => v?.ToString(Inv) ?? "";
@@ -136,7 +139,7 @@ internal sealed class CanonicalLapSamples(IReadOnlyList<TelemetryFrame> rawFrame
             writer.WriteLine(LapCsvFormat.Row(frame, fuelKgPerLiter, HasWorld));
     }
 
-    public override LapConditions? Conditions(string? trackUsage)
+    public override LapConditions? Conditions(string? trackUsage, IReadOnlyDictionary<int, string>? tireTypes = null)
     {
         var last = frames[^1];
         return LapConditions.Create(last.TrackTempC, last.AirTempC, last.RelativeHumidity, last.WindSpeedMps, last.WindDirectionRadians, trackUsage);

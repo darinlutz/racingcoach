@@ -74,6 +74,8 @@ internal sealed class LiveRacing(Func<RacingCoachApi?> api, Action<string> log)
     // Each session's name (e.g. "QUALIFY", "HEAT 1") and the weekend's weather type (e.g. "Static", "Dynamic")
     private IReadOnlyDictionary<int, string> _sessionNames = new Dictionary<int, string>();
     private string? _weatherType;
+    // The car's tire compounds from session info (SetTireTypes)
+    private IReadOnlyDictionary<int, string>? _tireTypes;
     // The car's setup from session info (SetSetup)
     private string? _setupName;
     private string? _setupLoadType;
@@ -151,6 +153,14 @@ internal sealed class LiveRacing(Func<RacingCoachApi?> api, Action<string> log)
             _setupLoadType = string.IsNullOrWhiteSpace(loadType) ? null : loadType.Trim();
             _setupModified = modified;
         }
+    }
+
+    /// <summary>Session info: the car's tire compounds by TireIndex (DriverInfo.DriverTires), sent with each update
+    /// with the fitted one (PlayerTireCompound) for the website's wet-weather coaching.</summary>
+    public void SetTireTypes(IReadOnlyDictionary<int, string>? tireTypes)
+    {
+        lock (_lock)
+            _tireTypes = tireTypes;
     }
 
     /// <summary>Session info: the subsession, the driver's own car index and every car in the session. Sent with the
@@ -445,6 +455,7 @@ internal sealed class LiveRacing(Func<RacingCoachApi?> api, Action<string> log)
                 sessionFlags = d.SessionFlags is { } flags ? (long)(uint)flags : (long?)null,
                 sessionState = d.SessionState is { } state ? (int)state : (int?)null,
                 weather = Weather(d),
+                tires = Tires(d),
                 onTrack,
                 onPitRoad = d.OnPitRoad,
                 lap = d.Lap,
@@ -510,7 +521,8 @@ internal sealed class LiveRacing(Func<RacingCoachApi?> api, Action<string> log)
                 }
                 else
                 {
-                    log("Live Racing: a message from a watcher");
+                    // the In-Car AI Coach's weather alerts come from RacingCoach (WEATHER_ALERT_SENDER on the site)
+                    log(message.From == "RacingCoach" ? $"In-Car AI Coach: {message.Text}" : "Live Racing: a message from a watcher");
                     Voice.Say(message.Text);
                 }
             }
@@ -610,6 +622,18 @@ internal sealed class LiveRacing(Func<RacingCoachApi?> api, Action<string> log)
         declaredWet = d.WeatherDeclaredWet,
         solarAltitude = Rounded(d.SolarAltitude, 3),
     };
+
+    // The fitted tires (PlayerTireCompound), the compound picked for the next stop (PitSvTireCompound) and the car's
+    // compounds; null when iRacing reports none of them. Called under the lock.
+    private object? Tires(in TelemetryData d)
+    {
+        int? compound = d.PlayerTireCompound is >= 0 and <= 50 and var c ? c : null;
+        int? pit = d.PitSvTireCompound is >= 0 and <= 50 and var p ? p : null;
+        var available = _tireTypes?.Where(t => t.Key is >= 0 and <= 50).Take(20).Select(t => new { index = t.Key, type = t.Value }).ToArray();
+        if (compound is null && pit is null && available is not { Length: > 0 })
+            return null;
+        return new { compound, pitCompound = pit, available = available is { Length: > 0 } ? available : null };
+    }
 
     private static double? Rounded(float? value, int digits) =>
         value is { } v && float.IsFinite(v) && Math.Abs(v) < 1000 ? Math.Round(v, digits) : null;

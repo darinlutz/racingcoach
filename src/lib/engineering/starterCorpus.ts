@@ -1,4 +1,5 @@
 import type { EngineeringRecord, KnowledgeSource } from './knowledgeTypes.ts';
+import { WET_WEATHER_CORPUS, WET_WEATHER_SOURCES } from './wetWeatherCorpus.ts';
 
 // The Race Engineering knowledge base's starter corpus: original explanations of established vehicle dynamics and
 // setup practice, written for RacingCoach (no text copied from manuals or books). Every record is 'ai_drafted': it was
@@ -20,6 +21,8 @@ export const STARTER_SOURCES: KnowledgeSource[] = [
     license: 'original',
     publisher: 'Clarivex LLC',
   },
+  // the public documents the wet-weather records link to (wetWeatherCorpus.ts)
+  ...WET_WEATHER_SOURCES,
 ];
 
 const ORIGINAL = ['racingcoach-original'];
@@ -861,4 +864,6 @@ export const STARTER_CORPUS: EngineeringRecord[] = [
     adjustments: [],
     constraints: ['A tendency of the layout, not a measured fact about the driver\'s car or setup.'],
   }),
+  // ---------------------------------------------------------------- wet weather (wetWeatherCorpus.ts)
+  ...WET_WEATHER_CORPUS,
 ];

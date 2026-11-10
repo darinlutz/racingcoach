@@ -10,6 +10,8 @@ import { canSeeAllLaps, ROLES } from './roles';
 import { findTrackByKey, readTracks, type FocusArea } from './tracks';
 import { OUTLINE_POINTS, type TrackOutline } from './trackOutlines';
 import { ensureUserSchema, getUserById, type User } from './users';
+import { nextWeatherAlert, type WeatherAlertKind, type WeatherAlertState } from './engineering/weatherAlerts';
+import { weatherContextFromLive, type WeatherContext } from './engineering/weatherContext';
 
 // Live Racing: where each driver running the telemetry collector is right now, for the Live Racing page
 // (src/app/live-racing/) and the collector's Live Racing tab. The collector posts the driver's live position and
@@ -103,6 +105,19 @@ const weatherSchema = z.object({
   solarAltitude: z.number().min(-1000).max(1000).nullish(),
 });
 
+// The fitted tires (from collectors from 1.94.0): iRacing's PlayerTireCompound and PitSvTireCompound (the compound
+// picked for the next stop), indexes into the car's compounds from session info (DriverInfo.DriverTires: TireIndex,
+// TireCompoundType), or a simulator's own name for the compound. src/lib/engineering/weatherContext.ts reads it.
+const tiresSchema = z.object({
+  compound: z.number().int().min(-1).max(50).nullish(),
+  pitCompound: z.number().int().min(-1).max(50).nullish(),
+  available: z
+    .array(z.object({ index: z.number().int().min(0).max(50), type: z.string().trim().min(1).max(50) }))
+    .max(20)
+    .nullish(),
+  compoundName: z.string().trim().max(50).nullish(),
+});
+
 // The driver's inputs 20 times a second: [SessionTime, throttle 0-1, brake 0-1, steering (radians, + left), gear,
 // speed (m/s), delta to best (s)]
 const inputSampleSchema = z.tuple([
@@ -135,6 +150,7 @@ export const liveUpdateSchema = z.object({
   sessionFlags: z.number().int().min(0).max(0xffffffff).nullish(),
   sessionState: z.number().int().min(0).max(20).nullish(),
   weather: weatherSchema.nullish(),
+  tires: tiresSchema.nullish(),
   onTrack: z.boolean(),
   onPitRoad: z.boolean().nullish(),
   lap: z.number().int().min(-1).max(100_000).nullish(),
@@ -286,6 +302,8 @@ type LiveEntry = {
   // The driver's radio messages, oldest first, and the number of the newest
   radio: RadioMessage[];
   radioSeq: number;
+  // What the In-Car AI Coach's weather alerts have said and seen (src/lib/engineering/weatherAlerts.ts)
+  weatherAlerts: WeatherAlertState | null;
 };
 
 // After this long without an update a driver is shown as offline, and after EXPIRE_MS left out
@@ -318,7 +336,10 @@ function expire(now: number) {
 export function recordLiveUpdate(
   user: Pick<User, 'id' | 'userName' | 'role'>,
   update: LiveUpdate,
-  savedOutline: boolean
+  savedOutline: boolean,
+  // The In-Car AI Coach's weather alerts, when the driver may have them: each kind's words in their language
+  // (coachSpeech.weather in the dictionaries); null for none
+  weatherAlertTexts: Record<WeatherAlertKind, string> | null = null
 ): {
   watchers: number;
   needsOutline: boolean;
@@ -414,12 +435,29 @@ export function recordLiveUpdate(
     announcingUntil: previous?.announcingUntil ?? 0,
     radio: (previous?.radio ?? []).filter((r) => now - r.at <= RADIO_KEPT_MS),
     radioSeq: previous?.radioSeq ?? 0,
+    weatherAlerts: previous?.weatherAlerts ?? null,
   });
-  const messages = update.acceptsMessages
+  const messages: { from: string; text: string; audioId?: string }[] = update.acceptsMessages
     ? (previous?.messages ?? [])
         .filter((m) => now - m.at <= MESSAGE_EXPIRE_MS)
         .map(({ from, text, audioId }) => (audioId && update.acceptsVoiceMessages ? { from, text, audioId } : { from, text }))
     : [];
+  // The weather alerts run on fixed rules over this update's readings (no AI call), and a failure never stops the
+  // live position being kept
+  if (weatherAlertTexts && update.acceptsMessages) {
+    try {
+      const entry = live.entries.get(user.id)!;
+      const weatherNow = weatherContextFromLive({ update: rest, field: liveField, weatherTrend: entryTrend(entry), receivedAt: now }, now);
+      const { alert, state } = nextWeatherAlert(entry.weatherAlerts, weatherNow, now, update.onTrack);
+      entry.weatherAlerts = state;
+      if (alert) {
+        messages.push({ from: WEATHER_ALERT_SENDER, text: weatherAlertTexts[alert] });
+        console.log(`Weather alert for user ${user.id}: ${alert}`);
+      }
+    } catch (error) {
+      console.error('Weather alert error:', error);
+    }
+  }
   return {
     watchers: watcherCount(user.id, now),
     needsOutline: !!trackKey && !savedOutline && !kept,
@@ -427,6 +465,29 @@ export function recordLiveUpdate(
     messages,
     announcerSpeakingMs: Math.max(0, (previous?.announcingUntil ?? 0) - now),
   };
+}
+
+// Who weather alerts are from, among a collector's messages
+export const WEATHER_ALERT_SENDER = 'RacingCoach';
+
+function entryTrend(entry: LiveEntry): WeatherTrend | null {
+  return entry.update.weather ? weatherTrend(entry.weatherHistory, weatherSample(entry.update.weather, entry.receivedAt)) : null;
+}
+
+// Every live driver's weather context, for the Admin page's Race Engineering Knowledge section
+export function readLiveWeatherContexts(): { userId: number; driver: string; track: string; ageMs: number; weather: WeatherContext }[] {
+  const now = Date.now();
+  expire(now);
+  return [...live.entries.values()].map((entry) => ({
+    userId: entry.userId,
+    driver: entry.driver,
+    track: entry.update.track,
+    ageMs: now - entry.receivedAt,
+    weather: weatherContextFromLive(
+      { update: entry.update, field: entry.field, weatherTrend: entryTrend(entry), receivedAt: entry.receivedAt },
+      now
+    ),
+  }));
 }
 
 // What the BroadcastTracker reads from a live update
@@ -618,6 +679,8 @@ export type EngineerSnapshot = {
   events: NumberedRaceEvent[];
   radio: RadioMessage[];
   weatherTrend: WeatherTrend | null;
+  // When the update arrived (ms since epoch), for how fresh its weather is
+  receivedAt: number;
 };
 
 export function readEngineerSnapshot(driverId: number): EngineerSnapshot | null {
@@ -630,6 +693,7 @@ export function readEngineerSnapshot(driverId: number): EngineerSnapshot | null 
     events: entry.events.filter((e) => now - e.at <= EVENTS_KEPT_MS),
     radio: entry.radio.filter((r) => now - r.at <= RADIO_KEPT_MS),
     weatherTrend: entry.update.weather ? weatherTrend(entry.weatherHistory, weatherSample(entry.update.weather, entry.receivedAt)) : null,
+    receivedAt: entry.receivedAt,
   };
 }
 
@@ -942,8 +1006,11 @@ export async function removeWatcher(driverId: number, watcherId: number): Promis
 }
 
 // The account behind a collector's live update, cached a minute (the name and role shown with its position)
-const recentUsers = new Map<number, { user: Pick<User, 'id' | 'userName' | 'role'>; until: number }>();
-export async function liveUser(userId: number): Promise<Pick<User, 'id' | 'userName' | 'role'> | null> {
+type LiveUser = Pick<User, 'id' | 'userName' | 'role' | 'membershipLevel' | 'preferredLanguage'>;
+const recentUsers = new Map<number, { user: LiveUser; until: number }>();
+export async function liveUser(
+  userId: number
+): Promise<LiveUser | null> {
   const cached = recentUsers.get(userId);
   if (cached && cached.until > Date.now()) return cached.user;
   const user = await getUserById(userId);
@@ -951,7 +1018,7 @@ export async function liveUser(userId: number): Promise<Pick<User, 'id' | 'userN
     recentUsers.delete(userId);
     return null;
   }
-  const entry = { id: user.id, userName: user.userName, role: user.role };
+  const entry = { id: user.id, userName: user.userName, role: user.role, membershipLevel: user.membershipLevel, preferredLanguage: user.preferredLanguage };
   recentUsers.set(userId, { user: entry, until: Date.now() + 60_000 });
   return entry;
 }

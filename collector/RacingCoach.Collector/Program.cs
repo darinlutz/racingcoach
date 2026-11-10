@@ -116,6 +116,10 @@ namespace RacingCoach.Collector;
     TelemetryVar.PlayerCarIdx,
     // the in-car brake bias adjustment, for the Setup Engineer (LiveRacing.cs; null in cars without one)
     TelemetryVar.dcBrakeBias,
+    // the fitted tire compound and the one picked for the next stop (indexes into session info's DriverTires), for
+    // the website's wet-weather coaching (LiveRacing.cs, and each lap's conditions)
+    TelemetryVar.PlayerTireCompound,
+    TelemetryVar.PitSvTireCompound,
 ])]
 public static class Program
 {

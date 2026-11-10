@@ -6,6 +6,8 @@ import { setCoachPronunciations } from '@/lib/coachVoice';
 import { measureCollectorSession } from '@/lib/collectorSession';
 import { DEFAULT_LANGUAGE, LANGUAGE_LOCALES } from '@/lib/i18n/languages';
 import { inCarCoachCallouts, inCarCoachPlan } from '@/lib/inCarCoach';
+import { readEngineerSnapshot } from '@/lib/liveRacing';
+import { weatherContextFromLive } from '@/lib/engineering/weatherContext';
 import { aiRateLimit, type AiRateLimit } from '@/lib/rateLimits';
 import { canUseInCarCoach } from '@/lib/roles';
 import { getEnableAiFeatures } from '@/lib/siteSettings';
@@ -131,6 +133,11 @@ export async function POST(request: Request) {
         language: user.language,
         units: user.units,
         tires: measured.tires,
+        // the live track conditions and tires, while the driver is live (src/lib/engineering/weatherContext.ts)
+        weather: (() => {
+          const snapshot = readEngineerSnapshot(user.userId);
+          return snapshot ? weatherContextFromLive(snapshot, Date.now()) : null;
+        })(),
       })
     );
     console.log(`In-Car AI Coach: user ${user.userId}, ${measured.laps.length} laps, ${callouts.length} callouts (${steps.join(', ') || 'no tools'})`);

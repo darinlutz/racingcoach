@@ -88,17 +88,27 @@ internal sealed class ManifestLap
 }
 
 /// <summary>A lap's weather, in iRacing's units: temperatures in °C, humidity 0-1, wind in m/s and radians (WindDir).
-/// TrackUsage is iRacing's words for the session's rubber, e.g. "moderate usage".</summary>
+/// TrackUsage is iRacing's words for the session's rubber, e.g. "moderate usage". From 1.94.0 also the rain
+/// (Precipitation, 0-1), iRacing's TrackWetness (0 unknown, 1 dry to 7 extremely wet), WeatherDeclaredWet and the
+/// fitted tires (PlayerTireCompound, and its TireCompoundType from session info's DriverTires), for the website's
+/// wet-weather coaching (src/lib/engineering/weatherContext.ts). They're left out of the JSON when unknown, so laps
+/// without them are written exactly as before.</summary>
 internal sealed record LapConditions(
     double? TrackTempC,
     double? AirTempC,
     double? RelativeHumidity,
     double? WindVelocity,
     double? WindDirection,
-    string? TrackUsage)
+    string? TrackUsage,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] double? Precipitation = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? TrackWetness = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] bool? DeclaredWet = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? TireCompound = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? TireCompoundType = null)
 {
     /// <summary>The conditions on the lap's last sample; null when telemetry has none of them.</summary>
-    public static LapConditions? Create(float? trackTemp, float? airTemp, float? humidity, float? windSpeed, float? windDirection, string? trackUsage)
+    public static LapConditions? Create(float? trackTemp, float? airTemp, float? humidity, float? windSpeed, float? windDirection, string? trackUsage,
+        float? precipitation = null, int? trackWetness = null, bool? declaredWet = null, int? tireCompound = null, string? tireCompoundType = null)
     {
         static double? Round(float? value, int digits) => value is { } v && float.IsFinite(v) ? Math.Round(v, digits) : null;
         var conditions = new LapConditions(
@@ -107,7 +117,12 @@ internal sealed record LapConditions(
             Round(humidity, 3),
             Round(windSpeed, 2),
             Round(windDirection, 3),
-            string.IsNullOrWhiteSpace(trackUsage) ? null : trackUsage);
+            string.IsNullOrWhiteSpace(trackUsage) ? null : trackUsage,
+            precipitation is >= 0 and <= 1 ? Round(precipitation, 3) : null,
+            trackWetness is >= 0 and <= 20 ? trackWetness : null,
+            declaredWet,
+            tireCompound is >= 0 and <= 50 ? tireCompound : null,
+            string.IsNullOrWhiteSpace(tireCompoundType) ? null : tireCompoundType.Trim());
         return conditions == new LapConditions(null, null, null, null, null, null) ? null : conditions;
     }
 }

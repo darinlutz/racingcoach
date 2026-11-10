@@ -20,12 +20,42 @@ import {
   upsertSource,
 } from '@/lib/engineering/knowledgeStore';
 import { LICENSES, SIMULATORS, VERIFICATIONS, type KnowledgeSource, type SimulatorId, type Verification } from '@/lib/engineering/knowledgeTypes';
+import { readKnowledgeUses } from '@/lib/engineering/knowledgeUsage';
+import { buildWeatherContext, weatherFacts, type WeatherContext } from '@/lib/engineering/weatherContext';
+import { readLiveWeatherContexts } from '@/lib/liveRacing';
+
+// The Test retrieval's conditions as a weather context, as if the collector had just reported them: iRacing's
+// TrackWetness level and a rain reading for each, and the fitted compound by name
+const TEST_CONDITIONS: Record<string, { wetness: number; precipitation: number; drying?: boolean }> = {
+  dry: { wetness: 1, precipitation: 0 },
+  damp: { wetness: 3, precipitation: 0.05 },
+  wet: { wetness: 5, precipitation: 0.3 },
+  veryWet: { wetness: 6, precipitation: 0.7 },
+  drying: { wetness: 3, precipitation: 0, drying: true },
+};
+
+function testWeather(conditions: unknown, tires: unknown): WeatherContext | undefined {
+  const c = typeof conditions === 'string' ? TEST_CONDITIONS[conditions] : undefined;
+  if (!c) return undefined;
+  const now = Date.now();
+  return buildWeatherContext({
+    weather: { wetness: c.wetness, precipitation: c.precipitation, declaredWet: c.wetness > 1, type: 'dynamic' },
+    tires: tires === 'dry' || tires === 'wet' ? { compound: tires === 'wet' ? 1 : 0, available: [{ index: 0, type: 'Dry' }, { index: 1, type: 'Wet' }] } : null,
+    trend: c.drying ? { minutes: 10, airTemp: null, trackTemp: null, skies: null, precipitation: -0.05, wetness: -1 } : null,
+    observedAt: now,
+    now,
+    origin: 'live',
+  });
+}
 
 // The Admin page's Race Engineering Knowledge section (src/components/EngineeringKnowledgeManager.tsx,
 // docs/race-engineering-rag.md). GET: documents, sources, ingestion jobs and the embedding model. POST { action }:
 // ingestStarter, upload ({ format, text, meta } Markdown, text or JSON records), addSource, embed, reindex ({ id }),
 // setStatus ({ id, status, reason }), setVerification ({ id, verification }), chunks ({ id }) and test ({ question,
-// car, simulator, fixed }: retrieval and diagnosis only, no chat model). Admin role only; anyone else gets a 404.
+// car, simulator, fixed, conditions, tires }: retrieval and diagnosis only, no chat model; conditions dry, damp, wet,
+// veryWet or drying and tires dry or wet stand in for the collector's weather, absent for none). GET also answers
+// every live driver's weather context and the agents' recent knowledge use (docs/wet-weather.md). Admin role only;
+// anyone else gets a 404.
 // Embedding is the only paid call, capped per run (MAX_EMBED_CHUNKS) and refused by the emergency stop.
 
 const MAX_BODY = MAX_DOCUMENT_CHARS * 2 + 16 * 1024;
@@ -53,6 +83,27 @@ export async function GET() {
       embeddingModel: configuredEmbeddingModel(),
       retrievalSource: loaded.source,
       queryEmbeddingModel: loaded.embeddingModel,
+      liveWeather: readLiveWeatherContexts().map(({ userId, driver, track, ageMs, weather }) => ({
+        userId,
+        driver,
+        track,
+        ageMs,
+        fresh: weather.fresh,
+        condition: weather.condition,
+        rain: weather.rain.value,
+        rainLabel: weather.rain.label,
+        wetness: weather.trackWetness.label,
+        declaredWet: weather.declaredWet.value,
+        trackTemp: weather.trackTemp.value,
+        tires: weather.tires.fitted,
+        nextPit: weather.tires.nextPit,
+        available: weather.tires.available,
+        mismatch: weather.mismatch,
+        trend: weather.trend,
+        forecast: weather.forecast.available ? 'available' : weather.forecast.reason,
+        warnings: weather.warnings,
+      })),
+      knowledgeUses: readKnowledgeUses(),
     });
   } catch (error) {
     console.error('Engineering knowledge report error:', error instanceof Error ? error.message : error);
@@ -137,6 +188,7 @@ export async function POST(request: Request) {
         const question = str(body.question, 500);
         if (!question) return NextResponse.json({ error: 'Missing question' }, { status: 400 });
         const simulator = (SIMULATORS as readonly string[]).includes(body.simulator as string) ? (body.simulator as SimulatorId) : 'iracing';
+        const weather = testWeather(body.conditions, body.tires);
         const ctx = await engineeringContext({
           question,
           car: str(body.car, 200) || null,
@@ -144,6 +196,8 @@ export async function POST(request: Request) {
           fixed: body.fixed === true,
           setupKnown: true,
           rotation: null,
+          ...(weather ? { weather, weatherInFacts: false } : {}),
+          agent: 'adminTest',
         });
         return NextResponse.json({
           source: ctx.source,
@@ -157,6 +211,7 @@ export async function POST(request: Request) {
           diagnosis: ctx.diagnosis,
           context: ctx.context.text,
           tokens: ctx.context.tokens,
+          weatherFacts: weather ? weatherFacts(weather) : [],
         });
       }
       default:

@@ -25,6 +25,7 @@ import {
 } from './units';
 import { chatModel, structured, withFallbackModel } from '@/lib/aiModels';
 import { engineeringKnowledgeTool } from '@/lib/engineering/knowledgeTool';
+import { isWetCondition, weatherFacts, type WeatherContext } from '@/lib/engineering/weatherContext';
 
 // Post-session debrief coach for the Debrief Coach tab. The browser measures every lap in every
 // focus area (the CSVs are too big to send) and posts the numbers here; the agent digs through
@@ -1105,6 +1106,24 @@ function trackPositions(response: DebriefFixes, u: UnitFormat): { fix?: DebriefF
   ];
 }
 
+// The session's weather for the debrief: what was observed on the laps, and on a wet or drying track how to coach it
+function debriefWeatherNote(weather: WeatherContext, units: Units): string {
+  const wet = isWetCondition(weather.condition) || weather.trend?.wetness === 'drying' || weather.mismatch != null;
+  return (
+    '\n\nThe track conditions my recorded laps reported:\n' +
+    weatherFacts(weather, units === 'metric' ? 'metric' : 'standard').join('\n') +
+    (wet
+      ? '\nThis was a wet or changing session: coach it as one. Lower grip means earlier, more progressive braking and ' +
+        'smoother throttle and steering are often right, so never call an earlier brakepoint or a gentler throttle a ' +
+        'mistake just because a dry lap would be faster; compare laps driven in similar conditions, and when the ' +
+        'track was changing say that the fastest laps may simply have had the most grip. Call get_engineering_knowledge ' +
+        'for the wet-weather correction to any handling problem the data shows. When the tires did not suit the ' +
+        'track, say so before any driving fix. Never claim standing water, aquaplaning, ABS or traction control ' +
+        'activity, or a tire temperature the data does not show.'
+      : '')
+  );
+}
+
 // Tool calls the agent made, e.g. "get_area_detail(T 1&2)", shown under the debrief
 function toolSteps(messages: unknown[]) {
   return messages.flatMap((message) =>
@@ -1123,7 +1142,9 @@ export async function runDebriefCoach(
   language: Language = DEFAULT_LANGUAGE,
   units: Units = DEFAULT_UNITS,
   // The car's rev limit from Car Data, for get_shifting_points
-  carRpmLimit: number | null = null
+  carRpmLimit: number | null = null,
+  // The session's weather and tires from its recorded laps (engineering/weatherContext.ts); null for dropped files
+  weather: WeatherContext | null = null
 ): Promise<{ debrief: Debrief; steps: string[]; optimalLap: OptimalLap | null }> {
   if (!process.env.OPENAI_API_KEY) {
     throw new Error('OPENAI_API_KEY is not configured');
@@ -1138,8 +1159,10 @@ export async function runDebriefCoach(
   const tools = [
     ...createTools(session, units, carRpmLimit),
     assembleOptimalLapTool(optimalLap, session),
-    engineeringKnowledgeTool(session.car),
+    engineeringKnowledgeTool(session.car, { agent: 'debriefCoach', units: units === 'metric' ? 'metric' : 'standard', ...(weather ? { weather } : {}) }),
   ];
+  // What the laps said of the weather, only when they said something: a dry debrief's prompt is unchanged
+  const weatherNote = weather && (weather.condition !== 'unknown' || weather.tires.fitted.confidence !== 'none') ? debriefWeatherNote(weather, units) : '';
   const prompt = systemPrompt(units) + (await coachInstructionsRule()) + aiLanguageRule(language);
   // The model can still flip "later" and "earlier" or say where to brake, so check everything it wrote and give it
   // one chance to correct itself before dropping any fix, keep-doing item or sentence that still breaks the rules
@@ -1164,7 +1187,7 @@ export async function runDebriefCoach(
     });
 
     let result = await agent.invoke(
-      { messages: [{ role: 'user', content: `Debrief my session at ${session.track} in the ${session.car}. What should I fix?` }] },
+      { messages: [{ role: 'user', content: `Debrief my session at ${session.track} in the ${session.car}. What should I fix?${weatherNote}` }] },
       { recursionLimit: 40, signal }
     );
     let response: DebriefFixes = structured(result);

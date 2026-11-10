@@ -4,6 +4,8 @@ import { assembleContext, recordToChunk, retrieve, type AssembledContext, type K
 import { STARTER_CORPUS } from './starterCorpus';
 import type { ParameterId, SimulatorId } from './knowledgeTypes';
 import type { SessionRotation } from '@/lib/rotationAnalysis';
+import { assessWeather, weatherFacts, weatherSummary, type WeatherContext } from './weatherContext';
+import { recordKnowledgeUse, type KnowledgeUse } from './knowledgeUsage';
 
 // The Race Engineering knowledge service shared by the Setup Engineer (src/lib/setupEngineer.ts) and the Race Coach
 // (the Debrief Coach's get_engineering_knowledge tool, src/lib/debriefCoach.ts): loads the knowledge chunks (the
@@ -93,6 +95,15 @@ export async function engineeringContext(input: {
   maxTokens?: number;
   // Leave out the diagnosis (the Race Coach asks about principles, not always a symptom)
   withDiagnosis?: boolean;
+  // The track conditions and fitted tires (weatherContext.ts); absent when the caller doesn't know them, which keeps
+  // the wet-weather knowledge out unless the question is about rain
+  weather?: WeatherContext | null;
+  // Add the weather facts to `facts` (the Setup Engineer puts them in its own facts instead)
+  weatherInFacts?: boolean;
+  // Who asked and with which model, for the Admin page's record of knowledge use (knowledgeUse.ts)
+  agent?: KnowledgeUse['agent'];
+  model?: string | null;
+  units?: 'metric' | 'standard';
 }): Promise<EngineeringContext> {
   const simulator = input.simulator ?? 'iracing';
   const loaded = await loadKnowledge();
@@ -102,7 +113,9 @@ export async function engineeringContext(input: {
     loaded.capabilityOverrides.filter((o) => o.simulator === simulator)
   );
   const allowed = allowedParameters(capabilities, input.fixed);
-  const ctx = { simulator, carClass: capabilities.carClass, car: input.car, allowed: capabilities.known ? allowed : null };
+  // Stale or missing readings count as unknown conditions (assessWeather gives null)
+  const weather = input.weather === undefined ? undefined : assessWeather(input.weather);
+  const ctx = { simulator, carClass: capabilities.carClass, car: input.car, allowed: capabilities.known ? allowed : null, weather };
   const queryEmbedding = loaded.embeddingModel ? await embedQuery(input.question, loaded.embeddingModel) : null;
   const retrieval = retrieve(loaded.chunks, input.question, ctx, { queryEmbedding });
   const diagnosis = diagnose({
@@ -114,14 +127,29 @@ export async function engineeringContext(input: {
     setupKnown: input.setupKnown,
     rotation: input.rotation,
     coldTires: input.coldTires,
+    weather,
   });
   const context = assembleContext(retrieval, ctx, input.maxTokens ?? 1200);
   const facts = [
+    ...(input.weather !== undefined && input.weatherInFacts !== false ? [...weatherFacts(input.weather, input.units), ''] : []),
     `Car class: ${capabilities.carClass}; simulator: ${simulator}.`,
     ...capabilityFacts(capabilities, input.fixed),
     ...(input.withDiagnosis === false ? [] : ['', ...diagnosisFacts(diagnosis)]),
     ...(context.text ? ['', context.text] : []),
   ];
+  if (input.agent) {
+    recordKnowledgeUse({
+      at: Date.now(),
+      agent: input.agent,
+      model: input.model ?? null,
+      car: input.car,
+      weather: input.weather === undefined ? 'not given' : weatherSummary(input.weather),
+      question: input.question,
+      confidence: retrieval.confidence,
+      documents: context.used.map((u) => u.id),
+      source: loaded.source,
+    });
+  }
   return { capabilities, allowed, retrieval, diagnosis, context, facts, source: loaded.source };
 }
 

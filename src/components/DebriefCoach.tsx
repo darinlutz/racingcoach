@@ -156,7 +156,11 @@ export default function DebriefCoach({ onCompare }: { onCompare?: (base: LapFile
       const res = await fetch('/api/debrief-coach', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session }),
+        // each recorded lap's weather and tires, so the coach knows a wet session; dropped files have none
+        body: JSON.stringify({
+          session,
+          weather: laps.map((lap) => ({ conditions: lap.conditions ?? null, completedAt: lap.completedAt ?? null })),
+        }),
       });
       const data = await res.json();
       reportRateLimit(res, data);

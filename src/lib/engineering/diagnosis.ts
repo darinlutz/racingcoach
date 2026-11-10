@@ -1,6 +1,7 @@
 import type { EngineeringRecord, ParameterId, Phase, Symptom } from './knowledgeTypes.ts';
 import type { Retrieval } from './retrieval.ts';
 import { PARAMETER_LABELS, type CarCapabilities } from './setupCapabilities.ts';
+import type { WeatherAssessment } from './weatherContext.ts';
 
 // The diagnosis both the Setup Engineer and the Race Coach work from: one representation of what the driver said,
 // what the telemetry measured, what might cause it (driving, setup or conditions), and what to change and how to
@@ -35,6 +36,8 @@ export type DiagnosisInput = {
   rotation: RotationEvidence | null;
   // The newest laps are on cold tires (src/lib/tireWarmup.ts)
   coldTires?: boolean;
+  // The track conditions and fitted tires (weatherContext.ts); null or absent when not known
+  weather?: WeatherAssessment | null;
 };
 
 export type Hypothesis = {
@@ -67,8 +70,12 @@ export type Diagnosis = {
   conflicts: string[];
   missing: string[];
   hypotheses: Hypothesis[];
-  // Which to work on first: the driver, the setup, or neither until the tires are warm
+  // Which to work on first: the driver, the setup, or the conditions (cold tires, or tires that don't suit the track)
   focus: 'driving' | 'setup' | 'conditions' | 'unknown';
+  // What the conditions focus means, when it's the focus
+  conditionsNote: string | null;
+  // The track conditions it was made for, in words; null when not known
+  weather: string | null;
   driverChanges: string[];
   setupChanges: SetupRecommendation[];
   risks: string[];
@@ -99,7 +106,21 @@ function measuredBalance(rotation: RotationEvidence | null): { symptom: Symptom;
 }
 
 const isDrivingCause = (cause: string) => /\(driving\)/i.test(cause);
-const isConditionCause = (cause: string) => /cold|out lap|stint/i.test(cause);
+const isConditionCause = (cause: string) => /cold|out lap|stint|\bwet\b|rain|water|damp|drying|compound|slicks?\b/i.test(cause);
+
+// The wet-weather diagnosis record for a symptom and phase (wetWeatherCorpus.ts), used instead of the dry one on a
+// wet track when it was retrieved
+const WET_DIAGNOSIS_RECORDS: Partial<Record<Symptom, Partial<Record<Phase, string>>>> = {
+  understeer: { braking: 'dx-wet-entry-understeer', entry: 'dx-wet-entry-understeer' },
+  oversteer: { exit: 'dx-wet-exit-oversteer', braking: 'dx-wet-rear-instability-braking', entry: 'dx-wet-rear-instability-braking' },
+  brakingInstability: { braking: 'dx-wet-rear-instability-braking', entry: 'dx-wet-rear-instability-braking' },
+  absIntervention: { braking: 'dx-wet-abs-intervention', entry: 'dx-wet-abs-intervention' },
+  tcIntervention: { exit: 'dx-wet-tc-intervention' },
+  poorTraction: { exit: 'dx-wet-tc-intervention' },
+  aquaplaning: {},
+};
+
+const CONDITION_WORDS = { dry: 'dry', damp: 'damp', wet: 'wet', veryWet: 'very wet', unknown: 'unknown' } as const;
 const cleanCause = (cause: string) => cause.replace(/\s*\(driving( or [^)]*)?\)\s*/i, '').trim();
 
 export function diagnose(input: DiagnosisInput): Diagnosis {
@@ -145,11 +166,31 @@ export function diagnose(input: DiagnosisInput): Diagnosis {
 
   // The diagnosis record for this symptom and phase, else the best retrieved one with the symptom
   const records = retrieval.results.map((r) => r.chunk.record).filter((r): r is EngineeringRecord => !!r);
+  const weather = input.weather ?? null;
+  const wetTrack = !!weather?.wet;
   const wanted = symptom && phase ? DIAGNOSIS_RECORDS[symptom]?.[phase] : undefined;
+  const wantedWet = wetTrack && symptom && phase ? WET_DIAGNOSIS_RECORDS[symptom]?.[phase] : undefined;
   const primary =
+    records.find((r) => wantedWet != null && r.id === wantedWet) ??
+    (wetTrack ? records.find((r) => r.id.startsWith('dx-wet-') && symptom != null && r.symptoms.includes(symptom)) : undefined) ??
     records.find((r) => r.id === wanted) ??
     records.find((r) => r.id.startsWith('dx-') && symptom != null && r.symptoms.includes(symptom)) ??
     null;
+
+  // The tires against the track: a mismatch is the first thing to fix, before any handling change
+  const mismatch = weather?.mismatch ?? null;
+  const tireFirst = mismatch === 'slicksOnWet' || mismatch === 'wetsOnDry';
+  if (weather && weather.condition !== 'unknown') {
+    observations.push(
+      `Track ${CONDITION_WORDS[weather.condition]}` +
+        (weather.fittedCompound !== 'unknown' ? `, on ${weather.fittedCompound === 'dry' ? 'dry (slick)' : weather.fittedCompound} tires` : ', fitted compound not known') +
+        (weather.drying ? ', drying' : weather.worsening ? ', getting wetter' : '') +
+        ' (observed).'
+    );
+  } else if (input.weather !== undefined) {
+    missing.push('The track conditions are not known.');
+  }
+  if (weather && weather.fittedCompound === 'unknown') missing.push('Which tires are fitted (dry or wet) is not known.');
 
   // Evidence that points at the driver: understeer on entry with the brakes on, power-on oversteer, one-off events
   const recurring = !!rotation?.recurring.some((r) => r.laps >= 2 && (!symptom || r.eventType.toLowerCase() === symptom));
@@ -164,6 +205,17 @@ export function diagnose(input: DiagnosisInput): Diagnosis {
   observations.push(...measuredDriving.map((s) => s.charAt(0).toUpperCase() + s.slice(1) + '.'));
 
   const hypotheses: Hypothesis[] = [];
+  if (mismatch === 'slicksOnWet') {
+    hypotheses.push({ cause: 'Dry (slick) tires on a wet track: they cannot clear the water, so grip is low everywhere', kind: 'conditions', support: 'measured', confidence: 'likely', sources: ['dx-wet-crossover-slicks-to-wets'] });
+  } else if (mismatch === 'wetsOnDry') {
+    hypotheses.push({ cause: 'Wet tires on a dry track: they overheat and lose grip', kind: 'conditions', support: 'measured', confidence: 'likely', sources: ['dx-wet-wets-overheating-drying'] });
+  } else if (mismatch === 'wetsOnDrying') {
+    hypotheses.push({ cause: 'Wet tires on a drying track may be overheating', kind: 'conditions', support: 'inferred', confidence: 'possible', sources: ['dx-wet-wets-overheating-drying'] });
+  } else if (mismatch === 'noWetTires') {
+    hypotheses.push({ cause: 'A wet track with no wet tires for this car: grip is limited by the tires', kind: 'conditions', support: 'measured', confidence: 'likely', sources: [] });
+  } else if (wetTrack) {
+    hypotheses.push({ cause: 'Less grip on the wet track than in the dry: the limits are lower everywhere', kind: 'conditions', support: 'measured', confidence: 'possible', sources: [] });
+  }
   if (input.coldTires) {
     hypotheses.push({ cause: 'Tires and brakes still below working temperature', kind: 'conditions', support: 'measured', confidence: 'likely', sources: ['dx-cold-tires'] });
   }
@@ -187,7 +239,7 @@ export function diagnose(input: DiagnosisInput): Diagnosis {
   const order = { likely: 0, possible: 1, unconfirmed: 2 };
   hypotheses.sort((a, b) => order[a.confidence] - order[b.confidence]);
 
-  const focus: Diagnosis['focus'] = input.coldTires
+  const focus: Diagnosis['focus'] = input.coldTires || tireFirst
     ? 'conditions'
     : !symptom
       ? 'unknown'
@@ -220,9 +272,25 @@ export function diagnose(input: DiagnosisInput): Diagnosis {
   // In a fixed setup the in-car ones are all there is; otherwise the smallest useful change (in-car) leads too
   setupChanges.sort((a, b) => Number(b.inCar) - Number(a.inCar));
   if (input.coldTires) setupChanges.length = 0;
+  // Tires that don't suit the track: no chassis change until they do; in-car changes can still help meanwhile
+  if (tireFirst) {
+    const inCar = setupChanges.filter((c) => c.inCar);
+    setupChanges.length = 0;
+    setupChanges.push(...inCar);
+  }
 
   const driverChanges = [...(primary?.drivingCorrections ?? [])];
   if (input.coldTires) driverChanges.unshift('Give the tires and brakes a lap or two to come up to temperature before judging the balance.');
+  if (mismatch === 'slicksOnWet') driverChanges.unshift('The car is on slicks on a wet track: fitting wet tires at the next stop is the change that matters most; until then brake earlier and keep every input smooth.');
+  if (mismatch === 'wetsOnDry') driverChanges.unshift('The car is on wet tires on a dry track: consider slicks at the next stop if it stays dry, and look for wet patches to cool the tires meanwhile.');
+  if (mismatch === 'wetsOnDrying') driverChanges.unshift('The track is drying on wet tires: watch the tire temperatures and lap times before deciding on slicks.');
+  const conditionsNote = input.coldTires
+    ? 'nothing until the tires are warm'
+    : mismatch === 'slicksOnWet'
+      ? 'the tires: slicks on a wet track, before any handling or setup change'
+      : mismatch === 'wetsOnDry'
+        ? 'the tires: wet tires on a dry track, before any handling or setup change'
+        : null;
 
   const risks = setupChanges.slice(0, 3).map((c) => `${c.label}: ${c.tradeoff}`);
   const validation = [
@@ -233,7 +301,28 @@ export function diagnose(input: DiagnosisInput): Diagnosis {
   ];
 
   const sources = [...new Set([...(primary ? [primary.id] : []), ...setupChanges.map((c) => c.source), ...hypotheses.flatMap((h) => h.sources)])];
-  return { symptom, phase, reported, observations, conflicts, missing, hypotheses: hypotheses.slice(0, 6), focus, driverChanges: driverChanges.slice(0, 3), setupChanges: setupChanges.slice(0, 4), risks, validation, sources };
+  if (tireFirst) risks.unshift('Chasing the handling with chassis changes while the tires do not suit the track tunes the car for the wrong tires.');
+  if (wetTrack) {
+    validation[0] = 'Drive 3 to 5 laps and note the corner\'s time and how the car feels there; the grip changes with the rain and the water on the track, so compare laps in the same conditions.';
+  }
+  const weatherWords = weather && weather.condition !== 'unknown' ? CONDITION_WORDS[weather.condition] : null;
+  return {
+    symptom,
+    phase,
+    reported,
+    observations,
+    conflicts,
+    missing,
+    hypotheses: hypotheses.slice(0, 6),
+    focus,
+    conditionsNote: focus === 'conditions' ? conditionsNote : null,
+    weather: weatherWords,
+    driverChanges: driverChanges.slice(0, 3),
+    setupChanges: setupChanges.slice(0, 4),
+    risks,
+    validation,
+    sources: sources.filter(Boolean),
+  };
 }
 
 // The diagnosis as lines of facts for an agent's prompt
@@ -244,7 +333,7 @@ export function diagnosisFacts(d: Diagnosis): string[] {
   if (d.conflicts.length) lines.push('Conflicting evidence: ' + d.conflicts.join(' '));
   if (d.missing.length) lines.push('Not known: ' + d.missing.join(' '));
   lines.push(
-    `Work on first: ${d.focus === 'driving' ? 'driving technique' : d.focus === 'setup' ? 'the setup' : d.focus === 'conditions' ? 'nothing until the tires are warm' : 'find out what the car is doing'}.`
+    `Work on first: ${d.focus === 'driving' ? 'driving technique' : d.focus === 'setup' ? 'the setup' : d.focus === 'conditions' ? d.conditionsNote ?? 'nothing until the tires are warm' : 'find out what the car is doing'}.`
   );
   if (d.hypotheses.length) {
     lines.push('Possible causes (confidence from how much evidence agrees, not a probability):');

@@ -1,6 +1,7 @@
 // Shared helpers for reading Garage 61 lap CSVs and measuring focus areas
 // (used by the Multi-Lap Analysis and Lap Compare tabs).
 
+import type { LapConditions } from './collectorLaps';
 import type { TrackBounds } from './trackLocations';
 
 // start/end are fractions of a lap (LapDistPct); brakepointTarget and throttlePickupTarget are in
@@ -33,6 +34,10 @@ export type LapFile = {
   fileId: string;
   // iRacing's lap number, for laps the collector uploaded (lap files carry none)
   lapNumber?: number;
+  // The weather and tires at the end of the lap and when it was completed, for laps the collector uploaded (dropped
+  // files carry none); the Debrief Coach sends them so the coach knows a wet session (engineering/weatherContext.ts)
+  conditions?: LapConditions | null;
+  completedAt?: string;
 };
 
 const MAX_CSV_BYTES = 25 * 1024 * 1024;

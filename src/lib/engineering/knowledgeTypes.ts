@@ -25,6 +25,9 @@ export const COMPONENTS = [
   'tires',
   'aero',
   'driving',
+  // Wet-weather knowledge (wetWeatherCorpus.ts): retrieval only lets it in when the track is damp, wet or drying,
+  // or the question is about rain (retrieval.ts's applies)
+  'wetWeather',
 ] as const;
 export type Component = (typeof COMPONENTS)[number];
 
@@ -46,6 +49,11 @@ export const SYMPTOMS = [
   'tireWear',
   'coldTires',
   'snapOversteer',
+  // Wet weather: water lifting the tire off the road, general lack of grip in the wet, and the choice between slick
+  // and wet tires as the track changes
+  'aquaplaning',
+  'lowGrip',
+  'tireCrossover',
 ] as const;
 export type Symptom = (typeof SYMPTOMS)[number];
 

@@ -3,6 +3,7 @@ import { createAgent } from 'langchain';
 import { z } from 'zod';
 import { brakeChangeRule, createTools, type DebriefSession } from './debriefCoach';
 import { engineeringKnowledgeTool } from './engineering/knowledgeTool';
+import { assessWeather, weatherFacts, type WeatherContext } from './engineering/weatherContext';
 import { brakesLaterOnColdTires, tireWarmupFact, type TireWarmup } from './tireWarmup';
 import { hasTrackPosition, withKmh } from './trackPositions';
 import { DEFAULT_UNITS, DISTANCE_NAME, DISTANCE_UNIT, SPEED_UNIT, type Units } from './units';
@@ -298,6 +299,23 @@ const calloutPrompt = (units: Units) =>
 
 export type InCarLap = { id: string; lapNumber: number; lapSeconds: number; incidents: number; offTrack: boolean };
 
+// The live conditions for the callouts, only on a wet or changing track or with tires that don't suit it, so a dry
+// session's callout prompt is exactly as before
+export function wetCalloutFacts(weather: WeatherContext | null | undefined, units: Units): string[] {
+  const w = assessWeather(weather);
+  if (!w || (!w.wet && !w.drying && !w.mismatch && w.fittedCompound !== 'wet' && w.fittedCompound !== 'intermediate')) return [];
+  return [
+    'The track conditions now:',
+    ...weatherFacts(weather, units === 'metric' ? 'metric' : 'standard'),
+    'Coach for these conditions: in the wet compare the newest lap with my laps in similar conditions, not with a ' +
+      'dry lap; earlier, more progressive braking and smoother throttle are often right, so only tell me to brake ' +
+      'later or get on the throttle sooner when my own wet laps show it works. Point at one input the data shows ' +
+      '(e.g. throttle picked up earlier than my best wet run in a focus area, or the brake released abruptly). When ' +
+      'the tires do not suit the track, say that first. Never claim standing water, aquaplaning, ABS or traction ' +
+      'control activity, or a tire temperature the data does not show; never state a weather forecast.',
+  ];
+}
+
 export async function inCarCoachCallouts(input: {
   instructions: string;
   track: string;
@@ -312,6 +330,8 @@ export async function inCarCoachCallouts(input: {
   units?: Units;
   // Whether the newest lap's tires are still cold (src/lib/tireWarmup.ts)
   tires?: TireWarmup | null;
+  // The live track conditions and fitted tires (engineering/weatherContext.ts); null when the driver isn't live
+  weather?: WeatherContext | null;
 }): Promise<{ callouts: Callout[]; steps: string[] }> {
   if (!process.env.OPENAI_API_KEY) {
     throw new Error('OPENAI_API_KEY is not configured');
@@ -321,7 +341,15 @@ export async function inCarCoachCallouts(input: {
   const hasAreas = !!input.session && input.session.areas.some((area) => area.runs.length > 0);
   // The Race Engineering knowledge base (src/lib/engineering/knowledgeTool.ts), only alongside lap data to judge
   const tools = hasAreas
-    ? [...createTools(input.session!, units, input.carRpmLimit ?? null), engineeringKnowledgeTool(input.car, { maxTokens: 600 })]
+    ? [
+        ...createTools(input.session!, units, input.carRpmLimit ?? null),
+        engineeringKnowledgeTool(input.car, {
+          maxTokens: 600,
+          agent: 'inCarCoachCallouts',
+          units: units === 'metric' ? 'metric' : 'standard',
+          ...(input.weather !== undefined ? { weather: input.weather } : {}),
+        }),
+      ]
     : [];
   const systemPrompt =
     calloutPrompt(units) +
@@ -344,6 +372,7 @@ export async function inCarCoachCallouts(input: {
       ? 'The Debrief Coach tools have every lap measured in the focus areas from my Track Data.'
       : 'This track has no focus areas in my Track Data, so only the lap times are available.',
     ...(input.tires?.cold ? [tireWarmupFact(input.tires, units)] : []),
+    ...wetCalloutFacts(input.weather, units),
     input.recentCallouts.length > 0
       ? 'Already said recently, and I am working on it, so tell me how my newest lap went on it or move on to ' +
         'something else, rather than saying it the same way again: ' +

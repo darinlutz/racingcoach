@@ -12,6 +12,8 @@ import { checkedAnswer, languageCheck, namesIn } from './answerChecks';
 import { DEFAULT_UNITS, type Units } from './units';
 import { engineeringContext, rotationEvidence, type EngineeringContext } from './engineering/knowledgeService';
 import { checkSetupAnswer, setupGuardFeedback, withoutDisallowedSentences } from './engineering/setupAnswerGuard';
+import { assessWeather, weatherFacts, weatherSummary, type WeatherContext } from './engineering/weatherContext';
+import { getAiModel } from './aiModels';
 
 // The Setup Engineer: Driver Radio's car setup specialist. When the driver asks the Race Engineer (src/lib/raceEngineer.ts)
 // about the car's setup or its handling ("I have understeer", "what should I change on the car"), the Race Engineer hands
@@ -19,7 +21,9 @@ import { checkSetupAnswer, setupGuardFeedback, withoutDisallowedSentences } from
 // from the collector's live update), the in-car brake bias, the Rotation Model's understeer and oversteer in the
 // session's uploaded laps (src/lib/rotationAnalysis.ts) and what the driver said, following the Coach page's Setup
 // Engineer Instructions, which every driver shares. In a fixed setup it says so: no chassis changes are possible, only
-// in-car adjustments such as brake bias. Otherwise it suggests specific chassis changes.
+// in-car adjustments such as brake bias. Otherwise it suggests specific chassis changes. It also knows the track
+// conditions and the fitted tires (src/lib/engineering/weatherContext.ts, from the live update): on a wet track it
+// works from the wet-weather knowledge, and tires that don't suit the track come before any handling change.
 
 type CarSetup = NonNullable<LiveUpdate['setup']>;
 
@@ -86,6 +90,23 @@ const setupPrompt = (fixed: boolean, known: boolean) =>
   'check it in a few short words (e.g. "try it for three laps and compare"). Never claim ABS activation, tire ' +
   'saturation, bottoming or any other event the facts do not show; when you infer one, say it is likely, not that ' +
   'it happened. A car tendency from the reference material is a tendency, not a fact about this car.';
+
+// How to work in the conditions the facts give: on a wet or changing track, or with tires that don't suit it
+export function wetSetupRule(weather: WeatherContext | null | undefined): string {
+  const w = assessWeather(weather);
+  if (!w || (!w.wet && !w.drying && !w.mismatch && w.fittedCompound !== 'wet' && w.fittedCompound !== 'intermediate')) return '';
+  return (
+    ' The facts give the track conditions and the fitted tires. Work in this order: the conditions and the tires, ' +
+    'then whether the setup is fixed, then the symptom, its likely cause and the change. If the car is on dry (slick) ' +
+    'tires on a wet track, say first that the tires are the problem and wet tires are the fix, before any handling ' +
+    'change; never try to cure it with suspension alone. If it is on wet tires in the rain, never suggest slicks ' +
+    'unless the facts show the track drying. Rain does not by itself mean moving the brake bias rearward: more to ' +
+    'the front can make the car more stable on the brakes, more to the rear can help it rotate but makes rear ' +
+    'locking and instability more likely, so choose from the symptom and the current bias. Never assume softer ' +
+    'suspension, more ride height or more downforce is right in the wet; say what each trades off. Observed weather ' +
+    'is observed; a projection is not a forecast, and iRacing gives apps no forecast, so never state one.'
+  );
+}
 
 // The Rotation Model over the session's uploaded laps, as lines of facts; none without usable laps
 function rotationFacts(rotation: SessionRotation | null): string[] {
@@ -186,9 +207,13 @@ export async function setupEngineerReply(input: {
   driverInstructions: string;
   language?: Language;
   units?: Units;
+  // The track conditions and fitted tires (weatherContext.ts's weatherContextFromLive); undefined when not known
+  weather?: WeatherContext | null;
 }): Promise<string | null> {
   const units = input.units ?? DEFAULT_UNITS;
-  const { facts, fixed, known } = setupFacts(input.update);
+  const setup = setupFacts(input.update);
+  const { fixed, known } = setup;
+  const facts = input.weather !== undefined ? [...setup.facts, ...weatherFacts(input.weather, units === 'metric' ? 'metric' : 'standard')] : setup.facts;
   // The Race Engineering knowledge base (src/lib/engineering/); without it the engineer answers as before
   const engineering = await engineeringContext({
     question: input.said,
@@ -196,6 +221,9 @@ export async function setupEngineerReply(input: {
     fixed,
     setupKnown: known,
     rotation: rotationEvidence(input.rotation),
+    ...(input.weather !== undefined ? { weather: input.weather, weatherInFacts: false } : {}),
+    agent: 'setupEngineer',
+    model: await getAiModel('setupEngineer').catch(() => null),
   }).catch((error): EngineeringContext | null => {
     console.error('Setup Engineer: engineering knowledge failed, answering without it:', error);
     return null;
@@ -203,7 +231,8 @@ export async function setupEngineerReply(input: {
   if (engineering) {
     console.log(
       `Setup Engineer knowledge: ${engineering.source}, ${engineering.retrieval.confidence} confidence, ` +
-        `${engineering.context.used.map((u) => u.id).join(', ') || 'nothing retrieved'}, focus ${engineering.diagnosis.focus}`
+        `${engineering.context.used.map((u) => u.id).join(', ') || 'nothing retrieved'}, focus ${engineering.diagnosis.focus}, ` +
+        `weather ${input.weather === undefined ? 'not given' : weatherSummary(input.weather)}`
     );
   }
   const driverRule = input.driverInstructions.trim()
@@ -216,13 +245,22 @@ export async function setupEngineerReply(input: {
     tools: [],
     systemPrompt:
       setupPrompt(fixed, known) +
+      wetSetupRule(input.weather) +
       (units === 'metric' ? ' Use metric units.' : ' Use US units (psi, inches).') +
       (await setupInstructionsRule()) +
       driverRule +
       aiLanguageRule(input.language ?? DEFAULT_LANGUAGE),
     responseFormat: replySchema,
   });
-  const content = ['Facts:', ...facts, '', ...rotationFacts(input.rotation), '', `The driver says: "${input.said}"`].join('\n');
+  const content = [
+    'Facts:',
+    ...facts,
+    '',
+    ...rotationFacts(input.rotation),
+    ...(engineering ? ['', ...engineering.facts] : []),
+    '',
+    `The driver says: "${input.said}"`,
+  ].join('\n');
   const ask = async (messages: { role: 'user' | 'assistant'; content: string }[]) => {
     const result = await agent.invoke({ messages }, { recursionLimit: 6 });
     return (result.structuredResponse as z.infer<typeof replySchema>).reply;

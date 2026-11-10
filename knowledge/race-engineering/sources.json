@@ -6,5 +6,13 @@
     "kind": "original",
     "license": "original",
     "publisher": "Clarivex LLC"
+  },
+  {
+    "key": "iracing-2024s2-release-notes",
+    "title": "2024 Season 2 Release Notes [2024.03.05.01] (rain and the Tempest weather system)",
+    "url": "https://support.iracing.com/support/solutions/articles/31000172630-2024-season-2-release-notes-2024-03-05-01-",
+    "kind": "simulator_manual",
+    "license": "public-docs-link-only",
+    "publisher": "iRacing.com Motorsport Simulations"
   }
 ]

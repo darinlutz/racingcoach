@@ -72,6 +72,14 @@ export const collectorLapSchema = z.object({
       windVelocity: z.number().min(0).max(150).nullish(),
       windDirection: z.number().min(-10).max(10).nullish(),
       trackUsage: z.string().trim().min(1).max(100).nullish(),
+      // From collectors from 1.94.0: the rain (Precipitation, 0-1), iRacing's TrackWetness (0 unknown, 1 dry to 7
+      // extremely wet), whether the session is declared wet, and the fitted tires (PlayerTireCompound and its
+      // TireCompoundType from session info)
+      precipitation: z.number().min(0).max(1).nullish(),
+      trackWetness: z.number().int().min(0).max(20).nullish(),
+      declaredWet: z.boolean().nullish(),
+      tireCompound: z.number().int().min(-1).max(50).nullish(),
+      tireCompoundType: z.string().trim().min(1).max(50).nullish(),
     })
     .nullish(),
 });
@@ -87,6 +95,12 @@ export type LapConditions = {
   windVelocity: number | null;
   windDirection: number | null;
   trackUsage: string | null;
+  // null for laps from collectors before 1.94.0
+  precipitation: number | null;
+  trackWetness: number | null;
+  declaredWet: boolean | null;
+  tireCompound: number | null;
+  tireCompoundType: string | null;
 };
 
 function toLapConditions(conditions: CollectorLap['conditions']): LapConditions | null {
@@ -98,6 +112,11 @@ function toLapConditions(conditions: CollectorLap['conditions']): LapConditions 
     windVelocity: conditions.windVelocity ?? null,
     windDirection: conditions.windDirection ?? null,
     trackUsage: conditions.trackUsage ?? null,
+    precipitation: conditions.precipitation ?? null,
+    trackWetness: conditions.trackWetness ?? null,
+    declaredWet: conditions.declaredWet ?? null,
+    tireCompound: conditions.tireCompound ?? null,
+    tireCompoundType: conditions.tireCompoundType ?? null,
   };
 }
 

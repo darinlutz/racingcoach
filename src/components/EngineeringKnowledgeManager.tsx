@@ -6,8 +6,9 @@ import { useLanguage } from '@/components/LanguageProvider';
 // The Admin page's Race Engineering Knowledge section (docs/race-engineering-rag.md): the knowledge base the Setup
 // Engineer and the Race Coach retrieve from. Lists documents with their trust level and status, sources, ingestion
 // jobs and failures; loads the starter corpus, uploads approved documents, embeds, reindexes, deactivates outdated
-// content and marks content reviewed or rejected; and tests a question to show what would be retrieved, why, and
-// the context and diagnosis the agents would get.
+// content and marks content reviewed or rejected; and tests a question, for any track conditions and tires, to show
+// what would be retrieved, why, and the context, weather facts and diagnosis the agents would get. It also shows each
+// live driver's weather context (docs/wet-weather.md) and the agents' recent use of the knowledge base.
 
 const inputClass =
   'w-full px-3 py-2 bg-card border border-border rounded-lg text-foreground text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors';
@@ -34,7 +35,42 @@ type Doc = {
 };
 type Source = { key: string; title: string; url: string | null; kind: string; license: string; publisher: string | null };
 type Job = { id: number; kind: string; status: string; error: string | null; startedAt: string; detail: Record<string, unknown> };
-type Report = { documents: Doc[]; sources: Source[]; jobs: Job[]; embeddingModel: string; retrievalSource: string; queryEmbeddingModel: string | null };
+type Compound = { kind: string; index: number | null; name: string | null; confidence: string; source: string };
+type LiveWeather = {
+  userId: number;
+  driver: string;
+  track: string;
+  ageMs: number;
+  fresh: boolean;
+  condition: string;
+  rain: number | null;
+  rainLabel: string | null;
+  wetness: string | null;
+  declaredWet: boolean | null;
+  trackTemp: number | null;
+  tires: Compound;
+  nextPit: Compound | null;
+  available: { index: number; name: string; kind: string }[] | null;
+  mismatch: string | null;
+  trend: { minutes: number; rain: string | null; wetness: string | null; trackTemp: string | null } | null;
+  forecast: string;
+  warnings: string[];
+};
+type KnowledgeUse = { at: number; agent: string; model: string | null; car: string | null; weather: string; question: string; confidence: string; documents: string[]; source: string };
+type Report = {
+  documents: Doc[];
+  sources: Source[];
+  jobs: Job[];
+  embeddingModel: string;
+  retrievalSource: string;
+  queryEmbeddingModel: string | null;
+  liveWeather?: LiveWeather[];
+  knowledgeUses?: KnowledgeUse[];
+};
+
+// The wet-weather knowledge (src/lib/engineering/wetWeatherCorpus.ts) by its keys
+const isWetDocument = (key: string) => key.startsWith('wet-') || key.startsWith('dx-wet-');
+const compoundText = (c: Compound | null) => (!c ? '' : `${c.name ?? c.kind}${c.index != null ? ` #${c.index}` : ''} (${c.kind}, ${c.confidence})`);
 type TestResult = {
   source: string;
   carClass: string;
@@ -46,6 +82,7 @@ type TestResult = {
   diagnosis: { symptom: string | null; phase: string | null; focus: string; conflicts: string[]; missing: string[]; hypotheses: { cause: string; kind: string; confidence: string }[]; setupChanges: { label: string; direction: string }[] };
   context: string;
   tokens: number;
+  weatherFacts: string[];
 };
 
 export default function EngineeringKnowledgeManager() {
@@ -55,9 +92,10 @@ export default function EngineeringKnowledgeManager() {
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const [showSuperseded, setShowSuperseded] = useState(false);
+  const [wetOnly, setWetOnly] = useState(false);
   const [chunks, setChunks] = useState<{ docId: number; items: { index: number; title: string; text: string; embedded: boolean }[] } | null>(null);
   const [upload, setUpload] = useState({ format: 'markdown', text: '' });
-  const [test, setTest] = useState({ question: '', car: 'Lamborghini Huracan GT3 EVO', simulator: 'iracing', fixed: false });
+  const [test, setTest] = useState({ question: '', car: 'Lamborghini Huracan GT3 EVO', simulator: 'iracing', fixed: false, conditions: '', tires: '' });
   const [testResult, setTestResult] = useState<TestResult | null>(null);
 
   const load = useCallback(async () => {
@@ -124,11 +162,11 @@ export default function EngineeringKnowledgeManager() {
   };
 
   const runTest = async () => {
-    const data = await post({ action: 'test', ...test });
+    const data = await post({ action: 'test', ...test, conditions: test.conditions || null, tires: test.tires || null });
     if (data) setTestResult(data);
   };
 
-  const docs = (report?.documents ?? []).filter((d) => showSuperseded || d.status !== 'superseded');
+  const docs = (report?.documents ?? []).filter((d) => (showSuperseded || d.status !== 'superseded') && (!wetOnly || isWetDocument(d.key)));
   const failedJobs = (report?.jobs ?? []).filter((j) => j.status === 'failed' || j.status === 'partial');
 
   return (
@@ -162,10 +200,16 @@ export default function EngineeringKnowledgeManager() {
       <div>
         <div className="flex items-center justify-between mb-2">
           <h3 className="font-semibold text-foreground">{fmt(s.documents, { count: docs.length })}</h3>
-          <label className="text-xs text-muted-foreground flex items-center gap-1">
-            <input type="checkbox" checked={showSuperseded} onChange={(e) => setShowSuperseded(e.target.checked)} />
-            {s.showSuperseded}
-          </label>
+          <div className="flex items-center gap-3">
+            <label className="text-xs text-muted-foreground flex items-center gap-1">
+              <input type="checkbox" checked={wetOnly} onChange={(e) => setWetOnly(e.target.checked)} />
+              {s.wetOnly}
+            </label>
+            <label className="text-xs text-muted-foreground flex items-center gap-1">
+              <input type="checkbox" checked={showSuperseded} onChange={(e) => setShowSuperseded(e.target.checked)} />
+              {s.showSuperseded}
+            </label>
+          </div>
         </div>
         {docs.length === 0 ? (
           <p className="text-sm text-muted-foreground">{s.noDocuments}</p>
@@ -351,6 +395,31 @@ export default function EngineeringKnowledgeManager() {
             </select>
           </div>
         </div>
+        <div className="grid gap-2 sm:grid-cols-4 mt-2">
+          <div>
+            <label className={labelClass} htmlFor="ek-conditions">
+              {s.conditions}
+            </label>
+            <select id="ek-conditions" className={inputClass} value={test.conditions} onChange={(e) => setTest({ ...test, conditions: e.target.value })}>
+              <option value="">{s.conditionsNone}</option>
+              <option value="dry">{s.conditionDry}</option>
+              <option value="damp">{s.conditionDamp}</option>
+              <option value="wet">{s.conditionWet}</option>
+              <option value="veryWet">{s.conditionVeryWet}</option>
+              <option value="drying">{s.conditionDrying}</option>
+            </select>
+          </div>
+          <div>
+            <label className={labelClass} htmlFor="ek-tires">
+              {s.tires}
+            </label>
+            <select id="ek-tires" className={inputClass} value={test.tires} disabled={!test.conditions} onChange={(e) => setTest({ ...test, tires: e.target.value })}>
+              <option value="">{s.tiresUnknown}</option>
+              <option value="dry">{s.tiresDry}</option>
+              <option value="wet">{s.tiresWet}</option>
+            </select>
+          </div>
+        </div>
         <label className="text-xs text-muted-foreground flex items-center gap-1 mt-2">
           <input type="checkbox" checked={test.fixed} onChange={(e) => setTest({ ...test, fixed: e.target.checked })} />
           {s.fixedSetup}
@@ -402,10 +471,126 @@ export default function EngineeringKnowledgeManager() {
                 ))}
               </ul>
             </div>
+            {testResult.weatherFacts.length > 0 && (
+              <details>
+                <summary className="cursor-pointer text-primary">{s.weatherFacts}</summary>
+                <pre className="whitespace-pre-wrap text-muted-foreground mt-1">{testResult.weatherFacts.join('\n')}</pre>
+              </details>
+            )}
             <details>
               <summary className="cursor-pointer text-primary">{s.context}</summary>
               <pre className="whitespace-pre-wrap text-muted-foreground mt-1">{testResult.context}</pre>
             </details>
+          </div>
+        )}
+      </div>
+
+      <div>
+        <h3 className="font-semibold text-foreground mb-1">{s.liveWeather}</h3>
+        <p className="text-xs text-muted-foreground mb-2">{s.liveWeatherHelp}</p>
+        {(report?.liveWeather ?? []).length === 0 ? (
+          <p className="text-sm text-muted-foreground">{s.liveWeatherNone}</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead className="text-muted-foreground text-left">
+                <tr>
+                  <th className="py-1 pr-2">{s.driver}</th>
+                  <th className="py-1 pr-2">{s.condition}</th>
+                  <th className="py-1 pr-2">{s.fitted}</th>
+                  <th className="py-1 pr-2">{s.freshness}</th>
+                  <th className="py-1">{s.notes}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(report?.liveWeather ?? []).map((w) => (
+                  <tr key={w.userId} className="border-t border-border align-top">
+                    <td className="py-2 pr-2">
+                      <div className="font-medium text-foreground">{w.driver}</div>
+                      <div className="text-muted-foreground">{w.track}</div>
+                    </td>
+                    <td className="py-2 pr-2 text-foreground">
+                      {w.condition}
+                      <div className="text-muted-foreground">
+                        {s.rain}: {w.rain != null ? `${Math.round(w.rain * 100)}% (${w.rainLabel})` : '-'} · {s.wetness}: {w.wetness ?? '-'}
+                        {w.declaredWet ? ' · declared wet' : ''}
+                        {w.trackTemp != null ? ` · ${w.trackTemp.toFixed(1)} °C` : ''}
+                      </div>
+                      {w.trend && (
+                        <div className="text-muted-foreground">
+                          {w.trend.minutes} min: {[w.trend.rain, w.trend.wetness, w.trend.trackTemp].filter(Boolean).join(', ')}
+                        </div>
+                      )}
+                    </td>
+                    <td className="py-2 pr-2 text-foreground">
+                      {compoundText(w.tires)}
+                      <div className="text-muted-foreground">{w.tires.source}</div>
+                      {w.nextPit && (
+                        <div className="text-muted-foreground">
+                          {s.nextPit}: {compoundText(w.nextPit)}
+                        </div>
+                      )}
+                      {w.available && <div className="text-muted-foreground">{w.available.map((a) => `${a.index} ${a.name}`).join(', ')}</div>}
+                    </td>
+                    <td className={`py-2 pr-2 ${w.fresh ? 'text-green-500' : 'text-amber-500'}`}>
+                      {w.fresh ? s.fresh : s.stale} ({Math.round(w.ageMs / 1000)} s)
+                    </td>
+                    <td className="py-2 text-muted-foreground">
+                      {w.mismatch && <div className="text-amber-500">{w.mismatch}</div>}
+                      {w.warnings.map((warning) => (
+                        <div key={warning}>{warning}</div>
+                      ))}
+                      <div>
+                        {s.forecast}: {w.forecast}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <div>
+        <h3 className="font-semibold text-foreground mb-1">{s.knowledgeUses}</h3>
+        <p className="text-xs text-muted-foreground mb-2">{s.knowledgeUsesHelp}</p>
+        {(report?.knowledgeUses ?? []).length === 0 ? (
+          <p className="text-sm text-muted-foreground">{s.knowledgeUsesNone}</p>
+        ) : (
+          <div className="overflow-x-auto max-h-96 overflow-y-auto">
+            <table className="w-full text-xs">
+              <thead className="text-muted-foreground text-left">
+                <tr>
+                  <th className="py-1 pr-2">{s.when}</th>
+                  <th className="py-1 pr-2">{s.agent}</th>
+                  <th className="py-1 pr-2">{s.weather}</th>
+                  <th className="py-1 pr-2">{s.question}</th>
+                  <th className="py-1">{s.documentsUsed}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(report?.knowledgeUses ?? []).map((u, i) => (
+                  <tr key={`${u.at}-${i}`} className="border-t border-border align-top">
+                    <td className="py-2 pr-2 text-muted-foreground whitespace-nowrap">{new Date(u.at).toLocaleString()}</td>
+                    <td className="py-2 pr-2 text-foreground">
+                      {u.agent}
+                      <div className="text-muted-foreground">
+                        {s.model}: {u.model ?? '-'}
+                      </div>
+                    </td>
+                    <td className="py-2 pr-2 text-foreground">{u.weather}</td>
+                    <td className="py-2 pr-2 text-foreground">
+                      {u.question}
+                      <div className="text-muted-foreground">
+                        {u.car ?? ''} · {u.confidence} · {u.source}
+                      </div>
+                    </td>
+                    <td className="py-2 text-muted-foreground">{u.documents.join(', ') || '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>

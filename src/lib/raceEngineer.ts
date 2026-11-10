@@ -4,6 +4,7 @@ import { chatModel } from './aiModels';
 import type { CollectorSession } from './collectorSession';
 import { brakeChangeRule, createTools } from './debriefCoach';
 import { engineeringKnowledgeTool } from './engineering/knowledgeTool';
+import { assessWeather, weatherFacts, type WeatherContext } from './engineering/weatherContext';
 import { describeAreaTurns } from './focusAreaTurns';
 import { aiLanguageRule, DEFAULT_LANGUAGE, type Language } from './i18n/languages';
 import { driverInstructionsRule, headCoachInCarRule, readHeadCoachInCarInstructions } from './inCarCoach';
@@ -84,6 +85,21 @@ const enginePrompt = (units: Units, hasTools: boolean) =>
   'the way a race engineer says it on the radio, never with "s" for seconds: under a second in tenths (e.g. "two ' +
   'tenths" for 0.213 s), otherwise in seconds with one decimal (e.g. "2.3 seconds" for 2.319 s).' +
   (units === 'metric' ? ' Fuel is in liters.' : ' Fuel is in US gallons.');
+
+// On a wet or changing track, or with tires that don't suit it: how to talk about the conditions and the tires
+export function wetEngineerRule(weather: WeatherContext | null | undefined): string {
+  const w = assessWeather(weather);
+  if (!w || (!w.wet && !w.drying && !w.mismatch && w.fittedCompound !== 'wet' && w.fittedCompound !== 'intermediate')) return '';
+  return (
+    ' The live facts include the track conditions and the fitted tires. For questions about the rain, the track or ' +
+    'tires, answer from what is observed and say it is observed; iRacing gives apps no weather forecast, so when ' +
+    'asked about the weather to come, say no forecast is available and give only the observed trend, as a trend. ' +
+    'Dry (slick) tires on a wet track is the first thing to tell the driver about when it is relevant: wet tires at ' +
+    'the next stop. Never suggest slicks while the car is on wet tires in the rain unless the facts show the track ' +
+    'drying. Never claim standing water, aquaplaning, ABS or traction control activity, or a tire temperature the ' +
+    'facts do not show. For driving questions in the wet, get_engineering_knowledge gives the wet-weather technique.'
+  );
+}
 
 const lapTime = (seconds: number | null | undefined) => (seconds != null && seconds > 0 ? formatSeconds(seconds) : null);
 const gap = (seconds: number) => `${seconds.toFixed(2)} s`;
@@ -266,6 +282,8 @@ export async function raceEngineerReply(input: {
   units?: Units;
   // What to say in the garage when the question can't be answered from what the engineer knows
   notKnownInGarage?: string;
+  // The track conditions and fitted tires (weatherContext.ts's weatherContextFromLive); undefined when not known
+  weather?: WeatherContext | null;
 }): Promise<{ reply: string | null; steps: string[]; setupQuestion: boolean }> {
   if (!process.env.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY is not configured');
   const units = input.units ?? DEFAULT_UNITS;
@@ -276,13 +294,23 @@ export async function raceEngineerReply(input: {
   const car = input.snapshot?.update.car ?? measured?.session?.car ?? null;
   const tools = [
     ...(hasAreas ? createTools(measured!.session!, units, measured!.carRpmLimit) : []),
-    ...(car ? [engineeringKnowledgeTool(car, { maxTokens: 700 })] : []),
+    ...(car
+      ? [
+          engineeringKnowledgeTool(car, {
+            maxTokens: 700,
+            agent: 'raceEngineer',
+            units: units === 'metric' ? 'metric' : 'standard',
+            ...(input.weather !== undefined ? { weather: input.weather } : {}),
+          }),
+        ]
+      : []),
   ];
   const agent = createAgent({
     model: await chatModel('raceEngineer', 0.3),
     tools,
     systemPrompt:
       enginePrompt(units, hasAreas) +
+      wetEngineerRule(input.weather) +
       (input.snapshot && !input.snapshot.update.onTrack
         ? ' The driver is in the garage, not in the car. Still answer their question as well as you can from the ' +
           'facts, the laps uploaded this session and what any race engineer knows. Only when you really do not have ' +
@@ -300,6 +328,7 @@ export async function raceEngineerReply(input: {
   const content = [
     'Live facts:',
     ...engineerFacts(input.snapshot, units),
+    ...(input.weather !== undefined ? ['', 'Track conditions and tires:', ...weatherFacts(input.weather, units === 'metric' ? 'metric' : 'standard')] : []),
     '',
     measured
       ? `Laps uploaded this session, oldest first: ${measured.laps

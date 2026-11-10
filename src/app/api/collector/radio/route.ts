@@ -10,6 +10,7 @@ import { raceEngineerReply } from '@/lib/raceEngineer';
 import { aiRateLimit, type AiRateLimit } from '@/lib/rateLimits';
 import { canUseInCarCoach, canUseVoiceAi } from '@/lib/roles';
 import { measureSessionRotation, setupEngineerReply } from '@/lib/setupEngineer';
+import { weatherContextFromLive } from '@/lib/engineering/weatherContext';
 import { getEnableAiFeatures } from '@/lib/siteSettings';
 import { DEFAULT_UNITS } from '@/lib/units';
 import { BodyTooLargeError, readBodyLimited } from '@/lib/requestBody';
@@ -92,6 +93,8 @@ type EngineerAnswer = {
 async function engineerAnswer(request: Request, user: User, said: string, lapIds: string[]): Promise<EngineerAnswer> {
   if (!canUseInCarCoach(user)) return { reply: null, engineer: 'membershipRequired' };
   const snapshot = readEngineerSnapshot(user.id);
+  // The track conditions and fitted tires from the live update (src/lib/engineering/weatherContext.ts)
+  const weather = snapshot ? weatherContextFromLive(snapshot, Date.now()) : null;
   const language = user.preferredLanguage ?? DEFAULT_LANGUAGE;
   let limit: AiRateLimit | null = null;
   try {
@@ -114,6 +117,7 @@ async function engineerAnswer(request: Request, user: User, said: string, lapIds
         // In the garage, when the engineer can't answer from what it knows
         notKnownInGarage: getDictionary(language).coachSpeech.inGarage,
         units: user.units ?? DEFAULT_UNITS,
+        weather,
       })
     );
     if (setupQuestion) return await setupAnswer(request, user, said, lapIds, snapshot, instructions);
@@ -150,6 +154,7 @@ async function setupAnswer(
         driverInstructions: instructions,
         language: user.preferredLanguage ?? DEFAULT_LANGUAGE,
         units: user.units ?? DEFAULT_UNITS,
+        weather: snapshot ? weatherContextFromLive(snapshot, Date.now()) : null,
       })
     );
     console.log(`Setup Engineer: user ${user.id}, ${reply ? 'answered' : 'silent'}`);

@@ -10,6 +10,7 @@ import type {
   Verification,
 } from './knowledgeTypes.ts';
 import { carMatches, PARAMETER_LABELS } from './setupCapabilities.ts';
+import type { WeatherAssessment } from './weatherContext.ts';
 
 // Race Engineering retrieval, without I/O: the ranking the shared knowledge service (knowledgeService.ts) runs over
 // the chunks it loads from the database (or the starter corpus). Hybrid: hard applicability filters (simulator, car
@@ -48,6 +49,9 @@ export type RetrievalContext = {
   car: string | null;
   // Parameters this car can use in this session (setupCapabilities.ts's allowedParameters); null when unknown
   allowed: Set<ParameterId> | null;
+  // The track conditions and fitted tires (weatherContext.ts's assessWeather); null or absent when not known, which
+  // keeps wet-weather knowledge out unless the question is about rain
+  weather?: WeatherAssessment | null;
 };
 
 export type ParsedQuery = { symptoms: Symptom[]; phases: Phase[]; components: Component[]; terms: string[] };
@@ -96,6 +100,9 @@ const SYMPTOM_TERMS: [Symptom, RegExp][] = [
   ['tireOverheating', /overheat|too hot|tyres? (are )?hot|tires? (are )?hot|superaquec|sobrecalent|uberhitz|zu heiss/],
   ['tireWear', /\bwear|degrad|desgaste|verschleiss|abbau/],
   ['coldTires', /cold (tires|tyres|brakes)|pneus frios|neumaticos frios|kalte reifen/],
+  ['aquaplaning', /aquaplan|hydroplan|standing water|puddle|river across|poca d.?agua|lamina d.?agua|charco|wasserlache|pfutze/],
+  ['lowGrip', /no grip|low grip|zero grip|slippery|like (on )?ice|sem aderencia|pouca aderencia|sin agarre|poco agarre|kein grip|wenig grip|rutschig/],
+  ['tireCrossover', /\bslicks?\b|\bwets\b|wet (tires|tyres)|\binters?\b|intermediates?|rain (tires|tyres)|cross ?over|(change|switch|go) (to|onto|for) (slicks|wets|dry|rain)|pneus? (de chuva|slick|lisos?)|neumaticos de lluvia|regenreifen|trockenreifen/],
 ];
 
 const PHASE_TERMS: [Phase, RegExp][] = [
@@ -118,6 +125,7 @@ const COMPONENT_TERMS: [Component, RegExp][] = [
   ['alignment', /camber|caster|\btoe\b|cambagem|convergencia|sturz|spur/],
   ['tires', /tire|tyre|pressure|pneu|neumatic|reifen|druck/],
   ['aero', /\bwing|aero|downforce|splitter|asa|aleron|flugel/],
+  ['wetWeather', /\brain|\bwet\b|\bdamp\b|\bdrying\b|aquaplan|hydroplan|standing water|puddle|\bspray\b|chuva|molhad|lluvia|mojad|\bregen\b|\bnass\b|feucht/],
 ];
 
 export function parseQuery(text: string): ParsedQuery {
@@ -147,12 +155,42 @@ function stem(word: string): string {
 
 // Whether a chunk applies to this simulator, car class and car. Car-specific chunks only apply to their cars, and
 // class or simulator chunks only to theirs, so nothing about an unrelated car reaches the agent.
-export function applies(chunk: ChunkMeta, ctx: Pick<RetrievalContext, 'simulator' | 'carClass' | 'car'>): boolean {
+export function applies(
+  chunk: ChunkMeta,
+  ctx: Pick<RetrievalContext, 'simulator' | 'carClass' | 'car' | 'weather'>,
+  // The question is about rain or wet conditions
+  wetQuestion = false
+): boolean {
   if (chunk.verification === 'rejected') return false;
+  // Wet-weather knowledge only when the track is damp, wet or drying, the tires don't suit the track, or the question
+  // asks about it, so a dry session's answers are exactly as before
+  if (chunk.components.includes('wetWeather') && !wetQuestion && !wetConditions(ctx.weather)) return false;
   if (!chunk.simulators.includes('any') && !chunk.simulators.includes(ctx.simulator)) return false;
   if (!chunk.carClasses.includes('any') && !chunk.carClasses.includes(ctx.carClass)) return false;
   if (chunk.cars.length > 0 && !chunk.cars.some((car) => carMatches(car, ctx.car))) return false;
   return true;
+}
+
+// The conditions make wet-weather knowledge relevant
+export function wetConditions(weather: WeatherAssessment | null | undefined): boolean {
+  if (!weather) return false;
+  return (
+    weather.wet ||
+    weather.drying ||
+    (weather.mismatch != null && weather.mismatch !== 'slicksOnDamp') ||
+    weather.fittedCompound === 'wet' ||
+    weather.fittedCompound === 'intermediate'
+  );
+}
+
+// The symptoms the conditions themselves point at, added to the question's
+export function weatherSymptoms(weather: WeatherAssessment | null | undefined): Symptom[] {
+  if (!weather) return [];
+  const out: Symptom[] = [];
+  if (weather.mismatch && weather.mismatch !== 'noWetTires') out.push('tireCrossover');
+  if (weather.mismatch === 'wetsOnDry' || weather.mismatch === 'wetsOnDrying') out.push('tireOverheating');
+  if (weather.condition === 'veryWet') out.push('aquaplaning');
+  return out;
 }
 
 export function cosine(a: number[], b: number[]): number {
@@ -209,6 +247,9 @@ export const RETRIEVAL_WEIGHTS = {
   simulator: 0.75,
   // Diagnosis records lead for symptom questions
   diagnosis: 2,
+  // Wet-weather knowledge on a wet track: in full when it's about the question too, a little when it isn't
+  wet: 2.5,
+  wetGeneral: 1,
   keyword: 1,
   vector: 6,
   // Below this the chunk isn't relevant at all
@@ -226,12 +267,15 @@ export function retrieve(
   // pull up whichever chunk repeats it
   const carWords = new Set([...tokenize(ctx.car ?? ''), 'gt3', 'gt4', 'car']);
   parsed.terms = parsed.terms.filter((t) => !carWords.has(t));
+  const wetQuestion =
+    parsed.components.includes('wetWeather') || parsed.symptoms.includes('aquaplaning') || parsed.symptoms.includes('tireCrossover');
+  const wet = wetQuestion || wetConditions(ctx.weather);
   const query: ParsedQuery = {
     ...parsed,
-    symptoms: [...new Set([...parsed.symptoms, ...(options.extraSymptoms ?? [])])],
+    symptoms: [...new Set([...parsed.symptoms, ...(options.extraSymptoms ?? []), ...weatherSymptoms(ctx.weather)])],
     phases: [...new Set([...parsed.phases, ...(options.extraPhases ?? [])])],
   };
-  const candidates = chunks.filter((c) => applies(c, ctx));
+  const candidates = chunks.filter((c) => applies(c, ctx, wetQuestion));
   const keyword = bm25(candidates, query.terms);
   const maxKeyword = Math.max(1e-9, ...keyword);
   const scored = candidates.map((chunk, i) => {
@@ -275,6 +319,13 @@ export function retrieve(
       reasons.push(ctx.simulator);
     }
     if (symptomHits.length && chunk.documentKey.startsWith('dx-')) score += RETRIEVAL_WEIGHTS.diagnosis;
+    // On a wet track (or for a wet question) the wet record of a problem leads its dry one
+    const wetChunk = chunk.components.includes('wetWeather');
+    if (wet && wetChunk) {
+      const about = symptomHits.length > 0 || componentHits.some((c) => c !== 'wetWeather') || kw >= 0.5;
+      score += about ? RETRIEVAL_WEIGHTS.wet : RETRIEVAL_WEIGHTS.wetGeneral;
+      reasons.push(about ? 'wet conditions' : 'wet conditions (general)');
+    }
     if (options.queryEmbedding && chunk.embedding) {
       const sim = cosine(options.queryEmbedding, chunk.embedding);
       // text-embedding-3 similarities of related texts sit around 0.3-0.6; only the part above 0.2 counts
@@ -285,7 +336,7 @@ export function retrieve(
       }
     }
     // A car-specific or class chunk with nothing else in common is only noise
-    if (!symptomHits.length && !componentHits.length && kw < 0.5 && !reasons.some((r) => r.startsWith('semantic'))) score = 0;
+    if (!symptomHits.length && !componentHits.length && kw < 0.5 && !reasons.some((r) => r.startsWith('semantic')) && !(wet && wetChunk)) score = 0;
     return { chunk, score, reasons };
   });
 

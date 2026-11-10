@@ -8,6 +8,32 @@ import { apiText, getLanguage } from '@/lib/i18n/server';
 import { aiRateLimit, type AiRateLimit } from '@/lib/rateLimits';
 import { readJsonLimited } from '@/lib/requestBody';
 import { getUnits } from '@/lib/unitsServer';
+import { z } from 'zod';
+import { weatherContextFromLaps } from '@/lib/engineering/weatherContext';
+
+// Each recorded lap's weather and tires (src/lib/collectorLaps.ts's LapConditions) and when it was completed, which
+// the page sends beside the session; dropped lap files have none
+const lapWeatherSchema = z
+  .array(
+    z.object({
+      conditions: z
+        .object({
+          trackTempC: z.number().nullish(),
+          airTempC: z.number().nullish(),
+          relativeHumidity: z.number().nullish(),
+          windVelocity: z.number().nullish(),
+          windDirection: z.number().nullish(),
+          precipitation: z.number().min(0).max(1).nullish(),
+          trackWetness: z.number().int().min(0).max(20).nullish(),
+          declaredWet: z.boolean().nullish(),
+          tireCompound: z.number().int().nullish(),
+          tireCompoundType: z.string().max(50).nullish(),
+        })
+        .nullable(),
+      completedAt: z.string().max(40).nullable(),
+    })
+  )
+  .max(100);
 
 // The agent makes several model calls (one per tool round), so give it more than the default
 export const maxDuration = 60;
@@ -44,7 +70,19 @@ export async function POST(request: Request) {
     // For the shifting tool; without it the coach falls back to the RPM in the laps
     const rpmLimit = await carRpmLimit(parsed.data.car).catch(() => null);
     const [language, units] = await Promise.all([getLanguage(user), getUnits(user)]);
-    const { debrief, steps, optimalLap } = await limit.track(() => runDebriefCoach(parsed.data, language, units, rpmLimit));
+    // The session's weather from its recorded laps (engineering/weatherContext.ts); null when none of them say
+    const lapWeather = lapWeatherSchema.safeParse(body.weather);
+    const weather =
+      lapWeather.success && lapWeather.data.some((l) => l.conditions)
+        ? weatherContextFromLaps(
+            lapWeather.data
+              .map((l) => ({ conditions: l.conditions, completedAt: l.completedAt ? Date.parse(l.completedAt) || null : null }))
+              .sort((a, b) => (a.completedAt ?? 0) - (b.completedAt ?? 0)),
+            Date.now(),
+            parsed.data.car
+          )
+        : null;
+    const { debrief, steps, optimalLap } = await limit.track(() => runDebriefCoach(parsed.data, language, units, rpmLimit, weather));
 
     // Kept for signed-in users (e.g. for the Discord bot's /coach debrief). Saving is extra, so a failure
     // is logged rather than costing them the debrief.

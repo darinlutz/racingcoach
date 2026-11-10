@@ -4,6 +4,8 @@ The knowledge base the **Setup Engineer** (Driver Radio, `src/lib/setupEngineer.
 
 It is separate from Racecar Analysis (`src/racecar_analysis_rag.py`, ChromaDB in memory, rebuilt per question from Car Data and Track Data), which is unchanged.
 
+Wet weather (the track conditions, the fitted tires, 37 wet-weather records, weather-aware retrieval and diagnosis, and in-car weather alerts) is in `docs/wet-weather.md`.
+
 ## Architecture
 
 ```
@@ -57,7 +59,7 @@ Each record has symptoms, likely causes, telemetry indicators (using the lap fil
 
 Agents see a trust label on every entry. `car_verified` content that hasn't been reviewed is labelled a hypothesis. Rejected documents are never retrieved.
 
-**The starter corpus (36 records) is `ai_drafted`**: original explanations of standard vehicle dynamics written for RacingCoach, with no text copied from manuals or books, no exact settings, ranges or click counts, and no claim to be verified. The three car records (Huracán GT3, Ferrari 296 GT3, Porsche 911 GT3 R) state only their engine layout and the tendencies that layout usually brings, as hypotheses. **Someone should review them on the Admin page and mark them `reviewed`.**
+**The starter corpus (73 records: 36 dry, and 37 wet-weather from `wetWeatherCorpus.ts`) is `ai_drafted`**: original explanations of standard vehicle dynamics written for RacingCoach, with no text copied from manuals or books, no exact settings, ranges or click counts, and no claim to be verified. The three car records (Huracán GT3, Ferrari 296 GT3, Porsche 911 GT3 R) state only their engine layout and the tendencies that layout usually brings, as hypotheses. **Someone should review them on the Admin page and mark them `reviewed`.**
 
 ## Setup capabilities
 
@@ -92,7 +94,7 @@ Shared by both agents: symptom and phase (the driver's words, else the measured 
 
 ## Agents
 
-**Setup Engineer**: the knowledge facts are added after its existing facts; the prompt now asks it to say whether the evidence points at driving or setup, keep measured apart from likely, suggest only listed parameters (smallest step first) with tradeoffs, close with how to check it, and never claim ABS, saturation or bottoming the facts don't show. `checkSetupAnswer` then refuses parameters not allowed (multilingual; negated sentences such as "you can't change the springs" are ignored): one rewrite, then those sentences are dropped. Logged as `Setup Engineer knowledge: …`.
+**Setup Engineer**: the knowledge facts are added after its existing facts (until the wet-weather work they were computed but never reached the prompt); the prompt now asks it to say whether the evidence points at driving or setup, keep measured apart from likely, suggest only listed parameters (smallest step first) with tradeoffs, close with how to check it, and never claim ABS, saturation or bottoming the facts don't show. `checkSetupAnswer` then refuses parameters not allowed (multilingual; negated sentences such as "you can't change the springs" are ignored): one rewrite, then those sentences are dropped. Logged as `Setup Engineer knowledge: …`.
 
 **Race Coach (Debrief Coach)**: a `get_engineering_knowledge` tool (at most twice, only for car-behaviour fixes). The prompt keeps the lap data first: correct the driving when the data shows it, never give a setup change as a fix, and only suggest asking the Setup Engineer when the problem shows in fast and slow runs alike. 
 

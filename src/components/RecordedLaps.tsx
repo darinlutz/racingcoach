@@ -93,6 +93,8 @@ function toLapFile(lap: CollectorLapSummary, trackName: string, csv: string): La
     lapTime,
     fileId,
     lapNumber: lap.lapNumber,
+    conditions: lap.conditions,
+    completedAt: lap.completedAt,
   };
 }
 

@@ -738,6 +738,9 @@ internal sealed class CollectorEngine
             var sessionTypes = session.SessionInfo?.Sessions?.ToDictionary(s => s.SessionNum, s => s.SessionType) ?? [];
             var location = string.Join(", ", new[] { weekend?.TrackCity, weekend?.TrackCountry }.Where(s => !string.IsNullOrWhiteSpace(s)));
 
+            // The car's tire compounds (DriverInfo.DriverTires), which name the fitted one in laps and live updates
+            var tireTypes = TireTypes(session.DriverInfo?.DriverTires);
+
             var previous = Session;
             Session = new SessionDetails(
                 track,
@@ -765,7 +768,8 @@ internal sealed class CollectorEngine
                     .Where(s => !string.IsNullOrWhiteSpace(s.SessionTrackRubberState))
                     .ToDictionary(s => s.SessionNum, s => s.SessionTrackRubberState!.Trim()),
                 // iRacing's folder for the car (e.g. mercedesw13), which the site finds its picture by, as CarScreenName varies
-                CarKey: string.IsNullOrWhiteSpace(driver?.CarPath) ? null : driver.CarPath.Trim());
+                CarKey: string.IsNullOrWhiteSpace(driver?.CarPath) ? null : driver.CarPath.Trim(),
+                TireTypes: tireTypes);
 
             TrackKeys.Set(_recorder.Session.Track, weekend?.TrackName, weekend?.TrackLength, weekend?.TrackLatitude, weekend?.TrackLongitude); // before anything asks the site about the track
             _coach.SetTrack(_recorder.Session.Track);
@@ -780,6 +784,7 @@ internal sealed class CollectorEngine
             Live.SetField(weekend?.SubSessionID ?? 0, driverIdx, FieldDrivers(session));
             Live.SetSetup(session.DriverInfo?.DriverSetupName, session.DriverInfo?.DriverSetupLoadTypeName,
                 session.DriverInfo?.DriverSetupIsModified is { } modified ? modified != 0 : null);
+            Live.SetTireTypes(tireTypes);
 
             // iRacing re-sends session info every few seconds (flags, driver list, ...); only log changes
             if (previous is null || previous.Track != Session.Track || previous.TrackConfig != Session.TrackConfig || previous.Car != Session.Car)
@@ -871,6 +876,16 @@ internal sealed class CollectorEngine
     private void Log(string message, bool isError = false) => _log(message, isError);
 
     // Every car in the session for Live Racing's field, leaving out the pace car and spectators
+    // The car's tire compounds by TireIndex (e.g. 0 "Hard", 1 "Wet"); null when session info lists none
+    private static IReadOnlyDictionary<int, string>? TireTypes(IEnumerable<DriverTire>? tires)
+    {
+        var types = new Dictionary<int, string>();
+        foreach (var tire in tires ?? [])
+            if (tire.TireIndex is { } index && !string.IsNullOrWhiteSpace(tire.TireCompoundType))
+                types.TryAdd(index, tire.TireCompoundType.Trim());
+        return types.Count > 0 ? types : null;
+    }
+
     private static List<FieldDriver> FieldDrivers(TelemetrySessionInfo session) =>
         session.DriverInfo?.Drivers?
             .Where(d => d.CarIsPaceCar != 1 && d.IsSpectator != 1 && !string.IsNullOrWhiteSpace(d.UserName))

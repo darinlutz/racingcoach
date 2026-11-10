@@ -20,7 +20,10 @@ internal sealed record SessionContext(
     string? AdapterVersion = null,
     // That simulator's own ids for the car and track; iRacing's car is its CarPath, and its track keys are in TrackKeys
     string? CarKey = null,
-    string? TrackKey = null);
+    string? TrackKey = null,
+    // The car's tire compounds by TireIndex (session info's DriverInfo.DriverTires: TireCompoundType), which names
+    // the fitted compound (PlayerTireCompound) in each lap's conditions
+    IReadOnlyDictionary<int, string>? TireTypes = null);
 
 /// <summary>A finished lap, handed from the recorder to the writer.</summary>
 internal sealed record CompletedLap(

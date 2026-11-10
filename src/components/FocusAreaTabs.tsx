@@ -7,6 +7,24 @@ import { useLanguage } from '@/components/LanguageProvider';
 
 export type FocusAreaTab = { name: string; diff: number };
 
+// An area's tint by its share of the biggest difference: red where the Compare lap lost time, green where it gained
+// (Lap Compare's table uses it too, so the two look alike)
+export function areaTint(diff: number, largest: number): string | undefined {
+  const strength = 0.06 + 0.3 * (Math.abs(diff) / Math.max(largest, 0.001));
+  return diff > 0 ? `rgba(255, 64, 64, ${strength})` : diff < 0 ? `rgba(34, 197, 94, ${strength})` : undefined;
+}
+
+// "+0.123s" or "−0.123s"
+export function formatAreaSeconds(diff: number, locale: string): string {
+  const seconds = Math.abs(diff).toLocaleString(locale, { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+  return `${diff > 0 ? '+' : diff < 0 ? '−' : ''}${seconds}s`;
+}
+
+// The time's color beside an area's name: red where the Compare lap lost time, green where it gained
+export function areaDiffText(diff: number): string {
+  return diff > 0 ? 'text-red-400' : diff < 0 ? 'text-green-400' : 'text-muted-foreground';
+}
+
 // Lap Compare's focus areas across the top, each with, under its name, the time the Compare lap lost (red, +) or
 // gained (green, -) there, tinted by how much. Picking one shows its telemetry below; only one at a
 // time. The button on the left switches between most time lost first and track order (areas come in
@@ -78,8 +96,7 @@ export default function FocusAreaTabs({
     stripRef.current?.querySelectorAll<HTMLElement>('[role="tab"]')[next]?.focus();
   };
 
-  const seconds = (diff: number) =>
-    `${diff > 0 ? '+' : diff < 0 ? '−' : ''}${Math.abs(diff).toLocaleString(locale, { minimumFractionDigits: 3, maximumFractionDigits: 3 })}s`;
+  const seconds = (diff: number) => formatAreaSeconds(diff, locale);
 
   const arrowClass =
     'shrink-0 flex items-center justify-center w-9 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors';
@@ -110,9 +127,7 @@ export default function FocusAreaTabs({
       >
         {shown.map((area) => {
           const isSelected = area.name === selected;
-          // Tint by share of the biggest difference: red where the Compare lap lost time, green where it gained
-          const strength = 0.06 + 0.3 * (Math.abs(area.diff) / largest);
-          const tint = area.diff > 0 ? `rgba(255, 64, 64, ${strength})` : area.diff < 0 ? `rgba(34, 197, 94, ${strength})` : undefined;
+          const tint = areaTint(area.diff, largest);
           return (
             <button
               key={area.name}
@@ -130,7 +145,7 @@ export default function FocusAreaTabs({
               <span className="font-display text-[1.35rem] font-bold leading-none whitespace-nowrap">{area.name}</span>
               <span
                 className={`font-display text-sm font-semibold leading-none tabular-nums whitespace-nowrap ${
-                  isSelected ? 'text-white/85' : area.diff > 0 ? 'text-red-400' : area.diff < 0 ? 'text-green-400' : 'text-muted-foreground'
+                  isSelected ? 'text-white/85' : areaDiffText(area.diff)
                 }`}
               >
                 {seconds(area.diff)}

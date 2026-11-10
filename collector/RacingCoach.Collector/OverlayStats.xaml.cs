@@ -29,8 +29,8 @@ public partial class OverlayStats : UserControl
         ShowHandling(language, rotation);
     }
 
-    // The focus area just left, while OverlayEngine holds it (3 s): its name in the headings ("T3 Time", "T3 Exit",
-    // "T3 Wheel° Diff", "T3 Wheel Point Diff"), its time and exit speed, purple for a session best, and its steering
+    // The focus area just left, while OverlayEngine holds it (3 s): its name in the time and exit headings ("T3 Time",
+    // "T3 Exit"; the steering ones are "Wheel Δ" and "Max Point"), its time and exit speed, purple for a session best, and its steering
     // against the Target Lap's, colored like the Brake Point; hidden otherwise, and when none has a value yet
     private void ShowLastArea(OverlaySnapshot snapshot, string language)
     {
@@ -50,8 +50,8 @@ public partial class OverlayStats : UserControl
         }
         LastTimeHeading.Text = Loc.T(language, "overlay.areaTime", name);
         LastExitHeading.Text = Loc.T(language, "overlay.areaExit", name);
-        LastWheelDiffHeading.Text = Loc.T(language, "overlay.areaWheelDiff", name);
-        LastWheelPointHeading.Text = Loc.T(language, "overlay.areaWheelPoint", name);
+        LastWheelDiffHeading.Text = Loc.T(language, "overlay.areaWheelDiff");
+        LastWheelPointHeading.Text = Loc.T(language, "overlay.areaWheelPoint");
         LastTimeBox.Text = time;
         LastExitBox.Text = exit;
         LastWheelDiffBox.Text = wheelDiff;

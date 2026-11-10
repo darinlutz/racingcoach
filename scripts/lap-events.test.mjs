@@ -290,6 +290,44 @@ test('a focus area starting on the start/finish line starts with the lap', () =>
   assert.ok(fromLine, 'an area from 0 is measured');
   assert.equal(fromLine.maxBrake, 0.5);
   close(fromLine.seconds, (lap.pcts.findIndex((p) => p >= 0.1) - 0.2) * (100 / 101), 0.05);
-  // An area the lap really doesn't reach the start of is still left out
-  assert.equal(areaStats(lapSamplesFromText(`LapDistPct,Brake,Throttle,Speed\n0.02,0,1,40\n0.04,0,1,40\n0.06,0,1,40\n`), 1, 0, 0.05), null);
+  // An area the lap starts far past the start of (more than areaSpan's 8% of the lap) is still left out
+  assert.equal(areaStats(lapSamplesFromText(`LapDistPct,Brake,Throttle,Speed\n0.2,0,1,40\n0.22,0,1,40\n0.24,0,1,40\n`), 1, 0, 0.23), null);
+});
+
+// A lap counted from another start line (another simulator's, moved onto iRacing's lap positions): 1000 samples a lap,
+// 0.1 s each, from `from` round to the same place, braking from 0.01 to 0.015 of the lap
+function offsetLap(from) {
+  const rows = Array.from({ length: 1001 }, (_, i) => {
+    const pct = (((from + i * 0.001) % 1) + 1) % 1;
+    const braking = pct >= 0.01 && pct < 0.015;
+    return `${pct.toFixed(6)},${braking ? 0.7 : 0},${braking ? 0 : 1},${40 + pct * 10}`;
+  });
+  return lapSamplesFromText(`LapDistPct,Brake,Throttle,Speed\n${rows.join('\n')}\n`);
+}
+const SECONDS_PER_PCT = (1000 * 100.1) / 1001; // lapSeconds 100.1 over 1001 samples, 1000 a lap
+
+test('a lap starting past a focus area near the line still measures it, the missing stretch at its pace', () => {
+  const lap = offsetLap(0.03);
+  // Partly covered (0.03 on): timed as if driven from 0.002 at the lap's opening pace
+  const s0 = areaStats(lap, 100.1, 0.002, 0.08);
+  assert.ok(s0, 'S0 is measured');
+  close(s0.seconds, 0.078 * SECONDS_PER_PCT, 1e-6);
+  close(s0.entrySpeed, 40.3, 1e-6);
+  // Wholly before the lap's own start: found at the end of the lap (the next lap's start), in the area's own positions
+  const early = areaStats(lap, 100.1, 0.002, 0.02);
+  assert.ok(early, 'an area the lap only reaches at its end is measured there');
+  close(early.seconds, 0.018 * SECONDS_PER_PCT, 1e-6);
+  close(early.brakePct, 0.01, 0.0015);
+  assert.equal(early.maxBrake, 0.7);
+});
+
+test('a lap ending short of the line measures the last focus area, and one far past its ends is still left out', () => {
+  const lap = offsetLap(-0.03); // 0.97 .. 0.97: ends 3% before the line, starts just past it the lap before
+  const last = areaStats(lap, 100.1, 0.91, 1);
+  assert.ok(last, 'the area up to the line is measured');
+  close(last.seconds, 0.09 * SECONDS_PER_PCT, 1e-6);
+  // A lap of a tenth of the track doesn't measure an area elsewhere
+  const short = lapSamplesFromText(`LapDistPct,Brake,Throttle,Speed\n${Array.from({ length: 101 }, (_, i) => `${0.3 + i * 0.001},0,1,40`).join('\n')}\n`);
+  assert.equal(areaStats(short, 10, 0.1, 0.25), null);
+  assert.equal(areaStats(short, 10, 0.45, 0.6), null);
 });

@@ -36,25 +36,25 @@
             <TextBox x:Name="MaxSteeringBox" Style="{StaticResource BigBox}" Foreground="#F98F3A" />
         </StackPanel>
 
-        <!-- The focus area just left: "T3 Time", "T3 Exit" (purple BEST for a session best), "T3 Wheel° Diff" and
-             "T3 Wheel Point Diff", for 3 s after leaving it (OverlayEngine's LastAreaHoldMs), then hidden. Hidden
+        <!-- The focus area just left: "T3 Time", "T3 Exit" (purple BEST for a session best), "Wheel Δ" and
+             "Max Point", in the focus area row's boxes (not bold), for 3 s after leaving it (OverlayEngine's LastAreaHoldMs), then hidden. Hidden
              rather than collapsed, so nothing beside or under it moves. Level with the bottoms of the big boxes -->
         <StackPanel x:Name="LastAreaPanel" Grid.Column="6" Orientation="Horizontal" VerticalAlignment="Bottom" Visibility="Hidden">
             <StackPanel Width="72">
                 <TextBlock x:Name="LastTimeHeading" Style="{StaticResource Heading}" />
-                <TextBox x:Name="LastTimeBox" Style="{StaticResource MidBox}" />
+                <TextBox x:Name="LastTimeBox" Style="{StaticResource Box}" />
             </StackPanel>
             <StackPanel Width="109" Margin="6,0,0,0">
                 <TextBlock x:Name="LastExitHeading" Style="{StaticResource Heading}" />
-                <TextBox x:Name="LastExitBox" Style="{StaticResource MidBox}" />
+                <TextBox x:Name="LastExitBox" Style="{StaticResource Box}" />
             </StackPanel>
             <StackPanel Width="82" Margin="6,0,0,0">
                 <TextBlock x:Name="LastWheelDiffHeading" Style="{StaticResource Heading}" />
-                <TextBox x:Name="LastWheelDiffBox" Style="{StaticResource MidBox}" />
+                <TextBox x:Name="LastWheelDiffBox" Style="{StaticResource Box}" />
             </StackPanel>
             <StackPanel Width="106" Margin="6,0,0,0">
                 <TextBlock x:Name="LastWheelPointHeading" Style="{StaticResource Heading}" />
-                <TextBox x:Name="LastWheelPointBox" Style="{StaticResource MidBox}" />
+                <TextBox x:Name="LastWheelPointBox" Style="{StaticResource Box}" />
             </StackPanel>
         </StackPanel>
 

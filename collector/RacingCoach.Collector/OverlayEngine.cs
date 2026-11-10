@@ -221,8 +221,8 @@ internal sealed partial class OverlayEngine
 
             _sample = data;
             var maxBrake = Text(Call("GetMaximumBrakePressure"));
-            // A bare number in SpeedLocal's units (mph or kph)
-            var minSpeed = Localize(Text(Call("GetMinimumSpeed")));
+            // A bare number in SpeedLocal's units (mph or kph), shown whole
+            var minSpeed = Localize(WholeNumbers(Text(Call("GetMinimumSpeed"))));
 
             // iRacing's LapDistPct is outside 0-1 while the car isn't on track; the last area shown stays then
             // (but the car isn't in it)
@@ -332,7 +332,8 @@ internal sealed partial class OverlayEngine
             AlertColor: Text(Call("GetBrakepointAlertColor", area)),
             Brake: "", BrakeColor: "", Force: "", ForceColor: "", ForceTarget: "", Gas: "", GasColor: "", Time: "", TimeColor: "",
             // GetSpeedArea takes the track name too
-            Exit: Localize(Text(Call("GetSpeedArea", _trackName, area))),
+            // "-1.2 mph" shown whole, "-1 mph"
+            Exit: Localize(WholeNumbers(Text(Call("GetSpeedArea", _trackName, area)))),
             ExitColor: CallOptional("GetSpeedAreaColor", _trackName, area),
             Coast: Localize(BlankIfZero(Text(Call("GetCoastingDistance", area)))),
             Overlap: Localize(BlankIfZero(Text(Call("GetControlOverlapDistance", area)))));
@@ -402,6 +403,17 @@ internal sealed partial class OverlayEngine
     [GeneratedRegex(@"^\s*-?0+(?:\.0+)?\s*(?:ft)?\s*$")]
     private static partial Regex ZeroDistance();
     private static string BlankIfZero(string text) => ZeroDistance().IsMatch(text) ? "" : text;
+
+    // A number with a fractional part, e.g. "56.2" or "-1.25"
+    [GeneratedRegex(@"-?\d+\.\d+")]
+    private static partial Regex DecimalNumber();
+
+    /// <summary>The script's numbers rounded to whole ones, e.g. "-1.2 mph" to "-1 mph" (never "-0").</summary>
+    private static string WholeNumbers(string text) => DecimalNumber().Replace(text, m =>
+    {
+        var whole = Math.Round(double.Parse(m.Value, CultureInfo.InvariantCulture), MidpointRounding.AwayFromZero);
+        return (whole == 0 ? 0 : whole).ToString("0", CultureInfo.InvariantCulture);
+    });
 
     // "12 ft late" or "35 ft"; and "-1.2 mph" (the script labels SpeedLocal's speeds mph whatever their units)
     [GeneratedRegex(@"(-?\d+(?:\.\d+)?)\s*ft\b")]
@@ -524,9 +536,9 @@ internal sealed partial class OverlayEngine
     private string SteeringTargetText(double targetDegrees) =>
         Loc.T(_language, "script.Target") + " " + Math.Round(targetDegrees).ToString("0", CultureInfo.InvariantCulture) + "°";
 
-    // "56.2°": degrees of steering wheel angle, either way, with the language's decimal point
-    private string SteeringText(double radians) =>
-        (radians * 180 / Math.PI).ToString("0.0", Loc.Culture(_language)) + "°";
+    // "56°": degrees of steering wheel angle, either way, to the nearest whole degree
+    private static string SteeringText(double radians) =>
+        Math.Round(radians * 180 / Math.PI, MidpointRounding.AwayFromZero).ToString("0", CultureInfo.InvariantCulture) + "°";
 
     private void ApplyPendingTrack(SessionDetails? session)
     {

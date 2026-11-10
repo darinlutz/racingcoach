@@ -1,4 +1,4 @@
-import { areaStats, brakeFeet, crossingIndex, lapSamplesFromText, sameTrackName, type Track } from './lapData';
+import { areaSpan, areaStats, brakeFeet, lapSamplesFromText, sameTrackName, type Track } from './lapData';
 import { readTargetLap, targetLapTrackName } from './targetLap';
 import { lapCsvTrackLengthFeet } from './trackLengths';
 
@@ -42,14 +42,13 @@ export function targetMaxSteering(
   const lengthFeet = lap ? (track.lengthFeet ?? lapCsvTrackLengthFeet(lap.csv)) : null;
   return track.areas.map((area) => {
     if (!samples || area.start === null || area.end === null) return null;
-    const startIndex = crossingIndex(samples.pcts, area.start, 0);
-    if (startIndex === null) return null;
     // An area that crosses the start/finish line ends on the next lap
-    const endIndex = crossingIndex(samples.pcts, area.end < area.start ? area.end + 1 : area.end, startIndex);
-    if (endIndex === null) return null;
+    const span = areaSpan(samples.pcts, area.start, area.end);
+    if (!span) return null;
+    const { startIndex, endIndex, shift } = span;
     let max: number | null = null;
     let at = -1;
-    for (let i = Math.ceil(startIndex); i <= Math.floor(endIndex) && i < samples.steerings.length; i++) {
+    for (let i = Math.max(0, Math.ceil(startIndex)); i <= Math.floor(endIndex) && i < samples.steerings.length; i++) {
       const steering = Math.abs(samples.steerings[i]);
       if (Number.isFinite(steering) && (max === null || steering > max)) {
         max = steering;
@@ -57,7 +56,7 @@ export function targetMaxSteering(
       }
     }
     if (max === null) return null;
-    const pct = samples.pcts[at];
+    const pct = samples.pcts[at] - shift;
     return {
       degrees: Math.round(((max * 180) / Math.PI) * 10) / 10,
       feet: lengthFeet && Number.isFinite(pct) ? brakeFeet(pct, lengthFeet) : null,

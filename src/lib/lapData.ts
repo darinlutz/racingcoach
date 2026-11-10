@@ -309,6 +309,59 @@ export function crossingIndex(pcts: number[], target: number, from: number) {
   return null;
 }
 
+// The most of a focus area a lap's ends may miss for the area still to be measured, with the missing stretch timed at
+// the pace of the lap's nearest samples: other simulators' laps are counted from their own start line, which can be
+// this far from iRacing's once their lap positions are moved onto iRacing's (worldAlignment.ts's MAX_START_OFFSET)
+const LAP_EDGE_GAP = 0.08;
+
+// Samples per share of the lap over up to 30 samples from one end of the lap (forward from the start, back from
+// the end), for timing a stretch past that end; null when the lap doesn't move there
+function samplesPerPct(pcts: number[], atEnd: boolean) {
+  const span = Math.min(30, pcts.length - 1);
+  const moved = atEnd ? pcts[pcts.length - 1] - pcts[pcts.length - 1 - span] : pcts[span] - pcts[0];
+  return span > 0 && moved > 0 ? span / moved : null;
+}
+
+// Fractional sample indexes of a focus area's start and end in a lap (end > start), or null when the lap doesn't
+// cover it. Normally the lap's own crossings. A lap counted from another start line (another simulator's) covers a
+// stretch of the next lap instead of the start of its own, so an area near the line can lie in either; and one it
+// only partly covers is measured from or to the lap's end, the stretch past it timed at the lap's pace there, which
+// gives a start below 0 or an end past the last sample. Index samples with Math.max(0, ...) and Math.min(last, ...).
+// shift is the lap the area was found on (1 the next, -1 the one before): take it off the lap's positions there.
+export function areaSpan(
+  pcts: number[],
+  start: number,
+  end: number
+): { startIndex: number; endIndex: number; shift: number } | null {
+  if (pcts.length < 2) return null;
+  const domainEnd = end < start ? end + 1 : end;
+  // The whole area, on this lap or, near the line, the one before or after it
+  for (const shift of [0, 1, -1]) {
+    const startIndex = crossingIndex(pcts, start + shift, 0);
+    const endIndex = startIndex === null ? null : crossingIndex(pcts, domainEnd + shift, startIndex);
+    if (startIndex !== null && endIndex !== null) return { startIndex, endIndex, shift };
+  }
+  // Part of it, past an end of the lap by no more than LAP_EDGE_GAP: the one missing least
+  const [first, last] = [pcts[0], pcts[pcts.length - 1]];
+  let best: { startIndex: number; endIndex: number; shift: number; missing: number } | null = null;
+  for (const shift of [0, 1, -1]) {
+    const [from, to] = [start + shift, domainEnd + shift];
+    if (to <= first || from >= last) continue;
+    const before = first > from ? first - from : 0;
+    const after = last < to ? to - last : 0;
+    if (before > LAP_EDGE_GAP || after > LAP_EDGE_GAP || before + after === 0) continue;
+    const [headRate, tailRate] = [samplesPerPct(pcts, false), samplesPerPct(pcts, true)];
+    const startIndex = before > 0 ? (headRate === null ? null : -before * headRate) : crossingIndex(pcts, from, 0);
+    const endIndex =
+      after > 0
+        ? tailRate === null ? null : pcts.length - 1 + after * tailRate
+        : crossingIndex(pcts, to, Math.max(0, startIndex ?? 0));
+    if (startIndex === null || endIndex === null || endIndex <= startIndex) continue;
+    if (!best || before + after < best.missing) best = { startIndex, endIndex, shift, missing: before + after };
+  }
+  return best && { startIndex: best.startIndex, endIndex: best.endIndex, shift: best.shift };
+}
+
 // The Brake and Throttle samples (0-1) through a focus area, for charting (throttle without downshift
 // blips, see withoutThrottleBlips), with each sample's unwrapped
 // lap position. Same stretch of samples areaStats measures; null if the lap doesn't cover the area.
@@ -411,12 +464,11 @@ export function areaTrace(
   end: number
 ): AreaTrace | null {
   const { pcts, brakes, throttles, steerings, speeds, lats, lons } = samples;
-  const startIndex = crossingIndex(pcts, start, 0);
-  if (startIndex === null) return null;
+  const span = areaSpan(pcts, start, end);
+  if (!span) return null;
+  const { startIndex, endIndex } = span;
   const domainEnd = end < start ? end + 1 : end;
-  const endIndex = crossingIndex(pcts, domainEnd, startIndex);
-  if (endIndex === null) return null;
-  const from = Math.floor(startIndex);
+  const from = Math.max(0, Math.floor(startIndex));
   const to = Math.min(Math.ceil(endIndex), pcts.length - 1) + 1;
   const areaBrakes = brakes.slice(from, to);
   const positions = lats.slice(from, to).map((lat, i): [number, number] => [lat, lons[from + i]]);
@@ -537,11 +589,20 @@ function rearWheelSlips(samples: LapSamples): number[] {
 }
 
 // The lap's time (s from the start of the lap) when it reached a lap position, interpolated between
-// samples the same way areaStats interpolates its start and end crossings
+// samples the same way areaStats interpolates its start and end crossings. Before the first sample or after the last
+// (a lap that only partly covers its area, see areaSpan), at the pace of the samples nearest that end
 export function timeAtPosition({ pcts, times }: AreaTrace, pct: number) {
-  if (pct <= pcts[0]) return times[0];
   const last = pcts.length - 1;
-  if (pct >= pcts[last]) return times[last];
+  const span = Math.min(30, last);
+  if (pct <= pcts[0]) {
+    const perPct = span > 0 && pcts[span] > pcts[0] ? (times[span] - times[0]) / (pcts[span] - pcts[0]) : 0;
+    return times[0] - (pcts[0] - pct) * perPct;
+  }
+  if (pct >= pcts[last]) {
+    const perPct =
+      span > 0 && pcts[last] > pcts[last - span] ? (times[last] - times[last - span]) / (pcts[last] - pcts[last - span]) : 0;
+    return times[last] + (pct - pcts[last]) * perPct;
+  }
   let lo = 0;
   let hi = last;
   while (hi - lo > 1) {
@@ -557,40 +618,45 @@ export function timeAtPosition({ pcts, times }: AreaTrace, pct: number) {
 // stretch, the lowest speed (m/s) in it, and the speed (m/s) at the end of it. Samples are evenly spaced (60 Hz), so each one is
 // lapSeconds / sampleCount long.
 export function areaStats({ pcts, brakes, speeds, throttles }: LapSamples, lapSeconds: number, start: number, end: number) {
-  const startIndex = crossingIndex(pcts, start, 0);
-  if (startIndex === null) return null;
-  // An area that crosses the start/finish line ends on the next lap
-  const endIndex = crossingIndex(pcts, end < start ? end + 1 : end, startIndex);
-  if (endIndex === null) return null;
+  // An area that crosses the start/finish line ends on the next lap; positions are the area's own (shift taken off)
+  const span = areaSpan(pcts, start, end);
+  if (!span) return null;
+  const { startIndex, endIndex, shift } = span;
+  const lastIndex = pcts.length - 1;
 
   let maxBrake = 0;
   let brakePct: number | null = null; // Lap position where Brake first goes over 0%
   let throttlePct: number | null = null; // Lap position where the throttle comes back after that first braking zone
   let released = false; // Brake has dropped back to 0% after the first braking zone
-  for (let i = Math.floor(startIndex); i <= Math.ceil(endIndex) && i < brakes.length; i++) {
+  for (let i = Math.max(0, Math.floor(startIndex)); i <= Math.ceil(endIndex) && i < brakes.length; i++) {
     maxBrake = Math.max(maxBrake, brakes[i]);
     if (brakePct !== null && !released && brakes[i] <= BRAKE_THRESHOLD) released = true;
-    if (released && throttlePct === null && throttles[i] >= THROTTLE_THRESHOLD) throttlePct = pcts[i];
+    if (released && throttlePct === null && throttles[i] >= THROTTLE_THRESHOLD) throttlePct = pcts[i] - shift;
     if (brakePct === null && brakes[i] > BRAKE_THRESHOLD) {
       const prev = i - 1;
       brakePct =
         prev >= 0 && brakes[prev] <= BRAKE_THRESHOLD
           ? pcts[prev] +
-            ((BRAKE_THRESHOLD - brakes[prev]) / (brakes[i] - brakes[prev])) * (pcts[i] - pcts[prev])
-          : pcts[i];
+            ((BRAKE_THRESHOLD - brakes[prev]) / (brakes[i] - brakes[prev])) * (pcts[i] - pcts[prev]) -
+            shift
+          : pcts[i] - shift;
     }
   }
-  // Interpolate between the samples on either side of the start and end lines
-  const entryBefore = Math.floor(startIndex);
-  const entryAfter = Math.min(entryBefore + 1, speeds.length - 1);
-  const entrySpeed = speeds[entryBefore] + (startIndex - entryBefore) * (speeds[entryAfter] - speeds[entryBefore]);
-
-  const before = Math.floor(endIndex);
-  const after = Math.min(before + 1, speeds.length - 1);
-  const exitSpeed = speeds[before] + (endIndex - before) * (speeds[after] - speeds[before]);
+  // Interpolate between the samples on either side of the start and end lines (the lap's first or last speed for a
+  // start or end past the lap's ends)
+  const speedAt = (index: number) => {
+    const at = Math.min(Math.max(index, 0), lastIndex);
+    const before = Math.floor(at);
+    const after = Math.min(before + 1, lastIndex);
+    return speeds[before] + (at - before) * (speeds[after] - speeds[before]);
+  };
+  const entrySpeed = speedAt(startIndex);
+  const exitSpeed = speedAt(endIndex);
 
   let minSpeed = exitSpeed;
-  for (let i = Math.ceil(startIndex); i <= before; i++) minSpeed = Math.min(minSpeed, speeds[i]);
+  for (let i = Math.max(0, Math.ceil(startIndex)); i <= Math.min(Math.floor(endIndex), lastIndex); i++) {
+    minSpeed = Math.min(minSpeed, speeds[i]);
+  }
 
   return { seconds: ((endIndex - startIndex) * lapSeconds) / pcts.length, maxBrake, brakePct, throttlePct, entrySpeed, minSpeed, exitSpeed };
 }

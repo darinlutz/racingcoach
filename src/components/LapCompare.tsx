@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useLanguage } from '@/components/LanguageProvider';
-import FocusAreaTabs from '@/components/FocusAreaTabs';
+import FocusAreaTabs, { areaDiffText, areaTint, formatAreaSeconds } from '@/components/FocusAreaTabs';
 import type { Tab as LapDataTab } from '@/components/LapDataTabs';
 import LapDeltaMap, { type DeltaMapArea } from '@/components/LapDeltaMap';
 import PedalTraces, { type PedalTraceLap } from '@/components/PedalTraces';
@@ -300,15 +300,33 @@ function brakeDiffText(diff: number | null, threshold: number) {
   return 'text-positive';
 }
 
-// Focus areas down the left, Target / Compare / Diff for each data point across the top
-// (Max Brake shows Target and Diff; everything else shows only its Diff)
-function AreaTable({ rows }: { rows: AreaRow[] }) {
+// The selected row's emphasis: a sky blue line along its top and bottom (and the name's left), drawn inside the cells
+// so their own colors stay as they are
+const SELECTED_ROW_CELL = 'font-bold shadow-[inset_0_2px_0_0_rgb(14_165_233),inset_0_-2px_0_0_rgb(14_165_233)]';
+const SELECTED_ROW_NAME =
+  'shadow-[inset_0_2px_0_0_rgb(14_165_233),inset_0_-2px_0_0_rgb(14_165_233),inset_3px_0_0_0_rgb(14_165_233)]';
+
+// Focus areas down the left, each named like the focus area tabs with the time the Compare lap lost or gained there
+// beside it; Target / Diff for each data point across the top (Max Brake shows Target and Diff; everything else
+// shows only its Diff). Clicking an area's row picks it, as the tabs and the map do; the picked one is emphasized.
+function AreaTable({
+  rows,
+  selected,
+  selectable,
+  onSelect,
+}: {
+  rows: AreaRow[];
+  selected: string | null;
+  // The areas with telemetry to show (a row without its comparison can't be picked)
+  selectable: string[];
+  onSelect: (name: string) => void;
+}) {
   const { t: dictionary, locale } = useLanguage();
   const units = useUnits();
   const speed = SPEED_UNIT[units];
   const t = dictionary.lapCompare;
+  const largest = Math.max(...rows.map((row) => Math.abs(row.comparison?.secondsDiff ?? 0)), 0.001);
   const groups = [
-    { label: t.groups.time, columns: ['diff'] },
     { label: t.groups.brakepoint, columns: ['diff'] },
     { label: t.groups.maxBrake, columns: ['base', 'diff'] },
     { label: t.groups.entrySpeed, columns: ['diff'] },
@@ -352,49 +370,79 @@ function AreaTable({ rows }: { rows: AreaRow[] }) {
           </tr>
         </thead>
         <tbody className="divide-y divide-border">
-          {rows.map(({ name, comparison: c, note }) => (
-            <tr key={name}>
-              <th scope="row" className="sticky left-0 bg-card px-5 py-2.5 text-left font-semibold whitespace-nowrap">
-                {name}
-              </th>
-              {!c ? (
-                <td colSpan={columnCount} className={`${groupStart} px-5 py-2.5 text-muted-foreground`}>
-                  {note}
-                </td>
-              ) : (
-                <>
-                  <td
-                    className={`${cell} ${groupStart} ${diffBackground(
-                      Math.round(c.secondsDiff * 1000) / 1000,
-                      c.baseSeconds,
-                      false
-                    )}`}
+          {rows.map(({ name, comparison: c, note }) => {
+            const canSelect = !!c && selectable.includes(name);
+            const isSelected = canSelect && name === selected;
+            const rowCell = isSelected ? SELECTED_ROW_CELL : '';
+            const tint = c && !isSelected ? areaTint(c.secondsDiff, largest) : undefined;
+            return (
+              <tr
+                key={name}
+                onClick={canSelect ? () => onSelect(name) : undefined}
+                className={canSelect ? 'cursor-pointer' : ''}
+              >
+                {/* Named like the focus area tabs, tinted by the time lost or gained, which is beside the name;
+                    the tint is an image over the opaque background, which the sticky cell needs over scrolled cells */}
+                <th
+                  scope="row"
+                  style={tint ? { backgroundImage: `linear-gradient(${tint}, ${tint})` } : undefined}
+                  className={`sticky left-0 z-10 px-4 py-2 text-left whitespace-nowrap ${
+                    isSelected ? `bg-sky-600 text-white ${SELECTED_ROW_NAME}` : 'bg-card'
+                  }`}
+                >
+                  <button
+                    type="button"
+                    disabled={!canSelect}
+                    aria-pressed={canSelect ? isSelected : undefined}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onSelect(name);
+                    }}
+                    className="flex items-baseline gap-2.5 rounded text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 disabled:cursor-default"
                   >
-                    {formatSecondsDiff(c.secondsDiff, locale)} s
+                    <span className="font-display text-[1.35rem] font-bold leading-none">{name}</span>
+                    {c && (
+                      <span
+                        className={`font-display text-sm font-semibold leading-none tabular-nums ${
+                          isSelected ? 'text-white/85' : areaDiffText(Math.round(c.secondsDiff * 1000) / 1000)
+                        }`}
+                      >
+                        {formatAreaSeconds(c.secondsDiff, locale)}
+                      </span>
+                    )}
+                  </button>
+                </th>
+                {!c ? (
+                  <td colSpan={columnCount} className={`${groupStart} px-5 py-2.5 text-muted-foreground`}>
+                    {note}
                   </td>
+                ) : (
+                  <>
+                    <td
+                      className={`${cell} ${groupStart} ${rowCell} ${brakeDiffText(c.brakeDiff, distanceFromFeet(SAME_BRAKE_FEET, units))}`}
+                    >
+                      {c.brakeDiff === null ? '—' : formatBrakeDiff(c.brakeDiff, units, t, locale)}
+                    </td>
 
-                  <td className={`${cell} ${groupStart} ${brakeDiffText(c.brakeDiff, distanceFromFeet(SAME_BRAKE_FEET, units))}`}>
-                    {c.brakeDiff === null ? '—' : formatBrakeDiff(c.brakeDiff, units, t, locale)}
-                  </td>
+                    <td className={`${cell} ${groupStart} ${rowCell}`}>{c.basePressure}%</td>
+                    <td className={`${cell} ${rowCell} ${brakeDiffText(c.pressureDiff, 3)}`}>{formatPressureDiff(c.pressureDiff, t)}</td>
 
-                  <td className={`${cell} ${groupStart}`}>{c.basePressure}%</td>
-                  <td className={`${cell} ${brakeDiffText(c.pressureDiff, 3)}`}>{formatPressureDiff(c.pressureDiff, t)}</td>
+                    <td className={`${cell} ${groupStart} ${rowCell} ${diffBackground(c.entryDiff, c.baseEntry, true)}`}>
+                      {formatSpeedDiffCell(c.entryDiff, speed)}
+                    </td>
 
-                  <td className={`${cell} ${groupStart} ${diffBackground(c.entryDiff, c.baseEntry, true)}`}>
-                    {formatSpeedDiffCell(c.entryDiff, speed)}
-                  </td>
+                    <td className={`${cell} ${groupStart} ${rowCell} ${diffBackground(c.minDiff, c.baseMin, true)}`}>
+                      {formatSpeedDiffCell(c.minDiff, speed)}
+                    </td>
 
-                  <td className={`${cell} ${groupStart} ${diffBackground(c.minDiff, c.baseMin, true)}`}>
-                    {formatSpeedDiffCell(c.minDiff, speed)}
-                  </td>
-
-                  <td className={`${cell} ${groupStart} ${diffBackground(c.exitDiff, c.baseExit, true)}`}>
-                    {formatSpeedDiffCell(c.exitDiff, speed)}
-                  </td>
-                </>
-              )}
-            </tr>
-          ))}
+                    <td className={`${cell} ${groupStart} ${rowCell} ${diffBackground(c.exitDiff, c.baseExit, true)}`}>
+                      {formatSpeedDiffCell(c.exitDiff, speed)}
+                    </td>
+                  </>
+                )}
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
@@ -936,13 +984,18 @@ export default function LapCompare({
             focus area's time (below it on smaller screens) */}
         {areaRows.length > 0 && (
           <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch">
-            <AreaTable rows={areaRows} />
+            <AreaTable
+              rows={areaRows}
+              selected={selectedTrace?.name ?? null}
+              selectable={traces.map((trace) => trace.name)}
+              onSelect={selectArea}
+            />
             <LapDeltaMap
               className="h-96 lg:h-auto lg:min-w-[18rem] lg:flex-1"
               outline={lapOutline}
               areas={deltaMapAreas}
-              selectedArea={selectedArea}
-              onSelectArea={setSelectedArea}
+              selectedArea={selectedTrace?.name ?? selectedArea}
+              onSelectArea={selectArea}
               fromTrackOutline={outlineFromTrack}
             />
           </div>

@@ -134,8 +134,8 @@ internal static class Loc
         ["overlay.wheelDiff"] = ("Max Wheel°", "Volante máx.°", "Volante máx.°", "Max. Lenkrad°"),
         // The area just left, for 3 s: the driver's max steering wheel angle less the Target Lap's, and where it was
         // against where the Target Lap's was ("5 ft early")
-        ["overlay.areaWheelDiff"] = ("{0} Wheel° Diff", "Dif. volante° {0}", "Dif. volante° {0}", "{0} Lenkrad° Diff."),
-        ["overlay.areaWheelPoint"] = ("{0} Wheel Point Diff", "Dif. ponto volante {0}", "Dif. punto volante {0}", "{0} Lenkpunkt Diff."),
+        ["overlay.areaWheelDiff"] = ("Wheel Δ", "Volante Δ", "Volante Δ", "Lenkrad Δ"),
+        ["overlay.areaWheelPoint"] = ("Max Point", "Ponto máx.", "Punto máx.", "Max. Punkt"),
         ["overlay.focusArea"] =("Area", "Área", "Zona", "Bereich"),
         ["overlay.nextArea"] = ("Next Area", "Próxima área", "Próxima zona", "Nächster Bereich"),
         ["overlay.brakePoint"] = ("Brake Point", "Ponto de frenagem", "Punto de frenado", "Bremspunkt"),

@@ -288,7 +288,14 @@ export function fillGaps(values: number[]): void {
 }
 
 // Fractional sample index where the lap first reaches `target`, at or after `from`
+// How far into the lap (a share of it) a lap file's first sample may be for a focus area starting on the line to count
+// as starting with the lap: a sample or two at any speed, with room for exports that start a little late
+const LAP_START_SLACK = 0.005;
+
 export function crossingIndex(pcts: number[], target: number, from: number) {
+  // A lap file starts at its first sample past the line, so a focus area starting on the line (0) is never crossed:
+  // it starts with the lap. Only a target just behind the first sample counts, not one the lap simply doesn't cover.
+  if (from <= 0 && pcts.length > 1 && pcts[0] >= target && pcts[0] - target <= LAP_START_SLACK) return 0;
   for (let i = Math.max(1, Math.ceil(from)); i < pcts.length; i++) {
     if (pcts[i - 1] < target && pcts[i] >= target) {
       return i - 1 + (target - pcts[i - 1]) / (pcts[i] - pcts[i - 1]);

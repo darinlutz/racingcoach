@@ -4,7 +4,7 @@ import { chatModel } from './aiModels';
 import type { Decision, Format, Speaker } from './broadcastDirector';
 import { parseBroadcastSettings, type BroadcastSettings } from './broadcastSettings';
 import type { BroadcastEvent, Storyline } from './broadcastTracker';
-import { checkLine, deliveryText, fitToSeconds, type LineFacts } from './broadcastValidation';
+import { checkLine, deliveryText, echoesInstruction, fitToSeconds, type LineFacts } from './broadcastValidation';
 import { spokenCarName } from './carBrands';
 import { ELEVENLABS_COACH_VOICE, isCoachVoice, voicesFor, type CoachVoice, type Pronunciation, type SpanishAccent } from './coachVoice';
 import { query } from './db';
@@ -220,6 +220,16 @@ function describeBroadcastEvent(e: BroadcastEvent, driver: string, name: NameFor
       return 'Time for a short update on how the race stands';
     case 'statsUpdate':
       return 'Time for a piece of analysis from the statistics';
+    case 'weatherUpdate':
+      return e.change === 'rainStarted'
+        ? 'Rain has started to fall: talk about the conditions now and the outlook, from session.weather'
+        : e.change === 'rainStopped'
+          ? 'The rain has stopped: talk about the track conditions now and the outlook, from session.weather'
+          : e.opening
+            ? 'Set the scene with the weather and the track conditions, from session.weather'
+            : e.wet
+              ? 'Time for an update on the wet conditions and the outlook, from session.weather'
+              : 'Time for a brief word on the weather and the track conditions, from session.weather';
   }
 }
 
@@ -247,7 +257,7 @@ export function linePlans(decision: Decision): LinePlan[] {
   const color = (job: string): LinePlan => ({ speaker: 'color', intensity: decision.colorIntensity, maxSeconds: decision.maxSeconds.color, job });
   const analysis = 'Add analysis the Lead did not say: why it is happening or what it means, from the statistics given; or qualify the Lead politely when the data supports it.';
   const plans: Record<Format, LinePlan[]> = {
-    lead: [lead('Call it: what happened, who is involved and why it matters.')],
+    lead: [lead('Commentate this moment as play-by-play, in your own words: the action, the drivers in it and its consequence for the race.')],
     color: [
       color(
         decision.selected.kind === 'stats' || decision.selected.kind === 'summary'
@@ -255,7 +265,7 @@ export function linePlans(decision: Decision): LinePlan[] {
           : 'React to it with analysis: what it means for the race, from the facts given.'
       ),
     ],
-    leadColor: [lead('Call the moment: what happened and who, briefly.'), color(analysis)],
+    leadColor: [lead('Commentate this moment as play-by-play, briefly, naming the drivers in it.'), color(analysis)],
     leadColorLead: [
       lead('Set the scene: where the race stands.'),
       color(analysis),
@@ -302,7 +312,7 @@ const announcerPrompt = () =>
   'motorsport commentators who have called thousands of races together, in the style of Formula 1, IMSA, WEC and ' +
   'NASCAR television coverage. ' +
   'The Lead Announcer (play-by-play) is a man of about fifty, authoritative, composed and mature: he controls the ' +
-  'broadcast, is the first voice on any live moment, says what happened, who is involved and why it matters, and never ' +
+  'broadcast, is the first voice on any live moment, describes the action and the drivers in it and its consequence, and never ' +
   'explains statistics at length during urgent action. The Color Announcer (analyst) is a man of about forty, a ' +
   'former racing driver and race engineer, knowledgeable, conversational and a little more animated: he explains why ' +
   'things happen and what they mean, from lap times, gap trends, consistency, pit stops and positions gained. ' +
@@ -313,7 +323,17 @@ const announcerPrompt = () =>
   'the facts are about them, not otherwise. ' +
   'You get a JSON request: the session, the event the producer chose, anything else that just happened, ' +
   'statistics, storylines, recent commentary and the lines to write (lines: who says each, its job, its intensity ' +
-  'and its maximum length). Write exactly those lines, in that order, each for its intensity. ' +
+  'and its maximum length). Write exactly those lines, in that order, each for its intensity. Each line\'s job is your ' +
+  'direction for that line, never words to say: do what it asks, and never say, quote, translate or paraphrase it or ' +
+  'any other instruction (never "say what happened", "who is involved", "why it matters", "here is the analysis"); ' +
+  'say only what a commentator says on air. ' +
+  'The weather is real data, in session.weather: the conditions now (sky, rain, air and track temperature, humidity, ' +
+  'wind, the track surface) and outlookNext30Minutes. Mention it now and then, always when the event is about the ' +
+  'weather, briefly at the start of a session (preRace, raceStart, the first laps), and more when it is raining or ' +
+  'the track is wet, when the conditions and the outlook are part of the story. The outlook is projected from how ' +
+  'the conditions have changed (the simulator shares no official forecast): say what it suggests ("the rain looks ' +
+  'set to get heavier", "it should stay dry"), never that a forecast says so, and never invent rain, a time it ' +
+  'arrives or a temperature not given. listenersDriver.tires is the compound on their car and may be said. ' +
   'Use only the facts in the request. Never invent a pass, gap, time, position, reason, rivalry, history, ' +
   'championship standing or record. Nothing about sector times, tire wear, tire changes, fuel, contact between cars ' +
   'or setup: the broadcast has no such data. A time gap is not a car alongside: never say cars are side by side, ' +
@@ -398,7 +418,9 @@ export async function raceAnnouncerLines(input: {
     const english = check ? englishWords(`${text}\n${spokenText}`, check.language, check.names) : [];
     const reason = !text
       ? 'empty'
-      : hasTrackPosition(text)
+      : echoesInstruction(text, plan.job) || echoesInstruction(spokenText, plan.job)
+        ? 'instructionEcho'
+        : hasTrackPosition(text)
         ? 'trackPosition'
         : !lineCheck.ok
           ? `${lineCheck.reason}:${lineCheck.detail}`

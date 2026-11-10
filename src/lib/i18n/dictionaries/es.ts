@@ -3314,6 +3314,39 @@ export const es: Dictionary = {
     countryFlag: 'Bandera: {name}',
   },
 
+  // The followed driver's tires and fuel, TV Broadcast Mode's Weather Center and the weather radar (DriverCarStatus.tsx,
+  // WeatherCenter.tsx, WeatherRadar.tsx)
+  carWeather: {
+    weatherCenter: "Centro Meteorológico",
+    noWeather: "Esperando el tiempo del colector del piloto",
+    air: "Aire",
+    track: "Pista",
+    humidity: "Humedad",
+    wind: "Viento",
+    dry: "Sin lluvia",
+    outlookTitle: "Próximos {n} min",
+    outlookStatic: "Sin cambios: clima estático",
+    outlookGathering: "Pronóstico tras 5 min de lecturas",
+    outlookProjected: "Proyectado según la tendencia de los últimos {n} min",
+    tires: "Neumáticos",
+    tireKinds: { soft: "Blando", medium: "Medio", hard: "Duro", dry: "Seco", intermediate: "Intermedio", wet: "Lluvia", unknown: "Desconocido" },
+    tireUnknown: "Sin datos",
+    fuel: "Combustible",
+    fuelLaps: "{n} vueltas",
+    fuelTime: "{t} de conducción",
+    fuelLapsLater: "Vueltas restantes tras una vuelta en verde",
+    fuelNone: "Sin datos",
+    radar: "Radar Meteorológico",
+    radarRain: "Lluvia {n}%",
+    radarNoRain: "No llueve",
+    radarMoving: "moviéndose hacia el {dir}",
+    radarWetTires: "Neumáticos de lluvia",
+    radarNote: "Dibujado con la lluvia y el viento del simulador",
+    radarLight: "Débil",
+    radarModerate: "Moderada",
+    radarHeavy: "Fuerte",
+  },
+
   tv: {
     // The Broadcast Director's recorded clips (src/lib/videoDirector.ts)
     director: {

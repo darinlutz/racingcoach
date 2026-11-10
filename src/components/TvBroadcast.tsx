@@ -3,6 +3,7 @@
 import { Maximize, Minimize, Mic, Minus, Play, Plus, Settings, SkipForward, Volume2, VolumeX, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import BroadcastVideoSwitcher from '@/components/BroadcastVideoSwitcher';
+import DriverCarStatus from '@/components/DriverCarStatus';
 import { useLanguage } from '@/components/LanguageProvider';
 import TvEventFeed from '@/components/TvEventFeed';
 import TvInputs from '@/components/TvInputs';
@@ -11,7 +12,10 @@ import TvMap from '@/components/TvMap';
 import { useEngineBed } from '@/components/useEngineBed';
 import { useTvCommentary } from '@/components/useTvCommentary';
 import { useTvFeed, type FeedStatus } from '@/components/useTvFeed';
+import { useRadarCycle } from '@/components/useRadarCycle';
 import { useTvRemote } from '@/components/useTvRemote';
+import WeatherCenter from '@/components/WeatherCenter';
+import WeatherRadar from '@/components/WeatherRadar';
 import { engineBed } from '@/lib/engineBed';
 import type { EngineBedConfig } from '@/lib/engineBedConfig';
 import { formatLapTime } from '@/lib/liveRacingFormat';
@@ -20,7 +24,8 @@ import { toneWav } from '@/lib/tvAudio';
 import { isNewerSnapshot, type DirectorSnapshot } from '@/lib/videoDirector';
 
 // TV Broadcast Mode's broadcast (src/app/tv/): the race the paired account may watch, as a TV graphics package on a
-// 1920×1080 stage. Across the top the session, its flag, lap and time left; on the left the leaderboard (TvLeaderboard,
+// 1920×1080 stage. Across the top the session, its flag, lap and time left, and the Weather Center (the conditions now
+// and the outlook); on the left the leaderboard (TvLeaderboard,
 // 15 rows) with the Race Announcer speaking and their line, and the race events, under it; on the right the followed
 // driver (the account's own driving, else the first live driver; Next driver changes it), the track map with every
 // car going round it (TvMap) and, under it, their Driver Inputs (TvInputs). Along the bottom the controls, worked with the remote's D-pad and Select:
@@ -29,7 +34,9 @@ import { isNewerSnapshot, type DirectorSnapshot } from '@/lib/videoDirector';
 // Settings (the map's satellite imagery, screen edges, unpair), which the remote's Back closes. The choices are kept
 // in the browser. While the broadcast runs the screen is kept awake (Wake Lock) where the browser allows it. The
 // Broadcast Director (src/lib/videoDirector.ts) can cut the map's panel to a recorded clip (BroadcastVideoSwitcher), the map
-// and everything else carrying on live behind and around it.
+// and everything else carrying on live behind and around it. While it's raining or the followed driver is on wet
+// tires, the map switches to the weather radar (WeatherRadar) for 10 seconds of every minute, except during a clip.
+// Beside the followed driver's name, their tires and a fuel gauge with the laps and time the fuel lasts.
 
 const KEYS = {
   commentary: 'tv.commentary',
@@ -180,6 +187,8 @@ export default function TvBroadcast({
     state?.clockOffset ?? 0
   );
 
+  const radar = useRadarCycle(!!focus?.wet && !focus.offline, recorded, state?.clockOffset ?? 0);
+
   const keepAwake = useCallback(async () => {
     try {
       if (document.visibilityState === 'visible' && 'wakeLock' in navigator) {
@@ -310,32 +319,41 @@ export default function TvBroadcast({
     <div className="relative h-full">
       <div ref={mainRef} className="flex h-full flex-col gap-5" aria-hidden={panelOpen}>
         {/* Session header */}
-        <header className="flex h-[100px] shrink-0 items-center gap-6 rounded-2xl bg-[#10141b] px-8">
-          <StatusPill status={status} recorded={recorded} t={t.tv} />
+        <div className="flex h-[132px] shrink-0 gap-5">
+        <header className="flex min-w-0 flex-1 items-center gap-5 rounded-2xl bg-[#10141b] px-6">
+          {/* the track (two lines when its name is long), and under it the feed, the flag and the session */}
           <div className="min-w-0 flex-1">
-            <p className="truncate font-display text-[44px] font-bold leading-none">{focus?.track ?? t.tv.title}</p>
-            {session && <p className="mt-1 truncate text-[24px] uppercase tracking-wide text-[#a7b0bd]">{session}</p>}
-          </div>
-          {focus?.flag && flagColors && (
-            <span className="rounded-lg px-5 py-2 text-[28px] font-bold uppercase" style={{ backgroundColor: flagColors.bg, color: flagColors.fg }}>
-              {fmt(t.tv.eventFlag, { flag: t.tv.flags[focus.flag] })}
-            </span>
-          )}
-          {focus && (
-            <div className="text-right">
-              <p className="text-[20px] uppercase tracking-wide text-[#8b95a3]">{t.tv.lap}</p>
-              <p className="font-display text-[44px] font-bold leading-none tabular-nums">
-                {focus.lap == null ? '—' : focus.lapsTotal ? fmt(t.tv.lapOf, { n: focus.lap, total: focus.lapsTotal }) : focus.lap}
-              </p>
+            <p className="line-clamp-2 font-display text-[34px] font-bold leading-[1.05]">{focus?.track ?? t.tv.title}</p>
+            <div className="mt-1.5 flex min-w-0 items-center gap-3">
+              <StatusPill status={status} recorded={recorded} t={t.tv} />
+              {focus?.flag && flagColors && (
+                <span className="shrink-0 rounded-lg px-3 py-0.5 text-[22px] font-bold uppercase" style={{ backgroundColor: flagColors.bg, color: flagColors.fg }}>
+                  {fmt(t.tv.eventFlag, { flag: t.tv.flags[focus.flag] })}
+                </span>
+              )}
+              {session && <p className="min-w-0 truncate text-[22px] uppercase tracking-wide text-[#a7b0bd]">{session}</p>}
             </div>
-          )}
-          {focus && focus.timeRemain != null && (
-            <div className="text-right">
-              <p className="text-[20px] uppercase tracking-wide text-[#8b95a3]">{t.tv.timeRemaining}</p>
-              <p className="font-display text-[44px] font-bold leading-none tabular-nums">{clock(focus.timeRemain)}</p>
+          </div>
+          {/* the lap, and the time left under it */}
+          {focus && (
+            <div className="shrink-0 space-y-1 border-l border-white/10 pl-5 text-right">
+              <p className="flex items-baseline justify-end gap-3">
+                <span className="text-[17px] uppercase tracking-wide text-[#8b95a3]">{t.tv.lap}</span>
+                <span className="font-display text-[40px] font-bold leading-none tabular-nums">
+                  {focus.lap == null ? '—' : focus.lapsTotal ? fmt(t.tv.lapOf, { n: focus.lap, total: focus.lapsTotal }) : focus.lap}
+                </span>
+              </p>
+              {focus.timeRemain != null && (
+                <p className="flex items-baseline justify-end gap-3">
+                  <span className="text-[17px] uppercase tracking-wide text-[#8b95a3]">{t.tv.timeRemaining}</span>
+                  <span className="font-display text-[40px] font-bold leading-none tabular-nums">{clock(focus.timeRemain)}</span>
+                </p>
+              )}
             </div>
           )}
         </header>
+        {focus && <WeatherCenter weather={focus.weather} outlook={focus.outlook} outlookMinutes={focus.outlookMinutes} />}
+        </div>
 
         {/* On the left the leaderboard, with the commentary and race events under it; on the right the followed driver,
             the track map and their inputs */}
@@ -370,12 +388,12 @@ export default function TvBroadcast({
                       {speaking.speaker === 'lead' ? t.tv.leadAnnouncer : t.tv.colorAnnouncer}
                       {muted && <span className="text-[#8b95a3]">· {t.tv.muted}</span>}
                     </p>
-                    <p className="mt-1 line-clamp-4 text-[22px] leading-snug">{speaking.text}</p>
+                    <p className="mt-1 line-clamp-3 text-[22px] leading-snug">{speaking.text}</p>
                   </>
                 ) : (
                   <>
                     <p className="text-[18px] font-bold uppercase tracking-wide text-[#8b95a3]">{t.tv.commentary}</p>
-                    <p className="mt-1 line-clamp-4 text-[20px] leading-snug text-[#c9d1dc]">{audioError || commentaryLine}</p>
+                    <p className="mt-1 line-clamp-3 text-[20px] leading-snug text-[#c9d1dc]">{audioError || commentaryLine}</p>
                   </>
                 )}
               </div>
@@ -389,34 +407,44 @@ export default function TvBroadcast({
 
           <div className="flex min-w-0 flex-1 flex-col gap-5">
             {/* The followed driver */}
-            <div className="flex h-[76px] shrink-0 items-center gap-6 rounded-2xl bg-[#10141b] px-5">
+            <div className="flex h-[96px] shrink-0 items-center gap-5 rounded-2xl bg-[#10141b] px-5">
               {focus ? (
                 <>
                   <span className="size-5 shrink-0 rounded-full border-2 border-white" style={{ backgroundColor: focus.color }} aria-hidden />
+                  {/* the name and car, and under them the tires and fuel */}
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-display text-[34px] font-bold leading-none">{focus.driver}</p>
-                    <p className="mt-1 truncate text-[18px] text-[#a7b0bd]">{focus.car}</p>
+                    <div className="flex min-w-0 items-baseline gap-3">
+                      <p className="min-w-0 shrink truncate font-display text-[34px] font-bold leading-none">{focus.driver}</p>
+                      <p className="min-w-0 flex-1 truncate text-[18px] text-[#a7b0bd]">{focus.car}</p>
+                      {!focus.offline && (focus.onPitRoad || !focus.onTrack) && (
+                        <span className="shrink-0 self-center rounded bg-[#ffd400] px-2.5 py-0.5 text-[17px] font-bold text-black">
+                          {focus.onPitRoad ? t.tv.pitRoad : t.tv.inGarage}
+                        </span>
+                      )}
+                    </div>
+                    {!focus.offline && (
+                      <div className="mt-1.5">
+                        <DriverCarStatus tire={focus.tire} fuel={focus.fuel} lapsNeeded={focus.lapsRemain} variant="tv" />
+                      </div>
+                    )}
                   </div>
                   {focus.offline ? (
                     <p className="text-[22px] text-[#ffd400]">{fmt(t.tv.driverOffline, { name: focus.driver })}</p>
                   ) : (
                     <>
-                      {(focus.onPitRoad || !focus.onTrack) && (
-                        <span className="rounded bg-[#ffd400] px-3 py-1 text-[20px] font-bold text-black">
-                          {focus.onPitRoad ? t.tv.pitRoad : t.tv.inGarage}
-                        </span>
-                      )}
+                      <div className="grid shrink-0 grid-cols-2 gap-x-5 gap-y-1">
                       {[
                         [t.tv.position, focus.position == null ? '—' : focus.carsInSession ? fmt(t.tv.positionOf, { n: focus.position, total: focus.carsInSession }) : `P${focus.position}`],
                         [t.tv.lastLap, formatLapTime(focus.lastLapTime)],
                         [t.tv.bestLap, formatLapTime(focus.bestLapTime)],
                         [t.tv.incidents, focus.incidents == null ? '—' : fmt(t.tv.incidentsValue, { n: focus.incidents })],
                       ].map(([label, value]) => (
-                        <div key={label} className="shrink-0 text-right">
-                          <p className="text-[15px] uppercase tracking-wide text-[#8b95a3]">{label}</p>
-                          <p className="text-[26px] font-bold leading-tight tabular-nums">{value}</p>
+                        <div key={label} className="flex items-baseline justify-end gap-2 text-right">
+                          <p className="text-[13px] uppercase tracking-wide text-[#8b95a3]">{label}</p>
+                          <p className="text-[22px] font-bold leading-tight tabular-nums">{value}</p>
                         </div>
                       ))}
+                      </div>
                     </>
                   )}
                 </>
@@ -426,7 +454,7 @@ export default function TvBroadcast({
             </div>
 
             {/* The track map */}
-            <div className="min-h-0 flex-1 overflow-hidden rounded-2xl bg-[#0a0d12] p-2">
+            <div className="relative min-h-0 flex-1 overflow-hidden rounded-2xl bg-[#0a0d12] p-2">
               {focus && state && (
                 <BroadcastVideoSwitcher
                   director={director}
@@ -445,6 +473,7 @@ export default function TvBroadcast({
                   />
                 </BroadcastVideoSwitcher>
               )}
+              {focus?.wet && <WeatherRadar weather={focus.weather} wetTires={focus.tire?.kind === 'wet' || focus.tire?.kind === 'intermediate'} visible={radar} size="tv" />}
             </div>
 
             {/* The followed driver's inputs, in a strip under the map */}

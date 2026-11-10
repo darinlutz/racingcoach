@@ -480,6 +480,8 @@ internal sealed class LiveRacing(Func<RacingCoachApi?> api, Action<string> log)
                 coachSpeaking = Voice.Busy,
                 fuelLevel = d.FuelLevel is { } fuelLevel && fuelLevel >= 0 ? Math.Round(fuelLevel, 2) : (double?)null,
                 fuelPerLap = FuelPerLap(),
+                // The share of the tank left (from 1.95.0), for the fuel gauges on the Live Racing page and the TV
+                fuelLevelPct = d.FuelLevelPct is { } fuelPct && double.IsFinite(fuelPct) ? Math.Round(Math.Clamp(fuelPct, 0, 1), 4) : (double?)null,
                 setup = new
                 {
                     name = _setupName,

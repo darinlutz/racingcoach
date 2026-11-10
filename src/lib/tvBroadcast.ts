@@ -1,4 +1,6 @@
 import { readLiveDrivers, readRaceEvents, type FieldCar, type InputSample, type LiveDriver, type RaceEvent } from './liveRacing';
+import { fittedTire, fuelStatus, isWetSession, type FittedTire, type FuelStatus } from './liveCarStatus';
+import { weatherOutlook, type LiveWeather, type OutlookItem } from './liveWeather';
 import { sessionFlag, type FlagKind, type FlagNote } from './raceFlags';
 import type { User } from './users';
 import type { DirectorSnapshot } from './videoDirector';
@@ -114,6 +116,16 @@ export type TvFocus = {
   // What the Broadcast Director is showing (src/lib/videoDirector.ts), the same for everyone watching this session; null
   // when it isn't running
   director: DirectorSnapshot | null;
+  // The Weather Center: the weather now (null from collectors before 1.54.0), the outlook for the next half hour
+  // (src/lib/liveWeather.ts, projected from the trend over outlookMinutes, as iRacing shares no forecast; null for
+  // static weather or before there's a trend)
+  weather: LiveWeather | null;
+  outlook: OutlookItem[];
+  outlookMinutes: number | null;
+  // The followed driver's tires and fuel (src/lib/liveCarStatus.ts), and whether it's wet enough for the radar
+  tire: FittedTire | null;
+  fuel: FuelStatus | null;
+  wet: boolean;
 };
 
 export type TvState = {
@@ -339,7 +351,7 @@ export async function readTvState(viewer: User, driverId: number | null): Promis
       multiClass: board?.multiClass ?? false,
       // the Race Broadcast's prompts and gap updates aren't events to list
       events: (found?.events ?? [])
-        .filter((e) => !['preRace', 'storyline', 'raceSummary', 'statsUpdate'].includes(e.event.type))
+        .filter((e) => !['preRace', 'storyline', 'raceSummary', 'statsUpdate', 'weatherUpdate'].includes(e.event.type))
         .filter((e) => e.event.type !== 'battle' || e.event.phase === 'start' || e.event.phase === 'veryClose')
         .slice(-TV_EVENTS)
         .reverse(),
@@ -347,6 +359,12 @@ export async function readTvState(viewer: User, driverId: number | null): Promis
       inputs: recentInputs(focused.inputs),
       inputsAgeMs: focused.ageMs,
       director,
+      weather: focused.weather ?? null,
+      outlook: focused.weather ? weatherOutlook(focused.weather, focused.weatherTrend) : [],
+      outlookMinutes: focused.weatherTrend?.minutes ?? null,
+      tire: fittedTire(focused.tires),
+      fuel: fuelStatus(focused),
+      wet: isWetSession(focused.weather, fittedTire(focused.tires)),
     };
   }
   return {

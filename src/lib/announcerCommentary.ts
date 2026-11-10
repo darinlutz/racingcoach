@@ -22,7 +22,10 @@ import {
 } from './raceAnnouncer';
 import { aiRateLimit, type AiRateLimit } from './rateLimits';
 import { formatSeconds } from './stintExport';
+import { speedFromMetersPerSecond, temperatureFromCelsius, type Units } from './units';
 import type { User } from './users';
+import { isNight, isStaticWeather, OUTLOOK_MINUTES, skyCondition, weatherOutlook, type OutlookItem } from './liveWeather';
+import type { FittedTire } from './liveCarStatus';
 
 // One Race Broadcast commentary for a live driver the user may watch, shared by the Live Racing page
 // (POST /api/live/announcer, WAV) and TV Broadcast Mode (POST /api/tv/announcer, MP3). The pipeline: the driver's
@@ -131,7 +134,7 @@ export async function commentate(input: {
     const plans = linePlans(decision);
     limit = await aiRateLimit(input.request, 'raceAnnouncer', user, plans.length);
     if (limit.response) return { kind: 'refused', response: limit.response };
-    const built = buildRequest(decision, found.context, tracker, settings.broadcast, listener, namePronunciation);
+    const built = buildRequest(decision, found.context, tracker, settings.broadcast, listener, namePronunciation, user.units);
     const started = Date.now();
     let written: Awaited<ReturnType<typeof raceAnnouncerLines>>;
     try {
@@ -251,6 +254,81 @@ function statTopics(user: CarStats | null, tracker: BroadcastTracker): string[] 
   return topics;
 }
 
+const SKY_WORDS = {
+  clear: 'clear skies',
+  partlyCloudy: 'partly cloudy',
+  mostlyCloudy: 'mostly cloudy',
+  overcast: 'overcast',
+  drizzle: 'drizzle',
+  rain: 'rain',
+  heavyRain: 'heavy rain',
+} as const;
+// iRacing's TrackWetness, 1 dry to 7 extremely wet
+const WETNESS_WORDS = ['', 'dry', 'mostly dry', 'very lightly wet', 'lightly wet', 'moderately wet', 'very wet', 'extremely wet'];
+const COMPASS = ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west'];
+const TIRE_WORDS: Record<FittedTire['kind'], string> = {
+  soft: 'soft compound slicks',
+  medium: 'medium compound slicks',
+  hard: 'hard compound slicks',
+  dry: 'dry tires (slicks)',
+  intermediate: 'intermediate tires',
+  wet: 'wet weather tires',
+  unknown: '',
+};
+
+// The weather as the announcers get it, in the listener's units and in words (as they say every number aloud), with
+// the outlook (src/lib/liveWeather.ts: projected from the conditions' trend, as iRacing shares no forecast); null
+// without readings
+export function weatherFacts(context: Pick<RaceEventContext, 'weather' | 'weatherTrend'>, units: Units) {
+  const w = context.weather;
+  if (!w) return null;
+  const temperature = (c: number) => `${Math.round(temperatureFromCelsius(c, units))} degrees ${units === 'metric' ? 'Celsius' : 'Fahrenheit'}`;
+  const speed = (ms: number) => `${Math.round(speedFromMetersPerSecond(ms, units))} ${units === 'metric' ? 'kilometers' : 'miles'} per hour`;
+  const sky = skyCondition(w);
+  const dir = w.windDir != null ? COMPASS[Math.round(((((w.windDir * 180) / Math.PI) % 360) + 360) % 360 / 45) % 8] : null;
+  const outlookWords = (item: OutlookItem): string => {
+    switch (item.kind) {
+      case 'static':
+        return 'static weather: no change in the conditions this session';
+      case 'gathering':
+        return 'not known yet (too few minutes of readings to see a trend)';
+      case 'steady':
+        return 'conditions holding steady';
+      case 'rainComing':
+        return 'rain looks to be on the way';
+      case 'rainHeavier':
+        return 'the rain looks set to get heavier';
+      case 'rainEasing':
+        return 'the rain looks to be easing';
+      case 'rainStopping':
+        return 'the rain looks set to stop';
+      case 'cloudsBuilding':
+        return 'clouds building';
+      case 'clearing':
+        return 'skies clearing';
+      case 'trackWetter':
+        return 'the track getting wetter';
+      case 'trackDrying':
+        return 'the track drying';
+      case 'trackTemp':
+      case 'airTemp':
+        return `${item.kind === 'trackTemp' ? 'track' : 'air'} temperature ${item.rising ? 'rising' : 'falling'} to about ${temperature(item.projected)}`;
+    }
+  };
+  return {
+    conditions: sky ? SKY_WORDS[sky] : null,
+    night: isNight(w) || undefined,
+    airTemperature: w.airTemp != null ? temperature(w.airTemp) : null,
+    trackTemperature: w.trackTemp != null ? temperature(w.trackTemp) : null,
+    humidityPercent: w.humidity != null ? Math.round(w.humidity * 100) : null,
+    wind: w.windSpeed != null ? `${speed(w.windSpeed)}${dir ? ` from the ${dir}` : ''}` : null,
+    rainIntensityPercent: w.precipitation != null && (w.precipitation > 0 || !isStaticWeather(w.type)) ? Math.round(w.precipitation * 100) : null,
+    trackSurface: w.wetness != null && w.wetness > 0 ? WETNESS_WORDS[w.wetness] ?? null : null,
+    declaredWet: w.declaredWet || undefined,
+    [`outlookNext${OUTLOOK_MINUTES}Minutes`]: weatherOutlook(w, context.weatherTrend).map(outlookWords),
+  };
+}
+
 // The structured request for the RaceAnnouncer agent, and the facts its lines are checked against
 function buildRequest(
   decision: Decision,
@@ -258,7 +336,8 @@ function buildRequest(
   tracker: BroadcastTracker,
   settings: BroadcastSettings,
   listener: Listener,
-  namePronunciation: string
+  namePronunciation: string,
+  units: Units
 ): { request: Record<string, unknown>; facts: LineFacts; pronunciations: Pronunciation[] } {
   const roster = tracker.roster();
   const userCar = roster.find((r) => r.idx === tracker.userIdx);
@@ -304,6 +383,7 @@ function buildRequest(
       minutesRemaining: context.timeRemain != null && !context.lapsTotal ? Math.round(context.timeRemain / 60) : null,
       cars: roster.length || context.carsInSession,
       multiClass: tracker.multiClass,
+      weather: weatherFacts(context, units),
     },
     listenersDriver: {
       name: driver,
@@ -313,6 +393,7 @@ function buildRequest(
       position: context.position,
       carClass: userStats?.carClass ?? null,
       incidentPoints: context.incidents,
+      tires: context.tire && context.tire.kind !== 'unknown' ? TIRE_WORDS[context.tire.kind] : (context.tire?.name ?? null),
       carAhead: neighbors?.ahead ? { driver: name(neighbors.ahead.driver), gapSeconds: neighbors.ahead.gap } : null,
       carBehind: neighbors?.behind ? { driver: name(neighbors.behind.driver), gapSeconds: neighbors.behind.gap } : null,
       statistics: stats && userStats ? statsFacts(userStats, name) : undefined,

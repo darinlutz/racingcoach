@@ -19,7 +19,7 @@ import type { NumberedRaceEvent, RaceEvent } from './liveRacing';
 export type Speaker = 'lead' | 'color';
 export type Priority = 0 | 1 | 2 | 3 | 4;
 export type Format = 'lead' | 'color' | 'leadColor' | 'leadColorLead';
-export type EventKind = 'action' | 'incident' | 'strategy' | 'stats' | 'summary' | 'storyline' | 'routine' | 'preRace' | 'postRace';
+export type EventKind = 'action' | 'incident' | 'strategy' | 'stats' | 'summary' | 'storyline' | 'routine' | 'preRace' | 'postRace' | 'weather';
 
 // How much more the listener's own driver's moments count, before their Coverage Focus scales it
 export const RELEVANCE_WEIGHTS = {
@@ -68,14 +68,14 @@ const MIN_SILENCE_S: Record<Exclude<BroadcastMode, 'off'>, (number | null)[]> = 
 };
 // The shortest time (seconds) between two of these kinds, by mode
 const KIND_INTERVAL_S: Record<Exclude<BroadcastMode, 'off'>, Partial<Record<EventKind, number | null>>> = {
-  quiet: { stats: null, summary: null, storyline: null, routine: null },
-  standard: { stats: 240, summary: 300, storyline: 120, routine: null },
-  full: { stats: 120, summary: 180, storyline: 60, routine: 40 },
+  quiet: { stats: null, summary: null, storyline: null, routine: null, weather: null },
+  standard: { stats: 240, summary: 300, storyline: 120, routine: null, weather: 180 },
+  full: { stats: 120, summary: 180, storyline: 60, routine: 40, weather: 120 },
 };
 const FREQUENCY: Record<CommentaryFrequency, number> = { low: 1.6, normal: 1, high: 0.6 };
 
 // How long the same thing isn't said again (by key), and how much a battle's gap must change to be said again
-const REPEAT_MS: Partial<Record<string, number>> = { battle: 15_000, raceSummary: 120_000, statsUpdate: 90_000 };
+const REPEAT_MS: Partial<Record<string, number>> = { battle: 15_000, raceSummary: 120_000, statsUpdate: 90_000, weatherUpdate: 90_000 };
 const DEFAULT_REPEAT_MS = 45_000;
 const GAP_CHANGE = 0.25;
 // History kept for repetition, coverage and storylines
@@ -188,7 +188,7 @@ export type Decision = {
 };
 
 const isBroadcast = (e: RaceEvent): e is BroadcastEvent =>
-  ['preRace', 'raceStart', 'overtake', 'battle', 'pitStop', 'fieldIncident', 'finalLap', 'raceWon', 'driverFinished', 'storyline', 'raceSummary', 'statsUpdate'].includes(
+  ['preRace', 'raceStart', 'overtake', 'battle', 'pitStop', 'fieldIncident', 'finalLap', 'raceWon', 'driverFinished', 'storyline', 'raceSummary', 'statsUpdate', 'weatherUpdate'].includes(
     e.type
   );
 
@@ -400,6 +400,17 @@ export function classify(n: NumberedRaceEvent, ctx: DirectorContext): Classified
       return make({ key: 'raceSummary', priority: 4, category: 'neutral', kind: 'summary', baseIntensity: 1, continuous: true, ttlMs: 30_000 });
     case 'statsUpdate':
       return make({ key: 'statsUpdate', priority: 3, category: 'neutral', kind: 'stats', baseIntensity: 1, continuous: true, ttlMs: 30_000 });
+    case 'weatherUpdate':
+      // Rain starting or stopping, and the session's first word on the weather, come before the routine ones
+      return make({
+        key: 'weatherUpdate',
+        priority: b.change || b.opening ? 2 : 3,
+        category: 'neutral',
+        kind: 'weather',
+        baseIntensity: b.change === 'rainStarted' ? 2 : 1,
+        continuous: true,
+        ttlMs: b.change ? 60_000 : 45_000,
+      });
   }
 }
 
@@ -456,6 +467,8 @@ function chooseFormat(c: Classified, speakers: Speaker[], state: DirectorState, 
     case 'preRace':
     case 'postRace':
       return 'leadColor';
+    case 'weather':
+      return c.event.type === 'weatherUpdate' && (c.event.wet || c.event.opening) ? 'leadColor' : 'lead';
     case 'routine':
       return 'lead';
     default:

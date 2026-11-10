@@ -67,6 +67,7 @@ export function eventText(event: RaceEvent, driver: string, t: Text, fmt: Fmt): 
     case 'storyline':
     case 'raceSummary':
     case 'statsUpdate':
+    case 'weatherUpdate':
       return null;
   }
 }

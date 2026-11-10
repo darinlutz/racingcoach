@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { DirectorContext } from './broadcastDirector';
 import { BroadcastTracker, type BroadcastEvent, type TrackerSnapshot } from './broadcastTracker';
 import { flagCodeForFlair } from './countryFlags';
+import { fittedTire, isWetSession, type FittedTire } from './liveCarStatus';
 import { query } from './db';
 import { WEATHER_SAMPLE_MS, TREND_MS, weatherSample, weatherTrend, type WeatherSample, type WeatherTrend } from './liveWeather';
 import { sessionFlag, type FlagKind, type FlagNote } from './raceFlags';
@@ -179,6 +180,8 @@ export const liveUpdateSchema = z.object({
   // Fuel left and the average used per green lap over the last few, in liters (from 1.58.0), for the Race Engineer
   fuelLevel: z.number().min(0).max(1000).nullish(),
   fuelPerLap: z.number().min(0).max(100).nullish(),
+  // The share of the tank left, 0-1 (from 1.95.0), for the fuel gauges (src/lib/liveCarStatus.ts)
+  fuelLevelPct: z.number().min(0).max(1).nullish(),
   // The car's setup from session info (DriverInfo.DriverSetupName, DriverSetupLoadTypeName, DriverSetupIsModified)
   // and the in-car brake bias adjustment (dcBrakeBias; a front percentage in most cars, an offset in some; null in
   // cars without one), from collectors from 1.67.0, for the Setup Engineer (src/lib/setupEngineer.ts)
@@ -499,6 +502,8 @@ function trackerSnapshot(update: UpdateState, field: LiveField | null, at: numbe
     lapsTotal: update.sessionLapsTotal ?? null,
     timeRemain: update.sessionTimeRemain ?? null,
     myCarIdx: field?.myCarIdx ?? null,
+    hasWeather: !!update.weather,
+    wet: isWetSession(update.weather, fittedTire(update.tires)),
     cars: (field?.cars ?? []).map((c) => ({
       ...c,
       name: c.details?.name ?? null,
@@ -853,6 +858,11 @@ export type RaceEventContext = {
   leaders: { position: number; name: string; car: string | null }[];
   // The car each driver in the session is in, by their name, for the cars of the drivers in its events
   carsByDriver: Record<string, string>;
+  // The weather now and how it changed over the last few minutes (for the outlook), and the driver's tires: null
+  // when the collector didn't send them
+  weather: z.infer<typeof weatherSchema> | null;
+  weatherTrend: WeatherTrend | null;
+  tire: FittedTire | null;
 };
 
 // A live driver's race events newer than after (their numbers), and their session as it is now, if this viewer may
@@ -907,6 +917,9 @@ export async function readRaceEvents(
       incidents: u.incidents ?? null,
       leaders,
       carsByDriver,
+      weather: u.weather ?? null,
+      weatherTrend: entryTrend(entry),
+      tire: fittedTire(u.tires),
     },
   };
 }

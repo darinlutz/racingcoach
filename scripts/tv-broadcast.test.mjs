@@ -13,6 +13,7 @@ import {
 } from '../src/lib/tvPairingCode.ts';
 import { isBackKey, isPlayPauseKey, keyDirection, nextFocus } from '../src/lib/tvRemote.ts';
 import { CommentaryQueue, MAX_LINE_WAIT_MS, toneWav } from '../src/lib/tvAudio.ts';
+import { fittedTire, fuelStatus, isWetSession, paceLapTime, radarShowing, RADAR_EVERY_MS, RADAR_SHOW_MS } from '../src/lib/liveCarStatus.ts';
 
 const random = () => {
   const bytes = randomBytes(64);
@@ -129,5 +130,53 @@ describe('commentary queue', () => {
     assert.equal(wav.length, 44 + 1600);
     const silent = toneWav(440, 100, 0, 8000);
     assert.ok(silent.slice(44).every((b) => b === 0));
+  });
+});
+
+describe('tires, fuel and the weather radar', () => {
+  const compounds = [
+    { index: 0, type: 'Soft' },
+    { index: 1, type: 'Medium' },
+    { index: 2, type: 'Hard' },
+    { index: 3, type: 'Intermediate' },
+    { index: 4, type: 'Wet' },
+  ];
+  test('the fitted compound is named from the car’s list', () => {
+    assert.equal(fittedTire({ compound: 0, available: compounds }).kind, 'soft');
+    assert.equal(fittedTire({ compound: 1, available: compounds }).kind, 'medium');
+    assert.equal(fittedTire({ compound: 2, available: compounds }).kind, 'hard');
+    assert.equal(fittedTire({ compound: 3, available: compounds }).kind, 'intermediate');
+    assert.equal(fittedTire({ compound: 4, available: compounds }).kind, 'wet');
+    assert.equal(fittedTire({ compound: 0, available: [{ index: 0, type: 'Dry' }, { index: 1, type: 'Wet' }] }).kind, 'dry');
+    assert.equal(fittedTire({ compoundName: 'wet_compound' }).kind, 'wet');
+    assert.equal(fittedTire({ compoundName: 'wet_compound' }).name, 'wet');
+    assert.equal(fittedTire(null), null);
+    assert.equal(fittedTire({}), null);
+  });
+
+  test('fuel lasts its laps at the driver’s pace', () => {
+    const fuel = fuelStatus({ fuelLevel: 30, fuelLevelPct: 0.5, fuelPerLap: 2.5, lastLapTime: 100, bestLapTime: 98 });
+    assert.deepEqual(fuel, { liters: 30, pct: 0.5, lapsLeft: 12, secondsLeft: 1200 });
+    // a slow (pit or yellow) last lap isn't the pace
+    assert.equal(paceLapTime(140, 98), 98);
+    assert.equal(fuelStatus({ fuelLevel: 30, fuelPerLap: null }).lapsLeft, null);
+    assert.equal(fuelStatus({ fuelLevel: 30 }).pct, null);
+    assert.equal(fuelStatus({ fuelLevel: null }), null);
+  });
+
+  test('rain or wet tires make it wet', () => {
+    assert.ok(isWetSession({ precipitation: 0.3 }, null));
+    assert.ok(isWetSession({ precipitation: 0 }, { kind: 'wet', name: 'Wet' }));
+    assert.ok(isWetSession(null, { kind: 'intermediate', name: 'Intermediate' }));
+    assert.ok(!isWetSession({ precipitation: 0.01 }, { kind: 'soft', name: 'Soft' }));
+  });
+
+  test('the radar shows for 10 seconds of every minute, on the clock', () => {
+    const base = Date.UTC(2026, 10, 10, 12, 0, 0);
+    assert.ok(radarShowing(base));
+    assert.ok(radarShowing(base + RADAR_SHOW_MS - 1));
+    assert.ok(!radarShowing(base + RADAR_SHOW_MS));
+    assert.ok(!radarShowing(base + RADAR_EVERY_MS - 1));
+    assert.ok(radarShowing(base + RADAR_EVERY_MS));
   });
 });

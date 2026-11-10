@@ -151,7 +151,7 @@ export function compoundKind(name: string | null | undefined): CompoundKind {
   return 'unknown';
 }
 
-function resolveCompound(index: number | null | undefined, available: TireInput['available'], name: string | null | undefined, source: string): TireCompound {
+export function resolveCompound(index: number | null | undefined, available: TireInput['available'], name: string | null | undefined, source: string): TireCompound {
   if (index != null && index >= 0) {
     const match = available?.find((t) => t.index === index);
     if (match) {

@@ -11,6 +11,7 @@ import { classify, commitDecision, direct, intensityFor, newDirectorState, relev
 import { checkLine, deliveryText, fitToSeconds } from '../src/lib/broadcastValidation.ts';
 import { broadcastSettingsPatch, DEFAULT_BROADCAST_SETTINGS, lineVolume, parseBroadcastSettings } from '../src/lib/broadcastSettings.ts';
 import { CommentaryQueue } from '../src/lib/tvAudio.ts';
+import { echoesInstruction } from '../src/lib/broadcastValidation.ts';
 
 const TICK = 500;
 const T0 = Date.UTC(2026, 9, 29, 18, 0, 0);
@@ -550,5 +551,73 @@ describe('a simulated race through the Director', () => {
     assert.ok(report.filter((r) => / i5\//.test(r)).length <= 2, 'level 5 is rare');
     assert.ok(busy < 1_150_000 * 0.6, 'there is silence too');
     assert.equal(TRACKER_CONFIG.passConfirmMs, 2000);
+  });
+});
+
+describe('weather commentary', () => {
+  const snap = (at, extra = {}) => ({
+    at,
+    sessionType: 'Practice',
+    sessionState: 4,
+    lapsTotal: null,
+    timeRemain: 3600,
+    myCarIdx: 0,
+    cars: [],
+    hasWeather: true,
+    wet: false,
+    ...extra,
+  });
+  const weatherEvents = (tracker, at, extra) => tracker.update(snap(at, extra)).filter((e) => e.type === 'weatherUpdate');
+
+  test('the weather is talked about soon after the session starts, then every few minutes, more often in the wet', () => {
+    const tracker = new BroadcastTracker();
+    assert.deepEqual(weatherEvents(tracker, T0), []);
+    const first = weatherEvents(tracker, T0 + TRACKER_CONFIG.weatherFirstMs);
+    assert.equal(first.length, 1);
+    assert.equal(first[0].opening, true);
+    assert.deepEqual(weatherEvents(tracker, T0 + TRACKER_CONFIG.weatherFirstMs + 60_000), []);
+    const next = weatherEvents(tracker, T0 + TRACKER_CONFIG.weatherFirstMs + TRACKER_CONFIG.weatherEveryMs);
+    assert.equal(next.length, 1);
+    assert.equal(next[0].opening, false);
+  });
+
+  test('rain starting or stopping is a weather moment at once', () => {
+    const tracker = new BroadcastTracker();
+    weatherEvents(tracker, T0);
+    weatherEvents(tracker, T0 + TRACKER_CONFIG.weatherFirstMs);
+    const started = weatherEvents(tracker, T0 + 40_000, { wet: true });
+    assert.equal(started[0]?.change, 'rainStarted');
+    assert.equal(started[0].wet, true);
+    // in the wet the next update comes sooner
+    const again = weatherEvents(tracker, T0 + 40_000 + TRACKER_CONFIG.weatherWetEveryMs, { wet: true });
+    assert.equal(again.length, 1);
+    const stopped = weatherEvents(tracker, T0 + 40_000 + TRACKER_CONFIG.weatherWetEveryMs + 1000, { wet: false });
+    assert.equal(stopped[0]?.change, 'rainStopped');
+  });
+
+  test('no weather prompts without weather readings', () => {
+    const tracker = new BroadcastTracker();
+    for (let at = T0; at < T0 + 30 * 60_000; at += 5000) assert.deepEqual(weatherEvents(tracker, at, { hasWeather: false }), []);
+  });
+
+  test('the Director classifies weather prompts, rain first', () => {
+    const ctx = { isRace: false, phase: 'practice', raceProgress: null, userIdx: 0, userPosition: null, storylines: [] };
+    const rain = classify({ seq: 1, at: T0, event: { type: 'weatherUpdate', wet: true, opening: false, change: 'rainStarted' } }, ctx);
+    const routine = classify({ seq: 2, at: T0, event: { type: 'weatherUpdate', wet: false, opening: false, change: null } }, ctx);
+    assert.equal(rain.kind, 'weather');
+    assert.ok(rain.priority < routine.priority);
+  });
+});
+
+describe('announcers never read their directions aloud', () => {
+  const job = 'Commentate this moment as play-by-play, in your own words: the action, the drivers in it and its consequence for the race.';
+  test('lines saying the directions are caught', () => {
+    assert.ok(echoesInstruction('Say what happened, and to who, and why it matters.', job));
+    assert.ok(echoesInstruction('Call it: what happened, who is involved and why it matters.', job));
+    assert.ok(echoesInstruction('Here we go, the action, the drivers in it and its consequence for the race.', job));
+  });
+  test('ordinary commentary passes', () => {
+    assert.ok(!echoesInstruction('Lutz dives past Moreau for ninth, and that matters for the points.', job));
+    assert.ok(!echoesInstruction('What a move from Lutz into ninth place!', job));
   });
 });

@@ -43,6 +43,10 @@ export type TrackerSnapshot = {
   // The live driver's own car
   myCarIdx: number | null;
   cars: TrackerCar[];
+  // The collector sends the weather (from 1.54.0), and whether it's raining or the driver's car is on wet tires
+  // (isWetSession in src/lib/liveCarStatus.ts)
+  hasWeather?: boolean;
+  wet?: boolean;
 };
 
 export type StorylineKind = 'recovery' | 'charge' | 'longBattle' | 'leaderPressure';
@@ -102,7 +106,10 @@ export type BroadcastEvent =
   | { type: 'storyline'; storyline: Storyline }
   // Prompts for a race summary or a statistic; the Commentary Director decides whether one is due
   | { type: 'raceSummary' }
-  | { type: 'statsUpdate' };
+  | { type: 'statsUpdate' }
+  // A prompt to talk about the weather: once soon after the session starts (opening), whenever rain starts or stops
+  // (change), and every weatherEveryMs (weatherWetEveryMs while wet) after that
+  | { type: 'weatherUpdate'; wet: boolean; opening: boolean; change: 'rainStarted' | 'rainStopped' | null };
 
 export type SessionPhase =
   | 'practice'
@@ -181,6 +188,10 @@ export const TRACKER_CONFIG = {
   summaryEveryMs: 60_000,
   statsFirstMs: 75_000,
   statsEveryMs: 45_000,
+  // The weather, once a session has its weather, and then this often (more often in the wet)
+  weatherFirstMs: 30_000,
+  weatherEveryMs: 600_000,
+  weatherWetEveryMs: 240_000,
 };
 
 type LapRecord = { time: number; pit: boolean };
@@ -268,6 +279,9 @@ export class BroadcastTracker {
   private startedAt: number | null = null;
   private nextSummaryAt = 0;
   private nextStatsAt = 0;
+  private nextWeatherAt = 0;
+  private weatherOpened = false;
+  private wasWet: boolean | null = null;
   private now = 0;
   userIdx: number | null = null;
 
@@ -331,7 +345,35 @@ export class BroadcastTracker {
     events.push(...this.detectIncidents(before, live));
     if (this.kind === 'race' && (this.state ?? 0) >= RACING) events.push(...this.updateStorylines(live));
     events.push(...this.ticks(racing));
+    events.push(...this.weatherTicks(snap));
     return events;
+  }
+
+  // Prompts to talk about the weather, in any session with weather readings until the race is over
+  private weatherTicks(snap: TrackerSnapshot): BroadcastEvent[] {
+    if (!snap.hasWeather || (this.kind === 'race' && (this.state ?? 0) >= CHECKERED)) return [];
+    const wet = !!snap.wet;
+    const now = this.now;
+    const every = wet ? TRACKER_CONFIG.weatherWetEveryMs : TRACKER_CONFIG.weatherEveryMs;
+    const changed = this.wasWet !== null && wet !== this.wasWet;
+    this.wasWet = wet;
+    if (this.nextWeatherAt === 0) this.nextWeatherAt = (this.startedAt ?? now) + TRACKER_CONFIG.weatherFirstMs;
+    if (changed) {
+      this.nextWeatherAt = now + every;
+      this.weatherOpened = true;
+      return [{ type: 'weatherUpdate', wet, opening: false, change: wet ? 'rainStarted' : 'rainStopped' }];
+    }
+    // a race's start is its own opening, as practice or qualifying before it may have had one
+    if (this.kind === 'race' && this.raceStartedAt === now) {
+      this.nextWeatherAt = now + TRACKER_CONFIG.weatherFirstMs;
+      this.weatherOpened = false;
+      return [];
+    }
+    if (now < this.nextWeatherAt) return [];
+    this.nextWeatherAt = now + (wet ? TRACKER_CONFIG.weatherWetEveryMs : TRACKER_CONFIG.weatherEveryMs);
+    const opening = !this.weatherOpened;
+    this.weatherOpened = true;
+    return [{ type: 'weatherUpdate', wet, opening, change: null }];
   }
 
   private updateCar(car: TrackerCar) {

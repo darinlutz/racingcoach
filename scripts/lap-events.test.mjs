@@ -281,3 +281,15 @@ test('without steering: no turn-in, no reversals, and no front slip or balance m
   assert.ok(carBalance({ ...trace, handling }).every(Number.isNaN));
   assert.equal(stats(front), null);
 });
+
+test('a focus area starting on the start/finish line starts with the lap', () => {
+  // A lap file's first sample is just past the line, so the area's start at 0 is never crossed
+  const rows = Array.from({ length: 101 }, (_, i) => `${0.0004 + i * 0.002},${i < 20 ? 0.5 : 0},1,40`);
+  const lap = lapSamplesFromText(`LapDistPct,Brake,Throttle,Speed\n${rows.join('\n')}\n`);
+  const fromLine = areaStats(lap, 100, 0, 0.1);
+  assert.ok(fromLine, 'an area from 0 is measured');
+  assert.equal(fromLine.maxBrake, 0.5);
+  close(fromLine.seconds, (lap.pcts.findIndex((p) => p >= 0.1) - 0.2) * (100 / 101), 0.05);
+  // An area the lap really doesn't reach the start of is still left out
+  assert.equal(areaStats(lapSamplesFromText(`LapDistPct,Brake,Throttle,Speed\n0.02,0,1,40\n0.04,0,1,40\n0.06,0,1,40\n`), 1, 0, 0.05), null);
+});

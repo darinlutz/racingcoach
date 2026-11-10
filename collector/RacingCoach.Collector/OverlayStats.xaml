@@ -14,7 +14,7 @@
             <ColumnDefinition Width="6" />
             <ColumnDefinition Width="98" />
             <ColumnDefinition Width="6" />
-            <ColumnDefinition Width="86" />
+            <ColumnDefinition Width="95" />
             <ColumnDefinition Width="6" />
             <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="6" />
@@ -44,7 +44,7 @@
                 <TextBlock x:Name="LastTimeHeading" Style="{StaticResource Heading}" />
                 <TextBox x:Name="LastTimeBox" Style="{StaticResource MidBox}" />
             </StackPanel>
-            <StackPanel Width="110" Margin="6,0,0,0">
+            <StackPanel Width="109" Margin="6,0,0,0">
                 <TextBlock x:Name="LastExitHeading" Style="{StaticResource Heading}" />
                 <TextBox x:Name="LastExitBox" Style="{StaticResource MidBox}" />
             </StackPanel>

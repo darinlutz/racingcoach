@@ -15,15 +15,18 @@ internal sealed record CollectorOptions(string? IbtFile, int Speed, bool SetKey,
 /// <summary>The simulators this build can read. Adding one is adding its adapter here.</summary>
 internal static class SimulatorRegistry
 {
-    /// <summary>iRacing, which --simulator auto chooses from, plus ACC unless it's auto: ACC is supported
-    /// (simulators/capabilities.json, so the website takes its laps), but detecting it beside iRacing isn't proven, so
-    /// it's only read when picked (the window's Simulator picker, or --simulator acc).</summary>
-    /// <param name="named">ACC's id to include it, or null for auto.</param>
+    /// <summary>iRacing, which --simulator auto chooses from, plus ACC and Assetto Corsa unless it's auto: both are
+    /// supported (simulators/capabilities.json, so the website takes their laps), but detecting them beside iRacing
+    /// isn't proven, and they share their shared memory's names, so each is only read when picked (the window's
+    /// Simulator picker, or --simulator acc / ac).</summary>
+    /// <param name="picked">False for --simulator auto, which reads iRacing only.</param>
     /// <param name="rawRecordingFolder">--record-raw: where adapters that can write their simulator's raw data (ACC's
-    /// shared memory pages) do, else null.</param>
-    /// <param name="steeringRange">The driver's wheel rotation, lock to lock in degrees, for ACC's steering angle.</param>
-    public static IReadOnlyList<ISimulatorAdapter> Create(IRacingAdapter iRacing, string? named = null, string? rawRecordingFolder = null, Action<string>? log = null, int? steeringRange = null) =>
-        named == AccFrameBuilder.SimulatorId ? [iRacing, new AccAdapter(rawRecordingFolder, log, steeringRange)] : [iRacing];
+    /// and AC's shared memory pages) do, else null.</param>
+    /// <param name="steeringRange">The driver's wheel rotation, lock to lock in degrees, for ACC's and AC's steering angle.</param>
+    public static IReadOnlyList<ISimulatorAdapter> Create(IRacingAdapter iRacing, bool picked = true, string? rawRecordingFolder = null, Action<string>? log = null, int? steeringRange = null) =>
+        picked
+            ? [iRacing, new AccAdapter(rawRecordingFolder, log, steeringRange), new AcAdapter(rawRecordingFolder, log, steeringRange)]
+            : [iRacing];
 }
 
 /// <summary>Track, car, driver and session details from iRacing's session info, for the window.</summary>
@@ -125,7 +128,7 @@ internal sealed class CollectorEngine
             settings.SteeringRange = range;
             settings.Save();
         }
-        _adapters = adapters ?? SimulatorRegistry.Create(_iRacing, options.Simulator == CollectorOptions.AutoSimulator ? null : AccFrameBuilder.SimulatorId, options.RecordRaw ? Path.Combine(documents, "RacingCoach", "Raw") : null, message => Log(message), settings.UsableSteeringRange);
+        _adapters = adapters ?? SimulatorRegistry.Create(_iRacing, options.Simulator != CollectorOptions.AutoSimulator, options.RecordRaw ? Path.Combine(documents, "RacingCoach", "Raw") : null, message => Log(message), settings.UsableSteeringRange);
         SteeringRange = settings.UsableSteeringRange;
         // The live features read ACC's samples as TelemetryData, like iRacing's
         foreach (var acc in _adapters.OfType<AccAdapter>())
@@ -198,7 +201,7 @@ internal sealed class CollectorEngine
 
     /// <summary>The simulators the window's Simulator picker offers, by id, with their names.</summary>
     public static readonly IReadOnlyList<(string Id, string Name)> PickableSimulators =
-        [(IRacingAdapter.Id, "iRacing"), (AccFrameBuilder.SimulatorId, "Assetto Corsa Competizione")];
+        [(IRacingAdapter.Id, "iRacing"), (AccFrameBuilder.SimulatorId, "Assetto Corsa Competizione"), (AcFrameBuilder.SimulatorId, "Assetto Corsa")];
 
     private static bool IsPickable(string id) => PickableSimulators.Any(s => s.Id == id);
 
@@ -222,7 +225,7 @@ internal sealed class CollectorEngine
         }
     }
 
-    /// <summary>The simulator being read: the picker's ("iracing" or "acc").</summary>
+    /// <summary>The simulator being read: the picker's ("iracing", "acc" or "ac").</summary>
     public string Simulator => _simulator;
     /// <summary>The picker can change the simulator: not while playing an .ibt file back, or with --simulator auto.</summary>
     public bool CanPickSimulator => !Playback && (_options.Simulator is null || IsPickable(_options.Simulator));
@@ -266,8 +269,8 @@ internal sealed class CollectorEngine
         settings.Save();
         UseSteeringRange(degrees);
         Log(degrees is { } set
-            ? $"Wheel rotation: {set}°, for ACC's steering angle."
-            : "Wheel rotation cleared: ACC laps and overlays have no steering angle until it's set.", isError: degrees is null);
+            ? $"Wheel rotation: {set}°, for ACC's and Assetto Corsa's steering angle."
+            : "Wheel rotation cleared: ACC and Assetto Corsa laps have no steering angle until it's set.", isError: degrees is null);
     }
 
     private void UseSteeringRange(int? degrees)
@@ -275,14 +278,19 @@ internal sealed class CollectorEngine
         SteeringRange = degrees;
         foreach (var acc in _adapters.OfType<AccAdapter>())
             acc.SteeringRange = degrees;
+        foreach (var ac in _adapters.OfType<AcAdapter>())
+            ac.SteeringRange = degrees;
     }
 
-    // Reading ACC with no wheel rotation ever saved gives it the default, so a new driver gets a steering angle without
+    // ACC's and AC's steering input is a share of the wheel rotation set in the game, which neither shares
+    private bool ReadsKunosSteering => _simulator is AccFrameBuilder.SimulatorId or AcFrameBuilder.SimulatorId;
+
+    // Reading ACC (or AC) with no wheel rotation ever saved gives it the default, so a new driver gets a steering angle without
     // knowing about it; the window shows it to change. One the driver cleared stays cleared.
     private void DefaultSteeringRange()
     {
         var settings = CollectorSettings.Load();
-        if (_simulator != AccFrameBuilder.SimulatorId || settings.SteeringRange is not null)
+        if (!ReadsKunosSteering || settings.SteeringRange is not null)
             return;
         settings.SteeringRange = DefaultSteeringRangeDegrees;
         settings.Save();
@@ -511,7 +519,7 @@ internal sealed class CollectorEngine
         }
     }
 
-    private string WaitingMessage() => _simulator == IRacingAdapter.Id ? "Waiting for iRacing…" : "Waiting for Assetto Corsa Competizione…";
+    private string WaitingMessage() => $"Waiting for {PickableSimulators.FirstOrDefault(s => s.Id == _simulator).Name ?? "iRacing"}…";
 
     // The picker's simulator, until closing; picking another (SelectSimulator) cancels this run and starts its own.
     // iRacing keeps its own path, with .ibt track positions and race results; ACC's laps go through the shared
@@ -617,8 +625,8 @@ internal sealed class CollectorEngine
         {
             Log($"Session: {s.Track} / {s.Car}");
             RefreshUnits();
-            if (s.SimulatorId == AccFrameBuilder.SimulatorId && SteeringRange is null)
-                Log("No wheel rotation is set, so this session's ACC laps and overlays have no steering angle. Set your wheel's rotation (as in ACC, e.g. 900) under the Simulator picker.", isError: true);
+            if (s.SimulatorId is AccFrameBuilder.SimulatorId or AcFrameBuilder.SimulatorId && SteeringRange is null)
+                Log($"No wheel rotation is set, so this session's {(s.SimulatorId == AcFrameBuilder.SimulatorId ? "Assetto Corsa" : "ACC")} laps have no steering angle. Set your wheel's rotation (as in the game's controls, e.g. 900) under the Simulator picker.", isError: true);
         }
         MapCanonicalTrack(s);
     }

@@ -1,0 +1,17 @@
+2026-11-10 05:36:55 RacingCoach.app Collector 1.92.0 started. Laps are saved to C:\Users\Owner\Documents\RacingCoach\Laps
+2026-11-10 05:36:55 Waiting for iRacing…
+2026-11-10 05:36:55 Track positions are added after each stint from iRacing's .ibt files in C:\Users\Owner\Documents\iRacing\telemetry
+2026-11-10 05:43:29 Collecting from Assetto Corsa (adapter 2).
+2026-11-10 05:43:29 Connected to Assetto Corsa.
+2026-11-10 05:43:29 Recording Assetto Corsa's shared memory to C:\Users\Owner\Documents\RacingCoach\Raw\ac-20261110-054329.acraw.gz
+2026-11-10 05:43:36 Assetto Corsa 1.16.4, shared memory 1.7
+2026-11-10 05:43:36 Rotation Model: no calibration for ks_ferrari_488_gt3 yet, so no understeer/oversteer labels (see rotation-model/README.md, Calibration).
+2026-11-10 05:43:36 Session: ks_red_bull_ring (layout_national) / ks_ferrari_488_gt3
+2026-11-10 05:46:23 Saving laps to C:\Users\Owner\Documents\RacingCoach\Laps\2026-11-10 05-46-23 ks_red_bull_ring (layout_national) - ks_ferrari_488_gt3
+2026-11-10 05:46:23 Lap 2 saved: 0:57.179 (3,574 samples)
+2026-11-10 05:47:45 Lap 3 saved: 1:21.750 (5,111 samples)
+2026-11-10 05:48:39 Lap 4 saved: 0:54.414 (3,402 samples)
+2026-11-10 05:48:48 Lap 5 not saved: left the car or watching a replay.
+2026-11-10 05:50:54 Lap 2 saved: 0:54.397 (3,401 samples)
+2026-11-10 05:51:00 Lap 3 not saved: left the car or watching a replay.
+2026-11-10 05:51:04 Disconnected from Assetto Corsa.

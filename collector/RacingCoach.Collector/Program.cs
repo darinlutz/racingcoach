@@ -132,9 +132,11 @@ public static class Program
           --no-positions      Don't turn on iRacing's .ibt recording or add track positions (Lat/Lon)
                               from .ibt files to live laps this time
           --simulator <id>    Which simulator to read: iracing or acc, remembered like the window's
-                              Simulator picker; "auto" looks for one running. Without it, the picker's
+                              Simulator picker; "auto" looks for one running. Without it, the picker's.
+                              ac reads Assetto Corsa (the original) for this run only, while it's
+                              being checked: the website doesn't accept its laps yet
           --record-raw        Also save the simulator's raw data to Documents\RacingCoach\Raw (ACC's
-                              shared memory), for checking a new simulator's conversions
+                              or AC's shared memory), for checking a new simulator's conversions
           --steering-range <degrees>  Your wheel's rotation lock to lock, e.g. 900, as set in ACC, for
                               ACC's steering angle; remembered, so give it once
         """;

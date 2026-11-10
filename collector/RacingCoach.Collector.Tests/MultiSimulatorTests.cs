@@ -175,12 +175,26 @@ public sealed class AdapterContractTests
     public void Only_tested_simulators_are_claimed_and_the_registry_only_has_those()
     {
         var supported = SimulatorCatalog.Shared.Simulators.Where(s => s.Status == SimulatorStatus.Supported).Select(s => s.Id).ToList();
-        Assert.Equal(["iracing", "acc"], supported);
-        foreach (var adapter in SimulatorRegistry.Create(new IRacingAdapter(), named: "acc"))
+        Assert.Equal(["iracing", "acc", "ac"], supported);
+        foreach (var adapter in SimulatorRegistry.Create(new IRacingAdapter()))
             Assert.Contains(adapter.SimulatorId, supported);
-        // ACC only when --simulator names it, never for auto: detection hasn't been proven beside a running iRacing
-        Assert.Equal(["iracing"], SimulatorRegistry.Create(new IRacingAdapter(), named: null).Select(a => a.SimulatorId));
-        Assert.Equal(["iracing", "acc"], SimulatorRegistry.Create(new IRacingAdapter(), named: "acc").Select(a => a.SimulatorId));
+        // ACC and AC only when picked, never for auto: detection hasn't been proven beside a running iRacing
+        Assert.Equal(["iracing"], SimulatorRegistry.Create(new IRacingAdapter(), picked: false).Select(a => a.SimulatorId));
+        Assert.Equal(["iracing", "acc", "ac"], SimulatorRegistry.Create(new IRacingAdapter()).Select(a => a.SimulatorId));
+        Assert.Equal(["iracing", "acc", "ac"], CollectorEngine.PickableSimulators.Select(s => s.Id));
+    }
+
+    [Fact]
+    public void Assetto_corsa_collects_only_what_its_recordings_proved()
+    {
+        // Supported on 2026-11-10 (docs/multi-simulator.md): only what the Spa and Red Bull Ring recordings proved
+        // reaches lap files, and laps from adapter 1 are refused
+        var ac = SimulatorCatalog.Shared.Find("ac")!;
+        Assert.Equal(SimulatorStatus.Supported, ac.Status);
+        string[] proved = ["speed", "lapDistancePct", "longAccel", "latAccel", "vertAccel", "yaw", "yawRate", "velocityLocal",
+            "worldPosition", "throttle", "brake", "clutch", "steeringAngle", "steeringInput", "gear", "rpm", "tirePressure",
+            "lapNumber", "lapTime", "pitLane", "weather", "trackLength", "fuelLevel"];
+        Assert.Equal(proved.Order(), ac.Channels.Where(c => c.Value is ChannelSupport.Collected or ChannelSupport.CollectedAfterStint).Select(c => c.Key).Order());
     }
 
     [Fact]

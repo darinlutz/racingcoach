@@ -1,6 +1,6 @@
 # Multi-simulator telemetry
 
-How the collector and website are set up to support simulators other than iRacing, what's done, what isn't, and how to add one. iRacing and ACC are supported for laps (recording, upload and the website's analysis); ACC was checked against two real Spa recordings, see [What's been proven](#whats-been-proven). The live features are still iRacing's only.
+How the collector and website are set up to support simulators other than iRacing, what's done, what isn't, and how to add one. iRacing, ACC and Assetto Corsa are supported for laps (recording, upload and the website's analysis); ACC was checked against two real Spa recordings and AC against a Spa and a Red Bull Ring recording, see [What's been proven](#whats-been-proven). The live features are still iRacing's only.
 
 ## Current state
 
@@ -155,7 +155,7 @@ ACC's field status comes from the colors in Kunos's PDF, which plain text extrac
 | --- | --- | --- | --- | --- | --- |
 | iRacing | P0 | Shared memory, `.ibt` | None | Third-party SDK library | Supported |
 | ACC | P1 | `Local\acpmf_physics`, `_graphics`, `_static` | None | Kunos documents it for tools; Kunos confirmed use by RacingCoach.app (2026-11-06) | Supported (laps, adapter 2 on) |
-| Assetto Corsa | P1 | The same names as ACC, different layout | None | Not confirmed | Interface identified |
+| Assetto Corsa | P1 | The same names as ACC, a shorter layout (process `acs.exe`) | None | Kunos confirmed use by RacingCoach.app (2026-11-09) | Documented: adapter behind `--simulator ac`, not yet checked in the game, laps refused |
 | Automobilista 2 | P2 | Project CARS 2 shared memory, UDP | Must be turned on in settings | Not confirmed; no Reiza document found | Interface identified |
 | Le Mans Ultimate | P2 | Built-in shared memory `LMU_Data` | Enable Plugins on | Not confirmed; only community sources. TinyPedal is GPL-3.0: don't copy it | Interface identified |
 | rFactor 2 | P2 | Third-party plugin | Install plugin | Plugin may be bundled only if the distribution is free: **don't bundle it with paid plans** without permission | Interface identified |
@@ -219,7 +219,7 @@ ACC next. Nothing in the shared code should need to change; if it does, that's w
 6. **Fix the website first**: the `|| 0` in `lapSamplesFromText`, then show Not Available in Lap Compare, and hide coaching that depends on what's missing (for ACC: brakepoints in feet without a track length, steering, ride heights, GPS lines). Done for ACC on 2026-11-06 (see Missing values on the website above).
 7. **Map tracks and cars** on purpose, each layout checked: the Coach page's Simulator Mapping (`src/components/SimulatorMappings.tsx`, `/api/coach/simulator-mappings`), from the simulator's catalog (`src/lib/simulatorCatalogs.ts`) and any track or car seen in laps. Mapping re-labels the laps already stored, and unmapping gives them their own names back. The page exists; ACC's tracks and cars still need mapping, each checked.
 8. **Disable what can't be trusted**, by the matrix. The AI coaches read the CSV through `measureDebriefSession`, so check what they say with empty columns. Rotation Model calibrations don't transfer: each car needs its own, and an uncalibrated car already says UNKNOWN. Done for ACC on 2026-11-06: the Spa recording's lap, written as the collector writes it, through `measureDebriefSession`, `lapSegmentTimes` and `lapShifting` gives no NaN or infinite value, and steering, driving line and tire temperatures are left out. It also found two differences from iRacing's lap files, fixed in adapter 2 (below).
-9. **Only then** change its status to `supported`, which is what lets the website accept its laps, and move live features across one at a time, each against iRacing's golden behavior. ACC: supported on 2026-11-06, with `minAdapterVersion` 2 so laps written before adapter 2 are refused. Live features not moved yet.
+9. **Only then** change its status to `supported`, which is what lets the website accept its laps, and move live features across one at a time, each against iRacing's golden behavior. ACC: supported on 2026-11-06, with `minAdapterVersion` 2 so laps written before adapter 2 are refused. Live features not moved yet. Assetto Corsa: supported on 2026-11-10, also with `minAdapterVersion` 2; laps only.
 
 ### For ACC specifically
 
@@ -269,6 +269,37 @@ Its one valid lap, with 3 s either side, is `collector/RacingCoach.Collector.Cor
 - The in lap's frames span 0.6 s less than ACC's 2:45.130; the flying laps' match
 
 The off-track lap, with 3 s either side, is `Fixtures/acc-spa-huracan-gt3-evo-off-track-pit-entry.accraw.gz` (4.8 MB), replayed by `AccSpaOffTrackRecordingTests`. Still to record: a session that burns fuel, wind, rain, and an online session.
+
+### For Assetto Corsa (the original)
+
+**Layout (done 2026-11-09, without the game):** `AcSharedMemory.cs` in Core, from Kunos's AC Shared Memory Documentation (`docs/vendor/ACSharedMemoryDocumentation.pdf`): physics 580 bytes, graphics 296, static 684, by the same rules as ACC's. `AcDocumentedLayout.cs` in the Core tests is the document's field list, transcribed in order, and `AcSharedMemoryTests` holds every offset to it (the helpers are shared with ACC's in `DocumentedPages.cs`); it also checks that every field both games have sits where ACC's does. Differences from ACC that matter: no `sessionIndex`, `isValidLap`, `waterTemp` or per-car lists; `abs` is the ABS setting, not ABS working; `carCoordinates` is the player's car alone; `trackSPlineLength`, `trackConfiguration`, `tyreTempI/M/O`, `rideHeight[2]`, `wheelLoad` and `tyreWear` are documented as working.
+
+**Adapter (written 2026-11-09, without the game; adapter 1):** `AcFrameBuilder.cs` (Core) with every assumption in `AcConventions`, started from what ACC's Spa recordings proved and none yet confirmed for AC; sessions are counted by the builder (a new one when the session type changes or the lap count goes back), laps end on `completedLaps` with `iLastTime`, validity is left unsaid, and the steering angle stays empty until a recording says what `steerAngle` holds. Lap files go through ACC's `ForLapFile`. `AcAdapter.cs` (collector) reads while `acs.exe` runs, logs the AC and shared memory versions once, and with `--record-raw` writes `ac-<time>.acraw.gz` (`AcRawRecording`: ACC's format under its own magic, so neither importer takes the other's file), keeping 2048 bytes of each map so fields later versions added after the documented ones can be looked at. It's only in the registry when `--simulator ac` names it, and not in the window's Simulator picker. The matrix's status is `documented` with every channel `documented` or `unavailable`, so ChannelGate empties every channel and the website refuses AC's laps (`simulatorNotSupported`). Tests: `AcSharedMemoryTests`, `AcFrameBuilderTests` (Core) and `Assetto_corsa_is_read_only_when_named_and_its_laps_are_still_refused` (collector).
+
+**First recording (2026-11-10; adapter 2):** `ac-20261110-000304.acraw.gz` in `docs/vendor/`, with its lap files, `session.json` and the collector log: Steam AC 1.16.4, shared memory 1.7, the Ferrari 488 GT3 at Spa with a 900° wheel, 26 °C air and 34 °C track, tyres set to 16 psi cold, a 2:32.163 lap, an off, a pause, a pit stop with the wheel held left then right, and reverse. Each convention was checked against something independent in the same recording rather than against ACC (the numbers are in `AcConventions`' comments): the local velocity against the world velocity turned by heading, the accelerations against the change of speed and yaw rate times speed, heading against the direction of travel, lap times against the game's own. What it showed:
+
+- Every assumption taken from ACC held, except the clutch, which is engagement (1 while driving), as ACC's turned out to be, not the documented pedal.
+- `steerAngle` is the input, -1 to 1 over the wheel rotation set in AC's controls (+ right). So, as for ACC, the steering angle is the input times half the driver's wheel rotation, `steeringRange` in `collector.json` (`--steering-range`, 900 by default), which `AcAdapter` takes like `AccAdapter`. The window's Wheel rotation box shows only while ACC is picked, and AC isn't in the picker.
+- `numberOfTyresOut` reaching 4 is off track, as iRacing's OffTrack (kerbs give 1 or 2), so laps are marked off track.
+- AC counts a lap about 0.0005 past its spline's 0 (4 reads later), so before the line is known the first lap after leaving the pits started at the spline's 0, 64 ms early. `AcFrameBuilder.ForLapFile` drops those reads (they carry the lap before's number).
+- The maps can still hold another game's pages: the first connection read ACC's last session (Brands Hatch, shared memory 1.9) for 8 s until AC wrote its own, because the maps stay open while any program has them. The builder counts nothing until the pages change (`PagesAreLive`), and the adapter sends no session before that.
+- AC's world coordinates turn the same way as ACC's (Spa reads anticlockwise with x as east and z as north), so the website's fit to the iRacing outline (`worldAlignment.ts`) applies unchanged.
+- Pausing mid-lap drops that lap ("left the car"), as status goes to Pause.
+- Values that look right but have no frame field yet, so they stay `documented`: `tyreTempI/M/O` (surface), `rideHeight[2]` (meters, per axle). Fuel stayed at 30 L all session (fuel use off), so `fuelLevel` waits for a recording where it falls. Wind has no unit, and brake temperatures read 26 °C throughout.
+
+Fixtures in the Core tests (cut by time to the documented bytes of each page): `ac-spa-ferrari-488-gt3-lap.acraw.gz` (the 2:32.163 lap and 3 s either side) and `ac-spa-ferrari-488-gt3-off-track-pit-stop.acraw.gz` (the off and the pit stop), played by `AcSpaRecordingTests`. The 22 proved channels are `collected` in the matrix, and `minAdapterVersion` is 2. The status stays `documented`, so the website still refuses AC's laps.
+
+**Second recording (2026-11-10; adapter 2):** `ac-20261110-054329.acraw.gz` in `docs/vendor/`, with its lap files, `session.json` and the log: the same car at Red Bull Ring National, fuel use on, four laps (0:57.179, 1:21.750 with a stop on track, 0:54.414), a restart from the menu, then a 0:54.397. What it showed:
+
+- The track id with a layout: `track` `ks_red_bull_ring`, `trackConfiguration` `layout_national`, sent as `ks_red_bull_ring/layout_national` and named `ks_red_bull_ring (layout_national)`; `trackSPlineLength` 2317 m.
+- Fuel in liters, falling about 1.2 a lap (26.891 to 25.682 over the 0:54.414 lap) and back to 30 at the restart, so `fuelLevel` is `collected` (23 channels).
+- The restart puts `completedLaps` back to 0, which starts a new session (the lap after it is `S1L002`), with no out-lap saved from the pits either time.
+- The static page held the Spa session until AC loaded this one (AC's own pages, left from the last session, 7 s): the session isn't sent until the pages change, so Spa was never named.
+- A downshift on the line left a neutral in the lap file's last read, with no gear after it to bridge to. `AccFrameBuilder.ForLapFile` now keeps the gear beside a shift's neutral at either edge of a lap too (ACC's laps as well).
+
+Fixture: `ac-red-bull-ring-national-restart.acraw.gz` (the first 8 s, then the 0:54.414 lap and the restart), played by `AcRedBullRingRecordingTests`.
+
+**Supported (2026-11-10):** AC's catalog for Simulator Mapping (`AC_TRACKS`, `AC_CARS` in `src/lib/simulatorCatalogs.ts`) is every Kunos track layout (45) and car (180) from the site owner's Steam install of AC 1.16.4 with every DLC (`docs/vendor/ac-content.csv`, folder names and `ui_track.json`/`ui_car.json` names; two cars had no name and were named by hand). The four Red Bull Ring laps went through `measureDebriefSession`, `lapSegmentTimes` and `lapShifting` (checklist step 8) with no NaN or infinite value. The status is `supported`, so the website takes AC's laps from adapter 2 (collector 1.93.0) on, and Assetto Corsa is in the window's Simulator picker, with the Wheel rotation box as for ACC (`SimulatorRegistry.Create` gives both Kunos adapters whenever a simulator is picked, and only the picked one is read). Still laps only: the live features (coach, overlays, brake beeps, Live Racing, Driver Radio) don't get AC's samples, which would be an `AcLiveTelemetry` like ACC's. Still to map: each AC track and car on the Coach page, checked layout by layout.
 
 ## Importing telemetry files
 

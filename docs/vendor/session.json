@@ -1,0 +1,102 @@
+{
+  "version": 3,
+  "track": "ks_red_bull_ring (layout_national)",
+  "car": "ks_ferrari_488_gt3",
+  "driver": "darinlutz darinlutz",
+  "sessionId": 0,
+  "subSessionId": 0,
+  "simulator": "ac",
+  "adapterVersion": "2",
+  "carKey": "ks_ferrari_488_gt3",
+  "trackKey": "ks_red_bull_ring/layout_national",
+  "laps": [
+    {
+      "file": "RacingCoach - darinlutz darinlutz - ks_ferrari_488_gt3 - ks_red_bull_ring (layout_national) - 00.57.179 - S0L002.csv",
+      "clientLapId": "6489e78a-85f5-420d-b307-121bdf6b90c6",
+      "lapNumber": 2,
+      "sessionNum": 0,
+      "sessionType": "Practice",
+      "lapTimeSeconds": 57.179,
+      "samples": 3574,
+      "missingSamples": 0,
+      "incidents": 0,
+      "pitRoad": false,
+      "offTrack": false,
+      "recordedAt": "2026-11-10T05:46:23.3564027-05:00",
+      "hasPosition": false,
+      "positionMissing": true,
+      "uploaded": false,
+      "csvDeleted": false,
+      "conditions": {
+        "trackTempC": 34,
+        "airTempC": 26
+      }
+    },
+    {
+      "file": "RacingCoach - darinlutz darinlutz - ks_ferrari_488_gt3 - ks_red_bull_ring (layout_national) - 01.21.750 - S0L003.csv",
+      "clientLapId": "5740db16-1e3f-4b20-99c1-864d8aba5384",
+      "lapNumber": 3,
+      "sessionNum": 0,
+      "sessionType": "Practice",
+      "lapTimeSeconds": 81.75,
+      "samples": 5111,
+      "missingSamples": 0,
+      "incidents": 0,
+      "pitRoad": false,
+      "offTrack": false,
+      "recordedAt": "2026-11-10T05:47:45.1111198-05:00",
+      "hasPosition": false,
+      "positionMissing": true,
+      "uploaded": false,
+      "csvDeleted": false,
+      "conditions": {
+        "trackTempC": 34,
+        "airTempC": 26
+      }
+    },
+    {
+      "file": "RacingCoach - darinlutz darinlutz - ks_ferrari_488_gt3 - ks_red_bull_ring (layout_national) - 00.54.414 - S0L004.csv",
+      "clientLapId": "826a582f-f7c7-46fe-92fd-b83bce2735b8",
+      "lapNumber": 4,
+      "sessionNum": 0,
+      "sessionType": "Practice",
+      "lapTimeSeconds": 54.414,
+      "samples": 3402,
+      "missingSamples": 0,
+      "incidents": 0,
+      "pitRoad": false,
+      "offTrack": false,
+      "recordedAt": "2026-11-10T05:48:39.538937-05:00",
+      "hasPosition": false,
+      "positionMissing": true,
+      "uploaded": false,
+      "csvDeleted": false,
+      "conditions": {
+        "trackTempC": 34,
+        "airTempC": 26
+      }
+    },
+    {
+      "file": "RacingCoach - darinlutz darinlutz - ks_ferrari_488_gt3 - ks_red_bull_ring (layout_national) - 00.54.397 - S1L002.csv",
+      "clientLapId": "827dffe5-7230-428c-927a-261da7d72940",
+      "lapNumber": 2,
+      "sessionNum": 1,
+      "sessionType": "Practice",
+      "lapTimeSeconds": 54.397,
+      "samples": 3401,
+      "missingSamples": 0,
+      "incidents": 0,
+      "pitRoad": false,
+      "offTrack": false,
+      "recordedAt": "2026-11-10T05:50:54.6102215-05:00",
+      "hasPosition": false,
+      "positionMissing": true,
+      "uploaded": false,
+      "csvDeleted": false,
+      "conditions": {
+        "trackTempC": 34,
+        "airTempC": 26
+      }
+    }
+  ]
+}

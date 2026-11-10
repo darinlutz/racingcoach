@@ -204,5 +204,22 @@ public sealed class AccSpaRecordingTests
         Assert.Equal(60, AccFrameBuilder.ForLapFile(coasting).Count(f => f.Gear == 0));
         var stopped = Enumerable.Range(0, 20).Select(i => At(i / 60.0, i is >= 5 and < 9 ? 0 : 1, 0.5f)).ToList();
         Assert.Equal(4, AccFrameBuilder.ForLapFile(stopped).Count(f => f.Gear == 0));
+        // A lap that ends or starts coasting in neutral keeps it too
+        var endsCoasting = Enumerable.Range(0, 80).Select(i => At(i / 60.0, i >= 20 ? 0 : 3, 30)).ToList();
+        Assert.Equal(60, AccFrameBuilder.ForLapFile(endsCoasting).Count(f => f.Gear == 0));
+    }
+
+    [Fact]
+    public void A_shift_on_the_line_leaves_no_neutral_at_the_laps_edge()
+    {
+        TelemetryFrame At(int i, int gear) => new() { SimulatorId = "acc", SessionTimeSeconds = i / 60.0, Gear = gear, SpeedMps = 50, LapDistancePct = i / 1000f };
+        // Red Bull Ring 2026-11-10: the lap file's last read was the neutral between fourth and third
+        var ends = Enumerable.Range(0, 30).Select(i => At(i, i == 29 ? 0 : 4)).ToList();
+        Assert.All(AccFrameBuilder.ForLapFile(ends), f => Assert.Equal(4, f.Gear));
+        var starts = Enumerable.Range(0, 30).Select(i => At(i, i < 2 ? 0 : 3)).ToList();
+        Assert.All(AccFrameBuilder.ForLapFile(starts), f => Assert.Equal(3, f.Gear));
+        // Reverse beside it is never bridged
+        var reverse = Enumerable.Range(0, 30).Select(i => At(i, i == 29 ? 0 : -1)).ToList();
+        Assert.Equal(0, AccFrameBuilder.ForLapFile(reverse)[^1].Gear);
     }
 }

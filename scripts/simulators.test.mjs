@@ -19,8 +19,8 @@ import { fillGaps, lapSamplesFromText } from '../src/lib/lapData.ts';
 
 const source = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 
-test('only iRacing and ACC are claimed as supported', () => {
-  assert.deepEqual(SIMULATORS.filter((s) => s.status === 'supported').map((s) => s.id), ['iracing', 'acc']);
+test('only iRacing, ACC and Assetto Corsa are claimed as supported', () => {
+  assert.deepEqual(SIMULATORS.filter((s) => s.status === 'supported').map((s) => s.id), ['iracing', 'acc', 'ac']);
   assert.equal(DEFAULT_SIMULATOR, 'iracing');
 });
 
@@ -34,7 +34,7 @@ test('every target simulator is listed, with sources and licensing noted', () =>
 });
 
 // The simulators the collector has an adapter for (SimulatorRegistry): only they can have checked a channel in the game
-const WITH_ADAPTER = ['iracing', 'acc'];
+const WITH_ADAPTER = ['iracing', 'acc', 'ac'];
 
 test('a simulator only lists real channels, and one with no adapter never says collected', () => {
   for (const simulator of SIMULATORS) {
@@ -45,11 +45,14 @@ test('a simulator only lists real channels, and one with no adapter never says c
   }
   // An adapter marks channels collected one at a time as they're checked, and ACC's passed the checklist (2026-11-06)
   assert.equal(findSimulator('acc').status, 'supported');
+  // and AC's, from the Spa and Red Bull Ring recordings (2026-11-10)
+  assert.equal(findSimulator('ac').status, 'supported');
 });
 
 test('laps are only accepted from a tested simulator, and never an unknown one', () => {
   assert.equal(acceptsLapsFrom('iracing'), true);
   assert.equal(acceptsLapsFrom('acc'), true);
+  assert.equal(acceptsLapsFrom('ac'), true);
   assert.equal(acceptsLapsFrom('ams2'), false);
   assert.equal(acceptsLapsFrom('nonsense'), false);
 });
@@ -63,6 +66,9 @@ test('an old collector is never refused, and a new format or simulator is, with 
   assert.equal(lapRefusal('acc', 1, '2'), null);
   assert.equal(lapRefusal('acc', 1, '1'), 'adapterVersionNotSupported');
   assert.equal(lapRefusal('acc', 1, null), 'adapterVersionNotSupported');
+  // AC's from adapter 2, with the conventions its recordings proved
+  assert.equal(lapRefusal('ac', 1, '2'), null);
+  assert.equal(lapRefusal('ac', 1, '1'), 'adapterVersionNotSupported');
   assert.equal(lapRefusal('iracing', 1, null), null);
   assert.equal(lapRefusal('iracing', 2), 'payloadVersionNotSupported');
 });
@@ -77,6 +83,8 @@ test('a channel only shows where it has really been collected', () => {
   assert.equal(channelAvailable('acc', 'steeringAngle'), true); // from adapter 3, with the driver's wheel rotation
   assert.equal(channelAvailable('acc', 'tireSurfaceTemp'), false);
   assert.equal(findSimulator('acc').channels.rideHeightAxle.support, 'unavailable');
+  assert.equal(channelAvailable('ac', 'fuelLevel'), true); // liters, falling in the Red Bull Ring recording
+  assert.equal(channelAvailable('ac', 'tireSurfaceTemp'), false); // documented: no lap file column for it yet
   assert.equal(channelAvailable('nonsense', 'brake'), false);
 });
 
@@ -107,6 +115,17 @@ test('the website\'s ACC cars are the collector\'s: the same ids and names', () 
   // Spa is what ACC called it in the recordings (AccSpaRecordingTests)
   assert.ok(simulatorCatalog('acc').tracks.some((track) => track.key === 'Spa'));
   assert.deepEqual(simulatorCatalog('iracing'), { tracks: [], cars: [] });
+});
+
+test('the website\'s AC tracks and cars are the ids the collector sends, with names', () => {
+  const { tracks, cars } = simulatorCatalog('ac');
+  // As AC named them in the recordings (AcSpaRecordingTests, AcRedBullRingRecordingTests): track/layout with a layout
+  assert.ok(tracks.some((track) => track.key === 'spa'));
+  assert.ok(tracks.some((track) => track.key === 'ks_red_bull_ring/layout_national'));
+  assert.ok(cars.some((car) => car.key === 'ks_ferrari_488_gt3'));
+  for (const entry of [...tracks, ...cars]) assert.ok(entry.key && entry.name, entry.key);
+  assert.equal(new Set(tracks.map((t) => t.key.toLowerCase())).size, tracks.length);
+  assert.equal(new Set(cars.map((c) => c.key.toLowerCase())).size, cars.length);
 });
 
 test('an empty pedal or speed cell is filled from its neighbours, never read as 0', () => {

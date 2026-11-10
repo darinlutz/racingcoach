@@ -264,18 +264,27 @@ public sealed class AccFrameBuilder(float? steeringRangeDegrees = null)
     public const double MaxShiftNeutralSeconds = 0.3;
     private const float MovingMps = 2;
 
+    // A shift on the line leaves its neutral at the lap's edge, with a gear on one side only (Red Bull Ring
+    // 2026-11-10: the lap file's last read, at 183 km/h, between fourth and third): that neutral keeps the gear beside
+    // it, as long as the run is as short as a shift's and the car is moving.
     private static void BridgeShiftNeutrals(TelemetryFrame[] frames)
     {
-        for (var i = 1; i < frames.Length; i++)
+        for (var i = 0; i < frames.Length; i++)
         {
-            if (frames[i].Gear != 0 || frames[i - 1].Gear is not { } before || before < 1) continue;
+            if (frames[i].Gear != 0) continue;
             var end = i;
             while (end < frames.Length && frames[end].Gear == 0) end++;
-            if (end == frames.Length || frames[end].Gear is not { } after || after < 1) { i = end; continue; }
-            var seconds = frames[end].SessionTimeSeconds - frames[i - 1].SessionTimeSeconds;
+            int? before = i > 0 && frames[i - 1].Gear is >= 1 ? frames[i - 1].Gear : null;
+            int? after = end < frames.Length && frames[end].Gear is >= 1 ? frames[end].Gear : null;
+            var keep = i == 0 ? after : end == frames.Length ? before : after is null ? null : before;
+            if (keep is null) { i = end; continue; }
+            // From the gear before (or the first neutral) to the gear after (or the last neutral)
+            var from = frames[i > 0 ? i - 1 : 0].SessionTimeSeconds;
+            var to = frames[end < frames.Length ? end : end - 1].SessionTimeSeconds;
+            var seconds = to - from;
             var moving = frames[i..end].All(f => f.SpeedMps > MovingMps);
             if (seconds <= MaxShiftNeutralSeconds && moving)
-                for (var j = i; j < end; j++) frames[j] = frames[j] with { Gear = before };
+                for (var j = i; j < end; j++) frames[j] = frames[j] with { Gear = keep };
             i = end;
         }
     }

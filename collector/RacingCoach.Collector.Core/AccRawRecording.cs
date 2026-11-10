@@ -16,18 +16,23 @@ public static class AccRawRecording
 {
     public const string FileExtension = ".accraw.gz";
     private static readonly byte[] Magic = Encoding.ASCII.GetBytes("RCACCRAW");
+    /// <summary>Assetto Corsa's recordings (AcRawRecording) are this format with their own magic, so neither
+    /// simulator's importer takes the other's file.</summary>
+    internal static readonly byte[] AcMagic = Encoding.ASCII.GetBytes("RCAC_RAW");
     private const int Format = 1;
     internal const byte StaticRecord = 1;
     internal const byte SampleRecord = 2;
 
-    public static bool StartsLikeOne(Stream start)
+    public static bool StartsLikeOne(Stream start) => StartsLikeOne(start, Magic);
+
+    internal static bool StartsLikeOne(Stream start, byte[] expected)
     {
         try
         {
             using var gzip = new GZipStream(start, CompressionMode.Decompress, leaveOpen: true);
-            var magic = new byte[Magic.Length];
+            var magic = new byte[expected.Length];
             gzip.ReadExactly(magic);
-            return magic.AsSpan().SequenceEqual(Magic);
+            return magic.AsSpan().SequenceEqual(expected);
         }
         catch (Exception e) when (e is InvalidDataException or EndOfStreamException or IOException)
         {
@@ -39,16 +44,18 @@ public static class AccRawRecording
     public readonly record struct Record(double Seconds, byte[]? Static, byte[]? Physics, byte[]? Graphics);
 
     /// <summary>The records in order. Stops quietly at a cut-off end, as a recording ends when the collector closes.</summary>
-    public static IEnumerable<Record> Read(Stream file)
+    public static IEnumerable<Record> Read(Stream file) => Read(file, Magic, "ACC");
+
+    internal static IEnumerable<Record> Read(Stream file, byte[] magic, string simulator)
     {
         using var gzip = new GZipStream(file, CompressionMode.Decompress, leaveOpen: true);
         var header = new byte[Magic.Length + 16];
         gzip.ReadExactly(header);
-        if (!header.AsSpan(0, Magic.Length).SequenceEqual(Magic))
-            throw new InvalidDataException("not an ACC raw recording");
+        if (!header.AsSpan(0, Magic.Length).SequenceEqual(magic))
+            throw new InvalidDataException($"not an {simulator} raw recording");
         var format = BinaryPrimitives.ReadInt32LittleEndian(header.AsSpan(Magic.Length));
         if (format != Format)
-            throw new InvalidDataException($"ACC raw recording format {format} isn't one this collector reads");
+            throw new InvalidDataException($"{simulator} raw recording format {format} isn't one this collector reads");
         var physicsSize = BinaryPrimitives.ReadInt32LittleEndian(header.AsSpan(Magic.Length + 4));
         var graphicsSize = BinaryPrimitives.ReadInt32LittleEndian(header.AsSpan(Magic.Length + 8));
         var staticSize = BinaryPrimitives.ReadInt32LittleEndian(header.AsSpan(Magic.Length + 12));
@@ -73,7 +80,7 @@ public static class AccRawRecording
                     yield return new Record(seconds, null, physics, graphics);
                     break;
                 default:
-                    throw new InvalidDataException($"unknown record kind {head[0]} in an ACC raw recording");
+                    throw new InvalidDataException($"unknown record kind {head[0]} in an {simulator} raw recording");
             }
         }
     }
@@ -102,11 +109,16 @@ public static class AccRawRecording
         private readonly byte[] _head = new byte[9];
 
         public Writer(Stream file, int physicsSize = AccSharedMemory.PhysicsSize, int graphicsSize = AccSharedMemory.GraphicsSize, int staticSize = AccSharedMemory.StaticSize)
+            : this(file, Magic, physicsSize, graphicsSize, staticSize)
+        {
+        }
+
+        internal Writer(Stream file, byte[] magic, int physicsSize, int graphicsSize, int staticSize)
         {
             _gzip = new GZipStream(file, CompressionLevel.Fastest, leaveOpen: false);
             (_physicsSize, _graphicsSize, _staticSize) = (physicsSize, graphicsSize, staticSize);
-            var header = new byte[Magic.Length + 16];
-            Magic.CopyTo(header, 0);
+            var header = new byte[magic.Length + 16];
+            magic.CopyTo(header, 0);
             BinaryPrimitives.WriteInt32LittleEndian(header.AsSpan(Magic.Length), Format);
             BinaryPrimitives.WriteInt32LittleEndian(header.AsSpan(Magic.Length + 4), physicsSize);
             BinaryPrimitives.WriteInt32LittleEndian(header.AsSpan(Magic.Length + 8), graphicsSize);

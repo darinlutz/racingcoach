@@ -703,11 +703,12 @@ public partial class MainWindow : Window
         ShowSteeringRange();
     }
 
-    // ACC's Wheel rotation: shown while ACC is picked, with the saved value (picking ACC saves the default the first time)
+    // ACC's and AC's Wheel rotation: shown while either is picked, with the saved value (picking one saves the default
+    // the first time)
     private void ShowSteeringRange()
     {
-        var acc = _engine.Simulator == Simulators.AccFrameBuilder.SimulatorId;
-        SteeringRangePanel.Visibility = acc ? Visibility.Visible : Visibility.Collapsed;
+        var kunos = _engine.Simulator is Simulators.AccFrameBuilder.SimulatorId or Simulators.AcFrameBuilder.SimulatorId;
+        SteeringRangePanel.Visibility = kunos ? Visibility.Visible : Visibility.Collapsed;
         SteeringRangeBox.Text = _engine.SteeringRange?.ToString(CultureInfo.InvariantCulture) ?? "";
         ShowSteeringRangeHint(null);
     }
@@ -753,12 +754,13 @@ public partial class MainWindow : Window
         PoliciesBanner.Visibility = _engine.PoliciesAccepted == false ? Visibility.Visible : Visibility.Collapsed;
         RefreshRotationButton();
         var iRacing = _engine.Simulator == IRacingAdapter.Id;
+        var ac = _engine.Simulator == Simulators.AcFrameBuilder.SimulatorId;
         var connected = _engine.State is SimState.Connected or SimState.PlayingBack;
         switch (_engine.State)
         {
             case SimState.Waiting:
-                SetTile(SimDot, SimText, SimDetail, Amber, T(iRacing ? "main.waitingForIRacing" : "main.waitingForAcc"),
-                    T(iRacing ? "main.startIRacing" : "main.startAcc"));
+                SetTile(SimDot, SimText, SimDetail, Amber, T(iRacing ? "main.waitingForIRacing" : ac ? "main.waitingForAc" : "main.waitingForAcc"),
+                    T(iRacing ? "main.startIRacing" : ac ? "main.startAc" : "main.startAcc"));
                 break;
             case SimState.Connected:
                 SetTile(SimDot, SimText, SimDetail, Green, T("main.connected"), T("main.samplesPerSecond", _engine.SamplesPerSecond));
@@ -821,7 +823,7 @@ public partial class MainWindow : Window
             ShowBeeps();
 
         if (!iRacing)
-            SetTile(IbtDot, IbtText, IbtDetail, Grey, T("main.iRacingOnly"), T("main.positionsIRacingOnly"));
+            SetTile(IbtDot, IbtText, IbtDetail, Grey, T("main.iRacingOnly"), T(ac ? "main.positionsIRacingOnlyAc" : "main.positionsIRacingOnly"));
         else if (_engine.IbtFolder is null)
             SetTile(IbtDot, IbtText, IbtDetail, Grey, T(_engine.Playback ? "main.fromFile" : "main.off"),
                 T(_engine.Playback ? "main.playbackHasPositions" : "main.positionsOff"));

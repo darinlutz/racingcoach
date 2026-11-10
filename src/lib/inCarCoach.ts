@@ -26,7 +26,9 @@ import { chatModel, getAiModel, structured, withFallbackModel } from '@/lib/aiMo
 //     best lap (builtInRules), without the driver having to ask.
 //   - Lap feedback (inCarCoachCallouts): after laps upload, the agent looks through the session's laps so far with
 //     the Debrief Coach's tools (debriefCoach.ts) and answers what to tell the driver now, if anything. Laps
-//     driven live have no track positions until after the stint, so the driving line usually can't be compared.
+//     driven live have no track positions until after the stint, and the coach never sees where the car is on the
+//     track while it drives, so it never gives driving line advice: it has no get_driving_line tool, its prompt
+//     forbids it, and a callout about the line is dropped (givesLineAdvice).
 
 // Events the collector can detect on live telemetry, and the sounds it can play (CoachRules.cs in the collector)
 export const COACH_EVENTS = ['lapStart', 'lapComplete', 'newBestLap', 'areaEntry', 'areaExit', 'pitEntry', 'pitExit', 'incident'] as const;
@@ -278,8 +280,10 @@ const calloutPrompt = (units: Units) =>
   'the focus areas that lose the most time with get_area_detail and the braking, throttle and steering tools, and get_shifting_points for the upshifts; any ' +
   'brakepoint advice must follow the brakepoint verdict, and any throttle pickup advice the pickup verdict. ' +
   brakeChangeRule(units) +
-  ' Live laps have no track positions yet, so do not give ' +
-  'driving line advice unless get_driving_line shows a line verdict. Anything the driver\'s instructions ask to ' +
+  ' You cannot see where the car is on the track: live laps have no track positions, so never give driving line ' +
+  'advice of any kind (the racing line, the apex, turning in earlier or later, running wide, the track out, using ' +
+  'the curbs or the track width, inside or outside of the corner, positioning the car), even when instructions ask ' +
+  'for it; coach only the inputs the data measures (brake, throttle, steering amount, gears, speed). Anything the driver\'s instructions ask to ' +
   'happen at a moment on track (a sound at the line, the lap time after each lap, a message at an area) is ' +
   'already done by the coach\'s rules, so never repeat it here: your callouts are coaching from the lap data. Only ' +
   'add a sound when the instructions ask for one with coaching. Never return fewer than 2 callouts. Vary them from ' +
@@ -296,6 +300,21 @@ const calloutPrompt = (units: Units) =>
   'a focus area) to the nearest tenth of a second and write it the way a race engineer says it on the radio, never ' +
   'with "s" for seconds: under a second in tenths (e.g. "two tenths slower" for 0.213 s), otherwise in seconds with ' +
   'one decimal (e.g. "2.3 seconds faster" for 2.319 s).';
+
+// A callout about the driving line (English only; the prompt forbids it in every language), which the coach can't see
+const LINE_ADVICE = [
+  /\b(racing|driving) line\b/i,
+  /\b(tighter|wider|later|earlier|different|better|cleaner|wide|tight|inside|outside) line\b/i,
+  /\bapex\b/i,
+  /\btrack[- ]?out\b/i,
+  /\brun(ning|s)? wide\b/i,
+  /\b(curbs?|kerbs?|track width)\b/i,
+  /\b(inside|outside) of the (corner|turn)\b/i,
+  /\bturn[- ]?in (point|earlier|later|sooner)\b/i,
+];
+export function givesLineAdvice(text: string): boolean {
+  return LINE_ADVICE.some((p) => p.test(text));
+}
 
 export type InCarLap = { id: string; lapNumber: number; lapSeconds: number; incidents: number; offTrack: boolean };
 
@@ -342,7 +361,8 @@ export async function inCarCoachCallouts(input: {
   // The Race Engineering knowledge base (src/lib/engineering/knowledgeTool.ts), only alongside lap data to judge
   const tools = hasAreas
     ? [
-        ...createTools(input.session!, units, input.carRpmLimit ?? null),
+        // no track positions in live laps, so no driving line
+        ...createTools(input.session!, units, input.carRpmLimit ?? null).filter((t) => t.name !== 'get_driving_line'),
         engineeringKnowledgeTool(input.car, {
           maxTokens: 600,
           agent: 'inCarCoachCallouts',
@@ -405,6 +425,7 @@ export async function inCarCoachCallouts(input: {
       (c) =>
         c.text.trim() &&
         !hasTrackPosition(c.text) &&
+        !givesLineAdvice(c.text) &&
         !(coldTires && brakesLaterOnColdTires(c.text)) &&
         !(check && hasEnglish(c.text, check.language, check.names))
     )

@@ -3365,6 +3365,39 @@ export const en = {
     countryFlag: 'Flair: {name}',
   },
 
+  // The followed driver's tires and fuel, TV Broadcast Mode's Weather Center and the weather radar (DriverCarStatus.tsx,
+  // WeatherCenter.tsx, WeatherRadar.tsx)
+  carWeather: {
+    weatherCenter: "Weather Center",
+    noWeather: "Waiting for the weather from the driver’s collector",
+    air: "Air",
+    track: "Track",
+    humidity: "Humidity",
+    wind: "Wind",
+    dry: "No rain",
+    outlookTitle: "Next {n} min",
+    outlookStatic: "No change: static weather",
+    outlookGathering: "Outlook after 5 min of readings",
+    outlookProjected: "Projected from the last {n} min trend",
+    tires: "Tires",
+    tireKinds: { soft: "Soft", medium: "Medium", hard: "Hard", dry: "Dry", intermediate: "Intermediate", wet: "Wet", unknown: "Unknown" },
+    tireUnknown: "Not reported",
+    fuel: "Fuel",
+    fuelLaps: "{n} laps",
+    fuelTime: "{t} of driving",
+    fuelLapsLater: "Laps left after a green lap",
+    fuelNone: "Not reported",
+    radar: "Weather Radar",
+    radarRain: "Rain {n}%",
+    radarNoRain: "No rain falling",
+    radarMoving: "moving {dir}",
+    radarWetTires: "Wet tires fitted",
+    radarNote: "Drawn from the sim’s rain and wind readings",
+    radarLight: "Light",
+    radarModerate: "Moderate",
+    radarHeavy: "Heavy",
+  },
+
   tv: {
     // The Broadcast Director's recorded clips (src/lib/videoDirector.ts)
     director: {

@@ -27,6 +27,7 @@ import {
 import type { ReactNode } from 'react';
 import { useLanguage } from '@/components/LanguageProvider';
 import RaceFlag from '@/components/RaceFlag';
+import { WeatherPicture } from '@/components/WeatherArt';
 import { useUnits } from '@/components/UnitsProvider';
 import type { LiveDriver } from '@/lib/liveRacing';
 import {
@@ -206,7 +207,11 @@ function WeatherNow({ weather }: { weather: NonNullable<LiveDriver['weather']> }
   return (
     <div className="2xl:border-l 2xl:pl-4 border-border min-w-0">
       <div className="flex items-center gap-3">
-        {Icon && icon && <Icon className={`size-12 shrink-0 ${icon.color}`} strokeWidth={1.75} aria-hidden />}
+        {sky ? (
+          <WeatherPicture condition={sky} night={night} title={t.liveRacing.sky[sky]} className="size-16 shrink-0 drop-shadow-md" />
+        ) : (
+          Icon && icon && <Icon className={`size-12 shrink-0 ${icon.color}`} strokeWidth={1.75} aria-hidden />
+        )}
         <div className="min-w-0">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">{t.liveRacing.weatherTitle}</p>
           <p className="text-xl font-bold text-foreground leading-tight">

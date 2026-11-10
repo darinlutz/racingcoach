@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import DriverCarStatus from '@/components/DriverCarStatus';
 import { useLanguage } from '@/components/LanguageProvider';
 import LiveDriverMessage from '@/components/LiveDriverMessage';
 import LiveDriverRadio from '@/components/LiveDriverRadio';
@@ -11,6 +12,9 @@ import LiveSessionStatus from '@/components/LiveSessionStatus';
 import LiveTrackMap, { type MapCar } from '@/components/LiveTrackMap';
 import { useUnits } from '@/components/UnitsProvider';
 import { useEngineBed } from '@/components/useEngineBed';
+import { useRadarCycle } from '@/components/useRadarCycle';
+import WeatherRadar from '@/components/WeatherRadar';
+import { fittedTire, fuelStatus, isWetSession } from '@/lib/liveCarStatus';
 import { engineBed, linkSpeech } from '@/lib/engineBed';
 import { ELEVENLABS_PROVIDER, SPEECH_PROVIDER_HEADER, type EngineBedConfig } from '@/lib/engineBedConfig';
 import type { LiveDriver, LiveField } from '@/lib/liveRacing';
@@ -22,7 +26,8 @@ import type { TrackOutline } from '@/lib/trackOutlines';
 import { METERS_PER_FOOT, SPEED_UNIT, speedFromMetersPerSecond } from '@/lib/units';
 
 // The Live Racing page's tracks: each track someone the user may watch is driving, headed by each session's flag,
-// session and weather (LiveSessionBanner), then in three columns. On the left the
+// session and weather (LiveSessionBanner), then in three columns (while it's raining or a watched driver there is on
+// wet tires, the map switches to the weather radar, WeatherRadar, for 10 seconds of every minute). On the left the
 // session's lap and time remaining over a leaderboard of every car in it (from collectors that send the field); in
 // the middle the map, with a dot per car, and under it each watched driver's lap details; on the right one driver's
 // (the user, until they pick another in the list) Driver Inputs and incidents, the Lead and Color Announcer checkboxes (the Race
@@ -325,6 +330,9 @@ export default function LiveRacing({
     focusRef.current = focus;
   }, [focus]);
   const focused = drivers?.find((d) => d.userId === focus) ?? null;
+  // A live driver of each track in the rain or on wet tires, for its weather radar
+  const wetDriver = (group: Received[]) => group.find((d) => !d.offline && isWetSession(d.weather, fittedTire(d.tires))) ?? null;
+  const radar = useRadarCycle(!!drivers?.some((d) => !d.offline && isWetSession(d.weather, fittedTire(d.tires))));
 
   // Plays the queued announcer lines one after another. Watching themselves, the driver hears their In-Car AI Coach
   // too: each line waits for it to finish (a line it held up too long is dropped), then holds it while it plays
@@ -568,6 +576,7 @@ export default function LiveRacing({
           );
         };
         const focusedHere = focused && group.includes(focused) ? focused : null;
+        const wetHere = wetDriver(group);
         return (
           <div key={key} className="bg-card rounded-lg border border-border overflow-hidden">
             <div className="px-4 py-3 border-b border-border">
@@ -600,7 +609,14 @@ export default function LiveRacing({
               </div>
               <div className="order-1 xl:order-2 min-w-0">
                 <div className="p-4">
-                  <div className="aspect-[4/3] w-full">
+                  <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg">
+                    {wetHere && (
+                      <WeatherRadar
+                        weather={wetHere.weather ?? null}
+                        wetTires={['wet', 'intermediate'].includes(fittedTire(wetHere.tires)?.kind ?? '')}
+                        visible={radar}
+                      />
+                    )}
                     <LiveTrackMap
                       outline={track?.outline ?? null}
                       areas={track?.areas ?? []}
@@ -699,6 +715,20 @@ export default function LiveRacing({
               <div className="order-2 xl:order-3 border-t xl:border-t-0 xl:border-l border-border divide-y divide-border">
                 {focusedHere ? (
                   <>
+                    {/* the driver, with their tires and fuel */}
+                    <div className="px-4 py-3 space-y-2.5">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="size-3 rounded-full shrink-0" style={{ backgroundColor: colors.get(focusedHere.userId) ?? COLORS[0] }} />
+                        <h3 className="font-display text-2xl font-bold leading-none text-foreground truncate">{focusedHere.driver}</h3>
+                        {focusedHere.isMe && <span className="text-xs text-primary font-semibold">{t.liveRacing.you}</span>}
+                        <span className="ml-auto text-xs text-muted-foreground truncate">{focusedHere.car}</span>
+                      </div>
+                      <DriverCarStatus
+                        tire={fittedTire(focusedHere.tires)}
+                        fuel={fuelStatus(focusedHere)}
+                        lapsNeeded={focusedHere.sessionLapsRemain ?? null}
+                      />
+                    </div>
                     <LiveInputs
                       driver={focusedHere.isMe ? t.liveRacing.you : focusedHere.driver}
                       driverId={focusedHere.userId}

@@ -54,6 +54,27 @@ export function checkLine(text: string, facts: LineFacts): LineCheck {
   return { ok: true };
 }
 
+// The line reads out its directions instead of following them: five words in a row from its job, or the phrases the
+// announcers have said aloud when they did (e.g. "Say what happened, and to who, and why it matters")
+const INSTRUCTION_PHRASES = [
+  /\bwhy (it|this|that) matters\b/i,
+  /\bwho is involved\b/i,
+  /\bwhat happened,? (and )?(to )?who\b/i,
+  /\b(say|call|describe) what happened\b/i,
+  /\bin your own words\b/i,
+  /\bfrom the (facts|statistics) given\b/i,
+];
+const wordList = (text: string) => text.toLowerCase().split(/[^\p{L}\p{N}']+/u).filter(Boolean);
+export function echoesInstruction(text: string, job: string): boolean {
+  if (INSTRUCTION_PHRASES.some((p) => p.test(text))) return true;
+  const jobWords = wordList(job);
+  const line = ` ${wordList(text).join(' ')} `;
+  for (let i = 0; i + 5 <= jobWords.length; i++) {
+    if (line.includes(` ${jobWords.slice(i, i + 5).join(' ')} `)) return true;
+  }
+  return false;
+}
+
 // The text as the voice should read it at this intensity: no shouting in capitals (a voice spells some out), no
 // stacked exclamation marks, none at all when calm, and at most two in a line otherwise
 export function deliveryText(text: string, intensity: number): string {

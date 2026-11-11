@@ -97,7 +97,10 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
+      # Chromium only: GitHub's Ubuntu image already has its system libraries, and --with-deps's apt-get can hang for
+      # minutes when Ubuntu's package mirrors are unreachable
+      - run: npx playwright install chromium
+        timeout-minutes: 5
       - run: npm run test:e2e
       - name: Keep the traces of failed tests
         if: failure()

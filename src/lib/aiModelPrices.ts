@@ -9,7 +9,6 @@ export type AiModelPrice = { input: number; cachedInput: number; output: number 
 export const AI_MODEL_PRICES: Record<AiModel, AiModelPrice> = {
   'gpt-4o-mini': { input: 0.15, cachedInput: 0.075, output: 0.6 },
   'gpt-4o': { input: 2.5, cachedInput: 1.25, output: 10 },
-  'gpt-4.1-nano': { input: 0.1, cachedInput: 0.025, output: 0.4 },
   'gpt-4.1-mini': { input: 0.4, cachedInput: 0.1, output: 1.6 },
   'gpt-4.1': { input: 2, cachedInput: 0.5, output: 8 },
   'gpt-5-nano': { input: 0.05, cachedInput: 0.005, output: 0.4 },

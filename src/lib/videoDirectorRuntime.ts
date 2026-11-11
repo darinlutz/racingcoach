@@ -3,13 +3,14 @@ import { CATEGORY_FACTS } from './broadcastVideoCategories';
 import { lineVolume } from './broadcastSettings';
 import { lastNameOf } from './broadcastValidation';
 import { getDirectorSettings, readPlayableVideos, readRecentlyPlayed, readVideoStorageKey } from './broadcastVideos';
-import { getCoachVoice, speaksElevenLabs, synthesizeSpeech, type CoachVoice, type SpanishAccent } from './coachVoice';
+import { getCoachVoice, speaksElevenLabs, synthesizeSpeech, withPronunciations, type CoachVoice, type SpanishAccent } from './coachVoice';
 import { query } from './db';
 import { getDictionary } from './i18n/server';
 import type { Language } from './i18n/languages';
 import { readDirectorFeed } from './liveRacing';
 import { videoObjectSize, videoStorageConfigured } from './objectStorage';
-import { ANNOUNCER_ROLES, getRaceAnnouncerSettings, raceAnnouncerLines, type Announcer, type LinePlan } from './raceAnnouncer';
+import { ANNOUNCER_ROLES, getNamePronunciation, getRaceAnnouncerSettings, namePronunciations, raceAnnouncerLines, type Announcer, type LinePlan } from './raceAnnouncer';
+import type { RaceMoments } from './broadcastTracker';
 import { siteAiCall } from './rateLimits';
 import { canUseVoiceAi } from './roles';
 import { getEnableAiFeatures } from './siteSettings';
@@ -30,6 +31,7 @@ import {
   nextClipDueAt,
   requestClip,
   restoreDirector,
+  resultsAnnounced,
   returnToLive,
   RECENT_VIDEOS,
   selectVideo,
@@ -44,6 +46,7 @@ import {
   type LineTiming,
   type PreparedLine,
   type RaceConditions,
+  type ResultsAnnouncement,
   type ScheduledLine,
   type SelectionRequest,
 } from './videoDirector';
@@ -396,9 +399,83 @@ async function prepareLines(session: Session, settings: DirectorSettings): Promi
     if (slot.when === 'intro') session.introText = written.get(languages[0])?.get('intro')?.text ?? null;
   }
   if (session.state.clip !== clip) return null;
-  session.voicing = voicing;
+  // The results' lines still to be said keep theirs
+  const results = new Set(session.state.lines.filter((l) => l.when === 'results').map((l) => l.id));
+  session.voicing = new Map([...[...session.voicing].filter(([lineId]) => results.has(lineId)), ...voicing]);
   if (session.introText) historyUpdate(session, 'UPDATE racingcoach."BroadcastVideoHistory" SET introduction_text = $2 WHERE id = $1', [session.introText]);
   return prepared;
+}
+
+// The results' words, in this language, from the fixed wording (tv.director.results): names and positions only, so
+// nothing needs checking; null when there's nothing to say
+export function resultsText(language: Language, what: ResultsAnnouncement, moments: RaceMoments, random: () => number = Math.random): string | null {
+  const t = getDictionary(language).tv.director.results;
+  const pick = (options: readonly string[]) => options[Math.floor(random() * options.length)];
+  const fill = (text: string, values: Record<string, string | number>) => text.replace(/{(w+)}/g, (all, key: string) => String(values[key] ?? all));
+  if (what === 'podium') {
+    const [first, second, third] = moments.podium.map((p) => p.driver);
+    if (!first) return null;
+    if (third) return fill(pick(t.podium), { first, second, third });
+    if (second) return fill(pick(t.podiumTwo), { first, second });
+    return fill(pick(t.podiumOne), { first });
+  }
+  const user = moments.user;
+  if (!user || user.position == null) return null;
+  const options = user.position === 1 ? t.driverWon : user.position <= 3 ? t.driverPodium : t.driverFinished;
+  return fill(pick(options), { driver: user.driver, position: user.position });
+}
+
+// Writes and voices the results line for every set of voices watching; nothing when none can hear the announcers
+async function voiceResults(session: Session, what: ResultsAnnouncement): Promise<PreparedLine[]> {
+  const moments = readDirectorFeed(session.driverId)?.moments;
+  if (!moments || !(await getEnableAiFeatures())) return [];
+  const viewers = [...session.viewers.values()].filter((v) => v.voices);
+  if (viewers.length === 0) return [];
+  const distinct = new Map<string, Voices>();
+  for (const v of viewers) if (distinct.size < MAX_VOICES) distinct.set(voicesKey(v.voices!), v.voices!);
+  // The followed driver's name as they say it (the Account page's Name Pronunciation)
+  const pronunciation = moments.user ? await getNamePronunciation(session.driverId).catch(() => '') : '';
+  const pronunciations = moments.user ? namePronunciations([moments.user.driver], pronunciation) : [];
+  const id = randomUUID();
+  const perVoice = new Map<string, LineVoicing>();
+  let longest = 0;
+  await Promise.all(
+    [...distinct.entries()].map(async ([key, voices]) => {
+      const text = resultsText(voices.language, what, moments);
+      if (!text) return;
+      try {
+        const bytes = await withTimeout(
+          synthesizeSpeech(withPronunciations(text, pronunciations), voices.lead, voices.language, voices.accent, ANNOUNCER_ROLES.lead, 'mp3', what === 'podium' ? 4 : 3),
+          SPEECH_TIMEOUT_MS
+        );
+        const ms = mp3DurationMs(bytes);
+        if (!ms) throw new Error('speech was not an MP3');
+        const audioId = randomUUID();
+        runtime.audio.set(audioId, { bytes, expiresAt: Date.now() + AUDIO_KEPT_MS + ms });
+        perVoice.set(key, { text, audioId, elevenLabs: speaksElevenLabs(voices.lead, ANNOUNCER_ROLES.lead, voices.language, voices.accent) });
+        longest = Math.max(longest, ms);
+      } catch (error) {
+        console.error('Broadcast Director results speech error:', error);
+        perVoice.set(key, { text, audioId: null, elevenLabs: false });
+      }
+    })
+  );
+  if (perVoice.size === 0) return [];
+  // Words without sound stay up about as long as they'd take to say
+  if (longest === 0) longest = 4000;
+  session.voicing.set(id, perVoice);
+  return [{ id, when: 'results', speaker: 'lead', durationMs: longest }];
+}
+
+async function announceResults(session: Session, what: ResultsAnnouncement, settings: DirectorSettings): Promise<void> {
+  let lines: PreparedLine[] = [];
+  try {
+    lines = await voiceResults(session, what);
+  } catch (error) {
+    console.error('Broadcast Director results error:', error);
+  }
+  if (lines.length > 0) log(session, `announcing the ${what === 'podium' ? 'podium' : "driver's finish"}`);
+  run(session, resultsAnnounced(session.state, what, lines, Date.now()), settings);
 }
 
 function run(session: Session, effects: DirectorEffect[], settings: DirectorSettings): void {
@@ -415,6 +492,9 @@ function run(session: Session, effects: DirectorEffect[], settings: DirectorSett
         break;
       case 'prepare':
         void prepare(session, settings);
+        break;
+      case 'announce':
+        void announceResults(session, effect.what, settings);
         break;
       case 'playbackStarted':
         log(session, `playing video ${session.state.clip?.videoId}`);
@@ -433,8 +513,8 @@ function conditions(session: Session, now: number): RaceConditions {
   const feed = readDirectorFeed(session.driverId);
   session.sequenceSince = session.state.clip ? (session.sequenceSince ?? now) : null;
   // The followed driver went away: no new clip until there's a race to read again
-  if (!feed) return { level: 1, blocked: true, critical: false, rotating: false, raceStartAt: null };
-  return raceConditions(feed.events, feed.context, now, session.sequenceSince);
+  if (!feed) return { level: 1, blocked: true, critical: false, rotating: false, raceStartAt: null, moments: null };
+  return raceConditions(feed.events, feed.context, now, session.sequenceSince, feed.moments);
 }
 
 async function tickAll(): Promise<void> {

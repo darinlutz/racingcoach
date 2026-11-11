@@ -147,7 +147,25 @@ export type CarStats = {
   lastPitSeconds: number | null;
 };
 
+// The race's own moments, for the Broadcast Director (src/lib/videoDirector.ts): where the race is (on the grid before
+// the cars roll, the parade lap, racing, or the checkered flag is out), how far (seconds) the overall leader is from the
+// checkered flag while on the last lap, and the finishing order of the driver's class as it's known
+export type RaceStage = 'grid' | 'parade' | 'racing' | 'finished';
+export type RaceMoments = {
+  stage: RaceStage;
+  // When the cars started rolling (null when this server first saw the race already rolling) and the checkered flag came out
+  paradeStartedAt: number | null;
+  checkeredAt: number | null;
+  leaderSecondsToFinish: number | null;
+  // The first three of the driver's class (overall in a single-class race), and whether each has crossed the line
+  podium: { driver: string; position: number; finished: boolean }[];
+  // How many cars are in that class
+  classCars: number;
+  user: { driver: string; position: number | null; finished: boolean } | null;
+};
+
 // iRacing's irsdk_SessionState
+const PARADE = 3;
 const RACING = 4;
 const CHECKERED = 5;
 
@@ -272,6 +290,11 @@ export class BroadcastTracker {
   private timeRemain: number | null = null;
   private initialTimeRemain: number | null = null;
   private raceStartedAt: number | null = null;
+  private paradeStartedAt: number | null = null;
+  private checkeredAt: number | null = null;
+  // Each car's completed laps as the checkered flag came out, and the cars that have crossed the line since
+  private lapsAtCheckered = new Map<number, number | null>();
+  private finishedCars = new Set<number>();
   private preRaceSent = false;
   private finalLapSent = false;
   private wonSent = false;
@@ -332,6 +355,18 @@ export class BroadcastTracker {
         this.nextStatsAt = snap.at + TRACKER_CONFIG.statsFirstMs;
       }
       if (this.state === RACING && this.initialTimeRemain === null && this.timeRemain != null) this.initialTimeRemain = this.timeRemain;
+      if (this.state === PARADE && previousState != null && previousState < PARADE) this.paradeStartedAt = snap.at;
+      if ((this.state ?? 0) >= CHECKERED && this.checkeredAt === null) {
+        this.checkeredAt = snap.at;
+        // Laps before this update: a car crossing the line in it (the winner) has finished
+        for (const c of this.cars.values()) this.lapsAtCheckered.set(c.idx, previousState === RACING ? (before.get(c.idx)?.lapsDone ?? c.lapsDone) : c.lapsDone);
+      }
+      if (this.checkeredAt !== null) {
+        for (const c of this.cars.values()) {
+          const at = this.lapsAtCheckered.get(c.idx);
+          if (at != null && c.lapsDone != null && c.lapsDone > at) this.finishedCars.add(c.idx);
+        }
+      }
     }
 
     const live = this.liveRanks();
@@ -909,6 +944,36 @@ export class BroadcastTracker {
     if (this.lapsTotal !== null && leader?.lapsDone != null) return Math.min(leader.lapsDone / this.lapsTotal, 1);
     if (this.initialTimeRemain && this.timeRemain != null) return Math.min(Math.max(1 - this.timeRemain / this.initialTimeRemain, 0), 1);
     return null;
+  }
+
+  raceMoments(): RaceMoments | null {
+    if (this.kind !== 'race' || this.state == null || this.state <= 0) return null;
+    const state = this.state;
+    const stage: RaceStage = state < PARADE ? 'grid' : state < RACING ? 'parade' : state < CHECKERED ? 'racing' : 'finished';
+    const leader = [...this.cars.values()].find((c) => c.position === 1);
+    let leaderSecondsToFinish: number | null = null;
+    if (stage === 'racing' && leader && leader.progress !== null && leader.lapsDone != null) {
+      // Laps races: the leader has done all but one; timed: the time has run out, so this lap is the last
+      const lastLap = this.lapsTotal !== null ? leader.lapsDone >= this.lapsTotal - 1 : this.timeRemain != null && this.timeRemain <= 0;
+      const best = leader.laps.length > 0 ? Math.min(...leader.laps.map((l) => l.time)) : null;
+      const rate = leader.rate && leader.rate > 0 ? leader.rate : best && best > 0 ? 1 / best : null;
+      if (lastLap && rate) leaderSecondsToFinish = (1 - (leader.progress - Math.floor(leader.progress))) / rate;
+    }
+    const me = this.userCar();
+    const carClass = this.multiClass && me ? me.carClass : null;
+    const ranked = [...this.cars.values()]
+      .filter((c) => c.name && (carClass === null || c.carClass === carClass) && this.rankOf(c) != null)
+      .sort((a, b) => this.rankOf(a)! - this.rankOf(b)!);
+    const finished = (c: CarState) => this.finishedCars.has(c.idx) || (c.idx === this.userIdx && c.finished);
+    return {
+      stage,
+      paradeStartedAt: this.paradeStartedAt,
+      checkeredAt: this.checkeredAt,
+      leaderSecondsToFinish,
+      podium: ranked.slice(0, 3).map((c) => ({ driver: c.name!, position: this.rankOf(c)!, finished: finished(c) })),
+      classCars: ranked.length,
+      user: me?.name ? { driver: me.name, position: this.rankOf(me), finished: finished(me) } : null,
+    };
   }
 
   lapsRemaining(): number | null {

@@ -265,7 +265,7 @@ test('a TV that reloads in the middle of a clip rejoins it where the others are'
   await settle({ defaultClipSeconds: 8 });
 });
 
-test('all eight categories work the same way', async () => {
+test('every category works the same way', async () => {
   for (const category of VIDEO_CATEGORIES.filter((c) => c !== 'ONBOARDS')) {
     await waitForLive();
     await settle({ defaultClipSeconds: 2, commentaryDuringVideo: false, postVideoCommentary: false });

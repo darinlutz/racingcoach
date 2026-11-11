@@ -107,38 +107,78 @@ function playWav(base64: string, volume = 1, engine?: { continuing: () => boolea
   });
 }
 
-// Plays an MP3 (a Driver Radio message), resolving when it ends or can't play. ElevenLabs speech plays over the engine
-// bed (engine: whether more is coming)
-function playMp3(blob: Blob, engine?: { continuing: () => boolean }): Promise<void> {
+// The radio beeps around a driver's own Driver Radio message: before their voice, and after it
+const RADIO_START_BEEPS_URL = '/assets/sounds/startBeeps.wav';
+const RADIO_END_BEEPS_URL = '/assets/sounds/endBeeps.wav';
+
+// Plays an audio element already loading, resolving when it ends or can't play
+function playAudio(audio: HTMLAudioElement): Promise<void> {
   return new Promise((resolve) => {
-    const url = URL.createObjectURL(blob);
-    const audio = new Audio(url);
-    const unlink = engine ? linkSpeech(engineBed, audio, engine.continuing) : null;
-    const done = () => {
-      unlink?.();
+    audio.onended = () => resolve();
+    audio.onerror = () => resolve();
+    audio.play().catch(() => resolve());
+  });
+}
+
+// An audio element for src, loading at once so it can start the moment it's played
+function preloaded(src: string): HTMLAudioElement {
+  const audio = new Audio(src);
+  audio.preload = 'auto';
+  audio.load();
+  return audio;
+}
+
+// Plays an MP3 (a Driver Radio message), resolving when it ends or can't play. ElevenLabs speech plays over the engine
+// bed (engine: whether more is coming). With beeps, the start beeps play first, the voice straight after them (loaded
+// while they play), then the end beeps; the engine bed only under the voice
+function playMp3(blob: Blob, engine?: { continuing: () => boolean }, beeps = false): Promise<void> {
+  const url = URL.createObjectURL(blob);
+  const voice = preloaded(url);
+  const endBeeps = beeps ? preloaded(RADIO_END_BEEPS_URL) : null;
+  return (async () => {
+    try {
+      if (beeps) await playAudio(preloaded(RADIO_START_BEEPS_URL));
+      const unlink = engine ? linkSpeech(engineBed, voice, engine.continuing) : null;
+      try {
+        await playAudio(voice);
+      } finally {
+        unlink?.();
+      }
+      if (endBeeps) await playAudio(endBeeps);
+    } finally {
       URL.revokeObjectURL(url);
-      resolve();
-    };
-    audio.onended = done;
-    audio.onerror = done;
-    audio.play().catch(done);
+    }
+  })();
+}
+
+// How long audio at src plays, in ms, read from the browser before it's played (fallback when it can't tell)
+function audioDurationMs(src: string, fallback: number): Promise<number> {
+  return new Promise((resolve) => {
+    const audio = new Audio();
+    audio.onloadedmetadata = () => resolve(Number.isFinite(audio.duration) ? Math.round(audio.duration * 1000) : fallback);
+    audio.onerror = () => resolve(fallback);
+    audio.preload = 'metadata';
+    audio.src = src;
   });
 }
 
 // How long an MP3 plays, in ms, read from the browser before it's played
-function mp3DurationMs(blob: Blob): Promise<number> {
-  return new Promise((resolve) => {
-    const url = URL.createObjectURL(blob);
-    const audio = new Audio();
-    const done = (ms: number) => {
-      URL.revokeObjectURL(url);
-      resolve(ms);
-    };
-    audio.onloadedmetadata = () => done(Number.isFinite(audio.duration) ? Math.round(audio.duration * 1000) : 8000);
-    audio.onerror = () => done(8000);
-    audio.preload = 'metadata';
-    audio.src = url;
-  });
+async function mp3DurationMs(blob: Blob): Promise<number> {
+  const url = URL.createObjectURL(blob);
+  try {
+    return await audioDurationMs(url, 8000);
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+// How long the radio beeps around a driver's message play together, in ms
+async function radioBeepsMs(): Promise<number> {
+  const [start, end] = await Promise.all([
+    audioDurationMs(RADIO_START_BEEPS_URL, 1500),
+    audioDurationMs(RADIO_END_BEEPS_URL, 1500),
+  ]);
+  return start + end;
 }
 
 // How long a base64 WAV plays, in ms, from its header's byte rate (a guess when it has no header)
@@ -446,10 +486,12 @@ export default function LiveRacing({
           }
           const blob = await response.blob();
           const elevenLabs = response.headers.get(SPEECH_PROVIDER_HEADER) === ELEVENLABS_PROVIDER;
+          // The driver's own words come between the radio's start and end beeps; the Race Engineer's answers don't
+          const beeps = message.from !== 'engineer';
           // Watching themselves, the driver hears their In-Car AI Coach too, so the two take turns, as for the announcers
           if (mine) {
             if (!(await coachQuiet(meRef))) continue;
-            const ms = await mp3DurationMs(blob);
+            const ms = (await mp3DurationMs(blob)) + (beeps ? await radioBeepsMs() : 0);
             await fetch('/api/live/announcing', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -457,7 +499,7 @@ export default function LiveRacing({
             }).catch(() => undefined);
             await delay(HOLD_LEAD_MS);
           }
-          await playMp3(blob, elevenLabs ? { continuing: () => i < waiting.length - 1 } : undefined);
+          await playMp3(blob, elevenLabs ? { continuing: () => i < waiting.length - 1 } : undefined, beeps);
         }
         setRadioError('');
       } catch (err) {

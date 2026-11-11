@@ -167,8 +167,8 @@ export const TRACKER_CONFIG = {
   bandHoldMs: 3000,
   bandDropHoldMs: 6000,
   // A battle's gap is reported again once it changes this much, at most once in battleRepeatMs
-  gapChange: 0.3,
-  battleRepeatMs: 15_000,
+  gapChange: 0.5,
+  battleRepeatMs: 30_000,
   // A developing battle is worth mentioning once the chaser gains this much a lap
   closingPerLap: 0.2,
   // Incidents: a car counts once in this long; a car slowed suddenly when its pace drops below this share, from at

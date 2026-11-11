@@ -4,7 +4,7 @@ Recorded clips in TV Broadcast Mode (`/tv`), run like a television production. T
 Announcer introduces it, every TV watching that race session cuts to it together, and the broadcast returns to the live
 track map. The broadcast is rendered entirely by the site; no external broadcasting software is involved.
 
-Not to be confused with the **Commentary Director** (`src/lib/broadcastDirector.ts`), which decides what each listener's
+Not to be confused with the **Commentary Director** (`src/lib/broadcastDirector.ts`), which decides what each broadcast's
 announcers say. The Broadcast Director uses its priorities and intensities rather than having its own.
 
 ## How it works

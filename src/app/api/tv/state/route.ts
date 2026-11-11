@@ -13,7 +13,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: t.notPaired, code: 'notPaired' }, { status: 401 });
     }
     const driver = Number(new URL(request.url).searchParams.get('driver'));
-    const state = await readTvState(session.user, Number.isInteger(driver) && driver > 0 ? driver : null);
+    const state = await readTvState(session.user, Number.isInteger(driver) && driver > 0 ? driver : null, `tv:${session.id}`);
     return NextResponse.json(state, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     console.error('TV state error:', error);

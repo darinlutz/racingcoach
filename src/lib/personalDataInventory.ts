@@ -346,8 +346,8 @@ export const PERSONAL_DATA_INVENTORY: InventoryCategory[] = [
   {
     key: 'uploadsAsCoach',
     title: 'Content you uploaded as a Coach or Admin',
-    description: 'Expert Laps, broadcast videos and engine sounds record which account uploaded them.',
-    tables: ['ExpertLaps', 'BroadcastVideos', 'EngineAudioAssets', 'SiteSettings', 'RateLimitOverrides'],
+    description: 'Expert Laps, broadcast videos and engine sounds record which account uploaded them, and a live video stream which driver’s account it shows (never its stream key).',
+    tables: ['ExpertLaps', 'BroadcastVideos', 'EngineAudioAssets', 'SiteSettings', 'RateLimitOverrides', 'LiveVideoStreams'],
     purpose: 'Coaching content shared with every user, and the site’s settings.',
     legalBasis: ['legitimateInterests'],
     source: 'You, as a Coach or Admin.',
@@ -410,6 +410,8 @@ export const NON_PERSONAL_TABLES = [
   // feature, caller category, models, tokens and times, never a user, IP address, prompt or answer
   'LocalAiServers',
   'AiInferenceEvents',
+  // Live video (src/lib/liveVideoDb.ts): each race session's camera (track map or OBS) by session key, no user, kept a day
+  'BroadcastSourceStates',
 ];
 
 export const LEGAL_BASIS_TEXT: Record<LegalBasis, string> = {

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 import { useLanguage } from '@/components/LanguageProvider';
 import { engineBed, linkSpeech } from '@/lib/engineBed';
 import type { Announcer } from '@/lib/raceAnnouncer';
+import { commentaryNotBefore } from '@/lib/liveVideo/broadcastTimeline';
 import { CommentaryQueue } from '@/lib/tvAudio';
 import type { TvFocus } from '@/lib/tvBroadcast';
 import { LATE_LINE_MS, type DirectorSnapshot } from '@/lib/videoDirector';
@@ -26,7 +27,10 @@ import { LATE_LINE_MS, type DirectorSnapshot } from '@/lib/videoDirector';
 // ElevenLabs lines play over the engine bed (src/lib/engineBed.ts), which this TV mixes itself from the moment its own
 // audio element starts playing, so the bed is in step with the line wherever the server's timing put it.
 
-export type CommentarySettings = { started: boolean; enabled: boolean; lead: boolean; color: boolean; volume: number; muted: boolean };
+// delayMs: synchronized broadcast (docs/live-video.md). Commentary is still asked for as soon as the live event arrives,
+// so the AI and speech take up the delay, but each line waits until its event's moment reaches the video's delayed
+// timeline (the event's server time plus the delay, counted once)
+export type CommentarySettings = { started: boolean; enabled: boolean; lead: boolean; color: boolean; volume: number; muted: boolean; delayMs?: number };
 
 const HOLD_LEAD_MS = 700;
 const HOLD_MARGIN_MS = 300;
@@ -129,6 +133,14 @@ export function useTvCommentary(
         // The Director's line has the audio element; this picks up again after it
         if (directorLine.current) break;
         const line = queue.current.next(Date.now());
+        if (audio && !line && queue.current.size > 0 && run === generation.current) {
+          // Held for the delayed timeline: picked up again when it's due
+          const wait = queue.current.waitMs(Date.now());
+          window.setTimeout(() => {
+            if (run === generation.current) playQueue();
+          }, Math.max(wait, 50));
+          break;
+        }
         if (!audio || !line || run !== generation.current) break;
         const mine = focusRef.current?.isMe ?? false;
         if (mine) {
@@ -299,6 +311,11 @@ export function useTvCommentary(
     asking.current = true;
     const driverId = focus.driverId;
     const latest = focus.eventSeq;
+    // The moment the commentary is about, on the server's clock: the newest event it covers (when the TV has it), else
+    // now, as the event has only just arrived
+    const covered = focus.events.filter((e) => e.seq > s.seq && e.seq <= latest).map((e) => e.at);
+    const eventAt = covered.length > 0 ? Math.max(...covered) : Date.now() + clockRef.current;
+    const notBefore = commentaryNotBefore(eventAt, clockRef.current, settings.delayMs ?? 0);
     (async () => {
       try {
         const response = await fetch('/api/tv/announcer', {
@@ -331,7 +348,7 @@ export function useTvCommentary(
         if (data.engineBed) engineBed.configure(data.engineBed);
         type Line = { speaker: Announcer; text: string; audio: string; priority?: number; ttlMs?: number; volume?: number; elevenLabs?: boolean };
         queue.current.push(
-          ((data.lines ?? []) as Line[]).map((l) => ({ ...l, expiresAt: l.ttlMs != null ? now + l.ttlMs : undefined })),
+          ((data.lines ?? []) as Line[]).map((l) => ({ ...l, expiresAt: l.ttlMs != null ? now + l.ttlMs : undefined, notBefore: notBefore ?? undefined })),
           now,
           !!data.replaceQueued
         );
@@ -343,7 +360,7 @@ export function useTvCommentary(
         asking.current = false;
       }
     })();
-  }, [focus, on, visible, settings.lead, settings.color, stop, playQueue, t]);
+  }, [focus, on, visible, settings.lead, settings.color, settings.delayMs, stop, playQueue, t]);
 
   return { speaking, problem, paused: settings.started && !visible };
 }

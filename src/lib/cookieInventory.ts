@@ -88,13 +88,14 @@ export const COOKIE_INVENTORY: InventoryItem[] = [
     purpose: 'The Standard or Metric units you chose.',
   },
   {
-    name: 'liveRacing.leadAnnouncer, liveRacing.colorAnnouncer, liveRacing.satelliteOpacity',
+    name: 'liveRacing.leadAnnouncer, liveRacing.colorAnnouncer, liveRacing.satelliteOpacity, liveRacing.videoView, liveRacing.syncMapToVideo',
     kind: 'localStorage',
     category: 'necessary',
     provider: 'RacingCoach.app',
     firstParty: true,
     duration: 'Until you clear your browser data',
-    purpose: 'The Lead Announcer and Color Announcer checkboxes you ticked, and how see-through you set the satellite map, on the Live Racing page (signed-in users only).',
+    purpose:
+      'The Lead Announcer and Color Announcer checkboxes you ticked, how see-through you set the satellite map, and the live video view (track map, video or both) and whether the map follows the video, on the Live Racing page (signed-in users only).',
   },
   {
     name: 'tv_pairing',
@@ -117,13 +118,13 @@ export const COOKIE_INVENTORY: InventoryItem[] = [
     purpose: 'Keeps a paired TV signed in to RacingCoach.app TV, for watching Live Racing and its commentary only. Holds a random token; the server stores only a hash of it.',
   },
   {
-    name: 'tv.screenEdges, tv.commentary, tv.leadAnnouncer, tv.colorAnnouncer, tv.volume, tv.muted, tv.satellite',
+    name: 'tv.screenEdges, tv.commentary, tv.leadAnnouncer, tv.colorAnnouncer, tv.volume, tv.muted, tv.satellite, tv.videoSound',
     kind: 'localStorage',
     category: 'necessary',
     provider: 'RacingCoach.app',
     firstParty: true,
     duration: 'Until you clear your browser data',
-    purpose: 'On a TV using RacingCoach.app TV: the screen edges, commentary, announcer, volume, mute and satellite map choices made with the remote.',
+    purpose: 'On a TV using RacingCoach.app TV: the screen edges, commentary, announcer, volume, mute, satellite map and live video sound choices made with the remote.',
   },
   {
     name: 'visitor_id',

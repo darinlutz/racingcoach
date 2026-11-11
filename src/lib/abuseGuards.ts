@@ -34,6 +34,11 @@ export const ABUSE_LIMITS = {
   logBatchesPerHour: { max: 600, windowMs: HOUR },
   // Content-Security-Policy violation reports per IP address an hour (/api/csp-report): enough to see a problem
   cspReportsPerIp: { max: 30, windowMs: HOUR },
+  // Live video (docs/live-video.md): the Live Racing page asks for its streams every 15 s, a TV reports its player's
+  // metrics every 10 s, and an Admin adds or removes live inputs (each a Cloudflare API call)
+  liveVideoStreamsPerUser: { max: 30, windowMs: MINUTE },
+  liveVideoReportsPerTv: { max: 20, windowMs: MINUTE },
+  liveVideoInputsPerAdmin: { max: 10, windowMs: HOUR },
 } as const;
 
 // A form submitted sooner than this after the page showed it was filled by a script

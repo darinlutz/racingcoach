@@ -9,6 +9,11 @@ import TvEventFeed from '@/components/TvEventFeed';
 import TvInputs from '@/components/TvInputs';
 import TvLeaderboard from '@/components/TvLeaderboard';
 import TvMap from '@/components/TvMap';
+import TvBroadcastStage from '@/components/TvBroadcastStage';
+import TvLiveVideoDiagnostics from '@/components/TvLiveVideoDiagnostics';
+import type { PlayerMetrics } from '@/components/LiveOBSPlayer';
+import { useBroadcastTimeline } from '@/components/useBroadcastTimeline';
+import type { CameraSource } from '@/lib/liveVideo/broadcastSource';
 import { useEngineBed } from '@/components/useEngineBed';
 import { useTvCommentary } from '@/components/useTvCommentary';
 import { useTvFeed, type FeedStatus } from '@/components/useTvFeed';
@@ -45,6 +50,7 @@ const KEYS = {
   volume: 'tv.volume',
   muted: 'tv.muted',
   satellite: 'tv.satellite',
+  videoSound: 'tv.videoSound',
 } as const;
 const DEFAULT_VOLUME = 80;
 const VOLUME_STEP = 10;
@@ -95,10 +101,11 @@ const controlClass =
   'focus:ring-[6px] focus:ring-[#ffd400] disabled:opacity-40';
 const buttonClass = `${controlClass} bg-[#1b222d]`;
 
-function StatusPill({ status, recorded, t }: { status: FeedStatus; recorded: boolean; t: ReturnType<typeof useLanguage>['t']['tv'] }) {
+function StatusPill({ status, recorded, obs, obsLabel, t }: { status: FeedStatus; recorded: boolean; obs: boolean; obsLabel: string; t: ReturnType<typeof useLanguage>['t']['tv'] }) {
   const live = status === 'live' || status === 'fallback';
   // Recorded footage is on screen, so nothing here says LIVE
   if (recorded && live) return <span className="rounded-lg bg-[#3a4350] px-4 py-1 text-[26px] font-bold tracking-wide text-[#e6ebf2]">{t.director.recorded}</span>;
+  if (obs && live) return <span className="rounded-lg bg-[#e10600] px-4 py-1 text-[26px] font-bold tracking-wide text-white">{obsLabel}</span>;
   return (
     <span
       className={`rounded-lg px-4 py-1 text-[26px] font-bold tracking-wide ${live ? 'bg-[#e10600] text-white' : 'bg-[#3a4350] text-[#e6ebf2]'}`}
@@ -126,7 +133,15 @@ export default function TvBroadcast({
   const { t, fmt } = useLanguage();
   const [driver, setDriver] = useState<number | null>(null);
   const unpaired = useCallback(() => window.location.reload(), []);
-  const { state, status } = useTvFeed(driver, unpaired);
+  const { state: liveState, status } = useTvFeed(driver, unpaired);
+  // Live video (docs/live-video.md): with the synchronized broadcast on, what's drawn from telemetry is shown on the
+  // video's delayed timeline (useBroadcastTimeline); the commentary is asked for from the live picture, and its lines
+  // wait for that timeline
+  const liveVideo = liveState?.focus?.liveVideo ?? null;
+  const [metrics, setMetrics] = useState<PlayerMetrics | null>(null);
+  const [camera, setCamera] = useState<CameraSource>('TRACK_MAP');
+  const timeline = useBroadcastTimeline(liveState, liveVideo?.sync ?? null, metrics, liveVideo?.stream?.status === 'LIVE');
+  const state = timeline.state;
   const focus = state?.focus ?? null;
   // The Director's latest word: an older message arriving late doesn't undo it
   const incoming = focus?.director ?? null;
@@ -146,6 +161,7 @@ export default function TvBroadcast({
   const [volume, setVolume] = useState(DEFAULT_VOLUME);
   const [muted, setMuted] = useState(false);
   const [satellite, setSatellite] = useState(true);
+  const [videoSound, setVideoSound] = useState(true);
   const [panelOpen, setPanelOpen] = useState(false);
   const [fullScreenSupported, setFullScreenSupported] = useState(false);
   const [fullScreen, setFullScreen] = useState(false);
@@ -164,6 +180,7 @@ export default function TvBroadcast({
     if (Number.isFinite(savedVolume)) setVolume(Math.min(Math.max(Math.round(savedVolume), 0), 100));
     setMuted(readStored(KEYS.muted) === '1');
     setSatellite(readStored(KEYS.satellite) !== '0');
+    setVideoSound(readStored(KEYS.videoSound) !== '0');
     const doc = document as FullscreenDocument;
     setFullScreenSupported(!!(doc.fullscreenEnabled || doc.webkitFullscreenEnabled));
     /* eslint-enable react-hooks/set-state-in-effect */
@@ -180,14 +197,52 @@ export default function TvBroadcast({
   useEngineBed(engine, muted ? 0 : volume / 100);
 
   const { speaking, problem, paused } = useTvCommentary(
-    focus,
-    { started, enabled: announcers && commentaryOn, lead, color, volume, muted },
+    liveState?.focus ?? null,
+    { started, enabled: announcers && commentaryOn, lead, color, volume, muted, delayMs: timeline.appliedDelayMs },
     audioRef,
     director,
     state?.clockOffset ?? 0
   );
 
-  const radar = useRadarCycle(!!focus?.wet && !focus.offline, recorded, state?.clockOffset ?? 0);
+  const obsOnScreen = camera === 'OBS_LIVE' && !recorded;
+  const radar = useRadarCycle(!!focus?.wet && !focus.offline, recorded || obsOnScreen, state?.clockOffset ?? 0);
+
+  // This TV's player and timeline figures, for the Admin page's diagnostics, every 10 s while there's a stream
+  const reportRef = useRef({ metrics, timeline });
+  useEffect(() => {
+    reportRef.current = { metrics, timeline };
+  });
+  const streaming = !!liveVideo?.stream?.playback;
+  useEffect(() => {
+    if (!streaming) return;
+    const timer = window.setInterval(() => {
+      const { metrics: m, timeline: tl } = reportRef.current;
+      const measured = m?.measuredLatencyMs ?? null;
+      const estimated = m?.latencyS != null ? Math.round(m.latencyS * 1000) : null;
+      fetch('/api/tv/live-video/report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: m?.status ?? 'UNKNOWN',
+          latencyMs: measured != null ? Math.round(measured) : estimated,
+          latencyBasis: measured != null ? 'measured' : estimated != null ? 'estimated' : 'none',
+          appliedDelayMs: tl.appliedDelayMs,
+          delayBasis: tl.delay.basis,
+          syncErrorMs: tl.syncErrorMs,
+          bufferMs: m?.bufferS != null ? Math.round(m.bufferS * 1000) : null,
+          timelineSpanMs: tl.spanMs,
+          lateSamples: tl.stats.late,
+          outOfOrder: tl.stats.outOfOrder,
+          duplicates: tl.stats.duplicates,
+          droppedFrames: m?.droppedFrames ?? null,
+          stalls: m?.stalls ?? 0,
+          commentaryWaitMs: tl.appliedDelayMs > 0 ? tl.appliedDelayMs : null,
+          degraded: tl.delay.degraded || tl.filling,
+        }),
+      }).catch(() => undefined);
+    }, 10_000);
+    return () => window.clearInterval(timer);
+  }, [streaming]);
 
   const keepAwake = useCallback(async () => {
     try {
@@ -325,7 +380,7 @@ export default function TvBroadcast({
           <div className="min-w-0 flex-1">
             <p className="line-clamp-2 font-display text-[34px] font-bold leading-[1.05]">{focus?.track ?? t.tv.title}</p>
             <div className="mt-1.5 flex min-w-0 items-center gap-3">
-              <StatusPill status={status} recorded={recorded} t={t.tv} />
+              <StatusPill status={status} recorded={recorded} obs={obsOnScreen} obsLabel={t.liveVideo.tv.obsLive} t={t.tv} />
               {focus?.flag && flagColors && (
                 <span className="shrink-0 rounded-lg px-3 py-0.5 text-[22px] font-bold uppercase" style={{ backgroundColor: flagColors.bg, color: flagColors.fg }}>
                   {fmt(t.tv.eventFlag, { flag: t.tv.flags[focus.flag] })}
@@ -464,16 +519,33 @@ export default function TvBroadcast({
                   duck={!!speaking}
                   onRecordedChange={setRecorded}
                 >
-                  <TvMap
-                    trackKey={focus.trackKey}
-                    approximateFrom={focus.approximateOutlineFrom}
-                    cars={focus.mapCars}
-                    receivedAt={state.receivedAt}
-                    satellite={satellite}
-                  />
+                  <TvBroadcastStage
+                    liveVideo={liveVideo}
+                    clockOffset={state.clockOffset}
+                    volume={volume}
+                    muted={muted}
+                    started={started}
+                    speaking={!!speaking}
+                    videoSound={videoSound}
+                    onCamera={setCamera}
+                    onMetrics={setMetrics}
+                  >
+                    <TvMap
+                      trackKey={focus.trackKey}
+                      approximateFrom={focus.approximateOutlineFrom}
+                      cars={focus.mapCars}
+                      receivedAt={state.receivedAt}
+                      satellite={satellite}
+                    />
+                  </TvBroadcastStage>
                 </BroadcastVideoSwitcher>
               )}
               {focus?.wet && <WeatherRadar weather={focus.weather} wetTires={focus.tire?.kind === 'wet' || focus.tire?.kind === 'intermediate'} visible={radar} size="tv" />}
+              {liveVideo?.source.fallback && !recorded && (
+                <p className="absolute right-4 top-4 rounded bg-black/70 px-3 py-1 text-[18px] text-[#ffd400]" data-testid="obs-fallback">
+                  {t.liveVideo.tv.obsOffline}
+                </p>
+              )}
             </div>
 
             {/* The followed driver's inputs, in a strip under the map */}
@@ -552,7 +624,7 @@ export default function TvBroadcast({
 
       {panelOpen && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/80">
-          <div ref={panelRef} role="dialog" aria-label={t.tv.settings} className="w-[880px] rounded-2xl bg-[#10141b] p-10">
+          <div ref={panelRef} role="dialog" aria-label={t.tv.settings} className="max-h-[1000px] w-[880px] overflow-y-auto rounded-2xl bg-[#10141b] p-10">
             <div className="flex items-center justify-between">
               <h2 className="font-display text-[44px] font-bold">{t.tv.settings}</h2>
               <button type="button" data-tv-focus onClick={closePanel} className={buttonClass} aria-label={t.tv.close}>
@@ -590,6 +662,26 @@ export default function TvBroadcast({
                 </button>
               ))}
             </div>
+            {liveVideo && (
+              <>
+                <p className="mt-8 text-[22px] uppercase tracking-wide text-[#8b95a3]">{t.liveVideo.tv.videoVolume}</p>
+                <div className="mt-3 flex gap-3">
+                  {[true, false].map((on) => (
+                    <button
+                      key={String(on)}
+                      type="button"
+                      data-tv-focus
+                      onClick={() => toggle(KEYS.videoSound, on, setVideoSound)}
+                      aria-pressed={videoSound === on}
+                      className={`${controlClass} ${videoSound === on ? 'bg-[#e10600]' : 'bg-[#1b222d]'}`}
+                    >
+                      {on ? t.tv.on : t.tv.off}
+                    </button>
+                  ))}
+                </div>
+                <TvLiveVideoDiagnostics liveVideo={liveVideo} camera={recorded ? 'VIDEO_CLIP' : camera} metrics={metrics} timeline={timeline} />
+              </>
+            )}
             <div className="mt-10 flex items-center justify-between">
               <button type="button" data-tv-focus onClick={unpair} className={`${controlClass} bg-[#3a1215]`}>
                 {t.tv.unpair}

@@ -10,6 +10,9 @@ import LiveLeaderboard, { type LeaderboardDriver, runningOrder } from '@/compone
 import LiveSessionBanner from '@/components/LiveSessionBanner';
 import LiveSessionStatus from '@/components/LiveSessionStatus';
 import LiveTrackMap, { type MapCar } from '@/components/LiveTrackMap';
+import LiveOBSPlayer, { type PlayerMetrics } from '@/components/LiveOBSPlayer';
+import { useDelayedDrivers, useLiveRacingVideo } from '@/components/useLiveRacingVideo';
+import { effectiveDelay } from '@/lib/liveVideo/broadcastTimeline';
 import { useUnits } from '@/components/UnitsProvider';
 import { useEngineBed } from '@/components/useEngineBed';
 import { useRadarCycle } from '@/components/useRadarCycle';
@@ -46,6 +49,10 @@ const RADIO_KEY = 'liveRacing.playRadio';
 // The satellite imagery's opacity under the maps (0-100), kept in the browser
 const IMAGERY_KEY = 'liveRacing.satelliteOpacity';
 const DEFAULT_IMAGERY_OPACITY = 60;
+// The live video's view and Sync map to video, kept in the browser
+const VIDEO_VIEW_KEY = 'liveRacing.videoView';
+const VIDEO_SYNC_KEY = 'liveRacing.syncMapToVideo';
+type VideoView = 'map' | 'video' | 'split';
 type Announcer = keyof typeof ANNOUNCER_KEYS;
 // A new clock offset this close to the last is noise (network timing), and the samples keep the old one
 const OFFSET_TOLERANCE_MS = 400;
@@ -351,15 +358,61 @@ export default function LiveRacing({
     };
   }, [t]);
 
+  // Live video (docs/live-video.md): the view (Track map, OBS live, Split view, kept in the browser and this viewer's
+  // own; it never changes what a TV shows) and, with Sync map to video on, the tracks drawn as far behind live as the
+  // video is. The announcers, radio and the Driver Inputs stay live
+  const video = useLiveRacingVideo();
+  const [view, setView] = useState<VideoView>('map');
+  const [syncMap, setSyncMap] = useState(false);
+  const [videoMuted, setVideoMuted] = useState(true);
+  const [videoMetrics, setVideoMetrics] = useState<PlayerMetrics | null>(null);
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(VIDEO_VIEW_KEY);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- read once from browser storage after hydration
+      if (saved === 'map' || saved === 'video' || saved === 'split') setView(saved);
+      setSyncMap(window.localStorage.getItem(VIDEO_SYNC_KEY) === '1');
+    } catch {
+      // storage blocked: the map, unsynchronized
+    }
+  }, []);
+  const changeView = (next: VideoView) => {
+    setView(next);
+    try {
+      window.localStorage.setItem(VIDEO_VIEW_KEY, next);
+    } catch {
+      // kept for this visit only
+    }
+  };
+  const changeSyncMap = (on: boolean) => {
+    setSyncMap(on);
+    try {
+      window.localStorage.setItem(VIDEO_SYNC_KEY, on ? '1' : '0');
+    } catch {
+      // kept for this visit only
+    }
+  };
+  const liveStreams = video.enabled ? video.streams : [];
+  const anyStreamLive = liveStreams.some((s) => s.status === 'LIVE');
+  const mapDelay = effectiveDelay({
+    syncEnabled: syncMap && view !== 'map' && anyStreamLive,
+    mode: video.settings.sync.mode,
+    manualOffsetMs: video.settings.sync.manualOffsetMs,
+    maxBufferMs: video.settings.sync.maxBufferMs,
+    measuredLatencyMs: videoMetrics?.measuredLatencyMs ?? null,
+    estimatedLatencyMs: videoMetrics?.latencyS != null ? videoMetrics.latencyS * 1000 : null,
+  });
+  const shownDrivers = useDelayedDrivers(drivers, mapDelay.delayMs);
+
   const groups = useMemo(() => {
     const byTrack = new Map<string, Received[]>();
-    for (const d of drivers ?? []) {
+    for (const d of shownDrivers ?? []) {
       const key = groupKey(d);
       byTrack.set(key, [...(byTrack.get(key) ?? []), d]);
     }
     // The user's own track first
     return [...byTrack.entries()].sort(([, a], [, b]) => Number(b.some((d) => d.isMe)) - Number(a.some((d) => d.isMe)));
-  }, [drivers]);
+  }, [shownDrivers]);
 
   // The focused driver: the one picked, else the user, else the first listed
   const focus = useMemo(() => {
@@ -576,11 +629,17 @@ export default function LiveRacing({
           color: colors.get(d.userId) ?? COLORS[0],
           pct: d.onTrack && !d.offline && d.pct != null ? d.pct : null,
           speed: d.speed ?? 0,
+          // Synchronized with the video: the pace the car really went to its next update
+          rate: (d as Received & { syncedRate?: number }).syncedRate ?? null,
           sampledAt: d.sampledAt,
           moving: d.onTrack && !d.offline,
           highlight: d.isMe,
           dim: !!d.onPitRoad,
         }));
+        // This track's OBS stream: a live one of a driver here, else any of theirs
+        const streamHere =
+          liveStreams.find((s) => s.status === 'LIVE' && group.some((d) => d.userId === s.ownerId)) ?? liveStreams.find((s) => group.some((d) => d.userId === s.ownerId)) ?? null;
+        const trackView: VideoView = streamHere ? view : 'map';
         // The other cars in their sessions, leaving out the watched drivers' own (drawn above)
         for (const session of sessions) {
           const ours = driversInSession(group, session);
@@ -617,7 +676,8 @@ export default function LiveRacing({
             />
           );
         };
-        const focusedHere = focused && group.includes(focused) ? focused : null;
+        // By account, as a track synchronized with the video lists the drivers as they were, not the live objects
+        const focusedHere = focused && group.some((d) => d.userId === focused.userId) ? focused : null;
         const wetHere = wetDriver(group);
         return (
           <div key={key} className="bg-card rounded-lg border border-border overflow-hidden">
@@ -651,7 +711,54 @@ export default function LiveRacing({
               </div>
               <div className="order-1 xl:order-2 min-w-0">
                 <div className="p-4">
-                  <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg">
+                  {streamHere && (
+                    <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2" data-testid="video-view-switch">
+                      <div role="radiogroup" aria-label={t.liveVideo.views.label} className="inline-flex rounded-md border border-border overflow-hidden text-xs">
+                        {(['map', 'video', 'split'] as const).map((option) => (
+                          <button
+                            key={option}
+                            type="button"
+                            role="radio"
+                            aria-checked={trackView === option}
+                            onClick={() => changeView(option)}
+                            data-track={`liveRacing.videoView.${option}`}
+                            className={`px-3 py-1.5 font-medium ${trackView === option ? 'bg-primary text-primary-foreground' : 'bg-card text-muted-foreground hover:bg-muted/40'}`}
+                          >
+                            {t.liveVideo.views[option]}
+                          </button>
+                        ))}
+                      </div>
+                      <span className={`text-xs font-semibold ${streamHere.status === 'LIVE' ? 'text-red-400' : 'text-muted-foreground'}`}>
+                        {streamHere.name} · {t.liveVideo.status[streamHere.status]}
+                      </span>
+                      {trackView !== 'map' && (
+                        <label className="flex items-center gap-2 text-xs text-muted-foreground" title={t.liveVideo.views.syncHint}>
+                          <input type="checkbox" checked={syncMap} onChange={(event) => changeSyncMap(event.target.checked)} className="accent-primary" />
+                          {t.liveVideo.views.syncMap}
+                          {syncMap && mapDelay.delayMs > 0 && (
+                            <span className="tabular-nums">
+                              ({fmt(t.liveVideo.views.syncDelay, { s: (mapDelay.delayMs / 1000).toFixed(1), basis: t.liveVideo.basis[mapDelay.basis] })})
+                            </span>
+                          )}
+                        </label>
+                      )}
+                    </div>
+                  )}
+                  <div className={trackView === 'split' ? 'grid gap-3 lg:grid-cols-2 lg:items-center' : ''}>
+                  {streamHere && trackView !== 'map' && (
+                    <LiveOBSPlayer
+                      src={streamHere.playback?.hls ?? null}
+                      sourceKey={streamHere.id}
+                      serverStatus={streamHere.status}
+                      muted={videoMuted}
+                      volume={video.settings.obsVolume / 100}
+                      clockOffset={video.clockOffset}
+                      onMutedChange={setVideoMuted}
+                      onMetrics={setVideoMetrics}
+                      className="rounded-lg"
+                    />
+                  )}
+                  <div className={`relative aspect-[4/3] w-full overflow-hidden rounded-lg ${trackView === 'video' ? 'hidden' : ''}`}>
                     {wetHere && (
                       <WeatherRadar
                         weather={wetHere.weather ?? null}
@@ -668,7 +775,8 @@ export default function LiveRacing({
                       imageryOpacity={imageryOpacity / 100}
                     />
                   </div>
-                  {track?.outline?.kind === 'latlon' && mapSettings?.available && (
+                  </div>
+                  {track?.outline?.kind === 'latlon' && mapSettings?.available && trackView !== 'video' && (
                     <label className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
                       {t.liveRacing.satellite}
                       <input

@@ -5,6 +5,7 @@ import { sessionFlag, type FlagKind, type FlagNote } from './raceFlags';
 import type { User } from './users';
 import type { DirectorSnapshot } from './videoDirector';
 import { directorSessionKey, observeDirector } from './videoDirectorRuntime';
+import { observeLiveVideo, type TvLiveVideo } from './liveVideo/broadcastSourceRuntime';
 
 // TV Broadcast Mode's picture of the race (src/app/tv/): what the TV shows, worked out here from the Live Racing
 // drivers the paired account may watch (readLiveDrivers, src/lib/liveRacing.ts), so the TV only draws it. Sent by
@@ -116,6 +117,9 @@ export type TvFocus = {
   // What the Broadcast Director is showing (src/lib/videoDirector.ts), the same for everyone watching this session; null
   // when it isn't running
   director: DirectorSnapshot | null;
+  // The live video (docs/live-video.md): the camera (track map or OBS) the Broadcast Source Manager chose for this
+  // session, the same for everyone watching it, and the OBS stream when there is one; null when live video is off
+  liveVideo: TvLiveVideo | null;
   // The Weather Center: the weather now (null from collectors before 1.54.0), the outlook for the next half hour
   // (src/lib/liveWeather.ts, projected from the trend over outlookMinutes, as iRacing shares no forecast; null for
   // static weather or before there's a trend)
@@ -284,7 +288,8 @@ function recentInputs(inputs: InputSample[] | null): InputSample[] | null {
 
 // The TV's picture for the account, following driverId when it may watch them, else the account's own driving, else
 // the first driver listed
-export async function readTvState(viewer: User, driverId: number | null): Promise<TvState> {
+// viewerKey names this TV among the live video's viewers
+export async function readTvState(viewer: User, driverId: number | null, viewerKey = `u${viewer.id}`): Promise<TvState> {
   const pick = (list: LiveDriver[]) =>
     list.find((d) => d.userId === driverId) ?? list.find((d) => d.isMe) ?? list.find((d) => !d.offline) ?? list[0] ?? null;
   // The inputs come only for the driver asked for: ask again when the one followed turns out to be someone else
@@ -315,6 +320,16 @@ export async function readTvState(viewer: User, driverId: number | null): Promis
       offline: focused.offline,
     }).catch((error) => {
       console.error('Broadcast Director error:', error);
+      return null;
+    });
+    // Like the clips, the race carries on whatever becomes of the live video
+    const liveVideo = await observeLiveVideo(viewer, viewerKey, {
+      key: directorSessionKey(sessionKey, focused.userId, focused.field?.subSessionId),
+      label: [focused.track, focused.sessionName ?? focused.sessionType].filter(Boolean).join(' · '),
+      driverId: focused.userId,
+      offline: focused.offline,
+    }).catch((error) => {
+      console.error('Live video error:', error);
       return null;
     });
     focus = {
@@ -359,6 +374,7 @@ export async function readTvState(viewer: User, driverId: number | null): Promis
       inputs: recentInputs(focused.inputs),
       inputsAgeMs: focused.ageMs,
       director,
+      liveVideo,
       weather: focused.weather ?? null,
       outlook: focused.weather ? weatherOutlook(focused.weather, focused.weatherTrend) : [],
       outlookMinutes: focused.weatherTrend?.minutes ?? null,

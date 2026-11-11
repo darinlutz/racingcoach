@@ -1,4 +1,5 @@
 import { query } from './db';
+import { readExpertLapStorage, type ExpertLapStorage } from './expertLaps';
 import { telemetryStorageMode, telemetryStore } from './telemetryStorage';
 import { estimateMonthlyR2Cost } from './telemetryStorageRules';
 import type { StorageRunKind } from './telemetryStorageMetrics';
@@ -42,6 +43,8 @@ export type TelemetryStorageReport = {
   counters: { metric: string; count: number; bytes: number }[];
   postgres: { databaseBytes: number; collectorLapsBytes: number; inlineBytes: number; reclaimableBytes: number };
   estimatedMonthlyCost: number;
+  // The Coach page's Expert Laps, kept in the same bucket (src/lib/expertLaps.ts)
+  expertLaps: ExpertLapStorage;
 };
 
 export async function readTelemetryStorageReport(): Promise<TelemetryStorageReport> {
@@ -120,7 +123,9 @@ export async function readTelemetryStorageReport(): Promise<TelemetryStorageRepo
   const n = (value: string | number | null | undefined) => Number(value ?? 0);
   const counted = (metric: string) => n(counters.find((row) => row.metric === metric)?.count);
   const objectBytes = n(objects.bytes);
+  const expertLaps = await readExpertLapStorage();
   return {
+    expertLaps,
     mode: telemetryStorageMode(),
     configured: store !== null,
     bucket: store?.bucket ?? null,

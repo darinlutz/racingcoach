@@ -28,6 +28,15 @@ describe('object keys', () => {
     assert.equal(rules.lapObjectKey({ simulator: 'acc', userId: 1, clientLapId: LAP, sha256: SHA }).split('/')[1], 'acc');
   });
 
+  test('an Expert Lap key is its checksum alone, outside telemetry/', () => {
+    assert.equal(rules.expertLapObjectKey(SHA), `expert-laps/${SHA}.csv.gz`);
+    assert.ok(!rules.expertLapObjectKey(SHA).startsWith(rules.TELEMETRY_PREFIX), 'the reconciliation never lists it');
+    assert.ok(rules.isExpertLapObjectKey(rules.expertLapObjectKey(SHA)));
+    assert.ok(!rules.isExpertLapObjectKey(`telemetry/iracing/u7/${LAP}/${SHA}.csv.gz`));
+    assert.equal(rules.parseLapObjectKey(rules.expertLapObjectKey(SHA)), null);
+    for (const bad of ['../x', SHA.toUpperCase(), `${SHA}/..`, '']) assert.throws(() => rules.expertLapObjectKey(bad));
+  });
+
   test('anything that could leave the user prefix is refused', () => {
     const bad = [
       { simulator: '../x', userId: 7, clientLapId: LAP, sha256: SHA },

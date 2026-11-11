@@ -1,6 +1,6 @@
 import { query, withClient } from './db';
 import { deleteLapObject, listLapObjects, telemetryStore } from './telemetryStorage';
-import { cleanupRetryDelayMs, STORAGE_PROVIDERS, STORAGE_STATUS, TELEMETRY_PREFIX } from './telemetryStorageRules';
+import { cleanupRetryDelayMs, isExpertLapObjectKey, STORAGE_PROVIDERS, STORAGE_STATUS, TELEMETRY_PREFIX } from './telemetryStorageRules';
 import { PENDING_GRACE_SQL } from './telemetryStorageSchema';
 import { errorMessage, finishStorageRun, pruneStorageBookkeeping, startStorageRun, type StorageRunCounts } from './telemetryStorageMetrics';
 import { ensureUserSchema } from './users';
@@ -35,10 +35,13 @@ async function withLock<T>(lock: string, fn: () => Promise<T>): Promise<T | null
   });
 }
 
+// An Expert Lap's object is referenced by "ExpertLaps" (which exists, as its trigger queued the key), a lap's by
+// "CollectorLaps"
 const referenced = async (bucket: string, key: string) =>
   (
     await query<{ used: boolean }>(
-      'SELECT EXISTS (SELECT 1 FROM racingcoach."CollectorLaps" WHERE storage_bucket = $1 AND storage_key = $2) AS used',
+      `SELECT EXISTS (SELECT 1 FROM racingcoach."${isExpertLapObjectKey(key) ? 'ExpertLaps' : 'CollectorLaps'}"
+                      WHERE storage_bucket = $1 AND storage_key = $2) AS used`,
       [bucket, key]
     )
   )[0].used;

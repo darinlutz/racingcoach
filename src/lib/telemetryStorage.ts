@@ -300,28 +300,22 @@ export const MAX_LAP_OBJECT_BYTES = 10 * 1024 * 1024;
 export type StoredLapObject = { provider: string; bucket: string; key: string; storedBytes: number; sha256: string };
 
 // Writes a lap's compressed CSV and checks the store has it at the right size. Throws on any failure; the caller's
-// pending cleanup entry takes care of whatever may have been written.
+// pending cleanup entry takes care of whatever may have been written. An uploaded lap has its user, lap ID and
+// simulator in the object's metadata; an Expert Lap (kind expertLap) belongs to no user
 export async function putLapObject(
   key: string,
   gzip: Buffer,
-  details: { sha256?: string; csvBytes: number; userId: number; clientLapId: string; simulator: string }
+  details: { sha256?: string; csvBytes: number; userId?: number; clientLapId?: string; simulator?: string; kind?: 'expertLap' }
 ): Promise<StoredLapObject> {
   const store = requireStore();
   const sha256 = details.sha256 ?? sha256Hex(gzip);
+  const metadata: Record<string, string> = { sha256, 'csv-bytes': String(details.csvBytes), compression: LAP_COMPRESSION };
+  if (details.userId != null) metadata['user-id'] = String(details.userId);
+  if (details.clientLapId) metadata['client-lap-id'] = details.clientLapId;
+  if (details.simulator) metadata.simulator = details.simulator;
+  if (details.kind) metadata.kind = details.kind;
   try {
-    await limited(() =>
-      store.putObject(key, gzip, {
-        contentType: LAP_CONTENT_TYPE,
-        metadata: {
-          sha256,
-          'csv-bytes': String(details.csvBytes),
-          'user-id': String(details.userId),
-          'client-lap-id': details.clientLapId,
-          simulator: details.simulator,
-          compression: LAP_COMPRESSION,
-        },
-      })
-    );
+    await limited(() => store.putObject(key, gzip, { contentType: LAP_CONTENT_TYPE, metadata }));
     const head = await limited(() => store.headObject(key));
     if (!head || head.size !== gzip.length) {
       throw new Error(`Stored object ${head ? `is ${head.size} bytes, expected ${gzip.length}` : 'is missing after upload'}`);

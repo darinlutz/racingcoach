@@ -18,7 +18,18 @@ const primaryClass = 'px-4 py-2 rounded-lg text-sm font-semibold text-white bg-p
 const dangerClass = 'px-4 py-2 rounded-lg text-sm font-semibold text-white bg-red-600 hover:bg-red-700 transition-colors disabled:opacity-50';
 const POLL_MS = 3000;
 
-type Action = 'backfill' | 'verify' | 'cleanup' | 'reconcile' | 'purgeLegacy' | 'stop' | 'switchReads' | 'rollbackReads' | 'vacuum';
+type Action =
+  | 'backfill'
+  | 'verify'
+  | 'cleanup'
+  | 'reconcile'
+  | 'purgeLegacy'
+  | 'stop'
+  | 'switchReads'
+  | 'rollbackReads'
+  | 'vacuum'
+  | 'expertLapsToR2'
+  | 'expertLapsToPostgres';
 
 export default function TelemetryStorageManager({ timeZone }: { timeZone: string }) {
   const { t, fmt, locale, number } = useLanguage();
@@ -60,6 +71,7 @@ export default function TelemetryStorageManager({ timeZone }: { timeZone: string
   const run = async (action: Action, extra: Record<string, unknown> = {}) => {
     if (action === 'switchReads' && !window.confirm(s.switchConfirm)) return;
     if (action === 'rollbackReads' && !window.confirm(s.rollbackConfirm)) return;
+    if (action === 'expertLapsToPostgres' && !window.confirm(s.expertLapsToPostgresConfirm)) return;
     setBusy(true);
     setMessage('');
     try {
@@ -75,6 +87,12 @@ export default function TelemetryStorageManager({ timeZone }: { timeZone: string
         setMessage(fmt(s.switchedResult, { count: data.switched }));
       } else if (action === 'rollbackReads') {
         setMessage(fmt(s.rolledBackResult, { count: data.rolledBack }));
+      } else if (action === 'expertLapsToR2' || action === 'expertLapsToPostgres') {
+        const moved = data.expertLaps;
+        setMessage(
+          fmt(s.expertLapsResult, { moved: moved?.moved ?? 0, failed: moved?.failed ?? 0 }) +
+            (moved?.errors?.length ? ` ${moved.errors.map((e: { id: number; error: string }) => `#${e.id}: ${e.error}`).join('; ')}` : '')
+        );
       } else if (action === 'vacuum') {
         setMessage(s.vacuumed);
       } else if (action === 'purgeLegacy') {
@@ -204,6 +222,23 @@ export default function TelemetryStorageManager({ timeZone }: { timeZone: string
             </button>
           )}
         </div>
+        {report && (
+          <div className="space-y-2 pt-2">
+            <h3 className="font-semibold text-foreground">{s.expertLapsTitle}</h3>
+            <div className="grid gap-3 grid-cols-2">
+              <Stat label={s.expertLapsInline} value={`${number(report.expertLaps.inline)} (${bytes(report.expertLaps.inlineBytes)})`} />
+              <Stat label={s.expertLapsStored} value={`${number(report.expertLaps.stored)} (${bytes(report.expertLaps.storedBytes)})`} />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" className={buttonClass} disabled={busy || running || report.expertLaps.inline === 0} onClick={() => void run('expertLapsToR2')}>
+                {s.expertLapsToR2}
+              </button>
+              <button type="button" className={buttonClass} disabled={busy || running || report.expertLaps.stored === 0} onClick={() => void run('expertLapsToPostgres')}>
+                {s.expertLapsToPostgres}
+              </button>
+            </div>
+          </div>
+        )}
         {taskLine && <p className={`text-sm ${task?.error ? 'text-red-500' : 'text-muted-foreground'}`}>{taskLine}</p>}
         {message && <p className="text-sm text-foreground">{message}</p>}
       </div>

@@ -70,14 +70,23 @@ const STATEMENTS: Record<ErasableCategory, string[]> = {
   aiUsage: [`DELETE FROM racingcoach."AiUsage" WHERE user_id = $1 AND ($2::timestamptz IS NULL OR occurred_at <= $2)`],
 };
 
+// The Target Lap's columns are added by src/lib/targetLap.ts on first use, so they may not be there. A Target Lap in the
+// telemetry bucket loses its key too, and the trigger on "Users" queues its object for deletion
 async function targetLapStatements(client: Queryable): Promise<string[]> {
-  const { rows } = await client.query(
-    `SELECT 1 FROM information_schema.columns WHERE table_schema = 'racingcoach' AND table_name = 'Users' AND column_name = 'TargetLap'`
+  const { rows } = await client.query<{ column_name: string }>(
+    `SELECT column_name FROM information_schema.columns WHERE table_schema = 'racingcoach' AND table_name = 'Users'
+       AND column_name IN ('TargetLap', 'TargetLapStorageKey')`
   );
-  if (!rows[0]) return [];
+  const columns = new Set(rows.map((row) => row.column_name));
+  if (!columns.has('TargetLap')) return [];
+  const storage = columns.has('TargetLapStorageKey')
+    ? `, "TargetLapStorageProvider" = 'postgres', "TargetLapStorageBucket" = NULL, "TargetLapStorageKey" = NULL,
+         "TargetLapStoredBytes" = NULL, "TargetLapChecksum" = NULL`
+    : '';
+  const has = columns.has('TargetLapStorageKey') ? '("TargetLap" IS NOT NULL OR "TargetLapStorageKey" IS NOT NULL)' : '"TargetLap" IS NOT NULL';
   return [
-    `UPDATE racingcoach."Users" SET "TargetLap" = NULL, "TargetLapFileName" = NULL, "TargetLapSetAt" = NULL
-     WHERE id = $1 AND ($2::timestamptz IS NULL OR "TargetLapSetAt" <= $2)`,
+    `UPDATE racingcoach."Users" SET "TargetLap" = NULL, "TargetLapFileName" = NULL, "TargetLapSetAt" = NULL${storage}
+     WHERE id = $1 AND ${has} AND ($2::timestamptz IS NULL OR "TargetLapSetAt" <= $2)`,
   ];
 }
 

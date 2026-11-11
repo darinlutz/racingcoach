@@ -11,13 +11,13 @@ import { createReadStream } from 'node:fs';
 import { readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { gunzipSync } from 'node:zlib';
 import { readOwnLapCsvBytes } from './collectorLaps';
 import { toCsv } from './csvExport';
 import { query } from './db';
 import { deleteVideoObject, readObjectStream, uploadVideoObject, videoStorageConfigured } from './objectStorage';
 import { ARTICLE_15_NOTES, LEGAL_BASIS_TEXT, PERSONAL_DATA_INVENTORY, type InventoryCategory } from './personalDataInventory';
 import { EXPORT_TTL_HOURS, type ExportKind } from './privacyRules';
+import { ensureTargetLapSchema, HAS_TARGET_LAP_SQL, readTargetLapForExport } from './targetLap';
 import { ensureUserSchema } from './users';
 import { ZipWriter } from './zipWriter';
 
@@ -29,14 +29,6 @@ const json = (value: unknown) => JSON.stringify(value, null, 2) + '\n';
 const inventory = (key: string) => PERSONAL_DATA_INVENTORY.find((c) => c.key === key)!;
 
 const included = (category: InventoryCategory, kind: ExportKind) => (kind === 'access' ? category.access : category.portable);
-
-async function hasColumn(table: string, column: string): Promise<boolean> {
-  const rows = await query(
-    `SELECT 1 FROM information_schema.columns WHERE table_schema = 'racingcoach' AND table_name = $1 AND column_name = $2`,
-    [table, column]
-  );
-  return rows.length > 0;
-}
 
 function readme(kind: ExportKind, generatedAt: Date, categories: InventoryCategory[]): string {
   const lines = [
@@ -169,14 +161,12 @@ export async function writeExportZip(userId: number, kind: ExportKind, path: str
       await add('coaching/lap_summaries.json', 'debriefs', json(summaries), summaries.length);
     }
 
-    if (want('targetLap') && (await hasColumn('Users', 'TargetLap'))) {
-      const [target] = await query(
-        'SELECT "TargetLap" AS csv, "TargetLapFileName" AS file_name, "TargetLapSetAt" AS set_at FROM racingcoach."Users" WHERE id = $1',
-        [userId]
-      );
-      if (target?.csv) {
-        await add('coaching/target_lap.json', 'targetLap', json({ fileName: target.file_name, setAt: target.set_at }));
-        await add('coaching/target_lap.csv', 'targetLap', gunzipSync(target.csv as Buffer));
+    if (want('targetLap')) {
+      // From PostgreSQL or the telemetry bucket, wherever it's kept
+      const target = await readTargetLapForExport(userId);
+      if (target) {
+        await add('coaching/target_lap.json', 'targetLap', json({ fileName: target.fileName, setAt: target.setAt }));
+        await add('coaching/target_lap.csv', 'targetLap', target.csv);
       }
     }
 
@@ -467,9 +457,8 @@ export async function expireExports(): Promise<number> {
 // How much of each Request Data Deletion category the account has, for Privacy & Data Rights (one query)
 export async function countPersonalData(userId: number): Promise<Record<string, number>> {
   await ensureUserSchema();
-  const targetLap = (await hasColumn('Users', 'TargetLap'))
-    ? `(SELECT count(*) FROM racingcoach."Users" WHERE id = $1 AND "TargetLap" IS NOT NULL)`
-    : '0';
+  await ensureTargetLapSchema();
+  const targetLap = `(SELECT count(*) FROM racingcoach."Users" WHERE id = $1 AND ${HAS_TARGET_LAP_SQL})`;
   const [row] = await query(
     `SELECT
        (SELECT count(*) FROM racingcoach."CollectorLaps" WHERE user_id = $1 AND expires_at > now())::int AS laps,

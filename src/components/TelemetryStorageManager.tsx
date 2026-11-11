@@ -29,7 +29,9 @@ type Action =
   | 'rollbackReads'
   | 'vacuum'
   | 'expertLapsToR2'
-  | 'expertLapsToPostgres';
+  | 'expertLapsToPostgres'
+  | 'targetLapsToR2'
+  | 'targetLapsToPostgres';
 
 export default function TelemetryStorageManager({ timeZone }: { timeZone: string }) {
   const { t, fmt, locale, number } = useLanguage();
@@ -72,6 +74,7 @@ export default function TelemetryStorageManager({ timeZone }: { timeZone: string
     if (action === 'switchReads' && !window.confirm(s.switchConfirm)) return;
     if (action === 'rollbackReads' && !window.confirm(s.rollbackConfirm)) return;
     if (action === 'expertLapsToPostgres' && !window.confirm(s.expertLapsToPostgresConfirm)) return;
+    if (action === 'targetLapsToPostgres' && !window.confirm(s.targetLapsToPostgresConfirm)) return;
     setBusy(true);
     setMessage('');
     try {
@@ -87,10 +90,10 @@ export default function TelemetryStorageManager({ timeZone }: { timeZone: string
         setMessage(fmt(s.switchedResult, { count: data.switched }));
       } else if (action === 'rollbackReads') {
         setMessage(fmt(s.rolledBackResult, { count: data.rolledBack }));
-      } else if (action === 'expertLapsToR2' || action === 'expertLapsToPostgres') {
-        const moved = data.expertLaps;
+      } else if (['expertLapsToR2', 'expertLapsToPostgres', 'targetLapsToR2', 'targetLapsToPostgres'].includes(action)) {
+        const moved = data.moved;
         setMessage(
-          fmt(s.expertLapsResult, { moved: moved?.moved ?? 0, failed: moved?.failed ?? 0 }) +
+          fmt(action.startsWith('target') ? s.targetLapsResult : s.expertLapsResult, { moved: moved?.moved ?? 0, failed: moved?.failed ?? 0 }) +
             (moved?.errors?.length ? ` ${moved.errors.map((e: { id: number; error: string }) => `#${e.id}: ${e.error}`).join('; ')}` : '')
         );
       } else if (action === 'vacuum') {
@@ -222,23 +225,30 @@ export default function TelemetryStorageManager({ timeZone }: { timeZone: string
             </button>
           )}
         </div>
-        {report && (
-          <div className="space-y-2 pt-2">
-            <h3 className="font-semibold text-foreground">{s.expertLapsTitle}</h3>
-            <div className="grid gap-3 grid-cols-2">
-              <Stat label={s.expertLapsInline} value={`${number(report.expertLaps.inline)} (${bytes(report.expertLaps.inlineBytes)})`} />
-              <Stat label={s.expertLapsStored} value={`${number(report.expertLaps.stored)} (${bytes(report.expertLaps.storedBytes)})`} />
+        {/* Expert Laps and Target Laps, kept in the same bucket */}
+        {report &&
+          (
+            [
+              { title: s.expertLapsTitle, counts: report.expertLaps, toR2: 'expertLapsToR2', toPostgres: 'expertLapsToPostgres', toR2Label: s.expertLapsToR2, toPostgresLabel: s.expertLapsToPostgres },
+              { title: s.targetLapsTitle, counts: report.targetLaps, toR2: 'targetLapsToR2', toPostgres: 'targetLapsToPostgres', toR2Label: s.targetLapsToR2, toPostgresLabel: s.targetLapsToPostgres },
+            ] as const
+          ).map((block) => (
+            <div key={block.toR2} className="space-y-2 pt-2">
+              <h3 className="font-semibold text-foreground">{block.title}</h3>
+              <div className="grid gap-3 grid-cols-2">
+                <Stat label={s.expertLapsInline} value={`${number(block.counts.inline)} (${bytes(block.counts.inlineBytes)})`} />
+                <Stat label={s.expertLapsStored} value={`${number(block.counts.stored)} (${bytes(block.counts.storedBytes)})`} />
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" className={buttonClass} disabled={busy || running || block.counts.inline === 0} onClick={() => void run(block.toR2)}>
+                  {block.toR2Label}
+                </button>
+                <button type="button" className={buttonClass} disabled={busy || running || block.counts.stored === 0} onClick={() => void run(block.toPostgres)}>
+                  {block.toPostgresLabel}
+                </button>
+              </div>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <button type="button" className={buttonClass} disabled={busy || running || report.expertLaps.inline === 0} onClick={() => void run('expertLapsToR2')}>
-                {s.expertLapsToR2}
-              </button>
-              <button type="button" className={buttonClass} disabled={busy || running || report.expertLaps.stored === 0} onClick={() => void run('expertLapsToPostgres')}>
-                {s.expertLapsToPostgres}
-              </button>
-            </div>
-          </div>
-        )}
+          ))}
         {taskLine && <p className={`text-sm ${task?.error ? 'text-red-500' : 'text-muted-foreground'}`}>{taskLine}</p>}
         {message && <p className="text-sm text-foreground">{message}</p>}
       </div>

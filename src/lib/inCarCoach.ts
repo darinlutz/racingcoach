@@ -12,14 +12,13 @@ import { englishWords, hasEnglish } from './i18n/englishWords';
 import { aiLanguageFeedback, aiLanguageRule, DEFAULT_LANGUAGE, type Language } from './i18n/languages';
 import { getDictionary } from './i18n/server';
 import { LAP_TIME_RULE } from './lapData';
-import { coachInstructionsRule, getHeadCoachInCarInstructions } from './siteSettings';
+import { ENGINEERING_KNOWLEDGE_RULE, LIVE_COACHING_METHOD, repeatsAny } from './coachingGuidance';
 import { formatSeconds } from './stintExport';
 import { chatModel, getAiModel, structured, withFallbackModel } from '@/lib/aiModels';
 
 // The In-Car AI Coach: the telemetry collector's coach while the driver is on track. Each user writes their own
-// In-Car AI Coach Instructions on the Account page ("Users".in_car_coach_instructions), on top of the head
-// coach's AI Coach Instructions that every AI feature follows and the head coach's In-Car AI Coach Instructions
-// from the Coach page (getHeadCoachInCarInstructions) that every driver's In-Car AI Coach follows. It works in two parts:
+// In-Car AI Coach Instructions on the Account page ("Users".in_car_coach_instructions), on top of the built-in
+// coaching method (src/lib/coachingGuidance.ts). It works in two parts:
 //   - Plan (inCarCoachPlan): at the start of a session the collector fetches the instructions turned into rules
 //     it runs itself on live telemetry (e.g. play a sound at the start/finish line), and how to deliver what the
 //     coach says. No laps needed; no AI call without instructions. Every plan also says each lap time and New
@@ -132,30 +131,7 @@ const calloutsSchema = z.object({
 export type Callout = z.infer<typeof calloutsSchema>['callouts'][number];
 const MAX_CALLOUTS = 1; // the coach talks once per lap; the model gives 2, the second a spare in case one is dropped
 
-// The Coach page's In-Car AI Coach Instructions, for every driver; a failed read only loses them, not the coaching
-export async function readHeadCoachInCarInstructions(): Promise<string> {
-  try {
-    return (await getHeadCoachInCarInstructions()).trim();
-  } catch (error) {
-    console.error("Failed to read the head coach's In-Car AI Coach Instructions:", error);
-    return '';
-  }
-}
-
-const headCoachInCarBlock = (instructions: string) =>
-  instructions ? `<head_coach_in_car_instructions>\n${instructions}\n</head_coach_in_car_instructions>` : '';
-
-// The head coach's In-Car AI Coach Instructions, for every driver's In-Car AI Coach, before the driver's own
-export function headCoachInCarRule(instructions: string): string {
-  if (!instructions) return '';
-  return (
-    '\n\nThe head coach has given these instructions for every driver\'s In-Car AI Coach. Follow them, unless the ' +
-    "driver's own instructions below say otherwise or one needs data you do not have; never invent data.\n" +
-    headCoachInCarBlock(instructions)
-  );
-}
-
-// The driver's own instructions, after the head coach's: the driver's say what this coach does in their car
+// The driver's own instructions: they say what this coach does in their car
 export function driverInstructionsRule(instructions: string): string {
   if (!instructions.trim()) return '';
   return (
@@ -173,8 +149,7 @@ const PLAN_PROMPT =
   'coaching advice, analysis and things to avoid are not rules (they steer the lap feedback, which follows the ' +
   'same instructions). When an instruction asks for something the coach cannot detect or do, leave it out. Keep ' +
   'rule texts short and write them in the language below, with names spelled normally: when the instructions ' +
-  'say how a name is pronounced, list it in pronunciations, and the voice will say it that way. The head coach\'s instructions, when given, apply to ' +
-  'every driver; the driver\'s own instructions come after them and win where the two disagree.';
+  'say how a name is pronounced, list it in pronunciations, and the voice will say it that way.';
 
 // Rule texts are spoken and shown as they are, so any distance or speed in them is in the user's units, and no
 // distance in them is a place on the track
@@ -196,8 +171,7 @@ export async function inCarCoachPlan(
   language: Language = DEFAULT_LANGUAGE,
   units: Units = DEFAULT_UNITS
 ): Promise<InCarCoachPlan> {
-  const headCoach = await readHeadCoachInCarInstructions();
-  if (!instructions.trim() && !headCoach) return withBuiltInRules(DEFAULT_PLAN, language);
+  if (!instructions.trim()) return withBuiltInRules(DEFAULT_PLAN, language);
   if (!process.env.OPENAI_API_KEY) {
     throw new Error('OPENAI_API_KEY is not configured');
   }
@@ -205,15 +179,14 @@ export async function inCarCoachPlan(
   // Keyed by model too, so a model picked on the Admin page takes effect at once
   const model = await getAiModel('inCarCoachPlan');
   const key = createHash('sha256')
-    .update(JSON.stringify([headCoach, instructions.trim(), areaNames, language, units, model]))
+    .update(JSON.stringify([instructions.trim(), areaNames, language, units, model]))
     .digest('hex');
   const cached = planCache.get(key);
   if (cached) return withBuiltInRules(cached, language);
 
   const content =
     `Focus areas on this track: ${areaNames.length > 0 ? areaNames.join(', ') : 'none (no areaEntry or areaExit rules)'}.\n` +
-    (headCoach ? `${headCoachInCarBlock(headCoach)}\n` : '') +
-    (instructions.trim() ? `<driver_instructions>\n${instructions.trim()}\n</driver_instructions>` : '');
+    `<driver_instructions>\n${instructions.trim()}\n</driver_instructions>`;
   // Rule texts are spoken and shown as they are, so a plan for a user of another language with English in them gets
   // one rewrite, and a rule whose text still has English is left out (cleanPlan)
   const check = await languageCheck(language, areaNames);
@@ -290,9 +263,10 @@ const calloutPrompt = (units: Units) =>
   'lap to lap: prefer a focus area or change you have not mentioned recently, tell the driver how the newest lap ' +
   'went on something you said before (better or worse, with its number), or give the next most useful change. ' +
   'Only repeat earlier advice word for word when nothing else in the data is worth saying. ' +
-  'When the data shows the car misbehaving in a focus area (e.g. steering held long with the speed down, the ' +
-  'throttle picked up and dropped again), you may call get_engineering_knowledge at most once to choose the right ' +
-  'driving correction; a callout is always a driving change, never a setup change. ' +
+  'Before you write the callouts, call get_engineering_knowledge once for the focus area and problem your first ' +
+  'callout is about (e.g. steering held long with the speed down, the throttle picked up and dropped again, a late ' +
+  'hard brake release), and choose the driving correction from it; a callout is always a driving change, never a ' +
+  'setup change. ' +
   'Use the numbers from the data, never ' +
   'invent data, talk to the driver as "you", and use plain text with no markdown.' +
   LAP_TIME_RULE +
@@ -373,8 +347,8 @@ export async function inCarCoachCallouts(input: {
     : [];
   const systemPrompt =
     calloutPrompt(units) +
-    (await coachInstructionsRule()) +
-    headCoachInCarRule(await readHeadCoachInCarInstructions()) +
+    LIVE_COACHING_METHOD +
+    (hasAreas ? ENGINEERING_KNOWLEDGE_RULE : '') +
     driverInstructionsRule(input.instructions) +
     aiLanguageRule(input.language ?? DEFAULT_LANGUAGE);
 
@@ -403,7 +377,7 @@ export async function inCarCoachCallouts(input: {
 
   const result = await withFallbackModel('inCarCoachCallouts', COACH_TIMES, async (aiModel, signal) => {
     const agent = createAgent({
-      model: await chatModel('inCarCoachCallouts', 0.2, aiModel),
+      model: await chatModel('inCarCoachCallouts', 0.5, aiModel),
       tools,
       systemPrompt,
       responseFormat: calloutsSchema,
@@ -427,7 +401,9 @@ export async function inCarCoachCallouts(input: {
         !hasTrackPosition(c.text) &&
         !givesLineAdvice(c.text) &&
         !(coldTires && brakesLaterOnColdTires(c.text)) &&
-        !(check && hasEnglish(c.text, check.language, check.names))
+        !(check && hasEnglish(c.text, check.language, check.names)) &&
+        // much the same as something said in the last few laps: the spare, or nothing, is said instead
+        !repeatsAny(c.text, input.recentCallouts)
     )
     .slice(0, MAX_CALLOUTS)
     .map((c) => ({ text: withKmh(c.text.trim()), sound: c.sound ?? null }));

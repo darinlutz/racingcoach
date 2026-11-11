@@ -7,11 +7,11 @@ import { engineeringKnowledgeTool } from './engineering/knowledgeTool';
 import { assessWeather, weatherFacts, type WeatherContext } from './engineering/weatherContext';
 import { describeAreaTurns } from './focusAreaTurns';
 import { aiLanguageRule, DEFAULT_LANGUAGE, type Language } from './i18n/languages';
-import { driverInstructionsRule, headCoachInCarRule, readHeadCoachInCarInstructions } from './inCarCoach';
+import { driverInstructionsRule } from './inCarCoach';
 import { LAP_TIME_RULE } from './lapData';
 import type { EngineerSnapshot, FieldCar, NumberedRaceEvent } from './liveRacing';
 import { sessionFlag } from './raceFlags';
-import { coachInstructionsRule } from './siteSettings';
+import { ENGINEERING_KNOWLEDGE_RULE, LIVE_COACHING_METHOD, repeatsAny, VARIETY_FEEDBACK, varietyRule } from './coachingGuidance';
 import { formatSeconds } from './stintExport';
 import { tireWarmupFact } from './tireWarmup';
 import { TRACK_POSITION_RULE } from './trackPositions';
@@ -76,9 +76,10 @@ const enginePrompt = (units: Units, hasTools: boolean) =>
       ' Do not call tools for questions the live facts answer (gaps, position, fuel, laps left). '
     : TRACK_POSITION_RULE + ' ') +
   'For a question about driving technique or why the car does something that is not a setup question (e.g. "how ' +
-  'do I trail brake", "why do I lose the rear on the kerbs"), you may call get_engineering_knowledge once and answer ' +
-  'with the driving correction it gives, in your own short words; never turn it into a setup change, and never say ' +
-  'something happened that the live facts or the laps do not show. ' +
+  'do I trail brake", "why do I lose the rear on the kerbs", "the car will not turn in"), and for any advice on ' +
+  'where they lose time, call get_engineering_knowledge once and answer with the driving correction it gives, in ' +
+  'your own short words; never turn it into a setup change, and never say something happened that the live facts ' +
+  'or the laps do not show. ' +
   'Name focus areas by their names, never by a distance from the start/finish line. ' +
   LAP_TIME_RULE +
   ' Your answer is spoken, though, so round every time difference to the nearest tenth of a second and write it ' +
@@ -288,6 +289,8 @@ export async function raceEngineerReply(input: {
   if (!process.env.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY is not configured');
   const units = input.units ?? DEFAULT_UNITS;
   const measured = input.measured;
+  // What the engineers already said on the radio, not to be said again the same way
+  const ownReplies = (input.snapshot?.radio ?? []).filter((r) => r.from === 'engineer').map((r) => r.text).slice(-4);
   const hasAreas = !!measured?.session && measured.session.areas.some((area) => area.runs.length > 0);
   // The Race Engineering knowledge base, for questions about driving technique and why the car behaves as it does
   // (src/lib/engineering/knowledgeTool.ts); setup questions still go to the Setup Engineer
@@ -306,7 +309,7 @@ export async function raceEngineerReply(input: {
       : []),
   ];
   const agent = createAgent({
-    model: await chatModel('raceEngineer', 0.3),
+    model: await chatModel('raceEngineer', 0.6),
     tools,
     systemPrompt:
       enginePrompt(units, hasAreas) +
@@ -316,8 +319,13 @@ export async function raceEngineerReply(input: {
           'facts, the laps uploaded this session and what any race engineer knows. Only when you really do not have ' +
           `the information they asked for, reply exactly: "${input.notKnownInGarage ?? "I don't have that information yet. Head out onto the track."}"`
         : '') +
-      (await coachInstructionsRule()) +
-      headCoachInCarRule(await readHeadCoachInCarInstructions()) +
+      (hasAreas ? LIVE_COACHING_METHOD : '') +
+      (car ? ENGINEERING_KNOWLEDGE_RULE : '') +
+      varietyRule(
+        ownReplies,
+        'You said this to the driver on the radio in the last few minutes. When they ask the same thing again, give the ' +
+          'new number or what has changed, in new words.'
+      ) +
       driverInstructionsRule(input.instructions) +
       aiLanguageRule(input.language ?? DEFAULT_LANGUAGE),
     responseFormat: replySchema,
@@ -369,12 +377,22 @@ export async function raceEngineerReply(input: {
       ...namesIn(input.snapshot),
       ...(measured?.session?.areas.map((area) => area.name) ?? []),
     ]);
+    let answer = first.response.reply.trim();
+    // Much the same as something said a moment ago: one rewrite in other words
+    if (repeatsAny(answer, ownReplies)) {
+      const again = await ask([
+        { role: 'user', content },
+        { role: 'assistant', content: answer },
+        { role: 'user', content: VARIETY_FEEDBACK },
+      ]).catch(() => null);
+      if (again?.response.needsReply && again.response.reply.trim()) answer = again.response.reply.trim();
+    }
     const reply = await checkedAnswer(
-      first.response.reply.trim(),
+      answer,
       async (feedback) => {
         const again = await ask([
           { role: 'user', content },
-          { role: 'assistant', content: first.response.reply },
+          { role: 'assistant', content: answer },
           { role: 'user', content: feedback },
         ]);
         return again.response.reply;

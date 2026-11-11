@@ -6,11 +6,14 @@ import { brakeChangeRule } from './debriefCoach';
 import { aiLanguageRule, DEFAULT_LANGUAGE, type Language } from './i18n/languages';
 import { LAP_TIME_RULE } from './lapData';
 import type { LapDrivingLine } from './lapDrivingLine';
-import { coachInstructionsRule } from './siteSettings';
+import { LAP_ANALYSIS_METHOD, varietyRule } from './coachingGuidance';
 import { TRACK_POSITION_RULE } from './trackPositions';
 import { checkedAnswer, languageCheck, type LanguageCheck } from './answerChecks';
 import { DEFAULT_UNITS, DISTANCE_NAME, DISTANCE_UNIT, distanceFromMeters, roundLineOffset, SPEED_UNIT, type Units } from './units';
 import { chatModel } from '@/lib/aiModels';
+
+// The variety rule's words for the driver's earlier summaries (src/lib/coachingGuidance.ts)
+const RECENT_SUMMARIES = 'You wrote these summaries for this driver at this track recently.';
 
 // How the prompts name the user's units: the data they're sent is already in them
 function unitWords(units: Units) {
@@ -144,16 +147,19 @@ export async function summarizeLapComparison(
   language: Language = DEFAULT_LANGUAGE,
   units: Units = DEFAULT_UNITS,
   lines: LapDrivingLine[] = [],
-  areaNames: string[] = lines.map((l) => l.area)
+  areaNames: string[] = lines.map((l) => l.area),
+  // The driver's latest summaries of this kind at this track (lapSummaryHistory.ts), not to be written the same way
+  recent: string[] = []
 ): Promise<string> {
   if (!process.env.OPENAI_API_KEY) {
     throw new Error('OPENAI_API_KEY is not configured');
   }
 
   const agent = createAgent({
-    model: await chatModel('lapSummary', 0.3),
+    model: await chatModel('lapSummary', 0.5),
     tools: [analyzeDrivingLineTool(lines, areaNames, units)],
-    systemPrompt: lapSummaryPrompt(track, units) + LAP_TIME_RULE + (await coachInstructionsRule()) + aiLanguageRule(language),
+    systemPrompt:
+      lapSummaryPrompt(track, units) + LAP_TIME_RULE + LAP_ANALYSIS_METHOD + varietyRule(recent, RECENT_SUMMARIES) + aiLanguageRule(language),
     responseFormat: lapSummarySchema,
   });
   const result = await agent.invoke({ messages: [{ role: 'user', content: comparison }] }, { recursionLimit: 20 });
@@ -193,18 +199,19 @@ export async function summarizeMultiLap(
   stats: string,
   track: string,
   language: Language = DEFAULT_LANGUAGE,
-  units: Units = DEFAULT_UNITS
+  units: Units = DEFAULT_UNITS,
+  recent: string[] = []
 ): Promise<string> {
   if (!process.env.OPENAI_API_KEY) {
     throw new Error('OPENAI_API_KEY is not configured');
   }
 
-  const model = await chatModel('multiLapSummary', 0.3);
+  const model = await chatModel('multiLapSummary', 0.5);
   return invokeChecked(MULTI_LAP_PROMPT_TEMPLATE, model, await languageCheck(language, [track]), {
     stats,
     track,
     ...unitWords(units),
-    rules: ' ' + brakeChangeRule(units) + LAP_TIME_RULE + (await coachInstructionsRule()) + aiLanguageRule(language),
+    rules: ' ' + brakeChangeRule(units) + LAP_TIME_RULE + LAP_ANALYSIS_METHOD + varietyRule(recent, RECENT_SUMMARIES) + aiLanguageRule(language),
   });
 }
 
@@ -244,15 +251,20 @@ async function invokeChecked(
 }
 
 // Coaching analysis of a Stint Analysis report
-export async function summarizeStint(report: string, track: string, language: Language = DEFAULT_LANGUAGE): Promise<string> {
+export async function summarizeStint(
+  report: string,
+  track: string,
+  language: Language = DEFAULT_LANGUAGE,
+  recent: string[] = []
+): Promise<string> {
   if (!process.env.OPENAI_API_KEY) {
     throw new Error('OPENAI_API_KEY is not configured');
   }
 
-  const model = await chatModel('stintSummary', 0.3);
+  const model = await chatModel('stintSummary', 0.5);
   return invokeChecked(STINT_PROMPT_TEMPLATE, model, await languageCheck(language, [track]), {
     report,
     track,
-    rules: TRACK_POSITION_RULE + LAP_TIME_RULE + (await coachInstructionsRule()) + aiLanguageRule(language),
+    rules: TRACK_POSITION_RULE + LAP_TIME_RULE + varietyRule(recent, RECENT_SUMMARIES) + aiLanguageRule(language),
   });
 }

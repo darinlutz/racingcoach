@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { aiErrorResponse } from '@/lib/aiErrors';
 import { lapDrivingLinesSchema } from '@/lib/lapDrivingLine';
-import { saveLapSummary } from '@/lib/lapSummaryHistory';
+import { readRecentLapSummaries, saveLapSummary } from '@/lib/lapSummaryHistory';
 import { summarizeLapComparison } from '@/lib/lapSummary';
 import { apiText, getLanguage } from '@/lib/i18n/server';
 import { getCurrentUser } from '@/lib/session';
@@ -51,7 +51,7 @@ export async function POST(request: Request) {
     }
     limit = await aiRateLimit(request, 'lapSummary', user);
     if (limit.response) return limit.response;
-    const [language, units] = await Promise.all([getLanguage(user), getUnits(user)]);
+    const [language, units, recent] = await Promise.all([getLanguage(user), getUnits(user), readRecentLapSummaries(user.id, 'lap', track)]);
     const summary = await limit.track(() =>
       summarizeLapComparison(
         comparison,
@@ -59,7 +59,8 @@ export async function POST(request: Request) {
         language,
         units,
         lines.data,
-        areaNames.data.length > 0 ? areaNames.data : lines.data.map((l) => l.area)
+        areaNames.data.length > 0 ? areaNames.data : lines.data.map((l) => l.area),
+        recent
       )
     );
 

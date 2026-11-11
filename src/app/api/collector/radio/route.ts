@@ -155,6 +155,7 @@ async function setupAnswer(
         language: user.preferredLanguage ?? DEFAULT_LANGUAGE,
         units: user.units ?? DEFAULT_UNITS,
         weather: snapshot ? weatherContextFromLive(snapshot, Date.now()) : null,
+        recentReplies: (snapshot?.radio ?? []).filter((r) => r.from === 'engineer').map((r) => r.text).slice(-4),
       })
     );
     console.log(`Setup Engineer: user ${user.id}, ${reply ? 'answered' : 'silent'}`);

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useLanguage } from '@/components/LanguageProvider';
-import FocusAreaTabs, { areaDiffText, areaTint, formatAreaSeconds } from '@/components/FocusAreaTabs';
+import FocusAreaTabs, { formatAreaSeconds } from '@/components/FocusAreaTabs';
 import type { Tab as LapDataTab } from '@/components/LapDataTabs';
 import LapDeltaMap, { type DeltaMapArea } from '@/components/LapDeltaMap';
 import PedalTraces, { type PedalTraceLap } from '@/components/PedalTraces';
@@ -279,36 +279,68 @@ async function fetchTrackOutline(trackKey: string): Promise<[number, number][] |
 // A table row: the comparison, or why there isn't one (in the user's language)
 type AreaRow = { name: string; comparison: AreaComparison | null; note: string };
 
-// Diff cell background: green when the Compare lap is better, red when worse.
-// A difference of more than 1% of the Target value gets the darker green, and the
-// dark red (the fainter red reads darker on the dark page). `diff` is the value
-// as shown, so a displayed zero stays uncolored.
-function diffBackground(diff: number, base: number, higherIsBetter: boolean) {
+// How the Compare lap did on one value, as the better-at-a-glance design shows it: G much better, g a little better,
+// r a little worse, R much worse, '' the same. Speeds: more than 1% of the Target value is "much". `diff` is the
+// value as shown, so a displayed zero stays neutral.
+type Tone = 'G' | 'g' | 'r' | 'R' | '';
+
+function speedTone(diff: number, base: number): Tone {
   if (diff === 0) return '';
-  const bigger = base !== 0 && Math.abs(diff) / Math.abs(base) > 0.01;
-  if (diff > 0 === higherIsBetter) return bigger ? 'bg-positive/15' : 'bg-positive/35';
-  return bigger ? 'bg-primary/15' : 'bg-primary/35';
+  const much = base !== 0 && Math.abs(diff) / Math.abs(base) > 0.01;
+  return diff > 0 ? (much ? 'G' : 'g') : much ? 'R' : 'r';
 }
 
-// Brake Diff text: blue when the Compare lap is more than `threshold` below Target
-// (brakes earlier / lighter), red when more than `threshold` above (later / harder),
-// green when within `threshold` either way
+// An area's time against the largest difference of any area: half of it or more is "much"
+function timeTone(secondsDiff: number, largest: number): Tone {
+  const shown = Math.round(secondsDiff * 1000) / 1000;
+  if (shown === 0) return '';
+  const much = Math.abs(shown) >= largest * 0.5;
+  return shown < 0 ? (much ? 'G' : 'g') : much ? 'R' : 'r';
+}
+
+const TONE_CHIP: Record<Tone, string> = {
+  G: 'bg-good-strong text-foreground font-semibold ring-1 ring-good-text/40',
+  g: 'bg-good-soft/70 text-foreground',
+  r: 'bg-bad-soft/70 text-foreground',
+  R: 'bg-bad-strong text-foreground font-semibold ring-1 ring-bad-text/40',
+  '': 'text-muted-foreground',
+};
+const TONE_BAR: Record<Tone, string> = {
+  G: 'bg-good-strong',
+  g: 'bg-good-soft',
+  r: 'bg-bad-soft',
+  R: 'bg-bad-strong',
+  '': 'bg-border',
+};
+
+// Brake Diff text: blue when the Compare lap is more than `threshold` below Target (brakes earlier / lighter), red
+// when more than `threshold` above (later / harder), green when within `threshold` either way
 function brakeDiffText(diff: number | null, threshold: number) {
-  if (diff === null) return '';
-  if (diff < -threshold) return 'text-sky-400';
-  if (diff > threshold) return 'text-primary';
-  return 'text-positive';
+  if (diff === null) return 'text-muted-foreground';
+  if (diff < -threshold) return 'text-info-text';
+  if (diff > threshold) return 'text-bad-text';
+  return 'text-good-text';
 }
 
-// The selected row's emphasis: a sky blue line along its top and bottom (and the name's left), drawn inside the cells
-// so their own colors stay as they are
-const SELECTED_ROW_CELL = 'font-bold shadow-[inset_0_2px_0_0_rgb(14_165_233),inset_0_-2px_0_0_rgb(14_165_233)]';
-const SELECTED_ROW_NAME =
-  'shadow-[inset_0_2px_0_0_rgb(14_165_233),inset_0_-2px_0_0_rgb(14_165_233),inset_3px_0_0_0_rgb(14_165_233)]';
+function SpeedChip({ diff, base, speed }: { diff: number; base: number; speed: string }) {
+  return (
+    <span
+      className={`tele-num inline-flex min-w-[5.5rem] justify-center rounded-md px-2.5 py-1.5 text-sm whitespace-nowrap ${
+        TONE_CHIP[speedTone(diff, base)]
+      }`}
+    >
+      {formatSpeedDiffCell(diff, speed)}
+    </span>
+  );
+}
 
-// Focus areas down the left, each named like the focus area tabs with the time the Compare lap lost or gained there
-// beside it; Target / Diff for each data point across the top (Max Brake shows Target and Diff; everything else
-// shows only its Diff). Clicking an area's row picks it, as the tabs and the map do; the picked one is emphasized.
+// The selected row's emphasis: a sky blue line along its top and bottom, drawn inside each cell (a row's own shadow
+// isn't drawn in a collapsed table) so their own colors stay as they are
+const SELECTED_CELL = 'shadow-[inset_0_2px_0_0_rgb(14_165_233),inset_0_-2px_0_0_rgb(14_165_233)]';
+
+// Focus areas down the left, each with the time the Compare lap lost or gained there and a bar colored by how much;
+// the Brakepoint diff, Max Brake's Target and Diff, and the Entry, Min and Exit speed diffs as colored chips (the
+// better-at-a-glance design). Clicking an area's row picks it, as the tabs and the map do; the picked one is emphasized.
 function AreaTable({
   rows,
   selected,
@@ -326,125 +358,114 @@ function AreaTable({
   const speed = SPEED_UNIT[units];
   const t = dictionary.lapCompare;
   const largest = Math.max(...rows.map((row) => Math.abs(row.comparison?.secondsDiff ?? 0)), 0.001);
-  const groups = [
-    { label: t.groups.brakepoint, columns: ['diff'] },
-    { label: t.groups.maxBrake, columns: ['base', 'diff'] },
-    { label: t.groups.entrySpeed, columns: ['diff'] },
-    { label: t.groups.minSpeed, columns: ['diff'] },
-    { label: t.groups.exitSpeed, columns: ['diff'] },
-  ] as const;
-  const columnCount = groups.reduce((sum, group) => sum + group.columns.length, 0);
-  // Sized to its content (not stretched across a wide screen), every value centered in its column
-  const cell = 'min-w-[6.5rem] px-5 py-2.5 text-center tabular-nums whitespace-nowrap';
-  const groupStart = 'border-l border-border';
+  const columnCount = 6;
+  const value = 'tele-num px-4 py-2 text-sm whitespace-nowrap';
 
   return (
-    <div className="w-fit max-w-full min-w-0 overflow-x-auto rounded-lg border border-border bg-card">
-      <table className="text-[1.035rem] text-foreground">
-        <thead className="bg-secondary">
-          <tr>
-            <th rowSpan={2} className="sticky left-0 bg-secondary px-5 py-2.5 text-left align-bottom">
-              {t.focusArea}
-            </th>
-            {groups.map((group) => (
-              <th
-                key={group.label}
-                colSpan={group.columns.length}
-                className={`${groupStart} px-5 pt-3 pb-1 text-center whitespace-nowrap`}
-              >
-                {group.label}
+    <div className="flex w-fit max-w-full min-w-0 flex-col gap-2">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <p className="tele-label">{t.tableHeading}</p>
+        <div className="tele-num flex items-center gap-2 text-xs text-muted-foreground" aria-hidden>
+          <span>{t.tableWorse}</span>
+          {(['R', 'r', 'g', 'G'] as Tone[]).map((tone) => (
+            <span key={tone} className={`h-3 w-7 rounded-sm ${TONE_BAR[tone]}`} />
+          ))}
+          <span>{t.tableBetter}</span>
+        </div>
+      </div>
+      <div className="min-w-0 overflow-x-auto rounded-xl border border-border bg-card shadow-2xl">
+        <table className="border-collapse text-center text-foreground">
+          <thead>
+            <tr className="font-display text-sm font-semibold tracking-wider uppercase">
+              <th rowSpan={2} className="sticky left-0 z-10 bg-card px-5 pt-4 pb-3 text-left align-bottom">
+                {t.focusArea}
               </th>
-            ))}
-          </tr>
-          <tr className="text-[0.875em] text-muted-foreground">
-            {groups.map((group) =>
-              group.columns.map((column, i) => (
-                <th
-                  key={group.label + column}
-                  className={`px-5 pt-1 pb-2.5 text-center whitespace-nowrap font-medium ${i === 0 ? groupStart : ''}`}
+              <th className="px-4 pt-4 whitespace-nowrap">{t.groups.brakepoint}</th>
+              <th colSpan={2} className="border-x border-border px-4 pt-4 whitespace-nowrap">
+                {t.groups.maxBrake}
+              </th>
+              <th className="px-4 pt-4">{t.groups.entry}</th>
+              <th className="px-4 pt-4">{t.groups.min}</th>
+              <th className="px-4 pt-4">{t.groups.exit}</th>
+            </tr>
+            <tr className="tele-num border-b border-border text-[11px] tracking-wider text-muted-foreground uppercase">
+              <th className="pb-3 font-normal">{t.diff}</th>
+              <th className="border-l border-border px-3 pb-3 font-normal">{t.base}</th>
+              <th className="border-r border-border px-3 pb-3 font-normal">{t.diff}</th>
+              <th colSpan={3} className="pb-3 font-normal">
+                {t.speedDiff}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(({ name, comparison: c, note }) => {
+              const canSelect = !!c && selectable.includes(name);
+              const isSelected = canSelect && name === selected;
+              const tone = c ? timeTone(c.secondsDiff, largest) : '';
+              const sel = isSelected ? SELECTED_CELL : '';
+              return (
+                <tr
+                  key={name}
+                  onClick={canSelect ? () => onSelect(name) : undefined}
+                  className={`border-b border-border/60 transition-colors last:border-0 hover:bg-secondary/60 ${
+                    canSelect ? 'cursor-pointer' : ''
+                  } ${isSelected ? 'bg-secondary/70' : ''}`}
                 >
-                  {t[column]}
-                </th>
-              ))
-            )}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-border">
-          {rows.map(({ name, comparison: c, note }) => {
-            const canSelect = !!c && selectable.includes(name);
-            const isSelected = canSelect && name === selected;
-            const rowCell = isSelected ? SELECTED_ROW_CELL : '';
-            const tint = c ? areaTint(c.secondsDiff, largest) : undefined;
-            return (
-              <tr
-                key={name}
-                onClick={canSelect ? () => onSelect(name) : undefined}
-                className={canSelect ? 'cursor-pointer' : ''}
-              >
-                {/* Named like the focus area tabs, tinted by the time lost or gained, which is beside the name;
-                    the tint is an image over the opaque background, which the sticky cell needs over scrolled cells */}
-                <th
-                  scope="row"
-                  style={tint ? { backgroundImage: `linear-gradient(${tint}, ${tint})` } : undefined}
-                  className={`sticky left-0 z-10 px-4 py-2 text-left whitespace-nowrap ${
-                    `bg-card ${isSelected ? SELECTED_ROW_NAME : ''}`
-                  }`}
-                >
-                  <button
-                    type="button"
-                    disabled={!canSelect}
-                    aria-pressed={canSelect ? isSelected : undefined}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onSelect(name);
-                    }}
-                    className="flex items-baseline gap-2.5 rounded text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 disabled:cursor-default"
-                  >
-                    <span className="font-display text-[1.35rem] font-bold leading-none">{name}</span>
-                    {c && (
-                      <span
-                        className={`font-display text-sm font-semibold leading-none tabular-nums ${
-                          areaDiffText(Math.round(c.secondsDiff * 1000) / 1000)
-                        }`}
-                      >
-                        {formatAreaSeconds(c.secondsDiff, locale)}
-                      </span>
-                    )}
-                  </button>
-                </th>
-                {!c ? (
-                  <td colSpan={columnCount} className={`${groupStart} px-5 py-2.5 text-muted-foreground`}>
-                    {note}
-                  </td>
-                ) : (
-                  <>
-                    <td
-                      className={`${cell} ${groupStart} ${rowCell} ${brakeDiffText(c.brakeDiff, distanceFromFeet(SAME_BRAKE_FEET, units))}`}
+                  {/* Opaque, as the sticky cell covers the cells scrolled under it */}
+                  <th scope="row" className={`sticky left-0 z-10 bg-card py-2 pr-4 pl-5 text-left whitespace-nowrap ${sel}`}>
+                    <span aria-hidden className={`absolute inset-y-1.5 left-0 w-1.5 rounded-r ${TONE_BAR[tone]}`} />
+                    <button
+                      type="button"
+                      disabled={!canSelect}
+                      aria-pressed={canSelect ? isSelected : undefined}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onSelect(name);
+                      }}
+                      className="flex items-baseline gap-3 rounded text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 disabled:cursor-default"
                     >
-                      {c.brakeDiff === null ? '—' : formatBrakeDiff(c.brakeDiff, units, t, locale)}
+                      <span className="min-w-16 font-display text-xl leading-none font-bold">{name}</span>
+                      {c && (
+                        <span
+                          className={`tele-num text-xs leading-none font-semibold ${
+                            tone === 'G' || tone === 'g' ? 'text-good-text' : tone ? 'text-bad-text' : 'text-muted-foreground'
+                          }`}
+                        >
+                          {formatAreaSeconds(c.secondsDiff, locale)}
+                        </span>
+                      )}
+                    </button>
+                  </th>
+                  {!c ? (
+                    <td colSpan={columnCount} className={`px-5 py-2.5 text-left text-sm text-muted-foreground ${sel}`}>
+                      {note}
                     </td>
-
-                    <td className={`${cell} ${groupStart} ${rowCell}`}>{c.basePressure}%</td>
-                    <td className={`${cell} ${rowCell} ${brakeDiffText(c.pressureDiff, 3)}`}>{formatPressureDiff(c.pressureDiff, t)}</td>
-
-                    <td className={`${cell} ${groupStart} ${rowCell} ${diffBackground(c.entryDiff, c.baseEntry, true)}`}>
-                      {formatSpeedDiffCell(c.entryDiff, speed)}
-                    </td>
-
-                    <td className={`${cell} ${groupStart} ${rowCell} ${diffBackground(c.minDiff, c.baseMin, true)}`}>
-                      {formatSpeedDiffCell(c.minDiff, speed)}
-                    </td>
-
-                    <td className={`${cell} ${groupStart} ${rowCell} ${diffBackground(c.exitDiff, c.baseExit, true)}`}>
-                      {formatSpeedDiffCell(c.exitDiff, speed)}
-                    </td>
-                  </>
-                )}
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+                  ) : (
+                    <>
+                      <td className={`${value} ${sel} ${brakeDiffText(c.brakeDiff, distanceFromFeet(SAME_BRAKE_FEET, units))}`}>
+                        {c.brakeDiff === null ? '—' : formatBrakeDiff(c.brakeDiff, units, t, locale)}
+                      </td>
+                      <td className={`${value} ${sel} border-l border-border/60`}>{c.basePressure}%</td>
+                      <td className={`${value} ${sel} border-r border-border/60 ${brakeDiffText(c.pressureDiff, 3)}`}>
+                        {formatPressureDiff(c.pressureDiff, t)}
+                      </td>
+                      <td className={`px-2 py-2 ${sel}`}>
+                        <SpeedChip diff={c.entryDiff} base={c.baseEntry} speed={speed} />
+                      </td>
+                      <td className={`px-2 py-2 ${sel}`}>
+                        <SpeedChip diff={c.minDiff} base={c.baseMin} speed={speed} />
+                      </td>
+                      <td className={`px-2 py-2 ${sel}`}>
+                        <SpeedChip diff={c.exitDiff} base={c.baseExit} speed={speed} />
+                      </td>
+                    </>
+                  )}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -968,9 +989,9 @@ export default function LapCompare({
           <span className="font-semibold text-muted-foreground">{t.brakeKey.title}:</span>
           {(
             [
-              ['bg-sky-400', 'text-sky-400', t.brakeKey.light],
-              ['bg-primary', 'text-primary', t.brakeKey.hard],
-              ['bg-positive', 'text-positive', t.brakeKey.similar],
+              ['bg-info-text', 'text-info-text', t.brakeKey.light],
+              ['bg-bad-text', 'text-bad-text', t.brakeKey.hard],
+              ['bg-good-text', 'text-good-text', t.brakeKey.similar],
             ] as const
           ).map(([dot, text, label]) => (
             <span key={label} className={`flex items-center gap-1.5 ${text}`}>

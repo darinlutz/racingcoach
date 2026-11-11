@@ -28,6 +28,7 @@
     "test:telemetry-storage": "node --experimental-transform-types --no-warnings --test scripts/telemetry-storage.test.mjs && node --experimental-transform-types --no-warnings --test scripts/telemetry-ingest-db.test.mjs && node --experimental-transform-types --no-warnings --test scripts/telemetry-cleanup-db.test.mjs && node --experimental-transform-types --no-warnings --test scripts/expert-laps-storage-db.test.mjs && node --experimental-transform-types --no-warnings --test scripts/target-laps-storage-db.test.mjs",
     "test:privacy-rights": "node --experimental-transform-types --no-warnings --test scripts/privacy-rights.test.mjs && node --experimental-transform-types --no-warnings --test scripts/privacy-rights-db.test.mjs",
     "test:engineering": "node --experimental-transform-types --no-warnings --test scripts/engineering-knowledge.test.mjs && node --experimental-transform-types --no-warnings --test scripts/engineering-knowledge-db.test.mjs",
+    "test:coaching": "node --experimental-transform-types --no-warnings --test scripts/coaching-guidance.test.mjs",
     "test:wet-weather": "node --experimental-transform-types --no-warnings --test scripts/wet-weather.test.mjs",
     "engineering:knowledge": "node --experimental-transform-types --no-warnings scripts/engineeringKnowledge.mjs",
     "test:local-ai": "node --experimental-transform-types --no-warnings --test scripts/local-ai.test.mjs scripts/local-ai-gateway.test.mjs && node --experimental-transform-types --no-warnings --test --test-force-exit scripts/local-ai-db.test.mjs",

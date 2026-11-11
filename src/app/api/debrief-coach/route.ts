@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { aiErrorResponse } from '@/lib/aiErrors';
 import { carRpmLimit } from '@/lib/carData';
 import { debriefSessionSchema, runDebriefCoach } from '@/lib/debriefCoach';
-import { saveDebrief } from '@/lib/debriefHistory';
+import { readRecentDebriefAdvice, saveDebrief } from '@/lib/debriefHistory';
 import { getCurrentUser } from '@/lib/session';
 import { apiText, getLanguage } from '@/lib/i18n/server';
 import { aiRateLimit, type AiRateLimit } from '@/lib/rateLimits';
@@ -82,7 +82,14 @@ export async function POST(request: Request) {
             parsed.data.car
           )
         : null;
-    const { debrief, steps, optimalLap } = await limit.track(() => runDebriefCoach(parsed.data, language, units, rpmLimit, weather));
+    // What the driver's last debriefs of this track and car said, so this one doesn't say it the same way again
+    const recentAdvice = await readRecentDebriefAdvice(user.id, parsed.data.track, parsed.data.car).catch((error) => {
+      console.error('Failed to read recent debriefs:', error);
+      return [];
+    });
+    const { debrief, steps, optimalLap } = await limit.track(() =>
+      runDebriefCoach(parsed.data, language, units, rpmLimit, weather, recentAdvice)
+    );
 
     // Kept for signed-in users (e.g. for the Discord bot's /coach debrief). Saving is extra, so a failure
     // is logged rather than costing them the debrief.

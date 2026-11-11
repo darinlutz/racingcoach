@@ -7,7 +7,7 @@ import { aiLanguageFeedback, aiLanguageRule, DEFAULT_LANGUAGE, type Language } f
 import { LAP_TIME_RULE } from './lapData';
 import { planOptimalLap, segmentName, type OptimalLap } from './optimalLap';
 import { shiftLimit, type LapShifting } from './shifting';
-import { coachInstructionsRule } from './siteSettings';
+import { ENGINEERING_KNOWLEDGE_RULE, LAP_ANALYSIS_METHOD, varietyRule } from './coachingGuidance';
 import { describeAreaTurns, findFocusArea } from './focusAreaTurns';
 import { formatSeconds } from './stintExport';
 import { hasTrackPosition, removeTrackPositions, trackPositionFeedback, withKmh } from './trackPositions';
@@ -1053,8 +1053,9 @@ const systemPrompt = (units: Units) =>
   'the driver as "you", and use plain text with no markdown. When you mention a particular lap, call it by its name ' +
   'from the tools, e.g. "Lap 3" (in the language you write in), never by an ID or file name. Once you have your fixes, call assemble_optimal_lap ' +
   'once and sum up the theoretical lap it builds in optimalLap. ' +
-  'When a fix is about how the car behaves (understeer, oversteer, traction, stability on the brakes), you may call ' +
-  'get_engineering_knowledge to ground the explanation in engineering principles. The lap data comes first: correct ' +
+  'Before you write the fixes, call get_engineering_knowledge for the handling or technique behind your biggest ' +
+  'fix (and for any other fix about how the car behaves: understeer, oversteer, traction, stability on the brakes), ' +
+  'and use it to explain in the problem why the change works. The lap data comes first: correct ' +
   'the driving when the data shows a driving cause, and never blame the setup for what the driving explains. Only ' +
   'when the same problem shows in the fast and the slow runs alike may the evidence say a setup change could help, ' +
   'suggesting the driver ask the Setup Engineer over Driver Radio; never give a setup change as a fix.' +
@@ -1144,7 +1145,9 @@ export async function runDebriefCoach(
   // The car's rev limit from Car Data, for get_shifting_points
   carRpmLimit: number | null = null,
   // The session's weather and tires from its recorded laps (engineering/weatherContext.ts); null for dropped files
-  weather: WeatherContext | null = null
+  weather: WeatherContext | null = null,
+  // The fixes of the driver's latest debriefs of this track and car (debriefHistory.ts), not to be given the same way
+  recentAdvice: string[] = []
 ): Promise<{ debrief: Debrief; steps: string[]; optimalLap: OptimalLap | null }> {
   if (!process.env.OPENAI_API_KEY) {
     throw new Error('OPENAI_API_KEY is not configured');
@@ -1163,7 +1166,15 @@ export async function runDebriefCoach(
   ];
   // What the laps said of the weather, only when they said something: a dry debrief's prompt is unchanged
   const weatherNote = weather && (weather.condition !== 'unknown' || weather.tires.fitted.confidence !== 'none') ? debriefWeatherNote(weather, units) : '';
-  const prompt = systemPrompt(units) + (await coachInstructionsRule()) + aiLanguageRule(language);
+  const prompt =
+    systemPrompt(units) +
+    LAP_ANALYSIS_METHOD +
+    ENGINEERING_KNOWLEDGE_RULE +
+    varietyRule(
+      recentAdvice,
+      'Your last debriefs of this driver at this track in this car gave these fixes, and the driver has been working on them.'
+    ) +
+    aiLanguageRule(language);
   // The model can still flip "later" and "earlier" or say where to brake, so check everything it wrote and give it
   // one chance to correct itself before dropping any fix, keep-doing item or sentence that still breaks the rules
   const check = (response: DebriefFixes) => [...brakeContradictions(response, areas, u), ...trackPositions(response, u)];
@@ -1180,7 +1191,7 @@ export async function runDebriefCoach(
 
   const { result, response, problems } = await withFallbackModel('debriefCoach', DEBRIEF_TIMES, async (model, signal) => {
     const agent = createAgent({
-      model: await chatModel('debriefCoach', 0.2, model),
+      model: await chatModel('debriefCoach', 0.4, model),
       tools,
       systemPrompt: prompt,
       responseFormat: debriefSchema,

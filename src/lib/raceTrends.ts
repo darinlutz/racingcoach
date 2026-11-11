@@ -2,7 +2,6 @@ import { AIMessage } from '@langchain/core/messages';
 import { createAgent, tool } from 'langchain';
 import { z } from 'zod';
 import { aiLanguageFeedback, aiLanguageRule, DEFAULT_LANGUAGE, type Language } from './i18n/languages';
-import { coachInstructionsRule } from './siteSettings';
 import { removeTrackPositions } from './trackPositions';
 import { checkedAnswer, languageCheck } from './answerChecks';
 import { englishWords } from './i18n/englishWords';
@@ -265,7 +264,7 @@ export async function runRaceTrends(
   const agent = createAgent({
     model: await chatModel('raceTrends', 0.2),
     tools,
-    systemPrompt: SYSTEM_PROMPT + (await coachInstructionsRule()) + aiLanguageRule(language),
+    systemPrompt: SYSTEM_PROMPT + aiLanguageRule(language),
     responseFormat: commentarySchema,
   });
 
@@ -342,7 +341,7 @@ export async function runRaceCoaching(driver: string, events: RaceEvent[], langu
   const agent = createAgent({
     model: await chatModel('raceCoaching', 0.2),
     tools: createTools(driver, events),
-    systemPrompt: COACHING_PROMPT + (await coachInstructionsRule()) + aiLanguageRule(language),
+    systemPrompt: COACHING_PROMPT + aiLanguageRule(language),
     responseFormat: coachingSchema,
   });
 

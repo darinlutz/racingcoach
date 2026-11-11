@@ -58,6 +58,15 @@ export function expertLapObjectKey(sha256: string): string {
 }
 export const isExpertLapObjectKey = (key: string) => /^expert-laps\/[0-9a-f]{64}\.csv\.gz$/.test(key);
 
+// Each user's Target Lap (src/lib/targetLap.ts), also outside telemetry/: target-laps/u{userId}/{sha256}.csv.gz
+export const TARGET_LAP_PREFIX = 'target-laps/';
+export function targetLapObjectKey(userId: number, sha256: string): string {
+  if (!Number.isSafeInteger(userId) || userId <= 0) throw new Error('Invalid user id for an object key');
+  if (!SHA256.test(sha256)) throw new Error('Invalid checksum for an object key');
+  return `${TARGET_LAP_PREFIX}u${userId}/${sha256}.csv.gz`;
+}
+export const isTargetLapObjectKey = (key: string) => /^target-laps\/u\d+\/[0-9a-f]{64}\.csv\.gz$/.test(key);
+
 // The prefix holding every one of a user's laps, for a reconciliation or an account's safety-net sweep
 export function userObjectPrefix(simulator: string, userId: number): string {
   if (!SIMULATOR_ID.test(simulator) || !Number.isSafeInteger(userId) || userId <= 0) throw new Error('Invalid prefix parts');

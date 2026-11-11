@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { moveExpertLapsToObjectStorage, moveExpertLapsToPostgres } from '@/lib/expertLaps';
 import { apiText } from '@/lib/i18n/server';
+import { moveTargetLapsToObjectStorage, moveTargetLapsToPostgres } from '@/lib/targetLap';
 import { isAdmin } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
 import { reconcileTelemetryStorage, runTelemetryCleanup } from '@/lib/telemetryCleanup';
@@ -22,12 +23,13 @@ import { readTelemetryStorageReport } from '@/lib/telemetryStorageReport';
 // The Admin page's Telemetry Storage section (docs/telemetry-storage.md). GET: the report (from Postgres only) and the
 // background action running on this server. POST { action, ... }: backfill, verify, cleanup, reconcile and purgeLegacy
 // start in the background (409 while another runs) and answer 202; stop asks the running one to stop after its batch;
-// switchReads, rollbackReads, vacuum, expertLapsToR2 and expertLapsToPostgres (the Expert Laps, src/lib/expertLaps.ts) run at once. purgeLegacy needs { confirm: 'PURGE', backupTaken: true }.
+// switchReads, rollbackReads, vacuum, expertLapsToR2, expertLapsToPostgres (the Expert Laps, src/lib/expertLaps.ts), targetLapsToR2 and
+// targetLapsToPostgres (src/lib/targetLap.ts) run at once. purgeLegacy needs { confirm: 'PURGE', backupTaken: true }.
 // Admin role only; anyone else gets a 404, like the Admin page.
 
-const ACTIONS = ['backfill', 'verify', 'cleanup', 'reconcile', 'purgeLegacy', 'stop', 'switchReads', 'rollbackReads', 'vacuum', 'expertLapsToR2', 'expertLapsToPostgres'] as const;
+const ACTIONS = ['backfill', 'verify', 'cleanup', 'reconcile', 'purgeLegacy', 'stop', 'switchReads', 'rollbackReads', 'vacuum', 'expertLapsToR2', 'expertLapsToPostgres', 'targetLapsToR2', 'targetLapsToPostgres'] as const;
 type Action = (typeof ACTIONS)[number];
-const NEEDS_STORE: Action[] = ['backfill', 'verify', 'cleanup', 'reconcile', 'switchReads', 'expertLapsToR2'];
+const NEEDS_STORE: Action[] = ['backfill', 'verify', 'cleanup', 'reconcile', 'switchReads', 'expertLapsToR2', 'targetLapsToR2'];
 
 async function admin() {
   const user = await getCurrentUser();
@@ -72,9 +74,13 @@ export async function POST(request: Request) {
       case 'rollbackReads':
         return NextResponse.json({ rolledBack: await rollbackReadsToPostgres() });
       case 'expertLapsToR2':
-        return NextResponse.json({ expertLaps: await moveExpertLapsToObjectStorage() });
+        return NextResponse.json({ moved: await moveExpertLapsToObjectStorage() });
       case 'expertLapsToPostgres':
-        return NextResponse.json({ expertLaps: await moveExpertLapsToPostgres() });
+        return NextResponse.json({ moved: await moveExpertLapsToPostgres() });
+      case 'targetLapsToR2':
+        return NextResponse.json({ moved: await moveTargetLapsToObjectStorage() });
+      case 'targetLapsToPostgres':
+        return NextResponse.json({ moved: await moveTargetLapsToPostgres() });
       case 'vacuum':
         await vacuumCollectorLaps();
         return NextResponse.json({ vacuumed: true });

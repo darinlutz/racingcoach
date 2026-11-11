@@ -17,7 +17,7 @@ database would have filled within weeks at that rate. Everything else (logs, deb
 | Each lap's gzip-compressed CSV (`"CollectorLaps".csv_gzip`) | **R2**, one object per lap |
 | The lap's row: details, `completed_at`/`expires_at`, `has_position`, conditions, and where its CSV is | Postgres |
 | Each Expert Lap's gzip-compressed CSV (`"ExpertLaps".csv_gzip`) | **R2**, `expert-laps/{sha256}.csv.gz` (see Expert Laps below) |
-| `"Users"."TargetLap"` | Postgres for now (a later step; about 0.8 MB per user with a Target Lap) |
+| Each user's Target Lap (`"Users"."TargetLap"`) | **R2**, `target-laps/u{userId}/{sha256}.csv.gz` (see Target Laps below) |
 | `"CollectorLogs"`, `"DebriefSessions"`, `"LapSummaries"`, `"UserPictures"` | Postgres (small, or queried by column) |
 
 ## Design
@@ -105,6 +105,21 @@ rather than size: there's at most one per car and track.
   it and clears `csv_gzip` in one statement. No separate verify or purge step: there are only a few. **Move Expert Laps
   back to PostgreSQL** is the rollback: it downloads each object, stores it inline, and queues the object for deletion
 
+## Target Laps
+
+Each user's Target Lap (`src/lib/targetLap.ts`) works the same way as an Expert Lap, with its columns on `"Users"`:
+`"TargetLapStorageProvider"`, `"TargetLapStorageBucket"`, `"TargetLapStorageKey"`, `"TargetLapStoredBytes"`,
+`"TargetLapChecksum"` (added by `ensureTargetLapSchema`, with `users_target_lap_storage_check`).
+
+- **Keys**: `target-laps/u{userId}/{sha256}.csv.gz` (`targetLapObjectKey`), outside `telemetry/`, so the reconciliation
+  never lists them
+- **Writes, reads, moves**: as Expert Laps (the shared helper is `src/lib/lapObjects.ts`); Admin > Telemetry Storage >
+  Target Laps has **Move Target Laps to object storage** and **Move Target Laps back to PostgreSQL**
+- **Deletion**: the triggers `users_target_lap_object_replaced` (a new Target Lap, Remove, a privacy erasure, which clears
+  the key with the rest, `targetLapStatements` in `dataErasure.ts`) and `users_target_lap_object_deleted` (Delete
+  Account) queue the old object with the user's ID; the cleanup worker deletes it once no user references the key
+- **Download My Data** reads it from wherever it is (`readTargetLapForExport`)
+
 ## Cloudflare setup
 
 1. R2 > Create bucket: `racingcoach-telemetry` (any name), location hint near Render's region (Oregon: Western North
@@ -175,9 +190,10 @@ Clearing `csv_gzip` deletes the TOAST rows, but Postgres keeps the files' space:
 | D (reads switched) | Admin > Telemetry Storage > **Roll back reads**: every lap that still has `csv_gzip` is read from Postgres again; its object is kept |
 | E (purged) | Only from the backup taken before it. Laps uploaded in R2 mode never had `csv_gzip`; they stay in R2 |
 
-Expert Laps: **Move Expert Laps back to PostgreSQL** (and unset `TELEMETRY_STORAGE_MODE` so new ones stay there).
+Expert Laps and Target Laps: **Move Expert Laps back to PostgreSQL** and **Move Target Laps back to PostgreSQL** (and unset
+`TELEMETRY_STORAGE_MODE` so new ones stay there).
 
-Never delete the bucket or unset `TELEMETRY_S3_*` while any row (laps or Expert Laps) has `storage_provider = 'r2'`.
+Never delete the bucket or unset `TELEMETRY_S3_*` while any row (laps, Expert Laps or Target Laps) has `storage_provider = 'r2'`.
 
 ## Verification checklist
 

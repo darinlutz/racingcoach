@@ -65,7 +65,7 @@ jobs:
         run: |
           set -e
           for suite in track-positions language tire-warmup tv broadcast engine-bed video-director live-video tire-temps lap-events rotation \
-                       my-dashboard telemetry-storage privacy-rights cookie-consent simulators lap-retention launch-hardening engineering wet-weather local-ai; do
+                       my-dashboard telemetry-storage privacy-rights cookie-consent simulators lap-retention launch-hardening engineering wet-weather coaching local-ai; do
             echo "::group::test:$suite"
             npm run "test:$suite"
             echo "::endgroup::"

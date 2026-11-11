@@ -37,6 +37,17 @@ describe('object keys', () => {
     for (const bad of ['../x', SHA.toUpperCase(), `${SHA}/..`, '']) assert.throws(() => rules.expertLapObjectKey(bad));
   });
 
+  test('a Target Lap key is the user and checksum, outside telemetry/', () => {
+    assert.equal(rules.targetLapObjectKey(7, SHA), `target-laps/u7/${SHA}.csv.gz`);
+    assert.ok(!rules.targetLapObjectKey(7, SHA).startsWith(rules.TELEMETRY_PREFIX));
+    assert.ok(rules.isTargetLapObjectKey(rules.targetLapObjectKey(7, SHA)));
+    assert.ok(!rules.isTargetLapObjectKey(rules.expertLapObjectKey(SHA)));
+    assert.ok(!rules.isExpertLapObjectKey(rules.targetLapObjectKey(7, SHA)));
+    for (const [user, sha] of [[0, SHA], [-1, SHA], [1.5, SHA], [7, '../x'], [7, SHA.toUpperCase()]]) {
+      assert.throws(() => rules.targetLapObjectKey(user, sha));
+    }
+  });
+
   test('anything that could leave the user prefix is refused', () => {
     const bad = [
       { simulator: '../x', userId: 7, clientLapId: LAP, sha256: SHA },

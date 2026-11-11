@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { aiErrorResponse } from '@/lib/aiErrors';
-import { saveLapSummary } from '@/lib/lapSummaryHistory';
+import { readRecentLapSummaries, saveLapSummary } from '@/lib/lapSummaryHistory';
 import { summarizeStint } from '@/lib/lapSummary';
 import { apiText, getLanguage } from '@/lib/i18n/server';
 import { aiRateLimit, type AiRateLimit } from '@/lib/rateLimits';
@@ -38,7 +38,8 @@ export async function POST(request: Request) {
     limit = await aiRateLimit(request, 'stintSummary', user);
     if (limit.response) return limit.response;
     const language = await getLanguage(user);
-    const summary = await limit.track(() => summarizeStint(report, track, language));
+    const recent = await readRecentLapSummaries(user.id, 'stint', track);
+    const summary = await limit.track(() => summarizeStint(report, track, language, recent));
 
     // Kept for signed-in users, like Debrief Coach runs. Saving is extra, so a failure is logged rather than costing
     // them the summary.

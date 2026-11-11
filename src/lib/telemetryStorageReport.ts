@@ -1,5 +1,6 @@
 import { query } from './db';
 import { readExpertLapStorage, type ExpertLapStorage } from './expertLaps';
+import { readTargetLapStorage, type TargetLapStorage } from './targetLap';
 import { telemetryStorageMode, telemetryStore } from './telemetryStorage';
 import { estimateMonthlyR2Cost } from './telemetryStorageRules';
 import type { StorageRunKind } from './telemetryStorageMetrics';
@@ -45,6 +46,8 @@ export type TelemetryStorageReport = {
   estimatedMonthlyCost: number;
   // The Coach page's Expert Laps, kept in the same bucket (src/lib/expertLaps.ts)
   expertLaps: ExpertLapStorage;
+  // Each user's Target Lap, in the same bucket (src/lib/targetLap.ts)
+  targetLaps: TargetLapStorage;
 };
 
 export async function readTelemetryStorageReport(): Promise<TelemetryStorageReport> {
@@ -123,9 +126,10 @@ export async function readTelemetryStorageReport(): Promise<TelemetryStorageRepo
   const n = (value: string | number | null | undefined) => Number(value ?? 0);
   const counted = (metric: string) => n(counters.find((row) => row.metric === metric)?.count);
   const objectBytes = n(objects.bytes);
-  const expertLaps = await readExpertLapStorage();
+  const [expertLaps, targetLaps] = await Promise.all([readExpertLapStorage(), readTargetLapStorage()]);
   return {
     expertLaps,
+    targetLaps,
     mode: telemetryStorageMode(),
     configured: store !== null,
     bucket: store?.bucket ?? null,

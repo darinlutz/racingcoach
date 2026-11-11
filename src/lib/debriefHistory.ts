@@ -16,3 +16,20 @@ export async function saveDebrief(userId: number, session: DebriefSession, debri
     [userId, session.track, session.car, session.laps.length, bestLapSeconds, JSON.stringify(session), JSON.stringify(debrief)]
   );
 }
+
+// The fixes of the user's latest saved debriefs of this track and car, newest last, so the Debrief Coach doesn't give
+// the same advice in the same words again (src/lib/coachingGuidance.ts). Expired runs are left out, like every read.
+export async function readRecentDebriefAdvice(userId: number, track: string, car: string, limit = 3): Promise<string[]> {
+  await ensureUserSchema();
+  const rows = await query<{ debrief: Debrief }>(
+    `SELECT debrief FROM racingcoach."DebriefSessions"
+     WHERE user_id = $1 AND lower(track) = lower($2) AND lower(car) = lower($3) AND expires_at > now()
+     ORDER BY created_at DESC LIMIT $4`,
+    [userId, track, car, limit]
+  );
+  return rows
+    .reverse()
+    .flatMap((row) => (Array.isArray(row.debrief?.fixes) ? row.debrief.fixes : []))
+    .map((fix) => `${fix.area}: ${fix.fix}`)
+    .filter((text) => text.length > 2);
+}

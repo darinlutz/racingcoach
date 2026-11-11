@@ -1,10 +1,9 @@
 import { gunzipSync, gzipSync } from 'node:zlib';
-import type { PoolClient } from 'pg';
 import { query, transaction } from './db';
+import { dropPending, moveError, storeLapObjectPending, type LapObjectMove } from './lapObjects';
 import { checkTargetLap, lapFileNameParts } from './targetLap';
-import { getLapObject, lapObjectExists, putLapObject, telemetryStorageMode, telemetryStore, type StoredLapObject } from './telemetryStorage';
+import { getLapObject, lapObjectExists, telemetryStorageMode, telemetryStore } from './telemetryStorage';
 import { expertLapObjectKey, sha256Hex, STORAGE_PROVIDERS } from './telemetryStorageRules';
-import { PENDING_GRACE_SQL } from './telemetryStorageSchema';
 import { ensureUserSchema } from './users';
 
 // Expert Laps (racingcoach."ExpertLaps"): lap CSVs Coaches and Admins drop on the Coach page's Expert Laps
@@ -147,33 +146,8 @@ async function findExpertLap(car: string, track: string): Promise<ExpertLapInfo 
   return row ? toInfo(row) : null;
 }
 
-// Writes the compressed CSV to the telemetry bucket, after a 'pending' cleanup entry so an object whose row never
-// commits is deleted later (and one already queued for deletion waits out the grace, then is kept once a row references
-// it). Null when it isn't to go there, or the bucket failed, in which case the CSV stays inline.
-async function storeExpertLapObject(gzip: Buffer, sha256: string, csvBytes: number): Promise<StoredLapObject | null> {
-  const store = telemetryStore();
-  if (!store) return null;
-  const key = expertLapObjectKey(sha256);
-  try {
-    await query(
-      `INSERT INTO racingcoach."TelemetryObjectCleanup" (storage_provider, storage_bucket, storage_key, reason, not_before)
-       VALUES ($1, $2, $3, 'pending', now() + ${PENDING_GRACE_SQL})
-       ON CONFLICT (storage_bucket, storage_key) DO UPDATE
-         SET not_before = GREATEST(racingcoach."TelemetryObjectCleanup".not_before, now() + ${PENDING_GRACE_SQL})`,
-      [store.provider, store.bucket, key]
-    );
-    return await putLapObject(key, gzip, { sha256, csvBytes, kind: 'expertLap' });
-  } catch (error) {
-    console.error('Expert lap object storage error, kept in PostgreSQL:', error instanceof Error ? error.message : error);
-    return null;
-  }
-}
-
-const dropPending = (client: PoolClient, stored: StoredLapObject) =>
-  client.query(`DELETE FROM racingcoach."TelemetryObjectCleanup" WHERE storage_bucket = $1 AND storage_key = $2 AND reason = 'pending'`, [
-    stored.bucket,
-    stored.key,
-  ]);
+const storeExpertLapObject = (gzip: Buffer, sha256: string, csvBytes: number) =>
+  storeLapObjectPending(expertLapObjectKey(sha256), gzip, sha256, { csvBytes, kind: 'expertLap' });
 
 // Saves the lap. Without replace, an Expert Lap already there for its car and track is left alone and answered
 // as { existing }; with replace, it's overwritten. Throws TargetLapError when it isn't a lap CSV, and
@@ -288,8 +262,7 @@ export async function readExpertLapStorage(): Promise<ExpertLapStorage> {
   return { inline: Number(row.inline), inlineBytes: Number(row.inline_bytes ?? 0), stored: Number(row.stored), storedBytes: Number(row.stored_bytes ?? 0) };
 }
 
-export type ExpertLapMove = { moved: number; failed: number; errors: { id: number; error: string }[] };
-const message = (error: unknown) => (error instanceof Error ? error.message : String(error)).slice(0, 300);
+export type ExpertLapMove = LapObjectMove;
 
 // The Admin page's Move Expert Laps to object storage: copies each inline Expert Lap to the bucket, checks the stored
 // object's size and checksum, then points its row at it and clears csv_gzip in one UPDATE, only if the row is still the
@@ -324,7 +297,7 @@ export async function moveExpertLapsToObjectStorage(): Promise<ExpertLapMove | n
       if (updated) result.moved++;
     } catch (error) {
       result.failed++;
-      result.errors.push({ id: row.id, error: message(error) });
+      result.errors.push({ id: row.id, error: moveError(error) });
     }
   }
   return result;
@@ -353,7 +326,7 @@ export async function moveExpertLapsToPostgres(): Promise<ExpertLapMove> {
       if (updated.length > 0) result.moved++;
     } catch (error) {
       result.failed++;
-      result.errors.push({ id: row.id, error: message(error) });
+      result.errors.push({ id: row.id, error: moveError(error) });
     }
   }
   return result;

@@ -6,7 +6,7 @@ import { aiLanguageRule, DEFAULT_LANGUAGE, type Language } from './i18n/language
 import type { EngineerSnapshot, LiveUpdate } from './liveRacing';
 import { analyzeRotationSession, type SessionRotation } from './rotationAnalysis';
 import { calibrationForCar, ROTATION_MODEL_CONFIG } from './rotationModelConfig';
-import { getSetupEngineerInstructions } from './siteSettings';
+import { repeatsAny, SETUP_ENGINEER_METHOD, VARIETY_FEEDBACK, varietyRule } from './coachingGuidance';
 import { TRACK_POSITION_RULE } from './trackPositions';
 import { checkedAnswer, languageCheck, namesIn } from './answerChecks';
 import { DEFAULT_UNITS, type Units } from './units';
@@ -19,8 +19,9 @@ import { getAiModel } from './aiModels';
 // about the car's setup or its handling ("I have understeer", "what should I change on the car"), the Race Engineer hands
 // the question over, and the Setup Engineer answers it from the car's setup (its name, and whether it's a fixed setup,
 // from the collector's live update), the in-car brake bias, the Rotation Model's understeer and oversteer in the
-// session's uploaded laps (src/lib/rotationAnalysis.ts) and what the driver said, following the Coach page's Setup
-// Engineer Instructions, which every driver shares. In a fixed setup it says so: no chassis changes are possible, only
+// session's uploaded laps (src/lib/rotationAnalysis.ts), what the driver said and the Race Engineering knowledge base,
+// following the built-in Setup Engineer method (SETUP_ENGINEER_METHOD in src/lib/coachingGuidance.ts), and never says
+// again what it said on the radio a moment ago. In a fixed setup it says so: no chassis changes are possible, only
 // in-car adjustments such as brake bias. Otherwise it suggests specific chassis changes. It also knows the track
 // conditions and the fitted tires (src/lib/engineering/weatherContext.ts, from the live update): on a wet track it
 // works from the wet-weather knowledge, and tires that don't suit the track come before any handling change.
@@ -37,23 +38,6 @@ const MAX_REPLY_CHARS = 400;
 export function isFixedSetup(setup: CarSetup | null | undefined): boolean {
   if (!setup) return false;
   return /fixed/i.test(setup.loadType ?? '') || /fixed/i.test(setup.name ?? '');
-}
-
-// The Coach page's Setup Engineer Instructions; a failed read only loses them, not the answer
-async function setupInstructionsRule(): Promise<string> {
-  try {
-    const instructions = (await getSetupEngineerInstructions()).trim();
-    if (!instructions) return '';
-    return (
-      '\n\nThe head coach has given these standing instructions for how you suggest setup changes. Follow them, ' +
-      'unless one needs data you do not have or breaks the rules above (in a fixed setup, never suggest chassis ' +
-      'changes whatever they say); never invent data to follow them.\n' +
-      `<setup_engineer_instructions>\n${instructions}\n</setup_engineer_instructions>`
-    );
-  } catch (error) {
-    console.error('Failed to read the Setup Engineer Instructions:', error);
-    return '';
-  }
 }
 
 const setupPrompt = (fixed: boolean, known: boolean) =>
@@ -209,8 +193,11 @@ export async function setupEngineerReply(input: {
   units?: Units;
   // The track conditions and fitted tires (weatherContext.ts's weatherContextFromLive); undefined when not known
   weather?: WeatherContext | null;
+  // What the engineers said on the radio in the last few minutes, oldest first, so it isn't said again
+  recentReplies?: string[];
 }): Promise<string | null> {
   const units = input.units ?? DEFAULT_UNITS;
+  const recent = input.recentReplies ?? [];
   const setup = setupFacts(input.update);
   const { fixed, known } = setup;
   const facts = input.weather !== undefined ? [...setup.facts, ...weatherFacts(input.weather, units === 'metric' ? 'metric' : 'standard')] : setup.facts;
@@ -241,13 +228,14 @@ export async function setupEngineerReply(input: {
       `<driver_instructions>\n${input.driverInstructions.trim()}\n</driver_instructions>`
     : '';
   const agent = createAgent({
-    model: await chatModel('setupEngineer', 0.3),
+    model: await chatModel('setupEngineer', 0.6),
     tools: [],
     systemPrompt:
       setupPrompt(fixed, known) +
+      SETUP_ENGINEER_METHOD +
       wetSetupRule(input.weather) +
       (units === 'metric' ? ' Use metric units.' : ' Use US units (psi, inches).') +
-      (await setupInstructionsRule()) +
+      varietyRule(recent, 'You and the race engineer said this to the driver on the radio in the last few minutes.') +
       driverRule +
       aiLanguageRule(input.language ?? DEFAULT_LANGUAGE),
     responseFormat: replySchema,
@@ -267,6 +255,17 @@ export async function setupEngineerReply(input: {
   };
   let first = (await ask([{ role: 'user', content }])).trim();
   if (!first) return null;
+  // Much the same as something said a moment ago: one rewrite in other words
+  if (repeatsAny(first, recent)) {
+    const again = (
+      await ask([
+        { role: 'user', content },
+        { role: 'assistant', content: first },
+        { role: 'user', content: VARIETY_FEEDBACK },
+      ]).catch(() => '')
+    ).trim();
+    if (again) first = again;
+  }
   // Only parameters this car can change in this session (src/lib/engineering/setupAnswerGuard.ts): one rewrite, then
   // whatever still names another is left out
   const allowed = engineering?.capabilities.known ? engineering.allowed : null;

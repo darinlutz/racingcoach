@@ -305,7 +305,7 @@ export type StoredLapObject = { provider: string; bucket: string; key: string; s
 export async function putLapObject(
   key: string,
   gzip: Buffer,
-  details: { sha256?: string; csvBytes: number; userId?: number; clientLapId?: string; simulator?: string; kind?: 'expertLap' }
+  details: { sha256?: string; csvBytes: number; userId?: number; clientLapId?: string; simulator?: string; kind?: 'expertLap' | 'targetLap' }
 ): Promise<StoredLapObject> {
   const store = requireStore();
   const sha256 = details.sha256 ?? sha256Hex(gzip);

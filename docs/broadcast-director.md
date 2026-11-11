@@ -53,6 +53,32 @@ race's opening, final laps or after the finish, or within 15 s of a P0/P1 moment
 there are alternatives. A clip tied to a track only plays at that track, and is favoured there. Play Video Now skips the
 schedule, not the sequence.
 
+**The race's moments**: in a race, the race's own footage plays as it happens, each with no lines of the sequence (normal
+commentary carries on over it, and the file repeats if it's shorter), needing Automatic mode and its category not turned off
+(`dueMoment` in `src/lib/videoDirector.ts`, from the tracker's `raceMoments`, `src/lib/broadcastTracker.ts`):
+- **Pre-race Grid** (`PRE_RACE_GRID`): 45 s on the grid before the cars roll (`SessionState` before the parade), once; it waits
+  for a clip already on screen. Then again for 20 s as the cars start to roll (`SessionState` reaching the parade laps),
+  once, over any other clip, or the Parade Lap's footage instead when there's no grid footage. A TV that starts watching more
+  than 30 s after the cars started rolling goes straight to the parade lap's
+- **Parade Lap** (`PARADE_LAP`): after that, 45 s clips one after another until the green flag, which cuts them short
+- **Race Start** (`RACE_START`): the green flag, below
+- **Race End** (`RACE_END`): 30 s once the overall leader, on the last lap (laps races: all but one done; timed: the time has
+  run out), is 10 s from the checkered flag by their lap progress and rate (`RACE_END_LEAD_SECONDS`), or as soon as the
+  checkered flag is seen if that was missed (within 30 s), over any other clip, once. The finish's own P0 moments (the last
+  lap, the checkered flag) don't cut it short
+
+These clips are left out of the ones picked at other times (the schedule and the rotation) while there are others
+(`MOMENT_CATEGORIES`). Play Video Now can still play any of them.
+
+**Results**: once the checkered flag is out, clip or no clip, the Lead Announcer says the first three of the followed driver's
+class (overall in a single-class race), once all three have crossed the line or 20 s after the flag (`PODIUM_WAIT_MS`), then
+where the followed driver finished, once they have (given up 3 minutes after the flag), in the fixed wording of
+`tv.director.results` with names and positions from the tracker, so no AI call and nothing to check, the driver's name as their
+Name Pronunciation says (`resultsText` and `voiceResults` in `src/lib/videoDirectorRuntime.ts`, `resultsAnnounced`). Each
+goes out as a `results` line after any line of the Director's still to be said, holds normal commentary below P0 while it
+plays, and outlives a clip cancelled or cut short under it, Return to Live included. None more than 5 minutes
+after the flag. Only viewers who may hear the announcers hear them, like the sequence's lines.
+
 **Green flag**: when the race goes green (`raceStart`, `SessionState` reaching racing), the broadcast cuts from the map to
 45 s of `RACE_START` footage (`START_CLIP_SECONDS`), about 2 s later plus however long each TV takes to buffer, as it isn't
 picked ahead. It has no lines of the sequence and normal commentary carries on over it; the file repeats if it's shorter. It
@@ -62,7 +88,7 @@ off; with no such footage, the map stays up and the rotation follows. Then the r
 
 **Rotation** (`rotationEnabled`, on by default; `rotationMapSeconds` and `rotationVideoSeconds`, 30 each): during a race,
 from the green flag until its final laps (`rotating` in `raceConditions`), the broadcast takes turns between the
-map and footage on a fixed rhythm, leaving out `RACE_START` clips while there are others. With so little time on the map, the sequence is left out: no lines are written or voiced
+map and footage on a fixed rhythm, leaving out the race's moments' clips (grid, parade lap, race start and end) while there are others. With so little time on the map, the sequence is left out: no lines are written or voiced
 (the Require introduction, during and after settings don't apply, and it makes no AI or speech calls of its own), it doesn't
 wait for the announcers, and normal commentary carries on over the footage. Passes and battles don't delay a turn; a P0
 moment cuts back as usual, keeps it on the map for 15 s and the map then gets a full turn. Footage fills its whole turn: the
@@ -126,7 +152,7 @@ any account's rate limit. Video goes straight from storage to the TV, not throug
 ## Testing
 
 - `npm run test:video-director`: the rules, selection, scheduling, intensity, the controls, sync arithmetic, recovery.
-- `npm run test:e2e`, `e2e/broadcast-director.spec.ts`: real browsers, storage and ffmpeg: uploads into all eight categories,
+- `npm run test:e2e`, `e2e/broadcast-director.spec.ts`: real browsers, storage and ffmpeg: uploads into all eleven categories,
   transcoding, two TVs cutting together, reload mid clip, the controls, automatic mode, missing and unplayable files. Its header
   lists what it needs; it's skipped without them. Speech and AI are stood in for, so nothing reaches a real service.
 

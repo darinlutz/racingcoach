@@ -17,7 +17,10 @@ import {
   directorTick,
   endSession,
   expectedVideoTime,
+  DRIVER_FINISH_WAIT_MS,
   INTRO_WAIT_MS,
+  MOMENT_CATEGORIES,
+  MOMENT_SECONDS,
   isNewerSnapshot,
   linesPrepared,
   mp3DurationMs,
@@ -26,10 +29,14 @@ import {
   nextClockOffset,
   parseDirectorSettings,
   playbackCorrection,
+  PODIUM_WAIT_MS,
   PRELOAD_MS,
+  RACE_END_LEAD_SECONDS,
   RECOVERY_MS,
   requestClip,
   restoreDirector,
+  RESULTS_WINDOW_MS,
+  resultsAnnounced,
   returnToLive,
   selectVideo,
   skipNext,
@@ -38,6 +45,7 @@ import {
   videoFailed,
 } from '../src/lib/videoDirector.ts';
 import { raceConditions } from '../src/lib/videoDirectorConditions.ts';
+import { BroadcastTracker } from '../src/lib/broadcastTracker.ts';
 
 const video = (id, category = 'ONBOARDS', extra = {}) => ({
   id,
@@ -83,8 +91,8 @@ function selectedAndValid(state, v, now, config = settings) {
 }
 
 describe('categories', () => {
-  test('the eight categories, as stable identifiers', () => {
-    assert.deepEqual([...VIDEO_CATEGORIES], ['RACE_START', 'CRASHES', 'ONBOARDS', 'HELICOPTER', 'BLIMP', 'TVCAMERA1', 'TVCAMERA2', 'TVCAMERA3']);
+  test('the eleven categories, as stable identifiers', () => {
+    assert.deepEqual([...VIDEO_CATEGORIES], ['PRE_RACE_GRID', 'PARADE_LAP', 'RACE_START', 'RACE_END', 'CRASHES', 'ONBOARDS', 'HELICOPTER', 'BLIMP', 'TVCAMERA1', 'TVCAMERA2', 'TVCAMERA3']);
     assert.ok(isVideoCategory('BLIMP'));
     assert.ok(!isVideoCategory('Blimp'));
   });
@@ -171,7 +179,7 @@ describe('the sequence', () => {
     const state = newDirector('race', 0);
     let now = 200_000;
     const effects = directorTick(state, { now, settings, race: CALM, announcersBusyUntil: 0 });
-    assert.deepEqual(effects[0], { type: 'select', request: {}, trigger: 'auto' });
+    assert.deepEqual(effects[0], { type: 'select', request: { avoidCategories: MOMENT_CATEGORIES }, trigger: 'auto' });
     const selected = clipSelected(state, video(7), 'auto', settings, now);
     assert.equal(state.phase, 'CLIP_SELECTED');
     assert.ok(selected.some((e) => e.type === 'validate' && e.videoId === 7));
@@ -549,7 +557,7 @@ describe('the green flag', () => {
     assert.equal(sourceAt(state, now), 'LIVE_TRACK_MAP');
     let select = [];
     while (!(select = tick(state, (now += 250), race)).some((e) => e.type === 'select')) assert.ok(now - GREEN < 120_000);
-    assert.equal(select.find((e) => e.type === 'select').request.avoidCategory, 'RACE_START');
+    assert.ok(select.find((e) => e.type === 'select').request.avoidCategories.includes('RACE_START'));
     clipSelected(state, video(7), 'auto', config, now);
     clipValidated(state, true, now);
     assert.equal(state.clip.durationMs, 30_000, 'back to the rotation’s turn');
@@ -622,13 +630,242 @@ describe('the green flag', () => {
   });
 });
 
+describe('the race’s moments: grid, parade, finish and results', () => {
+  const config = DEFAULT_DIRECTOR_SETTINGS;
+  const T0 = 1_000_000;
+  const moments = (extra = {}) => ({
+    stage: 'grid',
+    paradeStartedAt: null,
+    checkeredAt: null,
+    leaderSecondsToFinish: null,
+    podium: [],
+    classCars: 20,
+    user: null,
+    ...extra,
+  });
+  const race = (m, extra = {}) => ({ level: 1, blocked: false, critical: false, rotating: false, raceStartAt: null, moments: m, ...extra });
+  const tick = (state, now, r, settings = config) => directorTick(state, { now, settings, race: r, announcersBusyUntil: 0 });
+  const selectOf = (effects) => effects.find((e) => e.type === 'select');
+  // Picks the clip and runs it through to the map again
+  function playThrough(state, v, now, r) {
+    clipSelected(state, v, 'auto', config, now);
+    clipValidated(state, true, now);
+    while (state.phase !== 'LIVE' || state.clip) tick(state, (now += 250), r);
+    return now;
+  }
+
+  test('on the grid before the cars roll: grid footage, once, with no lines', () => {
+    const state = newDirector('race', T0);
+    const grid = race(moments());
+    const select = selectOf(tick(state, T0 + 250, grid));
+    assert.deepEqual(select.request, { category: 'PRE_RACE_GRID' });
+    clipSelected(state, video(1, 'PRE_RACE_GRID', { durationSeconds: 120 }), 'auto', config, T0 + 250);
+    assert.equal(state.clip.durationMs, MOMENT_SECONDS.grid * 1000);
+    assert.ok(!clipValidated(state, true, T0 + 250).some((e) => e.type === 'prepare'), 'no lines are written');
+    let now = T0 + 250;
+    while (state.phase !== 'LIVE' || state.clip) tick(state, (now += 250), grid);
+    assert.ok(!selectOf(tick(state, now + 250, grid))?.request.category, 'not twice');
+  });
+
+  test('as the cars start to roll, the grid again over anything on screen, then parade lap footage until the green flag', () => {
+    const state = newDirector('race', T0);
+    // an ordinary clip on screen on the grid
+    clipSelected(state, video(9), 'auto', config, T0);
+    clipValidated(state, true, T0);
+    linesPrepared(state, [{ id: 'i', when: 'intro', speaker: 'lead', durationMs: 1000 }]);
+    let now = T0;
+    while (state.phase !== 'VIDEO_PLAYING') tick(state, (now += 250), race(moments({ podium: [] })));
+    const rolling = race(moments({ stage: 'parade', paradeStartedAt: now }));
+    const cut = tick(state, (now += 250), rolling);
+    assert.equal(state.phase, 'TRANSITION_TO_LIVE', 'the clip on screen is cut short');
+    assert.ok(cut.some((e) => e.type === 'persist'));
+    let select;
+    while (!(select = selectOf(tick(state, (now += 250), rolling)))) assert.ok(now < T0 + 60_000);
+    assert.deepEqual(select.request, { category: 'PRE_RACE_GRID', fallbackCategory: 'PARADE_LAP' });
+    clipSelected(state, video(1, 'PRE_RACE_GRID'), 'auto', config, now);
+    assert.equal(state.clip.durationMs, MOMENT_SECONDS.rolling * 1000);
+    clipValidated(state, true, now);
+    while (state.phase !== 'LIVE' || state.clip) tick(state, (now += 250), rolling);
+    // then the parade lap's footage, one clip after another
+    for (let i = 0; i < 2; i++) {
+      while (!(select = selectOf(tick(state, (now += 250), rolling)))) assert.ok(now < T0 + 300_000);
+      assert.deepEqual(select.request, { category: 'PARADE_LAP' });
+      now = playThrough(state, video(2 + i, 'PARADE_LAP'), now, rolling);
+    }
+    // the green flag cuts the parade lap's footage short for the start's
+    clipSelected(state, video(5, 'PARADE_LAP'), 'auto', config, now);
+    clipValidated(state, true, now);
+    while (state.phase !== 'VIDEO_PLAYING') tick(state, (now += 250), rolling);
+    const green = race(moments({ stage: 'racing', paradeStartedAt: T0 }), { raceStartAt: now, level: 4, blocked: true });
+    tick(state, (now += 250), green);
+    assert.equal(state.phase, 'TRANSITION_TO_LIVE');
+    while (!(select = selectOf(tick(state, (now += 250), green)))) assert.ok(now < T0 + 400_000);
+    assert.deepEqual(select.request, { category: 'RACE_START' });
+  });
+
+  test('no grid footage: the parade lap’s instead as the cars roll; a TV joining mid-parade goes straight to it', () => {
+    assert.equal(selectVideo([video(1, 'PARADE_LAP')], { category: 'PRE_RACE_GRID', fallbackCategory: 'PARADE_LAP' }, context()).id, 1);
+    assert.equal(selectVideo([video(1, 'PARADE_LAP')], { category: 'PRE_RACE_GRID' }, context()), null);
+    const late = newDirector('race', T0);
+    assert.deepEqual(selectOf(tick(late, T0 + 250, race(moments({ stage: 'parade', paradeStartedAt: null })))).request, { category: 'PARADE_LAP' });
+  });
+
+  test('the leader 10 seconds from the checkered flag on the last lap: race end footage, over anything, not cut by the finish', () => {
+    const state = newDirector('race', T0);
+    const far = race(moments({ stage: 'racing', leaderSecondsToFinish: 25 }), { blocked: true, level: 4 });
+    assert.ok(!selectOf(tick(state, T0 + 250, far)));
+    // a clip on screen
+    clipSelected(state, video(9), 'auto', config, T0 + 250);
+    clipValidated(state, true, T0 + 250);
+    linesPrepared(state, [{ id: 'i', when: 'intro', speaker: 'lead', durationMs: 1000 }]);
+    let now = T0 + 250;
+    while (state.phase !== 'VIDEO_PLAYING') tick(state, (now += 250), far);
+    const close = race(moments({ stage: 'racing', leaderSecondsToFinish: RACE_END_LEAD_SECONDS - 0.5 }), { blocked: true, level: 5 });
+    tick(state, (now += 250), close);
+    assert.equal(state.phase, 'TRANSITION_TO_LIVE');
+    let select;
+    while (!(select = selectOf(tick(state, (now += 250), close)))) assert.ok(now < T0 + 60_000);
+    assert.deepEqual(select.request, { category: 'RACE_END' });
+    clipSelected(state, video(1, 'RACE_END', { durationSeconds: 60 }), 'auto', config, now);
+    assert.equal(state.clip.durationMs, MOMENT_SECONDS.finish * 1000);
+    clipValidated(state, true, now);
+    while (state.phase !== 'VIDEO_PLAYING') tick(state, (now += 250), close);
+    // the checkered flag, a P0 moment, doesn't bring the broadcast back from it
+    tick(state, (now += 250), race(moments({ stage: 'finished', checkeredAt: now }), { critical: true, blocked: true }));
+    assert.equal(state.phase, 'VIDEO_PLAYING');
+    assert.ok(!selectOf(tick(state, (now += 250), race(moments({ stage: 'finished', checkeredAt: now }), { blocked: true }))), 'once');
+  });
+
+  test('a TV that only sees the checkered flag still gets the race end, but not long after it', () => {
+    assert.deepEqual(selectOf(tick(newDirector('r', T0), T0 + 5000, race(moments({ stage: 'finished', checkeredAt: T0 })))).request, { category: 'RACE_END' });
+    assert.ok(!selectOf(tick(newDirector('r', T0), T0 + 31_000, race(moments({ stage: 'finished', checkeredAt: T0 })))));
+    assert.ok(!selectOf(tick(newDirector('r', T0), T0 + 5000, race(moments({ stage: 'finished', checkeredAt: T0 })), { ...config, categoryEnabled: { RACE_END: false } })));
+  });
+
+  test('ordinary clips leave the moments’ footage out while there are others', () => {
+    const pool = [video(1, 'RACE_END'), video(2, 'PRE_RACE_GRID'), video(3, 'PARADE_LAP'), video(4, 'HELICOPTER')];
+    for (let i = 0; i < 20; i++) assert.equal(selectVideo(pool, { avoidCategories: MOMENT_CATEGORIES }, context(), Math.random).id, 4);
+  });
+
+  test('the podium once its three have crossed the line, then the driver’s finish, after any line still to be said', () => {
+    const state = newDirector('race', T0);
+    const podium = (finished) => [
+      { driver: 'Ann Lee', position: 1, finished: true },
+      { driver: 'Bo Diaz', position: 2, finished },
+      { driver: 'Cy Moss', position: 3, finished },
+    ];
+    const notYet = race(moments({ stage: 'finished', checkeredAt: T0, podium: podium(false), user: { driver: 'Dee Roe', position: 7, finished: false } }), { blocked: true });
+    // no race end footage in this test
+    state.momentsShown = ['finish'];
+    assert.ok(!tick(state, T0 + 1000, notYet).some((e) => e.type === 'announce'));
+    const across = race(moments({ stage: 'finished', checkeredAt: T0, podium: podium(true), user: { driver: 'Dee Roe', position: 7, finished: false } }), { blocked: true });
+    const announce = tick(state, T0 + 2000, across).filter((e) => e.type === 'announce');
+    assert.deepEqual(announce, [{ type: 'announce', what: 'podium' }]);
+    assert.ok(!tick(state, T0 + 2250, across).some((e) => e.type === 'announce'), 'one at a time');
+    const seq = state.seq;
+    resultsAnnounced(state, 'podium', [{ id: 'p', when: 'results', speaker: 'lead', durationMs: 5000 }], T0 + 3000);
+    assert.ok(state.seq > seq);
+    assert.equal(state.lines[0].at, T0 + 3000 + AUDIO_LEAD_MS);
+    assert.ok(commentaryHeld(state, T0 + 5000), 'normal commentary waits for it');
+    assert.ok(!tick(state, T0 + 3500, across).some((e) => e.type === 'announce'), 'the driver hasn’t finished');
+    const done = race(moments({ stage: 'finished', checkeredAt: T0, podium: podium(true), user: { driver: 'Dee Roe', position: 7, finished: true } }), { blocked: true });
+    assert.deepEqual(tick(state, T0 + 4000, done).filter((e) => e.type === 'announce'), [{ type: 'announce', what: 'driver' }]);
+    resultsAnnounced(state, 'driver', [{ id: 'd', when: 'results', speaker: 'lead', durationMs: 3000 }], T0 + 4500);
+    assert.equal(state.lines[1].at, T0 + 3000 + AUDIO_LEAD_MS + 5000 + 200, 'after the podium');
+    // the lines stay until they've been said, then go
+    tick(state, T0 + 9000, done);
+    assert.equal(state.lines.length, 2);
+    tick(state, T0 + 20_000, done);
+    assert.equal(state.lines.length, 0);
+    assert.ok(!tick(state, T0 + 21_000, done).some((e) => e.type === 'announce'), 'each once');
+  });
+
+  test('the podium waits only so long for the cars behind; a driver who never finishes isn’t waited for for ever', () => {
+    const state = newDirector('race', T0);
+    const m = moments({ stage: 'finished', checkeredAt: T0, podium: [{ driver: 'Ann Lee', position: 1, finished: true }, { driver: 'Bo Diaz', position: 2, finished: false }], user: { driver: 'Dee Roe', position: 9, finished: false } });
+    assert.ok(!tick(state, T0 + PODIUM_WAIT_MS - 1000, race(m)).some((e) => e.type === 'announce'));
+    assert.ok(tick(state, T0 + PODIUM_WAIT_MS, race(m)).some((e) => e.type === 'announce'));
+    resultsAnnounced(state, 'podium', [], T0 + PODIUM_WAIT_MS);
+    assert.ok(!tick(state, T0 + DRIVER_FINISH_WAIT_MS - 1000, race(m)).some((e) => e.type === 'announce'));
+    tick(state, T0 + DRIVER_FINISH_WAIT_MS, race(m));
+    assert.ok(state.resultsSaid.includes('driver'), 'given up');
+    // Nothing at all long after the flag, or with Automatic mode off
+    const late = newDirector('race', T0);
+    assert.ok(!tick(late, T0 + RESULTS_WINDOW_MS + 1, race({ ...m, podium: [{ driver: 'Ann Lee', position: 1, finished: true }] })).some((e) => e.type === 'announce'));
+    assert.ok(!tick(newDirector('race', T0), T0 + 1000, race({ ...m, podium: [{ driver: 'Ann Lee', position: 1, finished: true }] }), { ...config, autoDirector: false }).some((e) => e.type === 'announce'));
+  });
+
+  test('the results outlive a clip cancelled or cut short under them', () => {
+    const state = newDirector('race', T0);
+    state.momentsShown = ['finish'];
+    resultsAnnounced(state, 'podium', [{ id: 'p', when: 'results', speaker: 'lead', durationMs: 5000 }], T0);
+    clipSelected(state, video(9), 'auto', config, T0 + 100);
+    assert.equal(state.lines.length, 1);
+    returnToLive(state, T0 + 200);
+    assert.equal(state.lines.length, 1, 'Return to Live drops the clip, not them');
+  });
+
+  test('a director saved before the moments were added restores without them', () => {
+    const saved = newDirector('race', T0);
+    delete saved.momentsShown;
+    delete saved.resultsSaid;
+    delete saved.moment;
+    saved.announcing = true;
+    const { state } = restoreDirector(saved, T0 + 1000);
+    assert.deepEqual([state.momentsShown, state.resultsSaid, state.moment, state.announcing], [[], [], null, false]);
+  });
+});
+
+describe('the tracker’s race moments', () => {
+  const car = (idx, position, lapsDone, pct, extra = {}) => ({ idx, name: `Driver ${idx}`, carClass: 'GT3', position, classPosition: position, lap: lapsDone, lapsDone, pct, rate: 0.01, ...extra });
+  const snap = (at, sessionState, cars, extra = {}) => ({ at, sessionType: 'Race', sessionState, lapsTotal: 10, timeRemain: null, myCarIdx: 4, cars, ...extra });
+  const field = (lapsDone, pct) => [car(1, 1, lapsDone, pct), car(2, 2, lapsDone, pct - 0.01), car(3, 3, lapsDone, pct - 0.02), car(4, 4, lapsDone, pct - 0.03)];
+
+  test('grid, then the cars rolling, then racing', () => {
+    const t = new BroadcastTracker();
+    t.update(snap(1000, 1, field(0, 0.5)));
+    assert.equal(t.raceMoments().stage, 'grid');
+    assert.equal(t.raceMoments().paradeStartedAt, null);
+    t.update(snap(2000, 3, field(0, 0.5)));
+    assert.deepEqual([t.raceMoments().stage, t.raceMoments().paradeStartedAt], ['parade', 2000]);
+    t.update(snap(3000, 4, field(0, 0.6)));
+    assert.equal(t.raceMoments().stage, 'racing');
+    assert.equal(t.raceMoments().leaderSecondsToFinish, null, 'not the last lap');
+  });
+
+  test('the leader’s time to the checkered flag on the last lap, and who has crossed the line since', () => {
+    const t = new BroadcastTracker();
+    t.update(snap(1000, 4, field(8, 0.5)));
+    t.update(snap(2000, 4, field(9, 0.9)));
+    // a tenth of a lap left at a hundredth of a lap a second
+    assert.ok(Math.abs(t.raceMoments().leaderSecondsToFinish - 10) < 1e-6);
+    t.update(snap(3000, 5, [car(1, 1, 10, 0.01), car(2, 2, 9, 0.99), car(3, 3, 9, 0.98), car(4, 4, 9, 0.97)]));
+    let m = t.raceMoments();
+    assert.equal(m.stage, 'finished');
+    assert.equal(m.checkeredAt, 3000);
+    assert.deepEqual(m.podium.map((p) => p.finished), [true, false, false]);
+    t.update(snap(4000, 5, [car(1, 1, 10, 0.05), car(2, 2, 10, 0.01), car(3, 3, 10, 0.005), car(4, 4, 9, 0.99)]));
+    m = t.raceMoments();
+    assert.deepEqual(m.podium.map((p) => [p.driver, p.position, p.finished]), [['Driver 1', 1, true], ['Driver 2', 2, true], ['Driver 3', 3, true]]);
+    assert.deepEqual(m.user, { driver: 'Driver 4', position: 4, finished: false });
+    t.update(snap(5000, 5, [car(1, 1, 10, 0.1), car(2, 2, 10, 0.05), car(3, 3, 10, 0.04), car(4, 4, 10, 0.01)]));
+    assert.deepEqual(t.raceMoments().user, { driver: 'Driver 4', position: 4, finished: true });
+  });
+
+  test('none outside a race', () => {
+    const t = new BroadcastTracker();
+    t.update(snap(1000, 4, field(0, 0.5), { sessionType: 'Practice' }));
+    assert.equal(t.raceMoments(), null);
+  });
+});
+
 describe('race intensity', () => {
   const ctx = (phase = 'middle') => ({ isRace: true, phase, raceProgress: 0.5, userIdx: 1, userPosition: 5, storylines: [] });
   const event = (at, e, seq = 1) => ({ seq, at, event: e });
   const NOW = 1_000_000;
 
   test('a quiet race is level 1 and open for clips', () => {
-    assert.deepEqual(raceConditions([], ctx(), NOW, null), { level: 1, blocked: false, critical: false, rotating: true, raceStartAt: null });
+    assert.deepEqual(raceConditions([], ctx(), NOW, null), { level: 1, blocked: false, critical: false, rotating: true, raceStartAt: null, moments: null });
   });
 
   test('the green flag is reported, and doesn’t bring back the footage that follows it', () => {

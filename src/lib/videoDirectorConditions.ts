@@ -1,4 +1,5 @@
 import { classify, intensityFor, newDirectorState, type DirectorContext } from './broadcastDirector.ts';
+import type { RaceMoments } from './broadcastTracker';
 import type { NumberedRaceEvent } from './liveRacing';
 import type { RaceConditions } from './videoDirector';
 
@@ -15,8 +16,15 @@ const NO_CLIP_PHASES: readonly DirectorContext['phase'][] = ['opening', 'finalLa
 // When the map and footage take turns: the race, from the green flag's footage until its final laps
 const ROTATION_PHASES: readonly DirectorContext['phase'][] = ['opening', 'middle', 'finalQuarter'];
 
-// since: when the current clip's sequence started (a P0 moment after it brings the broadcast back), or null for none
-export function raceConditions(events: NumberedRaceEvent[], ctx: DirectorContext, now: number, since: number | null): RaceConditions {
+// since: when the current clip's sequence started (a P0 moment after it brings the broadcast back), or null for none;
+// moments: the grid, parade, finish and results (src/lib/broadcastTracker.ts), passed through
+export function raceConditions(
+  events: NumberedRaceEvent[],
+  ctx: DirectorContext,
+  now: number,
+  since: number | null,
+  moments: RaceMoments | null = null
+): RaceConditions {
   const scratch = newDirectorState('conditions');
   let level = 1;
   let blocked = NO_CLIP_PHASES.includes(ctx.phase);
@@ -38,5 +46,5 @@ export function raceConditions(events: NumberedRaceEvent[], ctx: DirectorContext
     const startAlreadyOut = c.key === 'start' && raceStartAt != null && since != null && raceStartAt <= since;
     if (c.priority === 0 && since != null && c.at > since && !startAlreadyOut) critical = true;
   }
-  return { level, blocked, critical, rotating, raceStartAt };
+  return { level, blocked, critical, rotating, raceStartAt, moments };
 }

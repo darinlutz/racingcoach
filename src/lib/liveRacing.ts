@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { DirectorContext } from './broadcastDirector';
-import { BroadcastTracker, type BroadcastEvent, type TrackerSnapshot } from './broadcastTracker';
+import { BroadcastTracker, type BroadcastEvent, type RaceMoments, type TrackerSnapshot } from './broadcastTracker';
 import { flagCodeForFlair } from './countryFlags';
 import { fittedTire, isWetSession, type FittedTire } from './liveCarStatus';
 import { query } from './db';
@@ -933,6 +933,7 @@ export function readDirectorFeed(driverId: number): {
   track: string;
   cars: string[];
   fieldNames: string[];
+  moments: RaceMoments | null;
 } | null {
   const entry = live.entries.get(driverId);
   if (!entry || Date.now() - entry.receivedAt > STALE_MS) return null;
@@ -951,6 +952,7 @@ export function readDirectorFeed(driverId: number): {
     track: entry.update.track,
     cars: [...new Set(cars)],
     fieldNames: tracker.roster().map((r) => r.driver),
+    moments: tracker.raceMoments(),
   };
 }
 

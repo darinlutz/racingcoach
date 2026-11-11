@@ -2234,7 +2234,10 @@ export const en = {
       "uploadBlocked": "The upload was blocked. Check the storage bucket’s CORS rule.",
       "category": "Category",
       "categories": {
+        "PRE_RACE_GRID": "Pre-race Grid",
+        "PARADE_LAP": "Parade Lap",
         "RACE_START": "Race Start",
+        "RACE_END": "Race End",
         "CRASHES": "Crashes",
         "ONBOARDS": "Onboards",
         "HELICOPTER": "Helicopter",
@@ -3595,6 +3598,18 @@ export const en = {
     director: {
       "recorded": "RECORDED",
       "intros": {
+        "PRE_RACE_GRID": [
+          "Here's a look down a starting grid from an earlier race.",
+          "From our archive, the cars lined up on the grid."
+        ],
+        "PARADE_LAP": [
+          "Here's the field on a parade lap from an earlier race.",
+          "From our archive, a parade lap."
+        ],
+        "RACE_END": [
+          "Here's a race finish from our archive.",
+          "Let's take a look at the checkered flag from an earlier race."
+        ],
         "RACE_START": [
           "Let's take another look at a race start.",
           "Here's a race start from our archive."
@@ -3631,7 +3646,35 @@ export const en = {
       "backToLive": [
         "Back to the live race.",
         "And back to the action."
-      ]
+      ],
+      // The finishing order the Broadcast Director says once the checkered flag is out (src/lib/videoDirectorRuntime.ts)
+      "results": {
+        "podium": [
+          "{first} wins the race! {second} takes second, and {third} completes the podium in third.",
+          "It's victory for {first}! {second} finishes second, with {third} in third.",
+          "{first} takes the checkered flag for the win, ahead of {second} in second and {third} in third."
+        ],
+        "podiumTwo": [
+          "{first} wins the race, with {second} in second.",
+          "Victory for {first}! {second} finishes second."
+        ],
+        "podiumOne": [
+          "{first} wins the race!",
+          "Victory for {first}!"
+        ],
+        "driverWon": [
+          "And what a drive from {driver}, the winner of this race!",
+          "{driver} brings it home in first place!"
+        ],
+        "driverPodium": [
+          "{driver} brings it home on the podium, in position {position}.",
+          "A podium finish for {driver}, in position {position}."
+        ],
+        "driverFinished": [
+          "{driver} crosses the line in position {position}.",
+          "And {driver} takes the checkered flag in position {position}."
+        ]
+      }
     },
     title: 'TV Broadcast',
     pairHeading: 'Pair this TV with RacingCoach.app',

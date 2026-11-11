@@ -8,7 +8,7 @@
 
     <!-- One row: peak brake pressure, minimum speed and largest steering angle of the last few seconds; the focus area
          just left's time, exit speed, Wheel° Diff and Wheel Point Diff; and the Rotation Model's label -->
-    <Grid HorizontalAlignment="Left">
+    <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="100" />
             <ColumnDefinition Width="6" />
@@ -18,7 +18,7 @@
             <ColumnDefinition Width="6" />
             <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="6" />
-            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
         <StackPanel Grid.Column="0">
             <TextBlock Style="{StaticResource Heading}" local:Loc.Key="overlay.maxBrake" />
@@ -52,15 +52,17 @@
                 <TextBlock x:Name="LastWheelDiffHeading" Style="{StaticResource Heading}" />
                 <TextBox x:Name="LastWheelDiffBox" Style="{StaticResource Box}" />
             </StackPanel>
-            <StackPanel Width="106" Margin="6,0,0,0">
+            <StackPanel Width="122" Margin="6,0,0,0">
                 <TextBlock x:Name="LastWheelPointHeading" Style="{StaticResource Heading}" />
                 <TextBox x:Name="LastWheelPointBox" Style="{StaticResource Box}" />
             </StackPanel>
         </StackPanel>
 
         <!-- UNDERSTEER or OVERSTEER from the Rotation Model while it's sure; hidden (keeping its space) otherwise.
-             No heading: it sits at the bottom, level with the other boxes -->
-        <TextBox x:Name="HandlingBox" Grid.Column="8" Style="{StaticResource MidBox}" MinWidth="126" Visibility="Hidden"
-                 VerticalAlignment="Bottom" />
+             No heading: it sits at the bottom, level with the other boxes. Shrunk to fit what's left of the row when the
+             window is narrow, rather than cut off -->
+        <Viewbox Grid.Column="8" Stretch="Uniform" StretchDirection="DownOnly" HorizontalAlignment="Left" VerticalAlignment="Bottom">
+            <TextBox x:Name="HandlingBox" Style="{StaticResource MidBox}" MinWidth="126" Visibility="Hidden" />
+        </Viewbox>
     </Grid>
 </UserControl>

@@ -2225,7 +2225,10 @@ export const de: Dictionary = {
       "uploadBlocked": "Der Upload wurde blockiert. Prüfe die CORS-Regel des Buckets.",
       "category": "Kategorie",
       "categories": {
+        "PRE_RACE_GRID": "Startaufstellung",
+        "PARADE_LAP": "Einführungsrunde",
         "RACE_START": "Rennstart",
+        "RACE_END": "Rennende",
         "CRASHES": "Unfälle",
         "ONBOARDS": "Onboards",
         "HELICOPTER": "Helikopter",
@@ -3586,6 +3589,18 @@ export const de: Dictionary = {
     director: {
       "recorded": "AUFZEICHNUNG",
       "intros": {
+        "PRE_RACE_GRID": [
+          "Hier ist eine Startaufstellung aus einem früheren Rennen.",
+          "Aus unserem Archiv: die Autos in der Startaufstellung."
+        ],
+        "PARADE_LAP": [
+          "Hier ist das Feld in einer Einführungsrunde aus einem früheren Rennen.",
+          "Aus unserem Archiv: eine Einführungsrunde."
+        ],
+        "RACE_END": [
+          "Hier ist eine Zieldurchfahrt aus unserem Archiv.",
+          "Schauen wir uns eine Zielflagge aus einem früheren Rennen an."
+        ],
         "RACE_START": [
           "Schauen wir uns noch einmal einen Rennstart an.",
           "Hier ist ein Rennstart aus unserem Archiv."
@@ -3622,7 +3637,35 @@ export const de: Dictionary = {
       "backToLive": [
         "Zurück zum Live-Rennen.",
         "Und zurück zur Action."
-      ]
+      ],
+      // The finishing order the Broadcast Director says once the checkered flag is out (src/lib/videoDirectorRuntime.ts)
+      "results": {
+        "podium": [
+          "{first} gewinnt das Rennen! {second} wird Zweiter, und {third} komplettiert das Podium als Dritter.",
+          "Sieg für {first}! {second} wird Zweiter, {third} Dritter.",
+          "{first} sieht die Zielflagge als Sieger, vor {second} auf Platz zwei und {third} auf Platz drei."
+        ],
+        "podiumTwo": [
+          "{first} gewinnt das Rennen, {second} wird Zweiter.",
+          "Sieg für {first}! {second} wird Zweiter."
+        ],
+        "podiumOne": [
+          "{first} gewinnt das Rennen!",
+          "Sieg für {first}!"
+        ],
+        "driverWon": [
+          "Und was für eine Fahrt von {driver}, dem Sieger dieses Rennens!",
+          "{driver} bringt den Sieg nach Hause!"
+        ],
+        "driverPodium": [
+          "{driver} fährt aufs Podium, auf Platz {position}.",
+          "Ein Podiumsplatz für {driver}, Platz {position}."
+        ],
+        "driverFinished": [
+          "{driver} überquert die Ziellinie auf Platz {position}.",
+          "Und {driver} sieht die Zielflagge auf Platz {position}."
+        ]
+      }
     },
     title: 'TV-Übertragung',
     pairHeading: 'Koppele diesen Fernseher mit RacingCoach.app',

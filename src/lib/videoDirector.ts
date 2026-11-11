@@ -1,4 +1,5 @@
 import type { VideoCategory } from './broadcastVideoCategories';
+import type { RaceMoments } from './broadcastTracker';
 
 // The Broadcast Director's rules (docs/broadcast-director.md): what TV Broadcast Mode shows, the live track map or a
 // prerecorded clip, and when. Not to be confused with the Commentary Director (src/lib/broadcastDirector.ts), which picks
@@ -46,6 +47,25 @@ export const ROTATION_LEAD_MS = 6000;
 export const START_CLIP_SECONDS = 45;
 // A TV that starts watching this soon after the green flag still gets the start's footage
 export const START_CLIP_WINDOW_MS = 30_000;
+
+// The race's own moments, each shown at once over anything else (but the grid and parade, which wait for the clip on
+// screen), with no lines of the sequence: the grid before the cars roll (once), the grid again as they start to roll
+// (once), the parade lap's footage after it until the green flag (one clip after another), the green flag's race start
+// (once per start) and the leader taking the checkered flag (once)
+export type RaceMoment = 'grid' | 'rolling' | 'parade' | 'start' | 'finish';
+export const MOMENT_SECONDS: Record<RaceMoment, number> = { grid: 45, rolling: 20, parade: 45, start: START_CLIP_SECONDS, finish: 30 };
+// Footage of these moments is left out of clips picked at other times while there are others
+export const MOMENT_CATEGORIES: readonly VideoCategory[] = ['PRE_RACE_GRID', 'PARADE_LAP', 'RACE_START', 'RACE_END'];
+// The race end's footage starts when the leader, on the last lap, is this close (seconds) to the checkered flag
+export const RACE_END_LEAD_SECONDS = 10;
+// A TV that starts watching this soon after the cars started rolling, or the checkered flag, still gets that footage
+export const MOMENT_WINDOW_MS = 30_000;
+// The results, said once the checkered flag is out: the first three of the followed driver's class once they've all
+// crossed the line (or this long after the flag), then where the followed driver finished, once they have (given up this
+// long after the flag); none said this long after it
+export const PODIUM_WAIT_MS = 20_000;
+export const DRIVER_FINISH_WAIT_MS = 180_000;
+export const RESULTS_WINDOW_MS = 300_000;
 // How many recent clips and categories are avoided while there are alternatives
 export const RECENT_VIDEOS = 5;
 const RECENT_CATEGORIES = 2;
@@ -151,8 +171,15 @@ export function clipLengthSeconds(video: Pick<DirectorVideo, 'durationSeconds' |
   return Math.min(Math.max(Math.min(wanted, available), 0), MAX_CLIP_SECONDS);
 }
 
-// avoidCategory: left out while there are alternatives
-export type SelectionRequest = { category?: VideoCategory | null; videoId?: number | null; avoidCategory?: VideoCategory };
+// avoidCategory, avoidCategories: left out while there are alternatives; fallbackCategory: the category asked for when
+// category has nothing to play
+export type SelectionRequest = {
+  category?: VideoCategory | null;
+  fallbackCategory?: VideoCategory;
+  videoId?: number | null;
+  avoidCategory?: VideoCategory;
+  avoidCategories?: readonly VideoCategory[];
+};
 
 export type SelectionContext = {
   settings: DirectorSettings;
@@ -178,10 +205,11 @@ export function selectVideo(videos: DirectorVideo[], request: SelectionRequest, 
   let pool = eligibleVideos(videos, context);
   if (request.videoId != null) return pool.find((v) => v.id === request.videoId) ?? null;
   if (request.category) {
-    pool = pool.filter((v) => v.category === request.category);
+    const asked = pool.filter((v) => v.category === request.category);
+    pool = asked.length === 0 && request.fallbackCategory ? pool.filter((v) => v.category === request.fallbackCategory) : asked;
   } else {
     pool = pool.filter((v) => settings.categoryEnabled[v.category] !== false && (settings.categoryWeights[v.category] ?? 1) > 0 && v.selectionWeight > 0);
-    const notAvoided = pool.filter((v) => v.category !== request.avoidCategory);
+    const notAvoided = pool.filter((v) => v.category !== request.avoidCategory && !request.avoidCategories?.includes(v.category));
     if (notAvoided.length > 0) pool = notAvoided;
     const otherCategory = pool.filter((v) => !context.recentCategories.includes(v.category));
     if (otherCategory.length > 0) pool = otherCategory;
@@ -221,7 +249,9 @@ export type ReservedClip = {
   loop?: { offsetSeconds: number; lengthSeconds: number };
 };
 
-export type LineTiming = 'intro' | 'during' | 'after';
+// results: the finishing order, said once the checkered flag is out, clip or no clip
+export type LineTiming = 'intro' | 'during' | 'after' | 'results';
+export type ResultsAnnouncement = 'podium' | 'driver';
 
 // A commentary line of the sequence: what it's for and how long its longest voicing runs; its words and audio, which
 // differ by viewer language and voice, stay with the runtime
@@ -263,10 +293,15 @@ export type DirectorState = {
   rotationCutAt: number | null;
   // Rotation: how far (seconds) each clip has got, so a long file carries on rather than starting over
   rotationPlayed: Record<number, number>;
-  // The clip being picked or shown is the green flag's race start footage
-  startClip: boolean;
+  // The race's moment the clip being picked or shown is for (the green flag's race start footage, ...), or null
+  moment: RaceMoment | null;
   // The race start that footage has been asked for; each start gets one
   startClipFor: number | null;
+  // The once-only moments already asked for (grid, rolling, finish)
+  momentsShown: RaceMoment[];
+  // The results already said (or given up on), and whether one is being written and voiced
+  resultsSaid: ResultsAnnouncement[];
+  announcing: boolean;
   manualRequest: SelectionRequest | null;
   reselect: boolean;
   recentVideoIds: number[];
@@ -302,8 +337,11 @@ export function newDirector(sessionKey: string, now: number): DirectorState {
     lastClipEndedAt: null,
     rotationCutAt: null,
     rotationPlayed: {},
-    startClip: false,
+    moment: null,
     startClipFor: null,
+    momentsShown: [],
+    resultsSaid: [],
+    announcing: false,
     manualRequest: null,
     reselect: false,
     recentVideoIds: [],
@@ -318,6 +356,7 @@ export type DirectorEffect =
   | { type: 'prepare' }
   | { type: 'playbackStarted' }
   | { type: 'finished'; status: 'completed' | 'cutShort' | 'cancelled' | 'failed'; reason: string | null }
+  | { type: 'announce'; what: ResultsAnnouncement }
   | { type: 'persist' };
 
 // How the race looks right now, from the Commentary Director's priorities and intensities (raceConditions in
@@ -333,6 +372,8 @@ export type RaceConditions = {
   rotating: boolean;
   // When the green flag came out, while that's among the recent events
   raceStartAt: number | null;
+  // The grid, parade, finish and results (src/lib/broadcastTracker.ts), in a race; null otherwise
+  moments?: RaceMoments | null;
 };
 
 export type TickInput = {
@@ -372,11 +413,65 @@ function autoClipDue(state: DirectorState, input: TickInput): boolean {
   return !race.blocked && race.level < 4 && now >= nextClipDueAt(state, settings, race.level);
 }
 
-// The green flag is out and its race start footage hasn't been asked for yet
-function startClipDue(state: DirectorState, input: TickInput): boolean {
+type DueMoment = { moment: RaceMoment; request: SelectionRequest; urgent: boolean };
+
+// The race's moment whose footage is due now, if any: the most important first. urgent ones cut away from whatever is on
+// screen; the grid and parade wait for it
+export function dueMoment(state: DirectorState, input: TickInput): DueMoment | null {
   const { now, settings, race } = input;
-  if (!settings.videosEnabled || !settings.autoDirector || settings.categoryEnabled.RACE_START === false) return false;
-  return race.raceStartAt != null && state.startClipFor == null && now - race.raceStartAt <= START_CLIP_WINDOW_MS;
+  if (!settings.videosEnabled || !settings.autoDirector) return null;
+  const on = (category: VideoCategory) => settings.categoryEnabled[category] !== false;
+  const shown = (moment: RaceMoment) => (state.momentsShown ?? []).includes(moment);
+  const m = race.moments ?? null;
+  if (m && on('RACE_END') && !shown('finish')) {
+    const approaching = m.stage === 'racing' && m.leaderSecondsToFinish != null && m.leaderSecondsToFinish <= RACE_END_LEAD_SECONDS;
+    const justFinished = m.stage === 'finished' && m.checkeredAt != null && now - m.checkeredAt <= MOMENT_WINDOW_MS;
+    if (approaching || justFinished) return { moment: 'finish', request: { category: 'RACE_END' }, urgent: true };
+  }
+  // The green flag is out and its race start footage hasn't been asked for yet
+  if (on('RACE_START') && race.raceStartAt != null && state.startClipFor == null && now - race.raceStartAt <= START_CLIP_WINDOW_MS)
+    return { moment: 'start', request: { category: 'RACE_START' }, urgent: true };
+  if (!m) return null;
+  if (m.stage === 'parade') {
+    // The cars start to roll: the grid again (the parade lap's footage when there's none of it), once
+    const rolling = m.paradeStartedAt != null && now - m.paradeStartedAt <= MOMENT_WINDOW_MS && !shown('rolling');
+    if (rolling && (on('PRE_RACE_GRID') || on('PARADE_LAP'))) {
+      const request: SelectionRequest = on('PRE_RACE_GRID')
+        ? { category: 'PRE_RACE_GRID', ...(on('PARADE_LAP') ? { fallbackCategory: 'PARADE_LAP' as const } : {}) }
+        : { category: 'PARADE_LAP' };
+      return { moment: 'rolling', request, urgent: true };
+    }
+    // Then the parade lap's, one clip after another until the green flag
+    if (on('PARADE_LAP') && now >= state.nextCheckAt) return { moment: 'parade', request: { category: 'PARADE_LAP' }, urgent: false };
+  }
+  // On the grid before the cars roll, once
+  if (m.stage === 'grid' && on('PRE_RACE_GRID') && !shown('grid')) return { moment: 'grid', request: { category: 'PRE_RACE_GRID' }, urgent: false };
+  return null;
+}
+
+// The results due to be said now, if any: the podium, then the followed driver's finish
+function dueResults(state: DirectorState, input: TickInput): ResultsAnnouncement | 'driverGivenUp' | null {
+  const { now, settings, race } = input;
+  const m = race.moments ?? null;
+  if (!settings.videosEnabled || !settings.autoDirector || state.announcing) return null;
+  if (!m || m.stage !== 'finished' || m.checkeredAt == null || now - m.checkeredAt > RESULTS_WINDOW_MS) return null;
+  const said = state.resultsSaid ?? [];
+  if (!said.includes('podium')) {
+    const ready = m.podium.length > 0 && (m.podium.every((p) => p.finished) || now - m.checkeredAt >= PODIUM_WAIT_MS);
+    return ready ? 'podium' : null;
+  }
+  if (said.includes('driver') || !m.user) return null;
+  if (m.user.finished && m.user.position != null) return 'driver';
+  return now - m.checkeredAt >= DRIVER_FINISH_WAIT_MS ? 'driverGivenUp' : null;
+}
+
+// The results' lines still to be said outlive the clip they were to be said over
+const resultLines = (state: DirectorState, now: number) => state.lines.filter((l) => l.when === 'results' && l.at + l.durationMs > now);
+const linesEnd = (lines: ScheduledLine[]) => Math.max(0, ...lines.map((l) => l.at + l.durationMs));
+
+function dropClipLines(state: DirectorState, now: number): void {
+  state.lines = resultLines(state, now);
+  state.holdUntil = linesEnd(state.lines);
 }
 
 function abandon(state: DirectorState, now: number, status: 'cancelled' | 'failed', reason: string, effects: DirectorEffect[]): void {
@@ -384,11 +479,10 @@ function abandon(state: DirectorState, now: number, status: 'cancelled' | 'faile
   state.clip = null;
   state.prepared = null;
   state.preparing = false;
-  state.lines = [];
   state.transitionAt = null;
   state.returnAt = null;
   state.liveAt = null;
-  state.holdUntil = 0;
+  dropClipLines(state, now);
   state.recoverUntil = now + RECOVERY_MS;
   state.nextCheckAt = now + RETRY_AFTER_MS;
   // Something's wrong: the next try waits as long as a clip would, rather than failing over and over
@@ -424,12 +518,12 @@ function schedule(state: DirectorState, now: number, settings: DirectorSettings,
     lines.push({ ...line, at: afterAt });
     afterAt += line.durationMs;
   }
-  state.lines = lines;
+  state.lines = [...resultLines(state, now), ...lines];
   state.transitionMs = settings.transitionMs;
   state.transitionAt = transitionAt;
   state.returnAt = returnAt;
   state.liveAt = liveAt;
-  state.holdUntil = afterAt;
+  state.holdUntil = Math.max(afterAt, linesEnd(state.lines));
   go(state, 'INTRO_PLAYING', now, effects);
 }
 
@@ -437,8 +531,9 @@ function cutToLive(state: DirectorState, now: number, status: 'cutShort', reason
   state.returnAt = now;
   state.liveAt = now + state.transitionMs;
   // What the announcers had left for the clip isn't said over what brought it back
-  state.lines = state.lines.filter((l) => l.at + l.durationMs <= now);
-  state.holdUntil = 0;
+  const results = resultLines(state, now);
+  state.lines = [...state.lines.filter((l) => l.at + l.durationMs <= now), ...results];
+  state.holdUntil = linesEnd(results);
   state.cutReason = reason;
   state.cutStatus = status;
   go(state, 'TRANSITION_TO_LIVE', now, effects);
@@ -449,34 +544,38 @@ export function directorTick(state: DirectorState, input: TickInput): DirectorEf
   const { now, settings, race } = input;
   const effects: DirectorEffect[] = [];
   const rotating = settings.rotationEnabled && race.rotating;
-  // The green flag takes over from any other clip, like a P0 moment, and doesn't wait for the time between clips
-  const startDue = startClipDue(state, input);
-  const backToRace = race.critical || startDue;
+  // The green flag, the cars starting to roll and the leader reaching the checkered flag take over from any other clip,
+  // like a P0 moment, and don't wait for the time between clips. The race end's own footage isn't cut short by the
+  // finish's P0 moments (the last lap, the checkered flag), which are what it's for
+  const due = dueMoment(state, input);
+  const startDue = !!due?.urgent;
+  const backToRace = (race.critical && state.moment !== 'finish') || startDue;
   // Turned off: a skip's promise of another clip doesn't outlive that
   if (!settings.videosEnabled) state.reselect = false;
   switch (state.phase) {
     case 'LIVE': {
       if (state.selecting) break;
-      if (startDue) {
-        state.startClipFor = race.raceStartAt;
-        state.startClip = true;
+      if (due) {
+        if (due.moment === 'start') state.startClipFor = race.raceStartAt;
+        if (due.moment !== 'start' && due.moment !== 'parade') state.momentsShown = [...(state.momentsShown ?? []), due.moment];
+        state.moment = due.moment;
         state.selecting = true;
         state.rotationCutAt = now;
-        effects.push({ type: 'select', request: { category: 'RACE_START' }, trigger: 'auto' });
+        effects.push({ type: 'select', request: due.request, trigger: 'auto' });
       } else if (state.manualRequest) {
         const request = state.manualRequest;
         state.manualRequest = null;
-        state.startClip = false;
+        state.moment = null;
         state.selecting = true;
         state.rotationCutAt = rotating ? now : null;
         effects.push({ type: 'select', request, trigger: 'manual' });
       } else if (now >= state.nextCheckAt && settings.videosEnabled && (state.reselect || autoClipDue(state, input))) {
         state.reselect = false;
-        state.startClip = false;
+        state.moment = null;
         state.selecting = true;
         state.rotationCutAt = rotating ? Math.max(nextClipDueAt(state, settings, race.level, true), now) : null;
-        // Footage of a race start belongs at the start, not in the middle of the race
-        effects.push({ type: 'select', request: rotating ? { avoidCategory: 'RACE_START' } : {}, trigger: 'auto' });
+        // Footage of the grid, the parade lap, a race start or a finish belongs at that moment, not in the middle of the race
+        effects.push({ type: 'select', request: { avoidCategories: MOMENT_CATEGORIES }, trigger: 'auto' });
       }
       break;
     }
@@ -538,6 +637,14 @@ export function directorTick(state: DirectorState, input: TickInput): DirectorEf
       if (now >= state.recoverUntil || startDue) go(state, 'LIVE', now, effects);
       break;
   }
+  // The results, whatever is on screen
+  const results = dueResults(state, input);
+  if (results === 'driverGivenUp') {
+    state.resultsSaid = [...(state.resultsSaid ?? []), 'driver'];
+  } else if (results) {
+    state.announcing = true;
+    effects.push({ type: 'announce', what: results });
+  }
   if (state.phase === 'LIVE' && state.lines.length > 0 && now >= state.holdUntil) {
     // Numbered, as viewers learn from it that normal commentary is free to go again
     state.lines = [];
@@ -571,14 +678,14 @@ export function clipSelected(state: DirectorState, video: DirectorVideo | null, 
     const lengthSeconds = Math.max(end - video.clipStartSeconds, 0);
     const played = state.rotationPlayed ?? {};
     const offsetSeconds = (played[video.id] ?? 0) % lengthSeconds;
-    const seconds = state.startClip ? START_CLIP_SECONDS : settings.rotationVideoSeconds;
+    const seconds = state.moment ? MOMENT_SECONDS[state.moment] : settings.rotationVideoSeconds;
     state.clip.durationMs = seconds * 1000;
     state.clip.loop = { offsetSeconds, lengthSeconds };
     state.rotationPlayed = { ...played, [video.id]: offsetSeconds + seconds };
   }
   state.trigger = trigger;
   state.prepared = null;
-  state.lines = [];
+  dropClipLines(state, now);
   state.recentVideoIds = [...state.recentVideoIds, video.id].slice(-RECENT_VIDEOS);
   state.recentCategories = [...state.recentCategories, video.category].slice(-RECENT_CATEGORIES);
   go(state, 'CLIP_SELECTED', now, effects);
@@ -594,9 +701,9 @@ export function clipValidated(state: DirectorState, ok: boolean, now: number): D
     return effects;
   }
   if (state.rotationCutAt != null) {
-    // No lines to prepare; the schedule goes out just ahead of the cut, as viewers hear of it within a second. The green
-    // flag's footage doesn't wait to buffer: it starts at once, and each TV shows it as soon as it can
-    state.preloadUntil = state.startClip ? now : Math.max(now + PRELOAD_MS, state.rotationCutAt - PRELOAD_MS / 2);
+    // No lines to prepare; the schedule goes out just ahead of the cut, as viewers hear of it within a second. The race's
+    // moments' footage doesn't wait to buffer: it starts at once, and each TV shows it as soon as it can
+    state.preloadUntil = state.moment ? now : Math.max(now + PRELOAD_MS, state.rotationCutAt - PRELOAD_MS / 2);
     state.prepared = [];
     go(state, 'CLIP_PRELOADING', now, effects);
     return effects;
@@ -611,6 +718,27 @@ export function clipValidated(state: DirectorState, ok: boolean, now: number): D
 export function linesPrepared(state: DirectorState, lines: PreparedLine[] | null): void {
   state.preparing = false;
   state.prepared = lines;
+}
+
+// The results' lines, written and voiced (none when no viewer can hear the announcers): said as soon as they can go out,
+// after any line of the Director's still to be said, over the footage or the map. Normal commentary waits for them
+export function resultsAnnounced(state: DirectorState, what: ResultsAnnouncement, lines: PreparedLine[], now: number): DirectorEffect[] {
+  const effects: DirectorEffect[] = [];
+  state.announcing = false;
+  if (!(state.resultsSaid ?? []).includes(what)) state.resultsSaid = [...(state.resultsSaid ?? []), what];
+  if (lines.length === 0) return effects;
+  let at = Math.max(now + AUDIO_LEAD_MS, ...state.lines.map((l) => l.at + l.durationMs + AFTER_LEAD_MS));
+  const scheduled = lines.map((line) => {
+    const placed = { ...line, at };
+    at += line.durationMs;
+    return placed;
+  });
+  state.lines = [...state.lines, ...scheduled];
+  state.holdUntil = Math.max(state.holdUntil, at);
+  state.seq += 1;
+  state.eventId = crypto.randomUUID();
+  effects.push({ type: 'persist' });
+  return effects;
 }
 
 // Every viewer's player gave up on the clip. Before the cut, which is when a broken file shows up as it buffers, it's
@@ -629,11 +757,10 @@ export function videoFailed(state: DirectorState, now: number): DirectorEffect[]
 function abandonPlaying(state: DirectorState, now: number, effects: DirectorEffect[]): void {
   state.clip = null;
   state.prepared = null;
-  state.lines = [];
   state.transitionAt = null;
   state.returnAt = null;
   state.liveAt = null;
-  state.holdUntil = 0;
+  dropClipLines(state, now);
   state.recoverUntil = now + RECOVERY_MS;
   state.nextCheckAt = now + RETRY_AFTER_MS;
   go(state, 'RECOVERY', now, effects);
@@ -657,8 +784,9 @@ export function returnToLive(state: DirectorState, now: number): DirectorEffect[
   state.reselect = false;
   if (CANCELLABLE_PHASES.includes(state.phase)) abandon(state, now, 'cancelled', 'returnToLive', effects);
   else if (state.phase === 'TRANSITION_TO_VIDEO' || state.phase === 'VIDEO_PLAYING') cutToLive(state, now, 'cutShort', 'returnToLive', effects);
-  state.holdUntil = 0;
-  if (state.phase === 'LIVE') state.lines = [];
+  // The results still to be said aren't the clip's, so they stay
+  if (state.phase === 'LIVE') dropClipLines(state, now);
+  else state.holdUntil = linesEnd(resultLines(state, now));
   return effects;
 }
 
@@ -686,7 +814,21 @@ export function endSession(state: DirectorState, now: number): DirectorEffect[] 
 // After a restart: a clip still on screen carries on, as every viewer can rejoin it, with its commentary gone; anything
 // earlier had audio only this server knew about, so it's dropped. Returns the state and what became of the clip
 export function restoreDirector(saved: DirectorState, now: number): { state: DirectorState; lost: boolean } {
-  const state: DirectorState = { ...saved, selecting: false, preparing: false, prepared: null, manualRequest: null, reselect: false, lines: [], holdUntil: 0 };
+  const state: DirectorState = {
+    ...saved,
+    // saved before the race's moments were added
+    moment: saved.moment ?? null,
+    momentsShown: saved.momentsShown ?? [],
+    resultsSaid: saved.resultsSaid ?? [],
+    announcing: false,
+    selecting: false,
+    preparing: false,
+    prepared: null,
+    manualRequest: null,
+    reselect: false,
+    lines: [],
+    holdUntil: 0,
+  };
   // Well past anything viewers can have seen, as the last few numbers before the restart may not have been saved
   state.seq += 100;
   state.eventId = crypto.randomUUID();
@@ -705,8 +847,10 @@ export function restoreDirector(saved: DirectorState, now: number): { state: Dir
 }
 
 // The rotation has no lines of its own, so commentary carries on over it
-export const commentaryHeld = (state: Pick<DirectorState, 'phase' | 'holdUntil'> & Partial<Pick<DirectorState, 'rotationCutAt'>>, now: number) =>
-  state.rotationCutAt == null && (HELD_PHASES.includes(state.phase) || now < state.holdUntil);
+// The results are held for too, clip or no clip
+export const commentaryHeld = (state: Pick<DirectorState, 'phase' | 'holdUntil'> & Partial<Pick<DirectorState, 'rotationCutAt' | 'lines'>>, now: number) =>
+  (state.rotationCutAt == null && (HELD_PHASES.includes(state.phase) || now < state.holdUntil)) ||
+  !!state.lines?.some((l) => l.when === 'results' && now < l.at + l.durationMs);
 
 // What's on screen at this moment, by the schedule
 export function sourceAt(state: Pick<DirectorState, 'transitionAt' | 'returnAt'>, now: number): BroadcastSource {

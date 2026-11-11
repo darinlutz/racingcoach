@@ -37,6 +37,18 @@ export const BROADCAST_VIDEO_SCHEMA: string[] = [
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     CHECK (clip_end_seconds IS NULL OR clip_end_seconds > clip_start_seconds)
   )`,
+  // A library made before a category was added has the older list in its CHECK: brought up to date once
+  `DO $$
+  DECLARE def TEXT;
+  BEGIN
+    SELECT pg_get_constraintdef(oid) INTO def FROM pg_constraint
+     WHERE conrelid = 'racingcoach."BroadcastVideos"'::regclass AND conname = 'BroadcastVideos_category_check';
+    IF def IS NULL OR ${VIDEO_CATEGORIES.map((c) => `def NOT LIKE '%''${c}''%'`).join(' OR ')} THEN
+      ALTER TABLE racingcoach."BroadcastVideos" DROP CONSTRAINT IF EXISTS "BroadcastVideos_category_check";
+      ALTER TABLE racingcoach."BroadcastVideos" ADD CONSTRAINT "BroadcastVideos_category_check"
+        CHECK (category IN (${VIDEO_CATEGORIES.map((c) => `'${c}'`).join(', ')}));
+    END IF;
+  END $$`,
   'CREATE INDEX IF NOT EXISTS broadcast_videos_category_idx ON racingcoach."BroadcastVideos" (category, enabled, status)',
   'CREATE INDEX IF NOT EXISTS broadcast_videos_processing_idx ON racingcoach."BroadcastVideos" (updated_at) WHERE status IN (\'processing\', \'transcoding\')',
   // Each clip the Director picked and what became of it, for the Admin page and to avoid repeats

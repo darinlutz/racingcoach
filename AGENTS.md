@@ -175,7 +175,7 @@ Uploaded laps (`"CollectorLaps"`), saved Debrief Coach runs (`"DebriefSessions"`
 
 ## Lap Telemetry Storage
 
-Uploaded laps' gzip-compressed CSVs live in a private Cloudflare R2 bucket, one object per lap; the lap's row, metrics and expiry stay in `"CollectorLaps"`. Design, Cloudflare setup, rollout phases, rollback, VACUUM and costs in `docs/telemetry-storage.md`. Target Laps and Expert Laps are still in Postgres.
+Uploaded laps' gzip-compressed CSVs live in a private Cloudflare R2 bucket, one object per lap; the lap's row, metrics and expiry stay in `"CollectorLaps"`. Design, Cloudflare setup, rollout phases, rollback, VACUUM and costs in `docs/telemetry-storage.md`. Expert Laps use the same bucket (`expert-laps/{sha256}.csv.gz`, outside `telemetry/`; their own storage columns and cleanup triggers on `"ExpertLaps"`; moved across, or back, with the Admin page's Telemetry Storage > Expert Laps buttons; `src/lib/expertLaps.ts`); Target Laps are still in Postgres.
 
 - **Store** (`src/lib/telemetryStorage.ts`, on `src/lib/s3Client.ts`): put, get (size-capped, checked against the row's SHA-256), head, delete, list, with timeouts, the SDK's retries, bounded concurrency and an in-memory cache by key; `memoryTelemetryStore` and `setTelemetryStoreForTests` for tests. Only the server has the token: no signed URLs or credentials for lap objects ever reach a browser or the collector
 - **Keys** (`src/lib/telemetryStorageRules.ts`, pure): `telemetry/{simulator}/u{userId}/{clientLapId}/{sha256}.csv.gz`, server IDs only. Content-addressed, so objects never change: a re-upload with track positions is a new object

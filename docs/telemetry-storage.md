@@ -16,7 +16,8 @@ database would have filled within weeks at that rate. Everything else (logs, deb
 |---|---|
 | Each lap's gzip-compressed CSV (`"CollectorLaps".csv_gzip`) | **R2**, one object per lap |
 | The lap's row: details, `completed_at`/`expires_at`, `has_position`, conditions, and where its CSV is | Postgres |
-| `"Users"."TargetLap"`, `"ExpertLaps"` | Postgres for now (a later step; about 0.8 MB per user with a Target Lap) |
+| Each Expert Lap's gzip-compressed CSV (`"ExpertLaps".csv_gzip`) | **R2**, `expert-laps/{sha256}.csv.gz` (see Expert Laps below) |
+| `"Users"."TargetLap"` | Postgres for now (a later step; about 0.8 MB per user with a Target Lap) |
 | `"CollectorLogs"`, `"DebriefSessions"`, `"LapSummaries"`, `"UserPictures"` | Postgres (small, or queried by column) |
 
 ## Design
@@ -81,6 +82,28 @@ The retention rules, their SQL and the hourly job (`lapRetentionDb.ts`) are unch
 already hidden from every read, and the job's deletes now queue their objects through the trigger. The same goes for
 Request Data Deletion's `laps` category, Delete Account's cascade, and erasures re-applied after a restore. Download My
 Data reads lap CSVs through `collectorLaps.ts`, from wherever each one is.
+
+## Expert Laps
+
+The Coach page's Expert Laps (`src/lib/expertLaps.ts`) use the same bucket, token and cleanup queue, for consistency
+rather than size: there's at most one per car and track.
+
+- **Keys**: `expert-laps/{sha256 of the compressed bytes}.csv.gz` (`expertLapObjectKey`), as an Expert Lap belongs to no
+  user. Outside `telemetry/`, so the weekly reconciliation never lists one or takes it for an orphan. Two Expert Laps with
+  the same bytes share an object
+- **Columns** (added by `ensureExpertLapSchema`): `storage_provider`, `storage_bucket`, `storage_key`, `stored_bytes`,
+  `checksum_sha256`, `stored_at`; `csv_gzip` nullable, with `expert_laps_storage_check` like `"CollectorLaps"`'
+- **Writes**: with `TELEMETRY_STORAGE_MODE=r2` and the store configured, a new Expert Lap is a 'pending' cleanup entry, the
+  object (size checked), then the row and the entry's removal in one transaction; otherwise, or when the bucket fails, inline.
+  A car and track that already has one is answered before anything is written
+- **Reads** follow each row; a missing object reads as no lap (logged), a checksum mismatch or a bucket error fails
+- **Deletes and replacements**: the triggers `expert_laps_object_deleted` and `expert_laps_object_replaced` queue the old
+  object; the cleanup worker deletes it once no Expert Lap references its key (`referenced` in `telemetryCleanup.ts`
+  looks in `"ExpertLaps"` for `expert-laps/` keys)
+- **Moving the existing ones**: Admin > Telemetry Storage > Expert Laps > **Move Expert Laps to object storage**
+  (`moveExpertLapsToObjectStorage`): copies each inline one, checks the object's size and checksum, then points the row at
+  it and clears `csv_gzip` in one statement. No separate verify or purge step: there are only a few. **Move Expert Laps
+  back to PostgreSQL** is the rollback: it downloads each object, stores it inline, and queues the object for deletion
 
 ## Cloudflare setup
 
@@ -152,7 +175,9 @@ Clearing `csv_gzip` deletes the TOAST rows, but Postgres keeps the files' space:
 | D (reads switched) | Admin > Telemetry Storage > **Roll back reads**: every lap that still has `csv_gzip` is read from Postgres again; its object is kept |
 | E (purged) | Only from the backup taken before it. Laps uploaded in R2 mode never had `csv_gzip`; they stay in R2 |
 
-Never delete the bucket or unset `TELEMETRY_S3_*` while any row has `storage_provider = 'r2'`.
+Expert Laps: **Move Expert Laps back to PostgreSQL** (and unset `TELEMETRY_STORAGE_MODE` so new ones stay there).
+
+Never delete the bucket or unset `TELEMETRY_S3_*` while any row (laps or Expert Laps) has `storage_provider = 'r2'`.
 
 ## Verification checklist
 

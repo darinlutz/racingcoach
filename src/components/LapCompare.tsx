@@ -374,7 +374,7 @@ function AreaTable({
             const canSelect = !!c && selectable.includes(name);
             const isSelected = canSelect && name === selected;
             const rowCell = isSelected ? SELECTED_ROW_CELL : '';
-            const tint = c && !isSelected ? areaTint(c.secondsDiff, largest) : undefined;
+            const tint = c ? areaTint(c.secondsDiff, largest) : undefined;
             return (
               <tr
                 key={name}
@@ -387,7 +387,7 @@ function AreaTable({
                   scope="row"
                   style={tint ? { backgroundImage: `linear-gradient(${tint}, ${tint})` } : undefined}
                   className={`sticky left-0 z-10 px-4 py-2 text-left whitespace-nowrap ${
-                    isSelected ? `bg-sky-600 text-white ${SELECTED_ROW_NAME}` : 'bg-card'
+                    `bg-card ${isSelected ? SELECTED_ROW_NAME : ''}`
                   }`}
                 >
                   <button
@@ -404,7 +404,7 @@ function AreaTable({
                     {c && (
                       <span
                         className={`font-display text-sm font-semibold leading-none tabular-nums ${
-                          isSelected ? 'text-white/85' : areaDiffText(Math.round(c.secondsDiff * 1000) / 1000)
+                          areaDiffText(Math.round(c.secondsDiff * 1000) / 1000)
                         }`}
                       >
                         {formatAreaSeconds(c.secondsDiff, locale)}

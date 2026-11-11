@@ -137,15 +137,17 @@ export default function FocusAreaTabs({
               aria-controls={panelId}
               tabIndex={isSelected ? 0 : -1}
               onClick={() => onSelect(area.name)}
-              style={isSelected ? undefined : { backgroundColor: tint }}
+              style={{ backgroundColor: tint }}
               className={`shrink-0 flex flex-col items-center justify-center gap-1 px-3 border-r border-border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white ${
-                isSelected ? 'bg-sky-600 text-white' : 'text-foreground hover:brightness-125'
+                isSelected
+                  ? 'text-foreground shadow-[inset_0_0_0_2px_rgb(14_165_233)]'
+                  : 'text-foreground hover:brightness-125'
               }`}
             >
               <span className="font-display text-[1.35rem] font-bold leading-none whitespace-nowrap">{area.name}</span>
               <span
                 className={`font-display text-sm font-semibold leading-none tabular-nums whitespace-nowrap ${
-                  isSelected ? 'text-white/85' : areaDiffText(area.diff)
+                  areaDiffText(area.diff)
                 }`}
               >
                 {seconds(area.diff)}

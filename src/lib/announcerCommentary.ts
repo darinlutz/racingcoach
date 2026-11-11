@@ -1,10 +1,26 @@
-import { commitDecision, direct, newDirectorState, pickStatTopic, type Decision, type DirectorContext, type DirectorState, type Speaker } from './broadcastDirector';
-import { recordDecision, recordDroppedLine, recordFailure, recordNote, recordSpoken, recordStale } from './broadcastMetrics';
+import { createHash } from 'node:crypto';
+import {
+  commentaryRoute,
+  commitAiCall,
+  commitDecision,
+  commitTireMention,
+  direct,
+  newDirectorState,
+  pickStatTopic,
+  planCommentary,
+  tireMentionAllowed,
+  type Decision,
+  type DirectorContext,
+  type DirectorState,
+  type Speaker,
+} from './broadcastDirector';
+import { recordDecision, recordDroppedLine, recordFailure, recordNote, recordRoute, recordSpoken, recordStale } from './broadcastMetrics';
+import { newPhraseMemory, phraseLines, type PhraseMemory, type PhrasedLine } from './broadcastPhrases';
 import { lineVolume, type BroadcastSettings } from './broadcastSettings';
 import type { BroadcastTracker, CarStats } from './broadcastTracker';
-import { estimatedSeconds, type LineFacts } from './broadcastValidation';
+import { deliveryText, estimatedSeconds, type LineFacts } from './broadcastValidation';
 import { spokenCarName } from './carBrands';
-import { getCoachVoice, speaksElevenLabs, synthesizeSpeech, withPronunciations, type Pronunciation, type SpeechFormat } from './coachVoice';
+import { getCoachVoice, speaksElevenLabs, synthesizeSpeech, withPronunciations, type CoachVoice, type Pronunciation, type SpanishAccent, type SpeechFormat } from './coachVoice';
 import { engineBedConfigFor } from './engineAudioAssets';
 import type { EngineBedConfig } from './engineBedConfig';
 import { readRaceEvents, type NumberedRaceEvent, type RaceEventContext } from './liveRacing';
@@ -18,41 +34,93 @@ import {
   namePronunciations,
   raceAnnouncerLines,
   type Announcer,
+  type AnnouncerLine,
   type NameFor,
+  type RaceAnnouncerSettings,
 } from './raceAnnouncer';
+import { getDictionary } from './i18n/server';
+import { fmt, type Language } from './i18n/languages';
 import { aiRateLimit, type AiRateLimit } from './rateLimits';
 import { formatSeconds } from './stintExport';
 import { speedFromMetersPerSecond, temperatureFromCelsius, type Units } from './units';
 import type { User } from './users';
 import { isNight, isStaticWeather, OUTLOOK_MINUTES, skyCondition, weatherOutlook, type OutlookItem } from './liveWeather';
-import type { FittedTire } from './liveCarStatus';
+import { isWetSession, type FittedTire } from './liveCarStatus';
 
 // One Race Broadcast commentary for a live driver the user may watch, shared by the Live Racing page
 // (POST /api/live/announcer, WAV) and TV Broadcast Mode (POST /api/tv/announcer, MP3). The pipeline: the driver's
 // race events newer than after (src/lib/liveRacing.ts, with the field's from src/lib/broadcastTracker.ts) go to the
-// Commentary Director (src/lib/broadcastDirector.ts), which picks one or none by fixed rules; only then is there an AI
-// call, the RaceAnnouncer agent writing the lines the Director planned from a structured request of verified facts,
-// each checked before it's spoken in the announcers' voices at the Director's intensity. Each listener has their own
-// Director (what they heard, their pacing and intensity), per driver and session, in this server's memory.
+// Commentary Director (src/lib/broadcastDirector.ts), which picks one or none by fixed rules. A routine moment is said
+// in fixed wording from the dictionaries (src/lib/broadcastPhrases.ts), at no AI cost; the rest, within the
+// Director's AI budget (planCommentary), is written by the RaceAnnouncer agent from a structured request of verified
+// facts, each line checked before it's spoken in the announcers' voices at the Director's intensity. Everyone
+// watching the same driver's session with the same language, instructions, units and Director preferences shares one
+// broadcast (a Channel: its Director, what it said and the wordings it used), so each moment is decided and written
+// once however many pages and TVs watch, in this server's memory.
 
 // The AI and the speech each get this long; a line about an event that has expired by then is discarded
 const AI_TIMEOUT_MS = 12_000;
-const RECENT_LINES = 8;
+const RECENT_LINES = 12;
 // Bytes a second of the WAV the Live Racing page gets (24 kHz 16-bit mono); MP3 lengths are estimated from the words
 const WAV_BYTES_PER_SECOND = 48_000;
+// A viewer who joins a broadcast still hears what was said this recently; a broadcast nobody has asked about this
+// long is forgotten, and what it said is kept this long for viewers to catch up
+const JOIN_GRACE_MS = 5_000;
+const CHANNEL_IDLE_MS = 15 * 60_000;
+const SEGMENT_KEPT_MS = 2 * 60_000;
 
-type Listener = { director: DirectorState; recent: { speaker: Announcer; text: string }[] };
-const store = globalThis as unknown as { raceBroadcast?: Map<string, Listener> };
-const listeners = (store.raceBroadcast ??= new Map<string, Listener>());
+// One broadcast of a driver's session: everyone watching that driver in the same language, with the same
+// instructions, units and Director preferences, hears the same broadcast, so each moment is decided and written once
+// however many pages and TVs are watching. Its Director, what it said and the wordings it used are shared; each viewer
+// gets the lines they haven't heard yet, in their own voices (spoken once per set of voices) and volumes.
+type Segment = {
+  id: number;
+  at: number;
+  expiresAt: number;
+  priority: number;
+  replaceQueued: boolean;
+  lines: AnnouncerLine[];
+  pronunciations: Pronunciation[];
+  // The audio of each line by voices (audioKey), null where the speech failed
+  audio: Map<string, Promise<(Buffer | null)[]>>;
+};
 
-function listenerFor(viewerId: number, driverId: number, sessionKey: string): Listener {
-  const key = `${viewerId}:${driverId}`;
-  let listener = listeners.get(key);
-  if (!listener || listener.director.sessionKey !== sessionKey) {
-    listener = { director: newDirectorState(sessionKey), recent: [] };
-    listeners.set(key, listener);
+type Channel = {
+  director: DirectorState;
+  recent: { speaker: Announcer; text: string }[];
+  phrases: PhraseMemory;
+  // The newest event this broadcast has decided about
+  processedSeq: number;
+  segments: Segment[];
+  nextId: number;
+  // A decision being made and written, which other viewers' requests wait for rather than making their own
+  busy: Promise<unknown> | null;
+  // The newest segment each viewer was given
+  delivered: Map<string, number>;
+  lastUsed: number;
+};
+
+const store = globalThis as unknown as { raceBroadcastChannels?: Map<string, Channel> };
+const channels = (store.raceBroadcastChannels ??= new Map<string, Channel>());
+
+function channelFor(key: string, sessionKey: string, now: number): Channel {
+  for (const [k, c] of channels) if (now - c.lastUsed > CHANNEL_IDLE_MS) channels.delete(k);
+  let channel = channels.get(key);
+  if (!channel || channel.director.sessionKey !== sessionKey) {
+    channel = { director: newDirectorState(sessionKey), recent: [], phrases: newPhraseMemory(), processedSeq: 0, segments: [], nextId: 1, busy: null, delivered: new Map(), lastUsed: now };
+    channels.set(key, channel);
   }
-  return listener;
+  channel.lastUsed = now;
+  channel.segments = channel.segments.filter((s) => now - s.at < SEGMENT_KEPT_MS);
+  return channel;
+}
+
+// What makes two viewers' broadcasts the same: everything that changes what's decided or written (not voices or volumes)
+function channelKey(driverId: number, sessionKey: string, user: User, speakers: Speaker[], settings: RaceAnnouncerSettings): string {
+  const b = settings.broadcast;
+  const director = [b.mode, b.focus, b.maxIntensity, b.frequency, b.announceNames, b.statistics, b.strategy, b.preRace, b.postRace].join(',');
+  const instructions = createHash('sha256').update(settings.instructions.trim()).digest('hex').slice(0, 16);
+  return [driverId, sessionKey, user.preferredLanguage, user.units, speakers.join('+'), director, instructions].join('|');
 }
 
 export type SpokenLine = {
@@ -84,6 +152,38 @@ export type CommentaryResult =
 const withTimeout = <T>(promise: Promise<T>, ms: number): Promise<T> =>
   Promise.race([promise, new Promise<T>((_, reject) => setTimeout(() => reject(new Error(`timed out after ${ms} ms`)), ms))]);
 
+type Voices = { lead: CoachVoice; color: CoachVoice; spanishAccent: SpanishAccent; language: Language; format: SpeechFormat };
+const audioKey = (v: Voices) => [v.format, v.lead, v.color, v.spanishAccent].join('|');
+
+function speak(segment: Segment, voices: Voices): Promise<(Buffer | null)[]> {
+  const key = audioKey(voices);
+  let audio = segment.audio.get(key);
+  if (!audio) {
+    audio = Promise.all(
+      segment.lines.map((line) =>
+        synthesizeSpeech(
+          withPronunciations(line.spoken, segment.pronunciations),
+          line.speaker === 'lead' ? voices.lead : voices.color,
+          voices.language,
+          voices.spanishAccent,
+          ANNOUNCER_ROLES[line.speaker],
+          voices.format,
+          line.intensity
+        ).catch((error) => {
+          recordFailure('speech');
+          console.error('Race Broadcast speech error:', error);
+          return null;
+        })
+      )
+    );
+    segment.audio.set(key, audio);
+  }
+  return audio;
+}
+
+const durationOf = (bytes: Buffer, text: string, format: SpeechFormat) =>
+  format === 'wav' ? Math.round(((bytes.length - 44) / WAV_BYTES_PER_SECOND) * 1000) : Math.round(estimatedSeconds(text) * 1000);
+
 export async function commentate(input: {
   request: Request;
   user: User;
@@ -94,6 +194,8 @@ export async function commentate(input: {
   format: SpeechFormat;
   // The Broadcast Director is holding commentary: only a P0 moment gets through
   held?: boolean;
+  // Who is listening, for what they've already heard: a TV session, else the account (default)
+  viewerKey?: string;
 }): Promise<CommentaryResult> {
   const { user, driverId, after, format } = input;
   const found = await readRaceEvents(user, driverId, after);
@@ -103,9 +205,101 @@ export async function commentate(input: {
   if (found.events.length === 0 || speakers.length === 0) return nothing;
 
   // the listener's announcers, and how the driver they follow says their own name
-  const [settings, namePronunciation] = await Promise.all([getRaceAnnouncerSettings(user.id), getNamePronunciation(driverId)]);
+  const [settings, namePronunciation, { spanishAccent }] = await Promise.all([
+    getRaceAnnouncerSettings(user.id),
+    getNamePronunciation(driverId),
+    getCoachVoice(user.id),
+  ]);
+  const voices: Voices = { lead: settings.leadVoice, color: settings.colorVoice, spanishAccent, language: user.preferredLanguage, format };
+  const channel = channelFor(channelKey(driverId, found.sessionKey, user, speakers, settings), found.sessionKey, Date.now());
+  const viewer = input.viewerKey ?? `user:${user.id}`;
+  if (!channel.delivered.has(viewer)) {
+    // a new viewer starts from now, apart from what was only just said
+    const old = channel.segments.filter((s) => Date.now() - s.at >= JOIN_GRACE_MS);
+    channel.delivered.set(viewer, old.length > 0 ? old[old.length - 1].id : 0);
+  }
+
+  // Another viewer's request is already deciding and writing these events: wait for it and share what it says
+  while (channel.busy) await channel.busy.catch(() => undefined);
+  let made: Segment | null = null;
+  if (found.events.some((e) => e.seq > channel.processedSeq)) {
+    const work = produce({ input, found, settings, namePronunciation, speakers, voices, channel });
+    channel.busy = work;
+    let outcome: Awaited<ReturnType<typeof produce>>;
+    try {
+      outcome = await work;
+    } finally {
+      channel.busy = null;
+    }
+    if (outcome.kind === 'refused') return { kind: 'refused', response: outcome.response };
+    if (outcome.kind === 'held') return { kind: 'held', seq: after };
+    made = outcome.segment;
+  }
+
+  // What this viewer hasn't heard yet and can still be played
+  const since = channel.delivered.get(viewer) ?? 0;
+  const pending = channel.segments.filter((s) => s.id > since && Date.now() < s.expiresAt);
+  if (pending.length === 0) return nothing;
+  // Lines another viewer's request made are only voiced again when this viewer's voices differ
+  const unvoiced = pending.filter((s) => !s.audio.has(audioKey(voices)));
+  let speechLimit: AiRateLimit | null = null;
+  if (unvoiced.length > 0) {
+    speechLimit = await aiRateLimit(input.request, 'speech', user, unvoiced.reduce((n, s) => n + s.lines.length, 0));
+    if (speechLimit.response) return { kind: 'refused', response: speechLimit.response };
+  }
+  const audio = await Promise.all(pending.map((s) => speak(s, voices)));
+  if (speechLimit && unvoiced.every((s) => audio[pending.indexOf(s)].every((a) => a === null))) await speechLimit.refund();
+  channel.delivered.set(viewer, pending[pending.length - 1].id);
+  for (const s of pending) if (s !== made) recordRoute('shared');
+
+  const lines: SpokenLine[] = [];
+  pending.forEach((segment, si) => {
+    const bytes = audio[si];
+    // A line without audio ends its exchange: the next one answers it
+    for (let i = 0; i < segment.lines.length; i++) {
+      const b = bytes[i];
+      if (!b) break;
+      const line = segment.lines[i];
+      const voice = line.speaker === 'lead' ? voices.lead : voices.color;
+      lines.push({
+        speaker: line.speaker,
+        text: line.text,
+        audio: b.toString('base64'),
+        intensity: line.intensity,
+        priority: segment.priority,
+        // a line still waiting once the event has gone stale isn't played
+        ttlMs: Math.max(segment.expiresAt - Date.now(), 0) + 10_000 * i,
+        durationMs: durationOf(b, line.text, format),
+        volume: lineVolume(settings.broadcast, line.speaker),
+        elevenLabs: speaksElevenLabs(voice, ANNOUNCER_ROLES[line.speaker], user.preferredLanguage, spanishAccent),
+      });
+    }
+  });
+  if (lines.length === 0) return nothing;
+  return { kind: 'lines', seq: found.seq, lines, replaceQueued: pending.some((s) => s.replaceQueued), engineBed: await engineBedConfigFor(settings.broadcast) };
+}
+
+type Found = NonNullable<Awaited<ReturnType<typeof readRaceEvents>>>;
+
+// Decides what the broadcast says about the events it hasn't decided about yet, and makes it: fixed wording for
+// routine moments, the AI (within the Director's budget) for the rest, spoken in the requesting viewer's voices.
+// Charged to the viewer whose request made it.
+async function produce(args: {
+  input: Parameters<typeof commentate>[0];
+  found: Found;
+  settings: RaceAnnouncerSettings;
+  namePronunciation: string;
+  speakers: Speaker[];
+  voices: Voices;
+  channel: Channel;
+}): Promise<{ kind: 'done'; segment: Segment | null } | { kind: 'refused'; response: Response } | { kind: 'held' }> {
+  const { input, found, settings, namePronunciation, speakers, voices, channel } = args;
+  const { user, driverId } = input;
+  const done = (segment: Segment | null = null) => {
+    channel.processedSeq = Math.max(channel.processedSeq, found.seq);
+    return { kind: 'done' as const, segment };
+  };
   const tracker = found.broadcast;
-  const listener = listenerFor(user.id, driverId, found.sessionKey);
   const ctx: DirectorContext = {
     isRace: tracker.isRace || found.context.sessionType?.toLowerCase() === 'race',
     phase: tracker.phase(),
@@ -115,7 +309,8 @@ export async function commentate(input: {
     storylines: tracker.storylines(),
   };
   const now = Date.now();
-  const { decision, diagnostics } = direct({ events: found.events, now, settings: settings.broadcast, speakers, ctx, state: listener.director });
+  const events = found.events.filter((e) => e.seq > channel.processedSeq);
+  const { decision, diagnostics } = direct({ events, now, settings: settings.broadcast, speakers, ctx, state: channel.director });
   recordDecision(
     user.id,
     driverId,
@@ -125,100 +320,159 @@ export async function commentate(input: {
       : null,
     decision?.userRelated ?? false
   );
-  if (!decision) return nothing;
-  if (input.held && decision.selected.priority > 0) return { kind: 'held', seq: after };
+  if (!decision) return done();
+  // held: these events are asked about again once the clip is over
+  if (input.held && decision.selected.priority > 0) return { kind: 'held' };
+
+  const names = announcedNames(found.context, tracker, settings.broadcast, getDictionary(user.preferredLanguage).broadcastPhrases.carNumber);
+  const pronunciations = namePronunciations([names.driver, found.context.driver], namePronunciation);
+  let plan = planCommentary(decision, channel.director, settings.broadcast.mode, now);
+  let phrased: PhrasedLine[] | null = null;
+  if (plan === 'fixed') {
+    phrased = phraseLines(
+      decision.selected,
+      decision.format,
+      {
+        driver: names.driver,
+        name: names.name,
+        carOf: (n) => (found.context.carsByDriver[n] ? spokenCarName(found.context.carsByDriver[n]) : null),
+        multiClass: tracker.multiClass,
+        decimal: user.preferredLanguage === 'en' ? '.' : ',',
+      },
+      getDictionary(user.preferredLanguage).broadcastPhrases,
+      channel.phrases
+    );
+    // no wording fits (e.g. a pit stop of a car with no name): it goes unsaid rather than costing an AI call
+    if (!phrased) plan = 'skip';
+  }
+  if (plan === 'skip') {
+    recordRoute(phrased === null && commentaryRoute(decision.selected) !== 'ai' ? 'unphrased' : 'budget');
+    recordNote(user.id, driverId, commentaryRoute(decision.selected) === 'ai' ? 'AI budget used up: not said' : 'no fixed wording fits: not said', diagnostics);
+    return done();
+  }
 
   let limit: AiRateLimit | null = null;
+  let tires: string | null = null;
   try {
-    // The live broadcast limit counts each line asked for, as each is also spoken
-    const plans = linePlans(decision);
-    limit = await aiRateLimit(input.request, 'raceAnnouncer', user, plans.length);
-    if (limit.response) return { kind: 'refused', response: limit.response };
-    const built = buildRequest(decision, found.context, tracker, settings.broadcast, listener, namePronunciation, user.units);
-    const started = Date.now();
-    let written: Awaited<ReturnType<typeof raceAnnouncerLines>>;
-    try {
-      written = await limit.track(() =>
-        withTimeout(raceAnnouncerLines({ request: built.request, plans, facts: built.facts, instructions: settings.instructions, language: user.preferredLanguage }), AI_TIMEOUT_MS)
-      );
-    } catch (error) {
-      recordFailure('llm');
-      throw error;
-    }
-    const llmMs = Date.now() - started;
-    for (const d of written.dropped) {
-      recordDroppedLine(d.reason.split(':')[0]);
-      console.warn(`Race Broadcast dropped a ${d.speaker} line (${d.reason}): ${d.text}`);
-    }
-    if (written.lines.length === 0) {
-      recordNote(user.id, driverId, 'every line failed the factual check', diagnostics);
-      return nothing;
+    let written: AnnouncerLine[];
+    let llmMs = 0;
+    if (plan === 'fixed' && phrased) {
+      // no AI: only the speech counts against the live broadcast limit
+      limit = await aiRateLimit(input.request, 'speech', user, phrased.length);
+      if (limit.response) return { kind: 'refused', response: limit.response };
+      written = phrased.map((p) => {
+        const intensity = p.speaker === 'lead' ? decision.intensity : decision.colorIntensity;
+        const text = deliveryText(p.text, intensity);
+        return { speaker: p.speaker, text, spoken: text, intensity, claims: [] };
+      });
+    } else {
+      // The live broadcast limit counts each line asked for, as each is also spoken
+      const plans = linePlans(decision);
+      limit = await aiRateLimit(input.request, 'raceAnnouncer', user, plans.length);
+      if (limit.response) return { kind: 'refused', response: limit.response };
+      // The driver's tires only now and then (tireMentionAllowed), or the announcers mention them in every line
+      const tireKind = found.context.tire && found.context.tire.kind !== 'unknown' ? found.context.tire.kind : (found.context.tire?.name ?? null);
+      tires = tireMentionAllowed(channel.director, decision, tireKind, isWetSession(found.context.weather, found.context.tire), now) ? tireKind : null;
+      const built = buildRequest(decision, found.context, tracker, settings.broadcast, channel, namePronunciation, user.units, tires);
+      const started = Date.now();
+      let result: Awaited<ReturnType<typeof raceAnnouncerLines>>;
+      try {
+        result = await limit.track(() =>
+          withTimeout(
+            raceAnnouncerLines({
+              request: built.request,
+              plans,
+              facts: built.facts,
+              instructions: settings.instructions,
+              language: user.preferredLanguage,
+              // the critical and major moments get the main model, the rest the cheaper one
+              feature: decision.selected.priority <= 1 ? 'raceAnnouncer' : 'raceAnnouncerRoutine',
+            }),
+            AI_TIMEOUT_MS
+          )
+        );
+      } catch (error) {
+        recordFailure('llm');
+        throw error;
+      }
+      llmMs = Date.now() - started;
+      commitAiCall(channel.director, Date.now());
+      for (const d of result.dropped) {
+        recordDroppedLine(d.reason.split(':')[0]);
+        console.warn(`Race Broadcast dropped a ${d.speaker} line (${d.reason}): ${d.text}`);
+      }
+      if (result.lines.length === 0) {
+        recordNote(user.id, driverId, 'every line failed the factual check', diagnostics);
+        return done();
+      }
+      written = result.lines;
     }
 
-    const { spanishAccent } = await getCoachVoice(user.id);
+    const segment: Segment = {
+      id: channel.nextId++,
+      at: Date.now(),
+      expiresAt: decision.expiresAt,
+      priority: decision.selected.priority,
+      replaceQueued: decision.replaceQueued,
+      lines: written,
+      pronunciations,
+      audio: new Map(),
+    };
     const speechStarted = Date.now();
-    const audio = await Promise.all(
-      written.lines.map((line) =>
-        synthesizeSpeech(
-          withPronunciations(line.spoken, built.pronunciations),
-          line.speaker === 'lead' ? settings.leadVoice : settings.colorVoice,
-          user.preferredLanguage,
-          spanishAccent,
-          ANNOUNCER_ROLES[line.speaker],
-          format,
-          line.intensity
-        ).catch((error) => {
-          recordFailure('speech');
-          console.error('Race Broadcast speech error:', error);
-          return null;
-        })
-      )
-    );
+    const audio = await speak(segment, voices);
     const speechMs = Date.now() - speechStarted;
-    // A line without audio ends the exchange: the next one answers it
     const firstMissing = audio.findIndex((a) => a === null);
-    const usable = firstMissing < 0 ? written.lines.length : firstMissing;
-    if (usable === 0) return nothing;
+    const usable = firstMissing < 0 ? written.length : firstMissing;
+    if (usable === 0) {
+      if (plan === 'fixed') await limit.refund();
+      return done();
+    }
     if (Date.now() > decision.expiresAt) {
       recordStale();
       recordNote(user.id, driverId, 'expired before the audio was ready', diagnostics);
-      return nothing;
+      return done();
     }
-
-    const lines: SpokenLine[] = written.lines.slice(0, usable).map((line, i) => {
-      const bytes = audio[i]!;
-      const durationMs =
-        format === 'wav' ? Math.round(((bytes.length - 44) / WAV_BYTES_PER_SECOND) * 1000) : Math.round(estimatedSeconds(line.text) * 1000);
-      return {
-        speaker: line.speaker,
-        text: line.text,
-        audio: bytes.toString('base64'),
-        intensity: line.intensity,
-        priority: decision.selected.priority,
-        // a line still waiting once the event has gone stale isn't played
-        ttlMs: Math.max(decision.expiresAt - Date.now(), 0) + 10_000 * i,
-        durationMs,
-        volume: lineVolume(settings.broadcast, line.speaker),
-        elevenLabs: speaksElevenLabs(line.speaker === 'lead' ? settings.leadVoice : settings.colorVoice, ANNOUNCER_ROLES[line.speaker], user.preferredLanguage, spanishAccent),
-      };
-    });
-    commitDecision(listener.director, decision, Date.now(), lines.reduce((sum, l) => sum + l.durationMs, 0) + 400 * lines.length, decision.format, ctx.userIdx);
-    listener.recent = [...listener.recent, ...lines.map((l) => ({ speaker: l.speaker, text: l.text }))].slice(-RECENT_LINES);
+    segment.lines = written.slice(0, usable);
+    segment.audio.set(audioKey(voices), Promise.resolve(audio.slice(0, usable)));
+    const audioMs = segment.lines.reduce((sum, l, i) => sum + durationOf(audio[i]!, l.text, voices.format), 0);
+    if (tires) commitTireMention(channel.director, tires, Date.now());
+    commitDecision(channel.director, decision, Date.now(), audioMs + 400 * segment.lines.length, decision.format, ctx.userIdx);
+    channel.recent = [...channel.recent, ...segment.lines.map((l) => ({ speaker: l.speaker, text: l.text }))].slice(-RECENT_LINES);
+    channel.segments.push(segment);
+    recordRoute(plan === 'fixed' ? 'fixed' : 'ai');
     recordSpoken({
       viewerId: user.id,
       driverId,
       announced: { seq: decision.selected.seq, type: decision.selected.event.type, priority: decision.selected.priority, intensity: decision.intensity, format: decision.format },
-      lines: lines.map((l) => ({ speaker: l.speaker, text: l.text, intensity: l.intensity })),
+      lines: segment.lines.map((l) => ({ speaker: l.speaker, text: l.text, intensity: l.intensity })),
       diagnostics,
       llmMs,
       speechMs,
       eventAgeMs: Date.now() - decision.selected.at,
     });
-    return { kind: 'lines', seq: found.seq, lines, replaceQueued: decision.replaceQueued, engineBed: await engineBedConfigFor(settings.broadcast) };
+    return done(segment);
   } catch (error) {
     await limit?.refund();
+    // these events are done with, so a failing AI isn't asked about them again by every viewer's next request
+    done();
     throw error;
   }
+}
+
+// How the broadcast names drivers: the listener's driver as the field knows them (their iRacing name), and the others
+// by name, or with Announce driver names off by car number (carNumber, the language's "car number {n}")
+function announcedNames(context: RaceEventContext, tracker: BroadcastTracker, settings: BroadcastSettings, carNumber: string): { driver: string; name: NameFor } {
+  const roster = tracker.roster();
+  const driver = roster.find((r) => r.idx === tracker.userIdx)?.driver ?? context.driver;
+  const numbers = new Map(roster.map((r) => [r.driver, r.number]));
+  return {
+    driver,
+    name: (n) => {
+      if (settings.announceNames || n === driver || n === context.driver) return n;
+      const number = numbers.get(n);
+      return number ? fmt(carNumber, { n: number }) : n;
+    },
+  };
 }
 
 const tenth = (s: number | null) => (s === null ? null : Math.round(s * 10) / 10);
@@ -335,20 +589,16 @@ function buildRequest(
   context: RaceEventContext,
   tracker: BroadcastTracker,
   settings: BroadcastSettings,
-  listener: Listener,
+  listener: Pick<Channel, 'director' | 'recent'>,
   namePronunciation: string,
-  units: Units
+  units: Units,
+  // the driver's tire compound (a TIRE_WORDS key or iRacing's name) when the announcers may mention it now, else null
+  tires: string | null
 ): { request: Record<string, unknown>; facts: LineFacts; pronunciations: Pronunciation[] } {
   const roster = tracker.roster();
-  const userCar = roster.find((r) => r.idx === tracker.userIdx);
-  // the driver as the field knows them (their iRacing name), and their RacingCoach.app name too
-  const driver = userCar?.driver ?? context.driver;
-  const numbers = new Map(roster.map((r) => [r.driver, r.number]));
-  const name: NameFor = (n) => {
-    if (settings.announceNames || n === driver || n === context.driver) return n;
-    const number = numbers.get(n);
-    return number ? `car number ${number}` : 'a car';
-  };
+  // the driver as the field knows them (their iRacing name), and their RacingCoach.app name too; the AI is given
+  // "car number {n}" in English and says it in the listener's language
+  const { driver, name } = announcedNames(context, tracker, settings, 'car number {n}');
   const carsByDriver = { ...context.carsByDriver };
   const describe = (e: NumberedRaceEvent) => describeEvent(e.event, driver, name, carsByDriver);
   const involved = [...new Set([...decision.selected.cars, ...decision.related.flatMap((r) => r.cars)])];
@@ -393,7 +643,7 @@ function buildRequest(
       position: context.position,
       carClass: userStats?.carClass ?? null,
       incidentPoints: context.incidents,
-      tires: context.tire && context.tire.kind !== 'unknown' ? TIRE_WORDS[context.tire.kind] : (context.tire?.name ?? null),
+      tires: tires ? (TIRE_WORDS[tires as FittedTire['kind']] ?? tires) : undefined,
       carAhead: neighbors?.ahead ? { driver: name(neighbors.ahead.driver), gapSeconds: neighbors.ahead.gap } : null,
       carBehind: neighbors?.behind ? { driver: name(neighbors.behind.driver), gapSeconds: neighbors.behind.gap } : null,
       statistics: stats && userStats ? statsFacts(userStats, name) : undefined,
@@ -409,6 +659,7 @@ function buildRequest(
     otherDriversStatistics: stats ? carStats.map((s) => statsFacts(s, name)) : [],
     storylines: decision.storylines.map((s) => ({ story: describeStoryline(s, name), since: `${Math.max(1, Math.round((Date.now() - s.startedAt) / 60_000))} minutes` })),
     recentCommentary: listener.recent.map((l) => `${l.speaker === 'lead' ? 'Lead' : 'Color'}: ${l.text}`),
+    avoidOpenings: [...new Set(listener.recent.map((l) => l.text.split(/\s+/).slice(0, 3).join(' ')))],
     strategyDiscussion: settings.strategy,
   };
 

@@ -75,9 +75,9 @@ const KIND_INTERVAL_S: Record<Exclude<BroadcastMode, 'off'>, Partial<Record<Even
 const FREQUENCY: Record<CommentaryFrequency, number> = { low: 1.6, normal: 1, high: 0.6 };
 
 // How long the same thing isn't said again (by key), and how much a battle's gap must change to be said again
-const REPEAT_MS: Partial<Record<string, number>> = { battle: 15_000, raceSummary: 120_000, statsUpdate: 90_000, weatherUpdate: 90_000 };
+const REPEAT_MS: Partial<Record<string, number>> = { battle: 30_000, raceSummary: 120_000, statsUpdate: 90_000, weatherUpdate: 90_000 };
 const DEFAULT_REPEAT_MS = 45_000;
-const GAP_CHANGE = 0.25;
+const GAP_CHANGE = 0.5;
 // History kept for repetition, coverage and storylines
 const HISTORY = 40;
 const COVERAGE_WINDOW = 20;
@@ -121,6 +121,10 @@ export type DirectorState = {
   lastFormat: Format | null;
   lastTripleAt: number;
   statTopics: string[];
+  // The driver's tire compound given to the announcers: how often, when last and which (tireMentionAllowed)
+  tires: { count: number; lastAt: number; kind: string | null };
+  // When each AI-written commentary of the last AI_BUDGET.windowMs was made (planCommentary)
+  aiCalls: number[];
 };
 
 export function newDirectorState(sessionKey: string): DirectorState {
@@ -136,7 +140,97 @@ export function newDirectorState(sessionKey: string): DirectorState {
     lastFormat: null,
     lastTripleAt: 0,
     statTopics: [],
+    tires: { count: 0, lastAt: 0, kind: null },
+    aiCalls: [],
   };
+}
+
+// Which commentary needs the AI. Routine moments (battle gap updates, lap times, pit road, flags, a car off the
+// track, passes down the field) are said in fixed wording from the dictionaries (src/lib/broadcastPhrases.ts), many
+// ways each, at no AI cost; the big moments and anything that needs judgement (the start, the lead, the finish,
+// storylines, statistics, summaries, the weather) are written by the AI. The driver's own passes, a battle starting
+// for the lead or the driver, a personal best and incidents near the driver are written by the AI while the budget
+// lasts, else in fixed wording.
+export type CommentaryRoute = 'fixed' | 'either' | 'ai';
+
+export function commentaryRoute(c: Classified): CommentaryRoute {
+  const e = c.event;
+  switch (e.type) {
+    case 'lapComplete':
+      return e.newBest ? 'either' : 'fixed';
+    case 'pitEntry':
+    case 'pitExit':
+    case 'offTrack':
+    case 'pitStop':
+      return 'fixed';
+    case 'incident':
+      return e.added >= 4 ? 'either' : 'fixed';
+    case 'positionGained':
+    case 'positionLost':
+    case 'nearbyIncident':
+      return 'either';
+    case 'sessionFastestLap':
+      return e.isDriver ? 'either' : 'fixed';
+    case 'flag':
+      return ['yellow', 'caution', 'debris', 'blue', 'black', 'repair'].includes(e.flag) ? 'fixed' : 'ai';
+    case 'overtake':
+      return e.user ? 'either' : e.position === 1 || e.finalLap ? 'ai' : e.position <= 3 ? 'either' : 'fixed';
+    case 'battle':
+      return (e.phase === 'start' || e.phase === 'veryClose') && (e.user || e.position === 1) ? 'either' : 'fixed';
+    case 'fieldIncident':
+      return e.leader || e.others.length > 0 ? 'ai' : 'fixed';
+    default:
+      return 'ai';
+  }
+}
+
+// How many AI-written commentaries a broadcast may make in a rolling window, by mode. The race's critical moments
+// (P0) are always written by the AI; past the budget, everything else that can is said in fixed wording, and a
+// P2-P4 moment only the AI can phrase (a statistic, a summary, a routine word on the weather) waits for the next one.
+export const AI_BUDGET = { windowMs: 10 * 60_000, calls: { quiet: 3, standard: 5, full: 7 } as Record<Exclude<BroadcastMode, 'off'>, number> };
+
+export type CommentaryPlan = 'ai' | 'fixed' | 'skip';
+
+export function planCommentary(decision: Decision, state: DirectorState, mode: BroadcastMode, now: number): CommentaryPlan {
+  const route = commentaryRoute(decision.selected);
+  if (route === 'fixed') return 'fixed';
+  const priority = decision.selected.priority;
+  if (priority === 0) return 'ai';
+  const withinBudget = aiBudgetLeft(state, mode, now);
+  if (route === 'either') return withinBudget ? 'ai' : 'fixed';
+  return priority === 1 || withinBudget ? 'ai' : 'skip';
+}
+
+export function aiBudgetLeft(state: DirectorState, mode: BroadcastMode, now: number): boolean {
+  return mode !== 'off' && state.aiCalls.filter((at) => now - at < AI_BUDGET.windowMs).length < AI_BUDGET.calls[mode];
+}
+
+// Records an AI-written commentary against the budget
+export function commitAiCall(state: DirectorState, now: number): void {
+  state.aiCalls = [...state.aiCalls.filter((at) => now - at < AI_BUDGET.windowMs), now];
+}
+
+// The driver's tires are a fact the announcers only get now and then, or they work them into every line: a few times
+// a session (TIRE_MENTIONS, more in the wet, when the tires are the story), TIRE_MENTION_GAP_MS apart, and only when
+// the moment is about them: the grid, the start, the weather, the driver leaving pit road. A new compound after a stop
+// is news and is always given once, cap or not.
+export const TIRE_MENTIONS = { dry: 3, wet: 5 };
+export const TIRE_MENTION_GAP_MS = 8 * 60_000;
+const TIRE_MOMENTS = new Set(['preRace', 'raceStart', 'weatherUpdate', 'pitExit']);
+
+export function tireMentionAllowed(state: DirectorState, decision: Decision, tireKind: string | null, wet: boolean, now: number): boolean {
+  if (!tireKind) return false;
+  const { count, lastAt, kind } = state.tires;
+  const moment = TIRE_MOMENTS.has(decision.selected.event.type) || decision.selected.key === 'start';
+  if (kind !== null && kind !== tireKind) return true;
+  if (!moment) return false;
+  if (count >= (wet ? TIRE_MENTIONS.wet : TIRE_MENTIONS.dry)) return false;
+  return count === 0 || now - lastAt >= TIRE_MENTION_GAP_MS;
+}
+
+// Records that the announcers were given the driver's tires
+export function commitTireMention(state: DirectorState, tireKind: string, now: number): void {
+  state.tires = { count: state.tires.count + 1, lastAt: now, kind: tireKind };
 }
 
 export type Classified = {
@@ -518,6 +612,7 @@ export function direct(input: {
   const counts = new Map<number, number>();
   for (const r of recent) if (r.idx !== null) counts.set(r.idx, (counts.get(r.idx) ?? 0) + 1);
 
+  const budgetLeft = aiBudgetLeft(state, mode, now);
   const candidates: { c: Classified; score: number }[] = [];
   for (const c of classified) {
     const userRelated = USER_CATEGORIES.has(c.category);
@@ -569,6 +664,11 @@ export function direct(input: {
     const kindInterval = KIND_INTERVAL_S[mode][c.kind];
     if (kindInterval === null) {
       suppress(c, `${mode}Mode`);
+      continue;
+    }
+    // with the AI budget used up, a P2-P4 moment only the AI can phrase makes way for one that can be said
+    if (c.priority >= 2 && !budgetLeft && commentaryRoute(c) === 'ai') {
+      suppress(c, 'aiBudget');
       continue;
     }
     if (c.priority > 0) {

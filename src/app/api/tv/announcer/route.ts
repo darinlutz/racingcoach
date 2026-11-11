@@ -45,7 +45,7 @@ export async function POST(request: Request) {
     const { driverId } = parsed.data;
     const before = heard.get(session.id);
     const after = before?.driverId === driverId ? Math.max(parsed.data.after, before.seq) : parsed.data.after;
-    const result = await commentate({ request, user: session.user, ...parsed.data, after, format: 'mp3', held: commentaryHeldFor(session.user.id) });
+    const result = await commentate({ request, user: session.user, ...parsed.data, after, format: 'mp3', held: commentaryHeldFor(session.user.id), viewerKey: `tv:${session.id}` });
     if (result.kind === 'notLive') {
       return NextResponse.json({ error: t.driverNotLive }, { status: 404 });
     }

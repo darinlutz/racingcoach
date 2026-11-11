@@ -39,6 +39,9 @@ type Store = {
   speechMs: number[];
   eventToAudioMs: number[];
   recent: Recent[];
+  // How each commentary was made: written by the AI, said in fixed wording, given to another viewer of the same
+  // broadcast, or not said as the AI budget was used up (or no fixed wording fitted)
+  routes: Record<string, number>;
 };
 
 const store = globalThis as unknown as { broadcastMetrics?: Store };
@@ -60,7 +63,9 @@ const m = (store.broadcastMetrics ??= {
   speechMs: [],
   eventToAudioMs: [],
   recent: [],
+  routes: {},
 });
+m.routes ??= {};
 
 const push = (list: number[], value: number) => {
   list.push(value);
@@ -82,6 +87,10 @@ export function recordDecision(viewerId: number, driverId: number, diagnostics: 
   if (userRelated) m.userRelated++;
   bump(m.intensity, announced.intensity);
   bump(m.formats, announced.format);
+}
+
+export function recordRoute(route: 'ai' | 'fixed' | 'shared' | 'budget' | 'unphrased') {
+  bump(m.routes, route);
 }
 
 export function recordDroppedLine(reason: string) {
@@ -129,6 +138,7 @@ export function broadcastMetrics() {
     since: new Date(m.since).toISOString(),
     requests: m.requests,
     answeredWithoutAi: m.noCommentary,
+    routes: m.routes,
     announced: m.announced,
     userRelatedShare: m.announced > 0 ? Math.round((m.userRelated / m.announced) * 100) / 100 : null,
     suppressed: m.suppressed,

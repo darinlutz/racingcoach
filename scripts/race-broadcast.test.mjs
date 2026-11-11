@@ -7,7 +7,27 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { BroadcastTracker, TRACKER_CONFIG } from '../src/lib/broadcastTracker.ts';
-import { classify, commitDecision, direct, intensityFor, newDirectorState, relevance } from '../src/lib/broadcastDirector.ts';
+import {
+  AI_BUDGET,
+  classify,
+  commentaryRoute,
+  commitAiCall,
+  commitDecision,
+  commitTireMention,
+  direct,
+  intensityFor,
+  newDirectorState,
+  planCommentary,
+  relevance,
+  tireMentionAllowed,
+  TIRE_MENTION_GAP_MS,
+  TIRE_MENTIONS,
+} from '../src/lib/broadcastDirector.ts';
+import { newPhraseMemory, phraseLines, pickPhrase } from '../src/lib/broadcastPhrases.ts';
+import { en } from '../src/lib/i18n/dictionaries/en.ts';
+import { pt } from '../src/lib/i18n/dictionaries/pt.ts';
+import { es } from '../src/lib/i18n/dictionaries/es.ts';
+import { de } from '../src/lib/i18n/dictionaries/de.ts';
 import { checkLine, deliveryText, fitToSeconds } from '../src/lib/broadcastValidation.ts';
 import { broadcastSettingsPatch, DEFAULT_BROADCAST_SETTINGS, lineVolume, parseBroadcastSettings } from '../src/lib/broadcastSettings.ts';
 import { CommentaryQueue } from '../src/lib/tvAudio.ts';
@@ -435,12 +455,12 @@ describe('director: pacing, modes and repetition', () => {
     const state = newDirectorState('s');
     const first = direct({ events: [battle(0.6, 1, T0)], now: T0, settings: settings(), speakers: ['lead', 'color'], ctx, state });
     commitDecision(state, first.decision, T0, 4000, first.decision.format, 0);
-    const same = direct({ events: [battle(0.55, 2, T0 + 30_000)], now: T0 + 30_000, settings: settings(), speakers: ['lead', 'color'], ctx, state });
+    const same = direct({ events: [battle(0.25, 2, T0 + 30_000)], now: T0 + 30_000, settings: settings(), speakers: ['lead', 'color'], ctx, state });
     assert.equal(same.decision, null);
     assert.equal(same.diagnostics[0].reason, 'gapUnchanged');
     const soon = direct({ events: [battle(0.2, 3, T0 + 6000)], now: T0 + 6000, settings: settings(), speakers: ['lead', 'color'], ctx, state });
     assert.equal(soon.diagnostics[0].reason, 'repeat');
-    const changed = direct({ events: [battle(0.2, 4, T0 + 30_000)], now: T0 + 30_000, settings: settings(), speakers: ['lead', 'color'], ctx, state });
+    const changed = direct({ events: [battle(0.05, 4, T0 + 30_000)], now: T0 + 30_000, settings: settings(), speakers: ['lead', 'color'], ctx, state });
     assert.ok(changed.decision);
   });
 
@@ -525,6 +545,7 @@ describe('a simulated race through the Director', () => {
     sim.state = 4;
     const state = newDirectorState('race');
     const report = [];
+    const routes = { ai: 0, fixed: 0, skip: 0 };
     let after = 0;
     let busy = 0;
     for (let t = 0; t < 1_150_000; t += 1000) {
@@ -538,19 +559,122 @@ describe('a simulated race through the Director', () => {
       const { decision } = direct({ events, now: sim.at, settings: settings(), speakers: ['lead', 'color'], ctx: ctxFor(sim), state });
       if (!decision) continue;
       const lines = decision.format === 'leadColorLead' ? 3 : decision.format.length > 5 ? 2 : 1;
+      const plan = planCommentary(decision, state, 'full', sim.at);
+      routes[plan]++;
+      if (plan === 'skip') continue;
+      if (plan === 'ai') commitAiCall(state, sim.at);
       commitDecision(state, decision, sim.at, lines * 5000, decision.format, sim.myCarIdx);
       busy += lines * 5000;
       report.push(
-        `${String(Math.round((sim.at - T0) / 1000)).padStart(5)}s  P${decision.selected.priority} i${decision.intensity}/${decision.colorIntensity} ${decision.format.padEnd(13)} ${decision.selected.event.type}${decision.userRelated ? '  (driver)' : ''}`
+        `${String(Math.round((sim.at - T0) / 1000)).padStart(5)}s  P${decision.selected.priority} i${decision.intensity}/${decision.colorIntensity} ${decision.format.padEnd(13)} ${decision.selected.event.type}${decision.userRelated ? '  (driver)' : ''}  [${plan}]`
       );
     }
-    console.log(`\nDirector's choices through the simulated race:\n${report.join('\n')}\n`);
+    console.log(`\nDirector's choices through the simulated race:\n${report.join('\n')}\nAI calls ${routes.ai}, fixed wording ${routes.fixed}, left unsaid ${routes.skip}\n`);
+    // a 19-minute race at the full mode's budget, plus the critical moments
+    assert.ok(routes.ai <= Math.ceil(1_150_000 / AI_BUDGET.windowMs) * AI_BUDGET.calls.full + 6, `AI calls ${routes.ai}`);
+    assert.ok(routes.fixed > 0, 'routine moments in fixed wording');
     assert.ok(report.length >= 10, 'the race gets commentary');
     assert.ok(report.some((r) => r.includes('raceStart')));
     assert.ok(report.some((r) => r.includes('(driver)')) && report.some((r) => !r.includes('(driver)')), 'the driver and the field');
     assert.ok(report.filter((r) => / i5\//.test(r)).length <= 2, 'level 5 is rare');
     assert.ok(busy < 1_150_000 * 0.6, 'there is silence too');
     assert.equal(TRACKER_CONFIG.passConfirmMs, 2000);
+  });
+});
+
+describe('fixed wording and the AI budget', () => {
+  const ctx = { isRace: true, phase: 'middle', raceProgress: 0.5, userIdx: 0, userPosition: 10, storylines: [] };
+  const classed = (event) => classify(n(event), ctx);
+  const battle = (phase, user = false, position = 6) => ({
+    type: 'battle', phase, aheadIdx: 1, ahead: 'Anna Ahead', behindIdx: 2, behind: 'Ben Behind', position, carClass: 'GT3', gap: 0.42, previousGap: 0.9, closingPerLap: 0.3, laps: 3, user,
+  });
+
+  test('routine moments are fixed wording, the big ones the AI', () => {
+    assert.equal(commentaryRoute(classed(battle('closing'))), 'fixed');
+    assert.equal(commentaryRoute(classed(battle('start', true))), 'either');
+    assert.equal(commentaryRoute(classed({ type: 'pitExit' })), 'fixed');
+    assert.equal(commentaryRoute(classed({ type: 'lapComplete', lap: 3, lapTime: 101, bestLapTime: 100, newBest: false })), 'fixed');
+    assert.equal(commentaryRoute(classed({ type: 'positionGained', from: 8, to: 7, passed: 'X' })), 'either');
+    assert.equal(commentaryRoute(classed({ type: 'raceStart', starters: 20, userGrid: 5 })), 'ai');
+    assert.equal(commentaryRoute(classed({ type: 'statsUpdate' })), 'ai');
+    assert.equal(commentaryRoute(classed({ type: 'flag', flag: 'yellow', notes: [] })), 'fixed');
+    assert.equal(commentaryRoute(classed({ type: 'flag', flag: 'red', notes: [] })), 'ai');
+  });
+
+  test('past the budget, moments go to fixed wording or wait; critical ones never do', () => {
+    const state = newDirectorState('s');
+    const decide = (event, now = T0) => direct({ events: [n(event, 1, now)], now, settings: settings(), speakers: ['lead', 'color'], ctx, state: newDirectorState('s') }).decision;
+    for (let i = 0; i < AI_BUDGET.calls.full; i++) commitAiCall(state, T0 - i * 1000);
+    assert.equal(planCommentary(decide({ type: 'positionGained', from: 8, to: 7, passed: 'X' }), state, 'full', T0), 'fixed');
+    assert.equal(planCommentary(decide({ type: 'statsUpdate' }), state, 'full', T0), 'skip');
+    assert.equal(planCommentary(decide({ type: 'raceStart', starters: 20, userGrid: 5 }), state, 'full', T0), 'ai');
+    assert.equal(planCommentary(decide({ type: 'statsUpdate' }), state, 'full', T0 + AI_BUDGET.windowMs + 1), 'ai', 'the budget frees up');
+    assert.equal(planCommentary(decide({ type: 'positionGained', from: 8, to: 7, passed: 'X' }), newDirectorState('s'), 'full', T0), 'ai');
+  });
+
+  test('every language has every wording, with the same placeholders as English', () => {
+    const holes = (t) => [...t.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort().join(',');
+    const known = new Set(['ahead', 'behind', 'pos', 'gap', 'closing', 'laps', 'who', 'whom', 'car', 'driver', 'lapTime', 'delta', 'seconds', 'total']);
+    for (const [lang, dict] of Object.entries({ pt, es, de })) {
+      for (const part of ['lead', 'color']) {
+        for (const [key, variants] of Object.entries(en.broadcastPhrases[part])) {
+          const theirs = dict.broadcastPhrases[part][key];
+          assert.ok(theirs && theirs.length >= 3, `${lang} ${part}.${key}`);
+          const allowed = new Set(variants.flatMap((v) => holes(v).split(',')).filter(Boolean));
+          for (const v of theirs) for (const h of holes(v).split(',').filter(Boolean)) assert.ok(allowed.has(h) && known.has(h), `${lang} ${part}.${key}: {${h}} in "${v}"`);
+        }
+      }
+    }
+  });
+
+  test('the wordings take turns and lines start differently', () => {
+    const memory = newPhraseMemory();
+    const variants = en.broadcastPhrases.lead.battleClosing;
+    const said = [];
+    for (let i = 0; i < variants.length; i++) said.push(pickPhrase(memory, 'battleClosing', variants, { ahead: 'A', behind: 'B', pos: 'P6', gap: '0.4 s' }, () => 0));
+    assert.equal(new Set(said).size, variants.length, 'each wording once before any comes back');
+    assert.equal(pickPhrase(memory, 'x', ['{who} is off.'], { who: null }), null, 'no wording without its values');
+  });
+
+  test('a battle and a pass in fixed wording, in the listener\'s language', () => {
+    const facts = { driver: 'Dana Driver', name: (d) => d, carOf: () => 'Porsche', multiClass: false, decimal: ',' };
+    const memory = newPhraseMemory();
+    const lines = phraseLines(classed(battle('closing')), 'leadColor', facts, de.broadcastPhrases, memory, () => 0);
+    assert.equal(lines.length, 2);
+    assert.equal(lines[0].speaker, 'lead');
+    assert.match(lines[0].text, /Ben Behind|Anna Ahead/);
+    assert.match(lines.map((l) => l.text).join(' '), /0,[34] s/);
+    const pass = phraseLines(classed({ type: 'positionGained', from: 8, to: 7, passed: 'Xavier' }), 'lead', { ...facts, decimal: '.' }, en.broadcastPhrases, memory);
+    assert.equal(pass.length, 1);
+    assert.match(pass[0].text, /Dana Driver/);
+    assert.match(pass[0].text, /P7/);
+    const lap = phraseLines(classed({ type: 'lapComplete', lap: 3, lapTime: 102.34, bestLapTime: 101.7, newBest: false }), 'lead', { ...facts, decimal: '.' }, en.broadcastPhrases, memory);
+    assert.match(lap[0].text, /1:42\.3/);
+    assert.equal(phraseLines(classed({ type: 'statsUpdate' }), 'lead', facts, en.broadcastPhrases, memory), null);
+  });
+});
+
+describe('tire mentions', () => {
+  const decision = (type, key = type, kind = 'action') => ({ selected: { event: { type }, key, kind } });
+
+  test('the tires are given only at moments about them, a few times a session, minutes apart', () => {
+    const state = newDirectorState('s');
+    assert.equal(tireMentionAllowed(state, decision('battle', 'battle', 'action'), 'soft', false, T0), false, 'not in a battle');
+    assert.equal(tireMentionAllowed(state, decision('lapComplete', 'userLap:3', 'routine'), 'soft', false, T0), false, 'not on a lap');
+    assert.equal(tireMentionAllowed(state, decision('raceStart', 'start'), null, false, T0), false, 'not without a compound');
+    assert.equal(tireMentionAllowed(state, decision('raceStart', 'start'), 'soft', false, T0), true);
+    commitTireMention(state, 'soft', T0);
+    assert.equal(tireMentionAllowed(state, decision('weatherUpdate', 'weatherUpdate', 'weather'), 'soft', false, T0 + 60_000), false, 'too soon');
+    let at = T0;
+    for (let i = 1; i < TIRE_MENTIONS.dry; i++) {
+      at += TIRE_MENTION_GAP_MS;
+      assert.equal(tireMentionAllowed(state, decision('weatherUpdate', 'weatherUpdate', 'weather'), 'soft', false, at), true);
+      commitTireMention(state, 'soft', at);
+    }
+    at += TIRE_MENTION_GAP_MS;
+    assert.equal(tireMentionAllowed(state, decision('pitExit', 'userPit:pitExit', 'strategy'), 'soft', false, at), false, 'the dry cap is reached');
+    assert.equal(tireMentionAllowed(state, decision('pitExit', 'userPit:pitExit', 'strategy'), 'soft', true, at), true, 'the wet cap is higher');
+    assert.equal(tireMentionAllowed(state, decision('battle', 'battle', 'action'), 'wet', true, at), true, 'a new compound is news once');
   });
 });
 

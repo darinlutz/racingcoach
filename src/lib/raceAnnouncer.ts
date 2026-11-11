@@ -319,6 +319,10 @@ const announcerPrompt = () =>
   'They are partners, not rivals: the Color Announcer never repeats the Lead, he adds something; he may politely ' +
   'qualify or disagree with a prediction when the data supports it. No filler acknowledgements ("Absolutely", ' +
   '"Exactly", "You\'re right", "Great call"), and no catchphrase used twice. ' +
+  'Never sound repetitive: recentCommentary is what the broadcast just said, and avoidOpenings how its lines began. ' +
+  'Start every line differently from those, and never reuse their phrases, descriptive words, sentence shapes or ' +
+  'jokes; vary the verbs (passes, gets by, makes it stick, dives through), how drivers and cars are referred to, and ' +
+  'the sentence length, the way real commentators keep a long race fresh. ' +
   'The broadcast covers the whole field but follows one driver more closely (listenersDriver); talk about them when ' +
   'the facts are about them, not otherwise. ' +
   'You get a JSON request: the session, the event the producer chose, anything else that just happened, ' +
@@ -333,7 +337,8 @@ const announcerPrompt = () =>
   'the track is wet, when the conditions and the outlook are part of the story. The outlook is projected from how ' +
   'the conditions have changed (the simulator shares no official forecast): say what it suggests ("the rain looks ' +
   'set to get heavier", "it should stay dry"), never that a forecast says so, and never invent rain, a time it ' +
-  'arrives or a temperature not given. listenersDriver.tires is the compound on their car and may be said. ' +
+  'arrives or a temperature not given. listenersDriver.tires, when given, is the compound on their car: say it once, in one line at most. When it is ' +
+  'not given, say nothing about tires at all. ' +
   'Use only the facts in the request. Never invent a pass, gap, time, position, reason, rivalry, history, ' +
   'championship standing or record. Nothing about sector times, tire wear, tire changes, fuel, contact between cars ' +
   'or setup: the broadcast has no such data. A time gap is not a car alongside: never say cars are side by side, ' +
@@ -381,10 +386,12 @@ export async function raceAnnouncerLines(input: {
   facts: LineFacts;
   instructions: string;
   language: Language;
+  // The model's feature in AI Model Control: the cheaper raceAnnouncerRoutine for the less important moments
+  feature?: 'raceAnnouncer' | 'raceAnnouncerRoutine';
 }): Promise<{ lines: AnnouncerLine[]; dropped: DroppedLine[] }> {
   if (input.plans.length === 0) return { lines: [], dropped: [] };
   const agent = createAgent({
-    model: await chatModel('raceAnnouncer', 0.8),
+    model: await chatModel(input.feature ?? 'raceAnnouncer', 0.9),
     tools: [],
     systemPrompt: announcerPrompt() + instructionsRule(input.instructions) + aiLanguageRule(input.language),
     responseFormat: linesSchema,

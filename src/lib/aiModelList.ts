@@ -15,6 +15,8 @@ export const AI_FEATURES = {
   collectorLogReview: 'gpt-4o',
   racecarAnalysis: 'gpt-4o-mini',
   raceAnnouncer: 'gpt-4o-mini',
+  // The Race Announcers' less important moments (P2-P4, src/lib/broadcastDirector.ts): short lines, so the cheapest
+  raceAnnouncerRoutine: 'gpt-4.1-nano',
   raceEngineer: 'gpt-4o-mini',
   setupEngineer: 'gpt-4o-mini',
 } as const satisfies Record<string, AiModel>;

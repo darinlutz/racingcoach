@@ -19,6 +19,7 @@ export const AI_CALL_LIMITS = {
   collectorLogReview: { maxOutputTokens: 2500, timeoutMs: 60_000, maxRetries: 0 },
   racecarAnalysis: { maxOutputTokens: 4000, timeoutMs: 60_000, maxRetries: 1 },
   raceAnnouncer: { maxOutputTokens: 7500, timeoutMs: 20_000, maxRetries: 0 },
+  raceAnnouncerRoutine: { maxOutputTokens: 7500, timeoutMs: 20_000, maxRetries: 0 },
   raceEngineer: { maxOutputTokens: 2500, timeoutMs: 25_000, maxRetries: 0 },
   setupEngineer: { maxOutputTokens: 2000, timeoutMs: 25_000, maxRetries: 0 },
   // The Admin page's Local AI Test Console (not an AI feature: no AI Model Control row). Long, as a local model may

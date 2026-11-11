@@ -17,7 +17,14 @@ import { SPEED_UNIT, speedFromMetersPerSecond } from '@/lib/units';
 export type TimedSample = { at: number; sample: InputSample };
 
 export const PLAYBACK_DELAY_MS = 1600;
-const TRACE_MS = 8000;
+export const INPUT_TRACE_MS = 8000;
+const TRACE_MS = INPUT_TRACE_MS;
+
+// How far behind live the inputs are played: the moment the map shows when it's synchronized with the live video
+// (syncDelayMs, the map's delay), but never less than PLAYBACK_DELAY_MS, the samples' own buffering
+export function inputsDelay(syncDelayMs: number): number {
+  return Math.max(PLAYBACK_DELAY_MS, syncDelayMs > 0 ? syncDelayMs : 0);
+}
 // The delta bar's full width, each way, in seconds
 export const DELTA_RANGE_S = 1;
 export const THROTTLE_COLOR = '#22C55E';
@@ -99,6 +106,7 @@ export default function LiveInputs({
   color,
   incidents,
   samples,
+  syncDelayMs = 0,
 }: {
   driver: string;
   driverId: number;
@@ -106,6 +114,8 @@ export default function LiveInputs({
   color: string;
   incidents: number | null;
   samples: TimedSample[];
+  // The map's delay while it's synchronized with the live video, which the inputs are played behind too
+  syncDelayMs?: number;
 }) {
   const { t, fmt } = useLanguage();
   const units = useUnits();
@@ -113,13 +123,17 @@ export default function LiveInputs({
   useEffect(() => {
     samplesRef.current = samples;
   }, [samples]);
+  const delayRef = useRef(inputsDelay(syncDelayMs));
+  useEffect(() => {
+    delayRef.current = inputsDelay(syncDelayMs);
+  }, [syncDelayMs]);
   const [shown, setShown] = useState<Shown | null>(null);
 
   useEffect(() => {
     let id = 0;
     const tick = (now: number) => {
       const all = samplesRef.current;
-      const at = now - PLAYBACK_DELAY_MS;
+      const at = now - delayRef.current;
       const values = valuesAt(all, at);
       const trace = all
         .filter((s) => s.at <= at && s.at >= at - TRACE_MS)

@@ -292,6 +292,7 @@ export const de: Dictionary = {
     simsSupported: 'Unterstützt',
     sims: [
       { name: 'iRacing', features: 'Rundenaufzeichnung, der KI-Coach im Auto, Overlays, Brems-Pieptöne, Fahrerfunk, Live-Rennen und Rennergebnisse' },
+      { name: 'Assetto Corsa', features: 'Rundenaufzeichnung, Uploads und Rundenanalyse: Rundenvergleich, Mehrrunden-Analyse und der Debrief-Coach' },
       { name: 'Assetto Corsa Competizione', features: 'Rundenaufzeichnung, der KI-Coach im Auto, Overlays, Brems-Pieptöne, Fahrerfunk und Live-Rennen' },
     ],
     teamEyebrow: 'Dein KI-Rennteam',

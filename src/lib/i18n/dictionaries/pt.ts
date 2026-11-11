@@ -286,6 +286,7 @@ export const pt: Dictionary = {
     simsSupported: 'Compatível',
     sims: [
       { name: 'iRacing', features: 'Gravação de voltas, o Coach de IA no Carro, overlays, bipes de frenagem, Rádio do Piloto, Corridas ao Vivo e resultados de corridas' },
+      { name: 'Assetto Corsa', features: 'Gravação de voltas, envios e análise de voltas: Comparação de Voltas, Análise de Várias Voltas e o Debrief Coach' },
       { name: 'Assetto Corsa Competizione', features: 'Gravação de voltas, o Coach de IA no Carro, overlays, bipes de frenagem, Rádio do Piloto e Corridas ao Vivo' },
     ],
     teamEyebrow: 'Sua equipe de corrida com IA',

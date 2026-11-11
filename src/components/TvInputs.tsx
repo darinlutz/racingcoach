@@ -5,7 +5,7 @@ import { useLanguage } from '@/components/LanguageProvider';
 import {
   BRAKE_COLOR,
   DELTA_RANGE_S,
-  PLAYBACK_DELAY_MS,
+  inputsDelay,
   THROTTLE_COLOR,
   valuesAt,
   type Shown,
@@ -19,16 +19,19 @@ import { SPEED_UNIT, speedFromMetersPerSecond } from '@/lib/units';
 // TV Broadcast Mode's Driver Inputs: the Live Racing page's panel (LiveInputs) sized for a TV across the room: the
 // followed driver's delta to their best lap and a throttle and brake trace, then their throttle and brake bars,
 // steering wheel, gear and speed, in one strip under the map. Each picture of the race carries the last few seconds of inputs; they're kept here (KEEP_MS) and played
-// back PLAYBACK_DELAY_MS behind, as on the Live Racing page, but redrawn at most FPS times a second for low-powered TVs.
+// back as far behind live as the map is (inputsDelay: the synchronized broadcast's delay, else PLAYBACK_DELAY_MS), as on the
+// Live Racing page, but redrawn at most FPS times a second for low-powered TVs. They come from the live picture, not the
+// delayed one, so the delay is applied once, here.
 
 const FPS = 20;
-const KEEP_MS = 12_000;
+// Kept beyond the delay: the trace and some slack
+const KEEP_EXTRA_MS = 12_000;
 const TRACE_MS = 8000;
 // A new clock offset this close to the last is network timing noise, and the samples keep the old one
 const OFFSET_TOLERANCE_MS = 400;
 
 // Keeps the followed driver's inputs on this page's clock, adding each picture's newer samples
-function useInputSamples(driverId: number, inputs: InputSample[] | null, inputsAgeMs: number, receivedAt: number): TimedSample[] {
+function useInputSamples(driverId: number, inputs: InputSample[] | null, inputsAgeMs: number, receivedAt: number, keepMs: number): TimedSample[] {
   const kept = useRef<{ driverId: number; offset: number; samples: TimedSample[] } | null>(null);
   const [samples, setSamples] = useState<TimedSample[]>([]);
   useEffect(() => {
@@ -45,9 +48,9 @@ function useInputSamples(driverId: number, inputs: InputSample[] | null, inputsA
     }
     const base = k.offset;
     const added = inputs.filter((s) => s[0] > newest).map((sample) => ({ at: base + sample[0] * 1000, sample }));
-    k.samples = [...k.samples, ...added].filter((s) => s.at > receivedAt - KEEP_MS);
+    k.samples = [...k.samples, ...added].filter((s) => s.at > receivedAt - keepMs);
     setSamples(k.samples);
-  }, [driverId, inputs, inputsAgeMs, receivedAt]);
+  }, [driverId, inputs, inputsAgeMs, receivedAt, keepMs]);
   return samples;
 }
 
@@ -70,6 +73,7 @@ export default function TvInputs({
   inputs,
   inputsAgeMs,
   receivedAt,
+  syncDelayMs = 0,
 }: {
   driverId: number;
   color: string;
@@ -77,10 +81,17 @@ export default function TvInputs({
   inputsAgeMs: number;
   // When this page received the picture the inputs came with (performance.now())
   receivedAt: number;
+  // The synchronized broadcast's delay (the map's), which the inputs are played behind too
+  syncDelayMs?: number;
 }) {
   const { t } = useLanguage();
   const units = useUnits();
-  const samples = useInputSamples(driverId, inputs, inputsAgeMs, receivedAt);
+  const delay = inputsDelay(syncDelayMs);
+  const samples = useInputSamples(driverId, inputs, inputsAgeMs, receivedAt, delay + KEEP_EXTRA_MS);
+  const delayRef = useRef(delay);
+  useEffect(() => {
+    delayRef.current = delay;
+  }, [delay]);
   const samplesRef = useRef(samples);
   useEffect(() => {
     samplesRef.current = samples;
@@ -95,7 +106,7 @@ export default function TvInputs({
       if (now - last < 1000 / FPS - 1) return;
       last = now;
       const all = samplesRef.current;
-      const at = now - PLAYBACK_DELAY_MS;
+      const at = now - delayRef.current;
       const values = valuesAt(all, at);
       const trace = all
         .filter((s) => s.at <= at && s.at >= at - TRACE_MS)

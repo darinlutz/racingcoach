@@ -142,6 +142,7 @@ export default function TvBroadcast({
   const [camera, setCamera] = useState<CameraSource>('TRACK_MAP');
   const timeline = useBroadcastTimeline(liveState, liveVideo?.sync ?? null, metrics, liveVideo?.stream?.status === 'LIVE');
   const state = timeline.state;
+  const liveFocus = liveState?.focus ?? null;
   const focus = state?.focus ?? null;
   // The Director's latest word: an older message arriving late doesn't undo it
   const incoming = focus?.director ?? null;
@@ -554,9 +555,11 @@ export default function TvBroadcast({
                 <TvInputs
                   driverId={focus.driverId}
                   color={focus.color}
-                  inputs={focus.inputs}
-                  inputsAgeMs={focus.inputsAgeMs}
-                  receivedAt={state.receivedAt}
+                  // The live picture's inputs, played back as far behind as the synchronized map
+                  inputs={liveFocus?.driverId === focus.driverId ? liveFocus.inputs : focus.inputs}
+                  inputsAgeMs={liveFocus?.driverId === focus.driverId ? liveFocus.inputsAgeMs : focus.inputsAgeMs}
+                  receivedAt={liveFocus?.driverId === focus.driverId && liveState ? liveState.receivedAt : state.receivedAt}
+                  syncDelayMs={liveFocus?.driverId === focus.driverId ? timeline.appliedDelayMs : 0}
                 />
               ) : (
                 <p className="text-[22px] leading-snug text-[#a7b0bd]">{t.liveRacing.inputsWaiting}</p>

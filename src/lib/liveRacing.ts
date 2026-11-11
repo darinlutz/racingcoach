@@ -954,6 +954,15 @@ export function readDirectorFeed(driverId: number): {
   };
 }
 
+// The iRacing subsession and car a live driver is in (null offline or unknown), for live video: whose OBS stream shows
+// the session a TV follows (src/lib/liveVideo/broadcastSourceRuntime.ts)
+export function liveSessionOf(driverId: number): { subSessionId: number | null; carIdx: number | null } | null {
+  const entry = live.entries.get(driverId);
+  if (!entry || Date.now() - entry.receivedAt > STALE_MS) return null;
+  const sub = entry.field?.subSessionId;
+  return { subSessionId: sub && sub > 0 ? sub : null, carIdx: entry.field?.myCarIdx ?? null };
+}
+
 // A driver's approximate outline of the track with this key, if this viewer may watch them
 export async function readApproximateOutline(
   viewer: Pick<User, 'id' | 'role'>,

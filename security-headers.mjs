@@ -11,9 +11,13 @@
 //   so it can be enforced once a while of real use shows nothing legitimate would be blocked. Scripts still need
 //   'unsafe-inline': Next.js's own inline scripts would need a nonce per response to drop it.
 // The browser only leaves the site for Stripe checkout and the sign-in providers (navigations, which CSP doesn't
-// govern) and the Broadcast Video Library's files in Cloudflare R2 (uploaded and played from the bucket's address).
+// govern), the Broadcast Video Library's files in Cloudflare R2 (uploaded and played from the bucket's address) and
+// Cloudflare Stream's live video (played from customer-<code>.cloudflarestream.com).
 
 const R2 = 'https://*.r2.cloudflarestorage.com';
+// Cloudflare Stream's live video (docs/live-video.md): hls.js fetches the playlists and segments, and Safari plays
+// them as media itself
+const STREAM = 'https://*.cloudflarestream.com';
 
 export const ENFORCED_CSP = [
   "frame-ancestors 'none'",
@@ -32,8 +36,8 @@ export function reportOnlyCsp({ dev = false } = {}) {
     "img-src 'self' data: blob:",
     "font-src 'self' data:",
     // blob: is the page's own data (e.g. the engine sound played under the announcers, read with fetch)
-    `connect-src 'self' blob: ${R2}${dev ? ' ws: wss:' : ''}`,
-    `media-src 'self' blob: data: ${R2}`,
+    `connect-src 'self' blob: ${R2} ${STREAM}${dev ? ' ws: wss:' : ''}`,
+    `media-src 'self' blob: data: ${R2} ${STREAM}`,
     "worker-src 'self' blob:",
     "frame-src 'none'",
     "manifest-src 'self'",

@@ -66,7 +66,7 @@ export async function GET(request: Request) {
           }
         }
         try {
-          const state = await readTvState(session.user, driver);
+          const state = await readTvState(session.user, driver, `tv:${session.id}`);
           // The picture without its timestamp, to see whether anything changed
           const { at, ...rest } = state;
           const key = JSON.stringify(rest);

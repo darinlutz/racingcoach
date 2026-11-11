@@ -8,6 +8,7 @@ import LocalAiServerMode from '@/components/LocalAiServerMode';
 import LocalAiTestConsole from '@/components/LocalAiTestConsole';
 import BroadcastDirectorManager from '@/components/BroadcastDirectorManager';
 import BroadcastVideoLibrary from '@/components/BroadcastVideoLibrary';
+import LiveVideoControl from '@/components/LiveVideoControl';
 import EngineAudioLibrary from '@/components/EngineAudioLibrary';
 import CollectorLogsViewer from '@/components/CollectorLogsViewer';
 import LapRetentionRuns from '@/components/LapRetentionRuns';
@@ -148,6 +149,8 @@ export default async function AdminPage({
         <EngineAudioLibrary />
 
         <BroadcastDirectorManager />
+
+        <LiveVideoControl />
 
         <UserRoleManager users={users} currentUserId={user.id} />
 

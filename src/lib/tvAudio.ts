@@ -18,6 +18,9 @@ export type QueuedLine = {
   volume?: number;
   // Voiced by ElevenLabs, so it plays over the engine bed (src/lib/engineBed.ts)
   elevenLabs?: boolean;
+  // Synchronized broadcast (docs/live-video.md): not before this, on this clock, when its moment reaches the video's
+  // delayed timeline. Its waiting time and expiry count from then
+  notBefore?: number;
 };
 
 // A line waiting longer than this isn't played
@@ -42,13 +45,23 @@ export class CommentaryQueue {
     for (const line of lines) {
       const text = line.text.trim();
       if (!text || this.recent.includes(text) || this.lines.some((l) => l.text === text)) continue;
-      this.lines.push({ ...line, text, queuedAt: now });
+      // A held line's wait and moment count from when it's due, not from now
+      const hold = line.notBefore != null && line.notBefore > now ? line.notBefore - now : 0;
+      this.lines.push({ ...line, text, queuedAt: now + hold, expiresAt: line.expiresAt != null ? line.expiresAt + hold : undefined });
     }
   }
 
-  // The next line to play, or null; lines past MAX_LINE_WAIT_MS or their expiresAt are dropped on the way
+  // How long until the first line is due (0 when it's due now, or there's none)
+  waitMs(now: number): number {
+    const first = this.lines[0];
+    return first?.notBefore != null ? Math.max(first.notBefore - now, 0) : 0;
+  }
+
+  // The next line to play, or null; lines past MAX_LINE_WAIT_MS or their expiresAt are dropped on the way. A line not
+  // due yet stays first in the queue (lines keep their order), and next() answers null until it is
   next(now: number): QueuedLine | null {
     while (this.lines.length > 0) {
+      if (this.lines[0].notBefore != null && this.lines[0].notBefore > now) return null;
       const line = this.lines.shift()!;
       if (now - line.queuedAt > MAX_LINE_WAIT_MS || (line.expiresAt != null && now > line.expiresAt)) {
         this.dropped++;

@@ -5,7 +5,7 @@ import DriverCarStatus from '@/components/DriverCarStatus';
 import { useLanguage } from '@/components/LanguageProvider';
 import LiveDriverMessage from '@/components/LiveDriverMessage';
 import LiveDriverRadio from '@/components/LiveDriverRadio';
-import LiveInputs, { type TimedSample } from '@/components/LiveInputs';
+import LiveInputs, { inputsDelay, INPUT_TRACE_MS, type TimedSample } from '@/components/LiveInputs';
 import LiveLeaderboard, { type LeaderboardDriver, runningOrder } from '@/components/LiveLeaderboard';
 import LiveSessionBanner from '@/components/LiveSessionBanner';
 import LiveSessionStatus from '@/components/LiveSessionStatus';
@@ -20,7 +20,7 @@ import WeatherRadar from '@/components/WeatherRadar';
 import { fittedTire, fuelStatus, isWetSession } from '@/lib/liveCarStatus';
 import { engineBed, linkSpeech } from '@/lib/engineBed';
 import { ELEVENLABS_PROVIDER, SPEECH_PROVIDER_HEADER, type EngineBedConfig } from '@/lib/engineBedConfig';
-import type { LiveDriver, LiveField } from '@/lib/liveRacing';
+import type { InputSample, LiveDriver, LiveField } from '@/lib/liveRacing';
 import { formatLapTime as lapTime } from '@/lib/liveRacingFormat';
 import { liveLimitPauseMs, reportRateLimit } from '@/lib/rateLimitClient';
 import { useMapSettings } from '@/lib/satelliteImagery';
@@ -247,6 +247,10 @@ export default function LiveRacing({
   const [samples, setSamples] = useState<TimedSample[]>([]);
   // Page clock (ms) minus the collector's SessionTime (ms), for the focused driver's samples
   const offset = useRef<{ driver: number; ms: number } | null>(null);
+  // The focused driver's inputs received so far (by SessionTime), and the map's synchronization delay, which they're
+  // played back behind too
+  const rawInputs = useRef<{ driver: number; samples: InputSample[] } | null>(null);
+  const inputDelayRef = useRef(0);
   // The Race Announcers turned on, and the focused driver's newest race event already commentated (or there when the
   // page started watching them); one request at a time, its lines queued (CommentaryQueue: one at a time, a more
   // important commentary replacing less important lines still waiting, lines past their moment dropped) and played
@@ -340,8 +344,19 @@ export default function LiveRacing({
               const kept = offset.current?.driver === focused.userId && Math.abs(offset.current.ms - ms) < OFFSET_TOLERANCE_MS;
               if (!kept) offset.current = { driver: focused.userId, ms };
               const base = offset.current!.ms;
-              setSamples(inputs.map((sample) => ({ at: base + sample[0] * 1000, sample })));
+              // The server keeps only its last 12 s, so the page adds each answer's newer samples to its own, enough
+              // to play them back as far behind live as the synchronized map is (by SessionTime; a SessionTime going
+              // back is a new session, and another driver starts over)
+              const raw = rawInputs.current;
+              const newest = raw?.samples[raw.samples.length - 1]?.[0] ?? -Infinity;
+              const restart = !raw || raw.driver !== focused.userId || inputs[inputs.length - 1][0] < newest;
+              const keepS = (inputsDelay(inputDelayRef.current) + INPUT_TRACE_MS + 4000) / 1000;
+              const merged = [...(restart ? [] : raw.samples), ...inputs.filter((s) => restart || s[0] > newest)];
+              const cutoff = merged[merged.length - 1][0] - keepS;
+              rawInputs.current = { driver: focused.userId, samples: merged.filter((s) => s[0] > cutoff) };
+              setSamples(rawInputs.current.samples.map((sample) => ({ at: base + sample[0] * 1000, sample })));
             } else if (!focused?.onTrack) {
+              rawInputs.current = null;
               setSamples([]);
             }
           }
@@ -403,6 +418,9 @@ export default function LiveRacing({
     estimatedLatencyMs: videoMetrics?.latencyS != null ? videoMetrics.latencyS * 1000 : null,
   });
   const shownDrivers = useDelayedDrivers(drivers, mapDelay.delayMs);
+  useEffect(() => {
+    inputDelayRef.current = mapDelay.delayMs;
+  }, [mapDelay.delayMs]);
 
   const groups = useMemo(() => {
     const byTrack = new Map<string, Received[]>();
@@ -885,6 +903,7 @@ export default function LiveRacing({
                       color={colors.get(focusedHere.userId) ?? COLORS[0]}
                       incidents={focusedHere.incidents ?? null}
                       samples={samples}
+                      syncDelayMs={mapDelay.delayMs}
                     />
                     <LiveDriverRadio radio={focusedHere.radio ?? []} play={playRadio} onPlayChange={togglePlayRadio} error={radioError} />
                     {showAnnouncers && (

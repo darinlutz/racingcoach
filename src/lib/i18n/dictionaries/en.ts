@@ -293,6 +293,7 @@ export const en = {
     simsSupported: 'Supported',
     sims: [
       { name: 'iRacing', features: 'Lap recording, the In-Car AI Coach, overlays, brake beeps, Driver Radio, Live Racing and race results' },
+      { name: 'Assetto Corsa', features: 'Lap recording, uploads and lap analysis: Lap Compare, Multi-Lap Analysis and the Debrief Coach' },
       { name: 'Assetto Corsa Competizione', features: 'Lap recording, the In-Car AI Coach, overlays, brake beeps, Driver Radio and Live Racing' },
     ],
     teamEyebrow: 'Your AI race team',

@@ -667,7 +667,7 @@ export type UsageFeature = {
   // Calls with tokens recorded and their model calls, for the averages per call
   trackedCalls: number;
   modelCalls: number;
-  // The models the calls used, e.g. "gpt-5-mini, gpt-5.5"
+  // The models the calls used, e.g. "gpt-5-mini, gpt-5.4"
   models: string | null;
 };
 

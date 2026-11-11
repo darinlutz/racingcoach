@@ -267,31 +267,57 @@ export function ThermometerPicture({ celsius, hot = false, className, title }: A
   );
 }
 
-// A water drop, filled to the humidity (0-1)
+// A drop shape whose tip is at (cx, top), r wide at its round bottom
+function dropPath(cx: number, top: number, r: number) {
+  const bottom = top + r * 2.9;
+  const mid = bottom - r;
+  return `M${cx} ${top} C${cx} ${top} ${cx - r} ${mid - r * 0.6} ${cx - r} ${mid} A${r} ${r} 0 0 0 ${cx + r} ${mid} C${cx + r} ${mid - r * 0.6} ${cx} ${top} ${cx} ${top} Z`;
+}
+
+// Water droplets: a cluster of three glossy drops, the big one filled to the humidity (0-1), and a small drop falling
+// beside them
 export function HumidityPicture({ humidity, className, title }: ArtProps & { humidity: number | null }) {
   const id = useId().replace(/:/g, '');
   const share = Math.min(Math.max(humidity ?? 0, 0), 1);
-  const drop = 'M50 10 C50 10 22 44 22 62 C22 78 35 90 50 90 C65 90 78 78 78 62 C78 44 50 10 50 10 Z';
+  const big = dropPath(44, 14, 24);
+  const top = 14;
+  const bottom = top + 24 * 2.9;
+  const level = bottom - (bottom - top) * share;
   return (
     <svg viewBox="0 0 100 100" className={className} role="img" aria-label={title}>
       {title && <title>{title}</title>}
       <defs>
         <clipPath id={`${id}-clip`}>
-          <path d={drop} />
+          <path d={big} />
         </clipPath>
-        <linearGradient id={`${id}-water`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#7cc7ff" />
-          <stop offset="100%" stopColor="#1d6fe0" />
+        <linearGradient id={`${id}-water`} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#8fd3ff" />
+          <stop offset="100%" stopColor="#1763d6" />
         </linearGradient>
+        <radialGradient id={`${id}-bead`} cx="35%" cy="60%" r="70%">
+          <stop offset="0%" stopColor="#c8ecff" />
+          <stop offset="55%" stopColor="#4aa8f5" />
+          <stop offset="100%" stopColor="#1458c4" />
+        </radialGradient>
       </defs>
-      <path d={drop} fill="#ffffff" fillOpacity="0.08" stroke="#bfe3ff" strokeOpacity="0.8" strokeWidth="3" />
+      {/* The big drop: an outline, filled from the bottom to the humidity */}
+      <path d={big} fill="#ffffff" fillOpacity="0.07" stroke="#bfe3ff" strokeOpacity="0.85" strokeWidth="2.5" />
       <g clipPath={`url(#${id}-clip)`}>
-        <rect x="0" y={90 - 80 * share} width="100" height="100" fill={`url(#${id}-water)`} />
-        <path d={`M0 ${90 - 80 * share} Q25 ${86 - 80 * share} 50 ${90 - 80 * share} T100 ${90 - 80 * share}`} fill="none" stroke="#e0f2fe" strokeOpacity="0.7" strokeWidth="2">
-          <animateTransform attributeName="transform" type="translate" values="-10 0; 10 0; -10 0" dur="4s" repeatCount="indefinite" />
+        <rect x="0" y={level} width="100" height="100" fill={`url(#${id}-water)`} />
+        <path d={`M0 ${level} Q15 ${level - 3} 30 ${level} T60 ${level} T90 ${level} T120 ${level}`} fill="none" stroke="#e0f2fe" strokeOpacity="0.75" strokeWidth="2">
+          <animateTransform attributeName="transform" type="translate" values="-12 0; 0 0; -12 0" dur="4s" repeatCount="indefinite" />
         </path>
       </g>
-      <path d="M36 54 C36 46 40 40 44 35" fill="none" stroke="#fff" strokeOpacity="0.7" strokeWidth="3.5" strokeLinecap="round" />
+      <path d="M30 60 C30 52 33 45 37 39" fill="none" stroke="#fff" strokeOpacity="0.75" strokeWidth="3.5" strokeLinecap="round" />
+      {/* Two smaller beads beside it */}
+      <path d={dropPath(80, 44, 11)} fill={`url(#${id}-bead)`} stroke="#bfe3ff" strokeOpacity="0.6" strokeWidth="1.5" />
+      <path d="M75 66 C75 63 76 60 78 58" fill="none" stroke="#fff" strokeOpacity="0.8" strokeWidth="2" strokeLinecap="round" />
+      <path d={dropPath(70, 74, 6)} fill={`url(#${id}-bead)`} stroke="#bfe3ff" strokeOpacity="0.6" strokeWidth="1.2" />
+      {/* A tiny drop falling */}
+      <path d={dropPath(80, 8, 4)} fill={`url(#${id}-bead)`}>
+        <animateTransform attributeName="transform" type="translate" values="0 0; 0 22; 0 22" keyTimes="0; 0.85; 1" dur="2.6s" repeatCount="indefinite" />
+        <animate attributeName="opacity" values="0; 1; 1; 0" keyTimes="0; 0.15; 0.75; 1" dur="2.6s" repeatCount="indefinite" />
+      </path>
     </svg>
   );
 }

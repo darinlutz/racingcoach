@@ -68,7 +68,16 @@ Race Announcers keep theirs (Silver, Gold, Admins).
 
 `sourceTick` runs as TVs ask for their picture (about once a second each; nothing runs while no TV watches):
 
-1. Live video off → map. Manual mode → the Admin's choice. Automatic → the preferred camera of the most important race
+1. Live video off → map. Manual mode → the Admin's choice. Automatic, with the **rotation** on (the default) → OBS for
+   the OBS turn (`rotation.obsSeconds`, 75 s), then the map for the map turn (`rotation.mapSeconds`, 20 s), then one of
+   the Broadcast Director's rotation clips, then OBS again (`rotationCamera`). The cycle restarts at each clip's return
+   (the Director's `returnAt`, else its last clip's end, shared through `rotationLink.ts`), and while the camera rotates
+   the Director spaces its rotation clips by the OBS and map turns (its `rotationMapSeconds` replaced by their sum) and
+   rotates outside races too, so the three take turns and OBS is on screen
+   `obsSeconds / (obsSeconds + mapSeconds + clip)` of the time (the Admin page shows the share; 60% with 30 s clips).
+   No clips (the Director's Rotation off, or none to play): OBS and the map alone. Only a big moment interrupts the
+   rotation: a P0 or P1 moment whose preferred camera is OBS (rule 2 still applies), or a P0 moment whose camera is the
+   map. Reasons `rotationObs` / `rotationMap`. With the rotation off → the preferred camera of the most important race
    moment of the last `momentSeconds` (from the race events, by the Commentary Director's priorities), else the camera
    for "cars spread across the circuit".
 2. **The OBS camera's subject is unknown unless the Admin says otherwise.** For moments about particular cars (battle,
@@ -109,8 +118,13 @@ Cloudflare's docs don't say their live HLS carries `EXT-X-PROGRAM-DATE-TIME`. Wh
 - **TV** (`useBroadcastTimeline`): keeps the last `maxBufferMs` + 5 s of pictures (bounded: at most 600), each stamped with its
   server time. It shows the picture from `delay` ago: map, leaderboard, header, events, inputs. Between pictures the map moves
   each car at the pace it really went to the next picture (already in the buffer), using the map's own dead reckoning, so
-  it's smooth without redrawing React state 60 times a second. Delay changes are eased (150 ms per step) unless they jump
-  over 15 s, so the map doesn't lurch. Duplicates, out-of-order and too-old pictures are counted, not shown twice.
+  it's smooth without redrawing React state 60 times a second. The delay is **held steady** (`holdDelay`): every change of
+  it changes how fast the delayed timeline plays (easing it 150 ms every 250 ms played it at 0.4×-1.6×), while the map
+  moves the cars at their real pace, so they jumped at every picture. hls.js's estimate never sits still (it falls with
+  each segment and creeps up until the next, and stalls add to it), so the delay is taken once, from the median of the
+  last 15 readings, and moved only when it has been more than 2 s off for 5 s, then gliding at 5% of real time. A change
+  of the Admin page's Offset is the viewer's own adjustment and applies at once; so does a jump of over 15 s (a new
+  stream). Duplicates, out-of-order and too-old pictures are counted, not shown twice.
 - The Broadcast Director's clip times and the camera's `switchAt` are not delayed: they're already absolute times.
 - **Commentary** is asked for as soon as the live event arrives (so the AI and speech use up the delay rather than adding
   to it), and each line waits in the queue until *event time + delay* (`notBefore` in `CommentaryQueue`). Its 20 s wait and

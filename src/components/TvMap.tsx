@@ -13,7 +13,7 @@ import { METERS_PER_FOOT } from '@/lib/units';
 // TVs. The track comes from GET /api/tv/outline, asked again every OUTLINE_RETRY_MS while it's missing or
 // approximate, as on the Live Racing page.
 
-const FPS = 20;
+const FPS = 10;
 const OUTLINE_RETRY_MS = 60_000;
 export const SATELLITE_OPACITY = 0.6;
 

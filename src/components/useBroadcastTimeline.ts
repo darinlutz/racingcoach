@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { PlayerMetrics } from '@/components/LiveOBSPlayer';
 import type { ReceivedTvState } from '@/components/useTvFeed';
 import type { LiveVideoSettings } from '@/lib/liveVideo/broadcastSource';
-import { effectiveDelay, rateBetween, smoothDelay, syncErrorMs, TimelineBuffer, type DelayResult, type TimelineStats } from '@/lib/liveVideo/broadcastTimeline';
+import { effectiveDelay, holdDelay, medianOf, newDelayHold, rateBetween, syncErrorMs, TimelineBuffer, type DelayResult, type TimelineStats } from '@/lib/liveVideo/broadcastTimeline';
 import type { TvMapCar } from '@/lib/tvBroadcast';
 
 // TV Broadcast Mode's synchronized timeline (docs/live-video.md, src/lib/liveVideo/broadcastTimeline.ts). While the
@@ -17,6 +17,8 @@ import type { TvMapCar } from '@/lib/tvBroadcast';
 // hasn't turned synchronization on.
 
 const STEP_MS = 250;
+// The latency readings (one a second) whose median the delay is worked out from
+const LATENCY_SAMPLES = 15;
 
 export type TimelineView = {
   state: ReceivedTvState | null;
@@ -65,6 +67,17 @@ export function useBroadcastTimeline(live: ReceivedTvState | null, sync: LiveVid
     liveRef.current = live;
   });
 
+  // The player's readings, a second apart, held as their median (held steady below: holdDelay)
+  const readings = useRef<{ measured: number[]; estimated: number[] }>({ measured: [], estimated: [] });
+  const [latency, setLatency] = useState<{ measured: number | null; estimated: number | null }>({ measured: null, estimated: null });
+  useEffect(() => {
+    const r = readings.current;
+    const keep = (list: number[], value: number | null) => (value == null || !Number.isFinite(value) ? [] : [...list, value].slice(-LATENCY_SAMPLES));
+    r.measured = keep(r.measured, metrics?.measuredLatencyMs ?? null);
+    r.estimated = keep(r.estimated, metrics?.latencyS != null ? metrics.latencyS * 1000 : null);
+    const next = { measured: medianOf(r.measured), estimated: medianOf(r.estimated) };
+    setLatency((current) => (current.measured === next.measured && current.estimated === next.estimated ? current : next));
+  }, [metrics]);
   const delay = useMemo(
     () =>
       effectiveDelay({
@@ -72,14 +85,16 @@ export function useBroadcastTimeline(live: ReceivedTvState | null, sync: LiveVid
         mode: sync?.mode ?? 'auto',
         manualOffsetMs: sync?.manualOffsetMs ?? 0,
         maxBufferMs,
-        measuredLatencyMs: metrics?.measuredLatencyMs ?? null,
-        estimatedLatencyMs: metrics?.latencyS != null ? metrics.latencyS * 1000 : null,
+        measuredLatencyMs: latency.measured,
+        estimatedLatencyMs: latency.estimated,
       }),
-    [sync?.enabled, sync?.mode, sync?.manualOffsetMs, maxBufferMs, metrics?.measuredLatencyMs, metrics?.latencyS, streamShowing]
+    [sync?.enabled, sync?.mode, sync?.manualOffsetMs, maxBufferMs, latency, streamShowing]
   );
   const delayRef = useRef(delay);
+  const offsetRef = useRef(sync?.manualOffsetMs ?? 0);
   useEffect(() => {
     delayRef.current = delay;
+    offsetRef.current = sync?.manualOffsetMs ?? 0;
   });
 
   useEffect(() => {
@@ -96,7 +111,7 @@ export function useBroadcastTimeline(live: ReceivedTvState | null, sync: LiveVid
     if (live) buffer.current.push(live.at, live.at, live);
   }, [live]);
 
-  // The delay applied (smoothed toward the one wanted) and the buffer's figures, as last stepped
+  // The delay applied (held steady, holdDelay) and the buffer's figures, as last stepped
   const [appliedMs, setAppliedMs] = useState(0);
   const [figures, setFigures] = useState<{ spanMs: number; stats: TimelineStats }>({ spanMs: 0, stats: { received: 0, duplicates: 0, outOfOrder: 0, tooOld: 0, late: 0 } });
   const on = delay.delayMs > 0 || appliedMs > 0;
@@ -107,10 +122,17 @@ export function useBroadcastTimeline(live: ReceivedTvState | null, sync: LiveVid
       return;
     }
     let steps = 0;
+    let hold = newDelayHold();
+    let last = Date.now();
     const timer = window.setInterval(() => {
       const current = liveRef.current;
       if (!current) return;
-      const next = smoothDelay(applied.current, delayRef.current.delayMs);
+      const now = Date.now();
+      const wanted = delayRef.current;
+      // Held steady: only a lasting difference moves it, slowly, and the calibrated offset moves it at once
+      hold = holdDelay(hold, wanted.delayMs, wanted.basis === 'off' ? null : offsetRef.current, now, now - last);
+      last = now;
+      const next = hold.applied;
       if (next !== applied.current) setAppliedMs(next);
       applied.current = next;
       if (steps++ % 4 === 0) setFigures({ spanMs: buffer.current.spanMs, stats: { ...buffer.current.stats } });

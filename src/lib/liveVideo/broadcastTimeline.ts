@@ -190,13 +190,62 @@ export function effectiveDelay(input: DelayInputs): DelayResult {
   return { delayMs, basis, clamped, degraded: clamped || basis === 'none' };
 }
 
-// Moves the delay shown toward the delay wanted a little at a time, so the map doesn't jump when the estimate or the
-// calibration changes: at most maxStepMs per call, jumping only when it's off by more than snapMs (a new stream)
-export function smoothDelay(current: number, target: number, maxStepMs = 150, snapMs = 15_000): number {
-  const diff = target - current;
-  if (Math.abs(diff) > snapMs) return target;
-  if (Math.abs(diff) <= maxStepMs) return target;
-  return current + Math.sign(diff) * maxStepMs;
+// Holding the delay steady. Every change to the delay shown changes how fast the delayed timeline plays (a delay
+// growing 150 ms every 250 ms plays it at 0.4×), while the map moves the cars between pictures at their real pace, so
+// they jump at every picture: choppy, jagged telemetry. The player's latency estimate is never still (it falls each time
+// a segment arrives and creeps up until the next, and every stall adds to it), so following it does exactly that.
+// Instead: the delay is set once and held; only when what's wanted has been more than DELAY_DEADBAND_MS off for
+// DELAY_SETTLE_MS does it glide there, at DELAY_GLIDE_RATE of real time (a speed change nobody sees), until it's
+// within DELAY_ON_TARGET_MS. A change of the calibrated offset (the Admin page's Offset) is the viewer's own
+// adjustment, so it applies at once; so does a jump of more than DELAY_SNAP_MS (a new stream) and the first delay
+export const DELAY_DEADBAND_MS = 2000;
+export const DELAY_SETTLE_MS = 5000;
+export const DELAY_GLIDE_RATE = 0.05;
+export const DELAY_ON_TARGET_MS = 250;
+export const DELAY_SNAP_MS = 15_000;
+
+export type DelayHold = {
+  applied: number;
+  // The offset the applied delay includes, so a change of it is applied as such
+  offsetMs: number | null;
+  // Since when what's wanted has been outside the deadband, or null
+  offSince: number | null;
+  gliding: boolean;
+};
+
+export const newDelayHold = (): DelayHold => ({ applied: 0, offsetMs: null, offSince: null, gliding: false });
+
+// One step: the delay to show now. target is effectiveDelay's delayMs, offsetMs the calibrated offset it includes
+// (null when synchronization is off), dtMs the time since the last step
+export function holdDelay(hold: DelayHold, target: number, offsetMs: number | null, now: number, dtMs: number): DelayHold {
+  const next = { ...hold };
+  if (target <= 0 || offsetMs == null) return newDelayHold();
+  if (hold.applied <= 0 || Math.abs(target - hold.applied) > DELAY_SNAP_MS) return { applied: target, offsetMs, offSince: null, gliding: false };
+  if (hold.offsetMs != null && offsetMs !== hold.offsetMs) {
+    // The calibration moved: by exactly that much, now, and the rest of the hold carries on as it was
+    next.applied = Math.max(hold.applied + (offsetMs - hold.offsetMs), 0);
+    next.offsetMs = offsetMs;
+    return next;
+  }
+  next.offsetMs = offsetMs;
+  const diff = target - hold.applied;
+  if (hold.gliding) {
+    if (Math.abs(diff) <= DELAY_ON_TARGET_MS) return { ...next, applied: target, gliding: false, offSince: null };
+    const step = Math.min(Math.abs(diff), DELAY_GLIDE_RATE * Math.max(dtMs, 0));
+    return { ...next, applied: hold.applied + Math.sign(diff) * step };
+  }
+  if (Math.abs(diff) <= DELAY_DEADBAND_MS) return { ...next, offSince: null };
+  const offSince = hold.offSince ?? now;
+  if (now - offSince >= DELAY_SETTLE_MS) return { ...next, offSince, gliding: true };
+  return { ...next, offSince };
+}
+
+// The middle of the recent latency readings, so one segment's sawtooth or a single odd reading doesn't count
+export function medianOf(values: number[]): number | null {
+  const sorted = values.filter(Number.isFinite).sort((a, b) => a - b);
+  if (sorted.length === 0) return null;
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
 // The difference left between video and telemetry once the delay is applied, when the video's frame time is

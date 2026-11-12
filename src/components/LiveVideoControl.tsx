@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useLanguage } from '@/components/LanguageProvider';
 import LiveOBSPlayer, { type PlayerMetrics } from '@/components/LiveOBSPlayer';
-import { CAMERA_SOURCES, MOMENT_KINDS, type CameraSource, type LiveVideoSettings, type SourceSnapshot } from '@/lib/liveVideo/broadcastSource';
+import { CAMERA_SOURCES, MOMENT_KINDS, rotationObsShare, type CameraSource, type LiveVideoSettings, type SourceSnapshot } from '@/lib/liveVideo/broadcastSource';
 import type { LiveVideoSessionView, TvVideoReport } from '@/lib/liveVideo/broadcastSourceRuntime';
 import type { Playback, StreamHealth } from '@/lib/liveVideo/cloudflareStream';
 import { deliveryCostUsd } from '@/lib/liveVideo/streamRules';
@@ -26,6 +26,7 @@ type Overview = {
   settings: LiveVideoSettings;
   setup: { playback: boolean; api: boolean; signing: boolean };
   maxStreams: number;
+  rotationClipSeconds: number;
   streams: (LiveStream & { health: StreamHealth | null; preview: Playback | null })[];
   sessions: LiveVideoSessionView[];
   reports: TvVideoReport[];
@@ -305,6 +306,43 @@ export default function LiveVideoControl() {
           <input type="checkbox" checked={draft.autoMode} onChange={(e) => set({ autoMode: e.target.checked })} className="accent-primary" />
           {a.autoMode}
         </label>
+        <div className="rounded-lg border border-border p-3 space-y-2">
+          <label className="flex items-center gap-2 text-sm text-foreground">
+            <input type="checkbox" checked={draft.rotation.enabled} onChange={(e) => set({ rotation: { ...draft.rotation, enabled: e.target.checked } })} className="accent-primary" />
+            {a.rotation}
+          </label>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {(
+              [
+                ['obsSeconds', a.rotationObsSeconds, 10],
+                ['mapSeconds', a.rotationMapSeconds, 5],
+              ] as const
+            ).map(([key, label, min]) => (
+              <div key={key}>
+                <label className={labelClass}>{label}</label>
+                <input
+                  className={inputClass}
+                  type="number"
+                  min={min}
+                  value={draft.rotation[key]}
+                  disabled={!draft.rotation.enabled}
+                  onChange={(e) => set({ rotation: { ...draft.rotation, [key]: Number(e.target.value) } })}
+                />
+              </div>
+            ))}
+          </div>
+          {draft.rotation.enabled && (
+            <p className="text-xs text-foreground">
+              {fmt(data.rotationClipSeconds > 0 ? a.rotationShare : a.rotationShareNoClips, {
+                pct: String(Math.round(rotationObsShare(draft.rotation, data.rotationClipSeconds) * 100)),
+                obs: String(draft.rotation.obsSeconds),
+                map: String(draft.rotation.mapSeconds),
+                clip: String(data.rotationClipSeconds),
+              })}
+            </p>
+          )}
+          <p className="text-xs text-muted-foreground">{a.rotationHint}</p>
+        </div>
         <p className="text-xs font-medium text-muted-foreground">{a.preferences}</p>
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           {MOMENT_KINDS.map((kind) => (

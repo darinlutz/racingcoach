@@ -34,7 +34,7 @@ The recorded clips the map's panel can cut to are the Broadcast Director's, in `
 | `src/components/TvPairing.tsx` | The pairing code, its countdown, a new code when it expires |
 | `src/components/TvBroadcast.tsx` | The broadcast: header; on the left the leaderboard (15 rows) with the announcer lower third and race events under it; on the right the followed driver, the map and the inputs strip; controls; Settings |
 | `src/components/TvLeaderboard.tsx` | The leaderboard: Live Racing's look (country flags, car maker logos, watched drivers' dots, fastest-lap stopwatch, You) at TV size, memoized rows |
-| `src/components/TvMap.tsx` | The track map: Live Racing's `LiveTrackMap` at 20 redraws a second, no imagery sharpening, satellite on/off in Settings |
+| `src/components/TvMap.tsx` | The track map: Live Racing's `LiveTrackMap` at 10 redraws a second, no imagery sharpening, satellite on/off in Settings |
 | `src/components/TvInputs.tsx` | The followed driver's inputs (delta, pedals, wheel, gear, speed, trace) at TV size, 20 redraws a second |
 | `src/components/TvEventFeed.tsx` | The race events |
 | `src/lib/liveMapTrack.ts` | A map's track (outline, length, focus areas), shared by `/api/live/outline` and `/api/tv/outline` |

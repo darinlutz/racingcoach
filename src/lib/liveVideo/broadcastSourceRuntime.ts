@@ -15,6 +15,7 @@ import {
   type SourceState,
 } from './broadcastSource';
 import { cachedHealth, playbackFor, streamConfig, streamHealth, type Playback } from './cloudflareStream';
+import { clipAnchor, noteCameraRotation } from './rotationLink';
 import { currentMoment } from './sourceMoments';
 import type { StreamStatus } from './streamRules';
 
@@ -159,8 +160,14 @@ function tick(session: Session, settings: LiveVideoSettings, stream: ViewerStrea
   const moment = feed ? currentMoment(feed.events, feed.context, now, settings.momentSeconds * 1000) : null;
   const ownerIdx = stream ? liveSessionOf(stream.ownerId)?.carIdx ?? null : null;
   const subjectCars = settings.cameraSubject === 'streamDriver' && ownerIdx != null ? [ownerIdx] : null;
+  const streamLive = stream?.status === 'LIVE';
+  // The rotation runs while the director is automatic and OBS is live; the Broadcast Director then fits its clips
+  // between the map's turn and the next OBS turn, and its clips' returns restart the cycle
+  const rotating = settings.rotation.enabled && session.state.mode === 'auto' && streamLive;
+  noteCameraRotation(session.key, rotating ? settings.rotation : null, now);
+  const rotationAnchor = rotating ? clipAnchor(session.key, now) : null;
   const before = session.state.source;
-  const changed = sourceTick(session.state, { now, settings, streamLive: stream?.status === 'LIVE', moment, subjectCars });
+  const changed = sourceTick(session.state, { now, settings, streamLive, moment, subjectCars, rotationAnchor });
   if (changed) {
     if (before !== session.state.source) console.log(`Live video [${session.key}]: ${before} -> ${session.state.source} (${session.state.reason})`);
     persist(session);

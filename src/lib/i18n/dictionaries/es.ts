@@ -3186,7 +3186,7 @@ export const es: Dictionary = {
     satellite: 'Satélite',
     inputsTitle: 'Controles del piloto',
     inputsOf: '{name}, unos 2 segundos detrás del directo',
-    inputsWaiting: 'Los controles aparecen aquí mientras el piloto está en pista, desde RacingCoach.app Collector 1.52.0.',
+    inputsWaiting: 'Los controles aparecen aquí mientras el piloto está en pista.',
     showInputs: 'Mostrar los controles de este piloto',
     deltaToBest: 'Delta con la mejor vuelta',
     throttle: 'Acelerador',
@@ -3276,7 +3276,7 @@ export const es: Dictionary = {
     } as Record<string, string>,
     flagWaved: 'Agitada',
     driverFlags: 'Banderas de {name}',
-    flagNeedsCollector: 'La bandera y el clima aparecen aquí a partir de RacingCoach.app Collector 1.54.0.',
+    flagNeedsCollector: 'La bandera y el clima aparecen aquí cuando el colector del piloto los envíe.',
     sessionTypes: {
       practice: 'Práctica',
       'open practice': 'Práctica',

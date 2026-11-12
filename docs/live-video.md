@@ -69,12 +69,12 @@ Race Announcers keep theirs (Silver, Gold, Admins).
 `sourceTick` runs as TVs ask for their picture (about once a second each; nothing runs while no TV watches):
 
 1. Live video off → map. Manual mode → the Admin's choice. Automatic, with the **rotation** on (the default) → OBS for
-   the OBS turn (`rotation.obsSeconds`, 75 s), then the map for the map turn (`rotation.mapSeconds`, 20 s), then one of
+   the OBS turn (`rotation.obsSeconds`, 30 s), then the map for the map turn (`rotation.mapSeconds`, 30 s), then one of
    the Broadcast Director's rotation clips, then OBS again (`rotationCamera`). The cycle restarts at each clip's return
    (the Director's `returnAt`, else its last clip's end, shared through `rotationLink.ts`), and while the camera rotates
-   the Director spaces its rotation clips by the OBS and map turns (its `rotationMapSeconds` replaced by their sum) and
+   the Director spaces its rotation clips by the OBS and map turns (its `rotationMapSeconds` rounded up to a whole number of OBS + map cycles, `clipGapSeconds`, so a longer one makes clips occasional) and
    rotates outside races too, so the three take turns and OBS is on screen
-   `obsSeconds / (obsSeconds + mapSeconds + clip)` of the time (the Admin page shows the share; 60% with 30 s clips).
+   `obsSeconds / (obsSeconds + mapSeconds + clip)` of the time (the Admin page shows the share; a third with 30 s turns and 30 s clips).
    No clips (the Director's Rotation off, or none to play): OBS and the map alone. Only a big moment interrupts the
    rotation: a P0 or P1 moment whose preferred camera is OBS (rule 2 still applies), or a P0 moment whose camera is the
    map. Reasons `rotationObs` / `rotationMap`. With the rotation off → the preferred camera of the most important race

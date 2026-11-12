@@ -3,6 +3,7 @@ import { enabledStreams, getLiveVideoSettings, purgeSourceStates, readSourceStat
 import { meteredServicesOn } from '../meteredServices';
 import type { User } from '../users';
 import {
+  followAutoSetting,
   newSourceState,
   restoreSourceState,
   selectAutomatic,
@@ -136,6 +137,8 @@ function persist(session: Session) {
 async function openSession(key: string, label: string, driverId: number, settings: LiveVideoSettings): Promise<Session> {
   const now = Date.now();
   let state = newSourceState(key, now, settings.autoMode ? 'auto' : 'manual');
+  state.autoSetting = settings.autoMode;
+  state.heldBySetting = !settings.autoMode;
   try {
     const saved = await readSourceState(key, RESTORE_MS);
     if (saved) state = restoreSourceState(saved, now);
@@ -154,8 +157,8 @@ async function openSession(key: string, label: string, driverId: number, setting
 function tick(session: Session, settings: LiveVideoSettings, stream: ViewerStream | null, now: number): void {
   if (now - session.lastTick < TICK_MIN_MS) return;
   session.lastTick = now;
-  // The Admin switched automatic direction off: whatever's on stays, as a manual choice
-  if (!settings.autoMode && session.state.mode === 'auto') selectManual(session.state, session.state.source, now);
+  // The Admin switched automatic direction off (whatever's on stays, as a manual choice) or back on
+  const modeChanged = followAutoSetting(session.state, settings.autoMode, now);
   const feed = readDirectorFeed(session.driverId);
   const moment = feed ? currentMoment(feed.events, feed.context, now, settings.momentSeconds * 1000) : null;
   const ownerIdx = stream ? liveSessionOf(stream.ownerId)?.carIdx ?? null : null;
@@ -168,7 +171,7 @@ function tick(session: Session, settings: LiveVideoSettings, stream: ViewerStrea
   const rotationAnchor = rotating ? clipAnchor(session.key, now) : null;
   const before = session.state.source;
   const changed = sourceTick(session.state, { now, settings, streamLive, moment, subjectCars, rotationAnchor });
-  if (changed) {
+  if (changed || modeChanged) {
     if (before !== session.state.source) console.log(`Live video [${session.key}]: ${before} -> ${session.state.source} (${session.state.reason})`);
     persist(session);
   }

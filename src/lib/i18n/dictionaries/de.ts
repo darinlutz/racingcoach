@@ -3225,7 +3225,7 @@ export const de: Dictionary = {
     satellite: 'Satellit',
     inputsTitle: 'Fahrereingaben',
     inputsOf: '{name}, etwa 2 Sekunden hinter live',
-    inputsWaiting: 'Eingaben erscheinen hier, während der Fahrer auf der Strecke ist, ab RacingCoach.app Collector 1.52.0.',
+    inputsWaiting: 'Eingaben erscheinen hier, während der Fahrer auf der Strecke ist.',
     showInputs: 'Eingaben dieses Fahrers anzeigen',
     deltaToBest: 'Delta zur besten Runde',
     throttle: 'Gas',
@@ -3316,7 +3316,7 @@ export const de: Dictionary = {
     },
     flagWaved: 'Geschwenkt',
     driverFlags: 'Flaggen von {name}',
-    flagNeedsCollector: 'Flagge und Wetter erscheinen hier ab RacingCoach.app Collector 1.54.0.',
+    flagNeedsCollector: 'Flagge und Wetter erscheinen hier, sobald der Collector des Fahrers sie sendet.',
     // iRacing's session types, by their lowercase words
     sessionTypes: {
       practice: 'Training',

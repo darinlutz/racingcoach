@@ -91,7 +91,7 @@ export const DEFAULT_LIVE_VIDEO_SETTINGS: LiveVideoSettings = {
   fallbackToMap: true,
   offlineGraceSeconds: 4,
   cameraSubject: 'unknown',
-  rotation: { enabled: true, obsSeconds: 75, mapSeconds: 20 },
+  rotation: { enabled: true, obsSeconds: 30, mapSeconds: 30 },
   sync: { enabled: false, mode: 'auto', manualOffsetMs: 0, maxBufferMs: 45_000 },
   obsVolume: 60,
   duckLevel: 0.3,
@@ -181,6 +181,10 @@ export type SourceState = {
   updatedAt: number;
   // Where the rotation's cycle starts when the Broadcast Director has given no clip's end to start it from
   cycleStart?: number;
+  // The Admin page's Automatic setting as this session last saw it, and whether turning it off is what put the session
+  // in manual mode (so turning it back on hands the session back to the automatic director)
+  autoSetting?: boolean;
+  heldBySetting?: boolean;
 };
 
 export function newSourceState(sessionKey: string, now: number, mode: SourceMode = 'auto'): SourceState {
@@ -322,6 +326,7 @@ export function sourceTick(state: SourceState, input: SourceTickInput): boolean 
 // An Admin's choice: a camera, held until they hand back to the automatic director
 export function selectManual(state: SourceState, source: CameraSource, now: number): void {
   state.mode = 'manual';
+  state.heldBySetting = false;
   state.manualSource = source;
   state.seq += 1;
   state.updatedAt = now;
@@ -329,9 +334,30 @@ export function selectManual(state: SourceState, source: CameraSource, now: numb
 
 export function selectAutomatic(state: SourceState, now: number): void {
   state.mode = 'auto';
+  state.heldBySetting = false;
   state.manualSource = null;
   state.seq += 1;
   state.updatedAt = now;
+}
+
+// The Admin page's Automatic setting changing: off holds whatever's on as a manual choice; back on returns a session
+// that setting held to the automatic director. Only a change acts, so a session's own Automatic or camera button
+// always wins until the setting changes again. Returns whether the mode changed
+export function followAutoSetting(state: SourceState, autoMode: boolean, now: number): boolean {
+  const before = state.autoSetting;
+  state.autoSetting = autoMode;
+  if (before === autoMode) return false;
+  if (!autoMode && state.mode === 'auto') {
+    selectManual(state, state.source, now);
+    state.heldBySetting = true;
+    return true;
+  }
+  // Also a session saved before the setting was remembered (before undefined) that the old rule held on the map
+  if (autoMode && state.mode === 'manual' && (state.heldBySetting || before === undefined)) {
+    selectAutomatic(state, now);
+    return true;
+  }
+  return false;
 }
 
 // After a restart: the camera, mode and numbering carry on, the stream's state is found again

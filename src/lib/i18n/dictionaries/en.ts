@@ -3234,7 +3234,7 @@ export const en = {
     satellite: 'Satellite',
     inputsTitle: 'Driver inputs',
     inputsOf: '{name}, about 2 seconds behind live',
-    inputsWaiting: 'Inputs appear here while the driver is on track, from RacingCoach.app Collector 1.52.0.',
+    inputsWaiting: 'Inputs appear here while the driver is on track.',
     showInputs: 'Show this driver’s inputs',
     deltaToBest: 'Delta to best lap',
     throttle: 'Throttle',
@@ -3325,7 +3325,7 @@ export const en = {
     } as Record<string, string>,
     flagWaved: 'Waved',
     driverFlags: '{name}’s flags',
-    flagNeedsCollector: 'The flag and weather appear here from RacingCoach.app Collector 1.54.0.',
+    flagNeedsCollector: 'The flag and weather appear here once the driver’s collector sends them.',
     // iRacing's session types, by their lowercase words
     sessionTypes: {
       practice: 'Practice',

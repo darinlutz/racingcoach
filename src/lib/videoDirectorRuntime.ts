@@ -51,7 +51,7 @@ import {
   type SelectionRequest,
 } from './videoDirector';
 import { raceConditions } from './videoDirectorConditions';
-import { cameraRotation, noteClipAnchor } from './liveVideo/rotationLink';
+import { cameraRotation, clipGapSeconds, noteClipAnchor } from './liveVideo/rotationLink';
 
 // The Broadcast Director at work (the rules are in src/lib/videoDirector.ts): one per race session being watched on a
 // TV, in this server's memory like the live positions (one web instance, docs/tv-broadcast.md), ticked a few times a
@@ -547,7 +547,7 @@ async function tickAll(): Promise<void> {
       }
       // With the live video's camera rotating, a clip comes after its OBS turn and its map turn, so the three take turns
       const camera = settings.rotationEnabled ? cameraRotation(key, now) : null;
-      const tickSettings = camera ? { ...settings, rotationMapSeconds: camera.obsSeconds + camera.mapSeconds } : settings;
+      const tickSettings = camera ? { ...settings, rotationMapSeconds: clipGapSeconds(settings.rotationMapSeconds, camera) } : settings;
       run(session, directorTick(session.state, { now, settings: tickSettings, race: conditions(session, now, !!camera), announcersBusyUntil: session.announcersBusyUntil }), settings);
       noteClipAnchor(key, clipAnchorOf(session.state), now);
     }
@@ -779,7 +779,7 @@ export function directorSessions(): DirectorDashboardSession[] {
     const camera = settings?.rotationEnabled ? cameraRotation(session.key, now) : null;
     const race = conditions(session, now, !!camera);
     const rotating = !!settings?.rotationEnabled && race.rotating;
-    const due = camera && settings ? { ...settings, rotationMapSeconds: camera.obsSeconds + camera.mapSeconds } : settings;
+    const due = camera && settings ? { ...settings, rotationMapSeconds: clipGapSeconds(settings.rotationMapSeconds, camera) } : settings;
     return {
       key: session.key,
       label: session.label,

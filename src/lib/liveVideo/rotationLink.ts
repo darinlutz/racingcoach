@@ -24,6 +24,14 @@ export function cameraRotation(key: string, now: number): { obsSeconds: number; 
   return { obsSeconds: r.obsSeconds, mapSeconds: r.mapSeconds };
 }
 
+// The Director's side: how long it waits between rotation clips while the camera rotates. A whole number of the
+// camera's cycles (OBS turn + map turn), so a clip always comes after a map turn, and at least the Director's own
+// Rotation track map time, so a longer one there makes the clips occasional (e.g. 180 s with 30 s turns: every third cycle)
+export function clipGapSeconds(directorGapSeconds: number, camera: { obsSeconds: number; mapSeconds: number }): number {
+  const cycle = camera.obsSeconds + camera.mapSeconds;
+  return Math.max(1, Math.ceil(directorGapSeconds / cycle - 1e-9)) * cycle;
+}
+
 // The Director's side: when its latest clip hands back to the camera (the return of one scheduled or on screen, which
 // may be ahead), else when it started; null for none
 export function noteClipAnchor(key: string, anchor: number | null, now: number): void {

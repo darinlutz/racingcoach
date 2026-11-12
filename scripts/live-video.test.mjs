@@ -12,6 +12,7 @@ import {
   DEFAULT_LIVE_VIDEO_SETTINGS,
   desiredSource,
   effectiveSource,
+  followAutoSetting,
   isNewerSource,
   newSourceState,
   parseLiveVideoSettings,
@@ -23,6 +24,7 @@ import {
   sourceSnapshot,
   sourceTick,
 } from '../src/lib/liveVideo/broadcastSource.ts';
+import { clipGapSeconds } from '../src/lib/liveVideo/rotationLink.ts';
 import {
   commentaryNotBefore,
   commentaryWait,
@@ -77,11 +79,12 @@ describe('settings', () => {
 
 describe('camera rotation', () => {
   const rot = (changes = {}) => parseLiveVideoSettings({ ...DEFAULT_LIVE_VIDEO_SETTINGS, enabled: true, cameraSubject: 'streamDriver', switchLeadMs: 0, ...changes });
-  test('on by default, OBS most of the time', () => {
+  test('on by default, 30 s of OBS then 30 s of the map', () => {
     const s = parseLiveVideoSettings(null);
     assert.equal(s.rotation.enabled, true);
-    assert.ok(rotationObsShare(s.rotation, 30) > 0.5, 'over half with 30 s clips');
-    assert.ok(rotationObsShare(s.rotation, 0) > 0.5);
+    assert.equal(s.rotation.obsSeconds, 30);
+    assert.equal(s.rotation.mapSeconds, 30);
+    assert.equal(rotationObsShare(s.rotation, 0), 0.5);
     const clamped = parseLiveVideoSettings({ rotation: { obsSeconds: 1, mapSeconds: 1e6 } });
     assert.equal(clamped.rotation.obsSeconds, 10);
     assert.equal(clamped.rotation.mapSeconds, 300);
@@ -138,6 +141,49 @@ describe('camera rotation', () => {
     sourceTick(state, { now: T0, settings, streamLive: false, moment: null, subjectCars: null, rotationAnchor: T0 });
     assert.equal(state.source, 'TRACK_MAP');
     assert.equal(state.reason, 'obsOffline');
+  });
+  test('turning Automatic off holds the camera, and back on hands it back to the rotation', () => {
+    const settings = rot({ rotation: { enabled: true, obsSeconds: 30, mapSeconds: 30 } });
+    const state = newSourceState('s', T0);
+    state.autoSetting = true;
+    const tick = (now) => sourceTick(state, { now, settings, streamLive: true, moment: null, subjectCars: null, rotationAnchor: T0 });
+    tick(T0 + 31_000);
+    assert.equal(state.source, 'TRACK_MAP');
+    assert.equal(followAutoSetting(state, false, T0 + 32_000), true);
+    assert.equal(state.mode, 'manual');
+    tick(T0 + 61_000);
+    assert.equal(state.source, 'TRACK_MAP', 'held');
+    assert.equal(followAutoSetting(state, true, T0 + 62_000), true);
+    assert.equal(state.mode, 'auto');
+    tick(T0 + 62_500);
+    assert.equal(state.source, 'OBS_LIVE', 'the rotation again');
+  });
+  test("a session's own buttons win until the setting changes again", () => {
+    const state = newSourceState('s', T0);
+    state.autoSetting = false;
+    selectAutomatic(state, T0);
+    assert.equal(followAutoSetting(state, false, T0 + 1000), false);
+    assert.equal(state.mode, 'auto');
+    state.autoSetting = true;
+    selectManual(state, 'OBS_LIVE', T0 + 2000);
+    followAutoSetting(state, false, T0 + 3000);
+    followAutoSetting(state, true, T0 + 4000);
+    assert.equal(state.mode, 'manual', "an Admin's own choice isn't undone by the setting");
+    assert.equal(state.manualSource, 'OBS_LIVE');
+  });
+  test('a state saved before the setting was remembered, held manual, goes back to automatic', () => {
+    const saved = newSourceState('s', T0);
+    selectManual(saved, 'TRACK_MAP', T0);
+    delete saved.autoSetting;
+    assert.equal(followAutoSetting(saved, true, T0 + 1000), true);
+    assert.equal(saved.mode, 'auto');
+  });
+  test("clips come after whole OBS + map cycles, at least the Director's own gap apart", () => {
+    const camera = { obsSeconds: 30, mapSeconds: 30 };
+    assert.equal(clipGapSeconds(30, camera), 60);
+    assert.equal(clipGapSeconds(60, camera), 60);
+    assert.equal(clipGapSeconds(61, camera), 120);
+    assert.equal(clipGapSeconds(180, camera), 180);
   });
 });
 

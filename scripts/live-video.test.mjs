@@ -16,6 +16,8 @@ import {
   newSourceState,
   parseLiveVideoSettings,
   restoreSourceState,
+  rotationCamera,
+  rotationObsShare,
   selectAutomatic,
   selectManual,
   sourceSnapshot,
@@ -27,7 +29,10 @@ import {
   effectiveDelay,
   interpolatePct,
   rateBetween,
-  smoothDelay,
+  holdDelay,
+  medianOf,
+  newDelayHold,
+  DELAY_GLIDE_RATE,
   syncErrorMs,
   TimelineBuffer,
 } from '../src/lib/liveVideo/broadcastTimeline.ts';
@@ -48,7 +53,8 @@ import { CommentaryQueue } from '../src/lib/tvAudio.ts';
 const root = new URL('../', import.meta.url);
 const read = (path) => fs.readFileSync(new URL(path, root), 'utf8');
 
-const on = (changes = {}) => parseLiveVideoSettings({ ...DEFAULT_LIVE_VIDEO_SETTINGS, enabled: true, ...changes });
+// The moment rules on their own (the rotation has its own tests)
+const on = (changes = {}) => parseLiveVideoSettings({ ...DEFAULT_LIVE_VIDEO_SETTINGS, enabled: true, rotation: { ...DEFAULT_LIVE_VIDEO_SETTINGS.rotation, enabled: false }, ...changes });
 const T0 = 1_800_000_000_000;
 const tickAt = (state, now, extra = {}) => sourceTick(state, { now, settings: on(), streamLive: true, moment: null, subjectCars: null, ...extra });
 
@@ -66,6 +72,72 @@ describe('settings', () => {
     assert.equal(s.preferences.raceStart, 'OBS_LIVE');
     assert.equal(s.sync.maxBufferMs, 90_000);
     assert.equal(s.sync.manualOffsetMs, 90_000);
+  });
+});
+
+describe('camera rotation', () => {
+  const rot = (changes = {}) => parseLiveVideoSettings({ ...DEFAULT_LIVE_VIDEO_SETTINGS, enabled: true, cameraSubject: 'streamDriver', switchLeadMs: 0, ...changes });
+  test('on by default, OBS most of the time', () => {
+    const s = parseLiveVideoSettings(null);
+    assert.equal(s.rotation.enabled, true);
+    assert.ok(rotationObsShare(s.rotation, 30) > 0.5, 'over half with 30 s clips');
+    assert.ok(rotationObsShare(s.rotation, 0) > 0.5);
+    const clamped = parseLiveVideoSettings({ rotation: { obsSeconds: 1, mapSeconds: 1e6 } });
+    assert.equal(clamped.rotation.obsSeconds, 10);
+    assert.equal(clamped.rotation.mapSeconds, 300);
+  });
+  test('OBS, then the map, from the anchor; OBS while a clip still covers it', () => {
+    const r = { obsSeconds: 60, mapSeconds: 20 };
+    assert.equal(rotationCamera(r, T0, T0 - 1000), 'OBS_LIVE');
+    assert.equal(rotationCamera(r, T0, T0), 'OBS_LIVE');
+    assert.equal(rotationCamera(r, T0, T0 + 59_999), 'OBS_LIVE');
+    assert.equal(rotationCamera(r, T0, T0 + 60_000), 'TRACK_MAP');
+    assert.equal(rotationCamera(r, T0, T0 + 79_999), 'TRACK_MAP');
+    assert.equal(rotationCamera(r, T0, T0 + 80_000), 'OBS_LIVE', 'no clip came: round again');
+  });
+  test('the camera follows the cycle, switching on its boundaries', () => {
+    const settings = rot({ rotation: { enabled: true, obsSeconds: 60, mapSeconds: 20 } });
+    const state = newSourceState('s', T0);
+    const tick = (now, extra = {}) => sourceTick(state, { now, settings, streamLive: true, moment: null, subjectCars: [5], rotationAnchor: T0, ...extra });
+    tick(T0);
+    assert.equal(state.source, 'OBS_LIVE');
+    assert.equal(state.reason, 'rotationObs');
+    tick(T0 + 59_000);
+    assert.equal(state.source, 'OBS_LIVE');
+    tick(T0 + 60_000);
+    assert.equal(state.source, 'TRACK_MAP');
+    assert.equal(state.reason, 'rotationMap');
+    // a clip is scheduled to hand back later: OBS goes under it, ready for its fade back
+    tick(T0 + 90_000, { rotationAnchor: T0 + 110_000 });
+    assert.equal(state.source, 'OBS_LIVE');
+  });
+  test('the switch is worked out for when it lands', () => {
+    const settings = rot({ rotation: { enabled: true, obsSeconds: 60, mapSeconds: 20 }, switchLeadMs: 1200 });
+    const state = newSourceState('s', T0);
+    sourceTick(state, { now: T0, settings, streamLive: true, moment: null, subjectCars: null, rotationAnchor: T0 });
+    assert.equal(state.source, 'OBS_LIVE');
+    sourceTick(state, { now: T0 + 58_900, settings, streamLive: true, moment: null, subjectCars: null, rotationAnchor: T0 });
+    assert.equal(state.source, 'TRACK_MAP');
+    assert.equal(state.switchAt, T0 + 60_100);
+  });
+  test('only a big moment interrupts it: toward OBS for the camera’s car, toward the map only when critical', () => {
+    const settings = rot({ rotation: { enabled: true, obsSeconds: 60, mapSeconds: 20 } });
+    const inMapTurn = newSourceState('s', T0);
+    const ownPass = { kind: 'overtake', at: T0 + 65_000, priority: 1, cars: [5] };
+    assert.equal(desiredSource(inMapTurn, { now: T0 + 65_000, settings, streamLive: true, moment: ownPass, subjectCars: [5], rotationAnchor: T0 }).source, 'OBS_LIVE');
+    const othersBattle = { kind: 'closeBattle', at: T0 + 10_000, priority: 1, cars: [8, 9] };
+    assert.equal(desiredSource(inMapTurn, { now: T0 + 10_000, settings, streamLive: true, moment: othersBattle, subjectCars: [5], rotationAnchor: T0 }).source, 'OBS_LIVE', 'a P1 elsewhere doesn’t take OBS away');
+    const crash = { kind: 'incident', at: T0 + 10_000, priority: 0, cars: [8] };
+    assert.equal(desiredSource(inMapTurn, { now: T0 + 10_000, settings, streamLive: true, moment: crash, subjectCars: [5], rotationAnchor: T0 }).source, 'TRACK_MAP');
+    const routine = { kind: 'pitStop', at: T0 + 10_000, priority: 3, cars: [5] };
+    assert.equal(desiredSource(inMapTurn, { now: T0 + 10_000, settings, streamLive: true, moment: routine, subjectCars: [5], rotationAnchor: T0 }).reason, 'rotationObs');
+  });
+  test('OBS offline: the map, whatever the rotation says', () => {
+    const settings = rot();
+    const state = newSourceState('s', T0);
+    sourceTick(state, { now: T0, settings, streamLive: false, moment: null, subjectCars: null, rotationAnchor: T0 });
+    assert.equal(state.source, 'TRACK_MAP');
+    assert.equal(state.reason, 'obsOffline');
   });
 });
 
@@ -257,10 +329,49 @@ describe('delay', () => {
     assert.equal(capped.clamped, true);
     assert.equal(capped.degraded, true);
   });
-  test('changes are eased, except a big jump', () => {
-    assert.equal(smoothDelay(10_000, 10_100), 10_100);
-    assert.equal(smoothDelay(10_000, 11_000), 10_150);
-    assert.equal(smoothDelay(0, 20_000), 20_000);
+  // Steps of 250 ms from t, wanting target each time, with the given offset
+  const run = (hold, target, offset, from, ms) => {
+    let h = hold;
+    for (let t = from + 250; t <= from + ms; t += 250) h = holdDelay(h, target, offset, t, 250);
+    return h;
+  };
+  test('the first delay is taken at once, then held through the estimate’s ups and downs', () => {
+    let h = holdDelay(newDelayHold(), 30_000, 4000, T0, 250);
+    assert.equal(h.applied, 30_000);
+    // a segment's sawtooth: ±1.5 s, over and over, never moves it
+    for (let i = 0; i < 200; i++) h = holdDelay(h, 30_000 + (i % 2 ? 1500 : -1500), 4000, T0 + 250 * (i + 1), 250);
+    assert.equal(h.applied, 30_000);
+  });
+  test('a lasting difference waits, then glides slowly enough that the timeline barely changes speed', () => {
+    let h = holdDelay(newDelayHold(), 30_000, 0, T0, 250);
+    h = run(h, 36_000, 0, T0, 4000);
+    assert.equal(h.applied, 30_000, 'not before it has lasted');
+    h = run(h, 36_000, 0, T0 + 4000, 2000);
+    assert.equal(h.gliding, true);
+    const before = h.applied;
+    h = run(h, 36_000, 0, T0 + 6000, 10_000);
+    assert.ok(h.applied - before <= DELAY_GLIDE_RATE * 10_000 + 1, 'at most 5% of real time');
+    h = run(h, 36_000, 0, T0 + 16_000, 200_000);
+    assert.equal(h.applied, 36_000);
+    assert.equal(h.gliding, false);
+  });
+  test('the calibrated offset is the viewer’s own adjustment: applied at once, by exactly that much', () => {
+    let h = holdDelay(newDelayHold(), 30_000, 4000, T0, 250);
+    h = holdDelay(h, 31_000, 5000, T0 + 250, 250);
+    assert.equal(h.applied, 31_000);
+    h = holdDelay(h, 29_500, 3500, T0 + 500, 250);
+    assert.equal(h.applied, 29_500);
+  });
+  test('a new stream (a very different delay) and turning it off are at once', () => {
+    let h = holdDelay(newDelayHold(), 30_000, 0, T0, 250);
+    assert.equal(holdDelay(h, 50_000, 0, T0 + 250, 250).applied, 50_000);
+    h = holdDelay(h, 0, null, T0 + 250, 250);
+    assert.equal(h.applied, 0);
+  });
+  test('the latency is the median of the readings', () => {
+    assert.equal(medianOf([]), null);
+    assert.equal(medianOf([30, 10, 20]), 20);
+    assert.equal(medianOf([10, 20, 30, 1000]), 25);
   });
   test('the error left is only reported when measured', () => {
     assert.equal(syncErrorMs(null, 10_000, 0), null);

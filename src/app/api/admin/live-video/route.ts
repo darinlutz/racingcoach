@@ -6,6 +6,7 @@ import { liveVideoSessions, sourceCommand, tvReports } from '@/lib/liveVideo/bro
 import { cachedHealth, playbackFor, streamHealth, streamSetup } from '@/lib/liveVideo/cloudflareStream';
 import { MAX_LIVE_STREAMS } from '@/lib/liveVideo/streamRules';
 import { getLiveVideoSettings, listStreams, setLiveVideoSettings } from '@/lib/liveVideoDb';
+import { getDirectorSettings } from '@/lib/broadcastVideos';
 import { JSON_BODY_LIMIT, readJsonLimited } from '@/lib/requestBody';
 import { isAdmin } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
@@ -22,7 +23,7 @@ const commandSchema = z.discriminatedUnion('action', [
 ]);
 
 async function overview() {
-  const [settings, streams] = await Promise.all([getLiveVideoSettings(true), listStreams()]);
+  const [settings, streams, director] = await Promise.all([getLiveVideoSettings(true), listStreams(), getDirectorSettings().catch(() => null)]);
   const setup = streamSetup();
   const withHealth = await Promise.all(
     streams.map(async (s) => {
@@ -31,7 +32,9 @@ async function overview() {
       return { ...s, health, preview: health?.status === 'LIVE' ? playbackFor(s.inputId, health, s.requireSigned) : null };
     })
   );
-  return { settings, setup, maxStreams: MAX_LIVE_STREAMS, streams: withHealth, sessions: liveVideoSessions(settings), reports: tvReports(), serverNow: Date.now() };
+  // The Broadcast Director's clips in the camera's rotation, for the OBS share the page shows (0: none)
+  const clipSeconds = director?.videosEnabled && director.autoDirector && director.rotationEnabled ? director.rotationVideoSeconds : 0;
+  return { settings, setup, maxStreams: MAX_LIVE_STREAMS, rotationClipSeconds: clipSeconds, streams: withHealth, sessions: liveVideoSessions(settings), reports: tvReports(), serverNow: Date.now() };
 }
 
 export async function GET() {

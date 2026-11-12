@@ -47,6 +47,10 @@ export type LiveVideoSettings = {
   // The stream has to be gone this long before it counts as offline (a reconnecting encoder)
   offlineGraceSeconds: number;
   cameraSubject: CameraSubject;
+  // Automatic mode's rotation: OBS for obsSeconds, then the track map for mapSeconds, then (when the Broadcast
+  // Director's rotation has clips) one of its clips, then OBS again; the cycle restarts each time a clip hands back.
+  // Only a big moment (P0, or P1 toward OBS) changes the camera on its own meanwhile. Off: the moment preferences alone
+  rotation: { enabled: boolean; obsSeconds: number; mapSeconds: number };
   sync: {
     // Synchronized broadcast: the map, leaderboard and graphics are shown on the video's delayed timeline
     enabled: boolean;
@@ -87,6 +91,7 @@ export const DEFAULT_LIVE_VIDEO_SETTINGS: LiveVideoSettings = {
   fallbackToMap: true,
   offlineGraceSeconds: 4,
   cameraSubject: 'unknown',
+  rotation: { enabled: true, obsSeconds: 75, mapSeconds: 20 },
   sync: { enabled: false, mode: 'auto', manualOffsetMs: 0, maxBufferMs: 45_000 },
   obsVolume: 60,
   duckLevel: 0.3,
@@ -109,6 +114,7 @@ export function parseLiveVideoSettings(raw: unknown, base: LiveVideoSettings = D
   const preferences = { ...base.preferences };
   for (const kind of MOMENT_KINDS) preferences[kind] = oneOf(prefsIn[kind], CAMERA_SOURCES, base.preferences[kind]);
   const syncIn = r.sync && typeof r.sync === 'object' ? (r.sync as Record<string, unknown>) : {};
+  const rotationIn = r.rotation && typeof r.rotation === 'object' ? (r.rotation as Record<string, unknown>) : {};
   const maxBufferMs = num(syncIn.maxBufferMs, 5000, MAX_SYNC_BUFFER_MS, base.sync.maxBufferMs);
   const minShotSeconds = num(r.minShotSeconds, 2, 300, base.minShotSeconds);
   return {
@@ -125,6 +131,11 @@ export function parseLiveVideoSettings(raw: unknown, base: LiveVideoSettings = D
     fallbackToMap: bool(r.fallbackToMap, base.fallbackToMap),
     offlineGraceSeconds: num(r.offlineGraceSeconds, 0, 60, base.offlineGraceSeconds),
     cameraSubject: oneOf(r.cameraSubject, ['unknown', 'streamDriver'] as const, base.cameraSubject),
+    rotation: {
+      enabled: bool(rotationIn.enabled, base.rotation.enabled),
+      obsSeconds: Math.round(num(rotationIn.obsSeconds, 10, 600, base.rotation.obsSeconds)),
+      mapSeconds: Math.round(num(rotationIn.mapSeconds, 5, 300, base.rotation.mapSeconds)),
+    },
     sync: {
       enabled: bool(syncIn.enabled, base.sync.enabled),
       mode: oneOf(syncIn.mode, ['auto', 'manual'] as const, base.sync.mode),
@@ -168,10 +179,13 @@ export type SourceState = {
   streamDownSince: number | null;
   streamLive: boolean;
   updatedAt: number;
+  // Where the rotation's cycle starts when the Broadcast Director has given no clip's end to start it from
+  cycleStart?: number;
 };
 
 export function newSourceState(sessionKey: string, now: number, mode: SourceMode = 'auto'): SourceState {
   return {
+    cycleStart: now,
     sessionKey,
     seq: 1,
     source: 'TRACK_MAP',
@@ -198,30 +212,63 @@ export type SourceTickInput = {
   moment: Moment | null;
   // The car indexes the OBS camera is known to show, or null when unknown
   subjectCars: number[] | null;
+  // Server time the rotation's cycle (re)starts with OBS: when the Broadcast Director's latest clip hands back (its
+  // return, which may still be ahead while a clip is scheduled or on screen), or null for none (state.cycleStart)
+  rotationAnchor?: number | null;
 };
+
+// The rotation's camera at server time t: OBS for obsSeconds from the anchor, then the map for mapSeconds, over and
+// over until the next clip restarts it. Before the anchor (a clip is covering the camera) OBS, so it's under the clip
+// as it fades back
+export function rotationCamera(rotation: Pick<LiveVideoSettings['rotation'], 'obsSeconds' | 'mapSeconds'>, anchor: number, t: number): CameraSource {
+  const elapsed = t - anchor;
+  if (elapsed < 0) return 'OBS_LIVE';
+  const cycleMs = (rotation.obsSeconds + rotation.mapSeconds) * 1000;
+  return elapsed % cycleMs < rotation.obsSeconds * 1000 ? 'OBS_LIVE' : 'TRACK_MAP';
+}
+
+// The share of the time the rotation keeps OBS on screen, with the Broadcast Director's clips of clipSeconds in its
+// cycle (0 for none)
+export const rotationObsShare = (rotation: Pick<LiveVideoSettings['rotation'], 'obsSeconds' | 'mapSeconds'>, clipSeconds: number) =>
+  rotation.obsSeconds / (rotation.obsSeconds + rotation.mapSeconds + Math.max(clipSeconds, 0));
+
+type Wanted = { source: CameraSource; reason: string; urgent: boolean };
+
+// A moment's preferred camera, unless that's OBS and OBS may not be showing the cars it's about
+function momentCamera(fresh: Moment, settings: LiveVideoSettings, subjectCars: number[] | null): Wanted {
+  const preferred = settings.preferences[fresh.kind];
+  const aboutCars = CAR_MOMENTS.includes(fresh.kind) && fresh.cars.length > 0;
+  if (preferred === 'OBS_LIVE' && aboutCars && !(subjectCars && subjectCars.some((idx) => fresh.cars.includes(idx)))) {
+    // OBS may well be showing something else: the map shows every car, so it can't miss the moment
+    return { source: 'TRACK_MAP', reason: subjectCars ? 'cameraNotOnAction' : 'cameraSubjectUnknown', urgent: fresh.priority === 0 };
+  }
+  return { source: preferred, reason: fresh.kind, urgent: fresh.priority === 0 };
+}
 
 // What the camera should be now, before the shot rules, and why
 export function desiredSource(state: SourceState, input: SourceTickInput): { source: CameraSource; reason: string; fallback: boolean; urgent: boolean } {
   const { now, settings, moment, subjectCars } = input;
   if (!settings.enabled) return { source: 'TRACK_MAP', reason: 'disabled', fallback: false, urgent: true };
   const offline = !input.streamLive && (state.streamDownSince == null || now - state.streamDownSince >= settings.offlineGraceSeconds * 1000);
-  let wanted: { source: CameraSource; reason: string; urgent: boolean };
+  let wanted: Wanted;
+  const fresh = moment && now - moment.at <= settings.momentSeconds * 1000 && now >= moment.at - 5000 ? moment : null;
   if (state.mode === 'manual' && state.manualSource) {
     wanted = { source: state.manualSource, reason: 'manual', urgent: true };
-  } else {
-    const fresh = moment && now - moment.at <= settings.momentSeconds * 1000 && now >= moment.at - 5000 ? moment : null;
-    if (!fresh) {
-      wanted = { source: settings.preferences.spread, reason: 'spread', urgent: false };
+  } else if (settings.rotation.enabled) {
+    // A big moment takes over: toward OBS when it's on the camera's car or the whole race (P0 or P1), toward the map
+    // only when it's critical (P0), so the rotation's share of OBS is the least OBS gets
+    const big = fresh && fresh.priority <= 1 ? momentCamera(fresh, settings, subjectCars) : null;
+    if (big && fresh && (big.source === 'OBS_LIVE' || fresh.priority === 0)) {
+      wanted = big;
     } else {
-      const preferred = settings.preferences[fresh.kind];
-      const aboutCars = CAR_MOMENTS.includes(fresh.kind) && fresh.cars.length > 0;
-      if (preferred === 'OBS_LIVE' && aboutCars && !(subjectCars && subjectCars.some((idx) => fresh.cars.includes(idx)))) {
-        // OBS may well be showing something else: the map shows every car, so it can't miss the moment
-        wanted = { source: 'TRACK_MAP', reason: subjectCars ? 'cameraNotOnAction' : 'cameraSubjectUnknown', urgent: fresh.priority === 0 };
-      } else {
-        wanted = { source: preferred, reason: fresh.kind, urgent: fresh.priority === 0 };
-      }
+      // Worked out for when the switch lands (switchLeadMs ahead), so it's on the cycle's boundary
+      const source = rotationCamera(settings.rotation, input.rotationAnchor ?? state.cycleStart ?? state.updatedAt, now + settings.switchLeadMs);
+      wanted = { source, reason: source === 'OBS_LIVE' ? 'rotationObs' : 'rotationMap', urgent: true };
     }
+  } else if (!fresh) {
+    wanted = { source: settings.preferences.spread, reason: 'spread', urgent: false };
+  } else {
+    wanted = momentCamera(fresh, settings, subjectCars);
   }
   if (wanted.source === 'OBS_LIVE' && offline) {
     // The offline card stays only when the Admin turned the fallback off
@@ -289,7 +336,7 @@ export function selectAutomatic(state: SourceState, now: number): void {
 
 // After a restart: the camera, mode and numbering carry on, the stream's state is found again
 export function restoreSourceState(saved: SourceState, now: number): SourceState {
-  return { ...saved, seq: saved.seq + 100, switchAt: Math.min(saved.switchAt, now), streamDownSince: saved.streamLive ? now : saved.streamDownSince, streamLive: false, updatedAt: now };
+  return { ...saved, cycleStart: saved.cycleStart ?? now, seq: saved.seq + 100, switchAt: Math.min(saved.switchAt, now), streamDownSince: saved.streamLive ? now : saved.streamDownSince, streamLive: false, updatedAt: now };
 }
 
 // What every viewer gets

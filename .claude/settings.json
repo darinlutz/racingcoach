@@ -16,7 +16,23 @@
       "Bash(SCALE_BLE_ADDRESS=D0:4D:00:1C:5F:4E .venv/bin/python src/app/scaleVeSync.py)",
       "Bash(cat)",
       "Bash(/Users/darinlutz/Desktop/Clarivex/clarivex-website/.venv/bin/python /tmp/scan.py)",
-      "Bash(SCALE_BLE_ADDRESS=9BF8B32D-6A1B-C276-0872-FE19536AEB0F .venv/bin/python src/app/scaleVeSync.py)"
+      "Bash(SCALE_BLE_ADDRESS=9BF8B32D-6A1B-C276-0872-FE19536AEB0F .venv/bin/python src/app/scaleVeSync.py)",
+      "Bash(sed -i '' 's/`LiveTrackMap` capped at 20 redraws a second \\(`maxFps`\\)/`LiveTrackMap` capped at 10 redraws a second \\(`maxFps`\\)/' AGENTS.md && grep -c \"capped at 10 redraws\" AGENTS.md)",
+      "Bash(python3 -)",
+      "Bash(npm run *)",
+      "Bash(npx tsc *)",
+      "Bash(sed -i '' \"/-- follows the player's once-a-second metrics/d\" src/components/useBroadcastTimeline.ts)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(gh pr create --title 'TV broadcast: OBS rotation, steady sync delay, map at 10 fps' --body ' *)",
+      "Bash(gh pr *)",
+      "Skill(update-config)",
+      "Skill(update-config:*)",
+      "Bash(gh run *)"
+    ],
+    "additionalDirectories": [
+      "/Users/darinlutz/Desktop/Clarivex/racingcoach"
     ]
   }
 }

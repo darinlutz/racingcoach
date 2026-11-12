@@ -58,7 +58,8 @@ const enginePrompt = (units: Units, hasTools: boolean) =>
   'from the facts you are given and the tools, and answer the question they asked. If you do not have what they ' +
   'asked for, say so plainly in one short sentence and stop (e.g. "No data on Turn 6, it is not one of our focus ' +
   'areas"): never answer a different question instead, never change the subject, never guess. Never invent a ' +
-  'number. Gaps in a race are time behind on the road ' +
+  'number. For the gap behind, the car behind is following the driver: say they are that much behind the driver ' +
+  '(e.g. "P7 is 1.2 seconds behind you"), never that the driver is behind them. Gaps in a race are time behind on the road ' +
   'from the live timing; outside a race, compare best laps. For fuel, give laps of fuel left, and whether it is ' +
   'enough to the end when the session has a limit. ' +
   'At the start of a new stint (leaving the garage or the pits) the tires and brakes are cold: grip and braking ' +
@@ -129,7 +130,7 @@ function neighbourFacts(snapshot: EngineerSnapshot, isRace: boolean): string[] {
   const myPos = me.classPosition ?? me.position;
   if (myPos == null) return [];
   const at = (pos: number) => sameClass.find((c) => (c.classPosition ?? c.position) === pos);
-  const facts = [`Cars in your class: ${sameClass.length + 1}.`];
+  const facts = [`Cars in your class: ${sameClass.length + 1}. You are P${myPos} in class.`];
   for (const [label, car] of [
     ['ahead', at(myPos - 1)],
     ['behind', at(myPos + 1)],
@@ -138,10 +139,21 @@ function neighbourFacts(snapshot: EngineerSnapshot, isRace: boolean): string[] {
       facts.push(label === 'ahead' ? 'Nobody ahead of you in your class: you lead it.' : 'Nobody behind you in your class.');
       continue;
     }
-    const parts = [`Car ${label} in class (P${car.classPosition ?? car.position}): ${carLabel(car)}`];
+    const pos = car.classPosition ?? car.position;
+    const parts = [
+      label === 'ahead'
+        ? `Car ahead of you in class (P${pos}, in front of you): ${carLabel(car)}`
+        : `Car behind you in class (P${pos}, following you): ${carLabel(car)}`,
+    ];
     if (car.details?.car) parts.push(car.details.car);
     if (isRace && me.f2Time != null && car.f2Time != null && (me.lapsDone ?? 0) === (car.lapsDone ?? 0)) {
-      parts.push(`gap ${gap(Math.abs(me.f2Time - car.f2Time))} on the road`);
+      // Said with who is in front, so the gap behind is never told as the driver being behind
+      const seconds = gap(Math.abs(me.f2Time - car.f2Time));
+      parts.push(
+        label === 'ahead'
+          ? `you are ${seconds} behind them on the road`
+          : `they are ${seconds} behind you on the road (you are ahead of them)`
+      );
     } else if (!isRace && me.bestLapTime && car.bestLapTime) {
       const diff = car.bestLapTime - me.bestLapTime;
       parts.push(`their best ${lapTime(car.bestLapTime)} (${diff >= 0 ? `${gap(diff)} slower` : `${gap(-diff)} faster`} than yours)`);

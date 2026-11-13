@@ -87,7 +87,8 @@ short. A TV that starts watching within 30 s of the flag still gets it. It needs
 off; with no such footage, the map stays up and the rotation follows. Then the rotation starts with the map's full turn.
 
 **Rotation** (`rotationEnabled`, on by default; `rotationMapSeconds` and `rotationVideoSeconds`, 30 each): during a race,
-from the green flag until its final laps (`rotating` in `raceConditions`), the broadcast takes turns between the
+from the green flag until its final laps (`rotating` in `raceConditions`), and outside races too while the session's OBS
+live video is on the TVs (`docs/live-video.md`; the footage takes the map's panel, the OBS video stays on beside it), the broadcast takes turns between the
 map and footage on a fixed rhythm, leaving out the race's moments' clips (grid, parade lap, race start and end) while there are others. With so little time on the map, the sequence is left out: no lines are written or voiced
 (the Require introduction, during and after settings don't apply, and it makes no AI or speech calls of its own), it doesn't
 wait for the announcers, and normal commentary carries on over the footage. Passes and battles don't delay a turn; a P0

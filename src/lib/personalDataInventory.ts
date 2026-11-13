@@ -411,7 +411,6 @@ export const NON_PERSONAL_TABLES = [
   'LocalAiServers',
   'AiInferenceEvents',
   // Live video (src/lib/liveVideoDb.ts): each race session's camera (track map or OBS) by session key, no user, kept a day
-  'BroadcastSourceStates',
 ];
 
 export const LEGAL_BASIS_TEXT: Record<LegalBasis, string> = {

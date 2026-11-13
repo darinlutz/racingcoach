@@ -1,51 +1,31 @@
-import { readDirectorFeed, liveSessionOf, watchableDrivers } from '../liveRacing';
-import { enabledStreams, getLiveVideoSettings, purgeSourceStates, readSourceState, saveSourceState, type LiveStream } from '../liveVideoDb';
+import { liveSessionOf, watchableDrivers } from '../liveRacing';
+import { enabledStreams, getLiveVideoSettings, type LiveStream } from '../liveVideoDb';
 import { meteredServicesOn } from '../meteredServices';
 import type { User } from '../users';
-import {
-  followAutoSetting,
-  newSourceState,
-  restoreSourceState,
-  selectAutomatic,
-  selectManual,
-  sourceSnapshot,
-  sourceTick,
-  type CameraSource,
-  type LiveVideoSettings,
-  type SourceSnapshot,
-  type SourceState,
-} from './broadcastSource';
+import type { LiveVideoSettings } from './broadcastSource';
 import { cachedHealth, playbackFor, streamConfig, streamHealth, type Playback } from './cloudflareStream';
-import { clipAnchor, noteCameraRotation } from './rotationLink';
-import { currentMoment } from './sourceMoments';
+import { noteObsLive } from './rotationLink';
 import type { StreamStatus } from './streamRules';
 
-// The Broadcast Source Manager at work (rules in broadcastSource.ts): one camera state per race session a TV watches,
-// in this server's memory like the Broadcast Director's (one web instance, docs/tv-broadcast.md), ticked as the TVs
-// ask for their picture (about once a second each), so nothing runs while nobody watches. Each change is written to
-// "BroadcastSourceStates", so an Admin's manual choice survives a restart. The session key is the Broadcast Director's,
-// so the camera and the recorded clips belong to the same broadcast.
+// The live video each TV gets with its picture of the race (docs/live-video.md): the OBS stream of the session it
+// follows, which TV Broadcast Mode always shows beside the track map. Nothing is chosen here any more: the Broadcast
+// Director alone decides what the map's panel shows (the map, or a recorded clip). One entry per race session a TV
+// watches, in this server's memory (one web instance, docs/tv-broadcast.md), for the Admin page's list of broadcasts;
+// the session key is the Broadcast Director's, which is told when the session's OBS stream is live (rotationLink.ts).
 //
 // Which stream: the followed driver's own, else the stream of another driver in the same iRacing subsession, and only
 // one the TV's account may watch on the Live Racing page (watchableDrivers); the same rule as the Live Racing page, so
 // no new entitlement is invented. Off (the Admin's switch), or with the paid-services emergency stop on, no stream is
 // offered and no Cloudflare request is made.
 
-const TICK_MIN_MS = 250;
 const VIEWER_GONE_MS = 20_000;
-const RESTORE_MS = 15 * 60_000;
-const PERSIST_DEBOUNCE_MS = 1000;
 
 type Viewer = { key: string; userId: number; lastSeen: number };
 type Session = {
   key: string;
   label: string;
-  driverId: number;
-  state: SourceState;
-  lastTick: number;
   viewers: Map<string, Viewer>;
-  streamId: number | null;
-  persistTimer: ReturnType<typeof setTimeout> | null;
+  stream: { id: number; name: string; status: StreamStatus } | null;
 };
 
 // What a TV's metrics report said (POST /api/tv/live-video/report), for the Admin page's diagnostics
@@ -71,9 +51,9 @@ export type TvVideoReport = {
 };
 
 const store = globalThis as unknown as {
-  liveVideoSources?: { sessions: Map<string, Session>; loading: Map<string, Promise<Session>>; reports: Map<string, TvVideoReport>; purgedAt: number };
+  liveVideoBroadcasts?: { sessions: Map<string, Session>; reports: Map<string, TvVideoReport> };
 };
-const runtime = (store.liveVideoSources ??= { sessions: new Map(), loading: new Map(), reports: new Map(), purgedAt: 0 });
+const runtime = (store.liveVideoBroadcasts ??= { sessions: new Map(), reports: new Map() });
 
 export type ViewerStream = {
   id: number;
@@ -88,7 +68,7 @@ export type ViewerStream = {
 
 // What the TV gets in its picture (TvFocus.liveVideo)
 export type TvLiveVideo = {
-  source: SourceSnapshot;
+  // The session's OBS stream, live or not; null when there's none for it (the map then has the whole width)
   stream: ViewerStream | null;
   sync: LiveVideoSettings['sync'];
   obsVolume: number;
@@ -125,60 +105,8 @@ function streamFor(streams: LiveStream[], driverId: number, allowed: 'all' | Set
   return streams.find((s) => may(s) && liveSessionOf(s.userId)?.subSessionId === sub) ?? null;
 }
 
-function persist(session: Session) {
-  if (session.persistTimer) return;
-  session.persistTimer = setTimeout(() => {
-    session.persistTimer = null;
-    saveSourceState(session.state).catch((error) => console.error('Live video source save error:', error));
-  }, PERSIST_DEBOUNCE_MS);
-  session.persistTimer.unref?.();
-}
-
-async function openSession(key: string, label: string, driverId: number, settings: LiveVideoSettings): Promise<Session> {
-  const now = Date.now();
-  let state = newSourceState(key, now, settings.autoMode ? 'auto' : 'manual');
-  state.autoSetting = settings.autoMode;
-  state.heldBySetting = !settings.autoMode;
-  try {
-    const saved = await readSourceState(key, RESTORE_MS);
-    if (saved) state = restoreSourceState(saved, now);
-  } catch (error) {
-    console.error('Live video source restore error:', error);
-  }
-  if (now - runtime.purgedAt > 60 * 60_000) {
-    runtime.purgedAt = now;
-    purgeSourceStates().catch(() => undefined);
-  }
-  const session: Session = { key, label, driverId, state, lastTick: 0, viewers: new Map(), streamId: null, persistTimer: null };
-  runtime.sessions.set(key, session);
-  return session;
-}
-
-function tick(session: Session, settings: LiveVideoSettings, stream: ViewerStream | null, now: number): void {
-  if (now - session.lastTick < TICK_MIN_MS) return;
-  session.lastTick = now;
-  // The Admin switched automatic direction off (whatever's on stays, as a manual choice) or back on
-  const modeChanged = followAutoSetting(session.state, settings.autoMode, now);
-  const feed = readDirectorFeed(session.driverId);
-  const moment = feed ? currentMoment(feed.events, feed.context, now, settings.momentSeconds * 1000) : null;
-  const ownerIdx = stream ? liveSessionOf(stream.ownerId)?.carIdx ?? null : null;
-  const subjectCars = settings.cameraSubject === 'streamDriver' && ownerIdx != null ? [ownerIdx] : null;
-  const streamLive = stream?.status === 'LIVE';
-  // The rotation runs while the director is automatic and OBS is live; the Broadcast Director then fits its clips
-  // between the map's turn and the next OBS turn, and its clips' returns restart the cycle
-  const rotating = settings.rotation.enabled && session.state.mode === 'auto' && streamLive;
-  noteCameraRotation(session.key, rotating ? settings.rotation : null, now);
-  const rotationAnchor = rotating ? clipAnchor(session.key, now) : null;
-  const before = session.state.source;
-  const changed = sourceTick(session.state, { now, settings, streamLive, moment, subjectCars, rotationAnchor });
-  if (changed || modeChanged) {
-    if (before !== session.state.source) console.log(`Live video [${session.key}]: ${before} -> ${session.state.source} (${session.state.reason})`);
-    persist(session);
-  }
-}
-
-// A TV's picture of the race asks for this each time: counts the TV as watching and answers its camera and stream, or
-// null when live video is off
+// A TV's picture of the race asks for this each time: counts the TV as watching and answers its stream, or null when
+// live video is off
 export async function observeLiveVideo(
   viewer: Pick<User, 'id' | 'role'>,
   viewerKey: string,
@@ -188,15 +116,10 @@ export async function observeLiveVideo(
   if (!(await liveVideoOn(settings))) return null;
   let found = runtime.sessions.get(session.key);
   if (!found) {
-    let loading = runtime.loading.get(session.key);
-    if (!loading) {
-      loading = openSession(session.key, session.label, session.driverId, settings).finally(() => runtime.loading.delete(session.key));
-      runtime.loading.set(session.key, loading);
-    }
-    found = await loading;
+    found = { key: session.key, label: session.label, viewers: new Map(), stream: null };
+    runtime.sessions.set(session.key, found);
   }
   const now = Date.now();
-  found.driverId = session.driverId;
   found.label = session.label;
   found.viewers.set(viewerKey, { key: viewerKey, userId: viewer.id, lastSeen: now });
   for (const [key, v] of found.viewers) if (now - v.lastSeen > VIEWER_GONE_MS) found.viewers.delete(key);
@@ -205,9 +128,9 @@ export async function observeLiveVideo(
   const [streams, allowed] = await Promise.all([enabledStreams(), watchableDrivers(viewer)]);
   const chosen = session.offline ? null : streamFor(streams, session.driverId, allowed);
   const stream = chosen ? await viewerStream(chosen) : null;
-  found.streamId = chosen?.id ?? null;
-  tick(found, settings, stream, now);
-  return { source: sourceSnapshot(found.state, settings), stream, sync: settings.sync, obsVolume: settings.obsVolume, duckLevel: settings.duckLevel };
+  found.stream = stream ? { id: stream.id, name: stream.name, status: stream.status } : null;
+  noteObsLive(session.key, stream?.status === 'LIVE', now);
+  return { stream, sync: settings.sync, obsVolume: settings.obsVolume, duckLevel: settings.duckLevel };
 }
 
 // The Live Racing page: the streams of every driver this viewer may watch, live or not
@@ -231,35 +154,20 @@ export type LiveVideoSessionView = {
   key: string;
   label: string;
   viewers: number;
-  streamId: number | null;
-  source: SourceSnapshot;
-  serverNow: number;
+  // The OBS stream its TVs show beside the map, or null for none
+  stream: { id: number; name: string; status: StreamStatus } | null;
 };
 
-export function liveVideoSessions(settings: LiveVideoSettings): LiveVideoSessionView[] {
+export function liveVideoSessions(): LiveVideoSessionView[] {
   const now = Date.now();
-  return [...runtime.sessions.values()].map((s) => ({
-    key: s.key,
-    label: s.label,
-    viewers: [...s.viewers.values()].filter((v) => now - v.lastSeen <= VIEWER_GONE_MS).length,
-    streamId: s.streamId,
-    source: sourceSnapshot(s.state, settings),
-    serverNow: now,
-  }));
+  return [...runtime.sessions.values()]
+    .map((s) => ({
+      key: s.key,
+      label: s.label,
+      viewers: [...s.viewers.values()].filter((v) => now - v.lastSeen <= VIEWER_GONE_MS).length,
+      stream: s.stream,
+    }))
+    .filter((s) => s.viewers > 0);
 }
 
 export const tvReports = (): TvVideoReport[] => [...runtime.reports.values()].sort((a, b) => b.at - a.at);
-
-export type SourceCommand = { sessionKey: string; action: 'select'; source: CameraSource } | { sessionKey: string; action: 'auto' };
-
-export function sourceCommand(command: SourceCommand): 'ok' | 'noSession' {
-  const session = runtime.sessions.get(command.sessionKey);
-  if (!session) return 'noSession';
-  const now = Date.now();
-  if (command.action === 'select') selectManual(session.state, command.source, now);
-  else selectAutomatic(session.state, now);
-  // Applies at once rather than at the next TV's picture
-  session.lastTick = 0;
-  persist(session);
-  return 'ok';
-}

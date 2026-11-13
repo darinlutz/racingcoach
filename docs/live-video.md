@@ -1,17 +1,16 @@
 # Live Video (OBS + Cloudflare Stream)
 
 OBS live video on the Live Racing page and in TV Broadcast Mode (`/tv`). OBS only captures and sends the picture and the
-game's sound; the site picks the camera, keeps the Race Announcers, synchronizes the map and graphics, and plays the
-Broadcast Director's recorded clips as before.
+game's sound; the site keeps the Race Announcers, synchronizes the map and graphics, and plays the Broadcast Director's
+recorded clips. On a TV the OBS video is always on screen, beside the track map; the clips take the map's place in turn.
 
 ```
 OBS (gaming PC) ── RTMPS ──► Cloudflare Stream Live input ── HLS ──► each viewer's browser (hls.js / Safari)
                                      ▲  status (API + lifecycle, cached 10 s on the server)
 Render web service ──────────────────┘
-  ├─ Broadcast Source Manager  src/lib/liveVideo/broadcastSource.ts (rules) + broadcastSourceRuntime.ts (one per race)
-  │     camera: TRACK_MAP | OBS_LIVE, the same for every TV of that race, switching at a server time (switchAt)
-  ├─ Broadcast Director (unchanged) VIDEO_CLIP over whichever camera is on
-  └─ TV picture (readTvState) carries focus.liveVideo: { source, stream (playback URL while live), sync, obsVolume, duckLevel }
+  ├─ broadcastSourceRuntime.ts  the stream of the race each TV follows; tells the Broadcast Director it's live
+  ├─ Broadcast Director          the map's panel: the track map, or a recorded clip over it
+  └─ TV picture (readTvState) carries focus.liveVideo: { stream (playback URL while live), sync, obsVolume, duckLevel }
 ```
 
 Off by default. Nothing reaches any page, and no Cloudflare request is made, until an Admin turns **Live video on** in the
@@ -22,15 +21,15 @@ Site Settings emergency stop (Paid AI, speech and map services) also stops the l
 
 | Part | Where |
 | --- | --- |
-| Rules: camera choice, shot rules, snapshots (pure) | `src/lib/liveVideo/broadcastSource.ts` |
+| Settings (pure) | `src/lib/liveVideo/broadcastSource.ts` |
 | Timeline: buffer, interpolation, delay, commentary timing (pure) | `src/lib/liveVideo/broadcastTimeline.ts` |
 | Cloudflare helpers: statuses, URLs, token claims (pure) | `src/lib/liveVideo/streamRules.ts` |
-| Moments from race events (reuses the Commentary Director's `classify`) | `src/lib/liveVideo/sourceMoments.ts` |
+| What the Broadcast Director hears: a session's OBS stream is live | `src/lib/liveVideo/rotationLink.ts` |
 | Cloudflare API, status cache, signed tokens (server only) | `src/lib/liveVideo/cloudflareStream.ts` |
-| Runtime: one camera per race session, viewers, TV reports | `src/lib/liveVideo/broadcastSourceRuntime.ts` |
+| Runtime: each race session's stream and viewers, TV reports | `src/lib/liveVideo/broadcastSourceRuntime.ts` |
 | Tables and settings | `src/lib/liveVideoDb.ts` |
 | Player | `src/components/LiveOBSPlayer.tsx` |
-| TV camera (map + player, both mounted) | `src/components/TvBroadcastStage.tsx`, `TvLiveVideoDiagnostics.tsx`, `useBroadcastTimeline.ts` |
+| TV panel (the OBS video, always on beside the map) | `src/components/TvObsPanel.tsx`, `TvLiveVideoDiagnostics.tsx`, `useBroadcastTimeline.ts` |
 | Live Racing view switch and synchronized map | `src/components/LiveRacing.tsx`, `useLiveRacingVideo.ts` |
 | Admin | `src/components/LiveVideoControl.tsx` |
 
@@ -40,18 +39,18 @@ Site Settings emergency stop (Paid AI, speech and map services) also stops the l
 | --- | --- | --- |
 | `GET /api/live/video` | signed-in users (30/min) | streams of drivers the user may watch on Live Racing, playback URL only while live |
 | `POST /api/tv/live-video/report` | paired TVs (20/min) | the TV's player and timeline figures, kept in memory 5 min |
-| `GET`/`PUT`/`POST /api/admin/live-video` | Admins (404 otherwise) | overview; settings; camera control `{ sessionKey, action: select, source }` or `{ action: auto }` |
+| `GET`/`PUT /api/admin/live-video` | Admins (404 otherwise) | overview; settings |
 | `POST /api/admin/live-video/streams` | Admins (10 inputs/hour) | add a stream: `{ email, name, requireSigned, inputId? }`, creates the input through the API when no ID is given |
 | `PATCH`/`DELETE /api/admin/live-video/streams/[id]` | Admins | turn on/off, require signed URLs, rename; remove (`?deleteInput=1` also deletes an input the site created) |
 
 ### Database
 
-Created on first use by `ensureLiveVideoSchema` (additive, no migration step to run):
+Created on first use by `ensureLiveVideoSchema` (no migration step to run):
 
 - `"LiveVideoStreams"`: `id`, `user_id` (the driver whose racing it shows, `ON DELETE CASCADE`; one stream per driver),
   `name`, `input_id` (the live input's UID, 32 hex), `require_signed`, `enabled`, `created_via` (`api` or `registered`),
   `created_by`, timestamps. At most 10 rows (`MAX_LIVE_STREAMS`). Never a stream key, token or URL with a token.
-- `"BroadcastSourceStates"`: `session_key` → the camera state (JSONB), so a manual choice survives a restart; purged after a day.
+- `"BroadcastSourceStates"` (each session's camera, from when TVs switched between the map and OBS) is dropped by the same step.
 - Settings: `"SiteSettings"` key `live_video` (JSON, `parseLiveVideoSettings`).
 
 Telemetry is never stored for synchronization: the delay buffer lives in each viewer's browser.
@@ -64,33 +63,23 @@ Who Can Watch Me). A TV gets the stream of the driver it follows, else of anothe
 TV's account may watch. Live Racing is for signed-in users of every level, so there's no membership gate on watching; the
 Race Announcers keep theirs (Silver, Gold, Admins).
 
-## Choosing the camera
+## What a TV shows
 
-`sourceTick` runs as TVs ask for their picture (about once a second each; nothing runs while no TV watches):
+There's no camera to choose. On the right of the TV's screen, under the followed driver:
 
-1. Live video off → map. Manual mode → the Admin's choice. Automatic, with the **rotation** on (the default) → OBS for
-   the OBS turn (`rotation.obsSeconds`, 30 s), then the map for the map turn (`rotation.mapSeconds`, 30 s), then one of
-   the Broadcast Director's rotation clips, then OBS again (`rotationCamera`). The cycle restarts at each clip's return
-   (the Director's `returnAt`, else its last clip's end, shared through `rotationLink.ts`), and while the camera rotates
-   the Director spaces its rotation clips by the OBS and map turns (its `rotationMapSeconds` rounded up to a whole number of OBS + map cycles, `clipGapSeconds`, so a longer one makes clips occasional) and
-   rotates outside races too, so the three take turns and OBS is on screen
-   `obsSeconds / (obsSeconds + mapSeconds + clip)` of the time (the Admin page shows the share; a third with 30 s turns and 30 s clips).
-   No clips (the Director's Rotation off, or none to play): OBS and the map alone. Only a big moment interrupts the
-   rotation: a P0 or P1 moment whose preferred camera is OBS (rule 2 still applies), or a P0 moment whose camera is the
-   map. Reasons `rotationObs` / `rotationMap`. With the rotation off → the preferred camera of the most important race
-   moment of the last `momentSeconds` (from the race events, by the Commentary Director's priorities), else the camera
-   for "cars spread across the circuit".
-2. **The OBS camera's subject is unknown unless the Admin says otherwise.** For moments about particular cars (battle,
-   overtake, incident, pit stop) OBS is only picked when *What the OBS camera shows* is *The stream's own driver's car* and
-   that car is involved; otherwise the map, which shows every car (reason `cameraSubjectUnknown` / `cameraNotOnAction`).
-   Whole-race moments (start, final lap, finish) can go to OBS either way.
-3. OBS not live for `offlineGraceSeconds` → map (`obsOffline`), even in manual mode, back to OBS when it returns.
-4. Shot rules: a shot lasts `minShotSeconds`; nothing switches within `cooldownSeconds`; a P0 moment skips the minimum
-   shot but not the cooldown. Manual choices, turning off and OBS going away apply at once.
-5. Each switch is numbered and set `switchLeadMs` (1.2 s) ahead, so every TV (which hears within a second) cuts together.
+- **The OBS live video**, always, in its own panel, whenever the session has a stream (`TvObsPanel`). While the stream
+  isn't live the panel shows the player's offline card, and plays again by itself when OBS comes back. A session with no
+  stream at all has no panel, and the map takes the whole width.
+- **The track map** beside it. The Broadcast Director (`docs/broadcast-director.md`) decides what this panel shows: the
+  live map, or one of its recorded clips over it (`BroadcastVideoSwitcher`). A clip never covers the OBS video.
 
-Recorded clips are untouched: the Broadcast Director decides them as before and they cover whichever camera is on
-(`effectiveSource`). Play Video Now in the Broadcast Director section is the manual "select prerecorded clip".
+While a session's OBS stream is live, the Director is told (`rotationLink.ts`), and its Rotation (the map for
+`rotationMapSeconds`, then a clip for `rotationVideoSeconds`) runs outside races too, in practice and qualifying, whenever
+nothing important is going on. How often clips come, which categories and Play Video Now are all in the Admin page's
+Broadcast Director section; Live Video & Broadcast Control has only the streams, synchronization and audio.
+
+Settings saved while the site still switched the TV between the map and OBS (Automatic, the rotation's OBS and map turns,
+the preferred camera for each moment, shot times, transition, fallback) are ignored and dropped at the next save.
 
 ## Synchronization
 
@@ -125,7 +114,7 @@ Cloudflare's docs don't say their live HLS carries `EXT-X-PROGRAM-DATE-TIME`. Wh
   last 15 readings, and moved only when it has been more than 2 s off for 5 s, then gliding at 5% of real time. A change
   of the Admin page's Offset is the viewer's own adjustment and applies at once; so does a jump of over 15 s (a new
   stream). Duplicates, out-of-order and too-old pictures are counted, not shown twice.
-- The Broadcast Director's clip times and the camera's `switchAt` are not delayed: they're already absolute times.
+- The Broadcast Director's clip times are not delayed: they're already absolute times.
 - **Commentary** is asked for as soon as the live event arrives (so the AI and speech use up the delay rather than adding
   to it), and each line waits in the queue until *event time + delay* (`notBefore` in `CommentaryQueue`). Its 20 s wait and
   its moment's expiry count from then. The event's own time is used once; arrival time is never added again.
@@ -160,8 +149,8 @@ In automatic mode the offset is added to the player's figure, so it trims a cons
 ## Audio
 
 - The announcers keep their own audio element (unchanged), so they carry on across every switch, clip and reconnect.
-- OBS sound plays only while OBS is on screen, at **OBS volume** × the TV's volume, lowered to **OBS volume while an
-  announcer speaks** under their lines. The TV's Settings has *Video sound* on/off; Mute mutes everything.
+- OBS sound plays whenever the stream is live, at **OBS volume** × the TV's volume, lowered to **OBS volume while an
+  announcer speaks or a recorded clip plays** under their lines and under a clip's own sound. The TV's Settings has *Video sound* on/off; Mute mutes everything.
 - Recorded clips' sound follows the Broadcast Director's settings, as before.
 - **Don't capture the announcers in OBS.** If OBS captures desktop audio while a RacingCoach page is playing on the same PC,
   viewers hear the announcers twice (once from their own page, once inside the video, seconds later). Capture only the game
@@ -171,19 +160,19 @@ In automatic mode the offset is added to the player's figure, so it trims a cons
 
 | What happens | What the viewer sees |
 | --- | --- |
-| OBS not running / not connected | Map; the Live Racing view shows the offline card |
-| OBS drops mid-race | After `offlineGraceSeconds`, the map, with "Live video offline: showing the track map"; back to OBS when it returns |
-| Player error (network, expired token, decoder) | The player starts again with growing waits (1-15 s); the TV shows its map meanwhile |
-| Buffering over 5 s on one TV | That TV shows its map; others carry on |
-| Cloudflare API down | Status from the lifecycle endpoint, else ERROR: map |
+| OBS not running / not connected | The offline card in the video panel (TV and Live Racing); the map as usual beside it |
+| OBS drops mid-race | The offline card in the video panel; it plays again when OBS returns |
+| Player error (network, expired token, decoder) | The player starts again with growing waits (1-15 s), with its error card meanwhile |
+| Buffering on one TV | A spinner over that TV's video; its map and the other TVs carry on |
+| Cloudflare API down | Status from the lifecycle endpoint, else ERROR: the error card |
 | Telemetry stops | Map and leaderboard as before (offline after 15 s); the buffer just stops growing |
 | No sync timing | Delay from the calibration, or none; *Sync degraded* |
 | AI or speech slow | Commentary already waits for the delay; a line later than its moment is dropped as before |
-| Viewer joins late or reconnects | Snapshots carry the whole state; an older one is ignored (`isNewerSource`) |
-| Server restart | The camera and manual mode come back from `"BroadcastSourceStates"` (numbering jumps ahead) |
+| Viewer joins late or reconnects | The next picture carries the stream; there is no state to catch up on |
+| Server restart | Nothing to restore: the stream is found again with the first picture |
 
-**One instance**: like Live Racing and the Broadcast Director, the camera state is in the server's memory and persisted
-only for restarts. Running more than one web instance would need shared state (Postgres or Key Value) for the runtime.
+**One instance**: like Live Racing and the Broadcast Director, which sessions are being watched (and whether their OBS
+stream is live, for the Director) is in the server's memory. Running more than one web instance would need shared state.
 
 ## Costs
 
@@ -192,23 +181,23 @@ minute counted (player, HLS); storage $5 per 1,000 minutes a month, prepaid. Inp
 so a live broadcast stores nothing. Stream itself is a paid subscription (the smallest storage plan); check the dashboard.
 
 Every viewer pulls the same single transcode from Cloudflare's edge: one OBS upload however many watch. **A TV plays the
-stream the whole time it's live**, also while the map is on screen (that's what makes switching instant), so its minutes are
-its watch time; the Live Racing page only plays while its view is OBS live or Split; the Admin preview only while picked.
+stream the whole time it's live**, as it's always on screen, so its minutes are its watch time; the Live Racing page only plays while its view is OBS live or Split; the Admin preview only while picked.
 
 ## Tests
 
-- `npm run test:live-video`: the rules, shot timing, manual override, fallback, snapshots and restarts; the buffer
+- `npm run test:live-video`: the settings (old camera settings ignored), what the Director hears; the buffer
   (duplicates, out of order, bounds, interpolation across the line); the delay and its basis; commentary timing and the
   queue; Cloudflare statuses, URLs and RS256 tokens verified with a generated key; and source guards (Admin-only routes,
-  capped bodies, no secrets in browser code, both TV layers mounted, the emergency stop and watch rule, the CSP).
+  capped bodies, no secrets in browser code, the OBS video always on the TV beside the map and never under a clip, the
+  inputs strip without a trace, the emergency stop and watch rule, the CSP).
 - Not covered automatically (needs a real stream): the player against Cloudflare, Fire TV playback, real latency figures,
   whether Cloudflare's playlists carry `EXT-X-PROGRAM-DATE-TIME`, signed URLs on a live input. See the checklist below.
 
 ### First deploy checklist
 
 - [ ] A Cloudflare live input plays on the Live Racing page (OBS live view), desktop and phone
-- [ ] `/tv` cuts between map and OBS from the Admin buttons, with no rebuffer when cutting back to OBS
-- [ ] OBS stopped: the TV goes to the map after a few seconds and back when restarted
+- [ ] `/tv` shows the OBS video beside the map the whole time, and a recorded clip takes the map's panel only
+- [ ] OBS stopped: the video panel shows its offline card, and plays again when OBS is restarted
 - [ ] The player's latency line says *measured* or *estimated* (tells you whether `EXT-X-PROGRAM-DATE-TIME` is there)
 - [ ] Calibrated sync: a start/finish crossing lines up within a second or two
 - [ ] On the Fire TV: playback smooth, and memory holds over a long race with the player kept running

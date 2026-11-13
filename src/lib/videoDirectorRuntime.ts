@@ -51,7 +51,7 @@ import {
   type SelectionRequest,
 } from './videoDirector';
 import { raceConditions } from './videoDirectorConditions';
-import { cameraRotation, clipGapSeconds, noteClipAnchor } from './liveVideo/rotationLink';
+import { obsLive } from './liveVideo/rotationLink';
 
 // The Broadcast Director at work (the rules are in src/lib/videoDirector.ts): one per race session being watched on a
 // TV, in this server's memory like the live positions (one web instance, docs/tv-broadcast.md), ticked a few times a
@@ -510,24 +510,16 @@ function run(session: Session, effects: DirectorEffect[], settings: DirectorSett
   }
 }
 
-// cameraRotating: the live video's camera rotation is running for this session, so the clips rotate with it outside a
-// race too (practice, qualifying), whenever nothing important is going on
-function conditions(session: Session, now: number, cameraRotating: boolean): RaceConditions {
+// obsOnTv: the session's OBS live video is on its TVs, beside the map (docs/live-video.md), so the map and the clips take
+// turns outside a race too (practice, qualifying), whenever nothing important is going on
+function conditions(session: Session, now: number, obsOnTv: boolean): RaceConditions {
   const feed = readDirectorFeed(session.driverId);
   session.sequenceSince = session.state.clip ? (session.sequenceSince ?? now) : null;
   // The followed driver went away: no new clip until there's a race to read again
   if (!feed) return { level: 1, blocked: true, critical: false, rotating: false, raceStartAt: null, moments: null };
   const race = raceConditions(feed.events, feed.context, now, session.sequenceSince, feed.moments);
-  if (cameraRotating && !feed.context.isRace && !race.blocked && !race.critical) return { ...race, rotating: true };
+  if (obsOnTv && !feed.context.isRace && !race.blocked && !race.critical) return { ...race, rotating: true };
   return race;
-}
-
-// When the latest clip hands back to the camera (its return, ahead while one is scheduled or on screen; the map shows
-// from the start of the fade back), else when the session started: where the camera's rotation cycle starts
-function clipAnchorOf(state: DirectorState): number {
-  if (state.returnAt != null) return state.returnAt;
-  if (state.lastClipEndedAt != null) return state.lastClipEndedAt - state.transitionMs;
-  return state.createdAt;
 }
 
 async function tickAll(): Promise<void> {
@@ -545,11 +537,8 @@ async function tickAll(): Promise<void> {
         runtime.sessions.delete(key);
         continue;
       }
-      // With the live video's camera rotating, a clip comes after its OBS turn and its map turn, so the three take turns
-      const camera = settings.rotationEnabled ? cameraRotation(key, now) : null;
-      const tickSettings = camera ? { ...settings, rotationMapSeconds: clipGapSeconds(settings.rotationMapSeconds, camera) } : settings;
-      run(session, directorTick(session.state, { now, settings: tickSettings, race: conditions(session, now, !!camera), announcersBusyUntil: session.announcersBusyUntil }), settings);
-      noteClipAnchor(key, clipAnchorOf(session.state), now);
+      const obsOnTv = settings.rotationEnabled && obsLive(key, now);
+      run(session, directorTick(session.state, { now, settings, race: conditions(session, now, obsOnTv), announcersBusyUntil: session.announcersBusyUntil }), settings);
     }
     for (const [id, audio] of runtime.audio) if (now > audio.expiresAt) runtime.audio.delete(id);
     if (runtime.sessions.size === 0 && runtime.timer) {
@@ -776,10 +765,9 @@ export function directorSessions(): DirectorDashboardSession[] {
   const settings = runtime.settings;
   return [...runtime.sessions.values()].map((session) => {
     const s = session.state;
-    const camera = settings?.rotationEnabled ? cameraRotation(session.key, now) : null;
-    const race = conditions(session, now, !!camera);
+    const race = conditions(session, now, !!settings?.rotationEnabled && obsLive(session.key, now));
     const rotating = !!settings?.rotationEnabled && race.rotating;
-    const due = camera && settings ? { ...settings, rotationMapSeconds: clipGapSeconds(settings.rotationMapSeconds, camera) } : settings;
+    const due = settings;
     return {
       key: session.key,
       label: session.label,

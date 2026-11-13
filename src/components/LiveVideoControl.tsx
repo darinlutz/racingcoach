@@ -3,17 +3,17 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useLanguage } from '@/components/LanguageProvider';
 import LiveOBSPlayer, { type PlayerMetrics } from '@/components/LiveOBSPlayer';
-import { CAMERA_SOURCES, MOMENT_KINDS, rotationObsShare, type CameraSource, type LiveVideoSettings, type SourceSnapshot } from '@/lib/liveVideo/broadcastSource';
+import type { LiveVideoSettings } from '@/lib/liveVideo/broadcastSource';
 import type { LiveVideoSessionView, TvVideoReport } from '@/lib/liveVideo/broadcastSourceRuntime';
 import type { Playback, StreamHealth } from '@/lib/liveVideo/cloudflareStream';
 import { deliveryCostUsd } from '@/lib/liveVideo/streamRules';
 import type { LiveStream } from '@/lib/liveVideoDb';
 
-// The Admin page's Live Video & Broadcast Control (docs/live-video.md, GET/PUT/POST /api/admin/live-video and
-// /api/admin/live-video/streams): what's set up, the streams and their health, the camera director's settings, the
-// synchronization and its calibration, the audio, and each broadcast TVs are watching now with what it shows and
-// buttons to take the camera (Track Map, OBS Live) or hand it back to the automatic director. Recorded clips stay in
-// the Broadcast Director section. Every change is checked by the server, which every TV watching follows.
+// The Admin page's Live Video & Broadcast Control (docs/live-video.md, GET/PUT /api/admin/live-video and
+// /api/admin/live-video/streams): what's set up, the streams and their health, the synchronization and its
+// calibration, the audio, and each broadcast TVs are watching now with its OBS stream. There's no camera to direct:
+// TVs always show the OBS live video beside the track map, and the Broadcast Director section decides when a recorded
+// clip takes the map's place.
 
 const inputClass =
   'w-full px-3 py-2 bg-card border border-border rounded-lg text-foreground text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors';
@@ -26,7 +26,6 @@ type Overview = {
   settings: LiveVideoSettings;
   setup: { playback: boolean; api: boolean; signing: boolean };
   maxStreams: number;
-  rotationClipSeconds: number;
   streams: (LiveStream & { health: StreamHealth | null; preview: Playback | null })[];
   sessions: LiveVideoSessionView[];
   reports: TvVideoReport[];
@@ -113,9 +112,6 @@ export default function LiveVideoControl() {
     await send(`/api/admin/live-video/streams/${stream.id}${deleteInput ? '?deleteInput=1' : ''}`, 'DELETE');
   };
 
-  const command = (sessionKey: string, source: CameraSource | 'auto') =>
-    send('/api/admin/live-video', 'POST', source === 'auto' ? { sessionKey, action: 'auto' } : { sessionKey, action: 'select', source });
-
   if (!data || !draft) {
     return (
       <div id="live-video" className="bg-secondary rounded-xl border border-border p-4 sm:p-6">
@@ -131,7 +127,6 @@ export default function LiveVideoControl() {
   // The preview plays only when picked: each minute it plays is a delivered minute
   const previewStream = data.streams.find((s) => s.id === preview) ?? null;
   const previewLatency = previewMetrics?.measuredLatencyMs ?? (previewMetrics?.latencyS != null ? previewMetrics.latencyS * 1000 : null);
-  const describe = (source: SourceSnapshot) => `${v.tv.sources[source.source]} · ${v.reasons[source.reason as keyof typeof v.reasons] ?? source.reason}`;
 
   return (
     <div id="live-video" className="bg-secondary rounded-xl border border-border p-4 sm:p-6 space-y-6" data-testid="live-video-control">
@@ -187,23 +182,13 @@ export default function LiveVideoControl() {
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold text-foreground truncate">{s.label}</p>
                 <p className="text-xs text-muted-foreground">
-                  {a.showing}: <strong data-testid="live-video-showing">{describe(s.source)}</strong> · {a.mode}: {s.source.mode === 'manual' ? a.manualMode : a.autoMode} ·{' '}
-                  {fmt(a.viewers, { n: s.viewers })}
+                  {a.sessionStream}: <strong data-testid="live-video-stream">{s.stream ? `${s.stream.name} · ${v.status[s.stream.status]}` : v.views.noStream}</strong> · {fmt(a.viewers, { n: s.viewers })}
                 </p>
               </div>
-              <button type="button" disabled={busy} className={s.source.mode === 'manual' && s.source.source === 'TRACK_MAP' ? primaryClass : buttonClass} onClick={() => command(s.key, 'TRACK_MAP')}>
-                {a.selectMap}
-              </button>
-              <button type="button" disabled={busy} className={s.source.mode === 'manual' && s.source.source === 'OBS_LIVE' ? primaryClass : buttonClass} onClick={() => command(s.key, 'OBS_LIVE')}>
-                {a.selectObs}
-              </button>
-              <button type="button" disabled={busy} className={s.source.mode === 'auto' ? primaryClass : buttonClass} onClick={() => command(s.key, 'auto')}>
-                {a.backToAuto}
-              </button>
             </div>
           ))
         )}
-        <p className="text-xs text-muted-foreground">{a.clipHint}</p>
+        <p className="text-xs text-muted-foreground">{a.layoutHint}</p>
         <p className="text-xs text-muted-foreground">{fmt(a.estimatedCost, { viewers: Math.max(viewers, 1), minutes: 60, usd: deliveryCostUsd(Math.max(viewers, 1), 60).toFixed(2) })}</p>
       </div>
 
@@ -297,101 +282,6 @@ export default function LiveVideoControl() {
           </button>
           <p className="sm:col-span-2 text-xs text-muted-foreground">{a.inputIdHint}</p>
         </div>
-      </div>
-
-      {/* Camera direction */}
-      <div className="rounded-lg border border-border p-4 space-y-3">
-        <h3 className="text-sm font-semibold text-foreground">{a.director}</h3>
-        <label className="flex items-center gap-2 text-sm text-foreground">
-          <input type="checkbox" checked={draft.autoMode} onChange={(e) => set({ autoMode: e.target.checked })} className="accent-primary" />
-          {a.autoMode}
-        </label>
-        <div className="rounded-lg border border-border p-3 space-y-2">
-          <label className="flex items-center gap-2 text-sm text-foreground">
-            <input type="checkbox" checked={draft.rotation.enabled} onChange={(e) => set({ rotation: { ...draft.rotation, enabled: e.target.checked } })} className="accent-primary" />
-            {a.rotation}
-          </label>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {(
-              [
-                ['obsSeconds', a.rotationObsSeconds, 10],
-                ['mapSeconds', a.rotationMapSeconds, 5],
-              ] as const
-            ).map(([key, label, min]) => (
-              <div key={key}>
-                <label className={labelClass}>{label}</label>
-                <input
-                  className={inputClass}
-                  type="number"
-                  min={min}
-                  value={draft.rotation[key]}
-                  disabled={!draft.rotation.enabled}
-                  onChange={(e) => set({ rotation: { ...draft.rotation, [key]: Number(e.target.value) } })}
-                />
-              </div>
-            ))}
-          </div>
-          {draft.rotation.enabled && (
-            <p className="text-xs text-foreground">
-              {fmt(data.rotationClipSeconds > 0 ? a.rotationShare : a.rotationShareNoClips, {
-                pct: String(Math.round(rotationObsShare(draft.rotation, data.rotationClipSeconds) * 100)),
-                obs: String(draft.rotation.obsSeconds),
-                map: String(draft.rotation.mapSeconds),
-                clip: String(data.rotationClipSeconds),
-              })}
-            </p>
-          )}
-          <p className="text-xs text-muted-foreground">{a.rotationHint}</p>
-        </div>
-        <p className="text-xs font-medium text-muted-foreground">{a.preferences}</p>
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-          {MOMENT_KINDS.map((kind) => (
-            <div key={kind}>
-              <label className={labelClass}>{a.moments[kind]}</label>
-              <select className={inputClass} value={draft.preferences[kind]} onChange={(e) => set({ preferences: { ...draft.preferences, [kind]: e.target.value as CameraSource } })}>
-                {CAMERA_SOURCES.map((source) => (
-                  <option key={source} value={source}>
-                    {v.tv.sources[source]}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ))}
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="sm:col-span-2">
-            <label className={labelClass}>{a.cameraSubject}</label>
-            <select className={inputClass} value={draft.cameraSubject} onChange={(e) => set({ cameraSubject: e.target.value as LiveVideoSettings['cameraSubject'] })}>
-              <option value="unknown">{a.cameraSubjectUnknown}</option>
-              <option value="streamDriver">{a.cameraSubjectDriver}</option>
-            </select>
-          </div>
-          {(
-            [
-              ['minShotSeconds', a.minShot],
-              ['cooldownSeconds', a.cooldown],
-              ['momentSeconds', a.momentSeconds],
-              ['offlineGraceSeconds', a.offlineGrace],
-              ['fadeMs', a.fadeMs],
-            ] as const
-          ).map(([key, label]) => (
-            <div key={key}>
-              <label className={labelClass}>{label}</label>
-              <input className={inputClass} type="number" min={0} value={draft[key]} onChange={(e) => set({ [key]: Number(e.target.value) })} />
-            </div>
-          ))}
-          <div>
-            <label className={labelClass}>{a.transition}</label>
-            <select className={inputClass} value={draft.transition} onChange={(e) => set({ transition: e.target.value as LiveVideoSettings['transition'] })}>
-              <option value="cut">{a.cut}</option>
-              <option value="fade">{a.fade}</option>
-            </select>
-          </div>
-        </div>
-        <label className="flex items-center gap-2 text-sm text-foreground">
-          <input type="checkbox" checked={draft.fallbackToMap} onChange={(e) => set({ fallbackToMap: e.target.checked })} className="accent-primary" />
-          {a.fallbackToMap}
-        </label>
       </div>
 
       {/* Synchronization and calibration */}

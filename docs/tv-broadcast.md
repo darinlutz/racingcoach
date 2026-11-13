@@ -32,10 +32,11 @@ The recorded clips the map's panel can cut to are the Broadcast Director's, in `
 | `src/app/tv/link/page.tsx`, `src/components/TvLink.tsx` | The TV Link page: type the TV's code, list and unpair TVs (signed-in users) |
 | `src/components/TvApp.tsx` | The 1920×1080 stage scaled to the window, with the screen edges (overscan) margin |
 | `src/components/TvPairing.tsx` | The pairing code, its countdown, a new code when it expires |
-| `src/components/TvBroadcast.tsx` | The broadcast: header; on the left the leaderboard (15 rows) with the announcer lower third and race events under it; on the right the followed driver, the map and the inputs strip; controls; Settings |
+| `src/components/TvBroadcast.tsx` | The broadcast: header; on the left the leaderboard (15 rows) with the announcer lower third and race events under it; on the right the followed driver, the OBS live video (when the session has a stream) beside the map, and the inputs strip; controls; Settings |
+| `src/components/TvObsPanel.tsx` | The OBS live video, always on beside the map (`docs/live-video.md`) |
 | `src/components/TvLeaderboard.tsx` | The leaderboard: Live Racing's look (country flags, car maker logos, watched drivers' dots, fastest-lap stopwatch, You) at TV size, memoized rows |
 | `src/components/TvMap.tsx` | The track map: Live Racing's `LiveTrackMap` at 10 redraws a second, no imagery sharpening, satellite on/off in Settings |
-| `src/components/TvInputs.tsx` | The followed driver's inputs (delta, pedals, wheel, gear, speed, trace) at TV size, 20 redraws a second |
+| `src/components/TvInputs.tsx` | The followed driver's inputs (delta, pedals, wheel, gear, speed; no scrolling trace) at TV size, 20 redraws a second |
 | `src/components/TvEventFeed.tsx` | The race events |
 | `src/lib/liveMapTrack.ts` | A map's track (outline, length, focus areas), shared by `/api/live/outline` and `/api/tv/outline` |
 | `src/components/useTvFeed.ts` | SSE with watchdog and reconnects; falls back to polling |
@@ -224,7 +225,7 @@ practice or race session; an online race tests the leaderboard and race events b
 - [ ] On a track with no saved map yet, the map is a dashed approximate outline (or a placeholder oval) with a note.
 - [ ] Settings → Satellite map → Off hides the imagery; the choice survives a reload.
 - [ ] The Driver Inputs panel shows the delta to best, throttle and brake bars, wheel, gear and speed (in your
-      Preferred Units), about 2 s behind live, moving smoothly; the trace scrolls.
+      Preferred Units), about 2 s behind live, moving smoothly; there is no scrolling throttle and brake trace.
 - [ ] *Next driver* moves the map highlight, the inputs and the leaderboard highlight to the new driver.
 - [ ] The leaderboard shows 15 rows; further back than P15, it shows the first 7 and the cars around you.
 - [ ] The leaderboard shows each driver's country flag and car maker logo, the purple stopwatch on the fastest lap,

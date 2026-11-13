@@ -1,30 +1,14 @@
-// Live video from OBS (docs/live-video.md): the Broadcast Source Manager's rules, the synchronization timeline, the
-// Cloudflare Stream helpers, commentary held for the delayed timeline, the camera moments, and source guards on the
-// routes and components (authorization, no secrets to browsers, the player kept mounted). No Cloudflare account,
-// OBS or simulator needed. npm run test:live-video
+// Live video from OBS (docs/live-video.md): the settings, the synchronization timeline, the Cloudflare Stream helpers,
+// commentary held for the delayed timeline, and source guards on the routes and components (authorization, no secrets
+// to browsers, the OBS video always on the TV beside the map). No Cloudflare account, OBS or simulator needed.
+// npm run test:live-video
 
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { createPublicKey, createSign, createVerify, generateKeyPairSync } from 'node:crypto';
-import {
-  cameraAt,
-  DEFAULT_LIVE_VIDEO_SETTINGS,
-  desiredSource,
-  effectiveSource,
-  followAutoSetting,
-  isNewerSource,
-  newSourceState,
-  parseLiveVideoSettings,
-  restoreSourceState,
-  rotationCamera,
-  rotationObsShare,
-  selectAutomatic,
-  selectManual,
-  sourceSnapshot,
-  sourceTick,
-} from '../src/lib/liveVideo/broadcastSource.ts';
-import { clipGapSeconds } from '../src/lib/liveVideo/rotationLink.ts';
+import { DEFAULT_LIVE_VIDEO_SETTINGS, parseLiveVideoSettings } from '../src/lib/liveVideo/broadcastSource.ts';
+import { noteObsLive, obsLive } from '../src/lib/liveVideo/rotationLink.ts';
 import {
   commentaryNotBefore,
   commentaryWait,
@@ -49,16 +33,12 @@ import {
   statusFromLiveInput,
   tokenClaims,
 } from '../src/lib/liveVideo/streamRules.ts';
-import { currentMoment, momentKind } from '../src/lib/liveVideo/sourceMoments.ts';
 import { CommentaryQueue } from '../src/lib/tvAudio.ts';
 
 const root = new URL('../', import.meta.url);
 const read = (path) => fs.readFileSync(new URL(path, root), 'utf8');
 
-// The moment rules on their own (the rotation has its own tests)
-const on = (changes = {}) => parseLiveVideoSettings({ ...DEFAULT_LIVE_VIDEO_SETTINGS, enabled: true, rotation: { ...DEFAULT_LIVE_VIDEO_SETTINGS.rotation, enabled: false }, ...changes });
 const T0 = 1_800_000_000_000;
-const tickAt = (state, now, extra = {}) => sourceTick(state, { now, settings: on(), streamLive: true, moment: null, subjectCars: null, ...extra });
 
 describe('settings', () => {
   test('off by default: the feature flag', () => {
@@ -66,248 +46,31 @@ describe('settings', () => {
     assert.equal(parseLiveVideoSettings(null).enabled, false);
   });
   test('out of range values are clamped and unknown ones keep their value', () => {
-    const s = parseLiveVideoSettings({ minShotSeconds: -5, cooldownSeconds: 999, transition: 'wipe', preferences: { finish: 'TRACK_MAP', bogus: 'OBS_LIVE' }, sync: { maxBufferMs: 1e9, manualOffsetMs: 1e9 } });
-    assert.equal(s.minShotSeconds, 2);
-    assert.ok(s.cooldownSeconds <= s.minShotSeconds, 'the cooldown never exceeds the minimum shot');
-    assert.equal(s.transition, DEFAULT_LIVE_VIDEO_SETTINGS.transition);
-    assert.equal(s.preferences.finish, 'TRACK_MAP');
-    assert.equal(s.preferences.raceStart, 'OBS_LIVE');
+    const s = parseLiveVideoSettings({ obsVolume: 500, duckLevel: -1, sync: { mode: 'sideways', maxBufferMs: 1e9, manualOffsetMs: 1e9 } });
+    assert.equal(s.obsVolume, 100);
+    assert.equal(s.duckLevel, 0);
+    assert.equal(s.sync.mode, DEFAULT_LIVE_VIDEO_SETTINGS.sync.mode);
     assert.equal(s.sync.maxBufferMs, 90_000);
     assert.equal(s.sync.manualOffsetMs, 90_000);
   });
-});
-
-describe('camera rotation', () => {
-  const rot = (changes = {}) => parseLiveVideoSettings({ ...DEFAULT_LIVE_VIDEO_SETTINGS, enabled: true, cameraSubject: 'streamDriver', switchLeadMs: 0, ...changes });
-  test('on by default, 30 s of OBS then 30 s of the map', () => {
-    const s = parseLiveVideoSettings(null);
-    assert.equal(s.rotation.enabled, true);
-    assert.equal(s.rotation.obsSeconds, 30);
-    assert.equal(s.rotation.mapSeconds, 30);
-    assert.equal(rotationObsShare(s.rotation, 0), 0.5);
-    const clamped = parseLiveVideoSettings({ rotation: { obsSeconds: 1, mapSeconds: 1e6 } });
-    assert.equal(clamped.rotation.obsSeconds, 10);
-    assert.equal(clamped.rotation.mapSeconds, 300);
-  });
-  test('OBS, then the map, from the anchor; OBS while a clip still covers it', () => {
-    const r = { obsSeconds: 60, mapSeconds: 20 };
-    assert.equal(rotationCamera(r, T0, T0 - 1000), 'OBS_LIVE');
-    assert.equal(rotationCamera(r, T0, T0), 'OBS_LIVE');
-    assert.equal(rotationCamera(r, T0, T0 + 59_999), 'OBS_LIVE');
-    assert.equal(rotationCamera(r, T0, T0 + 60_000), 'TRACK_MAP');
-    assert.equal(rotationCamera(r, T0, T0 + 79_999), 'TRACK_MAP');
-    assert.equal(rotationCamera(r, T0, T0 + 80_000), 'OBS_LIVE', 'no clip came: round again');
-  });
-  test('the camera follows the cycle, switching on its boundaries', () => {
-    const settings = rot({ rotation: { enabled: true, obsSeconds: 60, mapSeconds: 20 } });
-    const state = newSourceState('s', T0);
-    const tick = (now, extra = {}) => sourceTick(state, { now, settings, streamLive: true, moment: null, subjectCars: [5], rotationAnchor: T0, ...extra });
-    tick(T0);
-    assert.equal(state.source, 'OBS_LIVE');
-    assert.equal(state.reason, 'rotationObs');
-    tick(T0 + 59_000);
-    assert.equal(state.source, 'OBS_LIVE');
-    tick(T0 + 60_000);
-    assert.equal(state.source, 'TRACK_MAP');
-    assert.equal(state.reason, 'rotationMap');
-    // a clip is scheduled to hand back later: OBS goes under it, ready for its fade back
-    tick(T0 + 90_000, { rotationAnchor: T0 + 110_000 });
-    assert.equal(state.source, 'OBS_LIVE');
-  });
-  test('the switch is worked out for when it lands', () => {
-    const settings = rot({ rotation: { enabled: true, obsSeconds: 60, mapSeconds: 20 }, switchLeadMs: 1200 });
-    const state = newSourceState('s', T0);
-    sourceTick(state, { now: T0, settings, streamLive: true, moment: null, subjectCars: null, rotationAnchor: T0 });
-    assert.equal(state.source, 'OBS_LIVE');
-    sourceTick(state, { now: T0 + 58_900, settings, streamLive: true, moment: null, subjectCars: null, rotationAnchor: T0 });
-    assert.equal(state.source, 'TRACK_MAP');
-    assert.equal(state.switchAt, T0 + 60_100);
-  });
-  test('only a big moment interrupts it: toward OBS for the camera’s car, toward the map only when critical', () => {
-    const settings = rot({ rotation: { enabled: true, obsSeconds: 60, mapSeconds: 20 } });
-    const inMapTurn = newSourceState('s', T0);
-    const ownPass = { kind: 'overtake', at: T0 + 65_000, priority: 1, cars: [5] };
-    assert.equal(desiredSource(inMapTurn, { now: T0 + 65_000, settings, streamLive: true, moment: ownPass, subjectCars: [5], rotationAnchor: T0 }).source, 'OBS_LIVE');
-    const othersBattle = { kind: 'closeBattle', at: T0 + 10_000, priority: 1, cars: [8, 9] };
-    assert.equal(desiredSource(inMapTurn, { now: T0 + 10_000, settings, streamLive: true, moment: othersBattle, subjectCars: [5], rotationAnchor: T0 }).source, 'OBS_LIVE', 'a P1 elsewhere doesn’t take OBS away');
-    const crash = { kind: 'incident', at: T0 + 10_000, priority: 0, cars: [8] };
-    assert.equal(desiredSource(inMapTurn, { now: T0 + 10_000, settings, streamLive: true, moment: crash, subjectCars: [5], rotationAnchor: T0 }).source, 'TRACK_MAP');
-    const routine = { kind: 'pitStop', at: T0 + 10_000, priority: 3, cars: [5] };
-    assert.equal(desiredSource(inMapTurn, { now: T0 + 10_000, settings, streamLive: true, moment: routine, subjectCars: [5], rotationAnchor: T0 }).reason, 'rotationObs');
-  });
-  test('OBS offline: the map, whatever the rotation says', () => {
-    const settings = rot();
-    const state = newSourceState('s', T0);
-    sourceTick(state, { now: T0, settings, streamLive: false, moment: null, subjectCars: null, rotationAnchor: T0 });
-    assert.equal(state.source, 'TRACK_MAP');
-    assert.equal(state.reason, 'obsOffline');
-  });
-  test('turning Automatic off holds the camera, and back on hands it back to the rotation', () => {
-    const settings = rot({ rotation: { enabled: true, obsSeconds: 30, mapSeconds: 30 } });
-    const state = newSourceState('s', T0);
-    state.autoSetting = true;
-    const tick = (now) => sourceTick(state, { now, settings, streamLive: true, moment: null, subjectCars: null, rotationAnchor: T0 });
-    tick(T0 + 31_000);
-    assert.equal(state.source, 'TRACK_MAP');
-    assert.equal(followAutoSetting(state, false, T0 + 32_000), true);
-    assert.equal(state.mode, 'manual');
-    tick(T0 + 61_000);
-    assert.equal(state.source, 'TRACK_MAP', 'held');
-    assert.equal(followAutoSetting(state, true, T0 + 62_000), true);
-    assert.equal(state.mode, 'auto');
-    tick(T0 + 62_500);
-    assert.equal(state.source, 'OBS_LIVE', 'the rotation again');
-  });
-  test("a session's own buttons win until the setting changes again", () => {
-    const state = newSourceState('s', T0);
-    state.autoSetting = false;
-    selectAutomatic(state, T0);
-    assert.equal(followAutoSetting(state, false, T0 + 1000), false);
-    assert.equal(state.mode, 'auto');
-    state.autoSetting = true;
-    selectManual(state, 'OBS_LIVE', T0 + 2000);
-    followAutoSetting(state, false, T0 + 3000);
-    followAutoSetting(state, true, T0 + 4000);
-    assert.equal(state.mode, 'manual', "an Admin's own choice isn't undone by the setting");
-    assert.equal(state.manualSource, 'OBS_LIVE');
-  });
-  test('a state saved before the setting was remembered, held manual, goes back to automatic', () => {
-    const saved = newSourceState('s', T0);
-    selectManual(saved, 'TRACK_MAP', T0);
-    delete saved.autoSetting;
-    assert.equal(followAutoSetting(saved, true, T0 + 1000), true);
-    assert.equal(saved.mode, 'auto');
-  });
-  test("clips come after whole OBS + map cycles, at least the Director's own gap apart", () => {
-    const camera = { obsSeconds: 30, mapSeconds: 30 };
-    assert.equal(clipGapSeconds(30, camera), 60);
-    assert.equal(clipGapSeconds(60, camera), 60);
-    assert.equal(clipGapSeconds(61, camera), 120);
-    assert.equal(clipGapSeconds(180, camera), 180);
+  test('settings saved while the site still chose a camera are read without the camera', () => {
+    const saved = { enabled: true, autoMode: false, rotation: { enabled: true, obsSeconds: 30, mapSeconds: 30 }, preferences: { finish: 'OBS_LIVE' }, obsVolume: 40 };
+    const s = parseLiveVideoSettings(saved);
+    assert.deepEqual(Object.keys(s).sort(), ['duckLevel', 'enabled', 'liveRacingEnabled', 'obsVolume', 'sync']);
+    assert.equal(s.enabled, true);
+    assert.equal(s.obsVolume, 40);
   });
 });
 
-describe('camera source', () => {
-  test('starts on the map, as OBS has not been seen live', () => {
-    const state = newSourceState('s', T0);
-    tickAt(state, T0, { streamLive: false, moment: { kind: 'raceStart', at: T0, priority: 0, cars: [] } });
-    assert.equal(state.source, 'TRACK_MAP');
-    assert.equal(state.reason, 'obsOffline');
-    assert.equal(state.fallback, true);
-  });
-
-  test('a race start goes to OBS, a pit stop stays on the map', () => {
-    const state = newSourceState('s', T0);
-    tickAt(state, T0, { moment: { kind: 'raceStart', at: T0, priority: 0, cars: [] } });
-    assert.equal(state.source, 'OBS_LIVE');
-    assert.equal(state.reason, 'raceStart');
-    const pit = desiredSource(state, { now: T0 + 60_000, settings: on(), streamLive: true, moment: { kind: 'pitStop', at: T0 + 59_000, priority: 2, cars: [3] }, subjectCars: [3] });
-    assert.equal(pit.source, 'TRACK_MAP');
-  });
-
-  test('the OBS camera is never assumed to show the cars in a battle', () => {
-    const state = newSourceState('s', T0);
-    const battle = { kind: 'closeBattle', at: T0, priority: 1, cars: [4, 5] };
-    assert.deepEqual(desiredSource(state, { now: T0, settings: on(), streamLive: true, moment: battle, subjectCars: null }).source, 'TRACK_MAP');
-    assert.equal(desiredSource(state, { now: T0, settings: on(), streamLive: true, moment: battle, subjectCars: null }).reason, 'cameraSubjectUnknown');
-    assert.equal(desiredSource(state, { now: T0, settings: on(), streamLive: true, moment: battle, subjectCars: [9] }).reason, 'cameraNotOnAction');
-    assert.equal(desiredSource(state, { now: T0, settings: on(), streamLive: true, moment: battle, subjectCars: [5] }).source, 'OBS_LIVE');
-  });
-
-  test('a shot is held for the minimum shot; a critical moment only waits for the cooldown', () => {
-    const settings = on({ minShotSeconds: 10, cooldownSeconds: 4 });
-    const state = newSourceState('s', T0);
-    sourceTick(state, { now: T0, settings, streamLive: true, moment: { kind: 'finalLap', at: T0, priority: 1, cars: [] }, subjectCars: null });
-    assert.equal(state.source, 'OBS_LIVE');
-    // nothing happening: the map is wanted, but not before 10 s
-    sourceTick(state, { now: T0 + 5000, settings, streamLive: true, moment: null, subjectCars: null });
-    assert.equal(state.source, 'OBS_LIVE');
-    sourceTick(state, { now: T0 + 10_000, settings, streamLive: true, moment: null, subjectCars: null });
-    assert.equal(state.source, 'TRACK_MAP');
-    // a P0 at 2 s after: still within the cooldown
-    sourceTick(state, { now: T0 + 12_000, settings, streamLive: true, moment: { kind: 'finish', at: T0 + 12_000, priority: 0, cars: [] }, subjectCars: null });
-    assert.equal(state.source, 'TRACK_MAP');
-    sourceTick(state, { now: T0 + 14_000, settings, streamLive: true, moment: { kind: 'finish', at: T0 + 12_000, priority: 0, cars: [] }, subjectCars: null });
-    assert.equal(state.source, 'OBS_LIVE', 'past the cooldown, a P0 needn’t wait for the minimum shot');
-  });
-
-  test('a manual choice takes precedence over the automatic director, until handed back', () => {
-    const state = newSourceState('s', T0);
-    tickAt(state, T0, { moment: { kind: 'raceStart', at: T0, priority: 0, cars: [] } });
-    selectManual(state, 'TRACK_MAP', T0 + 500);
-    tickAt(state, T0 + 600, { moment: { kind: 'raceStart', at: T0, priority: 0, cars: [] } });
-    assert.equal(state.source, 'TRACK_MAP');
-    assert.equal(state.reason, 'manual');
-    selectAutomatic(state, T0 + 20_000);
-    tickAt(state, T0 + 20_100, { moment: { kind: 'finish', at: T0 + 20_000, priority: 0, cars: [] } });
-    assert.equal(state.source, 'OBS_LIVE');
-  });
-
-  test('manual OBS falls back to the map when the stream goes offline, after the grace', () => {
-    const settings = on({ offlineGraceSeconds: 4 });
-    const state = newSourceState('s', T0);
-    selectManual(state, 'OBS_LIVE', T0);
-    sourceTick(state, { now: T0, settings, streamLive: true, moment: null, subjectCars: null });
-    assert.equal(state.source, 'OBS_LIVE');
-    sourceTick(state, { now: T0 + 1000, settings, streamLive: false, moment: null, subjectCars: null });
-    assert.equal(state.source, 'OBS_LIVE', 'a reconnecting encoder is given a moment');
-    sourceTick(state, { now: T0 + 5000, settings, streamLive: false, moment: null, subjectCars: null });
-    assert.equal(state.source, 'TRACK_MAP');
-    assert.equal(state.fallback, true);
-    sourceTick(state, { now: T0 + 6000, settings, streamLive: true, moment: null, subjectCars: null });
-    assert.equal(state.source, 'OBS_LIVE', 'back on OBS when it returns, still manual');
-  });
-
-  test('turned off, the map at once', () => {
-    const state = newSourceState('s', T0);
-    tickAt(state, T0, { moment: { kind: 'raceStart', at: T0, priority: 0, cars: [] } });
-    sourceTick(state, { now: T0 + 100, settings: { ...on(), enabled: false }, streamLive: true, moment: null, subjectCars: null });
-    assert.equal(state.source, 'TRACK_MAP');
-  });
-
-  test('every viewer switches at the same server time, and a late snapshot never undoes a newer one', () => {
-    const state = newSourceState('s', T0);
-    tickAt(state, T0, { moment: { kind: 'raceStart', at: T0, priority: 0, cars: [] } });
-    const snap = sourceSnapshot(state, on());
-    assert.equal(snap.switchAt, T0 + on().switchLeadMs);
-    assert.equal(cameraAt(snap, T0 + 100), 'TRACK_MAP');
-    assert.equal(cameraAt(snap, snap.switchAt), 'OBS_LIVE');
-    const older = { ...snap, seq: snap.seq - 1 };
-    assert.equal(isNewerSource(snap, older), false);
-    assert.equal(isNewerSource(snap, { ...snap, sessionKey: 'other', seq: 1 }), true);
-    assert.equal(effectiveSource('OBS_LIVE', true), 'VIDEO_CLIP');
-    assert.equal(effectiveSource('OBS_LIVE', false), 'OBS_LIVE');
-  });
-
-  test('after a restart the numbering jumps ahead, so viewers take the restored state', () => {
-    const state = newSourceState('s', T0);
-    selectManual(state, 'OBS_LIVE', T0);
-    const restored = restoreSourceState(JSON.parse(JSON.stringify(state)), T0 + 60_000);
-    assert.ok(restored.seq > state.seq + 50);
-    assert.equal(restored.mode, 'manual');
-    assert.equal(restored.manualSource, 'OBS_LIVE');
-    assert.ok(isNewerSource(sourceSnapshot(state, on()), sourceSnapshot(restored, on())));
-  });
-});
-
-describe('moments', () => {
-  const ctx = { isRace: true, phase: 'middle', raceProgress: 0.5, userIdx: 1, userPosition: 3, storylines: [] };
-  test('events map to the moments the camera follows', () => {
-    assert.equal(momentKind({ seq: 1, at: 0, event: { type: 'raceStart', starters: 20, userGrid: 3 } }), 'raceStart');
-    assert.equal(momentKind({ seq: 1, at: 0, event: { type: 'flag', flag: 'checkered', notes: [] } }), 'finish');
-    assert.equal(momentKind({ seq: 1, at: 0, event: { type: 'lapComplete', lap: 3, lapTime: 90, bestLapTime: 89, newBest: false } }), null);
-    assert.equal(momentKind({ seq: 1, at: 0, event: { type: 'battle', phase: 'ended' } }), null);
-  });
-  test('the most important recent moment wins', () => {
-    const events = [
-      { seq: 1, at: T0 - 1000, event: { type: 'pitEntry' } },
-      { seq: 2, at: T0 - 500, event: { type: 'flag', flag: 'checkered', notes: [] } },
-      { seq: 3, at: T0 - 60_000, event: { type: 'raceStart', starters: 20, userGrid: 3 } },
-    ];
-    const m = currentMoment(events, ctx, T0, 20_000);
-    assert.equal(m.kind, 'finish');
-    assert.equal(m.priority, 0);
-    assert.equal(currentMoment([], ctx, T0, 20_000), null);
+describe('the Broadcast Director hears that OBS is on the TVs', () => {
+  test('live while the TVs keep asking, gone when they stop or the stream does', () => {
+    assert.equal(obsLive('none', T0), false);
+    noteObsLive('s', true, T0);
+    assert.equal(obsLive('s', T0 + 5000), true);
+    assert.equal(obsLive('s', T0 + 11_000), false, 'nobody watching for 10 s');
+    noteObsLive('s', true, T0 + 12_000);
+    noteObsLive('s', false, T0 + 13_000);
+    assert.equal(obsLive('s', T0 + 13_000), false);
   });
 });
 
@@ -527,13 +290,20 @@ describe('source guards', () => {
       assert.ok(!/CLOUDFLARE_STREAM_/.test(read(`src/components/${file}`).replace(/\/\/.*$/gm, '').replace(/'[^']*CLOUDFLARE_STREAM[^']*'/g, '')), file);
     }
   });
-  test('the TV keeps the map and the OBS player mounted, switching by opacity', () => {
-    const stage = read('src/components/TvBroadcastStage.tsx');
-    assert.match(stage, /\{children\}/);
-    assert.match(stage, /opacity: obsOnScreen \? 1 : 0/);
-    assert.ok(!/obsOnScreen && <LiveOBSPlayer/.test(stage), 'the player isn’t mounted only while on screen');
+  test('the TV always shows the OBS video beside the map, and clips take the map’s panel only', () => {
     const tv = read('src/components/TvBroadcast.tsx');
-    assert.match(tv, /<BroadcastVideoSwitcher[\s\S]*<TvBroadcastStage[\s\S]*<TvMap/, 'clips over the camera, the camera over the map');
+    assert.match(tv, /data-testid="tv-obs-panel"[\s\S]*<TvObsPanel[\s\S]*data-testid="tv-map-panel"[\s\S]*<BroadcastVideoSwitcher[\s\S]*<TvMap/, 'the video, then the map under the clips');
+    const clips = tv.slice(tv.indexOf('<BroadcastVideoSwitcher'), tv.indexOf('</BroadcastVideoSwitcher>'));
+    assert.ok(!/TvObsPanel|LiveOBSPlayer/.test(clips), 'a recorded clip never covers the OBS video');
+    const panel = read('src/components/TvObsPanel.tsx');
+    assert.match(panel, /<LiveOBSPlayer/);
+    assert.ok(!/opacity|active=/.test(panel.replace(/\/\/.*$/gm, '')), 'nothing hides or pauses the player');
+    assert.ok(!/TRACK_MAP|OBS_LIVE|cameraAt|switchAt/.test(read('src/lib/liveVideo/broadcastSourceRuntime.ts')), 'no camera is chosen on the server');
+  });
+  test('the TV’s inputs strip has the bars, wheel and gear, and no scrolling trace', () => {
+    const inputs = read('src/components/TvInputs.tsx');
+    assert.match(inputs, /<Pedal label=\{t\.liveRacing\.throttle\}[\s\S]*<WheelGraphic[\s\S]*<Pedal label=\{t\.liveRacing\.brake\}[\s\S]*<GearDisplay/);
+    assert.ok(!/trace|<path/.test(inputs.replace(/\/\/.*$/gm, '')), 'no throttle and brake trace');
   });
   test('live video goes through the emergency stop and the feature flag', () => {
     const runtime = read('src/lib/liveVideo/broadcastSourceRuntime.ts');

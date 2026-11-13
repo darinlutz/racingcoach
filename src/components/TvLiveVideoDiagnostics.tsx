@@ -3,7 +3,7 @@
 import { useLanguage } from '@/components/LanguageProvider';
 import type { PlayerMetrics } from '@/components/LiveOBSPlayer';
 import type { TimelineView } from '@/components/useBroadcastTimeline';
-import type { BroadcastSourceKind } from '@/lib/liveVideo/broadcastSource';
+import type { MapPanelSource } from '@/lib/liveVideo/broadcastSource';
 import type { TvLiveVideo } from '@/lib/liveVideo/broadcastSourceRuntime';
 
 // TV Broadcast Mode's live video figures, in its Settings panel (docs/live-video.md). Each says what it is: measured
@@ -14,12 +14,13 @@ const seconds = (ms: number | null | undefined) => (ms == null ? null : `${(ms /
 
 export default function TvLiveVideoDiagnostics({
   liveVideo,
-  camera,
+  mapPanel,
   metrics,
   timeline,
 }: {
   liveVideo: TvLiveVideo;
-  camera: BroadcastSourceKind;
+  // What the map's panel shows: the live map, or a recorded clip over it (the OBS video is always on beside it)
+  mapPanel: MapPanelSource;
   metrics: PlayerMetrics | null;
   timeline: TimelineView;
 }) {
@@ -34,7 +35,7 @@ export default function TvLiveVideoDiagnostics({
         ? `${metrics.latencyS.toFixed(1)} s (${v.basis.estimated})`
         : none;
   const rows: [string, string][] = [
-    [d.source, `${v.tv.sources[camera]} · ${v.reasons[liveVideo.source.reason as keyof typeof v.reasons] ?? liveVideo.source.reason}`],
+    [d.source, v.tv.sources[mapPanel]],
     [d.stream, liveVideo.stream ? `${liveVideo.stream.name} · ${v.status[metrics?.status ?? liveVideo.stream.status]}` : v.views.noStream],
     [d.latency, latency],
     [d.delay, timeline.appliedDelayMs > 0 ? `${seconds(timeline.appliedDelayMs)} (${v.basis[timeline.delay.basis]})` : v.basis.off],

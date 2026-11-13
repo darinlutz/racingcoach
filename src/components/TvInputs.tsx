@@ -8,7 +8,6 @@ import {
   inputsDelay,
   THROTTLE_COLOR,
   valuesAt,
-  type Shown,
   type TimedSample,
 } from '@/components/LiveInputs';
 import { BASE_ARC_R, GearDisplay, steeringLabel, WheelGraphic } from '@/components/SteeringWheel';
@@ -17,16 +16,15 @@ import type { InputSample } from '@/lib/liveRacing';
 import { SPEED_UNIT, speedFromMetersPerSecond } from '@/lib/units';
 
 // TV Broadcast Mode's Driver Inputs: the Live Racing page's panel (LiveInputs) sized for a TV across the room: the
-// followed driver's delta to their best lap and a throttle and brake trace, then their throttle and brake bars,
-// steering wheel, gear and speed, in one strip under the map. Each picture of the race carries the last few seconds of inputs; they're kept here (KEEP_MS) and played
+// followed driver's delta to their best lap, then their throttle and brake bars, steering wheel, gear and speed, in
+// one strip under the video and the map (no scrolling throttle and brake trace: the bars show them). Each picture of the race carries the last few seconds of inputs; they're kept here (KEEP_MS) and played
 // back as far behind live as the map is (inputsDelay: the synchronized broadcast's delay, else PLAYBACK_DELAY_MS), as on the
 // Live Racing page, but redrawn at most FPS times a second for low-powered TVs. They come from the live picture, not the
 // delayed one, so the delay is applied once, here.
 
 const FPS = 20;
-// Kept beyond the delay: the trace and some slack
-const KEEP_EXTRA_MS = 12_000;
-const TRACE_MS = 8000;
+// Kept beyond the delay: some slack
+const KEEP_EXTRA_MS = 4000;
 // A new clock offset this close to the last is network timing noise, and the samples keep the old one
 const OFFSET_TOLERANCE_MS = 400;
 
@@ -96,7 +94,7 @@ export default function TvInputs({
   useEffect(() => {
     samplesRef.current = samples;
   }, [samples]);
-  const [shown, setShown] = useState<Shown | null>(null);
+  const [shown, setShown] = useState<ReturnType<typeof valuesAt>>(null);
 
   useEffect(() => {
     let id = 0;
@@ -105,13 +103,7 @@ export default function TvInputs({
       id = requestAnimationFrame(tick);
       if (now - last < 1000 / FPS - 1) return;
       last = now;
-      const all = samplesRef.current;
-      const at = now - delayRef.current;
-      const values = valuesAt(all, at);
-      const trace = all
-        .filter((s) => s.at <= at && s.at >= at - TRACE_MS)
-        .map((s) => ({ x: 1 - (at - s.at) / TRACE_MS, throttle: s.sample[1] ?? 0, brake: s.sample[2] ?? 0 }));
-      setShown(values ? { ...values, trace } : null);
+      setShown(valuesAt(samplesRef.current, now - delayRef.current));
     };
     id = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(id);
@@ -124,12 +116,10 @@ export default function TvInputs({
   const delta = shown.delta;
   const slower = (delta ?? 0) > 0;
   const share = delta == null ? 0 : Math.min(Math.abs(delta) / DELTA_RANGE_S, 1) * 50;
-  const line = (key: 'throttle' | 'brake') =>
-    shown.trace.map((p, i) => `${i === 0 ? 'M' : 'L'}${(p.x * 100).toFixed(1)},${((1 - p[key]) * 40).toFixed(1)}`).join(' ');
 
   return (
     <div className="flex h-full items-center gap-6">
-      <div className="flex w-[330px] shrink-0 flex-col gap-2">
+      <div className="flex w-[280px] shrink-0 flex-col gap-3">
         <div className="flex items-baseline justify-between">
           <span className="text-[18px] uppercase tracking-wide text-[#8b95a3]">{t.liveRacing.deltaToBest}</span>
           <span className={`text-[34px] font-bold leading-none tabular-nums ${delta == null ? '' : slower ? 'text-[#ff5a5a]' : 'text-[#2fd36b]'}`}>
@@ -143,10 +133,6 @@ export default function TvInputs({
           />
           <div className="absolute bottom-0 top-0 left-1/2 w-px bg-white" />
         </div>
-        <svg viewBox="0 0 100 40" preserveAspectRatio="none" className="mt-1 h-[86px] w-full rounded bg-[#161b23]" aria-hidden>
-          <path d={line('throttle')} fill="none" stroke={THROTTLE_COLOR} strokeWidth={2.5} vectorEffect="non-scaling-stroke" />
-          <path d={line('brake')} fill="none" stroke={BRAKE_COLOR} strokeWidth={2.5} vectorEffect="non-scaling-stroke" />
-        </svg>
       </div>
       <div className="flex flex-1 items-center justify-around gap-3">
         <Pedal label={t.liveRacing.throttle} value={shown.throttle} color={THROTTLE_COLOR} />

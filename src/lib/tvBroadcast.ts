@@ -117,8 +117,8 @@ export type TvFocus = {
   // What the Broadcast Director is showing (src/lib/videoDirector.ts), the same for everyone watching this session; null
   // when it isn't running
   director: DirectorSnapshot | null;
-  // The live video (docs/live-video.md): the camera (track map or OBS) the Broadcast Source Manager chose for this
-  // session, the same for everyone watching it, and the OBS stream when there is one; null when live video is off
+  // The live video (docs/live-video.md): the session's OBS stream when there is one, which the TV always shows beside
+  // the map, with its sync and audio settings; null when live video is off
   liveVideo: TvLiveVideo | null;
   // The Weather Center: the weather now (null from collectors before 1.54.0), the outlook for the next half hour
   // (src/lib/liveWeather.ts, projected from the trend over outlookMinutes, as iRacing shares no forecast; null for

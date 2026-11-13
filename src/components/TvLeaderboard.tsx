@@ -52,23 +52,23 @@ const Row = memo(
         {multiClass && <td className="px-2 tabular-nums text-[#c9d1dc]">{row.classPosition ?? '—'}</td>}
         <td className="px-2">
           <span
-            className="inline-block min-w-[52px] rounded px-1 text-center font-bold tabular-nums text-black"
+            className="inline-block min-w-[46px] rounded px-1 text-center font-bold tabular-nums text-black"
             style={{ backgroundColor: row.classColor ?? '#c9d1dc' }}
           >
             {row.number ?? '—'}
           </span>
         </td>
         <td className="px-2">
-          <div className="flex min-w-0 items-center gap-2.5">
+          <div className="flex min-w-0 items-center gap-2">
             {row.countryCode ? (
               <span
                 className={`fi fi-${row.countryCode} shrink-0 rounded-[3px]`}
-                style={{ width: 30, height: 22 }}
+                style={{ width: 27, height: 20 }}
                 role="img"
                 aria-label={row.flair ?? row.countryCode}
               />
             ) : (
-              <span className="shrink-0" style={{ width: 30, height: 22 }} aria-hidden />
+              <span className="shrink-0" style={{ width: 27, height: 20 }} aria-hidden />
             )}
             <CarLogo car={row.car} />
             {row.watchColor && (
@@ -104,18 +104,18 @@ const Row = memo(
 export default function TvLeaderboard({ rows, multiClass, isRace }: { rows: TvRow[]; multiClass: boolean; isRace: boolean }) {
   const { t } = useLanguage();
   return (
-    <table className="w-full table-fixed text-[22px] leading-[34px]">
+    <table className="w-full table-fixed text-[20px] leading-[34px]">
       <colgroup>
-        <col className="w-[64px]" />
-        {multiClass && <col className="w-[60px]" />}
-        <col className="w-[76px]" />
+        <col className="w-[56px]" />
+        {multiClass && <col className="w-[52px]" />}
+        <col className="w-[70px]" />
         <col />
-        <col className="w-[124px]" />
-        {isRace && <col className="w-[116px]" />}
-        <col className="w-[136px]" />
+        <col className="w-[106px]" />
+        {isRace && <col className="w-[100px]" />}
+        <col className="w-[120px]" />
       </colgroup>
       <thead>
-        <tr className="text-left text-[18px] uppercase tracking-wide text-[#8b95a3]">
+        <tr className="text-left text-[16px] uppercase tracking-wide text-[#8b95a3]">
           <th className="pl-4 pr-2 py-1 font-semibold">{t.tv.pos}</th>
           {multiClass && <th className="px-2 font-semibold">{t.tv.classPos}</th>}
           <th className="px-2 font-semibold">#</th>

@@ -9,11 +9,10 @@ import TvEventFeed from '@/components/TvEventFeed';
 import TvInputs from '@/components/TvInputs';
 import TvLeaderboard from '@/components/TvLeaderboard';
 import TvMap from '@/components/TvMap';
-import TvBroadcastStage from '@/components/TvBroadcastStage';
+import TvObsPanel from '@/components/TvObsPanel';
 import TvLiveVideoDiagnostics from '@/components/TvLiveVideoDiagnostics';
 import type { PlayerMetrics } from '@/components/LiveOBSPlayer';
 import { useBroadcastTimeline } from '@/components/useBroadcastTimeline';
-import type { CameraSource } from '@/lib/liveVideo/broadcastSource';
 import { useEngineBed } from '@/components/useEngineBed';
 import { useTvCommentary } from '@/components/useTvCommentary';
 import { useTvFeed, type FeedStatus } from '@/components/useTvFeed';
@@ -30,18 +29,20 @@ import { isNewerSnapshot, type DirectorSnapshot } from '@/lib/videoDirector';
 
 // TV Broadcast Mode's broadcast (src/app/tv/): the race the paired account may watch, as a TV graphics package on a
 // 1920×1080 stage. Across the top the session, its flag, lap and time left, and the Weather Center (the conditions now
-// and the outlook); on the left the leaderboard (TvLeaderboard,
-// 15 rows) with the Race Announcer speaking and their line, and the race events, under it; on the right the followed
-// driver (the account's own driving, else the first live driver; Next driver changes it), the track map with every
-// car going round it (TvMap) and, under it, their Driver Inputs (TvInputs). Along the bottom the controls, worked with the remote's D-pad and Select:
-// Start Broadcast (the TV's browser only plays sound after a button press, so commentary waits for it), Test sound,
-// commentary and each announcer on or off, volume, mute, next driver, full screen where the browser allows it, and
-// Settings (the map's satellite imagery, screen edges, unpair), which the remote's Back closes. The choices are kept
-// in the browser. While the broadcast runs the screen is kept awake (Wake Lock) where the browser allows it. The
-// Broadcast Director (src/lib/videoDirector.ts) can cut the map's panel to a recorded clip (BroadcastVideoSwitcher), the map
-// and everything else carrying on live behind and around it. While it's raining or the followed driver is on wet
-// tires, the map switches to the weather radar (WeatherRadar) for 10 seconds of every minute, except during a clip.
-// Beside the followed driver's name, their tires and a fuel gauge with the laps and time the fuel lasts.
+// and the outlook); on the left the leaderboard (TvLeaderboard, 15 rows) with the Race Announcer speaking and their
+// line, and the race events, under it; on the right the followed driver (the account's own driving, else the first live
+// driver; Next driver changes it), then, side by side like the Live Racing page's Split view, the OBS live video
+// (TvObsPanel, always shown while the session has a stream, docs/live-video.md) and the track map with every car going
+// round it (TvMap; the whole width when there's no stream), and under them the driver's inputs (TvInputs). Along the
+// bottom the controls, worked with the remote's D-pad and Select: Start Broadcast (the TV's browser only plays sound
+// after a button press, so commentary waits for it), Test sound, commentary and each announcer on or off, volume, mute,
+// next driver, full screen where the browser allows it, and Settings (the map's satellite imagery, screen edges,
+// unpair), which the remote's Back closes. The choices are kept in the browser. While the broadcast runs the screen is
+// kept awake (Wake Lock) where the browser allows it. The Broadcast Director (src/lib/videoDirector.ts) cuts the map's
+// panel, and only it, to a recorded clip and back (BroadcastVideoSwitcher): the map carries on live behind the clip,
+// and the OBS video and everything else beside it. While it's raining or the followed driver is on wet tires, the map
+// switches to the weather radar (WeatherRadar) for 10 seconds of every minute, except during a clip. Beside the
+// followed driver's name, their tires and a fuel gauge with the laps and time the fuel lasts.
 
 const KEYS = {
   commentary: 'tv.commentary',
@@ -101,11 +102,10 @@ const controlClass =
   'focus:ring-[6px] focus:ring-[#ffd400] disabled:opacity-40';
 const buttonClass = `${controlClass} bg-[#1b222d]`;
 
-function StatusPill({ status, recorded, obs, obsLabel, t }: { status: FeedStatus; recorded: boolean; obs: boolean; obsLabel: string; t: ReturnType<typeof useLanguage>['t']['tv'] }) {
+function StatusPill({ status, recorded, t }: { status: FeedStatus; recorded: boolean; t: ReturnType<typeof useLanguage>['t']['tv'] }) {
   const live = status === 'live' || status === 'fallback';
-  // Recorded footage is on screen, so nothing here says LIVE
+  // Recorded footage is on screen with no live video beside it, so nothing here says LIVE
   if (recorded && live) return <span className="rounded-lg bg-[#3a4350] px-4 py-1 text-[26px] font-bold tracking-wide text-[#e6ebf2]">{t.director.recorded}</span>;
-  if (obs && live) return <span className="rounded-lg bg-[#e10600] px-4 py-1 text-[26px] font-bold tracking-wide text-white">{obsLabel}</span>;
   return (
     <span
       className={`rounded-lg px-4 py-1 text-[26px] font-bold tracking-wide ${live ? 'bg-[#e10600] text-white' : 'bg-[#3a4350] text-[#e6ebf2]'}`}
@@ -138,9 +138,11 @@ export default function TvBroadcast({
   // video's delayed timeline (useBroadcastTimeline); the commentary is asked for from the live picture, and its lines
   // wait for that timeline
   const liveVideo = liveState?.focus?.liveVideo ?? null;
+  // The session's OBS stream: shown beside the map whenever there is one, live or not
+  const obsStream = liveVideo?.stream ?? null;
+  const obsLive = obsStream?.status === 'LIVE';
   const [metrics, setMetrics] = useState<PlayerMetrics | null>(null);
-  const [camera, setCamera] = useState<CameraSource>('TRACK_MAP');
-  const timeline = useBroadcastTimeline(liveState, liveVideo?.sync ?? null, metrics, liveVideo?.stream?.status === 'LIVE');
+  const timeline = useBroadcastTimeline(liveState, liveVideo?.sync ?? null, metrics, obsLive);
   const state = timeline.state;
   const liveFocus = liveState?.focus ?? null;
   const focus = state?.focus ?? null;
@@ -205,8 +207,7 @@ export default function TvBroadcast({
     state?.clockOffset ?? 0
   );
 
-  const obsOnScreen = camera === 'OBS_LIVE' && !recorded;
-  const radar = useRadarCycle(!!focus?.wet && !focus.offline, recorded || obsOnScreen, state?.clockOffset ?? 0);
+  const radar = useRadarCycle(!!focus?.wet && !focus.offline, recorded, state?.clockOffset ?? 0);
 
   // This TV's player and timeline figures, for the Admin page's diagnostics, every 10 s while there's a stream
   const reportRef = useRef({ metrics, timeline });
@@ -381,7 +382,7 @@ export default function TvBroadcast({
           <div className="min-w-0 flex-1">
             <p className="line-clamp-2 font-display text-[34px] font-bold leading-[1.05]">{focus?.track ?? t.tv.title}</p>
             <div className="mt-1.5 flex min-w-0 items-center gap-3">
-              <StatusPill status={status} recorded={recorded} obs={obsOnScreen} obsLabel={t.liveVideo.tv.obsLive} t={t.tv} />
+              <StatusPill status={status} recorded={recorded && !obsLive} t={t.tv} />
               {focus?.flag && flagColors && (
                 <span className="shrink-0 rounded-lg px-3 py-0.5 text-[22px] font-bold uppercase" style={{ backgroundColor: flagColors.bg, color: flagColors.fg }}>
                   {fmt(t.tv.eventFlag, { flag: t.tv.flags[focus.flag] })}
@@ -412,9 +413,9 @@ export default function TvBroadcast({
         </div>
 
         {/* On the left the leaderboard, with the commentary and race events under it; on the right the followed driver,
-            the track map and their inputs */}
+            the OBS live video beside the track map, and their inputs */}
         <div className="flex min-h-0 flex-1 gap-5">
-          <div className="flex w-[880px] shrink-0 flex-col gap-5">
+          <div className="flex w-[740px] shrink-0 flex-col gap-5">
             <section className="shrink-0 overflow-hidden rounded-2xl bg-[#0a0d12] py-2">
               {!state ? (
                 <p className="p-8 text-[32px] text-[#a7b0bd]">{t.tv.connecting}</p>
@@ -433,7 +434,7 @@ export default function TvBroadcast({
             <div className="flex min-h-0 flex-1 gap-5">
               {/* The announcer speaking, as a lower third */}
               <div
-                className="w-[470px] shrink-0 overflow-hidden rounded-2xl border-l-[10px] bg-[#10141b] px-4 py-3"
+                className="w-[400px] shrink-0 overflow-hidden rounded-2xl border-l-[10px] bg-[#10141b] px-4 py-3"
                 style={{ borderColor: speaking ? ANNOUNCER_COLORS[speaking.speaker] : '#2a313c' }}
                 aria-live="polite"
               >
@@ -509,27 +510,33 @@ export default function TvBroadcast({
               )}
             </div>
 
-            {/* The track map */}
-            <div className="relative min-h-0 flex-1 overflow-hidden rounded-2xl bg-[#0a0d12] p-2">
-              {focus && state && (
-                <BroadcastVideoSwitcher
-                  director={director}
-                  clockOffset={state.clockOffset}
-                  volume={volume}
-                  muted={muted}
-                  duck={!!speaking}
-                  onRecordedChange={setRecorded}
-                >
-                  <TvBroadcastStage
+            {/* The OBS live video, always on while the session has a stream, and the track map beside it. The Broadcast
+                Director's recorded clips take the map's panel only */}
+            <div className="flex min-h-0 flex-1 gap-5">
+              {focus && state && liveVideo && obsStream && (
+                <div className="min-w-0 flex-[5] overflow-hidden rounded-2xl bg-[#0a0d12] p-2" data-testid="tv-obs-panel">
+                  <TvObsPanel
+                    stream={obsStream}
                     liveVideo={liveVideo}
                     clockOffset={state.clockOffset}
                     volume={volume}
                     muted={muted}
                     started={started}
-                    speaking={!!speaking}
+                    quiet={!!speaking || recorded}
                     videoSound={videoSound}
-                    onCamera={setCamera}
                     onMetrics={setMetrics}
+                  />
+                </div>
+              )}
+              <div className="relative min-w-0 flex-[3] overflow-hidden rounded-2xl bg-[#0a0d12] p-2" data-testid="tv-map-panel">
+                {focus && state && (
+                  <BroadcastVideoSwitcher
+                    director={director}
+                    clockOffset={state.clockOffset}
+                    volume={volume}
+                    muted={muted}
+                    duck={!!speaking}
+                    onRecordedChange={setRecorded}
                   >
                     <TvMap
                       trackKey={focus.trackKey}
@@ -538,18 +545,13 @@ export default function TvBroadcast({
                       receivedAt={state.receivedAt}
                       satellite={satellite}
                     />
-                  </TvBroadcastStage>
-                </BroadcastVideoSwitcher>
-              )}
-              {focus?.wet && <WeatherRadar weather={focus.weather} wetTires={focus.tire?.kind === 'wet' || focus.tire?.kind === 'intermediate'} visible={radar} size="tv" />}
-              {liveVideo?.source.fallback && !recorded && (
-                <p className="absolute right-4 top-4 rounded bg-black/70 px-3 py-1 text-[18px] text-[#ffd400]" data-testid="obs-fallback">
-                  {t.liveVideo.tv.obsOffline}
-                </p>
-              )}
+                  </BroadcastVideoSwitcher>
+                )}
+                {focus?.wet && <WeatherRadar weather={focus.weather} wetTires={focus.tire?.kind === 'wet' || focus.tire?.kind === 'intermediate'} visible={radar} size="tv" />}
+              </div>
             </div>
 
-            {/* The followed driver's inputs, in a strip under the map */}
+            {/* The followed driver's inputs, in a strip under the video and the map */}
             <div className="h-[212px] shrink-0 rounded-2xl bg-[#10141b] px-5 py-4">
               {focus && state && !focus.offline ? (
                 <TvInputs
@@ -682,7 +684,7 @@ export default function TvBroadcast({
                     </button>
                   ))}
                 </div>
-                <TvLiveVideoDiagnostics liveVideo={liveVideo} camera={recorded ? 'VIDEO_CLIP' : camera} metrics={metrics} timeline={timeline} />
+                <TvLiveVideoDiagnostics liveVideo={liveVideo} mapPanel={recorded ? 'VIDEO_CLIP' : 'TRACK_MAP'} metrics={metrics} timeline={timeline} />
               </>
             )}
             <div className="mt-10 flex items-center justify-between">

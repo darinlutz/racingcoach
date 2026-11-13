@@ -1,13 +1,12 @@
 import { query } from './db';
-import { DEFAULT_LIVE_VIDEO_SETTINGS, parseLiveVideoSettings, type LiveVideoSettings, type SourceState } from './liveVideo/broadcastSource';
+import { DEFAULT_LIVE_VIDEO_SETTINGS, parseLiveVideoSettings, type LiveVideoSettings } from './liveVideo/broadcastSource';
 import { MAX_LIVE_STREAMS } from './liveVideo/streamRules';
 import { ensureUserSchema } from './users';
 
-// Live video's tables (docs/live-video.md), created on first use, additive only:
+// Live video's table (docs/live-video.md), created on first use:
 //   "LiveVideoStreams"       the Cloudflare live inputs an Admin added, each tied to the driver account whose racing it
 //                            shows (deleted with that account). Never a stream key or token: those stay in Cloudflare
-//   "BroadcastSourceStates"  each race session's camera (map or OBS), so a manual choice survives a restart; no user,
-//                            kept a day
+// "BroadcastSourceStates" (each race session's camera, from when TVs switched between the map and OBS) is dropped.
 // The settings are in "SiteSettings", key live_video. Telemetry samples are never stored: the synchronization buffer
 // lives in each viewer's browser.
 
@@ -28,11 +27,7 @@ export const LIVE_VIDEO_SCHEMA: string[] = [
   )`,
   // One stream per driver: the one their broadcast shows
   'CREATE UNIQUE INDEX IF NOT EXISTS live_video_streams_user_idx ON racingcoach."LiveVideoStreams" (user_id)',
-  `CREATE TABLE IF NOT EXISTS racingcoach."BroadcastSourceStates" (
-    session_key TEXT PRIMARY KEY,
-    state JSONB NOT NULL,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-  )`,
+  'DROP TABLE IF EXISTS racingcoach."BroadcastSourceStates"',
 ];
 
 const LIVE_VIDEO_KEY = 'live_video';
@@ -174,7 +169,6 @@ export async function setLiveVideoSettings(changes: unknown, userId: number): Pr
     {
       ...current,
       ...merged,
-      preferences: { ...current.preferences, ...((merged.preferences as object) ?? {}) },
       sync: { ...current.sync, ...((merged.sync as object) ?? {}) },
     },
     current
@@ -186,28 +180,4 @@ export async function setLiveVideoSettings(changes: unknown, userId: number): Pr
   );
   settingsCache = { at: Date.now(), settings: next };
   return next;
-}
-
-export async function saveSourceState(state: SourceState): Promise<void> {
-  await ensureLiveVideoSchema();
-  await query(
-    `INSERT INTO racingcoach."BroadcastSourceStates" (session_key, state) VALUES ($1, $2)
-     ON CONFLICT (session_key) DO UPDATE SET state = EXCLUDED.state, updated_at = now()`,
-    [state.sessionKey, JSON.stringify(state)]
-  );
-}
-
-// A session's saved camera, if it was saved within maxAgeMs
-export async function readSourceState(sessionKey: string, maxAgeMs: number): Promise<SourceState | null> {
-  await ensureLiveVideoSchema();
-  const [row] = await query<{ state: SourceState; updated_at: Date }>(
-    'SELECT state, updated_at FROM racingcoach."BroadcastSourceStates" WHERE session_key = $1',
-    [sessionKey]
-  );
-  return row && Date.now() - row.updated_at.getTime() < maxAgeMs ? row.state : null;
-}
-
-export async function purgeSourceStates(): Promise<void> {
-  await ensureLiveVideoSchema();
-  await query(`DELETE FROM racingcoach."BroadcastSourceStates" WHERE updated_at < now() - interval '1 day'`);
 }

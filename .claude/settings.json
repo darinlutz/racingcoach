@@ -29,7 +29,9 @@
       "Bash(gh pr *)",
       "Skill(update-config)",
       "Skill(update-config:*)",
-      "Bash(gh run *)"
+      "Bash(gh run *)",
+      "mcp__plugin_render_render__list_services",
+      "mcp__plugin_render_render__list_deploys"
     ],
     "additionalDirectories": [
       "/Users/darinlutz/Desktop/Clarivex/racingcoach"

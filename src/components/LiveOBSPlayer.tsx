@@ -32,6 +32,28 @@ export type PlayerMetrics = {
   engine: 'hls.js' | 'native' | 'none';
 };
 
+// Fire TV's Silk and Chromium on a Raspberry Pi (Linux on ARM, not Android): too slow for the top rendition
+function weakDevice(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent;
+  if (/\bSilk\/|\bAFT[A-Z0-9]/.test(ua)) return true;
+  return /Linux (armv7l|armv8l|aarch64)/.test(ua) && !/Android/.test(ua);
+}
+
+// The highest rendition at most 720 lines and 30 fps (frame rate unknown counts as fine), else at most 720 lines,
+// else -1 (no cap)
+function weakDeviceCap(levels: { height: number; frameRate?: number }[]): number {
+  let best = -1;
+  let bestAnyRate = -1;
+  levels.forEach((level, i) => {
+    if (!level.height || level.height > 720) return;
+    if (bestAnyRate < 0 || level.height > levels[bestAnyRate].height) bestAnyRate = i;
+    if (level.frameRate && level.frameRate > 31) return;
+    if (best < 0 || level.height > levels[best].height) best = i;
+  });
+  return best >= 0 ? best : bestAnyRate;
+}
+
 const RETRY_MIN_MS = 1000;
 const RETRY_MAX_MS = 15_000;
 const METRICS_MS = 1000;
@@ -153,10 +175,27 @@ export default function LiveOBSPlayer({
       if (stopped) return;
       if (Hls.isSupported()) {
         engine.current = 'hls.js';
-        const hls = new Hls({ lowLatencyMode: true, liveSyncDurationCount: 3, maxBufferLength: 30, backBufferLength: 30, enableWorker: true });
+        // Cloudflare Stream's live manifest is ordinary HLS, not LL-HLS, so lowLatencyMode only made hls.js chase the
+        // live edge with 3 segments' margin, and a slow device (Fire TV, Raspberry Pi) ran its buffer dry. 4 segments
+        // behind, and it only jumps ahead once 12 behind, rather than skipping and rebuffering at every hiccup
+        const weak = weakDevice();
+        const hls = new Hls({
+          lowLatencyMode: false,
+          liveSyncDurationCount: 4,
+          liveMaxLatencyDurationCount: 12,
+          maxBufferLength: 30,
+          backBufferLength: weak ? 10 : 30,
+          capLevelToPlayerSize: true,
+          enableWorker: true,
+        });
         hlsRef.current = hls;
-        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        hls.on(Hls.Events.MANIFEST_PARSED, (_event, data) => {
           retry = 0;
+          // A weak device decodes 1080p60 in software (Raspberry Pi 5 has no H.264 decoder) or barely: at most 720p30
+          if (weak) {
+            const cap = weakDeviceCap(data.levels);
+            if (cap >= 0) hls.autoLevelCapping = cap;
+          }
           play();
         });
         hls.on(Hls.Events.ERROR, (_event, data) => {
@@ -201,18 +240,31 @@ export default function LiveOBSPlayer({
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !playable) return;
-    const playing = () => report('LIVE');
+    // Only 'waiting' means the picture stopped: 'stalled' (no download progress for a few seconds) fires with
+    // hls.js while playback carries on, and as 'playing' never fires again then, BUFFERING stuck over a moving
+    // picture. The picture moving again (timeupdate) also clears it
+    let buffering = false;
+    const playing = () => {
+      buffering = false;
+      report('LIVE');
+    };
     const waiting = () => {
+      buffering = true;
       stalls.current++;
       report('BUFFERING');
     };
+    let lastTime = video.currentTime;
+    const progress = () => {
+      if (buffering && video.currentTime > lastTime && !video.paused) playing();
+      lastTime = video.currentTime;
+    };
     video.addEventListener('playing', playing);
     video.addEventListener('waiting', waiting);
-    video.addEventListener('stalled', waiting);
+    video.addEventListener('timeupdate', progress);
     return () => {
       video.removeEventListener('playing', playing);
       video.removeEventListener('waiting', waiting);
-      video.removeEventListener('stalled', waiting);
+      video.removeEventListener('timeupdate', progress);
     };
   }, [playable, report]);
 

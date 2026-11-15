@@ -68,14 +68,16 @@ export default async function RootLayout({
   // Standard (feet, mph, °F) or Metric (meters, kph, °C), the Account page's Preferred Units; client
   // components get them from UnitsProvider
   const units = await getUnits(user);
+  // These three don't depend on each other, so they're read together.
   // A signed-in user who hasn't accepted the current Terms of Service and Privacy Policy is asked to, above the page
-  // (no notice if the check fails)
-  const needsPolicyAcceptance = user ? !(await hasAcceptedCurrentPolicies(user.id).catch(() => true)) : false;
-  // The sidebar's picture (the red helmet if the check fails)
-  const pictureVersion = user ? await getProfilePictureVersion(user.id).catch(() => null) : null;
-  // The visitor's cookie choices, read here so optional technologies are left out from the first render
+  // (no notice if the check fails); the sidebar's picture (the red helmet if the check fails); and the visitor's
+  // cookie choices, read here so optional technologies are left out from the first render
   // (src/lib/cookieConsentServer.ts); CookieConsentProvider shows the banner when a choice is needed
-  const consent = await getConsentState();
+  const [needsPolicyAcceptance, pictureVersion, consent] = await Promise.all([
+    user ? hasAcceptedCurrentPolicies(user.id).then((accepted) => !accepted, () => false) : false,
+    user ? getProfilePictureVersion(user.id).catch(() => null) : null,
+    getConsentState(),
+  ]);
 
   return (
     <html

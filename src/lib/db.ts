@@ -91,23 +91,56 @@ export async function query<Row extends QueryResultRow = QueryResultRow>(
   sql: string,
   params: unknown[] = []
 ): Promise<Row[]> {
-  const result = await (await readyPool()).query<Row>(sql, params);
-  return result.rows;
+  const pool = await readyPool();
+  try {
+    return (await pool.query<Row>(sql, params)).rows;
+  } catch (error) {
+    // Postgres ends a deadlock by failing one of the statements in it (seen while a deploy's schema update, which
+    // locks whole tables, overlaps the old server's traffic). A statement run on its own did nothing when it fails,
+    // so it's safe to run once more, by which time the other side has normally finished.
+    if (!isDeadlock(error)) throw error;
+    console.warn('Deadlock detected; running the statement again');
+    await new Promise((resolve) => setTimeout(resolve, 100 + Math.random() * 200));
+    return (await pool.query<Row>(sql, params)).rows;
+  }
+}
+
+// Postgres SQLSTATE for deadlock_detected
+function isDeadlock(error: unknown): boolean {
+  return (error as { code?: string } | null)?.code === '40P01';
+}
+
+// The pool only listens for errors on idle connections. One that's checked out and drops between statements (the
+// database restarting while a job holds it across other work) would report its error to nobody, which Node treats as
+// an uncaught exception. The next statement on it fails anyway, and that's the error the caller sees.
+function listenForDrop(client: PoolClient): () => void {
+  const onError = (error: Error) => console.error('Postgres connection dropped while in use:', error.message);
+  client.on('error', onError);
+  return () => client.removeListener('error', onError);
 }
 
 // Runs `fn` inside a transaction on a single connection, rolling back if it throws.
 export async function transaction<T>(fn: (client: PoolClient) => Promise<T>): Promise<T> {
   const client = await (await readyPool()).connect();
+  const stopListening = listenForDrop(client);
+  let broken: Error | undefined;
   try {
     await client.query('BEGIN');
     const result = await fn(client);
     await client.query('COMMIT');
     return result;
   } catch (error) {
-    await client.query('ROLLBACK');
+    // A rollback that fails too (the connection is gone) must not replace the error that says what went wrong, and
+    // its connection isn't put back in the pool
+    try {
+      await client.query('ROLLBACK');
+    } catch (rollbackError) {
+      broken = rollbackError instanceof Error ? rollbackError : new Error(String(rollbackError));
+    }
     throw error;
   } finally {
-    client.release();
+    stopListening();
+    client.release(broken);
   }
 }
 
@@ -115,9 +148,11 @@ export async function transaction<T>(fn: (client: PoolClient) => Promise<T>): Pr
 // advisory lock across several statements.
 export async function withClient<T>(fn: (client: PoolClient) => Promise<T>): Promise<T> {
   const client = await (await readyPool()).connect();
+  const stopListening = listenForDrop(client);
   try {
     return await fn(client);
   } finally {
+    stopListening();
     client.release();
   }
 }

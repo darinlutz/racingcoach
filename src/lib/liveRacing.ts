@@ -332,6 +332,10 @@ const voiceMessages = (live.voiceMessages ??= new Map<string, { driverId: number
 
 function expire(now: number) {
   for (const [userId, entry] of live.entries) if (now - entry.receivedAt > EXPIRE_MS) live.entries.delete(userId);
+  // What was kept for drivers who have gone goes with them, or it would stay for as long as the server runs: who
+  // was watching them, and voice messages (recordings) nobody fetched
+  for (const driverId of live.viewers.keys()) if (!live.entries.has(driverId)) live.viewers.delete(driverId);
+  for (const [id, voice] of voiceMessages) if (now - voice.at > MESSAGE_EXPIRE_MS) voiceMessages.delete(id);
 }
 
 // Records a driver's live update; returns how many others are watching them right now and whether the collector

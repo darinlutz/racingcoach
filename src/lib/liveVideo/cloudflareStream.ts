@@ -133,21 +133,17 @@ async function fetchHealth(uid: string): Promise<StreamHealth> {
   const before = cache.health.get(uid);
   let apiStatus: StreamStatus | null = null;
   let error: string | null = null;
-  if (config.accountId && config.apiToken) {
-    try {
-      apiStatus = (await readLiveInput(uid)).status;
-    } catch (e) {
-      error = e instanceof Error ? e.message : String(e);
-    }
-  }
+  const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
+  // The two don't depend on each other, so they're asked together: the answer takes as long as the slower one, not both
+  const [input, lived] = await Promise.allSettled([
+    config.accountId && config.apiToken ? readLiveInput(uid) : null,
+    config.customerCode ? lifecycle(uid, config.customerCode) : null,
+  ]);
+  if (input.status === 'fulfilled') apiStatus = input.value?.status ?? null;
+  else error = message(input.reason);
   let life: { status: StreamStatus; videoUid: string | null } | null = null;
-  if (config.customerCode) {
-    try {
-      life = await lifecycle(uid, config.customerCode);
-    } catch (e) {
-      error ??= e instanceof Error ? e.message : String(e);
-    }
-  }
+  if (lived.status === 'fulfilled') life = lived.value;
+  else error ??= message(lived.reason);
   let status = combineStatus(apiStatus, life?.status ?? null);
   if (status === 'UNKNOWN' && error) status = 'ERROR';
   const now = Date.now();

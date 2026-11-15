@@ -388,6 +388,9 @@ export async function raceAnnouncerLines(input: {
   language: Language;
   // The model's feature in AI Model Control: the cheaper raceAnnouncerRoutine for the less important moments
   feature?: 'raceAnnouncer' | 'raceAnnouncerRoutine';
+  // Cancels the model call once the caller has stopped waiting (a live moment has passed), so an answer nobody will
+  // hear isn't written and paid for
+  signal?: AbortSignal;
 }): Promise<{ lines: AnnouncerLine[]; dropped: DroppedLine[] }> {
   if (input.plans.length === 0) return { lines: [], dropped: [] };
   const agent = createAgent({
@@ -405,7 +408,7 @@ export async function raceAnnouncerLines(input: {
       maxWords: Math.floor(p.maxSeconds * 2.8),
     })),
   };
-  const result = await agent.invoke({ messages: [{ role: 'user', content: JSON.stringify(request) }] });
+  const result = await agent.invoke({ messages: [{ role: 'user', content: JSON.stringify(request) }] }, { signal: input.signal });
   const written = result.structuredResponse.lines as z.infer<typeof linesSchema>['lines'];
   // A line for a user of another language with English words in it is dropped like one that breaks the facts: the
   // names it may say as they are are the field's, and the cars, track and series in the request

@@ -328,6 +328,8 @@ async function writeLines(video: DirectorVideo, slots: Slot[], language: Languag
         facts: { allowedNames: fieldNames.filter((n) => metadata.includes(lastNameOf(n))), fieldNames, allowedNumbers: numbers, allowedDecimals: decimals },
         instructions: '',
         language,
+        // the model call ends with the wait for it
+        signal: AbortSignal.timeout(WRITE_TIMEOUT_MS),
       })),
       WRITE_TIMEOUT_MS
     );

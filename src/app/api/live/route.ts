@@ -4,7 +4,7 @@ import { readLiveDrivers } from '@/lib/liveRacing';
 import { getCurrentUser } from '@/lib/session';
 
 // The Live Racing page's drivers (src/lib/liveRacing.ts): everyone running the telemetry collector right now whom
-// the signed-in user may watch, with their position and lap details. Asked for every second while the page is open;
+// the signed-in user may watch, with their position and lap details. Asked for every second while the page is open and someone is live (less often otherwise);
 // each ask counts the user as watching those drivers. ?inputs=<userId> adds that driver's inputs over the last few
 // seconds (the page's Driver Inputs panel).
 export async function GET(request: Request) {

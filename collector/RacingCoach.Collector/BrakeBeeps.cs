@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Globalization;
 using SVappsLAB.iRacingTelemetrySDK;
 
@@ -115,24 +114,18 @@ internal sealed class BrakeBeeps(Func<RacingCoachApi?> api, Action<string> log)
 
     /// <summary>The window's Test button: the three warning beeps and the brakepoint one, at a slider volume, on
     /// their own thread.</summary>
-    public static void PlayTest(int volumePercent) => Task.Run(() =>
+    public static void PlayTest(int volumePercent)
     {
-        try
+        var volume = Gain(volumePercent);
+        for (var i = 0; i < WarningFeet.Length; i++)
         {
-            using var tones = new TonePlayer();
-            var volume = Gain(volumePercent);
-            for (var i = 0; i < WarningFeet.Length; i++)
-            {
-                tones.Play(WarningHz, BeepMs, volume);
-                Thread.Sleep(TestSpacingMs - BeepMs);
-            }
-            tones.Play(BrakepointHz, BrakepointBeepMs, volume);
+            TestTones.Play(WarningHz, BeepMs, volume);
+            TestTones.Pause(TestSpacingMs - BeepMs - TonePlayer.GapMs);
         }
-        catch (Exception e) when (e is InvalidOperationException or DllNotFoundException or EntryPointNotFoundException)
-        {
-            // no sound device
-        }
-    });
+        TestTones.Play(BrakepointHz, BrakepointBeepMs, volume);
+    }
+
+    private static readonly TonePlayer TestTones = new();
 
     private async Task LoadAsync(string track, string? iRacingLength, RacingCoachApi site)
     {
@@ -235,6 +228,7 @@ internal sealed class BrakeBeeps(Func<RacingCoachApi?> api, Action<string> log)
             _lastPct = null;
             return;
         }
+        _beeps.KeepAwake(); // on track with beeps to play: the sound stream stays running, so none is swallowed
 
         if (_lastPct is { } previous)
         {
@@ -280,40 +274,15 @@ internal sealed class BrakeBeeps(Func<RacingCoachApi?> api, Action<string> log)
 /// </summary>
 internal sealed class BeepQueue : IDisposable
 {
-    private readonly BlockingCollection<(int Hz, int Ms, double Volume)> _beeps = [];
-    private Thread? _player;
+    private readonly TonePlayer _tones = new();
 
-    public void Warning(double volume) => Play(BrakeBeeps.WarningHz, BrakeBeeps.BeepMs, volume);
+    public void Warning(double volume) => _tones.Play(BrakeBeeps.WarningHz, BrakeBeeps.BeepMs, volume);
 
-    public void Brakepoint(double volume) => Play(BrakeBeeps.BrakepointHz, BrakeBeeps.BrakepointBeepMs, volume);
+    public void Brakepoint(double volume) => _tones.Play(BrakeBeeps.BrakepointHz, BrakeBeeps.BrakepointBeepMs, volume);
 
-    public void Dispose() => _beeps.CompleteAdding();
+    /// <summary>Keeps the sound stream running so the next beep is heard in full (see TonePlayer); call it while
+    /// beeps may come, e.g. every sample on track.</summary>
+    public void KeepAwake() => _tones.KeepAwake();
 
-    private void Play(int hz, int ms, double volume)
-    {
-        if (_beeps.IsAddingCompleted)
-            return;
-        if (_player is null)
-        {
-            _player = new Thread(PlayAll) { IsBackground = true, Name = "Brake beeps" };
-            _player.Start();
-        }
-        _beeps.Add((hz, ms, volume));
-    }
-
-    private void PlayAll()
-    {
-        using var tones = new TonePlayer();
-        foreach (var (hz, ms, volume) in _beeps.GetConsumingEnumerable())
-        {
-            try
-            {
-                tones.Play(hz, ms, volume);
-            }
-            catch (Exception e) when (e is InvalidOperationException or DllNotFoundException or EntryPointNotFoundException)
-            {
-                // no sound device
-            }
-        }
-    }
+    public void Dispose() => _tones.Dispose();
 }

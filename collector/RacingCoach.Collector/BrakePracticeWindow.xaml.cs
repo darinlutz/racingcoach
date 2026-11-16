@@ -251,6 +251,7 @@ public partial class BrakePracticeWindow : Window
             return;
 
         var time = now - _drillStart;
+        _beeps.KeepAwake(); // from the countdown on, so the first beep is heard in full
         CountdownText.Visibility = time < 0 ? Visibility.Visible : Visibility.Collapsed;
         if (time < 0)
             CountdownText.Text = Math.Ceiling(-time).ToString(Loc.Culture(_language));

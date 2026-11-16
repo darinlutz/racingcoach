@@ -32,8 +32,9 @@ export function reportOnlyCsp({ dev = false } = {}) {
     // Next.js's inline scripts; the dev server also evaluates code and talks over a WebSocket
     `script-src 'self' 'unsafe-inline'${dev ? " 'unsafe-eval'" : ''}`,
     "style-src 'self' 'unsafe-inline'",
-    // The profile picture cropper and the 3D view draw to canvases (blob: and data: images)
-    "img-src 'self' data: blob:",
+    // The profile picture cropper and the 3D view draw to canvases (blob: and data: images); the Account page shows
+    // the linked Discord account's avatar from Discord's CDN
+    "img-src 'self' data: blob: https://cdn.discordapp.com",
     "font-src 'self' data:",
     // blob: is the page's own data (e.g. the engine sound played under the announcers, read with fetch)
     `connect-src 'self' blob: ${R2} ${STREAM}${dev ? ' ws: wss:' : ''}`,

@@ -44,7 +44,7 @@ import { METERS_PER_FOOT, SPEED_UNIT, speedFromMetersPerSecond } from '@/lib/uni
 // appears once a lap with track positions uploads).
 
 const POLL_MS = 1000;
-// Asked less often while there's nothing to move: nobody live (a driver who starts shows within this long), after a
+// Asked less often while there's nothing to move: nobody online (a driver who starts shows within this long), after a
 // failed request, and once the sign-in has ended (the session lasts a week; a page left open would otherwise ask every
 // second for good). The page picks up again by itself at the next answer.
 const IDLE_POLL_MS = 3000;
@@ -341,7 +341,8 @@ export default function LiveRacing({
           const data = await response.json();
           if (!response.ok) throw new Error(data.error || t.api.failedLoadLiveRacing);
           const now = performance.now();
-          if ((data.drivers as LiveDriver[]).length === 0) next = IDLE_POLL_MS;
+          // offline drivers stay listed for a few minutes after their last update
+          if ((data.drivers as LiveDriver[]).every((d) => d.offline)) next = IDLE_POLL_MS;
           if (!stopped) {
             const received = (data.drivers as LiveDriver[]).map((d) => ({ ...d, sampledAt: now - d.ageMs }));
             setDrivers(received);

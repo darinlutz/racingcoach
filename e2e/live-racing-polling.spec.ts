@@ -36,6 +36,13 @@ test('the page asks less often with nobody live, and nearly stops once signed ou
   await expect.poll(() => answers.length, { timeout: 30_000 }).toBeGreaterThan(0);
   expect(answers[0]).toBe(200);
 
+  // Other specs' drivers live on in the server's memory: online for 15 s after their last update, then listed as
+  // offline for a few minutes, which counts as nobody live
+  await expect
+    .poll(async () => ((await (await page.request.get('/api/live')).json()).drivers as { offline: boolean }[]).every((d) => d.offline), { timeout: 40_000 })
+    .toBe(true);
+  await page.waitForTimeout(1500);
+
   // Nobody is live: every 3 s, so about 4 in 12 s (it was 12)
   const idleFrom = answers.length;
   await page.waitForTimeout(12_000);

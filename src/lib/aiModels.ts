@@ -22,6 +22,7 @@ import {
 import { currentAiModelCategory, tokenUsageCallbacks } from '@/lib/aiTokenUsage';
 import { aiCallLimit, CLAUDE_MAX_OUTPUT_TOKENS, REASONING_OUTPUT_FACTOR } from '@/lib/aiCallLimits';
 import { assertMeteredServicesOn } from '@/lib/meteredServices';
+import { noteModelError, usableModel } from '@/lib/aiModelHealth';
 import { ensureUserSchema } from '@/lib/users';
 import type { CallbackHandlerMethods } from '@langchain/core/callbacks/base';
 import { cloudEventCallbacks } from '@/lib/localAi/events';
@@ -75,10 +76,12 @@ export async function setAiModel(category: AiModelCategory, feature: AiFeature, 
 }
 
 // A feature's model for the caller in context (aiRateLimit's track(); the Admin category outside it). A failed
-// read falls back to the default rather than failing the feature
+// read falls back to the default rather than failing the feature, and so does a picked model its provider says no
+// longer exists (src/lib/aiModelHealth.ts), until it answers again
 export async function getAiModel(feature: AiFeature): Promise<AiModel> {
   const context = currentAiModelCategory();
   const category = isAiModelCategory(context) ? context : SYSTEM_AI_MODEL_CATEGORY;
+  const fallback = defaultAiModel(category, feature);
   try {
     await ensureUserSchema();
     const rows = await query<{ key: string; value: string }>(
@@ -87,13 +90,13 @@ export async function getAiModel(feature: AiFeature): Promise<AiModel> {
     );
     const own = rows.find((row) => row.key === settingKey(category, feature))?.value;
     const shared = rows.find((row) => row.key === `ai_model:${feature}`)?.value;
-    if (isAiModelFor(feature, own)) return own;
+    if (isAiModelFor(feature, own)) return usableModel(own, fallback);
     const ownDefault = categoryDefault(category, feature);
     if (ownDefault) return ownDefault;
-    return isAiModelFor(feature, shared) ? shared : AI_FEATURES[feature];
+    return usableModel(isAiModelFor(feature, shared) ? shared : AI_FEATURES[feature], fallback);
   } catch (error) {
     console.error(`Failed to read the AI model for ${feature}:`, error);
-    return defaultAiModel(category, feature);
+    return fallback;
   }
 }
 
@@ -190,6 +193,19 @@ export async function chatModel(feature: AiFeature, temperature: number, overrid
   });
 }
 
+// Notices a model its provider says doesn't exist (retired, renamed), so getAiModel uses the feature's default until
+// it answers again. Logged as an error once each time, which the error monitor emails to the owner: the model needs
+// changing in the Admin page's AI Model Control.
+function modelGoneCallback(model: AiModel): CallbackHandlerMethods {
+  return {
+    handleLLMError: (error: unknown) => {
+      if (noteModelError(model, error)) {
+        console.error(`AI model ${model} is not available from its provider (404). Each feature set to it uses its default model meanwhile; pick another in the Admin page's AI Model Control.`);
+      }
+    },
+  };
+}
+
 // The cloud chat model itself, with the feature's limits (limitsFeature: an AI feature, or another key of
 // AI_CALL_LIMITS such as the test console's). extraCallbacks are added to the token usage ones.
 export function cloudChatModel(
@@ -198,7 +214,7 @@ export function cloudChatModel(
   temperature: number,
   extraCallbacks: CallbackHandlerMethods[]
 ): BaseChatModel {
-  const callbacks = [...tokenUsageCallbacks(model), ...extraCallbacks];
+  const callbacks = [...tokenUsageCallbacks(model), modelGoneCallback(model), ...extraCallbacks];
   const { maxOutputTokens, timeoutMs: timeout, maxRetries } = aiCallLimit(limitsFeature);
   if (isClaudeModel(model)) {
     if (!process.env.ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY is not configured');

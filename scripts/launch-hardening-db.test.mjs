@@ -476,3 +476,67 @@ describe('a disputed or refunded payment ends its paid access (F-22)', { skip },
     assert.equal((await account(id)).membership_level, 'Gold');
   });
 });
+
+// src/lib/db.ts under trouble the live site has met: a deadlock while a deploy's schema update overlapped traffic, and
+// the database restarting while a job held a connection
+describe('database access under trouble', { skip }, () => {
+  let db, other;
+  const uncaught = [];
+  const onUncaught = (error) => uncaught.push(error);
+
+  before(async () => {
+    process.env.DATABASE_URL = url;
+    register(new URL('./ts-resolve-hooks.mjs', import.meta.url));
+    db = await import(new URL('../src/lib/db.ts', import.meta.url).href);
+    other = new pg.Client({ connectionString: url });
+    await other.connect();
+    process.on('uncaughtException', onUncaught);
+  });
+  after(async () => {
+    process.removeListener('uncaughtException', onUncaught);
+    await other.end();
+  });
+
+  test('a statement Postgres fails to end a deadlock is run again and succeeds', async () => {
+    // other holds lock 1; the statement takes lock 2 and waits for 1; other then asks for 2: a deadlock, which
+    // Postgres ends after a second by failing the one that waited first, the statement
+    await other.query('BEGIN');
+    await other.query('SELECT pg_advisory_xact_lock(918273, 1)');
+    const statement = db.query('SELECT pg_advisory_xact_lock(918273, 2), pg_advisory_xact_lock(918273, 1), 7 AS answer');
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    await other.query('SELECT pg_advisory_xact_lock(918273, 2)');
+    await other.query('COMMIT');
+    const [row] = await statement;
+    assert.equal(row.answer, 7);
+  });
+
+  test('a transaction whose connection is lost reports its own error, crashes nothing and frees the connection', async () => {
+    const lost = new Error('the work failed');
+    await assert.rejects(
+      db.transaction(async (client) => {
+        const [{ pid }] = (await client.query('SELECT pg_backend_pid() AS pid')).rows;
+        await other.query('SELECT pg_terminate_backend($1)', [pid]);
+        // the connection drops while the transaction is between statements
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        throw lost;
+      }),
+      (error) => error === lost
+    );
+    assert.deepEqual(uncaught, []);
+    // the pool hands out a working connection afterwards
+    assert.deepEqual(await db.query('SELECT 1 AS ok'), [{ ok: 1 }]);
+  });
+
+  test('a held connection that is lost between statements crashes nothing', async () => {
+    await assert.rejects(
+      db.withClient(async (client) => {
+        const [{ pid }] = (await client.query('SELECT pg_backend_pid() AS pid')).rows;
+        await other.query('SELECT pg_terminate_backend($1)', [pid]);
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        await client.query('SELECT 1');
+      })
+    );
+    assert.deepEqual(uncaught, []);
+    assert.deepEqual(await db.query('SELECT 1 AS ok'), [{ ok: 1 }]);
+  });
+});

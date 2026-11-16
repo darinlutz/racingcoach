@@ -39,11 +39,17 @@ import { METERS_PER_FOOT, SPEED_UNIT, speedFromMetersPerSecond } from '@/lib/uni
 // about the user's own driving never over their In-Car AI Coach, see coachQuiet) and Message Driver, which
 // their In-Car AI Coach says in their car (POST /api/live/message), and Driver Radio: what that driver said over the
 // radio, as text, each new message played in the site's Driver Radio voice (GET /api/live/radio-speech) while Play
-// driver radio is on (on until turned off; for the user's own, never over their In-Car AI Coach). Narrower than xl, the columns stack: map, inputs, leaderboard. Asks GET /api/live every second while the page is showing, and each
+// driver radio is on (on until turned off; for the user's own, never over their In-Car AI Coach). Narrower than xl, the columns stack: map, inputs, leaderboard. Asks GET /api/live every second while the page is showing (less often with nobody live, after a failed request or once signed out, see IDLE_POLL_MS), and each
 // track's map from GET /api/live/outline (again every minute while it's missing or approximate, as an exact one
 // appears once a lap with track positions uploads).
 
 const POLL_MS = 1000;
+// Asked less often while there's nothing to move: nobody online (a driver who starts shows within this long), after a
+// failed request, and once the sign-in has ended (the session lasts a week; a page left open would otherwise ask every
+// second for good). The page picks up again by itself at the next answer.
+const IDLE_POLL_MS = 3000;
+const ERROR_POLL_MS = 5000;
+const SIGNED_OUT_POLL_MS = 30_000;
 const ANNOUNCER_KEYS = { lead: 'liveRacing.leadAnnouncer', color: 'liveRacing.colorAnnouncer' } as const;
 const RADIO_KEY = 'liveRacing.playRadio';
 // The satellite imagery's opacity under the maps (0-100), kept in the browser
@@ -325,13 +331,18 @@ export default function LiveRacing({
     let stopped = false;
     let timer = 0;
     const poll = async () => {
+      let next = POLL_MS;
       if (document.visibilityState === 'visible') {
         try {
           const focus = focusRef.current;
           const response = await fetch(focus ? `/api/live?inputs=${focus}` : '/api/live', { cache: 'no-store' });
+          if (response.status === 401) next = SIGNED_OUT_POLL_MS;
+          else if (!response.ok) next = ERROR_POLL_MS;
           const data = await response.json();
           if (!response.ok) throw new Error(data.error || t.api.failedLoadLiveRacing);
           const now = performance.now();
+          // offline drivers stay listed for a few minutes after their last update
+          if ((data.drivers as LiveDriver[]).every((d) => d.offline)) next = IDLE_POLL_MS;
           if (!stopped) {
             const received = (data.drivers as LiveDriver[]).map((d) => ({ ...d, sampledAt: now - d.ageMs }));
             setDrivers(received);
@@ -361,10 +372,12 @@ export default function LiveRacing({
             }
           }
         } catch (err) {
+          // A request that never got an answer (offline, the server restarting) waits too
+          if (next === POLL_MS) next = ERROR_POLL_MS;
           if (!stopped) setError(err instanceof Error ? err.message : t.common.unknownError);
         }
       }
-      if (!stopped) timer = window.setTimeout(poll, POLL_MS);
+      if (!stopped) timer = window.setTimeout(poll, next);
     };
     poll();
     return () => {

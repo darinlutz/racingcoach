@@ -387,6 +387,8 @@ async function produce(args: {
               language: user.preferredLanguage,
               // the critical and major moments get the main model, the rest the cheaper one
               feature: decision.selected.priority <= 1 ? 'raceAnnouncer' : 'raceAnnouncerRoutine',
+              // the model call ends with the wait for it
+              signal: AbortSignal.timeout(AI_TIMEOUT_MS),
             }),
             AI_TIMEOUT_MS
           )

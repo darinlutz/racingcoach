@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto';
+import { cache } from 'react';
 import { cookies } from 'next/headers';
 import { CONSENT_COOKIE, parseConsent } from './cookieConsent';
 import { linkConsentToUser } from './cookieConsentRecords';
@@ -41,7 +42,10 @@ export async function createSession(userId: number): Promise<void> {
   }
 }
 
-export async function getCurrentUser(): Promise<User | null> {
+// Looked up once per page render however many times it's asked for: the root layout, the page and its metadata each
+// ask, and each lookup is three database round trips. React's cache only spans one render pass; in a route handler it
+// does nothing, so every API request still looks the session up itself.
+export const getCurrentUser = cache(async (): Promise<User | null> => {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (!token) return null;
 
@@ -55,7 +59,7 @@ export async function getCurrentUser(): Promise<User | null> {
     console.error('Session lookup error:', error);
     return null;
   }
-}
+});
 
 export async function deleteSession(): Promise<void> {
   const cookieStore = await cookies();

@@ -571,3 +571,46 @@ describe('account emails (src/lib/emailLayout.ts)', () => {
     }
   });
 });
+
+describe('a model its provider retired (src/lib/aiModelHealth.ts)', () => {
+  let health;
+  before(async () => {
+    health = await import(new URL('aiModelHealth.ts', src).href);
+  });
+  beforeEach(() => health.forgetModelErrors());
+  const retired = Object.assign(new Error('404 The model `gpt-4.1-nano` has been deprecated'), { status: 404, lc_error_code: 'MODEL_NOT_FOUND' });
+
+  test('only the provider saying the model does not exist counts', () => {
+    assert.equal(health.isModelGone(retired), true);
+    assert.equal(health.isModelGone({ lc_error_code: 'MODEL_NOT_FOUND' }), true);
+    for (const other of [new Error('timed out'), { status: 429 }, { status: 500 }, { status: 400 }, { status: 401 }, null, 'x']) {
+      assert.equal(health.isModelGone(other), false);
+    }
+    assert.equal(health.noteModelError('gpt-4o', { status: 429 }, 0), false);
+    assert.equal(health.usableModel('gpt-4o', 'gpt-4o-mini', 1), 'gpt-4o');
+  });
+
+  test('after its first failure the default stands in, and the model is tried again later', () => {
+    assert.equal(health.usableModel('gpt-old', 'gpt-4o-mini', 0), 'gpt-old');
+    assert.equal(health.noteModelError('gpt-old', retired, 0), true, 'reported once');
+    assert.equal(health.noteModelError('gpt-old', retired, 5), false);
+    assert.equal(health.usableModel('gpt-old', 'gpt-4o-mini', 10), 'gpt-4o-mini');
+    assert.equal(health.usableModel('gpt-4o', 'gpt-4o-mini', 10), 'gpt-4o', 'other models are untouched');
+    assert.equal(health.usableModel('gpt-old', 'gpt-4o-mini', 5 + health.RETRY_MS), 'gpt-old');
+    assert.equal(health.noteModelError('gpt-old', retired, 6 + health.RETRY_MS), true, 'reported again when it still fails');
+  });
+
+  test('nothing stands in for the default itself, or when the default is gone too', () => {
+    health.noteModelError('gpt-4o-mini', retired, 0);
+    assert.equal(health.usableModel('gpt-4o-mini', 'gpt-4o-mini', 1), 'gpt-4o-mini');
+    health.noteModelError('gpt-old', retired, 0);
+    assert.equal(health.usableModel('gpt-old', 'gpt-4o-mini', 1), 'gpt-old');
+  });
+
+  test('every cloud model is watched, and the picked model goes through the check', () => {
+    const code = readFileSync(new URL('aiModels.ts', src), 'utf8');
+    assert.match(code, /const callbacks = \[[^\]]*modelGoneCallback\(model\)/);
+    const body = code.slice(code.indexOf('export async function getAiModel('), code.indexOf('export async function withFallbackModel'));
+    assert.equal((body.match(/usableModel\(/g) ?? []).length, 2);
+  });
+});

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { aiErrorResponse } from '@/lib/aiErrors';
-import { lapDrivingLinesSchema } from '@/lib/lapDrivingLine';
+import { lapDrivingLinesSchema } from '@/lib/lapDrivingLineSchema';
 import { readRecentLapSummaries, saveLapSummary } from '@/lib/lapSummaryHistory';
 import { summarizeLapComparison } from '@/lib/lapSummary';
 import { apiText, getLanguage } from '@/lib/i18n/server';

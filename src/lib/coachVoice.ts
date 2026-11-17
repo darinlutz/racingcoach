@@ -209,20 +209,60 @@ export function spokenTimeGaps(text: string, language: Language = DEFAULT_LANGUA
 }
 
 // How distance and metric speed units are said in each language, for one and for more
-const UNIT_WORDS: Record<Language, { foot: [string, string]; meter: [string, string]; kmh: [string, string] }> = {
-  en: { foot: ['foot', 'feet'], meter: ['meter', 'meters'], kmh: ['kilometer per hour', 'kilometers per hour'] },
-  pt: { foot: ['pé', 'pés'], meter: ['metro', 'metros'], kmh: ['quilômetro por hora', 'quilômetros por hora'] },
-  es: { foot: ['pie', 'pies'], meter: ['metro', 'metros'], kmh: ['kilómetro por hora', 'kilómetros por hora'] },
-  de: { foot: ['Fuß', 'Fuß'], meter: ['Meter', 'Meter'], kmh: ['Kilometer pro Stunde', 'Kilometer pro Stunde'] },
+type UnitWords = {
+  foot: [string, string];
+  meter: [string, string];
+  kmh: [string, string];
+  degree: [string, string];
+  gallon: [string, string];
+};
+const UNIT_WORDS: Record<Language, UnitWords> = {
+  en: {
+    foot: ['foot', 'feet'],
+    meter: ['meter', 'meters'],
+    kmh: ['kilometer per hour', 'kilometers per hour'],
+    degree: ['degree', 'degrees'],
+    gallon: ['gallon', 'gallons'],
+  },
+  pt: {
+    foot: ['pé', 'pés'],
+    meter: ['metro', 'metros'],
+    kmh: ['quilômetro por hora', 'quilômetros por hora'],
+    degree: ['grau', 'graus'],
+    gallon: ['galão', 'galões'],
+  },
+  es: {
+    foot: ['pie', 'pies'],
+    meter: ['metro', 'metros'],
+    kmh: ['kilómetro por hora', 'kilómetros por hora'],
+    degree: ['grado', 'grados'],
+    gallon: ['galón', 'galones'],
+  },
+  de: {
+    foot: ['Fuß', 'Fuß'],
+    meter: ['Meter', 'Meter'],
+    kmh: ['Kilometer pro Stunde', 'Kilometer pro Stunde'],
+    degree: ['Grad', 'Grad'],
+    gallon: ['Gallone', 'Gallonen'],
+  },
 };
 
+// The temperature scale after "degrees"
+const SCALE_WORDS: Record<string, string> = { C: 'Celsius', F: 'Fahrenheit' };
+
 // The text with unit abbreviations written out, so the voice says "15 feet" rather than "15 ef tee", "5 meters"
-// rather than "5 em" and "120 kilometers per hour" rather than mangling "km/h": "ft", "m" and "km/h" (or "kph",
-// "kmh") only right after a number, and not "m/s"
+// rather than "5 em", "120 kilometers per hour" rather than mangling "km/h", "85 degrees Fahrenheit" rather than
+// stumbling over "85°F" (and "6 degrees" for a steering angle's "6°") and "12 gallons" rather than "12 gal": "ft",
+// "m", "km/h" (or "kph", "kmh"), "°" (or "deg", with an optional C or F after it) and "gal" only right after a
+// number, and not "m/s". Every unit is plural except after exactly 1
 export function spokenUnits(text: string, language: Language = DEFAULT_LANGUAGE): string {
   const words = UNIT_WORDS[language];
   const say = (number: string, [one, many]: [string, string]) => `${number} ${number === '1' ? one : many}`;
   return text
+    .replace(/(?<![\w.,])(\d+(?:[.,]\d+)?)\s?(?:°|[Dd]egs?\b)(?:\s?([CF])(?!\w))?/g, (_, number: string, scale?: string) =>
+      scale ? `${say(number, words.degree)} ${SCALE_WORDS[scale]}` : say(number, words.degree)
+    )
+    .replace(/(?<![\w.,])(\d+(?:[.,]\d+)?)\s?gals?\b/gi, (_, number: string) => say(number, words.gallon))
     .replace(/(?<![\w.,])(\d+(?:[.,]\d+)?)\s?(?:km\/h|kph|kmh)\b/gi, (_, number: string) => say(number, words.kmh))
     .replace(/(?<![\w.,])(\d+(?:[.,]\d+)?)\s?ft\b/gi, (_, number: string) => say(number, words.foot))
     .replace(/(?<![\w.,])(\d+(?:[.,]\d+)?)\s?m\b(?![/²³])/g, (_, number: string) => say(number, words.meter));

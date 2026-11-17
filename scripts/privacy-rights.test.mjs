@@ -129,7 +129,7 @@ describe('erasable categories', () => {
 
   test('every category has erasure statements, an inventory entry and a label in every language', () => {
     const erasure = read('src/lib/dataErasure.ts');
-    const dictionaries = ['en', 'pt', 'es', 'de'].map((lang) => read(`src/lib/i18n/dictionaries/${lang}.ts`));
+    const dictionaries = ['en', 'pt', 'es', 'de', 'fr', 'it'].map((lang) => read(`src/lib/i18n/dictionaries/${lang}.ts`));
     for (const category of ERASABLE_CATEGORIES) {
       assert.match(erasure, new RegExp(`\\n  ${category}: \\[`), `dataErasure.ts STATEMENTS.${category}`);
       assert.ok(

@@ -150,7 +150,7 @@
 .gallery-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
 .gallery-grid > div { display: grid; gap: 10px; align-content: start; }
 .gallery-grid .shot { margin-bottom: 6px; }
-.language-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.language-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
 .language-card { background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 22px; display: grid; gap: 10px; align-content: start; }
 .language-flags { display: flex; gap: 6px; }
 .language-flags .fi { width: 36px; height: 27px; border-radius: 3px; box-shadow: 0 0 0 1px var(--border); }

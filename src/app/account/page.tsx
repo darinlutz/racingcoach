@@ -13,7 +13,7 @@ import RaceAnnouncersSection from '@/components/RaceAnnouncersSection';
 import SpanishAccentSelect from '@/components/SpanishAccentSelect';
 import ThemeToggle from '@/components/ThemeToggle';
 import UnitsToggle from '@/components/UnitsToggle';
-import { coachVoicesFor, getCoachVoice, SPANISH_ACCENTS } from '@/lib/coachVoice';
+import { coachVoicesFor, elevenLabsGoldOnly, getCoachVoice, SPANISH_ACCENTS } from '@/lib/coachVoice';
 import { getCollectorKey } from '@/lib/collectorKeys';
 import { DISCORD_INVITE_URL, getDiscordConnection } from '@/lib/discord';
 import { listEngineAudioAssets } from '@/lib/engineAudioAssets';
@@ -269,18 +269,22 @@ export default async function AccountPage({
             instructions={inCarCoachInstructions}
             maxLength={MAX_IN_CAR_COACH_INSTRUCTIONS}
             voice={coachVoice.voice}
-            voices={coachVoicesFor(user.preferredLanguage, coachVoice.spanishAccent)}
+            voices={coachVoicesFor(user.preferredLanguage, coachVoice.spanishAccent, user)}
             spanishAccent={coachVoice.spanishAccent}
             available={canUseInCarCoach(user)}
             viewPlans={showViewPlans}
           >
+            {/* French and Italian's ElevenLabs voices are for Gold members (elevenLabsGoldOnly) */}
+            {elevenLabsGoldOnly(user.preferredLanguage, coachVoice.spanishAccent, user) && (
+              <p className="text-xs text-muted-foreground mb-5">{t.inCarCoach.goldVoices}</p>
+            )}
             {/* The Race Announcers are for Silver and Gold members (canUseVoiceAi); anyone else is told why */}
             {canUseVoiceAi(user) ? (
               <RaceAnnouncersSection
                 leadVoice={raceAnnouncers.leadVoice}
                 colorVoice={raceAnnouncers.colorVoice}
-                leadVoices={announcerVoicesFor('lead', user.preferredLanguage, coachVoice.spanishAccent)}
-                colorVoices={announcerVoicesFor('color', user.preferredLanguage, coachVoice.spanishAccent)}
+                leadVoices={announcerVoicesFor('lead', user.preferredLanguage, coachVoice.spanishAccent, user)}
+                colorVoices={announcerVoicesFor('color', user.preferredLanguage, coachVoice.spanishAccent, user)}
                 instructions={raceAnnouncers.instructions}
                 maxLength={MAX_RACE_ANNOUNCER_INSTRUCTIONS}
                 broadcast={raceAnnouncers.broadcast}

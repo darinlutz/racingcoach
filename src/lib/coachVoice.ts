@@ -1,17 +1,19 @@
 import { query } from './db';
-import { elevenLabsConfigured, elevenLabsSpeech, elevenLabsVoiceId, type ElevenLabsRole } from './elevenLabs';
-import { AI_LANGUAGE_NAMES, DEFAULT_LANGUAGE, type Language } from './i18n/languages';
+import { elevenLabsConfigured, elevenLabsSpeech, elevenLabsVoiceId, GOLD_VOICE_LANGUAGES, type ElevenLabsRole } from './elevenLabs';
+import { AI_LANGUAGE_NAMES, DEFAULT_LANGUAGE, isLanguage, type Language } from './i18n/languages';
+import { canUseGoldVoices } from './roles';
 import { ensureUserSchema } from './users';
 import { assertMeteredServicesOn } from './meteredServices';
 
 // The In-Car AI Coach's voice: Google Cloud Text-to-Speech's Chirp 3 HD voices, in the voice the driver picks on the
-// Account page ("Users".coach_voice), spoken by a native voice of their Preferred Language (en-US, pt-BR, de-DE, and es-US or
-// es-ES by the Spanish accent they pick beside it, "Users".coach_spanish_accent). Without GOOGLE_TTS_API_KEY it falls
+// Account page ("Users".coach_voice), spoken by a native voice of their Preferred Language (en-US, pt-BR, de-DE, fr-FR,
+// it-IT, and es-US or es-ES by the Spanish accent they pick beside it, "Users".coach_spanish_accent). Without GOOGLE_TTS_API_KEY it falls
 // back to OpenAI's gpt-4o-mini-tts, told to speak with that accent. The collector gets its speech from
 // POST /api/collector/speech; the Account page's Listen button from GET /api/account/coach-voice/sample. The
 // ElevenLabs RaceCoach voice of the user's language (ELEVENLABS_COACH_VOICE, src/lib/elevenLabs.ts) is listed first
 // and is the default. The Race Announcers (src/lib/raceAnnouncer.ts) pick from the same voices, with their own
-// ElevenLabs voices (Lead and Color) first.
+// ElevenLabs voices (Lead and Color) first. French and Italian's ElevenLabs voices are for Gold members and Admins only
+// (elevenLabsOffered): anyone else of those languages is offered, and speaks with, the Chirp voices.
 
 // Chirp 3 HD's voices the driver can pick from (Google has 30; these male ones suit a race engineer on the radio),
 // each with Google's description of its style. Every voice speaks every language as a native speaker would. Accounts
@@ -35,20 +37,36 @@ export const COACH_VOICES = [...Object.keys(COACH_VOICE_DETAILS), ELEVENLABS_COA
 // The Chirp voice spoken when the ElevenLabs voice isn't set up for the language
 export const DEFAULT_COACH_VOICE: ChirpVoice = 'Charon';
 
+// Who's asking, for the Gold-only voices (canUseGoldVoices in roles.ts)
+export type VoiceMember = { membershipLevel: string; role: string };
+
+// Whether the member may have their language's ElevenLabs voices: always, except French and Italian's
+// (GOLD_VOICE_LANGUAGES), which are for Gold members and Admins
+export function elevenLabsOffered(language: Language, member: VoiceMember): boolean {
+  return !GOLD_VOICE_LANGUAGES.includes(language) || canUseGoldVoices(member);
+}
+
+// The Account page says the language's ElevenLabs voices are for Gold members to a member who isn't offered them
+export function elevenLabsGoldOnly(language: Language, spanishAccent: SpanishAccent, member: VoiceMember): boolean {
+  return elevenLabsConfigured('raceCoach', language, spanishAccent) && !elevenLabsOffered(language, member);
+}
+
 // The voices the Account page offers a role in a language: its ElevenLabs voice first, while it's set up for the
-// language and accent (styled by the role, e.g. "ElevenLabs: Lead Announcer"), then the Chirp voices
+// language and accent and the member may have it (styled by the role, e.g. "ElevenLabs: Lead Announcer"), then the
+// Chirp voices
 export function voicesFor(
   role: ElevenLabsRole,
   language: Language,
-  spanishAccent: SpanishAccent = DEFAULT_SPANISH_ACCENT
+  spanishAccent: SpanishAccent,
+  member: VoiceMember
 ): Record<string, { style: string }> {
-  return elevenLabsConfigured(role, language, spanishAccent)
+  return elevenLabsConfigured(role, language, spanishAccent) && elevenLabsOffered(language, member)
     ? { [ELEVENLABS_COACH_VOICE]: { style: role }, ...COACH_VOICE_DETAILS }
     : COACH_VOICE_DETAILS;
 }
 
-export function coachVoicesFor(language: Language, spanishAccent: SpanishAccent = DEFAULT_SPANISH_ACCENT): Record<string, { style: string }> {
-  return voicesFor('raceCoach', language, spanishAccent);
+export function coachVoicesFor(language: Language, spanishAccent: SpanishAccent, member: VoiceMember): Record<string, { style: string }> {
+  return voicesFor('raceCoach', language, spanishAccent, member);
 }
 
 // Spanish is spoken with a Latin American accent (the default, like the site's Spanish) or Spain's
@@ -63,6 +81,8 @@ function chirpLocale(language: Language, spanishAccent: SpanishAccent) {
   if (language === 'es') return spanishAccent === 'spain' ? 'es-ES' : 'es-US';
   if (language === 'pt') return 'pt-BR';
   if (language === 'de') return 'de-DE';
+  if (language === 'fr') return 'fr-FR';
+  if (language === 'it') return 'it-IT';
   return 'en-US';
 }
 
@@ -84,17 +104,37 @@ export function isSpanishAccent(value: unknown): value is SpanishAccent {
 export type Pronunciation = { written: string; spoken: string };
 export type CoachVoiceSettings = { voice: CoachVoice; spanishAccent: SpanishAccent; pronunciations: Pronunciation[] };
 
+// The ElevenLabs voice the member picked (or has by default), or DEFAULT_COACH_VOICE when they may not have their
+// language's ElevenLabs voices (elevenLabsOffered: French and Italian's are for Gold members and Admins). Their choice
+// stays saved, so it comes back if they become Gold.
+export function allowedVoice(voice: CoachVoice, language: Language, member: VoiceMember): CoachVoice {
+  return voice === ELEVENLABS_COACH_VOICE && !elevenLabsOffered(language, member) ? DEFAULT_COACH_VOICE : voice;
+}
+
+// The member's language, level and role, read with their voices so the Gold-only voices are only ever spoken to those
+// who may have them
+export type VoiceMemberRow = { preferred_language: string; membership_level: string | null; role: string | null };
+export const VOICE_MEMBER_COLUMNS = 'preferred_language, membership_level, role';
+
+export function voiceMemberOf(row: Partial<VoiceMemberRow>): { language: Language; member: VoiceMember } {
+  return {
+    language: isLanguage(row.preferred_language) ? row.preferred_language : DEFAULT_LANGUAGE,
+    member: { membershipLevel: row.membership_level ?? '', role: row.role ?? '' },
+  };
+}
+
 export async function getCoachVoice(userId: number): Promise<CoachVoiceSettings> {
   await ensureUserSchema();
-  const rows = await query<{ coach_voice: string; coach_spanish_accent: string; coach_pronunciations: Pronunciation[] }>(
-    'SELECT coach_voice, coach_spanish_accent, coach_pronunciations FROM racingcoach."Users" WHERE id = $1',
+  const rows = await query<{ coach_voice: string; coach_spanish_accent: string; coach_pronunciations: Pronunciation[] } & VoiceMemberRow>(
+    `SELECT coach_voice, coach_spanish_accent, coach_pronunciations, ${VOICE_MEMBER_COLUMNS} FROM racingcoach."Users" WHERE id = $1`,
     [userId]
   );
   const { coach_voice: voice, coach_spanish_accent: accent, coach_pronunciations: pronunciations } = rows[0] ?? {};
+  const { language, member } = voiceMemberOf(rows[0] ?? {});
   // Accounts that never picked one (or picked a voice no longer offered) get the ElevenLabs voice, which falls back to
-  // DEFAULT_COACH_VOICE where it isn't set up
+  // DEFAULT_COACH_VOICE where it isn't set up, or where the member may not have it
   return {
-    voice: isCoachVoice(voice) ? voice : ELEVENLABS_COACH_VOICE,
+    voice: allowedVoice(isCoachVoice(voice) ? voice : ELEVENLABS_COACH_VOICE, language, member),
     spanishAccent: isSpanishAccent(accent) ? accent : DEFAULT_SPANISH_ACCENT,
     pronunciations: Array.isArray(pronunciations) ? pronunciations : [],
   };
@@ -146,6 +186,8 @@ const TURN_WORDS: Record<Language, { one: string; many: string; and: string; thr
   pt: { one: 'Curva', many: 'Curvas', and: 'e', through: 'a' },
   es: { one: 'Curva', many: 'Curvas', and: 'y', through: 'a' },
   de: { one: 'Kurve', many: 'Kurven', and: 'und', through: 'bis' },
+  fr: { one: 'Virage', many: 'Virages', and: 'et', through: 'à' },
+  it: { one: 'Curva', many: 'Curve', and: 'e', through: 'fino alla' },
 };
 
 // The text with turn abbreviations (T1, T7-8, T8-T11) written out, so the voice says "Turn 1" rather than "T one"
@@ -181,6 +223,14 @@ const GAP_WORDS: Record<
     tenths: ['', 'ein Zehntel', 'zwei Zehntel', 'drei Zehntel', 'vier Zehntel', 'fünf Zehntel', 'sechs Zehntel', 'sieben Zehntel', 'acht Zehntel', 'neun Zehntel'],
     second: 'Sekunde', seconds: 'Sekunden', underTenth: 'weniger als ein Zehntel', plus: 'plus', minus: 'minus', decimal: ',',
   },
+  fr: {
+    tenths: ['', 'un dixième', 'deux dixièmes', 'trois dixièmes', 'quatre dixièmes', 'cinq dixièmes', 'six dixièmes', 'sept dixièmes', 'huit dixièmes', 'neuf dixièmes'],
+    second: 'seconde', seconds: 'secondes', underTenth: 'moins d’un dixième', plus: 'plus', minus: 'moins', decimal: ',',
+  },
+  it: {
+    tenths: ['', 'un decimo', 'due decimi', 'tre decimi', 'quattro decimi', 'cinque decimi', 'sei decimi', 'sette decimi', 'otto decimi', 'nove decimi'],
+    second: 'secondo', seconds: 'secondi', underTenth: 'meno di un decimo', plus: 'più', minus: 'meno', decimal: ',',
+  },
 };
 
 // One time difference, rounded to the nearest tenth of a second, as it's said: "two tenths", "2.3 seconds"
@@ -200,7 +250,7 @@ function spokenGap(sign: string, digits: string, language: Language): string {
 export function spokenTimeGaps(text: string, language: Language = DEFAULT_LANGUAGE): string {
   return text
     .replace(
-      /(?<![\w:.,])([+\-−]?)(\d+(?:[.,]\d+)?)\s?(?:s|secs?|seconds?|segundos?|sek|sekunden?)\b(?![.,]?\d)/gi,
+      /(?<![\w:.,])([+\-−]?)(\d+(?:[.,]\d+)?)\s?(?:s|secs?|secondes?|second[io]|seconds?|segundos?|sek|sekunden?)\b(?![.,]?\d)/gi,
       (_, sign: string, digits: string) => spokenGap(sign, digits, language)
     )
     .replace(/(?<![\w:.,])([+\-−])(\d+[.,]\d+)(?![\d.,]|\s?(?:%|°|ft|m\b|mph|kph|km))/g, (_, sign: string, digits: string) =>
@@ -244,6 +294,20 @@ const UNIT_WORDS: Record<Language, UnitWords> = {
     kmh: ['Kilometer pro Stunde', 'Kilometer pro Stunde'],
     degree: ['Grad', 'Grad'],
     gallon: ['Gallone', 'Gallonen'],
+  },
+  fr: {
+    foot: ['pied', 'pieds'],
+    meter: ['mètre', 'mètres'],
+    kmh: ['kilomètre par heure', 'kilomètres par heure'],
+    degree: ['degré', 'degrés'],
+    gallon: ['gallon', 'gallons'],
+  },
+  it: {
+    foot: ['piede', 'piedi'],
+    meter: ['metro', 'metri'],
+    kmh: ['chilometro orario', 'chilometri orari'],
+    degree: ['grado', 'gradi'],
+    gallon: ['gallone', 'galloni'],
   },
 };
 

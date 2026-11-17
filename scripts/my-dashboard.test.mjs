@@ -21,7 +21,7 @@ test('every country has a flag and a name, in every language', () => {
   for (const code of COUNTRY_CODES) {
     assert.ok(existsSync(`node_modules/flag-icons/flags/4x3/${code.toLowerCase()}.svg`), `${code} has no flag`);
   }
-  for (const locale of ['en-US', 'pt-BR', 'es-419', 'de-DE']) {
+  for (const locale of ['en-US', 'pt-BR', 'es-419', 'de-DE', 'fr-FR', 'it-IT']) {
     const options = countryOptions(locale);
     assert.equal(options.length, COUNTRY_CODES.length);
     for (const { code, name } of options) assert.notEqual(name, code, `${code} has no name in ${locale}`);

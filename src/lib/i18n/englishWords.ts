@@ -1,11 +1,11 @@
-// Finds English words in text meant to be in Portuguese, Spanish or German, so an AI answer that slipped into English
+// Finds English words in text meant to be in Portuguese, Spanish, German, French or Italian, so an AI answer that slipped into English
 // ("Frena 6 m más tarde que tu fastest lap", "Vuelta 3: keep the throttle") can be rewritten or left out before a
 // user reads or hears it (src/lib/answerChecks.ts). Names are taken out first: tracks, cars, focus areas, drivers and
 // series keep the names they have in the data, whatever language those are in.
 //
 // The words are common English words and the racing terms the coaches' data gives in English that are never words of
 // the other language (or, listed under SHARED, are words there too, e.g. German "will" and "fast", Portuguese "for",
-// "time" and "tire", Spanish "has" and "he"). Loanwords racing uses in every one of these languages (pit, box, stint,
+// "time" and "tire", Spanish "has" and "he", French "car", "on" and "as", Italian "do", "area" and "compare"). Loanwords racing uses in every one of these languages (pit, box, stint,
 // setup, grip, delta, sprint, safety car) aren't listed.
 // No imports, so Node's tests run it directly (npm run test:language).
 
@@ -43,6 +43,11 @@ const SHARED: Record<string, string[]> = {
     'was', 'will', 'also', 'still', 'last', 'all', 'an', 'fast', 'pass', 'tank', 'lift', 'podium', 'position', 'hold',
     'meters', 'most', 'line', 'minimum', 'maximum', 'rating',
   ],
+  fr: [
+    'as', 'an', 'on', 'or', 'car', 'but', 'second', 'seconds', 'session', 'tire', 'tires', 'passes', 'compare', 'position',
+    'positions', 'podium', 'incident', 'incidents', 'minimum', 'maximum', 'optimal', 'leader', 'gain', 'crash',
+  ],
+  it: ['do', 'pace', 'compare', 'area', 'leader', 'gap'],
 };
 
 const WORD_SET = new Set(WORDS);
@@ -65,7 +70,7 @@ function withoutNames(text: string, names: string[]): string {
   return out;
 }
 
-// The English words in text written for language ('pt', 'es' or 'de'; none for English), each once, in the order
+// The English words in text written for language ('pt', 'es', 'de', 'fr' or 'it'; none for English), each once, in the order
 // they first appear. names: the names in the data the text may use as they are. Placeholders such as {lapTime} are
 // left out, and so are English contractions ("don't", "you're"), which are English whatever the word.
 export function englishWords(text: string, language: string, names: string[] = []): string[] {

@@ -261,7 +261,7 @@ export const en = {
     toolkitCopy: 'Telemetry, tire temps, steering, stints and car balance — all turned into clear advice on what to change and where.',
     coachEyebrow: 'Your coach. Your language.',
     coachTitle: 'A PERSONAL AI COACH IN YOUR EAR.',
-    coachCopy: 'Choose English, Spanish, Portuguese, or German — the entire app translates and the in-car coach speaks your language.',
+    coachCopy: 'Choose English, Spanish, Portuguese, German, French, or Italian — the entire app translates and the in-car coach speaks your language.',
     languageHeading: 'Language',
     voiceHeading: 'Voice',
     instructionsHeading: 'Personal instructions',
@@ -343,10 +343,10 @@ export const en = {
     tvCopy: 'Put the race on the big screen. Pair a Fire TV and watch with a lead and a color announcer calling the action.',
     tvCopyNoAi: 'Put the race on the big screen. Pair a Fire TV and follow the race with the remote.',
     tvShotAlt: 'TV Broadcast Mode, with the leaderboard, the track map and the followed driver’s inputs',
-    languagesEyebrow: 'Four languages',
+    languagesEyebrow: 'Six languages',
     languagesTitle: 'RACE IN YOUR LANGUAGE.',
-    languagesCopy: 'The website, the collector and the AI coaches all speak English, Spanish, Portuguese and German.',
-    languagesCopyNoAi: 'The website and the collector are available in English, Spanish, Portuguese and German.',
+    languagesCopy: 'The website, the collector and the AI coaches all speak English, Spanish, Portuguese, German, French and Italian.',
+    languagesCopyNoAi: 'The website and the collector are available in English, Spanish, Portuguese, German, French and Italian.',
     screenshotPending: 'Screenshot coming soon',
     learnHeading: 'Learn to drive a race car',
     learnCopy: 'Guided lessons for beginner and intermediate drivers.',
@@ -555,6 +555,9 @@ export const en = {
     accentTitle: 'Spanish accent',
     accents: { latinAmerica: 'Latin American', spain: 'Spain' },
     accentSaved: 'Spanish accent saved.',
+    // Under the Coach voice for French and Italian speakers who aren't Gold members: those languages' ElevenLabs voices
+    // are for Gold members
+    goldVoices: 'The ElevenLabs voices for your coach and Race Announcers in your language are for Gold members.',
     // What the Listen button says, in the chosen voice
     sample: 'Turn 1: brake about {later} {units} later, near {near} {units}. Nice lap, two tenths quicker.',
   },

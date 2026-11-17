@@ -54,7 +54,7 @@ export async function PUT(request: Request) {
     if (
       !isAnnouncer(body.announcer) ||
       !isCoachVoice(body.voice) ||
-      !(body.voice in announcerVoicesFor(body.announcer, user.preferredLanguage, spanishAccent))
+      !(body.voice in announcerVoicesFor(body.announcer, user.preferredLanguage, spanishAccent, user))
     ) {
       return NextResponse.json({ error: t.unknownCoachVoice }, { status: 400 });
     }

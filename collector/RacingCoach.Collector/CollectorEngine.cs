@@ -314,7 +314,7 @@ internal sealed class CollectorEngine
     /// minute while telemetry comes in, so a change on the Account page shows within a minute; Standard without a
     /// key.</summary>
     public bool Metric { get; private set; }
-    /// <summary>The user's Preferred Language on the Account page ("en", "pt", "es" or "de"), which the overlays are in.
+    /// <summary>The user's Preferred Language on the Account page ("en", "pt", "es", "de", "fr" or "it"), which the overlays are in.
     /// Loaded with the units; Windows' display language (when it's one of those, else English) without a key.</summary>
     public string Language { get; private set; } = Loc.SystemLanguage;
     /// <summary>"Beeps before braking" and its volume (10-100%), shown and changed under the Preferred Language and

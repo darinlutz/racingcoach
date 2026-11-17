@@ -41,6 +41,12 @@ export const canUseInCarCoach = (user: { membershipLevel: string; role: string }
 // are for the same members, as each makes AI or speech calls all race long
 export const canUseVoiceAi = canUseInCarCoach;
 
+// French and Italian's ElevenLabs voices (the RaceCoach voice, also the Race Engineer's, and the Lead and Color
+// Announcers', GOLD_VOICE_LANGUAGES in src/lib/elevenLabs.ts) are for Gold members and Admins; everyone else of those
+// languages picks from the Chirp voices
+export const canUseGoldVoices = (user: { membershipLevel: string; role: string }) =>
+  user.role === ROLES.admin || user.membershipLevel === MEMBERSHIP_LEVEL.gold;
+
 // Lap Compare's Provide summary (the AI Lap Summary, /api/lap-summary) is for the same members; Bronze members see the
 // checkbox disabled, with a tooltip saying why
 export const canUseLapSummary = canUseInCarCoach;

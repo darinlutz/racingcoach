@@ -166,7 +166,7 @@ export function ensureUserSchema(): Promise<void> {
           ]
         );
       }
-      // The language the site and its AI features use for the user: en, pt or es (src/lib/i18n/languages.ts)
+      // The language the site and its AI features use for the user: en, pt, es, de, fr or it (src/lib/i18n/languages.ts)
       await client.query(
         `ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS preferred_language TEXT NOT NULL DEFAULT '${DEFAULT_LANGUAGE}'`
       );

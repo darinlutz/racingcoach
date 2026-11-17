@@ -1,7 +1,7 @@
 // The languages the site is translated into. Shared by server and client code: the user's choice is
 // racingcoach."Users".preferred_language, or the LANGUAGE_COOKIE for visitors who aren't signed in.
 
-export const LANGUAGES = ['en', 'pt', 'es', 'de'] as const;
+export const LANGUAGES = ['en', 'pt', 'es', 'de', 'fr', 'it'] as const;
 export type Language = (typeof LANGUAGES)[number];
 
 export const DEFAULT_LANGUAGE: Language = 'en';
@@ -15,14 +15,19 @@ export const LANGUAGE_NAMES: Record<Language, string> = {
   pt: 'Português',
   es: 'Español',
   de: 'Deutsch',
+  fr: 'Français',
+  it: 'Italiano',
 };
 
-// Number and date formatting: Brazilian Portuguese, Latin American Spanish and Germany's German
+// Number and date formatting: Brazilian Portuguese, Latin American Spanish, Germany's German, France's French and
+// Italy's Italian
 export const LANGUAGE_LOCALES: Record<Language, string> = {
   en: 'en-US',
   pt: 'pt-BR',
   es: 'es-419',
   de: 'de-DE',
+  fr: 'fr-FR',
+  it: 'it-IT',
 };
 
 // How the AI features are told which language to answer in
@@ -31,6 +36,8 @@ export const AI_LANGUAGE_NAMES: Record<Language, string> = {
   pt: 'Brazilian Portuguese',
   es: 'Latin American Spanish',
   de: 'German',
+  fr: 'French',
+  it: 'Italian',
 };
 
 // The racing terms the coaches' data gives in English, and how to say them, so no English (or half-English
@@ -51,9 +58,19 @@ const AI_RACING_TERMS: Record<Exclude<Language, 'en'>, string> = {
     'throttle pickup = Gasannahme (zurück aufs Gas), lift = Gas lupfen, ' +
     're-application = erneutes Gasgeben, coasting = Rollen ohne Pedal, apex = Scheitelpunkt, fastest/slowest lap = ' +
     'schnellste/langsamste Runde, Target Lap = Zielrunde, Compare lap = Vergleichsrunde',
+  fr:
+    'brakepoint = point de freinage, brake pressure = pression de freinage, trail braking = freinage dégressif, ' +
+    'throttle pickup = remise des gaz, lift = lever le pied, re-application = réaccélération, coasting = rouler sans ' +
+    'pédale, apex = point de corde, fastest/slowest lap = tour le plus rapide/le plus lent, Target Lap = Tour Cible, ' +
+    'Compare lap = tour comparé',
+  it:
+    'brakepoint = punto di frenata, brake pressure = pressione sul freno, trail braking = frenata modulata in ' +
+    'inserimento, throttle pickup = riapertura del gas, lift = alzare il piede, re-application = nuova apertura del ' +
+    'gas, coasting = scorrere senza pedali, apex = punto di corda, fastest/slowest lap = giro più veloce/più lento, ' +
+    'Target Lap = Giro Obiettivo, Compare lap = giro di confronto',
 };
 
-const AI_LAP_6: Record<Exclude<Language, 'en'>, string> = { pt: 'Volta 6', es: 'Vuelta 6', de: 'Runde 6' };
+const AI_LAP_6: Record<Exclude<Language, 'en'>, string> = { pt: 'Volta 6', es: 'Vuelta 6', de: 'Runde 6', fr: 'Tour 6', it: 'Giro 6' };
 
 // Added to the end of an AI feature's system prompt so it answers in the user's language. Names from the
 // data are kept as given, because the site matches them (e.g. a debrief fix's focus area) against Track Data.

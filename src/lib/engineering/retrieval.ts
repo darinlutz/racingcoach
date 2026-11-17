@@ -84,48 +84,48 @@ const STOP = new Set(
   )
 );
 
-// Words (English, Portuguese, Spanish and German, accents taken out) that name a symptom, a corner phase or a
+// Words (English, Portuguese, Spanish, German, French and Italian, accents taken out) that name a symptom, a corner phase or a
 // component. Each is a regular expression over the normalized text.
 const SYMPTOM_TERMS: [Symptom, RegExp][] = [
-  ['understeer', /understeer|\bpush(es|ing|y)?\b|\btight\b|won'?t turn|doesn'?t turn|not turning|runs? wide|subvira|untersteuer|schiebt/],
-  ['oversteer', /oversteer|\bloose\b|rear (steps|comes|kicks|slides)|tail happy|\bsnap|sobrevira|ubersteuer|heck (bricht|kommt)/],
+  ['understeer', /understeer|\bpush(es|ing|y)?\b|\btight\b|won'?t turn|doesn'?t turn|not turning|runs? wide|subvira|untersteuer|schiebt|sous[- ]?vir|sottosterz/],
+  ['oversteer', /oversteer|\bloose\b|rear (steps|comes|kicks|slides)|tail happy|\bsnap|sobrevira|ubersteuer|heck (bricht|kommt)|\bsurvir|sovrasterz/],
   ['snapOversteer', /snap ?oversteer|snaps? (round|around)|understeer\w* (then|and then|turning into) (a )?(snap|oversteer)/],
-  ['brakingInstability', /unstable (under|on|in) (the )?brak|brak\w* (is |are )?unstable|instab\w* (al |a |en |na |de )?fren|instavel|bremsinstabil|unruhig beim bremsen/],
-  ['brakeLocking', /lock(s|ing|ed)? ?up|\block(s|ing)?\b|flat ?spot|trava|bloque|blockier/],
+  ['brakingInstability', /unstable (under|on|in) (the )?brak|brak\w* (is |are )?unstable|instab\w* (al |a |en |na |de )?fren|instavel|bremsinstabil|unruhig beim bremsen|instable au freinage|instabil\w* in frenata/],
+  ['brakeLocking', /lock(s|ing|ed)? ?up|\block(s|ing)?\b|flat ?spot|trava|bloque|blockier|blocca|bloccagg/],
   ['absIntervention', /\babs\b/],
-  ['poorTraction', /tracti|wheel ?spin|spin(s|ning)? the (rear|wheels)|traca|traccion|traktion|durchdreh/],
-  ['tcIntervention', /\btc\b|traction control|controle de tracao|control de traccion|traktionskontrolle/],
-  ['bottoming', /bottom(s|ing|ed)? ?out|bottoming|scrap(es|ing)|bump ?stop|batendo (no )?chao|toca (el )?suelo|aufsetz/],
-  ['aeroInstability', /high[- ]speed (instab|unstable)|nervous at (high )?speed|aero|downforce|instavel em alta|inestable a alta|instabil bei hoher/],
-  ['tireOverheating', /overheat|too hot|tyres? (are )?hot|tires? (are )?hot|superaquec|sobrecalent|uberhitz|zu heiss/],
-  ['tireWear', /\bwear|degrad|desgaste|verschleiss|abbau/],
-  ['coldTires', /cold (tires|tyres|brakes)|pneus frios|neumaticos frios|kalte reifen/],
-  ['aquaplaning', /aquaplan|hydroplan|standing water|puddle|river across|poca d.?agua|lamina d.?agua|charco|wasserlache|pfutze/],
-  ['lowGrip', /no grip|low grip|zero grip|slippery|like (on )?ice|sem aderencia|pouca aderencia|sin agarre|poco agarre|kein grip|wenig grip|rutschig/],
-  ['tireCrossover', /\bslicks?\b|\bwets\b|wet (tires|tyres)|\binters?\b|intermediates?|rain (tires|tyres)|cross ?over|(change|switch|go) (to|onto|for) (slicks|wets|dry|rain)|pneus? (de chuva|slick|lisos?)|neumaticos de lluvia|regenreifen|trockenreifen/],
+  ['poorTraction', /tracti|wheel ?spin|spin(s|ning)? the (rear|wheels)|traca|traccion|traktion|durchdreh|motricite|patin|pattina|trazione/],
+  ['tcIntervention', /\btc\b|traction control|controle de tracao|control de traccion|traktionskontrolle|controle de traction|controllo (di |della )?trazione/],
+  ['bottoming', /bottom(s|ing|ed)? ?out|bottoming|scrap(es|ing)|bump ?stop|batendo (no )?chao|toca (el )?suelo|aufsetz|touche (le )?sol|talonn|tocca (il )?(fondo|terra)/],
+  ['aeroInstability', /high[- ]speed (instab|unstable)|nervous at (high )?speed|aero|downforce|instavel em alta|inestable a alta|instabil bei hoher|instable a haute|instabile ad alta/],
+  ['tireOverheating', /overheat|too hot|tyres? (are )?hot|tires? (are )?hot|superaquec|sobrecalent|uberhitz|zu heiss|surchauff|surriscald/],
+  ['tireWear', /\bwear|degrad|desgaste|verschleiss|abbau|usure|usura/],
+  ['coldTires', /cold (tires|tyres|brakes)|pneus frios|neumaticos frios|kalte reifen|pneus froids|gomme fredde|pneumatici freddi/],
+  ['aquaplaning', /aquaplan|hydroplan|standing water|puddle|river across|poca d.?agua|lamina d.?agua|charco|wasserlache|pfutze|flaque|pozzanghera/],
+  ['lowGrip', /no grip|low grip|zero grip|slippery|like (on )?ice|sem aderencia|pouca aderencia|sin agarre|poco agarre|kein grip|wenig grip|rutschig|pas de grip|peu de grip|pas d.?adherence|peu d.?adherence|glissant|niente grip|poco grip|scivolos|senza aderenza|poca aderenza/],
+  ['tireCrossover', /\bslicks?\b|\bwets\b|wet (tires|tyres)|\binters?\b|intermediates?|rain (tires|tyres)|cross ?over|(change|switch|go) (to|onto|for) (slicks|wets|dry|rain)|pneus? (de chuva|slick|lisos?)|neumaticos de lluvia|regenreifen|trockenreifen|pneus? (de )?pluie|gomme da (pioggia|bagnato)|pneumatici da (pioggia|bagnato)/],
 ];
 
 const PHASE_TERMS: [Phase, RegExp][] = [
-  ['braking', /\bbrak(e|es|ing)\b|under brak|on the brakes|frenagem|frenada|frenando|bremsen|bremszone/],
-  ['entry', /\bentry\b|turn[- ]?in|\bentering\b|into the (corner|turn)|corner entry|entrada|einfahrt|einlenk/],
-  ['mid', /\bmid\b|mid[- ]corner|middle|\bapex|meio da curva|meio|medio de la curva|vertice|mitte|scheitel/],
-  ['exit', /\bexit|on (the )?(power|throttle|gas)|power[- ]on|accelerat|saida|salida|ausgang|herausbeschleunig|am gas/],
-  ['straight', /straight|reta|recta|gerade/],
+  ['braking', /\bbrak(e|es|ing)\b|under brak|on the brakes|frenagem|frenada|frenando|bremsen|bremszone|freinage|freiner|frenata|frenare|staccata/],
+  ['entry', /\bentry\b|turn[- ]?in|\bentering\b|into the (corner|turn)|corner entry|entrada|einfahrt|einlenk|entree|inserimento|ingresso/],
+  ['mid', /\bmid\b|mid[- ]corner|middle|\bapex|meio da curva|meio|medio de la curva|vertice|mitte|scheitel|milieu du virage|point de corde|centro curva|punto di corda/],
+  ['exit', /\bexit|on (the )?(power|throttle|gas)|power[- ]on|accelerat|saida|salida|ausgang|herausbeschleunig|am gas|sortie|uscita/],
+  ['straight', /straight|reta|recta|gerade|ligne droite|rettilineo/],
 ];
 
 const COMPONENT_TERMS: [Component, RegExp][] = [
-  ['braking', /brake bias|bias|brake balance|bremsbalance|balanco de freio|reparto de frenada/],
+  ['braking', /brake bias|bias|brake balance|bremsbalance|balanco de freio|reparto de frenada|repartition de freinage|ripartizione (di )?frenata/],
   ['abs', /\babs\b/],
   ['tractionControl', /\btc\b|traction control/],
   ['differential', /\bdiff|differential|diferencial|differenzial|sperre/],
-  ['antiRollBars', /anti[- ]?roll|\barb\b|sway bar|barra estabilizadora|stabilisator/],
-  ['springs', /spring|mola|muelle|feder/],
-  ['dampers', /damper|shock|bump|rebound|amortec|amortigu|dampfer/],
-  ['rideHeight', /ride height|rake|altura|fahrhohe/],
-  ['alignment', /camber|caster|\btoe\b|cambagem|convergencia|sturz|spur/],
-  ['tires', /tire|tyre|pressure|pneu|neumatic|reifen|druck/],
-  ['aero', /\bwing|aero|downforce|splitter|asa|aleron|flugel/],
-  ['wetWeather', /\brain|\bwet\b|\bdamp\b|\bdrying\b|aquaplan|hydroplan|standing water|puddle|\bspray\b|chuva|molhad|lluvia|mojad|\bregen\b|\bnass\b|feucht/],
+  ['antiRollBars', /anti[- ]?roll|\barb\b|sway bar|barra estabilizadora|stabilisator|antiroulis|anti-roulis/],
+  ['springs', /spring|mola|muelle|feder|ressort|moll[ae]\b/],
+  ['dampers', /damper|shock|bump|rebound|amortec|amortigu|dampfer|amortiss|ammortizz/],
+  ['rideHeight', /ride height|rake|altura|fahrhohe|hauteur de caisse|garde au sol|altezza da terra/],
+  ['alignment', /camber|caster|\btoe\b|cambagem|convergencia|sturz|spur|carrossage|pincement|campanatura|convergenza/],
+  ['tires', /tire|tyre|pressure|pneu|neumatic|reifen|druck|gomm|pression/],
+  ['aero', /\bwing|aero|downforce|splitter|asa|aleron|flugel|aileron|alettone|appui aero/],
+  ['wetWeather', /\brain|\bwet\b|\bdamp\b|\bdrying\b|aquaplan|hydroplan|standing water|puddle|\bspray\b|chuva|molhad|lluvia|mojad|\bregen\b|\bnass\b|feucht|pluie|mouill|humide|pioggia|bagnat|umid/],
 ];
 
 export function parseQuery(text: string): ParsedQuery {

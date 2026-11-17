@@ -5,7 +5,7 @@
 // (GET /api/live/radio-speech, radioVoiceId). The Race Engineer (src/lib/raceEngineer.ts) answers what needs an
 // answer. The Live Racing page's Hold to Talk sends watchers' spoken messages through the same speech to text.
 
-import { getCoachVoice } from './coachVoice';
+import { elevenLabsOffered, getCoachVoice } from './coachVoice';
 import { elevenLabsRadioVoiceId, elevenLabsVoiceId } from './elevenLabs';
 import type { Language } from './i18n/languages';
 import type { User } from './users';
@@ -15,12 +15,14 @@ import { assertMeteredServicesOn } from './meteredServices';
 const MY_VOICE_ACCOUNTS = new Set(['darinlutz@yahoo.com', 'darinlutz648@gmail.com']);
 
 // The ElevenLabs voice a driver's radio is said in: the site owner's own voice for their accounts, and for everyone
-// else the RaceCoach voice of their Preferred Language and Spanish accent; null when it isn't set up
+// else the RaceCoach voice of their Preferred Language and Spanish accent; null when it isn't set up, or when the
+// driver may not have it (French and Italian's are for Gold members and Admins, elevenLabsOffered).
 // The owner's voice needs a confirmed address, as anyone can sign up with an address they don't own.
 export async function radioVoiceId(
-  driver: Pick<User, 'id' | 'emailAddress' | 'preferredLanguage' | 'emailVerified'>
+  driver: Pick<User, 'id' | 'emailAddress' | 'preferredLanguage' | 'emailVerified' | 'membershipLevel' | 'role'>
 ): Promise<string | null> {
   if (driver.emailVerified && MY_VOICE_ACCOUNTS.has(driver.emailAddress.trim().toLowerCase())) return elevenLabsRadioVoiceId();
+  if (!elevenLabsOffered(driver.preferredLanguage, driver)) return null;
   const { spanishAccent } = await getCoachVoice(driver.id);
   return elevenLabsVoiceId('raceCoach', driver.preferredLanguage, spanishAccent);
 }
@@ -39,6 +41,8 @@ const PROMPT: Record<Language, string> = {
   pt: 'Um piloto no rádio da equipe durante uma sessão do iRacing: box box, para nesta volta, entendido, saindo de frente, saindo de traseira, pneus, combustível, diferença, bandeira amarela.',
   es: 'Un piloto en la radio del equipo durante una sesión de iRacing: box box, entro en esta vuelta, copiado, subviraje, sobreviraje, neumáticos, combustible, diferencia, bandera amarilla.',
   de: 'Ein Rennfahrer am Teamfunk während einer iRacing-Session: Box Box, diese Runde an die Box, verstanden, Untersteuern, Übersteuern, Reifen, Sprit, Abstand, pushen, gelbe Flagge.',
+  fr: 'Un pilote à la radio de l’équipe pendant une session iRacing : box box, je rentre ce tour, bien reçu, sous-virage, survirage, pneus, carburant, écart, attaque, drapeau jaune.',
+  it: 'Un pilota alla radio del team durante una sessione di iRacing: box box, rientro questo giro, ricevuto, sottosterzo, sovrasterzo, gomme, carburante, distacco, spingi, bandiera gialla.',
 };
 
 export class RadioTranscriptionError extends Error {}

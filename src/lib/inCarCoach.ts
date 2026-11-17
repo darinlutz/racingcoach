@@ -273,7 +273,9 @@ const calloutPrompt = (units: Units) =>
   ' Your callouts are spoken, though, so round every time difference (a gap between laps, or time lost or gained in ' +
   'a focus area) to the nearest tenth of a second and write it the way a race engineer says it on the radio, never ' +
   'with "s" for seconds: under a second in tenths (e.g. "two tenths slower" for 0.213 s), otherwise in seconds with ' +
-  'one decimal (e.g. "2.3 seconds faster" for 2.319 s).';
+  'one decimal (e.g. "2.3 seconds faster" for 2.319 s).' +
+  ' Write units out in full words in your language, never as symbols or abbreviations (e.g. "85 degrees", not ' +
+  '"85°" or "85 deg"; "3 gallons", not "3 gal"; "15 feet", not "15 ft").';
 
 // A callout about the driving line (English only; the prompt forbids it in every language), which the coach can't see
 const LINE_ADVICE = [

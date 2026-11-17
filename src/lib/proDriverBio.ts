@@ -124,7 +124,65 @@ const de: ProDriverBio = {
   ],
 };
 
-const BIOS: Record<Language, ProDriverBio> = { en, es, pt, de };
+const fr: ProDriverBio = {
+  title: 'Pilote professionnel de sim racing & coach',
+  sections: [
+    {
+      heading: 'Carrière en course & parcours',
+      paragraphs: [
+        'Fort d’une carrière en compétition de plus de vingt ans, ce sim racer accompli et coach de pilotage professionnel a couru au plus haut niveau du sport automobile virtuel, notamment dans l’iRacing World Championship Series (WCS) et dans la prestigieuse compétition qualificative Mazda Road to 24.',
+        'Sa passion pour la course est née avec des classiques comme *Super Monaco GP* sur Sega Mega Drive. En 2007, il s’est lancé dans le sim racing de compétition avec *Live for Speed*, développant les qualités qui allaient le placer parmi l’élite mondiale des pilotes virtuels.',
+        'Arrivé sur iRacing en 2009, il s’est rapidement imposé en remportant son premier championnat officiel en 2010. Ce succès lui a valu une place dans l’iRacing Road Pro Series 2011 et une qualification pour les finales en ligne des Intel Extreme Masters. En 2012, il a terminé parmi les **neuf meilleurs pilotes de l’iRacing World Championship Series** et a également atteint la finale de la GT Academy.',
+        'Après une courte pause en 2014, il est revenu à la compétition avec l’Iberica Racing Team, décrochant de nombreuses victoires et plusieurs titres. Parmi ses succès figurent la RaceDepartment SimRacingTeams Black Cup, les Masters of Endurance 1000 km de Suzuka et le championnat 2015 de la Class A Grand Prix Series. Ses excellentes performances en Road Pro Series lui ont assuré une nouvelle participation à l’iRacing World Championship Series 2016.',
+        'En 2016, il est passé des monoplaces aux voitures de sport, disputant la Mazda European MX-5 Cup et terminant quatrième au classement général. La même année, il a été choisi comme représentant d’iRacing pour la **Mazda Road to 24**, en lice pour une bourse de 100 000 dollars destinée à une véritable carrière en Global Mazda MX-5 Cup, au NOLA Motorsports Park de La Nouvelle-Orléans.',
+        'Ses succès se sont poursuivis en 2017 avec la victoire lors de la toute première course de la SEAT Leon Eurocup Online et une troisième place aux 24 Heures du Nürburgring sur iRacing.',
+        'En 2018, il s’est qualifié pour la Blancpain GT World Championship Series et a rejoint Teo Martin eSports, confirmant sa réputation sur la scène internationale du sim racing. L’année suivante, sous les couleurs de Vodafone Giants, il a terminé troisième des 24 Heures de Barcelone officielles et a signé deux victoires et une deuxième place dans la série Ferrari GT3 Challenge Fixed.',
+        'En 2020, il a rejoint l’équipe esport officielle de Ford, **Team Fordzilla**, avec laquelle il a remporté la saison 2 du BMW 12.0 Challenge après avoir terminé deuxième de la saison 1.',
+      ],
+    },
+    {
+      heading: 'Expérience professionnelle de coach',
+      paragraphs: [
+        'Au-delà de son riche palmarès, il a bâti une carrière reconnue d’instructeur de pilotage professionnel et de coach en sim racing.',
+        'Son expérience de coach comprend son travail avec la **Virtual Racing School (VRS)**, où il aide les pilotes à améliorer leur technique, leur régularité et leurs performances grâce à une analyse poussée de la télémétrie et à un enseignement personnalisé.',
+        'Son expertise dépasse le sport automobile virtuel et s’étend à la formation de pilotes dans le monde réel. Il a été instructeur pour Mercedes Driving Events Portugal et la Spanish Racing Drivers School, encadrant des pilotes sur des installations professionnelles au Portugal et en Espagne.',
+        'Alliant une expérience de compétition au plus haut niveau à l’enseignement du sport automobile réel, il apporte une compréhension complète de la dynamique du véhicule, du racecraft, des techniques de freinage, du contrôle de la voiture et de l’optimisation des performances.',
+        'Sa philosophie de coaching met l’accent sur le développement des compétences fondamentales de pilotage, la compréhension du comportement du véhicule et l’application de techniques fondées sur les données pour aider les pilotes à devenir plus rapides, plus réguliers et plus compétitifs en piste.',
+      ],
+    },
+  ],
+};
+
+const it: ProDriverBio = {
+  title: 'Pilota professionista di sim racing & coach',
+  sections: [
+    {
+      heading: 'Carriera agonistica & background',
+      paragraphs: [
+        'Con una carriera agonistica di oltre vent’anni, questo affermato sim racer e coach di guida professionista ha gareggiato ai massimi livelli del motorsport virtuale, tra cui l’iRacing World Championship Series (WCS) e la prestigiosa competizione di qualificazione Mazda Road to 24.',
+        'La sua passione per le corse è nata con titoli classici come *Super Monaco GP* sul Sega Mega Drive. Nel 2007 è passato al sim racing competitivo con *Live for Speed*, sviluppando le capacità che lo avrebbero portato tra i migliori piloti virtuali del mondo.',
+        'Arrivato su iRacing nel 2009, si è fatto notare in fretta, conquistando il suo primo campionato ufficiale nel 2010. Questo successo gli è valso un posto nell’iRacing Road Pro Series 2011 e la qualificazione alle finali online delle Intel Extreme Masters. Nel 2012 ha chiuso tra i **primi nove piloti dell’iRacing World Championship Series**, raggiungendo anche le finali della GT Academy.',
+        'Dopo una breve pausa nel 2014, è tornato a correre con l’Iberica Racing Team, ottenendo numerose vittorie e titoli. Tra i suoi successi ci sono la RaceDepartment SimRacingTeams Black Cup, la Masters of Endurance 1000 km di Suzuka e il campionato 2015 della Class A Grand Prix Series. Le sue ottime prestazioni nella Road Pro Series gli hanno garantito un’altra partecipazione all’iRacing World Championship Series 2016.',
+        'Nel 2016 è passato dalle monoposto alle vetture sport, correndo nella Mazda European MX-5 Cup e chiudendo quarto in classifica generale. Lo stesso anno è stato scelto come rappresentante di iRacing per la **Mazda Road to 24**, in corsa per una borsa di studio da 100.000 dollari per una vera carriera nella Global Mazda MX-5 Cup, al NOLA Motorsports Park di New Orleans.',
+        'I suoi successi sono proseguiti nel 2017 con la vittoria nella prima gara della SEAT Leon Eurocup Online e un terzo posto alla 24 Ore del Nürburgring su iRacing.',
+        'Nel 2018 si è qualificato per la Blancpain GT World Championship Series ed è entrato in Teo Martin eSports, consolidando la sua reputazione nel sim racing internazionale. L’anno successivo, correndo per Vodafone Giants, ha ottenuto il terzo posto nella 24 Ore di Barcellona ufficiale, oltre a due vittorie e un secondo posto nella serie Ferrari GT3 Challenge Fixed.',
+        'Nel 2020 è entrato nella squadra esport ufficiale di Ford, **Team Fordzilla**, con cui ha vinto la Season 2 del BMW 12.0 Challenge dopo il secondo posto nella Season 1.',
+      ],
+    },
+    {
+      heading: 'Esperienza professionale come coach',
+      paragraphs: [
+        'Oltre ai suoi numerosi successi in pista, ha costruito una carriera di rilievo come istruttore di guida professionista e coach di sim racing.',
+        'La sua esperienza da coach comprende il lavoro con la **Virtual Racing School (VRS)**, dove aiuta i piloti a migliorare tecnica di guida, costanza e prestazioni complessive grazie all’analisi avanzata della telemetria e a lezioni personalizzate.',
+        'La sua competenza va oltre il motorsport virtuale e arriva alla formazione dei piloti nel mondo reale. È stato istruttore per Mercedes Driving Events Portugal e per la Spanish Racing Drivers School, seguendo i piloti in pista in strutture professionali in Portogallo e in Spagna.',
+        'Unendo un’esperienza agonistica d’élite all’insegnamento del motorsport reale, offre una conoscenza completa di dinamica del veicolo, racecraft, tecniche di frenata, controllo della vettura e ottimizzazione delle prestazioni.',
+        'La sua filosofia di coaching punta a sviluppare le abilità di guida fondamentali, a capire il comportamento della vettura e ad applicare tecniche basate sui dati per aiutare i piloti a diventare più veloci, più costanti e più competitivi in pista.',
+      ],
+    },
+  ],
+};
+
+const BIOS: Record<Language, ProDriverBio> = { en, es, pt, de, fr, it };
 
 export function getProDriverBio(language: Language): ProDriverBio {
   return BIOS[language];

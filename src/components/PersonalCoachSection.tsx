@@ -13,6 +13,8 @@ const languages = [
   { code: 'ES', name: 'Español', line: 'Frena en el cartel de 100, lleva velocidad al vértice.' },
   { code: 'PT', name: 'Português', line: 'Freie na placa de 100, leve velocidade até o ápice.' },
   { code: 'DE', name: 'Deutsch', line: 'Brems am 100er-Schild, nimm Tempo mit zum Scheitelpunkt.' },
+  { code: 'FR', name: 'Français', line: 'Freine au panneau des 100, garde de la vitesse jusqu’au point de corde.' },
+  { code: 'IT', name: 'Italiano', line: 'Frena al cartello dei 100, porta velocità fino al punto di corda.' },
 ];
 
 // A few of the Account page's coach voices (COACH_VOICE_DETAILS in src/lib/coachVoice.ts, which is server only)

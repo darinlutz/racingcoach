@@ -22,9 +22,10 @@ export async function PUT(request: Request) {
       await setSpanishAccent(user.id, body.spanishAccent);
       return NextResponse.json({ spanishAccent: body.spanishAccent });
     }
-    // The ElevenLabs voice only while it's set up for the user's language and accent
+    // The ElevenLabs voice only while it's set up for the user's language and accent (French and Italian's for Gold
+    // members and Admins only)
     const { spanishAccent } = await getCoachVoice(user.id);
-    if (!isCoachVoice(body.voice) || !(body.voice in coachVoicesFor(user.preferredLanguage, spanishAccent))) {
+    if (!isCoachVoice(body.voice) || !(body.voice in coachVoicesFor(user.preferredLanguage, spanishAccent, user))) {
       return NextResponse.json({ error: t.unknownCoachVoice }, { status: 400 });
     }
     await setCoachVoice(user.id, body.voice);

@@ -1,11 +1,14 @@
 // "The Art of Driving a Race Car", the guide on the Learning page (src/app/learning/page.tsx), in each of the
-// site's languages: English here, Spanish in learningGuideEs.ts, Portuguese in learningGuidePt.ts and German in learningGuideDe.ts. The page
+// site's languages: English here, Spanish in learningGuideEs.ts, Portuguese in learningGuidePt.ts, German in learningGuideDe.ts,
+// French in learningGuideFr.ts and Italian in learningGuideIt.ts. The page
 // chrome around it is in the dictionaries' `learning`. Each chapter's figure is drawn by
 // src/components/LearningFigures.tsx, with the labels in `figures`.
 
 import type { Language } from '@/lib/i18n/languages';
 import { DE } from '@/lib/learningGuideDe';
 import { ES } from '@/lib/learningGuideEs';
+import { FR } from '@/lib/learningGuideFr';
+import { IT } from '@/lib/learningGuideIt';
 import { PT } from '@/lib/learningGuidePt';
 
 // `drill` and `error` sections are shown as callouts; `principle` as the closing quote
@@ -433,7 +436,7 @@ const EN: Guide = {
   },
 };
 
-const GUIDES: Record<Language, Guide> = { en: EN, es: ES, pt: PT, de: DE };
+const GUIDES: Record<Language, Guide> = { en: EN, es: ES, pt: PT, de: DE, fr: FR, it: IT };
 
 export function getGuide(language: Language): Guide {
   return GUIDES[language];

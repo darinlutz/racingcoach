@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getCoachVoice, isCoachVoice, speaksElevenLabs, synthesizeSpeech } from '@/lib/coachVoice';
+import { allowedVoice, getCoachVoice, isCoachVoice, speaksElevenLabs, synthesizeSpeech } from '@/lib/coachVoice';
 import { ELEVENLABS_PROVIDER, SPEECH_PROVIDER_HEADER } from '@/lib/engineBedConfig';
 import { apiText, getDictionary } from '@/lib/i18n/server';
 import { ANNOUNCER_ROLES, isAnnouncer } from '@/lib/raceAnnouncer';
@@ -24,10 +24,12 @@ export async function GET(request: Request) {
     }
     const params = new URL(request.url).searchParams;
     const announcer = params.get('announcer');
-    const voice = params.get('voice');
-    if (!isAnnouncer(announcer) || !isCoachVoice(voice)) {
+    const picked = params.get('voice');
+    if (!isAnnouncer(announcer) || !isCoachVoice(picked)) {
       return NextResponse.json({ error: t.unknownCoachVoice }, { status: 400 });
     }
+    // French and Italian's ElevenLabs voices are for Gold members and Admins: anyone else hears the default Chirp voice
+    const voice = allowedVoice(picked, user.preferredLanguage, user);
     limit = await aiRateLimit(request, 'speech', user);
     if (limit.response) return limit.response;
     const { spanishAccent } = await getCoachVoice(user.id);

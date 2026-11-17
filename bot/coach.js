@@ -8,11 +8,12 @@ import { decimal, fmt, focusLabel, textsFor } from './i18n.js';
 const ACCENT_COLOR = 0xe10600; // racing red
 export const NUMBERS = ['1️⃣', '2️⃣', '3️⃣'];
 
-// 83.456 -> "1:23.456" (and "1:23,456" in Portuguese and German; Latin American Spanish, like the site's, keeps the point)
+// 83.456 -> "1:23.456" (and "1:23,456" in Portuguese, German, French and Italian; Latin American Spanish, like the
+// site's, keeps the point)
 export function formatLapTime(seconds, language = 'en') {
   const minutes = Math.floor(seconds / 60);
   const rest = (seconds - minutes * 60).toFixed(3).padStart(6, '0');
-  return `${minutes}:${language === 'pt' || language === 'de' ? rest.replace('.', ',') : rest}`;
+  return `${minutes}:${['pt', 'de', 'fr', 'it'].includes(language) ? rest.replace('.', ',') : rest}`;
 }
 
 function formatSigned(value) {

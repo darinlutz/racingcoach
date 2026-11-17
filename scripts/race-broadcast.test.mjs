@@ -28,6 +28,8 @@ import { en } from '../src/lib/i18n/dictionaries/en.ts';
 import { pt } from '../src/lib/i18n/dictionaries/pt.ts';
 import { es } from '../src/lib/i18n/dictionaries/es.ts';
 import { de } from '../src/lib/i18n/dictionaries/de.ts';
+import { fr } from '../src/lib/i18n/dictionaries/fr.ts';
+import { it } from '../src/lib/i18n/dictionaries/it.ts';
 import { checkLine, deliveryText, fitToSeconds } from '../src/lib/broadcastValidation.ts';
 import { broadcastSettingsPatch, DEFAULT_BROADCAST_SETTINGS, lineVolume, parseBroadcastSettings } from '../src/lib/broadcastSettings.ts';
 import { CommentaryQueue } from '../src/lib/tvAudio.ts';
@@ -615,7 +617,7 @@ describe('fixed wording and the AI budget', () => {
   test('every language has every wording, with the same placeholders as English', () => {
     const holes = (t) => [...t.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort().join(',');
     const known = new Set(['ahead', 'behind', 'pos', 'gap', 'closing', 'laps', 'who', 'whom', 'car', 'driver', 'lapTime', 'delta', 'seconds', 'total']);
-    for (const [lang, dict] of Object.entries({ pt, es, de })) {
+    for (const [lang, dict] of Object.entries({ pt, es, de, fr, it })) {
       for (const part of ['lead', 'color']) {
         for (const [key, variants] of Object.entries(en.broadcastPhrases[part])) {
           const theirs = dict.broadcastPhrases[part][key];

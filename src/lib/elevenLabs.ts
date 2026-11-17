@@ -2,8 +2,9 @@
 // announcements, POST /api/live/lap-speech) and the Race Announcers' Lead and Color voices (POST /api/live/announcer).
 // Each is a voice set up in the ElevenLabs account (Voice Library, Voice Design or a cloned voice), one per language
 // and accent, named by its Voice ID in ELEVENLABS_<LANGUAGE>_<ROLE>_VOICE_ID, e.g.
-// ELEVENLABS_ENGLISH_RACECOACH_VOICE_ID or ELEVENLABS_ESPANA_ANNOUNCER_COLOR_VOICE_ID (ENGLISH, PORTUGUESE, GERMAN, LATINO for
-// Latin American Spanish, ESPANA for Spain's). ELEVENLABS_MY_VOICE_ID is the site owner's own Driver Radio voice, the
+// ELEVENLABS_ENGLISH_RACECOACH_VOICE_ID or ELEVENLABS_ESPANA_ANNOUNCER_COLOR_VOICE_ID (ENGLISH, PORTUGUESE, GERMAN, FRENCH,
+// ITALIAN, LATINO for Latin American Spanish, ESPANA for Spain's). French and Italian's are for Gold members and Admins
+// only (GOLD_VOICE_LANGUAGES; coachVoice.ts offers and speaks them only to those). ELEVENLABS_MY_VOICE_ID is the site owner's own Driver Radio voice, the
 // same in every language (GET /api/live/radio-speech); other drivers' radio is in their RaceCoach voice. ELEVENLABS_MODEL_ID picks the model (ElevenLabs' default,
 // eleven_multilingual_v2, without it). The API key is ELEVENLABS_API_KEY, or ELEVEN_LABS_API_KEY.
 
@@ -32,11 +33,21 @@ const ROLE_NAMES: Record<ElevenLabsRole, string> = {
 // The accent Spanish is spoken with (SPANISH_ACCENTS in coachVoice.ts), written out to keep this file's imports light
 type Accent = 'latinAmerica' | 'spain';
 
+const LANGUAGE_NAMES: Record<Exclude<Language, 'es'>, string> = {
+  en: 'ENGLISH',
+  pt: 'PORTUGUESE',
+  de: 'GERMAN',
+  fr: 'FRENCH',
+  it: 'ITALIAN',
+};
+
 function languageName(language: Language, spanishAccent: Accent): string {
   if (language === 'es') return spanishAccent === 'spain' ? 'ESPANA' : 'LATINO';
-  if (language === 'de') return 'GERMAN';
-  return language === 'pt' ? 'PORTUGUESE' : 'ENGLISH';
+  return LANGUAGE_NAMES[language];
 }
+
+// The languages whose ElevenLabs voices are for Gold members and Admins only (canUseGoldVoices in roles.ts)
+export const GOLD_VOICE_LANGUAGES: readonly Language[] = ['fr', 'it'];
 
 const apiKey = () => process.env.ELEVENLABS_API_KEY || process.env.ELEVEN_LABS_API_KEY;
 

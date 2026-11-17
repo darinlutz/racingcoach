@@ -14,6 +14,8 @@ const PORTAL_LOCALES: Record<Language, Stripe.BillingPortal.SessionCreateParams.
   pt: 'pt-BR',
   es: 'es-419',
   de: 'de',
+  fr: 'fr',
+  it: 'it',
 };
 
 export async function POST(request: Request) {

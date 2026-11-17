@@ -7,34 +7,40 @@ namespace RacingCoach.Collector;
 
 /// <summary>
 /// The overlays' text in the user's Preferred Language (<see cref="CollectorEngine.Language"/>): English, Brazilian
-/// Portuguese, Latin American Spanish or German, in the website's words (src/lib/i18n/dictionaries). In XAML, Loc.Key on a
+/// Portuguese, Latin American Spanish, German, French or Italian, in the website's words (src/lib/i18n/dictionaries;
+/// French and Italian are in LocFrenchItalian.cs). In XAML, Loc.Key on a
 /// TextBlock, Run or Button names its text and Loc.ToolTip its tooltip, which <see cref="Apply"/> sets; in code,
 /// <see cref="T(string, string)"/>. Numbers are formatted with the language's <see cref="Culture"/>.
 /// </summary>
-internal static class Loc
+internal static partial class Loc
 {
     public const string English = "en";
 
-    /// <summary>"pt", "es" or "de", or English for anything else (e.g. a site from before the language was sent).</summary>
-    public static string Normalize(string? language) => language is "pt" or "es" or "de" ? language : English;
+    /// <summary>"pt", "es", "de", "fr" or "it", or English for anything else (e.g. a site from before the language was
+    /// sent).</summary>
+    public static string Normalize(string? language) => language is "pt" or "es" or "de" or "fr" or "it" ? language : English;
 
     /// <summary>Windows' display language, for before the account's Preferred Language is known (no upload key yet,
     /// e.g. the first run's upload key prompt).</summary>
     public static string SystemLanguage => Normalize(CultureInfo.CurrentUICulture.TwoLetterISOLanguageName);
 
-    /// <summary>Number formatting: Brazilian Portuguese, Latin American Spanish and German, as on the website; English stays
-    /// invariant, as the overlays always were.</summary>
+    /// <summary>Number formatting: Brazilian Portuguese, Latin American Spanish, German, French and Italian, as on the
+    /// website; English stays invariant, as the overlays always were.</summary>
     public static CultureInfo Culture(string language) => language switch
     {
         "pt" => Pt,
         "es" => Es,
         "de" => De,
+        "fr" => Fr,
+        "it" => It,
         _ => CultureInfo.InvariantCulture,
     };
 
     private static readonly CultureInfo Pt = CultureInfo.GetCultureInfo("pt-BR");
     private static readonly CultureInfo Es = CultureInfo.GetCultureInfo("es-419");
     private static readonly CultureInfo De = CultureInfo.GetCultureInfo("de-DE");
+    private static readonly CultureInfo Fr = CultureInfo.GetCultureInfo("fr-FR");
+    private static readonly CultureInfo It = CultureInfo.GetCultureInfo("it-IT");
 
     /// <summary>The text for a key in a language (English when the language has none; the key itself when no
     /// language has it).</summary>
@@ -42,6 +48,8 @@ internal static class Loc
     {
         if (!Texts.TryGetValue(key, out var texts))
             return key;
+        if (language is "fr" or "it" && FrenchItalianTexts.TryGetValue(key, out var frIt))
+            return language == "fr" ? frIt.Fr : frIt.It;
         return language switch
         {
             "pt" => texts.Pt,

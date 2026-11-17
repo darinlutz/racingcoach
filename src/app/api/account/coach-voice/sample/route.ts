@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { DEFAULT_SPANISH_ACCENT, isCoachVoice, isSpanishAccent, synthesizeSpeech } from '@/lib/coachVoice';
+import { allowedVoice, DEFAULT_SPANISH_ACCENT, isCoachVoice, isSpanishAccent, synthesizeSpeech } from '@/lib/coachVoice';
 import { apiText, getDictionary } from '@/lib/i18n/server';
 import { fmt } from '@/lib/i18n/languages';
 import { getCurrentUser } from '@/lib/session';
@@ -23,10 +23,10 @@ export async function GET(request: Request) {
     if (!isCoachVoice(voice)) {
       return NextResponse.json({ error: t.unknownCoachVoice }, { status: 400 });
     }
-    limit = await aiRateLimit(request, 'speech', user);
-    if (limit.response) return limit.response;
     const accent = params.get('accent');
     const spanishAccent = isSpanishAccent(accent) ? accent : DEFAULT_SPANISH_ACCENT;
+    limit = await aiRateLimit(request, 'speech', user);
+    if (limit.response) return limit.response;
     // Distances in the user's Preferred Units: about 20 feet (6 meters) later, near 1230 feet (375 meters)
     const dictionary = getDictionary(user.preferredLanguage);
     const sample = fmt(dictionary.inCarCoach.sample, {
@@ -34,7 +34,8 @@ export async function GET(request: Request) {
       near: Math.round(distanceFromFeet(1230, user.units)),
       units: dictionary.preferences.distanceNames[user.units],
     });
-    const audio = await synthesizeSpeech(sample, voice, user.preferredLanguage, spanishAccent);
+    // French and Italian's ElevenLabs voice is for Gold members and Admins: anyone else hears the default Chirp voice
+    const audio = await synthesizeSpeech(sample, allowedVoice(voice, user.preferredLanguage, user), user.preferredLanguage, spanishAccent);
     return new NextResponse(new Uint8Array(audio), {
       headers: { 'Content-Type': 'audio/wav', 'Cache-Control': 'private, max-age=86400' },
     });

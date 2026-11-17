@@ -1,6 +1,6 @@
 import type { Dictionary } from '@/lib/i18n/dictionaries/en';
 
-// Home page's four languages. Each name and sample line is written in its own language, so they aren't in
+// Home page's six languages. Each name and sample line is written in its own language, so they aren't in
 // the dictionaries. Flags are flag-icons codes (the page imports its CSS): Spanish has both accents the
 // coach speaks, Latin American and Spain's, and Portuguese is Brazil's.
 const languages = [
@@ -8,6 +8,8 @@ const languages = [
   { code: 'es', name: 'Español', flags: ['mx', 'es'], line: 'Tu próxima décima está en los datos.' },
   { code: 'pt', name: 'Português', flags: ['br'], line: 'Seu próximo décimo está nos dados.' },
   { code: 'de', name: 'Deutsch', flags: ['de'], line: 'Dein nächstes Zehntel steckt in den Daten.' },
+  { code: 'fr', name: 'Français', flags: ['fr'], line: 'Ton prochain dixième est dans les données.' },
+  { code: 'it', name: 'Italiano', flags: ['it'], line: 'Il tuo prossimo decimo è nei dati.' },
 ];
 
 export default function LanguagesSection({ t, enableAiFeatures }: { t: Dictionary['home']; enableAiFeatures: boolean }) {

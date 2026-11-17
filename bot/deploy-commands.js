@@ -21,41 +21,53 @@ const DESCRIPTIONS = {
     pt: 'Comandos do RacingCoach',
     es: 'Comandos de RacingCoach',
     de: 'RacingCoach-Befehle',
+    fr: 'Commandes RacingCoach',
+    it: 'Comandi di RacingCoach',
   },
   results: {
     en: 'Get your recent races and AI coaching on your results',
     pt: 'Veja suas corridas recentes e o treinamento de IA sobre seus resultados',
     es: 'Mira tus carreras recientes y el entrenamiento de IA sobre tus resultados',
     de: 'Deine letzten Rennen und KI-Coaching zu deinen Ergebnissen',
+    fr: 'Tes courses récentes et le coaching IA sur tes résultats',
+    it: 'Le tue gare recenti e il coaching IA sui tuoi risultati',
   },
   debrief: {
     en: 'See the fixes from your latest Debrief Coach session',
     pt: 'Veja as correções da sua última sessão do Debrief Coach',
     es: 'Mira las correcciones de tu última sesión de Debrief Coach',
     de: 'Die Korrekturen aus deiner letzten Debrief-Coach-Session',
+    fr: 'Les corrections de ta dernière session Debrief Coach',
+    it: 'Le correzioni della tua ultima sessione di Debrief Coach',
   },
   recent: {
     en: 'List your recent Debrief Coach sessions',
     pt: 'Liste suas sessões recentes do Debrief Coach',
     es: 'Muestra tus sesiones recientes de Debrief Coach',
     de: 'Deine letzten Debrief-Coach-Sessions',
+    fr: 'La liste de tes sessions Debrief Coach récentes',
+    it: 'Elenca le tue sessioni recenti di Debrief Coach',
   },
   whoami: {
     en: 'Show which RacingCoach account your Discord account is linked to',
     pt: 'Mostra a qual conta do RacingCoach sua conta do Discord está vinculada',
     es: 'Muestra a qué cuenta de RacingCoach está vinculada tu cuenta de Discord',
     de: 'Zeigt, mit welchem RacingCoach-Konto dein Discord-Konto verknüpft ist',
+    fr: 'Affiche le compte RacingCoach auquel ton compte Discord est lié',
+    it: 'Mostra a quale account RacingCoach è collegato il tuo account Discord',
   },
   status: {
     en: 'Check that RacingCoach is online',
     pt: 'Verifica se o RacingCoach está online',
     es: 'Comprueba que RacingCoach esté en línea',
     de: 'Prüft, ob RacingCoach online ist',
+    fr: 'Vérifie que RacingCoach est en ligne',
+    it: 'Controlla che RacingCoach sia online',
   },
 };
 
 // Discord's locales for the site's other languages
-const localized = ({ pt, es, de }) => ({ 'pt-BR': pt, 'es-ES': es, 'es-419': es, de });
+const localized = ({ pt, es, de, fr, it }) => ({ 'pt-BR': pt, 'es-ES': es, 'es-419': es, de, fr, it });
 
 function describe(builder, name) {
   return builder.setName(name).setDescription(DESCRIPTIONS[name].en).setDescriptionLocalizations(localized(DESCRIPTIONS[name]));

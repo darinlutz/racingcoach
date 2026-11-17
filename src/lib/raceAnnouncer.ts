@@ -6,7 +6,19 @@ import { parseBroadcastSettings, type BroadcastSettings } from './broadcastSetti
 import type { BroadcastEvent, Storyline } from './broadcastTracker';
 import { checkLine, deliveryText, echoesInstruction, fitToSeconds, type LineFacts } from './broadcastValidation';
 import { spokenCarName } from './carBrands';
-import { ELEVENLABS_COACH_VOICE, isCoachVoice, voicesFor, type CoachVoice, type Pronunciation, type SpanishAccent } from './coachVoice';
+import {
+  allowedVoice,
+  ELEVENLABS_COACH_VOICE,
+  isCoachVoice,
+  VOICE_MEMBER_COLUMNS,
+  voiceMemberOf,
+  voicesFor,
+  type CoachVoice,
+  type Pronunciation,
+  type SpanishAccent,
+  type VoiceMember,
+  type VoiceMemberRow,
+} from './coachVoice';
 import { query } from './db';
 import type { ElevenLabsRole } from './elevenLabs';
 import { languageCheck, namesIn } from './answerChecks';
@@ -38,25 +50,31 @@ export const MAX_RACE_ANNOUNCER_INSTRUCTIONS = 2000;
 
 export const isAnnouncer = (value: unknown): value is Announcer => ANNOUNCERS.includes(value as Announcer);
 
-// The voices an announcer can speak with in this language and accent, its ElevenLabs voice first
-export function announcerVoicesFor(announcer: Announcer, language: Language, spanishAccent: SpanishAccent) {
-  return voicesFor(ANNOUNCER_ROLES[announcer], language, spanishAccent);
+// The voices an announcer can speak with in this language and accent, its ElevenLabs voice first (French and
+// Italian's for Gold members and Admins only)
+export function announcerVoicesFor(announcer: Announcer, language: Language, spanishAccent: SpanishAccent, member: VoiceMember) {
+  return voicesFor(ANNOUNCER_ROLES[announcer], language, spanishAccent, member);
 }
 
 export type RaceAnnouncerSettings = { leadVoice: CoachVoice; colorVoice: CoachVoice; instructions: string; broadcast: BroadcastSettings };
 
-// An account that never picked a voice gets the ElevenLabs one, which falls back to a Chirp voice where it isn't set up
+// An account that never picked a voice gets the ElevenLabs one, which falls back to a Chirp voice where it isn't set up,
+// or where the member may not have it (French and Italian's are for Gold members and Admins, allowedVoice)
 export async function getRaceAnnouncerSettings(userId: number): Promise<RaceAnnouncerSettings> {
   await ensureUserSchema();
-  const rows = await query<{ announcer_lead_voice: string; announcer_color_voice: string; race_announcer_instructions: string; broadcast_settings: unknown }>(
-    'SELECT announcer_lead_voice, announcer_color_voice, race_announcer_instructions, broadcast_settings FROM racingcoach."Users" WHERE id = $1',
+  const rows = await query<
+    { announcer_lead_voice: string; announcer_color_voice: string; race_announcer_instructions: string; broadcast_settings: unknown } & VoiceMemberRow
+  >(
+    `SELECT announcer_lead_voice, announcer_color_voice, race_announcer_instructions, broadcast_settings, ${VOICE_MEMBER_COLUMNS}
+       FROM racingcoach."Users" WHERE id = $1`,
     [userId]
   );
   const { announcer_lead_voice: lead, announcer_color_voice: color, race_announcer_instructions: instructions, broadcast_settings: broadcast } =
     rows[0] ?? {};
+  const { language, member } = voiceMemberOf(rows[0] ?? {});
   return {
-    leadVoice: isCoachVoice(lead) ? lead : ELEVENLABS_COACH_VOICE,
-    colorVoice: isCoachVoice(color) ? color : ELEVENLABS_COACH_VOICE,
+    leadVoice: allowedVoice(isCoachVoice(lead) ? lead : ELEVENLABS_COACH_VOICE, language, member),
+    colorVoice: allowedVoice(isCoachVoice(color) ? color : ELEVENLABS_COACH_VOICE, language, member),
     instructions: instructions ?? '',
     broadcast: parseBroadcastSettings(broadcast),
   };

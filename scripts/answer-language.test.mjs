@@ -23,6 +23,16 @@ const clean = {
     'Du bist fast so schnell wie in der Zielrunde, aber am Scheitelpunkt noch zu langsam.',
     'Was du willst: Position halten, also nicht zu spät bremsen. Das war die Last am Ende des Stints.',
   ],
+  fr: [
+    'Freine environ 6 m plus tard que dans ton tour le plus rapide et remets les gaz plus tôt.',
+    'Tu as perdu deux dixièmes en sortie, car tu as levé le pied trop longtemps : on garde la position.',
+    'Au Tour 6, ta pression de freinage maximale était plus basse qu’au point de corde du Tour Cible.',
+  ],
+  it: [
+    'Frena circa 6 m più tardi rispetto al tuo giro più veloce e riapri il gas prima.',
+    'Nel Giro 6 hai perso due decimi in uscita: do un consiglio, porta più velocità nell’area di frenata.',
+    'Il gap dal leader compare nel Giro Obiettivo: mantieni il passo, in pace.',
+  ],
 };
 
 for (const [language, answers] of Object.entries(clean)) {
@@ -42,6 +52,10 @@ const leaks = [
   ['pt', 'Freie mais tarde, you can do it!', ['you', 'can', 'it']],
   ['de', 'Brems später, the apex ist zu früh.', ['the', 'apex']],
   ['de', "Gut gemacht, don't stop!", ["don't"]],
+  ['fr', 'Freine plus tard, the apex est trop tôt.', ['the', 'apex']],
+  ['fr', 'Ton brakepoint était 10 m later que sur le Tour Cible.', ['brakepoint', 'later']],
+  ['it', 'Frena più tardi, keep the throttle aperto.', ['keep', 'the', 'throttle']],
+  ['it', 'Nel Giro 3 il tuo exit è stato lento.', ['exit']],
 ];
 
 for (const [language, answer, words] of leaks) {

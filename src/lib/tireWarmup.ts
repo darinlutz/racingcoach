@@ -81,10 +81,10 @@ export function tireWarmup(laps: WarmupLap[]): TireWarmup | null {
   return { stintLap: stint[i], cold: stint[i] <= COLD_FLYING_LAPS, basis: 'laps', surfaceC: null };
 }
 
-// Words that mean braking later, and tires, in English, Portuguese, Spanish and German
-const LATER_RE = /\blater\b|mais tarde|más tarde|\bspäter\b/iu;
-const BRAKE_RE = /\bbrak|\bfre(?:n|ie|ar)|\bbrems/iu;
-const TIRE_RE = /\btires?\b|\btyres?\b|\bpneu|neumátic|\bgomas?\b|\breifen/iu;
+// Words that mean braking later, and tires, in English, Portuguese, Spanish, German, French and Italian
+const LATER_RE = /\blater\b|mais tarde|más tarde|\bspäter\b|plus tard|più tardi/iu;
+const BRAKE_RE = /\bbrak|\bfre(?:n|ie|ar)|\bfrein|\bbrems/iu;
+const TIRE_RE = /\btires?\b|\btyres?\b|\bpneu|neumátic|\bgomas?\b|\bgomm[ae]\b|\breifen/iu;
 
 // On cold tires, a callout telling the driver to brake later is only allowed when it says it's for once the tires
 // are warm (by mentioning them)

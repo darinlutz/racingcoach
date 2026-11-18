@@ -63,30 +63,92 @@ internal static class SelfUpdater
         if (ExePath is null || update.DownloadUrl is null)
             throw new InvalidOperationException("this collector can't update itself");
 
-        using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(15) };
-        http.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("RacingCoach-Collector", UpdateCheck.Current.ToString()));
-        using var response = await http.GetAsync(update.DownloadUrl, HttpCompletionOption.ResponseHeadersRead, ct);
-        response.EnsureSuccessStatusCode();
-
         var partialPath = UsesInstaller ? Path.Combine(Path.GetTempPath(), $"{SetupPrefix}{update.Version}.download") : PartialPath;
-        await using (var input = await response.Content.ReadAsStreamAsync(ct))
-        await using (var output = new FileStream(partialPath, FileMode.Create, FileAccess.Write, FileShare.None))
+        // Off the UI thread: the read loop's continuations and the signature check would otherwise run there,
+        // competing with the live telemetry, map and log updates
+        await Task.Run(() => DownloadFileAsync(update, partialPath, progress, ct), ct);
+        await Task.Run(() => CheckDownload(update, partialPath), ct);
+        if (UsesInstaller)
         {
-            var buffer = new byte[81920];
-            long total = 0;
-            int read;
-            while ((read = await input.ReadAsync(buffer, ct)) > 0)
+            _setupPath = Path.Combine(Path.GetTempPath(), $"{SetupPrefix}{update.Version}.exe");
+            File.Move(partialPath, _setupPath, overwrite: true);
+        }
+        else
+            File.Move(partialPath, NewPath, overwrite: true);
+        Ready = true;
+    }
+
+    /// <summary>A read that gets no data for this long is given up (HttpClient.Timeout doesn't cover reading
+    /// the body), and the download resumes where it stopped.</summary>
+    private static readonly TimeSpan StallTimeout = TimeSpan.FromSeconds(30);
+    private const int MaxAttempts = 5;
+
+    private static async Task DownloadFileAsync(AvailableUpdate update, string partialPath, IProgress<double> progress, CancellationToken ct)
+    {
+        using var http = new HttpClient { Timeout = Timeout.InfiniteTimeSpan }; // the stall timeout below instead
+        http.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("RacingCoach-Collector", UpdateCheck.Current.ToString()));
+
+        await using var output = new FileStream(partialPath, FileMode.Create, FileAccess.Write, FileShare.None);
+        var buffer = new byte[81920];
+        long total = 0;
+        var shownPercent = -1;
+        for (var attempt = 1; ; attempt++)
+        {
+            using var stall = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            try
             {
-                await output.WriteAsync(buffer.AsMemory(0, read), ct);
-                total += read;
-                progress.Report(Math.Min(1, (double)total / update.Size));
+                using var request = new HttpRequestMessage(HttpMethod.Get, update.DownloadUrl);
+                if (total > 0)
+                    request.Headers.Range = new RangeHeaderValue(total, null);
+                stall.CancelAfter(StallTimeout);
+                using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, stall.Token);
+                response.EnsureSuccessStatusCode();
+                if (total > 0 && response.StatusCode != System.Net.HttpStatusCode.PartialContent)
+                {
+                    // The server sent the whole file again rather than the rest
+                    total = 0;
+                    output.SetLength(0);
+                }
+
+                await using var input = await response.Content.ReadAsStreamAsync(stall.Token);
+                while (true)
+                {
+                    stall.CancelAfter(StallTimeout);
+                    var read = await input.ReadAsync(buffer, stall.Token);
+                    if (read == 0)
+                        break;
+                    await output.WriteAsync(buffer.AsMemory(0, read), ct);
+                    total += read;
+                    // Only when the shown percentage changes, not for every few kilobytes
+                    var percent = (int)(Math.Min(1, (double)total / update.Size) * 100);
+                    if (percent != shownPercent)
+                    {
+                        shownPercent = percent;
+                        progress.Report(percent / 100.0);
+                    }
+                }
+                if (total >= update.Size)
+                    return;
+                throw new IOException($"the connection closed after {total:N0} of {update.Size:N0} bytes");
+            }
+            catch (Exception e) when (!ct.IsCancellationRequested
+                && e is HttpRequestException or IOException or OperationCanceledException)
+            {
+                var reason = e is OperationCanceledException ? $"no data for {StallTimeout.TotalSeconds:0} s" : e.Message;
+                if (attempt >= MaxAttempts)
+                    throw new IOException(reason, e);
+                ActivityLog.Shared.Write($"Downloading the update stalled at {total:N0} of {update.Size:N0} bytes ({reason}); trying again.");
+                await Task.Delay(TimeSpan.FromSeconds(2 * attempt), ct);
             }
         }
+    }
 
+    private static void CheckDownload(AvailableUpdate update, string partialPath)
+    {
         var file = new FileInfo(partialPath);
         if (file.Length != update.Size)
             throw new InvalidDataException($"the download was {file.Length:N0} bytes, expected {update.Size:N0}");
-        await using (var check = File.OpenRead(partialPath))
+        using (var check = File.OpenRead(partialPath))
         {
             // Every Windows program starts with "MZ"
             if (check.ReadByte() != 'M' || check.ReadByte() != 'Z')
@@ -102,14 +164,6 @@ internal static class SelfUpdater
             File.Delete(partialPath);
             throw;
         }
-        if (UsesInstaller)
-        {
-            _setupPath = Path.Combine(Path.GetTempPath(), $"{SetupPrefix}{update.Version}.exe");
-            File.Move(partialPath, _setupPath, overwrite: true);
-        }
-        else
-            File.Move(partialPath, NewPath, overwrite: true);
-        Ready = true;
     }
 
     /// <summary>Puts the downloaded exe in place of the running one (it runs from the next start), and starts

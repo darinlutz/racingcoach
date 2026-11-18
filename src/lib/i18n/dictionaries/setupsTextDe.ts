@@ -1,15 +1,32 @@
 import type { SetupsText } from './setupsText';
+import { suspensionDe } from './suspensionTextDe.ts';
+import { dashboardsDe } from './dashboardsTextDe.ts';
+import { tiresDe } from './tiresTextDe.ts';
+import { brakesDe } from './brakesTextDe.ts';
 
 // The Setups page's text in German. Same keys, {placeholders} and { one, other } forms as setupsText.ts.
 
 export const setupsDe: SetupsText = {
   title: 'Setups',
   intro: 'Deine iRacing-Fahrzeug-Setups: was der Collector in iRacing geladen sieht, die .sto-Dateien, die du aufhebst, wie sie sich unterscheiden, und die Tipps des Setup-Ingenieurs.',
+  suspension: suspensionDe,
+  dashboards: dashboardsDe,
+  tires: tiresDe,
+  brakes: brakesDe,
   tabs: {
+    systems: 'Technische Systeme',
     overview: 'Übersicht',
     library: 'Meine Setups',
     live: 'Live-Setup',
     compare: 'Vergleichen',
+    suspension: 'Fahrwerk',
+    aero: 'Aerodynamik',
+    drivetrain: 'Antrieb',
+    fuel: 'Kraftstoff',
+    electronics: 'Elektronik',
+    other: 'Sonstiges',
+    tires: 'Reifen',
+    brakes: 'Bremsen',
     engineer: 'Setup-Ingenieur',
     inspection: 'Abnahme',
     history: 'Verlauf',

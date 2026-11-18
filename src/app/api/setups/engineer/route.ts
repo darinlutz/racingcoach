@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { aiErrorResponse } from '@/lib/aiErrors';
 import { ALIGNMENT_ENGINEER_RULE, alignmentEngineerFacts, compareAlignment } from '@/lib/alignmentGeometry';
+import { brakeEngineerFacts, BRAKES_ENGINEER_RULE, compareBrakes } from '@/lib/brakesGeometry';
 import { weatherContextFromLive } from '@/lib/engineering/weatherContext';
 import { getDictionary } from '@/lib/i18n/server';
 import { readEngineerSnapshot } from '@/lib/liveRacing';
@@ -12,10 +13,15 @@ import { measureSessionRotation, setupWorkbenchAnswer } from '@/lib/setupEnginee
 import { idOf, setupErrorResponse, setupsSession } from '@/lib/setupRoutes';
 import { readLinkedLaps, readRevision, readSetup, saveProposal } from '@/lib/setups';
 import { getEnableAiFeatures } from '@/lib/siteSettings';
+import { compareDashboard, DASHBOARD_ENGINEER_RULES, dashboardEngineerFacts, isSetupDashboard, SETUP_DASHBOARDS } from '@/lib/setupDashboards';
+import { compareSuspension, SUSPENSION_ENGINEER_RULE, suspensionEngineerFacts } from '@/lib/suspensionGeometry';
+import { compareTires, TIRES_ENGINEER_RULE, tireEngineerFacts } from '@/lib/tiresGeometry';
 
 // The Setups page's Setup Engineer (setupEngineer.ts's setupWorkbenchAnswer): { revisionId, compareRevisionId?,
-// question, focus? }. focus 'alignment' (the Compare tab's Ask Setup Engineer) needs the comparison: the alignment facts
-// are built here from both revisions' own values (alignmentGeometry.ts), never taken from the browser. Reads the revision's values, the comparison's differences, the laps driven on it and their understeer and
+// question, focus? }. focus (FOCI: 'alignment', the Compare tab's Ask Setup Engineer, or a system tab's: 'suspension',
+// 'brakes', 'tires', 'aero', 'drivetrain', 'fuel', 'electronics', 'other') needs the comparison: its facts are built
+// here from both revisions' own values (alignmentGeometry.ts, suspensionGeometry.ts, brakesGeometry.ts,
+// tiresGeometry.ts, setupDashboards.ts), never taken from the browser. Reads the revision's values, the comparison's differences, the laps driven on it and their understeer and
 // oversteer, and, when the driver is in that car in iRacing right now, the track conditions. Answers the analysis and
 // the proposed changes, saved as pending (racingcoach."SetupProposals") until the driver accepts or rejects them
 // (/api/setups/proposals/[id]). Silver and Gold members and Admins only, like the radio's Setup Engineer, and rate
@@ -23,6 +29,8 @@ import { getEnableAiFeatures } from '@/lib/siteSettings';
 export const maxDuration = 60;
 
 const MAX_QUESTION = 1000;
+// The parts of a comparison the Setup Engineer can be asked about, each with its own facts and rule
+const FOCI = ['alignment', 'suspension', 'brakes', 'tires', ...SETUP_DASHBOARDS] as const;
 
 export async function POST(request: Request) {
   const session = await setupsSession();
@@ -35,7 +43,7 @@ export async function POST(request: Request) {
     const revisionId = idOf(String(body?.revisionId ?? ''));
     const compareId = body?.compareRevisionId == null ? null : idOf(String(body.compareRevisionId));
     const question = typeof body?.question === 'string' ? body.question.trim().slice(0, MAX_QUESTION) : '';
-    const focus = body?.focus === 'alignment' ? 'alignment' : null;
+    const focus = typeof body?.focus === 'string' && (FOCI as readonly string[]).includes(body.focus) ? (body.focus as (typeof FOCI)[number]) : null;
     if (!revisionId || (body?.focus != null && !focus) || (focus && !compareId)) return NextResponse.json({ error: t.invalid }, { status: 400 });
     if (!question) return NextResponse.json({ error: t.questionMissing }, { status: 400 });
     if (!canUseInCarCoach(user)) {
@@ -55,16 +63,12 @@ export async function POST(request: Request) {
       );
       if (!result.compatible) return NextResponse.json({ error: t.incompatible, code: 'incompatible' }, { status: 400 });
       comparison = { name: `${other.setup.name} (rev ${other.number})`, rows: result.rows };
-      if (focus === 'alignment') {
-        focusFacts = {
-          facts: alignmentEngineerFacts(compareAlignment(result.rows), {
-            baseline: `${revision.setup.name} (rev ${revision.number})`,
-            comparison: comparison.name,
-            car: revision.setup.car,
-          }),
-          rule: ALIGNMENT_ENGINEER_RULE,
-        };
-      }
+      const names = { baseline: `${revision.setup.name} (rev ${revision.number})`, comparison: comparison.name, car: revision.setup.car };
+      if (focus === 'alignment') focusFacts = { facts: alignmentEngineerFacts(compareAlignment(result.rows), names), rule: ALIGNMENT_ENGINEER_RULE };
+      if (focus === 'suspension') focusFacts = { facts: suspensionEngineerFacts(compareSuspension(result.rows), names), rule: SUSPENSION_ENGINEER_RULE };
+      if (focus === 'brakes') focusFacts = { facts: brakeEngineerFacts(compareBrakes(result.rows), names), rule: BRAKES_ENGINEER_RULE };
+      if (focus === 'tires') focusFacts = { facts: tireEngineerFacts(compareTires(result.rows), names), rule: TIRES_ENGINEER_RULE };
+      if (isSetupDashboard(focus)) focusFacts = { facts: dashboardEngineerFacts(focus, compareDashboard(focus, result.rows), names), rule: DASHBOARD_ENGINEER_RULES[focus] };
     }
     const detail = await readSetup(user.id, revision.setupId);
     const recentChanges = (detail?.revisionList ?? [])

@@ -96,6 +96,9 @@
   --align-line: oklch(0.45 0.014 250);
   --align-chassis: oklch(0.22 0.007 250);
   --align-surface: oklch(0.175 0.004 250);
+  /* The Brakes tab's hydraulic circuits (BrakeHydraulicOverview.tsx): never a setup's colors */
+  --brake-front: oklch(0.66 0.21 25);
+  --brake-rear: oklch(0.68 0.17 300);
   /* Lap Compare's focus area table (AreaTable in LapCompare.tsx, from the better-at-a-glance design): the Compare lap
      much / a little better or worse, and the brake text colors */
   --good-strong: oklch(0.52 0.15 150);
@@ -163,6 +166,8 @@
   --align-line: oklch(0.68 0.012 250);
   --align-chassis: oklch(0.93 0.005 250);
   --align-surface: oklch(0.985 0.002 250);
+  --brake-front: oklch(0.56 0.2 25);
+  --brake-rear: oklch(0.52 0.17 300);
   --good-strong: oklch(0.72 0.14 150);
   --good-soft: oklch(0.9 0.06 150);
   --bad-strong: oklch(0.7 0.16 25);
@@ -426,6 +431,330 @@ body {
   .align-svg .align-baseline,
   .align-svg .align-comparison,
   .align-svg .align-unchanged {
+    transition: none;
+  }
+}
+
+/* The Setups page's Suspension tab (SuspensionEngineeringView.tsx and its drawings), on the alignment's tokens */
+.susp-dim {
+  opacity: 0.14;
+  transition: opacity 300ms ease;
+}
+.susp-lift {
+  transition: transform 350ms ease;
+}
+.align-svg .susp-ghost-body path {
+  fill: color-mix(in oklab, var(--align-line) 6%, transparent);
+  stroke: var(--align-line);
+  stroke-width: 0.8;
+  opacity: 0.55;
+}
+.align-svg .susp-body {
+  fill: color-mix(in oklab, currentColor 7%, transparent);
+}
+.align-svg .susp-engaged {
+  fill: color-mix(in oklab, currentColor 45%, transparent);
+  stroke-width: 2.4;
+}
+.align-svg .susp-dimension {
+  stroke-dasharray: 2 2;
+}
+.align-svg .susp-line {
+  transition: d 350ms ease;
+}
+.susp-bar {
+  transition: width 350ms ease;
+}
+.susp-pulse {
+  animation: susp-pulse 1.8s ease-in-out infinite;
+}
+@keyframes susp-pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 color-mix(in oklab, var(--align-baseline) 55%, transparent); }
+  50% { opacity: 0.6; box-shadow: 0 0 0 4px transparent; }
+}
+/* The damper's stroke: compression pushes the rod in quickly and lets it out slowly, rebound the other way round */
+.susp-stroke {
+  animation-duration: 1.6s;
+  animation-iteration-count: infinite;
+  animation-timing-function: ease-in-out;
+}
+.susp-stroke.compression {
+  animation-name: susp-compression;
+}
+.susp-stroke.rebound {
+  animation-name: susp-rebound;
+}
+@keyframes susp-compression {
+  0%, 100% { transform: translateY(0); }
+  30% { transform: translateY(26px); }
+}
+@keyframes susp-rebound {
+  0%, 100% { transform: translateY(26px); }
+  30% { transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .susp-dim,
+  .susp-lift,
+  .susp-bar,
+  .align-svg .susp-line {
+    transition: none;
+  }
+  .susp-pulse,
+  .susp-stroke {
+    animation: none;
+  }
+}
+
+/* The Setups page's Brakes tab (BrakeEngineeringView.tsx and its drawings) */
+.align-svg .brake-circuit-front { color: var(--brake-front); }
+.align-svg .brake-circuit-rear { color: var(--brake-rear); }
+.align-svg .brake-circuit-front,
+.align-svg .brake-circuit-rear {
+  fill: none;
+  stroke: currentColor;
+}
+.align-svg .brake-line {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 3;
+  stroke-linejoin: round;
+}
+.align-svg .brake-flow .brake-line {
+  stroke-dasharray: 10 6;
+  animation: brake-flow 0.9s linear infinite;
+}
+@keyframes brake-flow {
+  to { stroke-dashoffset: -32; }
+}
+.align-svg .brake-circuit-label {
+  fill: currentColor;
+  stroke: none;
+  font-weight: 600;
+}
+.align-svg .brake-target {
+  fill: transparent;
+  stroke: transparent;
+}
+.brake-part {
+  cursor: pointer;
+  outline: none;
+}
+.align-svg .brake-part:hover .brake-target,
+.align-svg .brake-part:focus-visible .brake-target,
+.align-svg .brake-part[aria-pressed="true"] .brake-target {
+  fill: color-mix(in oklab, var(--align-baseline) 8%, transparent);
+  stroke: var(--align-baseline);
+  stroke-width: 1;
+  stroke-dasharray: 3 4;
+}
+.align-svg .brake-part:focus-visible .brake-target {
+  stroke-width: 1.8;
+}
+.align-svg .brake-fluid {
+  fill: color-mix(in oklab, var(--brake-front) 22%, transparent);
+  stroke: none;
+  transition: d 300ms ease;
+}
+.align-svg .brake-cyl-body,
+.align-svg .brake-caliper-body {
+  fill: color-mix(in oklab, currentColor 8%, transparent);
+}
+.brake-piston {
+  transition: transform 300ms ease;
+}
+.brake-disc-turn {
+  animation: brake-spin 1.2s linear infinite;
+}
+.brake-wheel-turn {
+  animation: brake-spin 0.6s linear infinite;
+}
+@keyframes brake-spin {
+  to { transform: rotate(360deg); }
+}
+.align-svg .brake-disc-hot {
+  fill: color-mix(in oklab, oklch(0.7 0.2 45) 30%, transparent);
+  stroke: oklch(0.72 0.19 45);
+  animation: brake-glow 1.4s ease-in-out infinite alternate;
+}
+@keyframes brake-glow {
+  from { fill: color-mix(in oklab, oklch(0.7 0.2 45) 18%, transparent); }
+  to { fill: color-mix(in oklab, oklch(0.62 0.23 28) 45%, transparent); }
+}
+.align-svg .brake-abs-pulse {
+  fill: color-mix(in oklab, var(--brake-front) 14%, transparent);
+  stroke: var(--brake-front);
+  stroke-width: 2;
+  animation: brake-pulse 0.35s ease-in-out infinite alternate;
+}
+.align-svg .brake-abs-box {
+  stroke: var(--brake-front);
+  stroke-width: 2;
+}
+@keyframes brake-pulse {
+  from { opacity: 1; }
+  to { opacity: 0.35; }
+}
+.align-svg .brake-arrow {
+  transition: d 300ms ease;
+}
+.align-svg .brake-share {
+  transition: stroke-width 300ms ease;
+}
+.brake-led { box-shadow: 0 0 12px 1px currentColor; }
+.brake-led-yellow { background: oklch(0.88 0.17 95); color: oklch(0.88 0.17 95 / 0.6); }
+.brake-led-blue { background: oklch(0.65 0.18 255); color: oklch(0.65 0.18 255 / 0.6); }
+.brake-led-red { background: oklch(0.63 0.22 27); color: oklch(0.63 0.22 27 / 0.6); }
+.brake-led-green { background: oklch(0.75 0.19 145); color: oklch(0.75 0.19 145 / 0.6); }
+.brake-led-white { background: oklch(0.97 0 0); color: oklch(0.97 0 0 / 0.6); }
+.brake-led-purple { background: oklch(0.6 0.2 305); color: oklch(0.6 0.2 305 / 0.6); }
+.brake-led-orange { background: oklch(0.75 0.17 55); color: oklch(0.75 0.17 55 / 0.6); }
+.brake-led-pink { background: oklch(0.75 0.16 350); color: oklch(0.75 0.16 350 / 0.6); }
+.brake-led-cyan { background: oklch(0.82 0.13 200); color: oklch(0.82 0.13 200 / 0.6); }
+@media (prefers-reduced-motion: reduce) {
+  .align-svg .brake-flow .brake-line,
+  .brake-disc-turn,
+  .brake-wheel-turn,
+  .align-svg .brake-disc-hot,
+  .align-svg .brake-abs-pulse {
+    animation: none;
+  }
+  .brake-piston,
+  .align-svg .brake-fluid,
+  .align-svg .brake-arrow {
+    transition: none;
+  }
+}
+
+/* The Setups page's Tires tab (TireEngineeringView.tsx and its drawings). The heat bands are relative to the readings
+   shown, coolest (0) to hottest (4): never an operating window */
+:root {
+  --tire-heat-0: oklch(0.7 0.13 245);
+  --tire-heat-1: oklch(0.78 0.12 200);
+  --tire-heat-2: oklch(0.8 0.16 145);
+  --tire-heat-3: oklch(0.82 0.16 80);
+  --tire-heat-4: oklch(0.68 0.2 30);
+}
+.align-svg .tire-rubber {
+  fill: color-mix(in oklab, currentColor 10%, var(--align-chassis));
+  stroke: currentColor;
+  stroke-width: 1.6;
+  transition: d 300ms ease;
+}
+.align-svg .tire-rubber-plain {
+  fill: var(--align-chassis);
+  stroke: var(--align-line);
+  stroke-width: 1.2;
+}
+.align-svg .tire-heat {
+  stroke: none;
+  opacity: 0.85;
+  transition: fill 300ms ease;
+}
+.align-svg .tire-rim {
+  fill: var(--align-surface);
+  stroke: var(--align-line);
+  stroke-width: 1.2;
+}
+.align-svg .tire-arrows {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  opacity: 0.8;
+}
+.align-svg .tire-gauge-track {
+  fill: none;
+  stroke: var(--align-grid);
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+.align-svg .tire-gauge-arc {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 4;
+  stroke-linecap: round;
+  transition: stroke-dasharray 400ms ease;
+}
+.align-svg .tire-valve {
+  fill: var(--align-comparison);
+  stroke: none;
+}
+.align-svg .tire-patch-outline {
+  fill: color-mix(in oklab, currentColor 12%, transparent);
+  stroke: currentColor;
+  stroke-width: 2;
+  transition: all 300ms ease;
+}
+.align-svg .tire-patch-shape {
+  transition: d 300ms ease;
+}
+.tire-heat-scale {
+  background: linear-gradient(90deg, var(--tire-heat-0), var(--tire-heat-1), var(--tire-heat-2), var(--tire-heat-3), var(--tire-heat-4));
+}
+@media (prefers-reduced-motion: reduce) {
+  .align-svg .tire-rubber,
+  .align-svg .tire-gauge-arc,
+  .align-svg .tire-patch-outline,
+  .align-svg .tire-patch-shape,
+  .align-svg .tire-heat {
+    transition: none;
+  }
+}
+
+/* The Setups page's Aerodynamics, Drivetrain, Fuel and Electronics tabs (AeroDashboard.tsx ...) */
+.align-svg .aero-stream {
+  fill: none;
+  stroke: var(--align-baseline);
+  stroke-width: 1;
+  stroke-dasharray: 18 14;
+  opacity: 0.35;
+  animation: aero-flow 2.4s linear infinite;
+}
+@keyframes aero-flow {
+  to { stroke-dashoffset: -64; }
+}
+.align-svg .aero-foil {
+  fill: color-mix(in oklab, currentColor 14%, transparent);
+}
+.align-svg .drive-torque {
+  fill: none;
+  stroke: var(--align-comparison);
+  stroke-width: 4;
+  stroke-linecap: round;
+  opacity: 0.75;
+}
+.align-svg .drive-torque-flow {
+  stroke-dasharray: 12 8;
+  animation: brake-flow 0.8s linear infinite;
+}
+.align-svg .drive-case {
+  fill: color-mix(in oklab, currentColor 6%, var(--align-chassis));
+}
+.align-svg .drive-face {
+  transition: d 300ms ease;
+}
+.align-svg .fuel-liquid {
+  stroke: none;
+  opacity: 0.55;
+  transition: y 500ms ease, height 500ms ease;
+}
+.align-svg .fuel-wave {
+  stroke: none;
+  opacity: 0.8;
+  animation: fuel-slosh 3s ease-in-out infinite alternate;
+}
+.align-svg .fuel-baseline { fill: var(--align-baseline); }
+.align-svg .fuel-comparison { fill: var(--align-comparison); }
+@keyframes fuel-slosh {
+  from { transform: translateX(-6px); }
+  to { transform: translateX(6px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .align-svg .aero-stream,
+  .align-svg .drive-torque-flow,
+  .align-svg .fuel-wave {
+    animation: none;
+  }
+  .align-svg .fuel-liquid {
     transition: none;
   }
 }

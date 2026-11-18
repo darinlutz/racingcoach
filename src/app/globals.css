@@ -32,6 +32,11 @@
   --color-good-text: var(--good-text);
   --color-bad-text: var(--bad-text);
   --color-info-text: var(--info-text);
+  --color-align-baseline: var(--align-baseline);
+  --color-align-comparison: var(--align-comparison);
+  --color-align-neutral: var(--align-neutral);
+  --color-align-line: var(--align-line);
+  --color-align-surface: var(--align-surface);
 
   --radius-md: 4px;
   --radius-lg: 6px;
@@ -82,6 +87,15 @@
   --phase-apex: oklch(0.85 0.15 95 / 0.14);
   --phase-exit: oklch(0.78 0.13 182 / 0.14);
   --tele-warn: oklch(0.83 0.16 85);
+  /* The Setups page's Wheel Alignment Engineering Comparison (AlignmentEngineeringView.tsx): baseline cyan, comparison
+     amber, unchanged neutral, and the drawings' grid, reference lines and chassis */
+  --align-baseline: oklch(0.79 0.135 210);
+  --align-comparison: oklch(0.8 0.155 70);
+  --align-neutral: oklch(0.6 0.012 250);
+  --align-grid: oklch(0.32 0.006 250 / 0.35);
+  --align-line: oklch(0.45 0.014 250);
+  --align-chassis: oklch(0.22 0.007 250);
+  --align-surface: oklch(0.175 0.004 250);
   /* Lap Compare's focus area table (AreaTable in LapCompare.tsx, from the better-at-a-glance design): the Compare lap
      much / a little better or worse, and the brake text colors */
   --good-strong: oklch(0.52 0.15 150);
@@ -142,6 +156,13 @@
   --phase-apex: oklch(0.72 0.15 95 / 0.2);
   --phase-exit: oklch(0.6 0.12 182 / 0.16);
   --tele-warn: oklch(0.58 0.14 75);
+  --align-baseline: oklch(0.55 0.12 220);
+  --align-comparison: oklch(0.6 0.15 60);
+  --align-neutral: oklch(0.6 0.012 250);
+  --align-grid: oklch(0.85 0.006 250 / 0.6);
+  --align-line: oklch(0.68 0.012 250);
+  --align-chassis: oklch(0.93 0.005 250);
+  --align-surface: oklch(0.985 0.002 250);
   --good-strong: oklch(0.72 0.14 150);
   --good-soft: oklch(0.9 0.06 150);
   --bad-strong: oklch(0.7 0.16 25);
@@ -314,4 +335,97 @@ body {
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   * { transition: none !important; }
+}
+
+/* The Setups page's Wheel Alignment Engineering Comparison (AlignmentEngineeringView.tsx and its diagrams) */
+.align-grid {
+  background-color: var(--align-surface);
+  background-image:
+    linear-gradient(var(--align-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--align-grid) 1px, transparent 1px);
+  background-size: 24px 24px;
+  background-position: center;
+}
+.align-svg {
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  overflow: visible;
+}
+.align-svg text {
+  fill: var(--muted-foreground);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+}
+.align-svg .align-chassis {
+  fill: var(--align-chassis);
+  stroke: var(--align-line);
+  stroke-width: 1;
+}
+.align-svg .align-structure {
+  fill: none;
+  stroke: var(--align-line);
+  stroke-width: 1;
+}
+.align-svg .align-reference {
+  fill: none;
+  stroke: var(--align-line);
+  stroke-width: 0.8;
+  stroke-dasharray: 4 5;
+  opacity: 0.8;
+}
+.align-svg .align-baseline,
+.align-svg .align-comparison,
+.align-svg .align-unchanged {
+  fill: none;
+  stroke: currentColor;
+  transition: opacity 300ms ease;
+}
+.align-svg .align-baseline {
+  color: var(--align-baseline);
+}
+.align-svg .align-comparison {
+  color: var(--align-comparison);
+}
+.align-svg .align-unchanged {
+  color: var(--align-neutral);
+}
+.align-svg .align-value {
+  fill: currentColor;
+  stroke: none;
+  font-size: 10px;
+}
+.align-svg .align-wheel-label {
+  fill: var(--foreground);
+  font-size: 11px;
+  font-weight: 600;
+}
+.align-rotate {
+  transform-origin: 0 0;
+  transition: transform 350ms ease;
+}
+.align-wheel {
+  cursor: pointer;
+  outline: none;
+}
+.align-wheel .align-ring {
+  fill: transparent;
+  stroke: transparent;
+}
+.align-wheel:hover .align-ring,
+.align-wheel:focus-visible .align-ring,
+.align-wheel[aria-pressed="true"] .align-ring {
+  fill: color-mix(in oklab, var(--align-baseline) 7%, transparent);
+  stroke: var(--align-baseline);
+  stroke-width: 1;
+  stroke-dasharray: 3 4;
+}
+.align-wheel:focus-visible .align-ring {
+  stroke-width: 1.6;
+}
+@media (prefers-reduced-motion: reduce) {
+  .align-rotate,
+  .align-svg .align-baseline,
+  .align-svg .align-comparison,
+  .align-svg .align-unchanged {
+    transition: none;
+  }
 }

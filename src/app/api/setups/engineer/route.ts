@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { aiErrorResponse } from '@/lib/aiErrors';
+import { ALIGNMENT_ENGINEER_RULE, alignmentEngineerFacts, compareAlignment } from '@/lib/alignmentGeometry';
 import { weatherContextFromLive } from '@/lib/engineering/weatherContext';
 import { getDictionary } from '@/lib/i18n/server';
 import { readEngineerSnapshot } from '@/lib/liveRacing';
@@ -13,7 +14,8 @@ import { readLinkedLaps, readRevision, readSetup, saveProposal } from '@/lib/set
 import { getEnableAiFeatures } from '@/lib/siteSettings';
 
 // The Setups page's Setup Engineer (setupEngineer.ts's setupWorkbenchAnswer): { revisionId, compareRevisionId?,
-// question }. Reads the revision's values, the comparison's differences, the laps driven on it and their understeer and
+// question, focus? }. focus 'alignment' (the Compare tab's Ask Setup Engineer) needs the comparison: the alignment facts
+// are built here from both revisions' own values (alignmentGeometry.ts), never taken from the browser. Reads the revision's values, the comparison's differences, the laps driven on it and their understeer and
 // oversteer, and, when the driver is in that car in iRacing right now, the track conditions. Answers the analysis and
 // the proposed changes, saved as pending (racingcoach."SetupProposals") until the driver accepts or rejects them
 // (/api/setups/proposals/[id]). Silver and Gold members and Admins only, like the radio's Setup Engineer, and rate
@@ -33,7 +35,8 @@ export async function POST(request: Request) {
     const revisionId = idOf(String(body?.revisionId ?? ''));
     const compareId = body?.compareRevisionId == null ? null : idOf(String(body.compareRevisionId));
     const question = typeof body?.question === 'string' ? body.question.trim().slice(0, MAX_QUESTION) : '';
-    if (!revisionId) return NextResponse.json({ error: t.invalid }, { status: 400 });
+    const focus = body?.focus === 'alignment' ? 'alignment' : null;
+    if (!revisionId || (body?.focus != null && !focus) || (focus && !compareId)) return NextResponse.json({ error: t.invalid }, { status: 400 });
     if (!question) return NextResponse.json({ error: t.questionMissing }, { status: 400 });
     if (!canUseInCarCoach(user)) {
       return NextResponse.json({ error: getDictionary(user.preferredLanguage).setups.engineer.membersOnly, code: 'membershipRequired' }, { status: 403 });
@@ -44,6 +47,7 @@ export async function POST(request: Request) {
     const other = compareId ? await readRevision(user.id, compareId) : null;
     if (compareId && !other) return NextResponse.json({ error: t.notFound }, { status: 404 });
     let comparison = null;
+    let focusFacts: { facts: string[]; rule: string } | null = null;
     if (other) {
       const result = compareSetups(
         { car: revision.setup.car, carKey: revision.setup.carKey, parameters: revision.parameters },
@@ -51,6 +55,16 @@ export async function POST(request: Request) {
       );
       if (!result.compatible) return NextResponse.json({ error: t.incompatible, code: 'incompatible' }, { status: 400 });
       comparison = { name: `${other.setup.name} (rev ${other.number})`, rows: result.rows };
+      if (focus === 'alignment') {
+        focusFacts = {
+          facts: alignmentEngineerFacts(compareAlignment(result.rows), {
+            baseline: `${revision.setup.name} (rev ${revision.number})`,
+            comparison: comparison.name,
+            car: revision.setup.car,
+          }),
+          rule: ALIGNMENT_ENGINEER_RULE,
+        };
+      }
     }
     const detail = await readSetup(user.id, revision.setupId);
     const recentChanges = (detail?.revisionList ?? [])
@@ -82,6 +96,7 @@ export async function POST(request: Request) {
         comparison,
         laps,
         rotation,
+        focus: focusFacts,
         ...(liveHere ? { weather: weatherContextFromLive(live, Date.now()) } : {}),
         language: user.preferredLanguage,
         units: user.units,

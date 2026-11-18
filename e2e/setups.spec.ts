@@ -124,6 +124,15 @@ test('a captured setup, an uploaded .sto, a revision, a comparison and its chang
   await expect(page.getByRole('heading', { name: '1 difference' })).toBeVisible();
   await expect(page.getByRole('row').filter({ hasText: 'Wing Angle' }).first()).toContainText('+1 degrees');
 
+  // The Wheel Alignment Engineering Comparison: the capture's own values, and the wing alone changed, so no alignment
+  await expect(page.getByRole('heading', { name: 'Wheel alignment: engineering comparison' })).toBeVisible();
+  await expect(page.getByText('No alignment changes: every alignment value both setups have is the same.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Overlay both' })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: 'Right rear', exact: false }).first().click();
+  await expect(page.getByRole('heading', { name: 'Right rear: alignment analysis' })).toBeVisible();
+  await expect(page.getByText('−3.3°').first()).toBeVisible();
+  await expect(page.getByText('Geometry exaggerated 5× for clarity. The setup values aren’t changed.')).toBeVisible();
+
   // The change sheet, as RacingCoach can't write a .sto iRacing accepts
   const list = await (await page.request.get('/api/setups')).json();
   const setup = list.setups.find((s: { fileName: string }) => s.fileName === 'fixed.sto');

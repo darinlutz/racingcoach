@@ -140,7 +140,14 @@ export default function SetupsWorkspace({
             />
           )}
           {tab === 'live' && <SetupLive onOpen={actions.openSetup} onChanged={load} />}
-          {tab === 'compare' && <SetupCompare setups={setups} value={compare} onChange={setCompare} />}
+          {tab === 'compare' && (
+            <SetupCompare
+              setups={setups}
+              value={compare}
+              onChange={setCompare}
+              engineer={tabs.includes('engineer') ? { canUse: canUseEngineer, showPricing, onRevisionMade: load } : undefined}
+            />
+          )}
           {tab === 'engineer' && (
             <SetupEngineerChat
               setups={setups}

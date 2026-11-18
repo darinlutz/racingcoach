@@ -142,7 +142,8 @@ export default function SetupEngineerChat({
   );
 }
 
-function ProposalCard({ proposal, defaultOpen, onDecided }: { proposal: ProposalSummary; defaultOpen: boolean; onDecided: (p: ProposalSummary) => Promise<void> }) {
+// Also shown under the Compare tab's Wheel Alignment Engineering Comparison, for its Ask Setup Engineer
+export function ProposalCard({ proposal, defaultOpen, onDecided }: { proposal: ProposalSummary; defaultOpen: boolean; onDecided: (p: ProposalSummary) => Promise<void> }) {
   const { t, fmt } = useLanguage();
   const s = t.setups;
   const e = s.engineer;

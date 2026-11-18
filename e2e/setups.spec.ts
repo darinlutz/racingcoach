@@ -138,7 +138,7 @@ test('a captured setup, an uploaded .sto, a revision, a comparison and its chang
   await expect(page.getByRole('heading', { name: 'Suspension: engineering comparison' })).toBeVisible();
   await expect(page.getByText('No suspension changes: every suspension value both setups have is the same.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Select Right rear' })).toBeVisible();
-  await expect(page.getByText('83.3 mm').first()).toBeVisible();
+  await expect(page.getByRole('cell', { name: '83.3 mm' }).first()).toBeVisible();
   await page.getByRole('button', { name: 'Side view' }).click();
   await expect(page.getByText('+25.9 mm').first()).toBeVisible();
   await page.getByRole('button', { name: 'Bump rubbers' }).click();

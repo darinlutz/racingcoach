@@ -1,5 +1,5 @@
 import type { Dictionary } from './en';
-import { setupsDe } from './setupsTextDe';
+import { setupsDe } from './setupsTextDe.ts';
 
 // Every piece of text on the site, in German (informal "du", as sim racers talk). Same keys, {placeholders} and
 // { one, other } forms as en.ts.

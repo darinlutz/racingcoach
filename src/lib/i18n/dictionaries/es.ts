@@ -1,5 +1,5 @@
 import type { Dictionary } from './en';
-import { setupsEs } from './setupsTextEs';
+import { setupsEs } from './setupsTextEs.ts';
 
 // Every piece of text on the site, in Latin American Spanish. Same keys, {placeholders} and { one, other }
 // forms as en.ts.

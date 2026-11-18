@@ -92,7 +92,7 @@ test('a captured setup, an uploaded .sto, a revision, a comparison and its chang
   await expect(page).toHaveURL(/\/setups$/);
 
   // Overview
-  await expect(page.getByRole('button', { name: 'fixed.sto' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'fixed.sto' }).first()).toBeVisible();
   await expect(page.getByText('As loaded')).toBeVisible();
   await expect(page.getByText('Passed').first()).toBeVisible();
 

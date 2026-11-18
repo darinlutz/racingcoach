@@ -2,7 +2,7 @@
 // Dictionary type checks it), so a missing or misspelled translation is a type error. Text with values
 // in it uses {placeholders} (fmt in languages.ts); text that depends on a count is { one, other }
 // (plural in languages.ts). Keep it plain JSON: the root layout sends the user's dictionary to the browser.
-import { setupsEn } from './setupsText';
+import { setupsEn } from './setupsText.ts';
 
 export const en = {
   common: {

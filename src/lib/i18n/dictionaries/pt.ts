@@ -1,5 +1,5 @@
 import type { Dictionary } from './en';
-import { setupsPt } from './setupsTextPt';
+import { setupsPt } from './setupsTextPt.ts';
 
 // Every piece of text on the site, in Brazilian Portuguese. Same keys, {placeholders} and { one, other }
 // forms as en.ts.

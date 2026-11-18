@@ -1,5 +1,5 @@
 import type { Dictionary } from './en';
-import { setupsFr } from './setupsTextFr';
+import { setupsFr } from './setupsTextFr.ts';
 
 // Every piece of text on the site, in French (France's French, informal "tu", as sim racers talk). Same keys,
 // {placeholders} and { one, other } forms as en.ts.

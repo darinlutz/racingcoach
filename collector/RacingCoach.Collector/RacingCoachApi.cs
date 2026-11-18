@@ -524,6 +524,33 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
         }
     }
 
+    /// <summary>The car's setup as iRacing has it loaded (SetupCapture.cs), for the Setups page. 409 (the account's
+    /// setups are full) isn't retried; 429 and failures are.</summary>
+    public async Task<(UploadOutcome Outcome, string Message)> UploadSetupAsync(SetupCaptureData capture, CancellationToken ct)
+    {
+        try
+        {
+            using var response = await _http.PostAsJsonAsync("api/collector/setup", capture, JsonOptions, ct);
+            if (response.IsSuccessStatusCode)
+                return (UploadOutcome.Uploaded, "");
+            var message = await ErrorMessageAsync(response, ct);
+            return (int)response.StatusCode switch
+            {
+                401 => (UploadOutcome.Unauthorized, message),
+                400 or 409 or 413 or 422 => (UploadOutcome.Rejected, message),
+                _ => (UploadOutcome.RetryLater, message),
+            };
+        }
+        catch (HttpRequestException e)
+        {
+            return (UploadOutcome.RetryLater, e.Message);
+        }
+        catch (TaskCanceledException) when (!ct.IsCancellationRequested)
+        {
+            return (UploadOutcome.RetryLater, "the request timed out");
+        }
+    }
+
     private static async Task<byte[]> CompressAsync(string path, CancellationToken ct)
     {
         await using var input = File.OpenRead(path);

@@ -1,4 +1,5 @@
 import type { Dictionary } from './en';
+import { setupsPt } from './setupsTextPt';
 
 // Every piece of text on the site, in Brazilian Portuguese. Same keys, {placeholders} and { one, other }
 // forms as en.ts.
@@ -131,6 +132,7 @@ export const pt: Dictionary = {
     mySessions: 'Minhas sessões',
     raceTrends: 'Minhas tendências',
     carsTracks: 'Carros e pistas',
+    setups: 'Acertos',
     expertLaps: 'Voltas de especialistas',
     liveRacing: 'Corrida ao Vivo',
     pricing: 'Preços',
@@ -758,6 +760,7 @@ export const pt: Dictionary = {
       collectorLogs: 'Registros de atividade do coletor',
       activityLog: 'Registro de atividade no site',
       aiUsage: 'Registros de uso de IA',
+      setups: 'Acertos do carro',
     } as Record<string, string>,
     reauth: {
       title: 'Confirme que é você',
@@ -4222,4 +4225,6 @@ export const pt: Dictionary = {
     noOutput: 'O script não imprimiu nada.',
     exitCode: 'O script terminou com o código {code}.',
   },
+
+  setups: setupsPt,
 };

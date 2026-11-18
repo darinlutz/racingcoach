@@ -71,6 +71,8 @@ internal sealed class CollectorEngine
     private readonly InCarCoach _coach;
     private readonly BrakeBeeps _brakeBeeps;
     private readonly RaceResultTracker? _races;
+    // The car's setup for the Setups page (SetupCapture.cs); null for a played-back file, like race results
+    private readonly SetupCaptureTracker? _setups;
     private readonly LogUploader _logs;
     private readonly string _documents;
     private readonly object _sampleLock = new();
@@ -166,6 +168,7 @@ internal sealed class CollectorEngine
         _races = options.Playback && !options.Upload
             ? null
             : new RaceResultTracker(Path.Combine(documents, "RacingCoach", "Races"), message => Log(message));
+        _setups = options.Playback && !options.Upload ? null : new SetupCaptureTracker(message => Log(message));
         Rotation = new RotationMonitor(message => Log(message));
         Live = new LiveRacing(() => Api, message => Log(message));
         MicRecorder.DeviceName = settings.Microphone;
@@ -357,6 +360,7 @@ internal sealed class CollectorEngine
         }, message => Log(message));
         _writer.SetUploader(_uploader);
         _races?.UseApi(api);
+        _setups?.UseApi(api);
         _coach.Refresh(); // the plan comes from the account the key belongs to
         _brakeBeeps.Refresh(); // and so do the brakepoints and the beeps setting
         Live.Refresh(); // and the track's map
@@ -724,8 +728,16 @@ internal sealed class CollectorEngine
                 Log("Disconnected from iRacing. Waiting for iRacing…");
                 _writer.AddPositionsFromIbt(); // iRacing closed its .ibt file
                 _races?.SaveUnfinished(); // left a race before its result was official
+                _setups?.OnDisconnected();
                 Live.OnDisconnected();
             }
+            return Task.CompletedTask;
+        },
+        // The whole session info YAML, for the car's setup (CarSetup), which the parsed session info doesn't keep as
+        // iRacing wrote it. SetupCaptureTracker takes the two in either order
+        OnRawSessionInfoUpdate = yaml =>
+        {
+            _setups?.OnRawSessionInfo(yaml);
             return Task.CompletedTask;
         },
         OnSessionInfoUpdate = session =>
@@ -783,7 +795,10 @@ internal sealed class CollectorEngine
                 string.IsNullOrWhiteSpace(weekend?.TrackWeatherType) ? null : weekend.TrackWeatherType.Trim());
             Live.SetField(weekend?.SubSessionID ?? 0, driverIdx, FieldDrivers(session));
             Live.SetSetup(session.DriverInfo?.DriverSetupName, session.DriverInfo?.DriverSetupLoadTypeName,
-                session.DriverInfo?.DriverSetupIsModified is { } modified ? modified != 0 : null);
+                session.DriverInfo?.DriverSetupIsModified is { } modified ? modified != 0 : null,
+                session.DriverInfo?.DriverSetupPassedTech,
+                weekend?.WeekendOptions?.IsFixedSetup is { } fixedSetup ? fixedSetup != 0 : null);
+            _setups?.OnSessionInfo(session, _recorder.Session.Track, Session.Car);
             Live.SetTireTypes(tireTypes);
 
             // iRacing re-sends session info every few seconds (flags, driver list, ...); only log changes

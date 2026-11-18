@@ -1,4 +1,5 @@
 import type { Dictionary } from './en';
+import { setupsEs } from './setupsTextEs';
 
 // Every piece of text on the site, in Latin American Spanish. Same keys, {placeholders} and { one, other }
 // forms as en.ts.
@@ -131,6 +132,7 @@ export const es: Dictionary = {
     mySessions: 'Mis sesiones',
     raceTrends: 'Mis tendencias',
     carsTracks: 'Autos y pistas',
+    setups: 'Setups',
     expertLaps: 'Vueltas de expertos',
     liveRacing: 'Carreras en Vivo',
     pricing: 'Precios',
@@ -758,6 +760,7 @@ export const es: Dictionary = {
       collectorLogs: 'Registros de actividad del recolector',
       activityLog: 'Registro de actividad en el sitio',
       aiUsage: 'Registros de uso de IA',
+      setups: 'Setups del auto',
     } as Record<string, string>,
     reauth: {
       title: 'Confirma que eres tú',
@@ -4222,4 +4225,6 @@ export const es: Dictionary = {
     noOutput: 'El script no imprimió nada.',
     exitCode: 'El script terminó con el código {code}.',
   },
+
+  setups: setupsEs,
 };

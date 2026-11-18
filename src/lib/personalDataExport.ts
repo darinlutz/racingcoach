@@ -170,6 +170,45 @@ export async function writeExportZip(userId: number, kind: ExportKind, path: str
       }
     }
 
+    if (want('setups')) {
+      // The Setups page (setups.ts): each setup and its revisions with their values, inspections and the Setup
+      // Engineer's analyses; an uploaded .sto file exactly as it was uploaded
+      const setups = await query(
+        `SELECT id, name, car, car_key, track, source, file_name, notes, parse_status, sto_bytes, archived_at, created_at, updated_at
+         FROM racingcoach."Setups" WHERE user_id = $1 ORDER BY created_at`,
+        [userId]
+      );
+      await addCsv('setups/setups.csv', 'setups', setups);
+      const revisions = await query(
+        `SELECT r.id, r.setup_id, r.revision_number, r.kind, r.author, r.change_summary, r.changed, r.sim_setup_name, r.sim_load_type,
+                r.sim_modified, r.fixed_session, r.captured_at, r.last_seen_at, r.created_at,
+                COALESCE((SELECT jsonb_agg(jsonb_build_object('path', v.path, 'value', v.raw) ORDER BY v.ord)
+                          FROM racingcoach."SetupValues" v WHERE v.revision_id = r.id), '[]'::jsonb) AS "values"
+         FROM racingcoach."SetupRevisions" r WHERE r.user_id = $1 ORDER BY r.setup_id, r.revision_number`,
+        [userId]
+      );
+      await add('setups/revisions.json', 'setups', json(revisions), revisions.length);
+      const [inspections, proposals] = await Promise.all([
+        query(
+          `SELECT setup_id, revision_id, result, sim_setup_name, car, track, observed_at, last_observed_at
+           FROM racingcoach."SetupInspections" WHERE user_id = $1 ORDER BY observed_at`,
+          [userId]
+        ),
+        query(
+          `SELECT setup_id, revision_id, question, answer, changes, resulting_revision_id, created_at, decided_at
+           FROM racingcoach."SetupProposals" WHERE user_id = $1 ORDER BY created_at`,
+          [userId]
+        ),
+      ]);
+      await addCsv('setups/inspections.csv', 'setups', inspections);
+      await add('setups/setup_engineer.json', 'setups', json(proposals), proposals.length);
+      // One file at a time
+      for (const setup of setups) {
+        const [file] = await query(`SELECT sto_file FROM racingcoach."Setups" WHERE user_id = $1 AND id = $2 AND sto_file IS NOT NULL`, [userId, setup.id]);
+        if (file) await add(`setups/files/${setup.id}-${String(setup.file_name ?? 'setup.sto').replace(/[^\w.()-]/g, '_')}`, 'setups', file.sto_file as Buffer);
+      }
+    }
+
     if (want('coachSettings')) {
       const [settings] = await query(
         `SELECT in_car_coach_instructions, coach_pronunciations, coach_voice, coach_spanish_accent, announcer_lead_voice,
@@ -466,6 +505,7 @@ export async function countPersonalData(userId: number): Promise<Record<string, 
         + (SELECT count(*) FROM racingcoach."LapSummaries" WHERE user_id = $1 AND expires_at > now()))::int AS debriefs,
        (SELECT count(*) FROM racingcoach."RaceResults" WHERE user_id = $1 AND has_result)::int AS "raceResults",
        ${targetLap}::int AS "targetLap",
+       (SELECT count(*) FROM racingcoach."Setups" WHERE user_id = $1)::int AS setups,
        (SELECT count(*) FROM racingcoach."UserPictures" WHERE user_id = $1)::int AS "profilePicture",
        (SELECT (in_car_coach_instructions <> '' OR race_announcer_instructions <> '' OR coach_pronunciations <> '[]'::jsonb OR name_pronunciation <> ''
                 OR broadcast_settings <> '{}'::jsonb OR coach_voice <> '' OR announcer_lead_voice <> '' OR announcer_color_voice <> '')::int

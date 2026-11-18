@@ -214,6 +214,18 @@ The nav bar's My Dashboard (`/my-dashboard`, `src/app/my-dashboard/page.tsx`, `s
 - **Artwork**: `public/assets/dashboard/` (WebP, resized from the design's files)
 - **Tests**: `npm run test:my-dashboard` (rules and guards, then the queries against a local Postgres when `MY_DASHBOARD_TEST_DATABASE_URL` is set, see the test's header) and `e2e/my-dashboard.spec.ts` (`npm run test:e2e`)
 
+## Setups
+
+The sidebar's Setups page (`/setups`, `src/app/setups/page.tsx`, `src/components/SetupsWorkspace.tsx` and `Setup*.tsx`; text in `src/lib/i18n/dictionaries/setupsText*.ts`): Overview, My Setups, Live Setup, Compare, Setup Engineer (left out while Enable AI Features is off), Inspection and History. Format, design and limits in `docs/setups.md`.
+
+- **Values**: from iRacing's session info `CarSetup` section, captured by the collector (`SetupCapture.cs`, `POST /api/collector/setup`, from 1.97.0) and parsed by `src/lib/setupYaml.ts` (pure): kept raw, identified by path, readings told from settings by key name. Never invent a value, range or parameter; compare and change by exact path, same car only (`setupCompare.ts`, `setupChanges.ts`)
+- **.sto files** (`src/lib/stoFile.ts`, pure): container, notes and identifiers only. The values are encrypted and the file signed, so RacingCoach never writes one; changes go out as a change sheet. Don't try to decrypt or forge them
+- **Fixed setups**: the session's `IsFixedSetup`, else load type `fixed` (`fixedSetupSession` in `setupInspection.ts`), never the setup's name; the radio's `isFixedSetup` uses it too
+- **Data** (`src/lib/setups.ts`, tables in `setupSchema.ts`, all `ON DELETE CASCADE`): every read takes the user's ID; revisions are never changed (a capture refreshes only its readings); in the privacy inventory, export and erasure as `setups`; not lap retention's
+- **Setup Engineer**: the existing one (`setupWorkbenchAnswer` in `setupEngineer.ts`, feature `setupEngineer`), Silver/Gold/Admin only; proposals checked by `checkProposals` and applied only when the driver accepts them, as a new revision
+- **Inspection**: iRacing's `DriverSetupPassedTech` only; RacingCoach's checks are Preliminary Validation, with verified rules only (`PRELIMINARY_RULES`, none yet)
+- **Tests**: `npm run test:setups` (the database part with `SETUPS_TEST_DATABASE_URL`), `e2e/setups.spec.ts`, the collector's `SetupCaptureTests`
+
 ## Race Engineering Knowledge
 
 A RAG knowledge base of vehicle dynamics, setup and handling diagnosis that the Setup Engineer and the Race Coach (the Debrief Coach's `get_engineering_knowledge` tool) share; separate from Racecar Analysis, which is unchanged. Architecture, benchmark, costs, deployment and rollback in `docs/race-engineering-rag.md`.

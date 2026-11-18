@@ -14,6 +14,12 @@ import { engineeringContext, rotationEvidence, type EngineeringContext } from '.
 import { checkSetupAnswer, setupGuardFeedback, withoutDisallowedSentences } from './engineering/setupAnswerGuard';
 import { assessWeather, weatherFacts, weatherSummary, type WeatherContext } from './engineering/weatherContext';
 import { getAiModel } from './aiModels';
+import { answerFeedback } from './answerChecks';
+import { checkProposals, MAX_PROPOSALS, type RawProposal, type SetupProposal } from './setupChanges';
+import { fixedSetupSession } from './setupInspection';
+import type { CompareRow } from './setupCompare';
+import type { SetupParameter } from './setupYaml';
+import { removeTrackPositions } from './trackPositions';
 
 // The Setup Engineer: Driver Radio's car setup specialist. When the driver asks the Race Engineer (src/lib/raceEngineer.ts)
 // about the car's setup or its handling ("I have understeer", "what should I change on the car"), the Race Engineer hands
@@ -34,10 +40,13 @@ const replySchema = z.object({
 
 const MAX_REPLY_CHARS = 400;
 
-// iRacing names a fixed setup's load type "fixed" (DriverSetupLoadTypeName); some series also name the setup itself so
+// Whether the session is a fixed setup session: the session's own flag (WeekendInfo.WeekendOptions.IsFixedSetup, from
+// collectors from 1.97.0), else a load type of "fixed" (fixedSetupSession in setupInspection.ts). The setup's name
+// doesn't decide it: iRacing's own GT3 setups include one named "fixed.sto" that loads in open sessions too, so a name
+// alone leaves it unknown
 export function isFixedSetup(setup: CarSetup | null | undefined): boolean {
   if (!setup) return false;
-  return /fixed/i.test(setup.loadType ?? '') || /fixed/i.test(setup.name ?? '');
+  return fixedSetupSession(setup).fixed;
 }
 
 const setupPrompt = (fixed: boolean, known: boolean) =>
@@ -140,7 +149,8 @@ function rotationFacts(rotation: SessionRotation | null): string[] {
 function setupFacts(update: EngineerSnapshot['update'] | null): { facts: string[]; fixed: boolean; known: boolean } {
   if (!update) return { facts: ['You have no live data from this driver right now, so the car and setup are unknown.'], fixed: false, known: false };
   const setup = update.setup;
-  const fixed = isFixedSetup(setup);
+  const session = setup ? fixedSetupSession(setup) : { fixed: false, known: false };
+  const fixed = session.fixed;
   const facts = [`Car: ${update.car}. Track: ${update.track}.`];
   if (!setup) {
     facts.push('The setup is unknown (the driver\'s collector does not send it).');
@@ -161,7 +171,7 @@ function setupFacts(update: EngineerSnapshot['update'] | null): { facts: string[
       facts.push('The car reports no in-car brake bias setting.');
     }
   }
-  return { facts, fixed, known: !!setup };
+  return { facts, fixed, known: session.known };
 }
 
 // The Rotation Model over the session's uploaded laps; null without any, or when they can't be read
@@ -300,4 +310,184 @@ export async function setupEngineerReply(input: {
   } catch {
     return null;
   }
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// The Setups page (src/components/SetupEngineerChat.tsx, POST /api/setups/engineer): the same Setup Engineer, given a
+// saved setup's actual values instead of the radio's live update. It writes its analysis for reading rather than for
+// the radio, keeps what the data shows apart from what is only likely, and proposes changes as structured data that
+// checkProposals (setupChanges.ts) checks against the setup: only parameters it really has, by their exact path, in
+// their own units, in-car only in a fixed setup session. Nothing is changed until the driver accepts a proposal.
+
+const workbenchSchema = z.object({
+  summary: z.string().describe('Two to four sentences answering the question'),
+  findings: z.array(z.string()).describe('What the setup values, the comparison or the measured laps show; facts only'),
+  hypotheses: z.array(z.string()).describe('Likely explanations, each said to be likely, not certain'),
+  recommendations: z.array(z.string()).describe('What to do and how to check it, the most effective first'),
+  changes: z
+    .array(
+      z.object({
+        path: z.string().describe('The exact parameter path from the setup list, e.g. Chassis.Rear.ArbBlades'),
+        proposedValue: z.number().describe('The new number, in that parameter\'s own unit'),
+        reason: z.string(),
+        expectedEffect: z.string(),
+        confidence: z.enum(['low', 'medium', 'high']),
+      })
+    )
+    .describe(`At most ${MAX_PROPOSALS} proposed changes; none when no setup change is the right answer`),
+});
+
+export type WorkbenchAnswer = {
+  summary: string;
+  findings: string[];
+  hypotheses: string[];
+  recommendations: string[];
+  changes: SetupProposal[];
+  // Proposals left out by checkProposals, for the logs
+  dropped: number;
+};
+
+export type WorkbenchSetup = {
+  name: string;
+  car: string | null;
+  track: string | null;
+  parameters: SetupParameter[];
+  // From the capture: whether the session it was seen in was a fixed setup session, and its load type and name
+  fixedSession: boolean | null;
+  loadType: string | null;
+  simSetupName: string | null;
+  revisionNumber: number | null;
+  recentChanges: string[];
+};
+
+const workbenchPrompt = (fixed: boolean, known: boolean) =>
+  'You are a race car setup engineer working with a sim racing driver on their saved iRacing setup on the RacingCoach ' +
+  'Setups page. The facts list every value of the setup exactly as iRacing shows it, one per line as ' +
+  '"path | value | setting or reading | in-car or garage". Readings (corner weights, last hot pressures, tread, the aero ' +
+  'calculator) are measured or worked out by iRacing and can never be changed directly. Answer the driver\'s question ' +
+  'from these values, the comparison and the measured laps when the facts have them. Keep three things apart: ' +
+  'findings are only what the values, the comparison or the measured laps show; hypotheses are likely explanations, ' +
+  'said as likely; recommendations are what to do and how to check it (e.g. three laps, then compare). Never invent a ' +
+  'value, a parameter the list does not have, a legal range, a click step or a lap time. iRacing does not tell apps a ' +
+  'car\'s legal ranges, so propose small steps (one or two clicks, a few millimetres, half a percent of brake bias) ' +
+  'and say the garage will limit them. Each proposed change must use a path exactly as it is in the list, a setting ' +
+  'not a reading, and a number in that parameter\'s own unit; change one thing at a time when you can, the most ' +
+  'effective first, and say what it trades off. A setup change never fixes a driving technique problem: when the ' +
+  'facts point at driving, say so and propose no change. Left and right side values are usually set as a pair, so ' +
+  'propose both sides when you change one. ' +
+  (fixed
+    ? 'This setup was seen in a FIXED setup session: only in-car adjustments (the in-car values in the list, such as ' +
+      'brake bias, ABS and traction control) can change; propose only those, and say so first. '
+    : known
+      ? 'It was seen in an open setup session, so garage changes are possible. '
+      : 'It is not known whether the driver races it in a fixed setup session; if they might, say that in a fixed setup ' +
+        'session only the in-car values can change. ') +
+  TRACK_POSITION_RULE;
+
+function parameterLines(parameters: SetupParameter[]): string[] {
+  return parameters.map((p) => `${p.path} | ${p.raw} | ${p.kind} | ${p.inCar ? 'in-car' : 'garage'}`);
+}
+
+export async function setupWorkbenchAnswer(input: {
+  question: string;
+  setup: WorkbenchSetup;
+  // The other setup's differences from this one, when comparing
+  comparison: { name: string; rows: CompareRow[] } | null;
+  // The laps linked to the setup (setups.ts's readLinkedLaps) and their understeer and oversteer
+  laps: { laps: number; cleanLaps: number; bestSeconds: number | null; averageCleanSeconds: number | null } | null;
+  rotation: SessionRotation | null;
+  weather?: WeatherContext | null;
+  language?: Language;
+  units?: Units;
+}): Promise<WorkbenchAnswer> {
+  const language = input.language ?? DEFAULT_LANGUAGE;
+  const units = input.units ?? DEFAULT_UNITS;
+  const session = fixedSetupSession({ fixedSession: input.setup.fixedSession, loadType: input.setup.loadType, name: input.setup.simSetupName });
+  const facts = [
+    `Setup: ${input.setup.name}${input.setup.revisionNumber ? `, revision ${input.setup.revisionNumber}` : ''}.`,
+    `Car: ${input.setup.car ?? 'unknown'}. Track: ${input.setup.track ?? 'not set'}.`,
+    input.setup.loadType ? `iRacing's setup load type: ${input.setup.loadType}.` : '',
+    '',
+    'Setup values:',
+    ...parameterLines(input.setup.parameters),
+  ].filter((line, i, all) => line || all[i - 1]);
+  if (input.setup.recentChanges.length) facts.push('', 'Recent changes to this setup, newest first:', ...input.setup.recentChanges);
+  if (input.comparison) {
+    const changed = input.comparison.rows.filter((r) => r.status !== 'same');
+    facts.push(
+      '',
+      `Compared with the setup "${input.comparison.name}" (same car), ${changed.length} values differ, as "path: this setup -> the other":`,
+      ...changed.slice(0, 80).map((r) => `${r.path}: ${r.baseline ?? 'not in this setup'} -> ${r.comparison ?? 'not in the other'}`)
+    );
+  }
+  if (input.laps && input.laps.laps > 0) {
+    facts.push(
+      '',
+      `Laps driven on this setup: ${input.laps.laps} (${input.laps.cleanLaps} clean)` +
+        (input.laps.bestSeconds ? `, best ${input.laps.bestSeconds.toFixed(3)} s` : '') +
+        (input.laps.averageCleanSeconds ? `, clean average ${input.laps.averageCleanSeconds.toFixed(3)} s` : '') +
+        '. Lap times depend on the driver and the conditions too, never only on the setup.'
+    );
+  } else {
+    facts.push('', 'No laps are linked to this setup, so nothing about how it drives has been measured.');
+  }
+  if (input.rotation) facts.push('', ...rotationFacts(input.rotation));
+  if (input.weather !== undefined) facts.push('', ...weatherFacts(input.weather, units === 'metric' ? 'metric' : 'standard'));
+
+  const engineering = await engineeringContext({
+    question: input.question,
+    car: input.setup.car,
+    fixed: session.fixed,
+    setupKnown: true,
+    rotation: rotationEvidence(input.rotation),
+    ...(input.weather !== undefined ? { weather: input.weather, weatherInFacts: false } : {}),
+    agent: 'setupEngineer',
+    model: await getAiModel('setupEngineer').catch(() => null),
+  }).catch((error): EngineeringContext | null => {
+    console.error('Setup Engineer (Setups page): engineering knowledge failed, answering without it:', error);
+    return null;
+  });
+  if (engineering) facts.push('', ...engineering.facts);
+
+  const agent = createAgent({
+    model: await chatModel('setupEngineer', 0.4),
+    tools: [],
+    systemPrompt:
+      workbenchPrompt(session.fixed, session.known) +
+      SETUP_ENGINEER_METHOD +
+      wetSetupRule(input.weather) +
+      ' Keep every setup value in the unit the list gives it. ' +
+      (units === 'metric' ? 'Use metric units for anything else.' : 'Use US units for anything else.') +
+      aiLanguageRule(language),
+    responseFormat: workbenchSchema,
+  });
+  const content = ['Facts:', ...facts, '', `The driver asks: "${input.question}"`].join('\n');
+  const ask = async (messages: { role: 'user' | 'assistant'; content: string }[]) => {
+    const result = await agent.invoke({ messages }, { recursionLimit: 6 });
+    return result.structuredResponse as z.infer<typeof workbenchSchema>;
+  };
+  let answer = await ask([{ role: 'user', content }]);
+  // A place on the track or English for another language: one rewrite (answerChecks.ts), then those sentences go
+  const text = (a: typeof answer) => [a.summary, ...a.findings, ...a.hypotheses, ...a.recommendations, ...a.changes.flatMap((c) => [c.reason, c.expectedEffect])].join('\n');
+  const check = await languageCheck(language, [input.setup.car ?? '', input.setup.track ?? '', input.setup.name, ...input.setup.parameters.map((p) => p.key)]);
+  const feedback = answerFeedback(text(answer), check);
+  if (feedback) {
+    answer = await ask([
+      { role: 'user', content },
+      { role: 'assistant', content: JSON.stringify(answer) },
+      { role: 'user', content: feedback },
+    ]).catch(() => answer);
+  }
+  const clean = (s: string) => removeTrackPositions(s).trim();
+  const list = (items: string[]) => items.map(clean).filter(Boolean).slice(0, 8);
+  const { kept, rejected } = checkProposals(answer.changes as RawProposal[], input.setup.parameters, { fixedSession: session.fixed });
+  if (rejected.length) console.warn(`Setup Engineer (Setups page) proposals left out: ${rejected.map((r) => r.why).join(', ')}`);
+  return {
+    summary: clean(answer.summary),
+    findings: list(answer.findings),
+    hypotheses: list(answer.hypotheses),
+    recommendations: list(answer.recommendations),
+    changes: kept.map((c) => ({ ...c, reason: clean(c.reason), expectedEffect: clean(c.expectedEffect) })),
+    dropped: rejected.length,
+  };
 }

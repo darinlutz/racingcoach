@@ -120,6 +120,23 @@ export const PERSONAL_DATA_INVENTORY: InventoryCategory[] = [
     erasure: { category: 'debriefs' },
   },
   {
+    key: 'setups',
+    title: 'Car setups',
+    description:
+      'The Setups page: the iRacing setups the telemetry collector saw loaded (the setup values iRacing shows, its name, whether it was changed and its inspection result, with the car, track and session), the .sto files you uploaded, exactly as uploaded, your names, notes and changes, and the Setup Engineer’s analyses with the changes you accepted or rejected.',
+    tables: ['Setups', 'SetupRevisions', 'SetupValues', 'SetupInspections', 'SetupProposals'],
+    purpose: 'Keeping, comparing and changing your setups, and the Setup Engineer’s advice on them.',
+    legalBasis: ['contract'],
+    source: 'Your telemetry collector, from iRacing; you, when you upload or change a setup; the Setup Engineer’s answers.',
+    storage: HOSTING,
+    retention: 'Until you delete them, or your account.',
+    recipients: [HOSTING, `${AI_PROVIDERS} (only when you ask the Setup Engineer)`],
+    personalData: true,
+    access: true,
+    portable: true,
+    erasure: { category: 'setups' },
+  },
+  {
     key: 'targetLap',
     title: 'Target Lap',
     description: 'The lap file you chose as your Target Lap, its file name and when you set it.',

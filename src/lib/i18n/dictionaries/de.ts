@@ -1,4 +1,5 @@
 import type { Dictionary } from './en';
+import { setupsDe } from './setupsTextDe';
 
 // Every piece of text on the site, in German (informal "du", as sim racers talk). Same keys, {placeholders} and
 // { one, other } forms as en.ts.
@@ -131,6 +132,7 @@ export const de: Dictionary = {
     mySessions: 'Meine Sessions',
     raceTrends: 'Meine Renntrends',
     carsTracks: 'Autos & Strecken',
+    setups: 'Setups',
     expertLaps: 'Expertenrunden',
     liveRacing: 'Live Racing',
     pricing: 'Preise',
@@ -777,6 +779,7 @@ export const de: Dictionary = {
       collectorLogs: 'Aktivitätsprotokolle des Collectors',
       activityLog: 'Aktivitätsprotokoll der Website',
       aiUsage: 'KI-Nutzungsdaten',
+      setups: 'Fahrzeug-Setups',
     } as Record<string, string>,
     reauth: {
       title: 'Bestätige, dass du es bist',
@@ -4273,4 +4276,6 @@ export const de: Dictionary = {
     noOutput: 'Das Skript hat nichts ausgegeben.',
     exitCode: 'Das Skript wurde mit Code {code} beendet.',
   },
+
+  setups: setupsDe,
 };

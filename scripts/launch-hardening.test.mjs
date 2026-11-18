@@ -273,7 +273,8 @@ describe('request body limits (F-13)', () => {
   test('every route a visitor or collector can reach caps its body', () => {
     const routes = ['auth/login', 'auth/signup', 'auth/forgot-password', 'auth/reset-password', 'support', 'privacy/requests',
       'consent', 'activity', 'stripe-webhook', 'collector/laps', 'collector/log', 'collector/live', 'collector/radio',
-      'collector/speech', 'collector/in-car-coach', 'live/voice-message', 'debrief-coach', 'account/picture'];
+      'collector/speech', 'collector/in-car-coach', 'live/voice-message', 'debrief-coach', 'account/picture', 'collector/setup',
+      'setups', 'setups/engineer', 'setups/[id]', 'setups/[id]/duplicate', 'setups/revisions/[revisionId]', 'setups/proposals/[id]'];
     for (const route of routes) {
       const code = readFileSync(new URL(`../app/api/${route}/route.ts`, src), 'utf8');
       assert.doesNotMatch(code, /request\.(json|formData|arrayBuffer|text)\(\)/, `${route} reads its body uncapped`);

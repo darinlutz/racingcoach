@@ -80,6 +80,10 @@ internal sealed class LiveRacing(Func<RacingCoachApi?> api, Action<string> log)
     private string? _setupName;
     private string? _setupLoadType;
     private bool? _setupModified;
+    // iRacing's inspection result (DriverSetupPassedTech) and whether the session is a fixed setup session
+    // (WeekendOptions.IsFixedSetup), from 1.97.0
+    private int? _setupPassedTech;
+    private bool? _setupFixedSession;
     private TrackMap? _map;
     // The site wants this run's approximate outline (it has none saved, and hasn't been sent one)
     private bool _sendOutline = true;
@@ -145,13 +149,15 @@ internal sealed class LiveRacing(Func<RacingCoachApi?> api, Action<string> log)
 
     /// <summary>Session info: the car's setup (DriverSetupName, DriverSetupLoadTypeName, e.g. "fixed", and whether it's
     /// been changed since it was loaded), sent with each update for the website's Setup Engineer.</summary>
-    public void SetSetup(string? name, string? loadType, bool? modified)
+    public void SetSetup(string? name, string? loadType, bool? modified, int? passedTech = null, bool? fixedSession = null)
     {
         lock (_lock)
         {
             _setupName = string.IsNullOrWhiteSpace(name) ? null : name.Trim();
             _setupLoadType = string.IsNullOrWhiteSpace(loadType) ? null : loadType.Trim();
             _setupModified = modified;
+            _setupPassedTech = passedTech;
+            _setupFixedSession = fixedSession;
         }
     }
 
@@ -487,6 +493,8 @@ internal sealed class LiveRacing(Func<RacingCoachApi?> api, Action<string> log)
                     name = _setupName,
                     loadType = _setupLoadType,
                     modified = _setupModified,
+                    passedTech = _setupPassedTech,
+                    fixedSession = _setupFixedSession,
                     brakeBias = d.dcBrakeBias is { } bias && double.IsFinite(bias) && Math.Abs(bias) <= 100
                         ? Math.Round(bias, 2)
                         : (double?)null,

@@ -162,8 +162,9 @@ test('a captured setup, an uploaded .sto, a revision, a comparison and its chang
   await expect(page.getByText('23.06 psi').first()).toBeVisible();
   await page.getByRole('tab', { name: 'Aerodynamics' }).click();
   await expect(page.getByRole('heading', { name: 'Aerodynamics: engineering comparison' })).toBeVisible();
-  await expect(page.getByText('6 degrees').first()).toBeVisible();
-  await expect(page.getByText('No changes: every setting both setups have here is the same.')).toBeVisible();
+  // The revision changed the wing angle from 6 to 7 degrees: one change, the rest unchanged
+  await expect(page.getByText('1 change', { exact: true })).toBeVisible();
+  await expect(page.getByRole('row').filter({ hasText: 'Wing Angle' }).first()).toContainText('+1 degrees');
 
   // The change sheet, as RacingCoach can't write a .sto iRacing accepts
   const list = await (await page.request.get('/api/setups')).json();

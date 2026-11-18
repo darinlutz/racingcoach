@@ -2,6 +2,7 @@
 // Dictionary type checks it), so a missing or misspelled translation is a type error. Text with values
 // in it uses {placeholders} (fmt in languages.ts); text that depends on a count is { one, other }
 // (plural in languages.ts). Keep it plain JSON: the root layout sends the user's dictionary to the browser.
+import { setupsEn } from './setupsText.ts';
 
 export const en = {
   common: {
@@ -132,6 +133,7 @@ export const en = {
     mySessions: 'My Sessions',
     raceTrends: 'My Race Trends',
     carsTracks: 'Cars & Tracks',
+    setups: 'Setups',
     expertLaps: 'Expert Laps',
     liveRacing: 'Live Racing',
     pricing: 'Pricing',
@@ -784,6 +786,7 @@ export const en = {
       collectorLogs: 'Collector activity logs',
       activityLog: 'Website activity log',
       aiUsage: 'AI usage records',
+      setups: 'Car setups',
     } as Record<string, string>,
     reauth: {
       title: 'Confirm it’s you',
@@ -4288,6 +4291,9 @@ export const en = {
     noOutput: 'The script printed nothing.',
     exitCode: 'The script exited with code {code}.',
   },
+
+  // The Setups page (src/app/setups/), in its own file (setupsText.ts)
+  setups: setupsEn,
 };
 
 export type Dictionary = typeof en;

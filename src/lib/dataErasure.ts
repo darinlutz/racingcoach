@@ -35,6 +35,11 @@ const STATEMENTS: Record<ErasableCategory, string[]> = {
   ],
   raceResults: [`DELETE FROM racingcoach."RaceResults" WHERE user_id = $1 AND ($2::timestamptz IS NULL OR synced_at <= $2)`],
   targetLap: [], // targetLapStatements, as its columns are added on first use
+  // Every setup cascades to its revisions, values, inspections and proposals; inspections not tied to a setup go too
+  setups: [
+    `DELETE FROM racingcoach."Setups" WHERE user_id = $1 AND ($2::timestamptz IS NULL OR created_at <= $2)`,
+    `DELETE FROM racingcoach."SetupInspections" WHERE user_id = $1 AND setup_id IS NULL AND ($2::timestamptz IS NULL OR observed_at <= $2)`,
+  ],
   profilePicture: [`DELETE FROM racingcoach."UserPictures" WHERE user_id = $1 AND ($2::timestamptz IS NULL OR updated_at <= $2)`],
   // Back to the defaults. Nothing records when these were last changed, so re-applying skips them (see reapply)
   coachSettings: [

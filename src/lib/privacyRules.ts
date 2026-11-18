@@ -135,6 +135,7 @@ export const ERASABLE_CATEGORIES = [
   'debriefs',
   'raceResults',
   'targetLap',
+  'setups',
   'profilePicture',
   'coachSettings',
   'friends',

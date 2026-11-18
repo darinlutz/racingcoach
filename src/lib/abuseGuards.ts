@@ -32,6 +32,10 @@ export const ABUSE_LIMITS = {
   lapUploadsPerHour: { max: 300, windowMs: HOUR },
   lapUploadsPerDay: { max: 1500, windowMs: DAY },
   logBatchesPerHour: { max: 600, windowMs: HOUR },
+  // Setups (docs/setups.md): the collector sends a capture when iRacing's CarSetup changes (each garage click), and
+  // the Setups page uploads .sto files one at a time
+  setupCapturesPerHour: { max: 240, windowMs: HOUR },
+  setupUploadsPerHour: { max: 60, windowMs: HOUR },
   // Content-Security-Policy violation reports per IP address an hour (/api/csp-report): enough to see a problem
   cspReportsPerIp: { max: 30, windowMs: HOUR },
   // Live video (docs/live-video.md): the Live Racing page asks for its streams every 15 s, a TV reports its player's

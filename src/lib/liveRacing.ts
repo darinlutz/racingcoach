@@ -191,6 +191,10 @@ export const liveUpdateSchema = z.object({
       loadType: z.string().max(50).nullish(),
       modified: z.boolean().nullish(),
       brakeBias: z.number().min(-100).max(100).nullish(),
+      // The session is a fixed setup session (WeekendInfo.WeekendOptions.IsFixedSetup) and iRacing's inspection result
+      // (DriverSetupPassedTech, 1 passed, 0 failed), from collectors from 1.97.0
+      fixedSession: z.boolean().nullish(),
+      passedTech: z.number().int().min(-1).max(10).nullish(),
     })
     .nullish(),
   // The In-Car AI Coach is speaking, or has something waiting to be said (from 1.55.0); the driver's own Race

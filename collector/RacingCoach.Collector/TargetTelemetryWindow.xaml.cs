@@ -16,7 +16,9 @@ namespace RacingCoach.Collector;
 /// line, 100 ft from the left, so the trace and gear changes scroll left as the car drives: a gear reaches the car's
 /// line where the Target Lap shifted into it. A short bar on the car's line is the
 /// driver's own brake, live (hidden off the brake), and a brighter, thicker red line over the Target Lap's trace is
-/// the driver's brake over the track behind the car, so the two can be compared. Positions come from live LapDistPct and the track's length (Track
+/// the driver's brake over the track behind the car, so the two can be compared. With Show Throttle checked (saved
+/// as showThrottle in collector.json), the driver's throttle behind the car is drawn too, brighter and thicker than
+/// the Target Lap's, which is always shown. Positions come from live LapDistPct and the track's length (Track
 /// Data's, or iRacing's when Track Data has none). The Target Lap loads when the window opens, when the track or
 /// the upload key changes, and with Reload. Above the chart are copies of the overlay's Max Brake, Min Speed and
 /// handling boxes (OverlayStats), and under it its Upcoming Focus Area row (OverlayAreaRow), from the same
@@ -36,6 +38,7 @@ public partial class TargetTelemetryWindow : Window
     private static readonly Brush DriverTraceBrush = Frozen(Color.FromRgb(0xFF, 0x2D, 0x2D));
     private static readonly Brush FillBrush = Frozen(Color.FromArgb(0x40, 0xEF, 0x44, 0x44));
     private static readonly Brush ThrottleBrush = Frozen(Color.FromRgb(0x22, 0xC5, 0x5E));
+    private static readonly Brush DriverThrottleBrush = Frozen(Color.FromRgb(0x6B, 0xFF, 0x8E));
     private static readonly Brush UpshiftBrush = Frozen(Color.FromRgb(0x3B, 0x8B, 0xFF));
     private static readonly Brush DownshiftBrush = Frozen(Color.FromRgb(0xF5, 0x9E, 0x0B));
     private static readonly Brush BrakeBarBrush = Frozen(Color.FromRgb(0xFA, 0xCC, 0x15));
@@ -50,8 +53,11 @@ public partial class TargetTelemetryWindow : Window
     private readonly DispatcherTimer _overlayTimer = new() { Interval = TimeSpan.FromMilliseconds(100) };
     private readonly Polyline _trace = new() { Stroke = TraceBrush, StrokeThickness = 2, StrokeLineJoin = PenLineJoin.Round };
     private readonly Polygon _fill = new() { Fill = FillBrush };
-    // The Target Lap's throttle (the driver's own throttle isn't shown), under its brake trace
+    // The Target Lap's throttle, under its brake trace
     private readonly Polyline _throttleTrace = new() { Stroke = ThrottleBrush, StrokeThickness = 2, StrokeLineJoin = PenLineJoin.Round };
+    // The driver's throttle behind the car, over the Target Lap's, only with Show Throttle
+    private readonly Polyline _driverThrottleTrace = new() { Stroke = DriverThrottleBrush, StrokeThickness = 3, StrokeLineJoin = PenLineJoin.Round };
+    private bool _showThrottle;
     // The driver's brake behind the car, over the Target Lap's trace
     private readonly Polyline _driverTrace = new() { Stroke = DriverTraceBrush, StrokeThickness = 3, StrokeLineJoin = PenLineJoin.Round };
     private readonly Canvas _gears = new();
@@ -68,9 +74,9 @@ public partial class TargetTelemetryWindow : Window
     private double[] _throttles = [];
     // Its gear changes: where (0-1), the new gear, and whether that was an upshift
     private (double Pct, int Gear, bool Up)[] _gearChanges = [];
-    // The driver's brake (0-100) at each new position (0-1) the car reached, oldest first, back to just beyond the
-    // left edge; started over when the car goes backwards or jumps (a reset, a tow, another session)
-    private readonly List<(float Pct, double Brake)> _driverBrakes = [];
+    // The driver's brake and throttle (0-100) at each new position (0-1) the car reached, oldest first, back to just
+    // beyond the left edge; started over when the car goes backwards or jumps (a reset, a tow, another session)
+    private readonly List<(float Pct, double Brake, double Throttle)> _driverBrakes = [];
     // A step further than this (a share of the lap) between frames is a jump, not driving
     private const double JumpPct = 0.05;
     private TargetLapTrace? _lap;
@@ -88,6 +94,8 @@ public partial class TargetTelemetryWindow : Window
     {
         InitializeComponent();
         _engine = engine;
+        _showThrottle = CollectorSettings.Load().ShowThrottle;
+        ShowThrottleCheck.IsChecked = _showThrottle;
         _feed = feed;
         if (feed is null)
         {
@@ -121,7 +129,7 @@ public partial class TargetTelemetryWindow : Window
         if (live)
         {
             _position = data.LapDistPct;
-            RecordDriverBrake(data.LapDistPct!.Value, data.Brake, lengthFeet);
+            RecordDriverBrake(data.LapDistPct!.Value, data.Brake, data.Throttle, lengthFeet);
         }
         DrawBrakeBar(live ? data.Brake : null);
 
@@ -132,6 +140,7 @@ public partial class TargetTelemetryWindow : Window
             _fill.Points = [];
             _throttleTrace.Points = [];
             _driverTrace.Points = [];
+            _driverThrottleTrace.Points = [];
             _gears.Children.Clear();
             BrakeReadout.Text = "—";
             _drawn = null;
@@ -282,15 +291,22 @@ public partial class TargetTelemetryWindow : Window
         }
         _fill.Points = fill;
 
-        // The driver's brake behind the car, up to the car's line
+        // The driver's brake behind the car, up to the car's line, and with Show Throttle their throttle
         var driver = new PointCollection(_driverBrakes.Count);
-        foreach (var (pct, driverBrake) in _driverBrakes)
-            driver.Add(new Point(X(FeetFromCar(pct, position, lengthFeet)), Y(driverBrake)));
+        var driverThrottle = new PointCollection(_showThrottle ? _driverBrakes.Count : 0);
+        foreach (var (pct, driverBrake, throttlePct) in _driverBrakes)
+        {
+            var x = X(FeetFromCar(pct, position, lengthFeet));
+            driver.Add(new Point(x, Y(driverBrake)));
+            if (_showThrottle && !double.IsNaN(throttlePct))
+                driverThrottle.Add(new Point(x, Y(throttlePct)));
+        }
         _driverTrace.Points = driver;
+        _driverThrottleTrace.Points = driverThrottle;
     }
 
-    // Adds the driver's brake at a new position, and drops what's gone off the left edge
-    private void RecordDriverBrake(float pct, float? brake, double lengthFeet)
+    // Adds the driver's brake and throttle at a new position, and drops what's gone off the left edge
+    private void RecordDriverBrake(float pct, float? brake, float? throttle, double lengthFeet)
     {
         if (lengthFeet <= 0)
         {
@@ -306,7 +322,8 @@ public partial class TargetTelemetryWindow : Window
             if (step < 0 || step > JumpPct)
                 _driverBrakes.Clear();
         }
-        _driverBrakes.Add((pct, Math.Clamp(brake ?? 0, 0, 1) * 100.0));
+        _driverBrakes.Add((pct, Math.Clamp(brake ?? 0, 0, 1) * 100.0,
+            throttle is { } value ? Math.Clamp(value, 0, 1) * 100.0 : double.NaN));
         var keep = (BehindFeet + MarginFeet) / lengthFeet;
         var drop = 0;
         while (drop < _driverBrakes.Count - 1 && Behind(_driverBrakes[drop].Pct, pct) > keep)
@@ -390,6 +407,7 @@ public partial class TargetTelemetryWindow : Window
         }
         Plot.Children.Add(_fill);
         Plot.Children.Add(_throttleTrace);
+        Plot.Children.Add(_driverThrottleTrace);
         Plot.Children.Add(_trace);
         Plot.Children.Add(_driverTrace);
 
@@ -446,6 +464,18 @@ public partial class TargetTelemetryWindow : Window
         _target.Reload();
         _feed?.Reload();
         _engine.ReloadBrakeBeeps();
+    }
+
+    // Shows or hides the driver's own throttle trace, and remembers the choice
+    private void ShowThrottle_Click(object sender, RoutedEventArgs e)
+    {
+        _showThrottle = ShowThrottleCheck.IsChecked == true;
+        _drawn = null;
+        if (!_showThrottle)
+            _driverThrottleTrace.Points = [];
+        var settings = CollectorSettings.Load();
+        settings.ShowThrottle = _showThrottle;
+        settings.Save();
     }
 
     private void Close_Click(object sender, RoutedEventArgs e) => Close();

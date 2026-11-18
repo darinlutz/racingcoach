@@ -33,6 +33,10 @@
                         Width="26" Padding="0" />
                 <Button DockPanel.Dock="Right" Style="{StaticResource HeaderButton}" local:Loc.Key="reload" Click="Reload_Click"
                         local:Loc.ToolTip="reloadTip" Padding="10,0" Margin="0,0,8,0" />
+                <!-- The driver's own throttle over the track behind the car, brighter than the Target Lap's (saved in collector.json) -->
+                <CheckBox x:Name="ShowThrottleCheck" DockPanel.Dock="Right" VerticalAlignment="Center" Margin="0,0,12,0"
+                          Foreground="#F3F4F6" FontSize="12" local:Loc.Key="target.showThrottle"
+                          local:Loc.ToolTip="target.showThrottleTip" Click="ShowThrottle_Click" />
                 <StackPanel DockPanel.Dock="Right" Margin="0,0,12,0" VerticalAlignment="Center">
                     <TextBlock x:Name="BrakeReadout" HorizontalAlignment="Right" FontSize="26" FontWeight="Bold" FontFamily="Consolas"
                                Foreground="#EF4444" Text="—" />
@@ -62,7 +66,8 @@
                        Margin="0,8,0,0" Visibility="Collapsed" />
 
             <!-- The Target Lap's brake (red) and throttle (green), 0-100%, over the next stretch of track, with its gear changes across the
-                 top, scrolling left as the car moves; the vertical line is the car, and the bar on it the driver's brake -->
+                 top, scrolling left as the car moves; the vertical line is the car, and the bar on it the driver's brake; with Show
+                 Throttle, the driver's throttle behind the car in a brighter green -->
             <Border Background="#1A1B1E" BorderBrush="#303136" BorderThickness="1" CornerRadius="6" Padding="0,0,8,0" Margin="0,0,0,8">
                 <Grid>
                     <Grid.ColumnDefinitions>

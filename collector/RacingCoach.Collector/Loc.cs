@@ -304,6 +304,11 @@ internal static partial class Loc
         // Target Telemetry window (and TargetLapSource)
         ["target.telemetryTitle"] = (" TARGET TELEMETRY", " TELEMETRIA ALVO", " TELEMETRÍA OBJETIVO", " ZIEL-TELEMETRIE"),
         ["target.brake"] = ("target brake", "freio alvo", "freno objetivo", "Ziel-Bremse"),
+        ["target.showThrottle"] = ("Show Throttle", "Mostrar acelerador", "Mostrar acelerador", "Gas anzeigen"),
+        ["target.showThrottleTip"] = ("Draw your own throttle behind the car, brighter than your Target Lap's",
+            "Desenha seu próprio acelerador atrás do carro, mais claro que o da sua Volta Alvo",
+            "Dibuja tu propio acelerador detrás del coche, más brillante que el de tu Vuelta Objetivo",
+            "Zeichnet dein eigenes Gas hinter dem Auto, heller als das deiner Zielrunde"),
         ["target.target"] = ("target", "alvo", "objetivo", "Ziel"),
         ["target.you"] = ("you", "você", "tú", "du"),
         ["target.noKey"] = ("Enter an upload key (Upload Key in the main window) to load your Target Lap.",

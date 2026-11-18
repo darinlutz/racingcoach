@@ -1,3 +1,7 @@
+import { suspensionEn } from './suspensionText.ts';
+import { dashboardsEn } from './dashboardsText.ts';
+import { tiresEn } from './tiresText.ts';
+import { brakesEn } from './brakesText.ts';
 // The Setups page's text (src/app/setups/, docs/setups.md), in English. Its own file as there's a lot of it; en.ts
 // takes it as its setups block, and each language's translation (setupsTextPt.ts ...) must have exactly its shape.
 // Plain JSON, like the rest of the dictionaries.
@@ -5,11 +9,24 @@
 export const setupsEn = {
   title: 'Setups',
   intro: 'Your iRacing car setups: what the collector sees loaded in iRacing, the .sto files you keep, how they differ, and the Setup Engineer’s advice.',
+  suspension: suspensionEn,
+  dashboards: dashboardsEn,
+  tires: tiresEn,
+  brakes: brakesEn,
   tabs: {
+    systems: 'Engineering systems',
     overview: 'Overview',
     library: 'My Setups',
     live: 'Live Setup',
     compare: 'Compare',
+    suspension: 'Suspension',
+    aero: 'Aerodynamics',
+    drivetrain: 'Drivetrain',
+    fuel: 'Fuel',
+    electronics: 'Electronics',
+    other: 'Other',
+    tires: 'Tires',
+    brakes: 'Brakes',
     engineer: 'Setup Engineer',
     inspection: 'Inspection',
     history: 'History',

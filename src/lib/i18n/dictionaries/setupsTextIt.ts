@@ -1,15 +1,32 @@
 import type { SetupsText } from './setupsText';
+import { suspensionIt } from './suspensionTextIt.ts';
+import { dashboardsIt } from './dashboardsTextIt.ts';
+import { tiresIt } from './tiresTextIt.ts';
+import { brakesIt } from './brakesTextIt.ts';
 
 // The Setups page's text in Italian. Same keys, {placeholders} and { one, other } forms as setupsText.ts.
 
 export const setupsIt: SetupsText = {
   title: 'Assetti',
   intro: 'Gli assetti delle tue auto su iRacing: quello che il Collector vede caricato in iRacing, i file .sto che conservi, in cosa differiscono e i consigli dell’Ingegnere dell’assetto.',
+  suspension: suspensionIt,
+  dashboards: dashboardsIt,
+  tires: tiresIt,
+  brakes: brakesIt,
   tabs: {
+    systems: 'Sistemi tecnici',
     overview: 'Panoramica',
     library: 'I miei assetti',
     live: 'Assetto live',
     compare: 'Confronta',
+    suspension: 'Sospensioni',
+    aero: 'Aerodinamica',
+    drivetrain: 'Trasmissione',
+    fuel: 'Carburante',
+    electronics: 'Elettronica',
+    other: 'Altro',
+    tires: 'Pneumatici',
+    brakes: 'Freni',
     engineer: 'Ingegnere dell’assetto',
     inspection: 'Verifica tecnica',
     history: 'Cronologia',

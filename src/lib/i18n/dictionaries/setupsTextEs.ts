@@ -1,15 +1,32 @@
 import type { SetupsText } from './setupsText';
+import { suspensionEs } from './suspensionTextEs.ts';
+import { dashboardsEs } from './dashboardsTextEs.ts';
+import { tiresEs } from './tiresTextEs.ts';
+import { brakesEs } from './brakesTextEs.ts';
 
 // The Setups page's text in Latin American Spanish. Same keys, {placeholders} and { one, other } forms as setupsText.ts.
 
 export const setupsEs: SetupsText = {
   title: 'Setups',
   intro: 'Los setups de tus autos en iRacing: lo que el Collector ve cargado en iRacing, los archivos .sto que guardas, en qué se diferencian y los consejos del Ingeniero de Setup.',
+  suspension: suspensionEs,
+  dashboards: dashboardsEs,
+  tires: tiresEs,
+  brakes: brakesEs,
   tabs: {
+    systems: 'Sistemas de ingeniería',
     overview: 'Resumen',
     library: 'Mis Setups',
     live: 'Setup en vivo',
     compare: 'Comparar',
+    suspension: 'Suspensión',
+    aero: 'Aerodinámica',
+    drivetrain: 'Transmisión',
+    fuel: 'Combustible',
+    electronics: 'Electrónica',
+    other: 'Otros',
+    tires: 'Neumáticos',
+    brakes: 'Frenos',
     engineer: 'Ingeniero de Setup',
     inspection: 'Inspección',
     history: 'Historial',

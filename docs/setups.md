@@ -115,6 +115,46 @@ Comparison in amber, unchanged in grey; Baseline only / Comparison only / Overla
 - **More accurate toe** would need, per car, the length iRacing measures toe over (to turn mm into degrees) and how
   it splits front total toe between the wheels; neither is in the session info
 
+## Engineering system tabs
+
+Under the main tabs, a row of eight system tabs (Suspension, Brakes, Tires, Aerodynamics, Drivetrain, Fuel,
+Electronics, Other; `SYSTEM_ICONS` in `SetupsWorkspace.tsx`), each a dashboard of the same two revisions Compare has
+(the pick is shared), designed after the Lovable project `darinlutz/screenshot-match`. They share
+`SetupFocusComparison.tsx` (pickers, `/api/setups/compare`, Ask Setup Engineer) and `engineeringUi.tsx` (toolbar,
+sections, sliders), the alignment's colors and drawing classes (`align-*`, `--align-*` in `globals.css`), and its
+rules: values found by key in Compare's rows, kept in iRacing's own units and decimals, never invented; readings
+(iRacing's calculations and last-run measurements) shown and labelled apart from settings and not counted as changes;
+every drawing schematic and labelled so, the exaggeration changing the drawing only; nothing ever called better. Ask
+Setup Engineer posts `focus` (the tab's name) and the route builds that system's facts from both revisions itself
+(`FOCI` in `src/app/api/setups/engineer/route.ts`).
+
+- **Suspension** (`SuspensionEngineeringView.tsx`, `src/lib/suspensionGeometry.ts`, `npm run test:suspension`):
+  ride heights, spring rates, bump rubber gaps, perch offsets and corner weights per corner, dampers per axle or
+  corner (low/high speed, compression/rebound, clicks) and ARB blades or settings. A 3D axonometric overview, side,
+  front and rear elevations and a corner cutaway; ride heights drawn to an exaggerated scale about their mean (the
+  only thing drawn to a scale); Hooke's-law spring compression for a hypothetical load in the spring's own units;
+  bump rubber contact along the gap; rear minus front height difference, never a rake angle (no wheelbase)
+- **Brakes** (`BrakeEngineeringView.tsx`, `src/lib/brakesGeometry.ts`, `npm run test:brakes`): bias, master cylinders,
+  pads, ABS and the LED strip. `BrakePressureBias` alone is split front/rear (iRacing's front share of line pressure);
+  bias deltas in percentage points; master cylinder area and pressure for a hypothetical piston force, mm only; the
+  ABS sequence is the same illustration for both settings; the LED is lighting, left out of every calculation and of
+  the engineer's advice. Hydraulic circuits have their own colors (`--brake-front`, `--brake-rear`), never a setup's
+- **Tires** (`TireEngineeringView.tsx`, `src/lib/tiresGeometry.ts`, `npm run test:tires`): the tire type and starting
+  pressures (settings), and the last run's `LastHotPressure`, `LastTemps{OMI,IMO}` (ordered inner/middle/outer by the
+  key) and `TreadRemaining` (readings). Pressures shown in kPa, psi or bar, converted exactly; balance needs both
+  corners for an average and all four for extremes; heat bands on a scale relative to the readings shown (`--tire-heat-*`),
+  never an operating window; cross-section, contact patch and inflation demo are conceptual; the gas law runs on a
+  hypothetical absolute reference only
+- **Aerodynamics, Drivetrain, Fuel, Electronics, Other** (`SetupDashboardView.tsx`, `AeroDashboard.tsx`,
+  `DrivetrainDashboard.tsx`, `FuelDashboard.tsx`, `ElectronicsDashboard.tsx`, `OtherDashboard.tsx`;
+  `src/lib/setupDashboards.ts`, `npm run test:setup-dashboards`): every parameter of `setupYaml.ts`'s category, with
+  the keys the drawings know given a role. Aero: wing angle and splitter (settings) and the aero calculator's ride
+  heights at speed, wing setting and `FrontDownforce` share (readings); no downforce or drag. Drivetrain: preload,
+  friction faces (not plates), gear stack. Fuel: the level in litres (US gallons converted); mass only for a density
+  the driver types; a race plan only from the driver's laps, consumption and reserve. Electronics: every numeric
+  control as a dial (ABS borrowed from Brakes); an illustrative TC trace. Other: an illustrative throttle curve for a
+  throttle shape setting (no car's map), then whatever no other category takes
+
 ## Inspection
 
 iRacing's own result only (`DriverSetupPassedTech`; 1 is passed, as seen in captures, 0 read as failed, anything else

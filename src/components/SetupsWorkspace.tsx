@@ -1,20 +1,29 @@
 'use client';
 
-import { BrainCircuit, GitCompare, Import, PlusSquare, RadioTower } from 'lucide-react';
+import { Box, BrainCircuit, CircleDot, CircleGauge, Cog, Cpu, Fuel, GitCompare, Import, ListTree, Plane, PlusSquare, RadioTower } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useLanguage } from '@/components/LanguageProvider';
 import LocalTime from '@/components/LocalTime';
 import { InspectionBadge, Notice, Panel } from '@/components/SetupBadges';
+import SetupBrakes from '@/components/SetupBrakes';
 import SetupCompare from '@/components/SetupCompare';
 import SetupEngineerChat from '@/components/SetupEngineerChat';
 import SetupHistory from '@/components/SetupHistory';
 import SetupInspectionTab from '@/components/SetupInspectionTab';
 import SetupLibrary from '@/components/SetupLibrary';
 import SetupLive from '@/components/SetupLive';
+import SetupDashboardTab from '@/components/SetupDashboardTab';
+import SetupSuspension from '@/components/SetupSuspension';
+import SetupTires from '@/components/SetupTires';
+import { isSetupDashboard } from '@/lib/setupDashboards';
 import type { RevisionChoice } from '@/components/SetupRevisionPicker';
 import { setupsRequest, type SetupsList } from '@/lib/setupClient';
 import type { SetupsTab } from '@/lib/setupsTabs';
 import { keyLabel } from '@/lib/setupYaml';
+
+// The engineering systems' tabs, shown as their own row under the others, each with its icon
+const SYSTEM_ICONS = { suspension: Box, brakes: CircleGauge, tires: CircleDot, aero: Plane, drivetrain: Cog, fuel: Fuel, electronics: Cpu, other: ListTree };
+const SYSTEM_TABS: SetupsTab[] = Object.keys(SYSTEM_ICONS) as SetupsTab[];
 
 // The Setups page (src/app/setups/page.tsx; docs/setups.md): one set of tabs over the user's setups. The tabs share the
 // library (loaded once, reloaded after a change) and hand each other what to show: a setup to open, two revisions to
@@ -81,20 +90,49 @@ export default function SetupsWorkspace({
 
   return (
     <>
-      <div role="tablist" className="mb-6 flex flex-wrap gap-2 border-b border-border">
-        {tabs.map((name) => (
-          <button
-            key={name}
-            role="tab"
-            aria-selected={tab === name}
-            onClick={() => go(name)}
-            className={`-mb-px border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors ${
-              tab === name ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            {s.tabs[name]}
-          </button>
-        ))}
+      <div role="tablist" className="mb-6">
+        <div className="flex flex-wrap gap-2 border-b border-border">
+          {tabs
+            .filter((name) => !SYSTEM_TABS.includes(name))
+            .map((name) => (
+              <button
+                key={name}
+                role="tab"
+                aria-selected={tab === name}
+                onClick={() => go(name)}
+                className={`-mb-px border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors ${
+                  tab === name ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {s.tabs[name]}
+              </button>
+            ))}
+        </div>
+        {/* The engineering systems: each one dashboard of the two setups Compare has */}
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="mr-1 font-mono text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">{s.tabs.systems}</span>
+          {tabs
+            .filter((name) => SYSTEM_TABS.includes(name))
+            .map((name) => {
+              const Icon = SYSTEM_ICONS[name as keyof typeof SYSTEM_ICONS];
+              return (
+                <button
+                  key={name}
+                  role="tab"
+                  aria-selected={tab === name}
+                  onClick={() => go(name)}
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                    tab === name
+                      ? 'border-align-baseline bg-align-baseline/15 text-foreground shadow-[0_0_0_1px_var(--align-baseline)]'
+                      : 'border-border text-muted-foreground hover:border-align-baseline hover:text-foreground'
+                  }`}
+                >
+                  <Icon className="size-3.5" aria-hidden />
+                  {s.tabs[name]}
+                </button>
+              );
+            })}
+        </div>
       </div>
 
       {error && !list && (
@@ -142,6 +180,39 @@ export default function SetupsWorkspace({
           {tab === 'live' && <SetupLive onOpen={actions.openSetup} onChanged={load} />}
           {tab === 'compare' && (
             <SetupCompare
+              setups={setups}
+              value={compare}
+              onChange={setCompare}
+              engineer={tabs.includes('engineer') ? { canUse: canUseEngineer, showPricing, onRevisionMade: load } : undefined}
+            />
+          )}
+          {tab === 'suspension' && (
+            <SetupSuspension
+              setups={setups}
+              value={compare}
+              onChange={setCompare}
+              engineer={tabs.includes('engineer') ? { canUse: canUseEngineer, showPricing, onRevisionMade: load } : undefined}
+            />
+          )}
+          {tab === 'brakes' && (
+            <SetupBrakes
+              setups={setups}
+              value={compare}
+              onChange={setCompare}
+              engineer={tabs.includes('engineer') ? { canUse: canUseEngineer, showPricing, onRevisionMade: load } : undefined}
+            />
+          )}
+          {tab === 'tires' && (
+            <SetupTires
+              setups={setups}
+              value={compare}
+              onChange={setCompare}
+              engineer={tabs.includes('engineer') ? { canUse: canUseEngineer, showPricing, onRevisionMade: load } : undefined}
+            />
+          )}
+          {isSetupDashboard(tab) && (
+            <SetupDashboardTab
+              dashboard={tab}
               setups={setups}
               value={compare}
               onChange={setCompare}

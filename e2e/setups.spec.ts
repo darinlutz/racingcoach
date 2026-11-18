@@ -133,6 +133,39 @@ test('a captured setup, an uploaded .sto, a revision, a comparison and its chang
   await expect(page.getByText('−3.3°').first()).toBeVisible();
   await expect(page.getByText('Geometry exaggerated 5× for clarity. The setup values aren’t changed.')).toBeVisible();
 
+  // The Suspension tab: the same two revisions as Compare, the capture's own values, and nothing changed
+  await page.getByRole('tab', { name: 'Suspension' }).click();
+  await expect(page.getByRole('heading', { name: 'Suspension: engineering comparison' })).toBeVisible();
+  await expect(page.getByText('No suspension changes: every suspension value both setups have is the same.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Select Right rear' })).toBeVisible();
+  await expect(page.getByRole('cell', { name: '83.3 mm' }).first()).toBeVisible();
+  await page.getByRole('button', { name: 'Side view' }).click();
+  await expect(page.getByText('+25.9 mm').first()).toBeVisible();
+  await page.getByRole('button', { name: 'Bump rubbers' }).click();
+  await expect(page.getByRole('heading', { name: 'Left front bump rubber · cutaway' })).toBeVisible();
+  await expect(page.getByText('Clearance left').first()).toBeVisible();
+
+  // The Brakes tab: the capture's bias split and bores, and the hydraulics' parts selectable
+  await page.getByRole('tab', { name: 'Brakes' }).click();
+  await expect(page.getByRole('heading', { name: 'Brake system: engineering comparison' })).toBeVisible();
+  await expect(page.getByText('No brake changes: every brake value both setups have is the same.')).toBeVisible();
+  await expect(page.getByText('Front 51.00%').first()).toBeVisible();
+  await page.getByRole('button', { name: 'Select Rear master cylinder' }).click();
+  await expect(page.locator('aside').getByRole('heading', { name: 'Rear master cylinder' })).toBeVisible();
+  await expect(page.getByText('17.8 mm').first()).toBeVisible();
+
+  // Tires: the starting pressures, convertible for display; then the Aerodynamics dashboard with the wing angle
+  await page.getByRole('tab', { name: 'Tires' }).click();
+  await expect(page.getByRole('heading', { name: 'Tires: engineering comparison' })).toBeVisible();
+  await expect(page.getByText('159 kPa').first()).toBeVisible();
+  await page.getByRole('combobox').filter({ hasText: 'kPa' }).selectOption('psi');
+  await expect(page.getByText('23.06 psi').first()).toBeVisible();
+  await page.getByRole('tab', { name: 'Aerodynamics' }).click();
+  await expect(page.getByRole('heading', { name: 'Aerodynamics: engineering comparison' })).toBeVisible();
+  // The revision changed the wing angle from 6 to 7 degrees: one change, the rest unchanged
+  await expect(page.getByText('1 change', { exact: true })).toBeVisible();
+  await expect(page.getByRole('row').filter({ hasText: 'Wing Angle' }).first()).toContainText('+1 degrees');
+
   // The change sheet, as RacingCoach can't write a .sto iRacing accepts
   const list = await (await page.request.get('/api/setups')).json();
   const setup = list.setups.find((s: { fileName: string }) => s.fileName === 'fixed.sto');

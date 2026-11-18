@@ -27,6 +27,8 @@ internal sealed class CollectorSettings
     public WheelButton? RadioButton { get; set; }
     /// <summary>The Live Racing tab's satellite imagery opacity under the map, 0-100 (the website's default, 60).</summary>
     public int SatelliteOpacity { get; set; } = 60;
+    /// <summary>The Target Telemetry window's Show Throttle: the driver's own throttle trace over the Target Lap's.</summary>
+    public bool ShowThrottle { get; set; }
     /// <summary>Driver Radio's microphone, by its Windows name, or null for Windows' default (<see cref="MicRecorder.DeviceName"/>).</summary>
     public string? Microphone { get; set; }
     /// <summary>The driver's wheel rotation, lock to lock in degrees (the window's Wheel rotation, or --steering-range),

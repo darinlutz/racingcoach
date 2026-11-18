@@ -2,11 +2,16 @@
 
 import { ArrowLeftRight } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import AlignmentEngineeringView from '@/components/AlignmentEngineeringView';
 import { useLanguage } from '@/components/LanguageProvider';
+import MembershipRequiredDialog from '@/components/MembershipRequiredDialog';
 import { Notice, Panel } from '@/components/SetupBadges';
+import { ProposalCard } from '@/components/SetupEngineerChat';
 import SetupRevisionPicker, { type RevisionChoice } from '@/components/SetupRevisionPicker';
+import ThinkingProgress from '@/components/ThinkingProgress';
+import { compareAlignment } from '@/lib/alignmentGeometry';
 import { formatDifference } from '@/lib/setupCompare';
-import { lapTime, setupsRequest, type CompareResponse, type CompareRow, type LapsSummary } from '@/lib/setupClient';
+import { jsonInit, lapTime, setupsRequest, type CompareResponse, type CompareRow, type LapsSummary, type ProposalSummary } from '@/lib/setupClient';
 import { keyLabel, SETUP_CATEGORIES } from '@/lib/setupYaml';
 
 const CORNERS = ['LeftFront', 'RightFront', 'LeftRear', 'RightRear'] as const;
@@ -17,10 +22,13 @@ export default function SetupCompare({
   setups,
   value,
   onChange,
+  engineer,
 }: {
   setups: Parameters<typeof SetupRevisionPicker>[0]['setups'];
   value: { a: RevisionChoice; b: RevisionChoice };
   onChange: (value: { a: RevisionChoice; b: RevisionChoice }) => void;
+  // The Setup Engineer, for the alignment comparison's Ask Setup Engineer; absent while it's off for the page
+  engineer?: { canUse: boolean; showPricing: boolean; onRevisionMade: () => Promise<void> };
 }) {
   const { t, plural } = useLanguage();
   const s = t.setups;
@@ -53,6 +61,29 @@ export default function SetupCompare({
     [current, onlyDiff, showReadings]
   );
   const differences = current ? current.result.rows.filter((r) => r.status !== 'same' && (showReadings || r.kind === 'setting')).length : 0;
+  const alignment = useMemo(() => compareAlignment(current?.result.rows ?? []), [current]);
+
+  // Ask Setup Engineer: only when the driver presses it. The server builds the alignment facts from the two
+  // revisions itself (focus: 'alignment'), with the same membership, rate limit and model control as the Setup Engineer tab
+  const [asking, setAsking] = useState(false);
+  const [askError, setAskError] = useState('');
+  const [answer, setAnswer] = useState<{ key: string; proposal: ProposalSummary } | null>(null);
+  const [membership, setMembership] = useState(false);
+  const pairKey = `${value.a?.revisionId ?? ''}:${value.b?.revisionId ?? ''}`;
+  const askAlignment = async () => {
+    if (!engineer || !value.a || !value.b) return;
+    if (!engineer.canUse) return setMembership(true);
+    setAsking(true);
+    setAskError('');
+    const res = await setupsRequest<{ proposal: ProposalSummary }>(
+      '/api/setups/engineer',
+      jsonInit('POST', { revisionId: value.a.revisionId, compareRevisionId: value.b.revisionId, question: s.alignment.engineerQuestion, focus: 'alignment' })
+    );
+    setAsking(false);
+    if (res.ok) return setAnswer({ key: pairKey, proposal: res.data.proposal });
+    if (res.code === 'membershipRequired') setMembership(true);
+    else if (res.status !== 429) setAskError(res.error || s.errors.engineerFailed);
+  };
 
   return (
     <div className="space-y-5">
@@ -84,6 +115,30 @@ export default function SetupCompare({
       ) : (
         <>
           <LapsPanel baseline={current.laps.baseline} comparison={current.laps.comparison} names={[current.baseline.setup.name, current.comparison.setup.name]} />
+          <Panel title={s.alignment.title}>
+            <AlignmentEngineeringView comparison={alignment} engineer={engineer ? { onAsk: () => void askAlignment(), asking } : undefined} />
+            {asking && (
+              <div className="mt-4">
+                <ThinkingProgress active={asking} expectedMs={15000} />
+              </div>
+            )}
+            {askError && (
+              <div className="mt-4">
+                <Notice tone="error">{askError}</Notice>
+              </div>
+            )}
+          </Panel>
+          {answer && answer.key === pairKey && engineer && (
+            <ProposalCard
+              key={answer.proposal.id}
+              proposal={answer.proposal}
+              defaultOpen
+              onDecided={async (updated) => {
+                setAnswer({ key: pairKey, proposal: updated });
+                await engineer.onRevisionMade();
+              }}
+            />
+          )}
           <VisualComparison rows={current.result.rows.filter((r) => r.kind === 'setting')} />
           <Panel
             title={plural(differences, c.differences, { count: differences })}
@@ -104,6 +159,7 @@ export default function SetupCompare({
           </Panel>
         </>
       )}
+      {engineer && <MembershipRequiredDialog open={membership} showPricing={engineer.showPricing} onClose={() => setMembership(false)} />}
     </div>
   );
 }

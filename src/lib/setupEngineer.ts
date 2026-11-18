@@ -397,6 +397,9 @@ export async function setupWorkbenchAnswer(input: {
   laps: { laps: number; cleanLaps: number; bestSeconds: number | null; averageCleanSeconds: number | null } | null;
   rotation: SessionRotation | null;
   weather?: WeatherContext | null;
+  // A question about one part of the comparison, e.g. the Compare tab's alignment (alignmentGeometry.ts): its facts and
+  // how to answer, added to the prompt
+  focus?: { facts: string[]; rule: string } | null;
   language?: Language;
   units?: Units;
 }): Promise<WorkbenchAnswer> {
@@ -431,6 +434,7 @@ export async function setupWorkbenchAnswer(input: {
   } else {
     facts.push('', 'No laps are linked to this setup, so nothing about how it drives has been measured.');
   }
+  if (input.focus) facts.push('', ...input.focus.facts);
   if (input.rotation) facts.push('', ...rotationFacts(input.rotation));
   if (input.weather !== undefined) facts.push('', ...weatherFacts(input.weather, units === 'metric' ? 'metric' : 'standard'));
 
@@ -456,6 +460,7 @@ export async function setupWorkbenchAnswer(input: {
       workbenchPrompt(session.fixed, session.known) +
       SETUP_ENGINEER_METHOD +
       wetSetupRule(input.weather) +
+      (input.focus?.rule ?? '') +
       ' Keep every setup value in the unit the list gives it. ' +
       (units === 'metric' ? 'Use metric units for anything else.' : 'Use US units for anything else.') +
       aiLanguageRule(language),

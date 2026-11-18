@@ -89,6 +89,32 @@ It answers findings, hypotheses and recommendations separately, and proposes cha
 in a fixed setup session. iRacing doesn't share legal ranges, so every proposal says so. Proposals are pending until
 the driver accepts or rejects each; the accepted ones make one new revision.
 
+## Wheel Alignment Engineering Comparison
+
+On the Compare tab, above the Visual comparison (`src/components/AlignmentEngineeringView.tsx`, with
+`TopDownToeDiagram`, `FrontCamberDiagram`, `RearCamberDiagram` (both `AlignmentCamberDiagram`), `AlignmentWheel`,
+`AlignmentDataPanel` and `AlignmentComparisonSummary`; text in `setups.alignment` of the dictionaries): SVG drawings
+of both setups' camber (front view, looking rearward; rear view, looking forward) and toe (top view), Baseline in cyan,
+Comparison in amber, unchanged in grey; Baseline only / Comparison only / Overlay both; a 1×, 2×, 5×, 10× exaggeration
+(default 5×) of the drawing only; the four corners' values; the selected wheel's analysis; and the list of changes.
+
+- **Values** (`src/lib/alignmentGeometry.ts`, pure, `npm run test:alignment`): found in Compare's rows by key and box,
+  never by label: `Camber` and `Caster` in a corner box (`LeftFront` ...), degrees only; `ToeIn`/`ToeOut`/`Toe` in a
+  corner box is that wheel's toe, and `TotalToeIn` (or a toe key in a Front/Rear box) the axle's total, in degrees,
+  mm or inches. Anything else that looks like alignment (another unit, a fraction, text, a second path for the same
+  thing) is listed as unreadable, never drawn. Readings are left out
+- **Toe**: the key name says which way is positive (`ToeIn`: toe-in); a plain `Toe` isn't drawn turned. Toe in mm is
+  a distance, and iRacing doesn't say over what length it's measured, so it's drawn schematically
+  (`SCHEMATIC_DEG_PER_MM`) and said so; only toe in degrees is drawn at its angle. iRacing sets GT3 front toe as one
+  axle total: the drawing splits it evenly between the wheels, labelled as an illustration, and the wheels show no
+  value of their own
+- **Ask Setup Engineer**: posts `/api/setups/engineer` with `focus: 'alignment'`; the route builds the alignment facts
+  itself from the two revisions (`alignmentEngineerFacts`, `ALIGNMENT_ENGINEER_RULE`), so nothing the browser sends
+  is taken as a value. Same membership, rate limit, model control and saved proposal as the Setup Engineer tab; the
+  answer shows under the drawings. Only on the button, never automatically
+- **More accurate toe** would need, per car, the length iRacing measures toe over (to turn mm into degrees) and how
+  it splits front total toe between the wheels; neither is in the session info
+
 ## Inspection
 
 iRacing's own result only (`DriverSetupPassedTech`; 1 is passed, as seen in captures, 0 read as failed, anything else

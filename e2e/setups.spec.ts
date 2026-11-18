@@ -151,7 +151,7 @@ test('a captured setup, an uploaded .sto, a revision, a comparison and its chang
   await expect(page.getByText('No brake changes: every brake value both setups have is the same.')).toBeVisible();
   await expect(page.getByText('Front 51.00%').first()).toBeVisible();
   await page.getByRole('button', { name: 'Select Rear master cylinder' }).click();
-  await expect(page.getByRole('heading', { name: 'Rear master cylinder' })).toBeVisible();
+  await expect(page.locator('aside').getByRole('heading', { name: 'Rear master cylinder' })).toBeVisible();
   await expect(page.getByText('17.8 mm').first()).toBeVisible();
 
   // Tires: the starting pressures, convertible for display; then the Aerodynamics dashboard with the wing angle

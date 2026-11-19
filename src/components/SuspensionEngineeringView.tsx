@@ -1,8 +1,10 @@
 'use client';
 
 import { Activity, ArrowDownUp, ArrowLeftRight, Box, BrainCircuit, Info, Layers, MoveVertical, Pause, Play, RotateCcw } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import AntiRollBarDiagram from '@/components/AntiRollBarDiagram';
+import Car3DViewerLazy from '@/components/car3d/Car3DViewerLazy';
+import { useSelectedCarKey } from '@/components/CarViewContext';
 import { Caveat, Legend, SegmentButton, Segmented, Section, Slider } from '@/components/engineeringUi';
 import { useLanguage } from '@/components/LanguageProvider';
 import RideHeightDiagram from '@/components/RideHeightDiagram';
@@ -50,6 +52,26 @@ const REBOUND: DamperParam[] = ['lsRbd', 'hsRbd', 'rbd'];
 const FILTER_OF: Partial<Record<CornerParam, ComponentFilter>> = { rideHeight: 'rideHeight', springRate: 'springRate', bumpGap: 'bumpGap' };
 // The springs' drawing scale: pixels per unit of compression (schematic)
 const SPRING_PX = { mm: 5, in: 127 } as const;
+// 2D Engineering (the drawings) or Interactive 3D (the car's model), kept for the visit while moving between the tabs
+type DrawingMode = '2d' | '3d';
+const DRAWING_MODE_KEY = 'setups.suspensionDrawing';
+
+function useDrawingMode(): [DrawingMode, (mode: DrawingMode) => void] {
+  const [mode, setMode] = useState<DrawingMode>('2d');
+  useEffect(() => {
+    try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- read once from this visit's storage
+      if (sessionStorage.getItem(DRAWING_MODE_KEY) === '3d') setMode('3d');
+    } catch {}
+  }, []);
+  const set = (next: DrawingMode) => {
+    setMode(next);
+    try {
+      sessionStorage.setItem(DRAWING_MODE_KEY, next);
+    } catch {}
+  };
+  return [mode, set];
+}
 
 // The Setups page's Suspension tab (docs/setups.md; the design came from the Lovable project
 // darinlutz/screenshot-match): the suspension of two setups of the same car, at every corner. A workstation (the 3D
@@ -77,6 +99,9 @@ export default function SuspensionEngineeringView({
   const [travel, setTravel] = useState(0);
   const [direction, setDirection] = useState<'compression' | 'rebound'>('compression');
   const [playing, setPlaying] = useState(false);
+  const [drawing, setDrawing] = useDrawingMode();
+  const carKey = useSelectedCarKey();
+  const models = t.setups.carModels;
   const props: SuspensionDrawingProps = { comparison, mode, exaggeration, selected, onSelect: setSelected, component };
 
   // The springs' units decide the load's: N for N/mm, lbf for lb/in
@@ -139,14 +164,25 @@ export default function SuspensionEngineeringView({
       {/* The workstation */}
       <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-3 py-2">
-          <Segmented label={s.viewLabel}>
-            {SUSPENSION_VIEWS.map((v) => (
-              <SegmentButton key={v} active={view === v} onClick={() => setView(v)}>
-                {v === 'overview' && <Box className="size-3.5" aria-hidden />}
-                {s.views[v]}
-              </SegmentButton>
-            ))}
-          </Segmented>
+          <div className="flex flex-wrap items-center gap-3">
+            <Segmented label={models.suspension.title}>
+              {(['2d', '3d'] as const).map((d) => (
+                <SegmentButton key={d} active={drawing === d} onClick={() => setDrawing(d)}>
+                  {d === '2d' ? models.suspension.view2d : models.suspension.view3d}
+                </SegmentButton>
+              ))}
+            </Segmented>
+            {drawing === '2d' && (
+              <Segmented label={s.viewLabel}>
+                {SUSPENSION_VIEWS.map((v) => (
+                  <SegmentButton key={v} active={view === v} onClick={() => setView(v)}>
+                    {v === 'overview' && <Box className="size-3.5" aria-hidden />}
+                    {s.views[v]}
+                  </SegmentButton>
+                ))}
+              </Segmented>
+            )}
+          </div>
           <button
             type="button"
             onClick={reset}
@@ -206,7 +242,20 @@ export default function SuspensionEngineeringView({
         </div>
 
         <div className="p-3">
-          {view === 'side' || view === 'front' || view === 'rear' ? (
+          {drawing === '3d' ? (
+            // The compared setups' car as its approved 3D model (or the generic car), turned and zoomed freely; picking
+            // a corner here or in the cards below selects it in both, and the cards keep showing the setups' values
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h4 className="font-mono text-[11px] font-semibold uppercase tracking-widest text-foreground">{models.suspension.title}</h4>
+                <span className="rounded border border-border bg-card px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide text-align-baseline">
+                  {fmt(models.suspension.selected, { corner: s.corners[selected] })}
+                </span>
+              </div>
+              <Car3DViewerLazy carKey={carKey} selectedCorner={selected} onSelectCorner={setSelected} height={460} />
+              <p className="text-xs text-muted-foreground">{models.suspension.exteriorOnly}</p>
+            </div>
+          ) : view === 'side' || view === 'front' || view === 'rear' ? (
             <RideHeightDiagram {...props} view={view} />
           ) : (
             <div className="rounded-lg border border-border p-3 align-grid">

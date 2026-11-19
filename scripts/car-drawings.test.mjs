@@ -14,16 +14,18 @@ import { lovableViewAnchors, withLovableLayers } from '../src/lib/carViews/lovab
 import { CAR_VIEWS, visibleCorners } from '../src/lib/carViews/views.ts';
 
 describe('the repository’s car drawings', () => {
-  test('both cars have all five views', async () => {
+  test('every car has all five views', async () => {
     const sets = await listBundledDrawings();
     assert.deepEqual(
       sets.map((s) => [s.id, s.views]),
       [
         ['huracan-gt3-evo', [...CAR_VIEWS]],
         ['ferrari-296-gt3', [...CAR_VIEWS]],
+        ['corvette-z06-gt3r', [...CAR_VIEWS]],
+        ['ford-mustang-gt3', [...CAR_VIEWS]],
       ]
     );
-    for (const s of sets) assert.match(s.license, /CC-BY-4\.0/);
+    for (const s of sets) assert.match(s.license, /^CC-BY-(NC-SA-)?4\.0$/);
   });
 
   for (const set of BUNDLED_DRAWINGS) {
@@ -34,7 +36,9 @@ describe('the repository’s car drawings', () => {
       const { draft } = result;
       assert.deepEqual(draft.carKeys, set.carKeys);
       assert.match(draft.sources, /sketchfab\.com/);
-      assert.match(draft.license, /CC-BY-4\.0: credit/);
+      assert.match(draft.license, /CC-BY-(NC-SA-)?4\.0: credit/);
+      // A non-commercial model only with its author's permission, recorded with the licence
+      if (/NC/.test(draft.license)) assert.match(draft.license, /author granted RacingCoach\.app permission/);
       for (const view of CAR_VIEWS) {
         const art = draft.views[view];
         assert.ok(art, view);

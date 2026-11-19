@@ -16,6 +16,9 @@ export function CarViewProvider({ carKey, asset, children }: Selection & { child
   return <CarViewContext.Provider value={{ carKey: carKey ? carKey.toLowerCase() : null, asset }}>{children}</CarViewContext.Provider>;
 }
 
+// The compared setups' iRacing car path, for what else shows that car: the Suspension tab's 3D model (docs/car-models.md)
+export const useSelectedCarKey = () => useContext(CarViewContext).carKey;
+
 const PREVIEW = (asset: ResolvedCarAsset | null): CarAssetEntry => ({ state: 'ready', asset, at: 0 });
 const SERVER = () => NO_CAR;
 

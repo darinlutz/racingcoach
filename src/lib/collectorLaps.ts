@@ -240,6 +240,9 @@ export type CollectorLapSummary = {
   simulator: string;
   nativeTrackKey: string | null;
   car: string;
+  // iRacing's car path (CarPath, collectors after 1.68.0) for an iRacing lap, which finds the car's 3D model exactly
+  // (docs/car-models.md); null for other simulators' laps (their own car ids) and older laps
+  carKey: string | null;
   // The RacingCoach account that uploaded the lap, and its name. That's who drove it as far as the site is
   // concerned: iRacingDriver is the name iRacing reported, which is whoever the sim was logged in as (e.g. a
   // friend driving on someone else's iRacing account)
@@ -293,6 +296,7 @@ export async function listCollectorLaps(viewer: LapViewer, driverIds: number[] |
     simulator: string;
     native_track_key: string | null;
     car: string;
+    car_key: string | null;
     user_id: number;
     user_name: string;
     driver: string;
@@ -312,7 +316,7 @@ export async function listCollectorLaps(viewer: LapViewer, driverIds: number[] |
     expires_at: Date;
     conditions: LapConditions | null;
   }>(
-    `SELECT l.id, l.client_lap_id, l.track, l.track_key, l.simulator, l.native_track_key, l.car, l.user_id, u.user_name, l.driver, l.iracing_session_id,
+    `SELECT l.id, l.client_lap_id, l.track, l.track_key, l.simulator, l.native_track_key, l.car, l.car_key, l.user_id, u.user_name, l.driver, l.iracing_session_id,
             l.iracing_subsession_id, l.session_num, l.session_type, l.lap_number, l.lap_time_seconds, l.sample_count,
             l.missing_samples, l.incidents, l.pit_road, l.off_track, l.recorded_at, l.completed_at, l.expires_at, l.conditions
      FROM racingcoach."CollectorLaps" l JOIN racingcoach."Users" u ON u.id = l.user_id
@@ -328,6 +332,7 @@ export async function listCollectorLaps(viewer: LapViewer, driverIds: number[] |
     simulator: row.simulator,
     nativeTrackKey: row.native_track_key,
     car: row.car,
+    carKey: row.simulator === 'iracing' ? row.car_key : null,
     userId: Number(row.user_id),
     driver: row.user_name,
     iracingDriver: row.driver,

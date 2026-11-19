@@ -286,7 +286,9 @@ describe('source guards', () => {
       const source = read(file);
       assert.ok(!/apiToken|signingKeyPem|CLOUDFLARE_STREAM_API_TOKEN/.test(source.replace(/\/\/.*$/gm, '')), `${file} handles no secret`);
     }
-    for (const file of fs.readdirSync(new URL('src/components/', root))) {
+    // Every component, in subfolders too (src/components/car3d/)
+    const components = fs.readdirSync(new URL('src/components/', root), { recursive: true, withFileTypes: true }).filter((e) => e.isFile());
+    for (const file of components.map((e) => `${e.parentPath.replace(/\\/g, '/').split('src/components').pop().replace(/^\//, '')}/${e.name}`.replace(/^\//, ''))) {
       assert.ok(!/CLOUDFLARE_STREAM_/.test(read(`src/components/${file}`).replace(/\/\/.*$/gm, '').replace(/'[^']*CLOUDFLARE_STREAM[^']*'/g, '')), file);
     }
   });

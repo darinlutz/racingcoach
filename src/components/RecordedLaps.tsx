@@ -89,6 +89,7 @@ function toLapFile(lap: CollectorLapSummary, trackName: string, csv: string): La
     file: new File([csv], lapFileName(lap, trackName), { type: 'text/csv' }),
     driverName: lap.driver,
     carName: lap.car,
+    carKey: lap.carKey,
     trackName,
     lapTime,
     fileId,

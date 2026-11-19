@@ -107,6 +107,15 @@ export const COOKIE_INVENTORY: InventoryItem[] = [
     purpose: 'Whether the SVG debug switch on the Setups page’s engineering drawings is on (Admins only).',
   },
   {
+    name: 'setups.suspensionDrawing',
+    kind: 'sessionStorage',
+    category: 'necessary',
+    provider: 'RacingCoach.app',
+    firstParty: true,
+    duration: 'Until the browser tab is closed',
+    purpose: 'Whether the Setups page’s Suspension tab shows the 2D engineering drawings or the interactive 3D car, kept while you move between its tabs.',
+  },
+  {
     name: 'tv_pairing',
     kind: 'cookie',
     category: 'necessary',

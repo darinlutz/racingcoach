@@ -1,4 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
+import os from 'node:os';
+import path from 'node:path';
 
 // Browser tests (e2e/), run with: npm run test:e2e. See e2e/cookie-consent.spec.ts's header for the database they need.
 //
@@ -42,7 +44,9 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: `npx next dev -p ${PORT}`,
+    // E2E_SERVER_COMMAND runs them against something else, e.g. a production build (`npm run build` first, then
+    // E2E_SERVER_COMMAND="npx next start -p 3100"), when next dev is too slow to compile a page in time
+    command: process.env.E2E_SERVER_COMMAND || `npx next dev -p ${PORT}`,
     url: `http://localhost:${PORT}/cookies`,
     reuseExistingServer: false,
     timeout: 300_000,
@@ -54,6 +58,8 @@ export default defineConfig({
       // worker and the rest, against their own database
       BACKGROUND_JOBS: 'on',
       DATABASE_URL: databaseUrl,
+      // Its own address, which a production build (E2E_SERVER_COMMAND) requires for email and redirect links
+      SITE_URL: `http://localhost:${PORT}`,
       CONSENT_MODE: 'regional',
       CONSENT_COUNTRY_HEADER: E2E_COUNTRY_HEADER,
       // Empty, so nothing reaches a real service even if the shell has them set
@@ -66,6 +72,9 @@ export default defineConfig({
       LANGSMITH_TRACING: 'false',
       GOOGLE_CLIENT_ID: '',
       DISCORD_CLIENT_ID: '',
+      // e2e/car-models.spec.ts: the 3D car models' files in a folder on this computer, unless the shell gives the
+      // broadcast tests' own object storage (BROADCAST_VIDEO_S3_*)
+      CAR_MODEL_DEV_STORAGE_DIR: path.join(os.tmpdir(), 'racingcoach-e2e-car-models'),
     },
   },
 });

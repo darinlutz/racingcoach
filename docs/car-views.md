@@ -23,7 +23,8 @@ Lamborghini Huracán GT3 EVO is the intended first car; no drawings of it exist 
 | Tires: cross-sections, contact patch, tire type | `TireEngineeringView.tsx`, `TireCrossSection.tsx` | tire only | no |
 | Lap Compare: Tire Temp car | `GT3CarTopView.tsx` | top | not yet (see Limitations) |
 | Lap Compare: Tire Pressure, Ride Heights, Balance cars | `DashboardCarView.tsx`, `RideHeightDashboard.tsx` | top, side, rear | not yet |
-| Lap Compare: 3D view's car | `src/lib/carModel3d.ts` | 3D mesh | no: a 3D model, not an SVG |
+| Lap Compare: 3D view's car | `TrackLineMap3D.tsx` (`ScenegraphLayer`), else `src/lib/carModel3d.ts` | 3D model | the 3D car models (docs/car-models.md): the car's approved GLB, else the generic mesh |
+| Suspension: Interactive 3D | `src/components/car3d/Car3DViewer.tsx` | 3D model | the 3D car models (docs/car-models.md) |
 | My Dashboard, Cars & Tracks car pictures | `public/assets/carPics/` | photographs | no: pictures, not engineering drawings |
 
 ## Conventions (`src/lib/carViews/views.ts`)
@@ -94,15 +95,16 @@ are approximations, and the Suspension tab says so ("Reference points approximat
 
 ## Drawings in the repository
 
-`data/car-drawings/` holds drawings made in the Lovable project `darinlutz/racingcoach-car-drawings` (copied from its
-commit `a31b2ec`, `BUNDLED_DRAWINGS_COMMIT`): the Lamborghini Huracán GT3 EVO and the Ferrari 296 GT3, five views
-each, orthographic line art from CC BY 4.0 Sketchfab models at 1 SVG unit = 1 mm, with their anchors and validation
-notes (the PNG renders aren't kept). Both are drafts, unverified against homologation drawings; read each folder's
-`VALIDATION-NOTES.md`.
+`data/car-drawings/` holds drawings made in the Lovable project `darinlutz/racingcoach-car-drawings` (each set's
+`commit` in `BUNDLED_DRAWINGS`): the Lamborghini Huracán GT3 EVO and the Ferrari 296 GT3 (commit `a31b2ec`), and the
+Chevrolet Corvette Z06 GT3.R and the Ford Mustang GT3 (commit `edea872`), five views each, orthographic line art from
+Sketchfab models at 1 SVG unit = 1 mm, with their anchors and validation notes (the PNG renders aren't kept). All are
+drafts, unverified against homologation drawings; the Corvette's and Mustang's wheelbases (2710 and 2720 mm) are
+estimates their scale follows from. Read each folder's `VALIDATION-NOTES.md`.
 
 - The Admin page's **Drawings in the repository** panel imports a set as a new draft version of the chosen Car Data
-  car (suggested by name, accents and case aside; the car paths `lamborghinievogt3` and `ferrari296gt3` are set from
-  `BUNDLED_DRAWINGS`), through `validateDraft` like an upload. `GET`/`POST /api/admin/car-views/bundled`, Admins only.
+  car (suggested by name, accents and case aside; the car paths `lamborghinievogt3`, `ferrari296gt3`,
+  `chevyvettez06rgt3` and `fordmustanggt3` are set from `BUNDLED_DRAWINGS`), through `validateDraft` like an upload. `GET`/`POST /api/admin/car-views/bundled`, Admins only.
   Drivers see nothing until the version is approved and activated
 - `src/lib/carViews/lovableImport.ts` (pure) converts them: their `<g id="body">` and `<g id="wheels">` become the
   `body` and `wheels` layers, and their anchors (absolute mm, named by axle and side, aero parts as boxes) become ours
@@ -110,7 +112,9 @@ notes (the PNG renders aren't kept). Both are drafts, unverified against homolog
   ride height reference isn't a corner's, so it's left out
 - `src/lib/carViews/bundledDrawings.ts` reads them from disk (`process.cwd()/data/car-drawings`); the Dockerfile copies
   the folder beside the standalone server. A new set goes in the folder and in `BUNDLED_DRAWINGS`
-- **Before activating** one: CC BY 4.0 needs the model's author credited where drivers see it, which the drivers' pages
+- **Before activating** one: the Corvette's model is **CC BY-NC-SA 4.0**, non-commercial; its author granted
+  RacingCoach.app permission to use it on the site on 2026-11-19, which `BUNDLED_DRAWINGS`' `permission` writes into the
+  imported version's licence. CC BY 4.0 needs the model's author credited where drivers see it, which the drivers' pages
   don't show yet; and the Huracán's notes say its model may come from a racing-sim mod, so confirm the uploader could
   license it
 

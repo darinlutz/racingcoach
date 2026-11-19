@@ -1,4 +1,5 @@
 import { carViewsEs } from './carViewsTextEs.ts';
+import { carModelsEs } from './carModelsTextEs.ts';
 import type { SetupsText } from './setupsText';
 import { suspensionEs } from './suspensionTextEs.ts';
 import { dashboardsEs } from './dashboardsTextEs.ts';
@@ -14,6 +15,7 @@ export const setupsEs: SetupsText = {
   dashboards: dashboardsEs,
   tires: tiresEs,
   carViews: carViewsEs,
+  carModels: carModelsEs,
   brakes: brakesEs,
   tabs: {
     systems: 'Sistemas de ingeniería',

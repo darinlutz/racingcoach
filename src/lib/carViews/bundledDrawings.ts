@@ -17,15 +17,18 @@ export type BundledDrawing = {
   carKeys: string[];
   folder: string;
   prefix: string;
+  // The Lovable repository's commit the set was copied from
+  commit: string;
+  // Permission beyond the model's own licence, recorded with the licence when the set is imported
+  permission?: string;
 };
 
 export const BUNDLED_DRAWINGS: BundledDrawing[] = [
-  { id: 'huracan-gt3-evo', carName: 'Lamborghini Huracan GT3 EVO', carKeys: ['lamborghinievogt3'], folder: 'huracan-gt3-evo', prefix: 'lamborghini-huracan-gt3-evo' },
-  { id: 'ferrari-296-gt3', carName: 'Ferrari 296 GT3', carKeys: ['ferrari296gt3'], folder: 'ferrari-296-gt3', prefix: 'ferrari-296-gt3' },
+  { id: 'huracan-gt3-evo', carName: 'Lamborghini Huracan GT3 EVO', carKeys: ['lamborghinievogt3'], folder: 'huracan-gt3-evo', prefix: 'lamborghini-huracan-gt3-evo', commit: 'a31b2ec' },
+  { id: 'ferrari-296-gt3', carName: 'Ferrari 296 GT3', carKeys: ['ferrari296gt3'], folder: 'ferrari-296-gt3', prefix: 'ferrari-296-gt3', commit: 'a31b2ec' },
+  { id: 'corvette-z06-gt3r', carName: 'Chevrolet Corvette Z06 GT3.R', carKeys: ['chevyvettez06rgt3'], folder: 'corvette-z06-gt3r', prefix: 'corvette-z06-gt3r', commit: 'edea872', permission: 'The model’s author granted RacingCoach.app permission to use it on the site, a commercial use its CC BY-NC-SA licence alone wouldn’t allow (2026-11-19).' },
+  { id: 'ford-mustang-gt3', carName: 'Ford Mustang GT3', carKeys: ['fordmustanggt3'], folder: 'ford-mustang-gt3', prefix: 'ford-mustang-gt3', commit: 'edea872' },
 ];
-
-// The Lovable repository's commit the drawings were copied from
-export const BUNDLED_DRAWINGS_COMMIT = 'a31b2ec';
 
 const root = () => path.join(process.cwd(), 'data', 'car-drawings');
 
@@ -79,14 +82,14 @@ export async function bundledDraftInput(id: string, carId: number, carKeys?: str
   }
   const sources = [
     `Drawn from the 3D model ${credit}, licensed ${license || 'under an unknown licence'}.`,
-    `Orthographic feature-edge drawings from the Lovable project darinlutz/racingcoach-car-drawings (commit ${BUNDLED_DRAWINGS_COMMIT}). ${anchors.scaling ?? ''}`.trim(),
+    `Orthographic feature-edge drawings from the Lovable project darinlutz/racingcoach-car-drawings (commit ${set.commit}). ${anchors.scaling ?? ''}`.trim(),
   ].join('\n');
   return {
     carId,
     carKeys: carKeys?.length ? carKeys : set.carKeys,
     views,
     sources,
-    license: license ? `${license}: credit ${credit}` : '',
+    license: license ? `${license}: credit ${credit}${set.permission ? `. ${set.permission}` : ''}` : '',
     notes: notes.slice(0, ASSET_LIMITS.notes),
   };
 }

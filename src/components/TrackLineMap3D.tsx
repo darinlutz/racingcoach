@@ -4,9 +4,13 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import DeckGL from '@deck.gl/react';
 import { COORDINATE_SYSTEM, WebMercatorViewport, type MapViewState, type PickingInfo } from '@deck.gl/core';
 import { PathLayer, SolidPolygonLayer } from '@deck.gl/layers';
-import { SimpleMeshLayer } from '@deck.gl/mesh-layers';
+import { ScenegraphLayer, SimpleMeshLayer } from '@deck.gl/mesh-layers';
 
 import { useLanguage } from '@/components/LanguageProvider';
+import { useCarModel, type CarModelState } from '@/lib/carModels/carModelClient';
+import { useDeckModel } from '@/lib/carModels/deckModel';
+import { canonicalBounds, deckPoseMatrix, multiply, normalizationMatrix, type Mat4 } from '@/lib/carModels/matrix';
+import type { ResolvedCarModel } from '@/lib/carModels/modelRules';
 import type { PedalTraceLap } from '@/components/PedalTraces';
 import { useUnits } from '@/components/UnitsProvider';
 import { BASE_LAP_COLOR as BASE_COLOR, COMPARE_LAP_COLOR as COMPARE_COLOR, nearestIndex } from '@/lib/lapCharts';
@@ -98,6 +102,46 @@ type Car = { key: 'base' | 'compare'; line: ModelLine; color: Rgba; title: strin
 // stands at and the (smoothed) gap there (s)
 type WallPiece = { polygon: Vec3[]; elevation: number; pct: number; delta: number };
 
+// A car with its own 3D model (docs/car-models.md) keeps its livery, so it stands on a footprint in its lap's color,
+// a little above the road, to say which lap it is
+const FOOTPRINT_LIFT = 0.03; // m
+const FOOTPRINT_ALPHA = 150;
+
+// A flat ellipse the size of the model's plan view, in the car's frame (+x forward, z up), as a SimpleMeshLayer mesh
+function footprintMesh(length: number, width: number, centerX: number, centerY: number): Mesh {
+  const steps = 48;
+  const positions: number[] = [];
+  for (let i = 0; i < steps; i++) {
+    const [a, b] = [(i / steps) * Math.PI * 2, ((i + 1) / steps) * Math.PI * 2];
+    positions.push(centerX, centerY, FOOTPRINT_LIFT);
+    positions.push(centerX + (Math.cos(a) * length) / 2, centerY + (Math.sin(a) * width) / 2, FOOTPRINT_LIFT);
+    positions.push(centerX + (Math.cos(b) * length) / 2, centerY + (Math.sin(b) * width) / 2, FOOTPRINT_LIFT);
+  }
+  const n = positions.length / 3;
+  return {
+    attributes: {
+      positions: { size: 3, value: new Float32Array(positions) },
+      normals: { size: 3, value: new Float32Array(Array.from({ length: n }, () => [0, 0, 1]).flat()) },
+      colors: { size: 3, value: new Float32Array(n * 3).fill(1) },
+    },
+  };
+}
+
+// What the 3D view needs of a lap's model once it's loaded: the GLB, its normalization and its footprint
+type PlacedModel = { model: ResolvedCarModel; scenegraph: unknown; normalization: Mat4; footprint: Mesh };
+
+function usePlacedModel(state: CarModelState): PlacedModel | null {
+  const model = state.status === 'ready' ? state.model : null;
+  const deck = useDeckModel(model?.url ?? null);
+  return useMemo(() => {
+    if (!model || deck.status !== 'ready') return null;
+    const normalization = normalizationMatrix(model.normalization, model.rawBounds);
+    const { min, max } = canonicalBounds(model.normalization, model.rawBounds);
+    const footprint = footprintMesh((max[0] - min[0]) * 1.08, (max[1] - min[1]) * 1.12, (max[0] + min[0]) / 2, (max[1] + min[1]) / 2);
+    return { model, scenegraph: deck.scenegraph, normalization, footprint };
+  }, [model, deck]);
+}
+
 function rgba(hex: string, alpha = 255): Rgba {
   const n = parseInt(hex.slice(1), 16);
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255, alpha];
@@ -162,6 +206,13 @@ export default function TrackLineMap3D({
   // last set: once the crosshair moves anywhere else, the cars go back to it
   const [play, setPlay] = useState<{ seconds: number; pct: number } | null>(null);
   const clock = useRef(0);
+
+  // Each lap's own car (docs/car-models.md): its approved GLB when it has one, found by the lap's iRacing car path or
+  // exact name, else the generic car. Two laps in the same car share one download (deckModel.ts)
+  const m = dictionary.setups.carModels;
+  const baseState = useCarModel({ carKey: base.carKey, carName: base.carName });
+  const compareState = useCarModel({ carKey: compare.carKey, carName: compare.carName });
+  const placed: Record<Car['key'], PlacedModel | null> = { base: usePlacedModel(baseState), compare: usePlacedModel(compareState) };
 
   const withPositions = [
     { key: 'base' as const, lap: base, color: rgba(BASE_COLOR), title: dictionary.lapCompare.base },
@@ -285,11 +336,47 @@ export default function TrackLineMap3D({
   const offsets = { coordinateSystem: COORDINATE_SYSTEM.METER_OFFSETS, coordinateOrigin: [origin![1], origin![0], 0] as Vec3 };
   const linePath = ({ points, heights }: ModelLine) => points.map(([x, y], i): Vec3 => [x, y, heights[i] + LINE_LIFT]);
   const carData = cars.map((car, i) => ({ car, pose: poses[i] }));
-  // The solid (Compare) car's layers, or the ghost (Target) car's
+  // Laps whose heading came from the line's direction rather than iRacing's Yaw (lapData.ts' lapHeadings found it
+  // didn't agree with the positions), and the models' authors' credits, each once
+  const headingApprox = cars.filter((car) => !car.line.trace.headings).map((car) => car.title);
+  const credits = [...new Set(cars.map((car) => placed[car.key]?.model.attribution).filter((a): a is string => !!a))];
+  // The solid (Compare) car's layers, or the ghost (Target) car's: its own model, posed by the same position, pitch and
+  // heading as the generic car (the model's normalization put under deck.gl's orientation matrix), or the generic car
   const carLayers = (ghosts: boolean) => {
-    const data = carData.filter((d) => (d.car.key === 'base') === ghosts);
+    const mine = carData.filter((d) => (d.car.key === 'base') === ghosts);
+    const data = mine.filter((d) => !placed[d.car.key]);
     const seeThrough = ghosts ? { parameters: SEE_THROUGH } : {};
+    const modelled = mine.flatMap((d) => {
+      const own = placed[d.car.key];
+      if (!own) return [];
+      const id = `${d.car.key}-model${ghosts ? '-ghost' : ''}`;
+      return [
+        new SimpleMeshLayer<typeof d>({
+          id: `${id}-footprint`,
+          data: [d],
+          mesh: own.footprint,
+          getPosition: (x) => x.pose.position,
+          getOrientation: (x) => [x.pose.pitch, x.pose.yaw, 0],
+          getColor: [d.car.color[0], d.car.color[1], d.car.color[2], FOOTPRINT_ALPHA],
+          material: false,
+          parameters: SEE_THROUGH,
+          ...offsets,
+        }),
+        new ScenegraphLayer<typeof d>({
+          id,
+          data: [d],
+          scenegraph: own.scenegraph as never,
+          getPosition: (x) => x.pose.position,
+          getTransformMatrix: (x) => multiply(deckPoseMatrix([0, 0, 0], x.pose.pitch, x.pose.yaw), own.normalization),
+          _lighting: 'pbr',
+          opacity: ghosts ? GHOST_ALPHA / 255 : 1,
+          ...seeThrough,
+          ...offsets,
+        }),
+      ];
+    });
     return [
+      ...modelled,
       ...CAR_PARTS.map(
         ({ id, mesh, color, material }) =>
           new SimpleMeshLayer<(typeof carData)[number]>({
@@ -448,6 +535,9 @@ export default function TrackLineMap3D({
           <span key={car.key} className="flex items-center gap-1.5">
             <span className="inline-block w-3 h-0.5 rounded-full" style={{ backgroundColor: car.key === 'base' ? BASE_COLOR : COMPARE_COLOR }} />
             {car.key === 'base' ? base.title : compare.title}
+            <span className="text-[11px]" title={placed[car.key] ? undefined : m.genericTitle}>
+              ({placed[car.key]?.model.carName ?? m.generic})
+            </span>
           </span>
         ))}
         {headerExtra}
@@ -610,6 +700,8 @@ export default function TrackLineMap3D({
           ? t.modelFlat
           : fmt(t.modelNote, { width: distance(model.halfWidth * 2), rise: distance(model.rise), fall: distance(model.fall ?? 0), n: heightScale })}
         {chase ? t.chaseHelp : t.map3dHelp}
+        {headingApprox.length > 0 && ` ${fmt(m.lapCompare.headingApprox, { laps: headingApprox.join(t.and) })}`}
+        {credits.map((credit) => ` ${fmt(m.credit, { credit })}`)}
       </figcaption>
     </figure>
   );

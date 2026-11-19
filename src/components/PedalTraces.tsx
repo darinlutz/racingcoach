@@ -29,6 +29,10 @@ export type PedalTraceLap = {
   title: string; // e.g. "Target lap · 1:25.488"
   lapTime: string; // e.g. "1:25.488"
   lapSeconds: number;
+  // The lap's car, by iRacing's car path when the lap has one, else its name: which 3D model the 3D view shows
+  // (docs/car-models.md)
+  carName?: string;
+  carKey?: string | null;
   trace: AreaTrace;
   summary: string; // text version of the chart, e.g. "Brakes at 812 ft (max 80%), throttle at 1,299 ft"
   samples: Pick<LapSamples, 'pcts' | 'tireTemps' | 'tireLayers' | 'sessionTimes' | 'engine'>; // the whole lap, for the Tire Temperature Comparison and the fuel a lap used

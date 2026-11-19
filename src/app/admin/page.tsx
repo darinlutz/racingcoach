@@ -21,6 +21,7 @@ import PrivacyRequestsLinkCard from '@/components/PrivacyRequestsLinkCard';
 import SubscribersLinkCard from '@/components/SubscribersLinkCard';
 import TelemetryStorageManager from '@/components/TelemetryStorageManager';
 import EngineeringKnowledgeManager from '@/components/EngineeringKnowledgeManager';
+import CarModelAssetManager from '@/components/CarModelAssetManager';
 import CarViewAssetManager from '@/components/CarViewAssetManager';
 import UserRoleManager from '@/components/UserRoleManager';
 import {
@@ -169,6 +170,8 @@ export default async function AdminPage({
 
         {/* The engineering car drawings and their review (docs/car-views.md) */}
         <CarViewAssetManager />
+        {/* The 3D car models and their review (docs/car-models.md) */}
+        <CarModelAssetManager />
 
         <CollectorLogsViewer
           initialUser={typeof params.logUser === 'string' ? params.logUser : null}

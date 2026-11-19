@@ -1,0 +1,439 @@
+{
+  "car_id": "corvette-z06-gt3r",
+  "car_name": "Chevrolet Corvette Z06 GT3.R",
+  "status": "draft",
+  "projection": "orthographic",
+  "units": "mm (1 SVG unit = 1 mm)",
+  "source": {
+    "title": "corvette_z06_gt3r",
+    "author": "MattDoesBlender (https://sketchfab.com/MattDoesBlender)",
+    "license": "CC-BY-NC-SA-4.0",
+    "url": "https://sketchfab.com/3d-models/corvette-z06-gt3r-bab594b620bf4993b257d4edc44af537"
+  },
+  "scaling": "model scaled so wheelbase = 2710 mm",
+  "model_dimensions_after_scaling": {
+    "overall_length_mm": 4775,
+    "overall_width_mm": 2198,
+    "overall_height_mm": 1387,
+    "wheelbase_mm_scaled_to": 2710,
+    "front_track_mm": 1714,
+    "rear_track_mm": 1699,
+    "front_tyre_diameter_mm": 680,
+    "rear_tyre_diameter_mm": 710,
+    "front_overhang_mm": 1151,
+    "rear_overhang_mm": 914
+  },
+  "views": {
+    "left-side": {
+      "orientation": {
+        "frontDirection": "screen-left",
+        "up": "vehicle up"
+      },
+      "viewBox": [
+        0,
+        0,
+        4894,
+        1506
+      ],
+      "anchors": {
+        "front_wheel_center": [
+          1211.1,
+          1102.3
+        ],
+        "front_contact_patch": [
+          1211.1,
+          1446.5
+        ],
+        "front_tyre_radius": 340.1,
+        "rear_wheel_center": [
+          3921.1,
+          1091.4
+        ],
+        "rear_contact_patch": [
+          3921.1,
+          1446.5
+        ],
+        "rear_tyre_radius": 355.1,
+        "front_ride_height_ref": [
+          889.5,
+          1373.0
+        ],
+        "rear_ride_height_ref": [
+          4198.9,
+          1371.5
+        ],
+        "rear_wing": {
+          "x1": 4261.8,
+          "y1": 293.4,
+          "x2": 4835.5,
+          "y2": 495.7
+        },
+        "front_splitter": {
+          "x1": 60.0,
+          "y1": 1246.5,
+          "x2": 728.5,
+          "y2": 1375.4
+        },
+        "rear_diffuser": {
+          "x1": 4235.7,
+          "y1": 996.8,
+          "x2": 4805.1,
+          "y2": 1372.0
+        },
+        "groundY": 1446.5,
+        "normalized": {
+          "front_wheel_center": [
+            0.2474,
+            0.7319
+          ],
+          "front_contact_patch": [
+            0.2474,
+            0.9605
+          ],
+          "rear_wheel_center": [
+            0.8011,
+            0.7247
+          ],
+          "rear_contact_patch": [
+            0.8011,
+            0.9605
+          ],
+          "front_ride_height_ref": [
+            0.1817,
+            0.9117
+          ],
+          "rear_ride_height_ref": [
+            0.8579,
+            0.9107
+          ]
+        }
+      }
+    },
+    "right-side": {
+      "orientation": {
+        "frontDirection": "screen-right",
+        "up": "vehicle up"
+      },
+      "viewBox": [
+        0,
+        0,
+        4894,
+        1506
+      ],
+      "anchors": {
+        "front_wheel_center": [
+          3684.3,
+          1102.7
+        ],
+        "front_contact_patch": [
+          3684.3,
+          1446.5
+        ],
+        "front_tyre_radius": 340.1,
+        "rear_wheel_center": [
+          974.3,
+          1091.3
+        ],
+        "rear_contact_patch": [
+          974.3,
+          1446.5
+        ],
+        "rear_tyre_radius": 355.1,
+        "front_ride_height_ref": [
+          4006.0,
+          1373.0
+        ],
+        "rear_ride_height_ref": [
+          696.5,
+          1371.5
+        ],
+        "rear_wing": {
+          "x1": 60.0,
+          "y1": 293.4,
+          "x2": 633.6,
+          "y2": 495.7
+        },
+        "front_splitter": {
+          "x1": 4167.0,
+          "y1": 1246.5,
+          "x2": 4835.5,
+          "y2": 1375.4
+        },
+        "rear_diffuser": {
+          "x1": 90.4,
+          "y1": 996.8,
+          "x2": 659.8,
+          "y2": 1372.0
+        },
+        "groundY": 1446.5,
+        "normalized": {
+          "front_wheel_center": [
+            0.7527,
+            0.7322
+          ],
+          "front_contact_patch": [
+            0.7527,
+            0.9605
+          ],
+          "rear_wheel_center": [
+            0.1991,
+            0.7246
+          ],
+          "rear_contact_patch": [
+            0.1991,
+            0.9605
+          ],
+          "front_ride_height_ref": [
+            0.8185,
+            0.9117
+          ],
+          "rear_ride_height_ref": [
+            0.1423,
+            0.9107
+          ]
+        }
+      }
+    },
+    "top": {
+      "orientation": {
+        "frontDirection": "screen-up",
+        "vehicleLeft": "screen-left",
+        "vehicleRight": "screen-right"
+      },
+      "viewBox": [
+        0,
+        0,
+        2318,
+        4894
+      ],
+      "anchors": {
+        "front_left_wheel_center": [
+          301.7,
+          1211.1
+        ],
+        "front_right_wheel_center": [
+          2016.1,
+          1211.1
+        ],
+        "rear_left_wheel_center": [
+          309.4,
+          3921.1
+        ],
+        "rear_right_wheel_center": [
+          2008.4,
+          3921.1
+        ],
+        "front_axle_left": [
+          301.7,
+          1211.1
+        ],
+        "front_axle_right": [
+          2016.1,
+          1211.1
+        ],
+        "rear_axle_left": [
+          309.4,
+          3921.1
+        ],
+        "rear_axle_right": [
+          2008.4,
+          3921.1
+        ],
+        "hidden": [
+          "contact patches (under wheels)",
+          "ride-height references (vertical)"
+        ],
+        "rear_wing": {
+          "x1": 285.6,
+          "y1": 4261.8,
+          "x2": 2032.2,
+          "y2": 4835.5
+        },
+        "front_splitter": {
+          "x1": 140.9,
+          "y1": 60.0,
+          "x2": 2176.9,
+          "y2": 728.5
+        },
+        "rear_diffuser": {
+          "x1": 139.1,
+          "y1": 4235.7,
+          "x2": 2178.7,
+          "y2": 4805.1
+        },
+        "normalized": {
+          "front_left_wheel_center": [
+            0.1302,
+            0.2474
+          ],
+          "front_right_wheel_center": [
+            0.8699,
+            0.2474
+          ],
+          "rear_left_wheel_center": [
+            0.1335,
+            0.8011
+          ],
+          "rear_right_wheel_center": [
+            0.8666,
+            0.8011
+          ],
+          "front_axle_left": [
+            0.1302,
+            0.2474
+          ],
+          "front_axle_right": [
+            0.8699,
+            0.2474
+          ],
+          "rear_axle_left": [
+            0.1335,
+            0.8011
+          ],
+          "rear_axle_right": [
+            0.8666,
+            0.8011
+          ]
+        }
+      }
+    },
+    "front": {
+      "orientation": {
+        "viewedFrom": "ahead of the car",
+        "vehicleLeft": "screen-right",
+        "vehicleRight": "screen-left"
+      },
+      "viewBox": [
+        0,
+        0,
+        2318,
+        1506
+      ],
+      "anchors": {
+        "front_left_wheel_center": [
+          2016.1,
+          1102.3
+        ],
+        "front_left_contact_patch": [
+          2016.1,
+          1446.5
+        ],
+        "front_left_tyre_radius": 340.1,
+        "front_right_wheel_center": [
+          301.7,
+          1102.7
+        ],
+        "front_right_contact_patch": [
+          301.7,
+          1446.5
+        ],
+        "front_right_tyre_radius": 340.1,
+        "front_ride_height_ref": [
+          1158.9,
+          1373.0
+        ],
+        "front_splitter": {
+          "x1": 140.9,
+          "y1": 1246.5,
+          "x2": 2176.9,
+          "y2": 1375.4
+        },
+        "groundY": 1446.5,
+        "normalized": {
+          "front_left_wheel_center": [
+            0.8699,
+            0.7319
+          ],
+          "front_left_contact_patch": [
+            0.8699,
+            0.9605
+          ],
+          "front_right_wheel_center": [
+            0.1302,
+            0.7322
+          ],
+          "front_right_contact_patch": [
+            0.1302,
+            0.9605
+          ],
+          "front_ride_height_ref": [
+            0.5001,
+            0.9117
+          ]
+        }
+      }
+    },
+    "rear": {
+      "orientation": {
+        "viewedFrom": "behind the car",
+        "vehicleLeft": "screen-left",
+        "vehicleRight": "screen-right"
+      },
+      "viewBox": [
+        0,
+        0,
+        2318,
+        1506
+      ],
+      "anchors": {
+        "rear_left_wheel_center": [
+          309.4,
+          1091.4
+        ],
+        "rear_left_contact_patch": [
+          309.4,
+          1446.5
+        ],
+        "rear_left_tyre_radius": 355.1,
+        "rear_right_wheel_center": [
+          2008.4,
+          1091.3
+        ],
+        "rear_right_contact_patch": [
+          2008.4,
+          1446.5
+        ],
+        "rear_right_tyre_radius": 355.1,
+        "rear_ride_height_ref": [
+          1158.9,
+          1371.5
+        ],
+        "rear_wing": {
+          "x1": 285.6,
+          "y1": 293.4,
+          "x2": 2032.2,
+          "y2": 495.7
+        },
+        "rear_diffuser": {
+          "x1": 139.1,
+          "y1": 996.8,
+          "x2": 2178.7,
+          "y2": 1372.0
+        },
+        "groundY": 1446.5,
+        "normalized": {
+          "rear_left_wheel_center": [
+            0.1335,
+            0.7247
+          ],
+          "rear_left_contact_patch": [
+            0.1335,
+            0.9605
+          ],
+          "rear_right_wheel_center": [
+            0.8666,
+            0.7246
+          ],
+          "rear_right_contact_patch": [
+            0.8666,
+            0.9605
+          ],
+          "rear_ride_height_ref": [
+            0.5001,
+            0.9107
+          ]
+        }
+      }
+    }
+  }
+}

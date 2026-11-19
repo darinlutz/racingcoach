@@ -29,6 +29,9 @@ export type LapFile = {
   file: File;
   driverName: string;
   carName: string;
+  // iRacing's car path, for laps the collector uploaded (lap files carry only the name), which finds the car's 3D
+  // model exactly (docs/car-models.md)
+  carKey?: string | null;
   trackName: string;
   lapTime: string;
   fileId: string;

@@ -363,8 +363,9 @@ export const PERSONAL_DATA_INVENTORY: InventoryCategory[] = [
   {
     key: 'uploadsAsCoach',
     title: 'Content you uploaded as a Coach or Admin',
-    description: 'Expert Laps, broadcast videos and engine sounds record which account uploaded them, and a live video stream which driver’s account it shows (never its stream key).',
-    tables: ['ExpertLaps', 'BroadcastVideos', 'EngineAudioAssets', 'SiteSettings', 'RateLimitOverrides', 'LiveVideoStreams'],
+    description:
+      'Expert Laps, broadcast videos, engine sounds and engineering car drawings record which account uploaded them (and, for a car drawing, who reviewed and activated each version), and a live video stream which driver’s account it shows (never its stream key).',
+    tables: ['ExpertLaps', 'BroadcastVideos', 'EngineAudioAssets', 'SiteSettings', 'RateLimitOverrides', 'LiveVideoStreams', 'CarEngineeringAssets', 'CarEngineeringAssetEvents'],
     purpose: 'Coaching content shared with every user, and the site’s settings.',
     legalBasis: ['legitimateInterests'],
     source: 'You, as a Coach or Admin.',

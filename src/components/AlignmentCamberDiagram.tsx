@@ -2,13 +2,17 @@
 
 import { useId } from 'react';
 import AlignmentWheel from '@/components/AlignmentWheel';
+import { EngineeringCarLayer } from '@/components/EngineeringCarView';
 import { useLanguage } from '@/components/LanguageProvider';
+import type { CarFit } from '@/lib/carViews/anchors';
 import type { AlignmentDiagramProps } from '@/components/TopDownToeDiagram';
 import { camberLayers, changeDirection, findItem, formatAlignment, viewCorners } from '@/lib/alignmentGeometry';
 
 // The front or rear view (FrontCamberDiagram, RearCamberDiagram): the axle's two tires standing on the ground, each
 // leaned by its camber for each setup, with vertical references, angle arcs and the values under the drawing.
 // From the front the car's left is on the screen's right; from behind it's on the left (viewCorners)
+const FIT: CarFit = { kind: 'ground', x: 70, width: 300, groundY: 168, maxHeight: 118 };
+
 export default function AlignmentCamberDiagram({ view, ...props }: AlignmentDiagramProps & { view: 'front' | 'rear' }) {
   const { t, fmt } = useLanguage();
   const a = t.setups.alignment;
@@ -31,29 +35,19 @@ export default function AlignmentCamberDiagram({ view, ...props }: AlignmentDiag
         <text x="402" y="190" textAnchor="end">
           {a.ground.toUpperCase()}
         </text>
-        {/* The body seen end on */}
-        <path
-          d={
-            front
-              ? 'M124 134 L132 90 Q143 77 164 77 L182 61 Q220 54 258 61 L276 77 Q297 77 308 90 L316 134 Z'
-              : 'M124 136 L131 88 Q146 77 167 78 L182 61 L258 61 L273 78 Q297 77 309 88 L316 136 Z'
-          }
-          className="align-chassis"
-        />
-        <path d="M182 65 L258 65 L271 82 L169 82 Z M152 104 H288 M135 129 H305 M188 112 H252 L260 129 H180 Z" className="align-structure" />
-        {front ? (
-          <path d="M140 88 L166 92 L165 98 L140 96 Z M300 88 L274 92 L275 98 L300 96 Z" className="align-structure" />
-        ) : (
-          <path d="M136 90 H168 V94 H136 Z M272 90 H304 V94 H272 Z M132 72 H308 V76 H132 Z M168 73 V85 M272 73 V85" className="align-structure" />
-        )}
-        <line x1="220" y1="40" x2="220" y2="168" className="align-reference" />
+        {/* The compared setups' car seen end on, standing on the ground (EngineeringCarView.tsx); its own wheels hidden,
+            as each is drawn here leaned by its camber */}
+        <EngineeringCarLayer view={front ? 'front' : 'rear'} fit={FIT} showWheels={false}>
+          {(car) => (
+            <>
+        <line x1={car.centerlineX ?? 220} y1="40" x2={car.centerlineX ?? 220} y2="168" className="align-reference" />
         {corners.map((corner, index) => {
           const item = findItem(props.comparison, corner, 'camber');
           return (
             <AlignmentWheel
               key={corner}
-              x={index === 0 ? 96 : 344}
-              y={162}
+              x={car.wheel(corner)?.[0] ?? (index === 0 ? 96 : 344)}
+              y={(car.groundY ?? 168) - 6}
               variant="elevation"
               layers={camberLayers(props.comparison, corner, view, props.mode, props.exaggeration)}
               selected={props.selected === corner}
@@ -70,6 +64,9 @@ export default function AlignmentCamberDiagram({ view, ...props }: AlignmentDiag
             />
           );
         })}
+            </>
+          )}
+        </EngineeringCarLayer>
       </svg>
       <div className="grid grid-cols-2 gap-3 border-t border-border px-4 py-3 text-xs">
         {corners.map((corner) => {

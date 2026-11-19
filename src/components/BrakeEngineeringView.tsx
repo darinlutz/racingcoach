@@ -7,6 +7,8 @@ import BrakeChangesSummary from '@/components/BrakeChangesSummary';
 import BrakeCylinder from '@/components/BrakeCylinder';
 import BrakeHydraulicOverview from '@/components/BrakeHydraulicOverview';
 import BrakePedalAssembly from '@/components/BrakePedalAssembly';
+import { EngineeringCarLayer } from '@/components/EngineeringCarView';
+import type { CarFit } from '@/lib/carViews/anchors';
 import { Caveat, DiagramHeader, ExaggerationSlider, FilterChip, Legend, SegmentButton, Segmented, Section, Slider } from '@/components/engineeringUi';
 import { useLanguage } from '@/components/LanguageProvider';
 import {
@@ -435,6 +437,13 @@ function Swatch({ className, label }: { className: string; label: string }) {
   );
 }
 
+// Where the bias car's axles are in its drawing, and each axle's corners from the car's left
+const BIAS_FIT: CarFit = { kind: 'axles', centerX: 140, frontY: 65, rearY: 224 };
+const AXLES = [
+  ['LF', 'RF'],
+  ['LR', 'RR'],
+] as const;
+
 // A top view of the car with each axle's brakes outlined as heavily as their share, and the shares written between
 function BiasCar({ comparison, kinds }: { comparison: BrakeComparison; kinds: Which[] }) {
   const { t } = useLanguage();
@@ -443,21 +452,28 @@ function BiasCar({ comparison, kinds }: { comparison: BrakeComparison; kinds: Wh
   return (
     <div className="rounded-lg border border-border p-2 align-grid">
       <svg viewBox="0 0 280 290" className="align-svg mx-auto h-auto w-full max-w-[16rem]" role="img" aria-label={b.bias.carAria}>
-        <path d="M94 38 Q140 25 186 38 L199 88 L189 153 L200 246 Q140 266 80 246 L91 153 L81 88 Z" className="align-chassis" />
-        <path d="M103 110 H177 L169 142 H111 Z M110 145 H170 V205 H110 Z" className="align-structure" />
-        {kinds.map((kind, j) => {
+        {/* The compared setups' car from above (EngineeringCarView.tsx); its wheels hidden, as each axle's brakes are
+            drawn at them here */}
+        <EngineeringCarLayer view="top" fit={BIAS_FIT} showWheels={false}>
+          {(car) =>
+        kinds.map((kind, j) => {
           const d = distribution(comparison, kind);
-          return [65, 224].map((y, i) => (
+          return AXLES.map(([l, r], i) => {
+            const y = car.wheel(l)?.[1] ?? (i ? 224 : 65);
+            return (
             <g key={`${kind}-${i}`} className={toneOf(bias, kind)}>
-              {[69, 211].map((x) => (
+              {[car.wheel(l)?.[0] ?? 69, car.wheel(r)?.[0] ?? 211].map((x) => (
                 <rect key={x} x={x - 9 + j * 3} y={y - 21} width="18" height="42" rx="4" strokeWidth={d ? 1 + (i ? d.rear : d.front) / 25 : 1} className="brake-share" />
               ))}
-              <text x="140" y={y + j * 14} textAnchor="middle" className="align-value">
+              <text x={car.centerlineX ?? 140} y={y + j * 14} textAnchor="middle" className="align-value">
                 {d ? `${(i ? d.rear : d.front).toFixed(d.decimals)}%` : '—'}
               </text>
             </g>
-          ));
-        })}
+            );
+          });
+        })
+          }
+        </EngineeringCarLayer>
         <text x="140" y="283" textAnchor="middle">
           {b.bias.distribution.toUpperCase()}
         </text>

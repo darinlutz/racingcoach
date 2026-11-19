@@ -403,6 +403,83 @@ body {
   font-size: 11px;
   font-weight: 600;
 }
+/* The engineering car drawings (EngineeringCarView.tsx, docs/car-views.md): an uploaded drawing's ecv-* classes take
+   the theme's colors, its lines keep their width at any scale, and the views hide a layer (data-layer) another part of
+   the page draws itself, so nothing is drawn twice */
+.ecv-art * {
+  vector-effect: non-scaling-stroke;
+}
+.ecv-art .ecv-body {
+  fill: var(--align-chassis);
+  stroke: var(--align-line);
+  stroke-width: 1.2;
+}
+.ecv-art .ecv-panel {
+  fill: none;
+  stroke: var(--align-line);
+  stroke-width: 0.8;
+  opacity: 0.8;
+}
+.ecv-art .ecv-glass {
+  fill: color-mix(in oklab, var(--align-line) 24%, var(--align-chassis));
+  stroke: var(--align-line);
+  stroke-width: 0.8;
+}
+.ecv-art .ecv-light {
+  fill: color-mix(in oklab, var(--align-baseline) 16%, transparent);
+  stroke: var(--align-line);
+  stroke-width: 0.6;
+}
+.ecv-art .ecv-aero {
+  fill: color-mix(in oklab, var(--align-line) 30%, var(--align-chassis));
+  stroke: var(--align-line);
+  stroke-width: 1;
+}
+.ecv-art .ecv-tire {
+  fill: color-mix(in oklab, var(--foreground) 12%, var(--align-surface));
+  stroke: var(--align-line);
+  stroke-width: 1.2;
+}
+.ecv-art .ecv-rim {
+  fill: none;
+  stroke: var(--align-line);
+  stroke-width: 0.8;
+}
+.ecv-no-wheels [data-layer="wheels"],
+.ecv-no-aero [data-layer="aero"],
+.ecv-no-details [data-layer="details"],
+.ecv-no-details [data-layer="lights"] {
+  display: none;
+}
+.ecv-mini .ecv-body,
+.ecv-mini .ecv-tire {
+  stroke-width: 0.8;
+}
+.ecv-source {
+  fill: var(--muted-foreground);
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  opacity: 0.85;
+}
+/* The Admin-only SVG debug mode's anchor marks */
+.ecv-debug {
+  fill: none;
+  stroke: currentColor;
+}
+.ecv-debug text {
+  fill: currentColor;
+  stroke: none;
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+}
+.ecv-debug-bounds { color: oklch(0.7 0.2 330); opacity: 0.7; }
+.ecv-debug-ground { color: var(--align-baseline); }
+.ecv-debug-centerline { color: oklch(0.82 0.16 95); }
+.ecv-debug-axle { color: oklch(0.82 0.16 95); }
+.ecv-debug-wheel { color: oklch(0.72 0.19 25); }
+.ecv-debug-contact { color: oklch(0.75 0.17 145); }
+.ecv-debug-ride { color: var(--align-comparison); }
+.ecv-debug-aero { color: oklch(0.7 0.15 290); }
+.ecv-debug-caption { color: var(--foreground); }
 .align-rotate {
   transform-origin: 0 0;
   transition: transform 350ms ease;

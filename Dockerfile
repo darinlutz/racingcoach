@@ -35,6 +35,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
+# The engineering car drawings the Admin page imports (src/lib/carViews/bundledDrawings.ts reads them from disk)
+COPY --from=builder /app/data/car-drawings ./data/car-drawings
 
 # Scripts invoked via execFile('python', ...) at runtime
 COPY app.py GetBankFromRoutingNumber.py ./

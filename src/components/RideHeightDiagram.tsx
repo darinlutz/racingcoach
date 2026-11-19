@@ -1,6 +1,9 @@
 'use client';
 
+import { EngineeringCarLayer, type PlacedCar } from '@/components/EngineeringCarView';
 import { useLanguage } from '@/components/LanguageProvider';
+import type { CarFit } from '@/lib/carViews/anchors';
+import { visibleCorners, type CarView } from '@/lib/carViews/views';
 import {
   findItem,
   formatSuspension,
@@ -17,7 +20,9 @@ import {
 // The Suspension tab's ride height elevations (from the Lovable design): the side view (the left side's front and rear
 // measurement points, the nose on the left), the front view (standing in front looking rearward, so the car's left is on
 // the screen's right) and the rear view (standing behind looking forward). Each setup's chassis line runs between its
-// two ride heights, raised or lowered from the mean of all of them, exaggerated: the only part drawn to a scale
+// two ride heights, raised or lowered from the mean of all of them, exaggerated: the only part drawn to a scale. The
+// car is the compared setups' own drawing of that view (EngineeringCarView.tsx, docs/car-views.md), its tires drawn
+// as each view sees them: round from the side, their tread width end on from the front and rear
 export default function RideHeightDiagram({
   view,
   compact = false,
@@ -25,11 +30,14 @@ export default function RideHeightDiagram({
 }: SuspensionDrawingProps & { view: 'side' | 'front' | 'rear'; compact?: boolean }) {
   const { t, fmt } = useLanguage();
   const s = t.setups.suspension;
-  const { comparison, mode, exaggeration } = props;
+  const c = t.setups.carViews;
+  const { exaggeration } = props;
   const side = view === 'side';
-  const corners: [Corner, Corner] = side ? ['LF', 'LR'] : view === 'front' ? ['RF', 'LF'] : ['LR', 'RR'];
+  const carView: CarView = side ? 'left-side' : view;
+  // The corners in screen order (views.ts): from the front the car's left is on the right
+  const corners = visibleCorners(carView) as [Corner, Corner];
+  // Where the wheels were drawn before the car's own drawing, in case a drawing lacks a wheel's anchor
   const xs: [number, number] = side ? [188, 534] : [160, 560];
-  const reference = heightReference(comparison);
   const title = side ? s.ride.sideView : view === 'front' ? s.ride.frontView : s.ride.rearView;
   return (
     <div className={`min-w-0 overflow-hidden rounded-lg border border-border align-grid ${compact ? 'p-2' : 'p-3'}`}>
@@ -40,39 +48,88 @@ export default function RideHeightDiagram({
         </span>
       </div>
       <svg viewBox="0 0 720 300" className="align-svg h-auto w-full" role="img" aria-label={fmt(s.ride.aria, { view: title })}>
-        <path d="M65 236 H655" className="align-structure" strokeWidth="1.6" />
+        {/* Layer 1: the ground */}
+        <path d={`M65 ${GROUND} H655`} className="align-structure" strokeWidth="1.6" />
         {Array.from({ length: 48 }, (_, i) => (
-          <path key={i} d={`M${70 + i * 12} 236 l-7 8`} className="align-structure" opacity=".4" />
+          <path key={i} d={`M${70 + i * 12} ${GROUND} l-7 8`} className="align-structure" opacity=".4" />
         ))}
-        {side ? (
-          <>
-            <path
-              d="M93 180 L100 149 L137 129 L250 112 L300 71 Q363 52 426 76 L485 122 L580 136 L618 169 L626 194 H575 Q571 156 534 156 Q497 156 491 194 H231 Q222 156 188 156 Q151 156 144 194 Z"
-              className="align-chassis"
+        {/* Layer 2: the compared setups' car standing on it (EngineeringCarView.tsx), its tires as this view sees them;
+            layers 3 and 4: the ride heights at its wheels, placed by its anchors */}
+        <EngineeringCarLayer view={carView} fit={FIT}>
+          {(car) => (
+            <RideHeightOverlay
+              car={car}
+              corners={corners}
+              fallbackXs={xs}
+              {...props}
+              approximateText={c.approximate}
+              approximateTitle={c.approximateTitle}
             />
-            <path
-              d="M277 113 L310 79 L364 76 V113 Z M374 77 L417 83 L459 120 L374 114 Z M258 124 L262 183 L468 183 L473 130 M110 145 L141 141 M566 137 H596 M541 126 L619 126 V133 H541 Z"
-              className="align-structure"
-            />
-          </>
-        ) : (
-          <>
-            <path d="M173 181 L185 122 L230 110 L273 71 H447 L490 110 L535 122 L547 181 Z" className="align-chassis" />
-            <path d="M279 79 H441 L470 112 H250 Z M203 143 H253 M467 143 H517 M260 174 H460" className="align-structure" />
-          </>
-        )}
-        {corners.map((corner, i) => (
+          )}
+        </EngineeringCarLayer>
+        <text x="654" y="270" textAnchor="end">
+          {fmt(s.ride.ground, { factor: exaggeration }).toUpperCase()}
+        </text>
+      </svg>
+      <Metrics {...props} view={view} />
+    </div>
+  );
+}
+
+// Where the host drawing stands the car: across the drawing, on its ground line
+const GROUND = 236;
+const FIT: CarFit = { kind: 'ground', x: 65, width: 590, groundY: GROUND, maxHeight: 200 };
+
+// The ride heights over the car: a reference line at each wheel, the corner's name under it, the car's ride height
+// reference point (approximate unless verified for this car), and each setup's chassis line between its two ride
+// heights with their values. The heights are drawn about the mean and exaggerated, as before; only where along the car
+// they're drawn comes from the drawing
+function RideHeightOverlay({
+  car,
+  corners,
+  fallbackXs,
+  comparison,
+  mode,
+  exaggeration,
+  approximateText,
+  approximateTitle,
+}: SuspensionDrawingProps & {
+  car: PlacedCar;
+  corners: [Corner, Corner];
+  fallbackXs: [number, number];
+  approximateText: string;
+  approximateTitle: string;
+}) {
+  const reference = heightReference(comparison);
+  const xs = corners.map((c, i) => car.wheel(c)?.[0] ?? fallbackXs[i]) as [number, number];
+  return (
+    <>
+      {corners.map((corner, i) => {
+        const point = car.rideHeight(corner);
+        return (
           <g key={corner}>
-            <circle cx={xs[i]} cy="202" r="34" className="align-chassis" />
-            <circle cx={xs[i]} cy="202" r="23" className="align-structure" />
-            <circle cx={xs[i]} cy="202" r="8" className="align-structure" />
             <line x1={xs[i]} y1="44" x2={xs[i]} y2="252" className="align-reference" />
             <text x={xs[i]} y="268" textAnchor="middle" className="align-wheel-label">
               {corner}
             </text>
+            {point && (
+              <path
+                d={`M${point.x} ${point.y - 4} l4 4 l-4 4 l-4 -4 Z`}
+                className="align-structure"
+                strokeDasharray={point.verified ? undefined : '1.5 1.5'}
+                data-ride-reference={corner}
+              />
+            )}
           </g>
-        ))}
-        {visibleKinds(mode).map((kind) => {
+        );
+      })}
+      {car.approximate && (
+        <text x="66" y="270" className="ecv-source" data-ride-approximate>
+          <title>{approximateTitle}</title>
+          {approximateText.toUpperCase()}
+        </text>
+      )}
+      {visibleKinds(mode).map((kind) => {
           const items = corners.map((c) => findItem(comparison, c, 'rideHeight'));
           const values = items.map((item) => item?.[kind] ?? null);
           const ys = values.map((v) => 190 - heightOffset(v, reference, exaggeration).offset);
@@ -91,7 +148,7 @@ export default function RideHeightDiagram({
               {values.map((v, i) =>
                 v ? (
                   <g key={i}>
-                    <path d={`M${i ? xs[1] + 50 : xs[0] - 50} 236 V${ys[i]} m-4 0 h8 M${i ? xs[1] + 46 : xs[0] - 54} 236 h8`} strokeWidth="1" />
+                    <path d={`M${i ? xs[1] + 50 : xs[0] - 50} ${GROUND} V${ys[i]} m-4 0 h8 M${i ? xs[1] + 46 : xs[0] - 54} ${GROUND} h8`} strokeWidth="1" />
                     <text
                       x={i ? xs[1] + 60 : xs[0] - 60}
                       y={ys[i] + (kind === 'baseline' ? -7 : 15)}
@@ -106,12 +163,7 @@ export default function RideHeightDiagram({
             </g>
           );
         })}
-        <text x="654" y="270" textAnchor="end">
-          {fmt(s.ride.ground, { factor: exaggeration }).toUpperCase()}
-        </text>
-      </svg>
-      <Metrics {...props} view={view} />
-    </div>
+    </>
   );
 }
 

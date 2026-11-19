@@ -226,6 +226,7 @@ describe('source guards', () => {
       'components/TvApp.tsx', // tv.screenEdges
       'components/TvBroadcast.tsx', // tv.* commentary and volume choices
       'components/Navigation.tsx', // nav
+      'components/SetupsWorkspace.tsx', // setups.drawingDebug (Admins only)
       'components/CookieConsentProvider.tsx', // removes withdrawn storage
     ]);
     for (const file of files) {

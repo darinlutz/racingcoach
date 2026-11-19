@@ -91,7 +91,7 @@ the driver accepts or rejects each; the accepted ones make one new revision.
 
 ## Wheel Alignment Engineering Comparison
 
-On the Compare tab, above the Visual comparison (`src/components/AlignmentEngineeringView.tsx`, with
+The Alignment tab, the first of the engineering system tabs (`src/components/SetupAlignment.tsx` on `SetupFocusComparison.tsx`, drawn by `src/components/AlignmentEngineeringView.tsx`, with
 `TopDownToeDiagram`, `FrontCamberDiagram`, `RearCamberDiagram` (both `AlignmentCamberDiagram`), `AlignmentWheel`,
 `AlignmentDataPanel` and `AlignmentComparisonSummary`; text in `setups.alignment` of the dictionaries): SVG drawings
 of both setups' camber (front view, looking rearward; rear view, looking forward) and toe (top view), Baseline in cyan,
@@ -117,14 +117,16 @@ Comparison in amber, unchanged in grey; Baseline only / Comparison only / Overla
 
 ## Engineering system tabs
 
-Under the main tabs, a row of eight system tabs (Suspension, Brakes, Tires, Aerodynamics, Drivetrain, Fuel,
+Under the main tabs, a row of nine system tabs (Alignment, Suspension, Brakes, Tires, Aerodynamics, Drivetrain, Fuel,
 Electronics, Other; `SYSTEM_ICONS` in `SetupsWorkspace.tsx`), each a dashboard of the same two revisions Compare has
 (the pick is shared), designed after the Lovable project `darinlutz/screenshot-match`. They share
 `SetupFocusComparison.tsx` (pickers, `/api/setups/compare`, Ask Setup Engineer) and `engineeringUi.tsx` (toolbar,
 sections, sliders), the alignment's colors and drawing classes (`align-*`, `--align-*` in `globals.css`), and its
 rules: values found by key in Compare's rows, kept in iRacing's own units and decimals, never invented; readings
 (iRacing's calculations and last-run measurements) shown and labelled apart from settings and not counted as changes;
-every drawing schematic and labelled so, the exaggeration changing the drawing only; nothing ever called better. Ask
+every drawing schematic and labelled so, the exaggeration changing the drawing only; nothing ever called better. The
+car under the drawings is the compared setups' own, from the engineering car drawings (docs/car-views.md), or the
+generic GT3-class car, labelled, until it has approved drawings. Ask
 Setup Engineer posts `focus` (the tab's name) and the route builds that system's facts from both revisions itself
 (`FOCI` in `src/app/api/setups/engineer/route.ts`).
 

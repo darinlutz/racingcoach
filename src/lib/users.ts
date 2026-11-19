@@ -1,5 +1,6 @@
 import { SIMULATOR_SCHEMA } from './simulatorSchema';
 import { SETUP_SCHEMA } from './setupSchema';
+import { CAR_VIEW_SCHEMA } from './carViews/carViewSchema';
 import { TELEMETRY_STORAGE_SCHEMA } from './telemetryStorageSchema';
 import { randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
@@ -707,6 +708,8 @@ export function ensureUserSchema(): Promise<void> {
       for (const statement of BROADCAST_VIDEO_SCHEMA) await client.query(statement);
       // The Setups page's setups, revisions, values, inspections and Setup Engineer proposals (setupSchema.ts)
       for (const statement of SETUP_SCHEMA) await client.query(statement);
+      // The engineering car drawings and their review history (carViews/carViewSchema.ts, docs/car-views.md)
+      for (const statement of CAR_VIEW_SCHEMA) await client.query(statement);
       // The telemetry collector's activity log, sent as it's written (src/lib/collectorLogs.ts). A run is one start
       // of the collector; seq numbers its lines, so a batch sent twice is stored once
       await client.query(`CREATE TABLE IF NOT EXISTS racingcoach."CollectorLogs" (

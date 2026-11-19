@@ -1,6 +1,8 @@
 'use client';
 
+import { EngineeringCarLayer } from '@/components/EngineeringCarView';
 import { useLanguage } from '@/components/LanguageProvider';
+import type { CarFit } from '@/lib/carViews/anchors';
 import {
   bandsOnScreen,
   CORNERS,
@@ -20,7 +22,9 @@ import {
   type TireDrawingProps,
 } from '@/lib/tiresGeometry';
 
+// The gauges' centers: a schematic layout around the car, outboard of its wheels, the car's left on the left
 const AT: Record<Corner, [number, number]> = { LF: [259, 155], RF: [501, 155], LR: [259, 367], RR: [501, 367] };
+const TIRES_FIT: CarFit = { kind: 'axles', centerX: 380, frontY: 155, rearY: 367 };
 
 // The Tires tab's top view of the car (from the Lovable design): each tire with a gauge ring per setup showing its
 // starting pressure on a scale of all of them, the last run's tread temperatures as three heat bands across it (on a
@@ -38,12 +42,9 @@ export default function TireFourCornerOverview(props: TireDrawingProps) {
   return (
     <svg viewBox="0 0 760 515" className="align-svg h-auto w-full" role="group" aria-label={s.overviewAria}>
       <path d="M380 24 V471 M270 153 H490 M270 370 H490" className="align-reference" />
-      <path d="M309 67 Q380 49 451 67 L467 133 L452 206 L455 329 L476 419 Q380 449 284 419 L305 329 L308 206 L293 133 Z" className="align-chassis" />
-      <path
-        d="M304 94 Q380 81 456 94 M316 164 L444 164 L428 202 H332 Z M330 214 H430 L443 310 H317 Z M316 321 H444 M300 393 H460 M326 76 L315 126 M434 76 L445 126 M325 225 L425 305 M425 225 L325 305"
-        className="align-structure"
-      />
-      <rect x="274" y="427" width="212" height="10" rx="2" className="align-chassis" />
+      {/* The compared setups' car from above, its axles on the gauges' rows (EngineeringCarView.tsx). Its own wheels are
+          hidden: the gauges beside it are the tires, set outboard of the car so their rings and values fit */}
+      <EngineeringCarLayer view="top" fit={TIRES_FIT} showWheels={false} />
       <text x="380" y="39" textAnchor="middle">
         {s.front.toUpperCase()}
       </text>

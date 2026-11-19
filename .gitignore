@@ -37,6 +37,8 @@ qa_chroma_db/
 
 # runtime data
 /data/*
+# except the engineering car drawings the Admin page imports (docs/car-views.md)
+!/data/car-drawings/
 
 # local Turso/libSQL dev database
 local.db*

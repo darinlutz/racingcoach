@@ -2,6 +2,7 @@
 
 import { ArrowLeftRight } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
+import { CarViewProvider } from '@/components/CarViewContext';
 import { useLanguage } from '@/components/LanguageProvider';
 import MembershipRequiredDialog from '@/components/MembershipRequiredDialog';
 import { Notice, Panel } from '@/components/SetupBadges';
@@ -11,10 +12,11 @@ import ThinkingProgress from '@/components/ThinkingProgress';
 import { jsonInit, setupsRequest, type CompareResponse, type CompareRow, type ProposalSummary } from '@/lib/setupClient';
 import type { SetupDashboard } from '@/lib/setupDashboards';
 
-// One system of two setups compared, for the Setups page's Suspension and Brakes tabs (docs/setups.md): the same two
+// One system of two setups compared, for the Setups page's engineering system tabs (Alignment, Suspension, Brakes, ...) (docs/setups.md): the same two
 // revisions as Compare (the tabs share the pick), read through /api/setups/compare, and drawn by `children` from the
 // comparison's rows. Ask Setup Engineer posts the tab's `focus` and `question`; the route builds that system's facts
-// from both revisions itself
+// from both revisions itself. The drawings show the compared setups' car (CarViewProvider: their iRacing car path, the
+// same for both, as revisions of different cars aren't comparable)
 export default function SetupFocusComparison({
   setups,
   value,
@@ -29,7 +31,7 @@ export default function SetupFocusComparison({
   onChange: (value: { a: RevisionChoice; b: RevisionChoice }) => void;
   // The Setup Engineer, for Ask Setup Engineer; absent while it's off for the page
   engineer?: { canUse: boolean; showPricing: boolean; onRevisionMade: () => Promise<void> };
-  focus: 'suspension' | 'brakes' | 'tires' | SetupDashboard;
+  focus: 'alignment' | 'suspension' | 'brakes' | 'tires' | SetupDashboard;
   question: string;
   children: (rows: CompareRow[], ask: { onAsk: () => void; asking: boolean } | undefined) => ReactNode;
 }) {
@@ -106,7 +108,7 @@ export default function SetupFocusComparison({
       ) : current.baseline.valueCount === 0 || current.comparison.valueCount === 0 ? (
         <Notice>{c.noValues}</Notice>
       ) : (
-        <>
+        <CarViewProvider carKey={current.baseline.setup.carKey}>
           {children(current.result.rows, engineer ? { onAsk: () => void ask(), asking } : undefined)}
           {asking && <ThinkingProgress active={asking} expectedMs={15000} />}
           {askError && <Notice tone="error">{askError}</Notice>}
@@ -121,7 +123,7 @@ export default function SetupFocusComparison({
               }}
             />
           )}
-        </>
+        </CarViewProvider>
       )}
       {engineer && <MembershipRequiredDialog open={membership} showPricing={engineer.showPricing} onClose={() => setMembership(false)} />}
     </div>

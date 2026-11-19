@@ -1,3 +1,4 @@
+import { carViewsFr } from './carViewsTextFr.ts';
 import type { SetupsText } from './setupsText';
 import { suspensionFr } from './suspensionTextFr.ts';
 import { dashboardsFr } from './dashboardsTextFr.ts';
@@ -12,6 +13,7 @@ export const setupsFr: SetupsText = {
   suspension: suspensionFr,
   dashboards: dashboardsFr,
   tires: tiresFr,
+  carViews: carViewsFr,
   brakes: brakesFr,
   tabs: {
     systems: 'Systèmes techniques',
@@ -19,6 +21,7 @@ export const setupsFr: SetupsText = {
     library: 'Mes setups',
     live: 'Setup en direct',
     compare: 'Comparer',
+    alignment: 'Géométrie',
     suspension: 'Suspension',
     aero: 'Aérodynamique',
     drivetrain: 'Transmission',

@@ -18,7 +18,7 @@ import { compareSuspension, SUSPENSION_ENGINEER_RULE, suspensionEngineerFacts } 
 import { compareTires, TIRES_ENGINEER_RULE, tireEngineerFacts } from '@/lib/tiresGeometry';
 
 // The Setups page's Setup Engineer (setupEngineer.ts's setupWorkbenchAnswer): { revisionId, compareRevisionId?,
-// question, focus? }. focus (FOCI: 'alignment', the Compare tab's Ask Setup Engineer, or a system tab's: 'suspension',
+// question, focus? }. focus (FOCI: a system tab's: 'alignment', 'suspension',
 // 'brakes', 'tires', 'aero', 'drivetrain', 'fuel', 'electronics', 'other') needs the comparison: its facts are built
 // here from both revisions' own values (alignmentGeometry.ts, suspensionGeometry.ts, brakesGeometry.ts,
 // tiresGeometry.ts, setupDashboards.ts), never taken from the browser. Reads the revision's values, the comparison's differences, the laps driven on it and their understeer and

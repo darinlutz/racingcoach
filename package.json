@@ -25,6 +25,7 @@
     "test:tire-temps": "node --experimental-transform-types --no-warnings --test scripts/tire-temps.test.mjs",
     "test:alignment": "node --experimental-transform-types --no-warnings --test scripts/alignment.test.mjs",
     "test:suspension": "node --experimental-transform-types --no-warnings --test scripts/suspension.test.mjs",
+    "test:car-views": "node --experimental-transform-types --no-warnings --test scripts/car-views.test.mjs scripts/car-drawings.test.mjs && node --experimental-transform-types --no-warnings --test scripts/car-views-db.test.mjs",
     "test:brakes": "node --experimental-transform-types --no-warnings --test scripts/brakes.test.mjs",
     "test:tires": "node --experimental-transform-types --no-warnings --test scripts/tires.test.mjs",
     "test:setup-dashboards": "node --experimental-transform-types --no-warnings --test scripts/setup-dashboards.test.mjs",

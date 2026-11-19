@@ -124,7 +124,8 @@ test('a captured setup, an uploaded .sto, a revision, a comparison and its chang
   await expect(page.getByRole('heading', { name: '1 difference' })).toBeVisible();
   await expect(page.getByRole('row').filter({ hasText: 'Wing Angle' }).first()).toContainText('+1 degrees');
 
-  // The Wheel Alignment Engineering Comparison: the capture's own values, and the wing alone changed, so no alignment
+  // The Alignment tab: the same two revisions as Compare, the capture's own values, and the wing alone changed, so no alignment
+  await page.getByRole('tab', { name: 'Alignment', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Wheel alignment: engineering comparison' })).toBeVisible();
   await expect(page.getByText('No alignment changes: every alignment value both setups have is the same.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Overlay both' })).toHaveAttribute('aria-pressed', 'true');
@@ -132,6 +133,13 @@ test('a captured setup, an uploaded .sto, a revision, a comparison and its chang
   await expect(page.getByRole('heading', { name: 'Right rear: alignment analysis' })).toBeVisible();
   await expect(page.getByText('−3.3°').first()).toBeVisible();
   await expect(page.getByText('Geometry exaggerated 5× for clarity. The setup values aren’t changed.')).toBeVisible();
+  // The car under the drawings (docs/car-views.md): the BMW has no approved drawing here, so the generic car, labelled,
+  // its own wheels hidden where the toe and camber wheels are drawn, and no debug marks for anyone but an Admin
+  await expect(page.locator('[data-car-view="top"][data-car-source="generic"]')).toHaveCount(1);
+  await expect(page.locator('[data-car-view="top"] [data-layer="wheels"]').first()).toBeHidden();
+  await expect(page.getByText('GENERIC VEHICLE').first()).toBeVisible();
+  await expect(page.getByText('SVG debug')).toHaveCount(0);
+  await expect(page.locator('[data-car-debug]')).toHaveCount(0);
 
   // The Suspension tab: the same two revisions as Compare, the capture's own values, and nothing changed
   await page.getByRole('tab', { name: 'Suspension' }).click();
@@ -139,6 +147,15 @@ test('a captured setup, an uploaded .sto, a revision, a comparison and its chang
   await expect(page.getByText('No suspension changes: every suspension value both setups have is the same.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Select Right rear' })).toBeVisible();
   await expect(page.getByRole('cell', { name: '83.3 mm' }).first()).toBeVisible();
+  // Ride heights from the front and rear: the tires end on, as tire widths, never circles; from the side, round
+  for (const view of ['front', 'rear']) {
+    const tires = page.locator(`[data-car-view="${view}"] [data-part="tire"]`);
+    await expect(tires.first()).toBeVisible();
+    expect(await tires.evaluateAll((els) => els.map((el) => el.tagName))).toEqual(['rect', 'rect']);
+    await expect(page.locator(`[data-car-view="${view}"] [data-layer="wheels"] circle`)).toHaveCount(0);
+  }
+  expect(await page.locator('[data-car-view="left-side"] [data-part="tire"]').first().evaluate((el) => el.tagName)).toBe('circle');
+  await expect(page.getByText('REFERENCE POINTS APPROXIMATE').first()).toBeVisible();
   await page.getByRole('button', { name: 'Side view' }).click();
   await expect(page.getByText('+25.9 mm').first()).toBeVisible();
   await page.getByRole('button', { name: 'Bump rubbers' }).click();

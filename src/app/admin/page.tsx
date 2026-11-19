@@ -21,6 +21,7 @@ import PrivacyRequestsLinkCard from '@/components/PrivacyRequestsLinkCard';
 import SubscribersLinkCard from '@/components/SubscribersLinkCard';
 import TelemetryStorageManager from '@/components/TelemetryStorageManager';
 import EngineeringKnowledgeManager from '@/components/EngineeringKnowledgeManager';
+import CarViewAssetManager from '@/components/CarViewAssetManager';
 import UserRoleManager from '@/components/UserRoleManager';
 import {
   ACTIVITY_PAGE_SIZE,
@@ -165,6 +166,9 @@ export default async function AdminPage({
         <TelemetryStorageManager timeZone={filters.timeZone} />
 
         <EngineeringKnowledgeManager />
+
+        {/* The engineering car drawings and their review (docs/car-views.md) */}
+        <CarViewAssetManager />
 
         <CollectorLogsViewer
           initialUser={typeof params.logUser === 'string' ? params.logUser : null}

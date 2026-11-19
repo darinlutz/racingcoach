@@ -1,3 +1,4 @@
+import { carViewsEs } from './carViewsTextEs.ts';
 import type { SetupsText } from './setupsText';
 import { suspensionEs } from './suspensionTextEs.ts';
 import { dashboardsEs } from './dashboardsTextEs.ts';
@@ -12,6 +13,7 @@ export const setupsEs: SetupsText = {
   suspension: suspensionEs,
   dashboards: dashboardsEs,
   tires: tiresEs,
+  carViews: carViewsEs,
   brakes: brakesEs,
   tabs: {
     systems: 'Sistemas de ingeniería',
@@ -19,6 +21,7 @@ export const setupsEs: SetupsText = {
     library: 'Mis Setups',
     live: 'Setup en vivo',
     compare: 'Comparar',
+    alignment: 'Alineación',
     suspension: 'Suspensión',
     aero: 'Aerodinámica',
     drivetrain: 'Transmisión',

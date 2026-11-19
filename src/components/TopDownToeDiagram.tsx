@@ -3,7 +3,9 @@
 import { useId } from 'react';
 import AlignmentDataPanel from '@/components/AlignmentDataPanel';
 import AlignmentWheel from '@/components/AlignmentWheel';
+import { EngineeringCarLayer, type PlacedCar } from '@/components/EngineeringCarView';
 import { useLanguage } from '@/components/LanguageProvider';
+import type { CarFit } from '@/lib/carViews/anchors';
 import { CORNERS, findItem, formatAlignment, isLeft, toeLayers, type AlignmentComparison, type Corner, type DisplayMode } from '@/lib/alignmentGeometry';
 
 export type AlignmentDiagramProps = {
@@ -14,10 +16,7 @@ export type AlignmentDiagramProps = {
   onSelect: (corner: Corner) => void;
 };
 
-// Wheel centers in the plan drawing (viewBox 0 0 400 520): the nose up, the car's left on the left
-const AT: Record<Corner, [number, number]> = { LF: [118, 150], RF: [282, 150], LR: [118, 395], RR: [282, 395] };
-
-// The top view: a GT3-style chassis, its axles and centerline, and each wheel turned by its toe for each setup, with
+// The top view (viewBox 0 0 400 520, the nose up, the car's left on the left): the compared setups' car, its axles and centerline, and each wheel turned by its toe for each setup, with
 // the four corners' values around it (beside the drawing on wide screens, under it on narrow ones)
 export default function TopDownToeDiagram(props: AlignmentDiagramProps) {
   const { t, fmt } = useLanguage();
@@ -47,13 +46,7 @@ export default function TopDownToeDiagram(props: AlignmentDiagramProps) {
       <div className="grid grid-cols-2 gap-2 p-3 md:grid-cols-[minmax(0,10.5rem)_minmax(0,1fr)_minmax(0,10.5rem)] md:grid-rows-2 md:items-center">
         <div className="col-span-2 md:col-span-1 md:col-start-2 md:row-span-2 md:row-start-1">
           <svg viewBox="0 0 400 520" className="align-svg mx-auto block h-auto w-full max-w-[26rem]" role="img" aria-label={a.topView}>
-            <defs>
-              <pattern id={`${id}-hatch`} width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(40)">
-                <line x1="0" y1="0" x2="0" y2="5" className="align-structure" opacity="0.5" />
-              </pattern>
-            </defs>
-            {/* The longitudinal centerline, the direction of travel and the axles */}
-            <line x1="200" y1="40" x2="200" y2="492" className="align-reference" />
+            {/* The direction of travel */}
             <path d="M200 28 V52 M194 36 L200 28 L206 36" className="align-structure" />
             <text x="212" y="38">
               {a.forward.toUpperCase()}
@@ -61,17 +54,23 @@ export default function TopDownToeDiagram(props: AlignmentDiagramProps) {
             <text x="206" y="500">
               {a.centerline.toUpperCase()}
             </text>
-            <line x1="60" y1="150" x2="340" y2="150" className="align-reference" />
-            <line x1="60" y1="395" x2="340" y2="395" className="align-reference" />
-            <Chassis hatch={`url(#${id}-hatch)`} />
-            {CORNERS.map((corner) => {
+            {/* The compared setups' car from above, its axles on the drawing's (EngineeringCarView.tsx); its own wheels
+                hidden, as each is drawn here turned by its toe */}
+            <EngineeringCarLayer view="top" fit={FIT} showWheels={false}>
+              {(car) => (
+                <>
+                  <line x1={car.centerlineX ?? 200} y1="40" x2={car.centerlineX ?? 200} y2="492" className="align-reference" />
+                  <line x1="60" y1={wheelAt(car, 'LF')[1]} x2="340" y2={wheelAt(car, 'RF')[1]} className="align-reference" />
+                  <line x1="60" y1={wheelAt(car, 'LR')[1]} x2="340" y2={wheelAt(car, 'RR')[1]} className="align-reference" />
+                  {CORNERS.map((corner) => {
               const layers = toeLayers(comparison, corner, props.mode, props.exaggeration);
               const item = findItem(comparison, corner, 'toe');
+              const [x, y] = wheelAt(car, corner);
               return (
                 <AlignmentWheel
                   key={corner}
-                  x={AT[corner][0]}
-                  y={AT[corner][1]}
+                  x={x}
+                  y={y}
                   variant="plan"
                   layers={layers}
                   selected={props.selected === corner}
@@ -87,7 +86,10 @@ export default function TopDownToeDiagram(props: AlignmentDiagramProps) {
                   noDataText={a.noData.toUpperCase()}
                 />
               );
-            })}
+                  })}
+                </>
+              )}
+            </EngineeringCarLayer>
           </svg>
         </div>
         {panel('LF', 'md:col-start-1 md:row-start-1')}
@@ -99,31 +101,8 @@ export default function TopDownToeDiagram(props: AlignmentDiagramProps) {
   );
 }
 
-// A GT3-style car from above, nose up, wheels at AT: splitter, body, cockpit, engine cover, wing
-function Chassis({ hatch }: { hatch: string }) {
-  return (
-    <g aria-hidden>
-      {/* Suspension arms to each wheel */}
-      <path d="M132 140 L168 160 M132 160 L168 142 M268 140 L232 160 M268 160 L232 142 M132 385 L165 406 M132 406 L165 385 M268 385 L235 406 M268 406 L235 385" className="align-structure" />
-      <line x1="132" y1="150" x2="268" y2="150" className="align-structure" />
-      <line x1="132" y1="395" x2="268" y2="395" className="align-structure" />
-      {/* Body */}
-      <path
-        d="M154 76 Q200 64 246 76 L262 112 L258 172 L248 200 L248 340 L262 372 L262 438 Q200 456 138 438 L138 372 L152 340 L152 200 L142 172 L138 112 Z"
-        className="align-chassis"
-      />
-      {/* Splitter and nose */}
-      <path d="M148 72 Q200 58 252 72 L256 80 Q200 68 144 80 Z" className="align-structure" />
-      <path d="M160 86 Q200 77 240 86 L247 108 L153 108 Z M156 118 L244 118 L240 140 L160 140 Z" className="align-structure" />
-      {/* Cockpit and glass */}
-      <path d="M158 192 Q200 176 242 192 L234 228 L166 228 Z M166 230 L234 230 L238 318 L162 318 Z M162 321 L238 321 L246 352 L154 352 Z" className="align-structure" />
-      <path d="M170 238 L230 238 L230 308 L170 308 Z M174 242 L226 304 M226 242 L174 304" className="align-structure" opacity="0.45" />
-      {/* Side intakes and the engine cover */}
-      <path d="M152 204 L152 334 M248 204 L248 334 M146 366 L254 366 M146 424 L254 424" className="align-structure" />
-      <path d="M146 374 L254 374 L251 414 L149 414 Z" fill={hatch} className="align-structure" opacity="0.6" />
-      {/* Rear wing */}
-      <path d="M130 444 L270 444 L270 454 L130 454 Z" className="align-chassis" />
-      <path d="M150 454 L150 462 M250 454 L250 462" className="align-structure" />
-    </g>
-  );
-}
+// Where the drawing puts the car: its front axle at y 150 and its rear at 395, on the centerline
+const FIT: CarFit = { kind: 'axles', centerX: 200, frontY: 150, rearY: 395 };
+// Where the wheels were drawn before the car's own drawing, in case a drawing lacks a wheel's anchor
+const AT: Record<Corner, [number, number]> = { LF: [118, 150], RF: [282, 150], LR: [118, 395], RR: [282, 395] };
+const wheelAt = (car: PlacedCar, corner: Corner): [number, number] => car.wheel(corner) ?? AT[corner];

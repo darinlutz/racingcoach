@@ -1,8 +1,10 @@
 'use client';
 
 import { ArrowDownToLine, Gauge, MoveVertical, Plane, Wind } from 'lucide-react';
+import { EngineeringCarLayer } from '@/components/EngineeringCarView';
 import { Caveat, DiagramHeader, Section } from '@/components/engineeringUi';
 import { useLanguage } from '@/components/LanguageProvider';
+import type { CarFit } from '@/lib/carViews/anchors';
 import SetupDashboardView, { type DashboardControls } from '@/components/SetupDashboardView';
 import {
   aeroBalance,
@@ -59,6 +61,9 @@ export default function AeroDashboard({ comparison, engineer }: { comparison: Da
 
 const label = (t: ReturnType<typeof useLanguage>['t'], kind: Which) => (kind === 'baseline' ? t.setups.dashboards.common.baseline : t.setups.dashboards.common.comparison);
 
+// Where the hero stands the car: across the drawing, on its ground line
+const FIT: CarFit = { kind: 'ground', x: 40, width: 820, groundY: 292, maxHeight: 210 };
+
 // The car from the side, nose left: body, wheels, the splitter, the rear wing per setup, the heights at speed and air
 function AeroCar({ comparison, controls }: { comparison: DashboardComparison; controls: DashboardControls }) {
   const { t } = useLanguage();
@@ -80,37 +85,35 @@ function AeroCar({ comparison, controls }: { comparison: DashboardComparison; co
         {Array.from({ length: 70 }, (_, i) => (
           <path key={i} d={`M${36 + i * 12} 292 l-7 8`} className="align-structure" opacity=".35" />
         ))}
-        {/* Body */}
-        <path
-          d="M70 248 L80 214 L130 190 L290 172 L360 120 Q450 96 540 122 L610 168 L760 182 L812 214 L820 248 H760 Q756 200 708 200 Q660 200 654 248 H262 Q256 200 208 200 Q160 200 154 248 Z"
-          className="align-chassis"
-        />
-        <path d="M372 126 L420 108 L500 112 V166 H372 Z M512 114 L560 128 L598 166 H512 Z M110 222 H160 M260 232 H654" className="align-structure" />
-        {[208, 708].map((x) => (
-          <g key={x}>
-            <circle cx={x} cy="254" r="38" className="align-chassis" />
-            <circle cx={x} cy="254" r="24" className="align-structure" />
-            <circle cx={x} cy="254" r="8" className="align-structure" />
-          </g>
-        ))}
+        {/* The compared setups' car from its left side, nose left, standing on the ground (EngineeringCarView.tsx). Its
+            own aero parts are hidden: the wing is drawn here at each setup's angle and the splitter at its clearance */}
+        <EngineeringCarLayer view="left-side" fit={FIT} showAero={false}>
+          {(car) => {
+            const [wx, wy] = car.part('wing') ?? [790, 110];
+            const [dx, dy] = car.part('diffuser') ?? [800, 241];
+            const sx = car.part('splitter')?.[0] ?? 66;
+            const frontX = (car.wheel('LF')?.[0] ?? 208) - 58;
+            const rearX = (car.wheel('LR')?.[0] ?? 708) + 62;
+            return (
+              <>
         {/* Diffuser */}
-        <path d="M760 250 L840 232" className="align-structure" strokeWidth="2" />
-        <text x="842" y="226" textAnchor="end">
+        <path d={`M${dx - 40} ${dy + 9} L${dx + 40} ${dy - 9}`} className="align-structure" strokeWidth="2" />
+        <text x={dx + 42} y={dy - 15} textAnchor="end">
           {a.labels.diffuser.toUpperCase()}
         </text>
         {/* Wing mount and the wing per setup */}
-        <path d="M748 182 L770 120 M792 186 L806 120" className="align-structure" strokeWidth="2" />
+        <path d={`M${wx - 42} ${wy + 72} L${wx - 20} ${wy + 10} M${wx + 2} ${wy + 76} L${wx + 16} ${wy + 10}`} className="align-structure" strokeWidth="2" />
         {kinds.map((kind) => {
           const deg = numberOf(wing, kind, ['degrees', 'deg', '°', null]);
           return (
-            <g key={kind} transform="translate(790 110)">
+            <g key={kind} transform={`translate(${wx} ${wy})`}>
               <g className={`align-rotate ${toneOf(wing, kind)}`} style={{ transform: `rotate(${-wingDrawAngle(deg, controls.exaggeration)}deg)` }}>
                 <path d={AIRFOIL} transform="scale(.62)" strokeWidth="2" className="aero-foil" strokeDasharray={kind === 'comparison' ? '6 3' : undefined} />
               </g>
             </g>
           );
         })}
-        <text x="790" y="70" textAnchor="middle" className="align-wheel-label">
+        <text x={wx} y={wy - 40} textAnchor="middle" className="align-wheel-label">
           {a.labels.wing.toUpperCase()}
         </text>
         {/* Splitter at its clearance, exaggerated about 50 mm */}
@@ -119,23 +122,23 @@ function AeroCar({ comparison, controls }: { comparison: DashboardComparison; co
           const y = 292 - Math.max(4, Math.min(60, (h ?? 50) * (splitter?.[kind]?.unit === 'in' ? 25.4 : 1) * 0.3 + ((h ?? 50) - 50) * controls.exaggeration * 0.2));
           return (
             <g key={kind} className={toneOf(splitter, kind)}>
-              <path d={`M44 ${y} H150`} strokeWidth="3" strokeLinecap="round" strokeDasharray={kind === 'comparison' ? '6 3' : undefined} />
+              <path d={`M${sx - 22} ${y} H${sx + 84}`} strokeWidth="3" strokeLinecap="round" strokeDasharray={kind === 'comparison' ? '6 3' : undefined} />
               {h != null && (
-                <text x="40" y={y - 6} textAnchor="end" className="align-value">
+                <text x={sx - 26} y={y - 6} textAnchor="end" className="align-value">
                   {formatDash(splitter![kind])}
                 </text>
               )}
             </g>
           );
         })}
-        <text x="96" y="318" textAnchor="middle">
+        <text x={sx + 30} y="318" textAnchor="middle">
           {a.labels.splitter.toUpperCase()}
         </text>
-        {/* Heights at speed: arrows from the ground at the axles */}
+        {/* Heights at speed: arrows from the ground ahead of the front wheels and behind the rear */}
         {(
           [
-            [front, 150],
-            [rear, 770],
+            [front, frontX],
+            [rear, rearX],
           ] as const
         ).map(([item, x]) =>
           kinds.map((kind, j) => {
@@ -153,6 +156,10 @@ function AeroCar({ comparison, controls }: { comparison: DashboardComparison; co
             );
           })
         )}
+              </>
+            );
+          }}
+        </EngineeringCarLayer>
         <text x="450" y="318" textAnchor="middle">
           {a.labels.ground.toUpperCase()}
         </text>

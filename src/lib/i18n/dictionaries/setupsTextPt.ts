@@ -1,3 +1,4 @@
+import { carViewsPt } from './carViewsTextPt.ts';
 import type { SetupsText } from './setupsText';
 import { suspensionPt } from './suspensionTextPt.ts';
 import { dashboardsPt } from './dashboardsTextPt.ts';
@@ -12,6 +13,7 @@ export const setupsPt: SetupsText = {
   suspension: suspensionPt,
   dashboards: dashboardsPt,
   tires: tiresPt,
+  carViews: carViewsPt,
   brakes: brakesPt,
   tabs: {
     systems: 'Sistemas de engenharia',
@@ -19,6 +21,7 @@ export const setupsPt: SetupsText = {
     library: 'Meus Setups',
     live: 'Setup ao vivo',
     compare: 'Comparar',
+    alignment: 'Alinhamento',
     suspension: 'Suspensão',
     aero: 'Aerodinâmica',
     drivetrain: 'Transmissão',

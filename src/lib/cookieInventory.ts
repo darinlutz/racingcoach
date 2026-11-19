@@ -98,6 +98,15 @@ export const COOKIE_INVENTORY: InventoryItem[] = [
       'The Lead Announcer and Color Announcer checkboxes you ticked, how see-through you set the satellite map, and the live video view (track map, video or both) and whether the map follows the video, on the Live Racing page (signed-in users only).',
   },
   {
+    name: 'setups.drawingDebug',
+    kind: 'localStorage',
+    category: 'necessary',
+    provider: 'RacingCoach.app',
+    firstParty: true,
+    duration: 'Until you clear your browser data',
+    purpose: 'Whether the SVG debug switch on the Setups page’s engineering drawings is on (Admins only).',
+  },
+  {
     name: 'tv_pairing',
     kind: 'cookie',
     category: 'necessary',

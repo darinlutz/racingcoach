@@ -1,10 +1,12 @@
 'use client';
 
-import { Box, BrainCircuit, CircleDot, CircleGauge, Cog, Cpu, Fuel, GitCompare, Import, ListTree, Plane, PlusSquare, RadioTower } from 'lucide-react';
+import { Box, BrainCircuit, Bug, CircleDot, CircleGauge, Cog, Cpu, Crosshair, Fuel, GitCompare, Import, ListTree, Plane, PlusSquare, RadioTower } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { CarViewDebugProvider } from '@/components/CarViewContext';
 import { useLanguage } from '@/components/LanguageProvider';
 import LocalTime from '@/components/LocalTime';
 import { InspectionBadge, Notice, Panel } from '@/components/SetupBadges';
+import SetupAlignment from '@/components/SetupAlignment';
 import SetupBrakes from '@/components/SetupBrakes';
 import SetupCompare from '@/components/SetupCompare';
 import SetupEngineerChat from '@/components/SetupEngineerChat';
@@ -22,8 +24,9 @@ import type { SetupsTab } from '@/lib/setupsTabs';
 import { keyLabel } from '@/lib/setupYaml';
 
 // The engineering systems' tabs, shown as their own row under the others, each with its icon
-const SYSTEM_ICONS = { suspension: Box, brakes: CircleGauge, tires: CircleDot, aero: Plane, drivetrain: Cog, fuel: Fuel, electronics: Cpu, other: ListTree };
+const SYSTEM_ICONS = { alignment: Crosshair, suspension: Box, brakes: CircleGauge, tires: CircleDot, aero: Plane, drivetrain: Cog, fuel: Fuel, electronics: Cpu, other: ListTree };
 const SYSTEM_TABS: SetupsTab[] = Object.keys(SYSTEM_ICONS) as SetupsTab[];
+const DEBUG_KEY = 'setups.drawingDebug';
 
 // The Setups page (src/app/setups/page.tsx; docs/setups.md): one set of tabs over the user's setups. The tabs share the
 // library (loaded once, reloaded after a change) and hand each other what to show: a setup to open, two revisions to
@@ -33,15 +36,36 @@ export default function SetupsWorkspace({
   initialTab,
   canUseEngineer,
   showPricing,
+  canDebugDrawings = false,
 }: {
   tabs: SetupsTab[];
   initialTab: SetupsTab;
   canUseEngineer: boolean;
   showPricing: boolean;
+  // An Admin: offered the engineering drawings' SVG debug mode (docs/car-views.md)
+  canDebugDrawings?: boolean;
 }) {
   const { t } = useLanguage();
   const s = t.setups;
   const [tab, setTab] = useState<SetupsTab>(initialTab);
+  const [debugDrawings, setDebugDrawings] = useState(false);
+  useEffect(() => {
+    if (!canDebugDrawings) return;
+    try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- the Admin's own choice, remembered in this browser
+      if (window.localStorage.getItem(DEBUG_KEY) === '1') setDebugDrawings(true);
+    } catch {
+      // storage unavailable: the switch starts off
+    }
+  }, [canDebugDrawings]);
+  const toggleDebug = (on: boolean) => {
+    setDebugDrawings(on);
+    try {
+      window.localStorage.setItem(DEBUG_KEY, on ? '1' : '0');
+    } catch {
+      // storage unavailable: the switch lasts until the page is left
+    }
+  };
   const [list, setList] = useState<SetupsList | null>(null);
   const [error, setError] = useState(false);
   const [openSetupId, setOpenSetupId] = useState<number | null>(null);
@@ -132,6 +156,13 @@ export default function SetupsWorkspace({
                 </button>
               );
             })}
+          {canDebugDrawings && (
+            <label className="ml-auto inline-flex items-center gap-1.5 font-mono text-[10px] font-semibold uppercase tracking-widest text-muted-foreground" title={s.carViews.debug.toggleTitle}>
+              <input type="checkbox" checked={debugDrawings} onChange={(e) => toggleDebug(e.target.checked)} data-track="setups-svg-debug" />
+              <Bug className="size-3.5" aria-hidden />
+              {s.carViews.debug.toggle}
+            </label>
+          )}
         </div>
       </div>
 
@@ -146,6 +177,7 @@ export default function SetupsWorkspace({
       {!list && !error && <p className="text-muted-foreground">{s.common.loading}</p>}
 
       {list && (
+        <CarViewDebugProvider on={canDebugDrawings && debugDrawings}>
         <div role="tabpanel">
           {tab === 'overview' && (
             <SetupOverviewPanel
@@ -179,7 +211,10 @@ export default function SetupsWorkspace({
           )}
           {tab === 'live' && <SetupLive onOpen={actions.openSetup} onChanged={load} />}
           {tab === 'compare' && (
-            <SetupCompare
+            <SetupCompare setups={setups} value={compare} onChange={setCompare} />
+          )}
+          {tab === 'alignment' && (
+            <SetupAlignment
               setups={setups}
               value={compare}
               onChange={setCompare}
@@ -232,6 +267,7 @@ export default function SetupsWorkspace({
           {tab === 'inspection' && <SetupInspectionTab setups={setups} onOpen={actions.openSetup} onAskEngineer={(id) => actions.askEngineer(latestOf(id))} canUseEngineer={tabs.includes('engineer')} />}
           {tab === 'history' && <SetupHistory setups={setups} actions={actions} />}
         </div>
+        </CarViewDebugProvider>
       )}
     </>
   );

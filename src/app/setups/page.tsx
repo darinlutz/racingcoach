@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import SetupsWorkspace from '@/components/SetupsWorkspace';
 import { getDictionary, getLanguage } from '@/lib/i18n/server';
 import { withReturnTo } from '@/lib/returnTo';
-import { canUseInCarCoach } from '@/lib/roles';
+import { canUseInCarCoach, isAdmin } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
 import { SETUPS_TABS, type SetupsTab } from '@/lib/setupsTabs';
 import { getEnableAiFeatures, getShowPricing } from '@/lib/siteSettings';
@@ -28,7 +28,7 @@ export default async function SetupsPage({ searchParams }: { searchParams: Promi
       </section>
       <section className="bg-card py-10">
         <div className="site-container">
-          <SetupsWorkspace tabs={tabs} initialTab={initialTab} canUseEngineer={canUseInCarCoach(user)} showPricing={await getShowPricing()} />
+          <SetupsWorkspace tabs={tabs} initialTab={initialTab} canUseEngineer={canUseInCarCoach(user)} showPricing={await getShowPricing()} canDebugDrawings={isAdmin(user.role)} />
         </div>
       </section>
     </div>

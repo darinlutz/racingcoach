@@ -2,16 +2,13 @@
 
 import { ArrowLeftRight } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import AlignmentEngineeringView from '@/components/AlignmentEngineeringView';
+import { CarViewProvider } from '@/components/CarViewContext';
+import EngineeringCarView from '@/components/EngineeringCarView';
 import { useLanguage } from '@/components/LanguageProvider';
-import MembershipRequiredDialog from '@/components/MembershipRequiredDialog';
 import { Notice, Panel } from '@/components/SetupBadges';
-import { ProposalCard } from '@/components/SetupEngineerChat';
 import SetupRevisionPicker, { type RevisionChoice } from '@/components/SetupRevisionPicker';
-import ThinkingProgress from '@/components/ThinkingProgress';
-import { compareAlignment } from '@/lib/alignmentGeometry';
 import { formatDifference } from '@/lib/setupCompare';
-import { jsonInit, lapTime, setupsRequest, type CompareResponse, type CompareRow, type LapsSummary, type ProposalSummary } from '@/lib/setupClient';
+import { lapTime, setupsRequest, type CompareResponse, type CompareRow, type LapsSummary } from '@/lib/setupClient';
 import { keyLabel, SETUP_CATEGORIES } from '@/lib/setupYaml';
 
 const CORNERS = ['LeftFront', 'RightFront', 'LeftRear', 'RightRear'] as const;
@@ -22,13 +19,10 @@ export default function SetupCompare({
   setups,
   value,
   onChange,
-  engineer,
 }: {
   setups: Parameters<typeof SetupRevisionPicker>[0]['setups'];
   value: { a: RevisionChoice; b: RevisionChoice };
   onChange: (value: { a: RevisionChoice; b: RevisionChoice }) => void;
-  // The Setup Engineer, for the alignment comparison's Ask Setup Engineer; absent while it's off for the page
-  engineer?: { canUse: boolean; showPricing: boolean; onRevisionMade: () => Promise<void> };
 }) {
   const { t, plural } = useLanguage();
   const s = t.setups;
@@ -61,30 +55,6 @@ export default function SetupCompare({
     [current, onlyDiff, showReadings]
   );
   const differences = current ? current.result.rows.filter((r) => r.status !== 'same' && (showReadings || r.kind === 'setting')).length : 0;
-  const alignment = useMemo(() => compareAlignment(current?.result.rows ?? []), [current]);
-
-  // Ask Setup Engineer: only when the driver presses it. The server builds the alignment facts from the two
-  // revisions itself (focus: 'alignment'), with the same membership, rate limit and model control as the Setup Engineer tab
-  const [asking, setAsking] = useState(false);
-  const [askError, setAskError] = useState('');
-  const [answer, setAnswer] = useState<{ key: string; proposal: ProposalSummary } | null>(null);
-  const [membership, setMembership] = useState(false);
-  const pairKey = `${value.a?.revisionId ?? ''}:${value.b?.revisionId ?? ''}`;
-  const askAlignment = async () => {
-    if (!engineer || !value.a || !value.b) return;
-    if (!engineer.canUse) return setMembership(true);
-    setAsking(true);
-    setAskError('');
-    const res = await setupsRequest<{ proposal: ProposalSummary }>(
-      '/api/setups/engineer',
-      jsonInit('POST', { revisionId: value.a.revisionId, compareRevisionId: value.b.revisionId, question: s.alignment.engineerQuestion, focus: 'alignment' })
-    );
-    setAsking(false);
-    if (res.ok) return setAnswer({ key: pairKey, proposal: res.data.proposal });
-    if (res.code === 'membershipRequired') setMembership(true);
-    else if (res.status !== 429) setAskError(res.error || s.errors.engineerFailed);
-  };
-
   return (
     <div className="space-y-5">
       <Panel>
@@ -115,31 +85,9 @@ export default function SetupCompare({
       ) : (
         <>
           <LapsPanel baseline={current.laps.baseline} comparison={current.laps.comparison} names={[current.baseline.setup.name, current.comparison.setup.name]} />
-          <Panel title={s.alignment.title}>
-            <AlignmentEngineeringView comparison={alignment} engineer={engineer ? { onAsk: () => void askAlignment(), asking } : undefined} />
-            {asking && (
-              <div className="mt-4">
-                <ThinkingProgress active={asking} expectedMs={15000} />
-              </div>
-            )}
-            {askError && (
-              <div className="mt-4">
-                <Notice tone="error">{askError}</Notice>
-              </div>
-            )}
-          </Panel>
-          {answer && answer.key === pairKey && engineer && (
-            <ProposalCard
-              key={answer.proposal.id}
-              proposal={answer.proposal}
-              defaultOpen
-              onDecided={async (updated) => {
-                setAnswer({ key: pairKey, proposal: updated });
-                await engineer.onRevisionMade();
-              }}
-            />
-          )}
-          <VisualComparison rows={current.result.rows.filter((r) => r.kind === 'setting')} />
+          <CarViewProvider carKey={current.baseline.setup.carKey}>
+            <VisualComparison rows={current.result.rows.filter((r) => r.kind === 'setting')} />
+          </CarViewProvider>
           <Panel
             title={plural(differences, c.differences, { count: differences })}
             actions={
@@ -159,7 +107,6 @@ export default function SetupCompare({
           </Panel>
         </>
       )}
-      {engineer && <MembershipRequiredDialog open={membership} showPricing={engineer.showPricing} onClose={() => setMembership(false)} />}
     </div>
   );
 }
@@ -328,17 +275,10 @@ function CarCorners({ corners, centre }: { corners: { corner: (typeof CORNERS)[n
   );
 }
 
+// The compared setups' car from above, nose up (its left front beside the Left Front panel), as a miniature of the
+// same drawing the engineering tabs use (EngineeringCarView.tsx)
 function CarBody() {
-  return (
-    <svg viewBox="0 0 60 140" className="col-start-2 row-span-2 row-start-1 mx-auto h-full w-full text-muted-foreground" preserveAspectRatio="xMidYMid meet" aria-hidden>
-      <path d="M18 6 Q30 0 42 6 L48 40 L50 100 Q50 132 30 136 Q10 132 10 100 L12 40 Z" fill="currentColor" opacity="0.35" />
-      <rect x="2" y="18" width="9" height="22" rx="3" fill="currentColor" />
-      <rect x="49" y="18" width="9" height="22" rx="3" fill="currentColor" />
-      <rect x="1" y="96" width="10" height="26" rx="3" fill="currentColor" />
-      <rect x="49" y="96" width="10" height="26" rx="3" fill="currentColor" />
-      <rect x="20" y="52" width="20" height="26" rx="5" fill="currentColor" opacity="0.6" />
-    </svg>
-  );
+  return <EngineeringCarView view="top" variant="miniature" className="col-start-2 row-span-2 row-start-1 mx-auto h-full min-h-[8rem] w-full" />;
 }
 
 function LapsPanel({ baseline, comparison, names }: { baseline: LapsSummary; comparison: LapsSummary; names: [string, string] }) {

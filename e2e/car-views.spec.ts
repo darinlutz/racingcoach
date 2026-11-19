@@ -77,7 +77,8 @@ test('an Admin uploads, reviews and activates a carâ€™s drawings, and a driverâ€
   const section = admin.page.locator('#engineering-car-drawings');
   await expect(section.getByRole('heading', { name: 'Engineering Car Drawings' })).toBeVisible();
   // The list loads after the page, with every other Admin section's requests
-  const row = section.locator('li').filter({ hasText: `E2E Car ${carKey}` });
+  // The versions list's row (the repository panel's car pickers name every car too, but have no Preview)
+  const row = section.locator('li').filter({ hasText: `E2E Car ${carKey}`, has: admin.page.getByRole('button', { name: 'Preview', exact: true }) });
   await expect(row).toBeVisible({ timeout: 60_000 });
   await expect(row.getByText('Active', { exact: true })).toBeVisible();
   await row.getByRole('button', { name: 'Preview' }).click();
@@ -86,6 +87,23 @@ test('an Admin uploads, reviews and activates a carâ€™s drawings, and a driverâ€
   // The views it hasn't got show the generic car, labelled
   await expect(row.locator('[data-car-view="rear"][data-car-source="generic"]')).toBeVisible();
   await expect(row.locator('[data-car-debug="front"]').getByText('RF Wheel')).toBeVisible();
+
+  // The repository's drawings: the HuracÃ¡n imports as a draft of Car Data's car and previews as its own drawing
+  const importButton = admin.page.getByRole('button', { name: 'Import as draft' });
+  const huracan = section.locator('li').filter({ hasText: 'lamborghinievogt3', has: importButton });
+  await expect(huracan).toBeVisible();
+  await expect(section.locator('li').filter({ hasText: 'ferrari296gt3', has: importButton })).toBeVisible();
+  await huracan.getByRole('button', { name: 'Import as draft' }).click();
+  await expect(section.getByText(/Imported as version \d+\./)).toBeVisible({ timeout: 30_000 });
+  const draft = section
+    .locator('li')
+    .filter({ hasText: 'lamborghinievogt3', has: admin.page.getByRole('button', { name: 'Preview', exact: true }) })
+    .first();
+  await expect(draft.getByText('Draft', { exact: true })).toBeVisible();
+  await draft.getByRole('button', { name: 'Preview', exact: true }).click();
+  for (const view of ['left-side', 'right-side', 'top', 'front', 'rear']) {
+    await expect(draft.locator(`[data-car-view="${view}"][data-car-source="preview"]`)).toBeVisible();
+  }
 
   await admin.context.close();
   await driver.context.close();

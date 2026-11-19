@@ -76,9 +76,9 @@ test('an Admin uploads, reviews and activates a carâ€™s drawings, and a driverâ€
   await admin.page.goto('/admin');
   const section = admin.page.locator('#engineering-car-drawings');
   await expect(section.getByRole('heading', { name: 'Engineering Car Drawings' })).toBeVisible();
-  // The list loads after the page, with every other Admin section's requests
-  // The versions list's row (the repository panel's car pickers name every car too, but have no Preview)
-  const row = section.locator('li').filter({ hasText: `E2E Car ${carKey}`, has: admin.page.getByRole('button', { name: 'Preview', exact: true }) });
+  // The list loads after the page, with every other Admin section's requests. The versions list's row (the repository panel's car pickers name every car too, but have no Preview)
+  const previewButton = admin.page.getByRole('button', { name: /^(Preview|Hide preview)$/ });
+  const row = section.locator('li').filter({ hasText: `E2E Car ${carKey}`, has: previewButton });
   await expect(row).toBeVisible({ timeout: 60_000 });
   await expect(row.getByText('Active', { exact: true })).toBeVisible();
   await row.getByRole('button', { name: 'Preview' }).click();
@@ -97,7 +97,7 @@ test('an Admin uploads, reviews and activates a carâ€™s drawings, and a driverâ€
   await expect(section.getByText(/Imported as version \d+\./)).toBeVisible({ timeout: 30_000 });
   const draft = section
     .locator('li')
-    .filter({ hasText: 'lamborghinievogt3', has: admin.page.getByRole('button', { name: 'Preview', exact: true }) })
+    .filter({ hasText: 'lamborghinievogt3', has: previewButton })
     .first();
   await expect(draft.getByText('Draft', { exact: true })).toBeVisible();
   await draft.getByRole('button', { name: 'Preview', exact: true }).click();

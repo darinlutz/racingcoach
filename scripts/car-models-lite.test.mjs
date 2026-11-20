@@ -97,9 +97,59 @@ describe('Lap Compare’s lighter copy of a model', () => {
     const json = glbJson(lite.bytes);
     assert.deepEqual(Object.keys(json.meshes[0].primitives[0].attributes).sort(), ['NORMAL', 'POSITION']);
     assert.equal(json.extensionsUsed, undefined);
+    // Only the paints in use are kept
+    assert.equal(json.materials.length, 1);
     assert.deepEqual(json.materials[0].pbrMetallicRoughness.baseColorFactor, [1, 1, 1, 1]);
     assert.equal(json.materials[0].emissiveFactor, undefined);
-    assert.deepEqual(json.materials[1].pbrMetallicRoughness.baseColorFactor, [DARK_SHADE, DARK_SHADE, DARK_SHADE, 1]);
+  });
+
+  test('leaves the interior out and merges the parts into one primitive per paint, where they sat in the scene', async () => {
+    const car = glbJson(testCarGlb());
+    const original = testCarGlb();
+    const view = new DataView(original.buffer, original.byteOffset, original.byteLength);
+    const jsonLength = view.getUint32(12, true);
+    const bin = original.subarray(20 + jsonLength + 8);
+    // The test car with a seat (the body's mesh again, named like the interior) inside it, and the wheels' nodes
+    // moved under a parent that's moved itself
+    const body = car.nodes.findIndex((n) => n.name === 'body');
+    car.nodes.push({ name: 'Seat_driver', mesh: car.nodes[body].mesh, translation: [0, 0.5, 0], scale: [0.2, 0.2, 0.2] });
+    car.nodes.at(-2).children.push(car.nodes.length - 1);
+    const wheels = car.nodes.map((n, i) => (String(n.name).startsWith('wheel_') ? i : -1)).filter((i) => i >= 0);
+    car.nodes.push({ name: 'wheels', translation: [0, 0, 0] , children: wheels });
+    const root = car.nodes.findIndex((n) => n.name === 'car');
+    car.nodes[root].children = car.nodes[root].children.filter((i) => !wheels.includes(i)).concat(car.nodes.length - 1);
+    const withSeat = buildGlb(car, bin);
+    const lite = await liteGlb(withSeat);
+    assert.ok(lite);
+    assert.equal(lite.interiorTriangles, 12);
+    const json = glbJson(lite.bytes);
+    assert.equal(json.nodes.length, 1);
+    assert.equal(json.meshes.length, 1);
+    // The body and the dark parts (cabin, wheels): two paints
+    assert.equal(json.meshes[0].primitives.length, 2);
+    assert.deepEqual(json.materials.map((m) => m.pbrMetallicRoughness.baseColorFactor[0]).sort(), [DARK_SHADE, BODY_SHADE].sort());
+    // Named so the browser's repaint keeps each shade
+    for (const m of json.materials) assert.equal(paintShade(m), m.pbrMetallicRoughness.baseColorFactor[0]);
+    const check = checkGlb(lite.bytes);
+    assert.ok(check.ok);
+    const before = checkGlb(testCarGlb()).info.bounds;
+    close(check.info.bounds.min, before.min, 1e-6);
+    close(check.info.bounds.max, before.max, 1e-6);
+  });
+
+  test('keeps the interior of a model named mostly like one, and lights named like the interior', async () => {
+    const car = glbJson(testCarGlb());
+    const original = testCarGlb();
+    const view = new DataView(original.buffer, original.byteOffset, original.byteLength);
+    const bin = original.subarray(20 + view.getUint32(12, true) + 8);
+    for (const m of car.materials) m.name = `INT_${m.name}`;
+    const lite = await liteGlb(buildGlb(car, bin));
+    assert.equal(lite.interiorTriangles, 0);
+    assert.equal(lite.trianglesAfter, lite.trianglesBefore);
+    const lit = glbJson(testCarGlb());
+    lit.materials[0].name = 'farol_interior';
+    const lights = await liteGlb(buildGlb(lit, bin));
+    assert.equal(lights.interiorTriangles, 0);
   });
 
   test('leaves small meshes whole and keeps the test car valid, its bounds unchanged', async () => {

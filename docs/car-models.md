@@ -168,9 +168,13 @@ The rest is as before:
 - The Target lap's car is the ghost (opacity 140/255, no depth writes, drawn last).
 - Only the model's shape is used: each car is drawn in its lap's color (Target blue, Compare red), whatever the
   model's livery. The page downloads a lighter copy (`/api/car-models/[id]/file?lite=1`, `glbLite.ts`): no textures,
-  images, texture coordinates, vertex colors, tangents, skins, morph targets or animations; each mesh welded and
-  simplified with meshoptimizer to 60% of its triangles (300,000 for the whole car at most), within 0.4% of its size.
-  It's made the first time it's asked for and kept beside the original (`car-models/{carId}/{sha256}.lite1.glb`,
+  images, texture coordinates, vertex colors, tangents, skins, morph targets or animations, and no interior (seats,
+  belts, dash, steering wheel, roll cage, nets, inner glass, by the names of the part's material, mesh and nodes,
+  `INTERIOR_PART`; lights excepted, and nothing left out when over half the car is named so); each mesh welded and
+  simplified with meshoptimizer to 45% of its triangles (150,000 for the whole car at most), within 0.6% of its size;
+  then every part is moved into the scene's frame and merged by paint into one node and mesh with a primitive per
+  paint (a few, where a model can have thousands, each of which deck.gl built and drew separately per car, freezing
+  the page). It's made the first time it's asked for and kept beside the original (`car-models/{carId}/{sha256}.lite2.glb`,
   `carModelLite.ts`; an approved active version's only, and removed with a deleted version), so later viewers get it
   at once; a file it can't rewrite (sparse accessors) is sent as it is. Every material is painted grey
   (`modelPaint.ts`): white for the bodywork, so `getColor` gives it the lap's color in full, dark for tires, glass,

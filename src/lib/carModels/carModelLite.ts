@@ -6,7 +6,9 @@ import type { CarModelStore } from './carModelStorage.ts';
 // never deleted; a draft's is made each time an Admin asks), so every later viewer gets it at once. Two requests for the
 // same copy at once share one build. null when the file can't be rewritten: the route then sends the original.
 
-export const liteKeyOf = (storageKey: string) => storageKey.replace(/\.glb$/, `.lite${LITE_VERSION}.glb`);
+export const liteKeyOf = (storageKey: string, version = LITE_VERSION) => storageKey.replace(/\.glb$/, `.lite${version}.glb`);
+// Every lite copy a version may have, the current one's and older ones' (removed with the version)
+export const liteKeysOf = (storageKey: string) => Array.from({ length: LITE_VERSION }, (_, i) => liteKeyOf(storageKey, i + 1));
 
 const building = new Map<string, Promise<Uint8Array | null>>();
 
@@ -37,7 +39,7 @@ export function readLiteCarModel(store: CarModelStore, file: { storageKey: strin
       return null;
     }
     console.log(
-      `Car model lite copy made for ${file.storageKey}: ${lite.trianglesBefore} to ${lite.trianglesAfter} triangles, ${lite.bytes.byteLength} bytes, ${Date.now() - started} ms`
+      `Car model lite copy made for ${file.storageKey}: ${lite.trianglesBefore} to ${lite.trianglesAfter} triangles (${lite.interiorTriangles} interior left out), ${lite.bytes.byteLength} bytes, ${Date.now() - started} ms`
     );
     if (file.servable) await store.put(key, Buffer.from(lite.bytes)).catch((e) => console.error(`Car model lite copy ${key} couldn't be stored:`, e));
     return lite.bytes;

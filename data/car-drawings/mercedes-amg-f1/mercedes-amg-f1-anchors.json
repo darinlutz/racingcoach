@@ -1,0 +1,177 @@
+{
+  "car_id": "mercedes-amg-f1",
+  "car_name": "Mercedes-AMG F1 W13 E Performance",
+  "status": "draft",
+  "projection": "orthographic",
+  "units": "px of a 2400x1400 render (not to scale; each view fitted to its canvas)",
+  "source": {
+    "title": "Mercedec F1 2020",
+    "author": "Kevin Love SketchFab (https://sketchfab.com/Tyler_Kevin)",
+    "license": "CC-BY-4.0",
+    "url": "https://sketchfab.com/3d-models/mercedec-f1-2020-0d97207d829441ba95952598f84e8d63"
+  },
+  "scaling": "Traced (potrace) from 2400x1400 renders of the model; each view scaled to fit its canvas",
+  "views": {
+    "left-side": {
+      "orientation": {
+        "frontDirection": "screen-left",
+        "up": "vehicle up"
+      },
+      "viewBox": [
+        0,
+        0,
+        2400,
+        1400
+      ],
+      "anchors": {
+        "front_wheel_center": [
+          561,
+          793
+        ],
+        "front_contact_patch": [
+          561,
+          915
+        ],
+        "front_tyre_radius": 122,
+        "rear_wheel_center": [
+          1981,
+          792
+        ],
+        "rear_contact_patch": [
+          1981,
+          916
+        ],
+        "rear_tyre_radius": 124,
+        "groundY": 915.5
+      }
+    },
+    "right-side": {
+      "orientation": {
+        "frontDirection": "screen-right",
+        "up": "vehicle up"
+      },
+      "viewBox": [
+        0,
+        0,
+        2400,
+        1400
+      ],
+      "anchors": {
+        "front_wheel_center": [
+          1836.5,
+          794
+        ],
+        "front_contact_patch": [
+          1836.5,
+          916
+        ],
+        "front_tyre_radius": 122,
+        "rear_wheel_center": [
+          417,
+          792
+        ],
+        "rear_contact_patch": [
+          417,
+          916
+        ],
+        "rear_tyre_radius": 124,
+        "groundY": 916
+      }
+    },
+    "top": {
+      "orientation": {
+        "frontDirection": "screen-up",
+        "vehicleLeft": "screen-left",
+        "vehicleRight": "screen-right"
+      },
+      "viewBox": [
+        0,
+        0,
+        2400,
+        1400
+      ],
+      "anchors": {
+        "front_left_wheel_center": [
+          1017.6,
+          327.1
+        ],
+        "front_right_wheel_center": [
+          1382.4,
+          327.1
+        ],
+        "rear_left_wheel_center": [
+          1017.6,
+          1155.8
+        ],
+        "rear_right_wheel_center": [
+          1382.4,
+          1155.8
+        ]
+      }
+    },
+    "front": {
+      "orientation": {
+        "viewedFrom": "ahead of the car",
+        "vehicleLeft": "screen-right",
+        "vehicleRight": "screen-left"
+      },
+      "viewBox": [
+        0,
+        0,
+        2400,
+        1400
+      ],
+      "anchors": {
+        "front_right_wheel_center": [
+          323.2,
+          968.7
+        ],
+        "front_right_contact_patch": [
+          323.2,
+          1311
+        ],
+        "front_left_wheel_center": [
+          2076.8,
+          968.7
+        ],
+        "front_left_contact_patch": [
+          2076.8,
+          1311
+        ],
+        "groundY": 1311
+      }
+    },
+    "rear": {
+      "orientation": {
+        "viewedFrom": "behind the car",
+        "vehicleLeft": "screen-left",
+        "vehicleRight": "screen-right"
+      },
+      "viewBox": [
+        0,
+        0,
+        2400,
+        1400
+      ],
+      "anchors": {
+        "rear_left_wheel_center": [
+          338.4,
+          969.1
+        ],
+        "rear_left_contact_patch": [
+          338.4,
+          1311
+        ],
+        "rear_right_wheel_center": [
+          2061.6,
+          969.1
+        ],
+        "rear_right_contact_patch": [
+          2061.6,
+          1311
+        ],
+        "groundY": 1311
+      }
+    }
+  }
+}

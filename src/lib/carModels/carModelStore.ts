@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { query, transaction } from '../db';
 import { ensureUserSchema } from '../users';
 import { carModelKey, carModelStore } from './carModelStorage.ts';
-import { liteKeyOf } from './carModelLite.ts';
+import { liteKeysOf } from './carModelLite.ts';
 import type { GlbInfo } from './glb.ts';
 import { canonicalBounds, DEFAULT_NORMALIZATION, type Bounds, type Normalization } from './matrix.ts';
 import {
@@ -350,7 +350,7 @@ export async function deleteCarModel(id: number): Promise<void> {
   resolved.clear();
   const store = carModelStore();
   if (!store) return;
-  for (const key of [rows[0].storage_key, liteKeyOf(rows[0].storage_key)]) {
+  for (const key of [rows[0].storage_key, ...liteKeysOf(rows[0].storage_key)]) {
     await store.remove(key).catch((e) => console.error(`Car model object ${key} couldn't be removed:`, e));
   }
 }

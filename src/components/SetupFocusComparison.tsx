@@ -24,8 +24,11 @@ export default function SetupFocusComparison({
   engineer,
   focus,
   question,
+  systems,
   children,
 }: {
+  // The engineering systems' row of tabs, shown under the setup box
+  systems?: ReactNode;
   setups: Parameters<typeof SetupRevisionPicker>[0]['setups'];
   value: { a: RevisionChoice; b: RevisionChoice };
   onChange: (value: { a: RevisionChoice; b: RevisionChoice }) => void;
@@ -96,6 +99,7 @@ export default function SetupFocusComparison({
           <SetupRevisionPicker label={c.comparison} setups={setups} value={value.b} onChange={(b) => onChange({ ...value, b })} />
         </div>
       </Panel>
+      {systems}
 
       {!value.a || !value.b ? (
         <Notice>{c.pickBoth}</Notice>

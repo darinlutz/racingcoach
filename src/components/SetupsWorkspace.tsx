@@ -27,6 +27,8 @@ import { keyLabel } from '@/lib/setupYaml';
 // The engineering systems' tabs, shown as their own row under the others, each with its icon
 const SYSTEM_ICONS = { alignment: Crosshair, suspension: Box, brakes: CircleGauge, tires: CircleDot, aero: Plane, drivetrain: Cog, fuel: Fuel, electronics: Cpu, other: ListTree };
 const SYSTEM_TABS: SetupsTab[] = Object.keys(SYSTEM_ICONS) as SetupsTab[];
+// Tabs without the engineering systems' row: none of them is about the two setups Compare has
+const NO_SYSTEMS_BAR: SetupsTab[] = ['library', 'carSetups', 'engineer', 'inspection', 'history'];
 const DEBUG_KEY = 'setups.drawingDebug';
 
 // The Setups page (src/app/setups/page.tsx; docs/setups.md): one set of tabs over the user's setups. The tabs share the
@@ -113,10 +115,46 @@ export default function SetupsWorkspace({
     return setup?.latestRevisionId ? { setupId: setup.id, revisionId: setup.latestRevisionId } : null;
   };
 
+  // The engineering systems: each one dashboard of the two setups Compare has. Under the main tabs, except on a
+  // system's own tab, where it goes under the Baseline and Comparison setup box (SetupFocusComparison's systems)
+  const systemsBar = (
+    <div role="tablist" aria-label={s.tabs.systems} className="mt-3 flex flex-wrap items-center gap-2">
+      <span className="mr-1 font-mono text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">{s.tabs.systems}</span>
+      {tabs
+        .filter((name) => SYSTEM_TABS.includes(name))
+        .map((name) => {
+          const Icon = SYSTEM_ICONS[name as keyof typeof SYSTEM_ICONS];
+          return (
+            <button
+              key={name}
+              role="tab"
+              aria-selected={tab === name}
+              onClick={() => go(name)}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                tab === name
+                  ? 'border-align-baseline bg-align-baseline/15 text-foreground shadow-[0_0_0_1px_var(--align-baseline)]'
+                  : 'border-border text-muted-foreground hover:border-align-baseline hover:text-foreground'
+              }`}
+            >
+              <Icon className="size-3.5" aria-hidden />
+              {s.tabs[name]}
+            </button>
+          );
+        })}
+      {canDebugDrawings && (
+        <label className="ml-auto inline-flex items-center gap-1.5 font-mono text-[10px] font-semibold uppercase tracking-widest text-muted-foreground" title={s.carViews.debug.toggleTitle}>
+          <input type="checkbox" checked={debugDrawings} onChange={(e) => toggleDebug(e.target.checked)} data-track="setups-svg-debug" />
+          <Bug className="size-3.5" aria-hidden />
+          {s.carViews.debug.toggle}
+        </label>
+      )}
+    </div>
+  );
+
   return (
     <>
-      <div role="tablist" className="mb-6">
-        <div className="flex flex-wrap gap-2 border-b border-border">
+      <div className="mb-6">
+        <div role="tablist" className="flex flex-wrap gap-2 border-b border-border">
           {tabs
             .filter((name) => !SYSTEM_TABS.includes(name))
             .map((name) => (
@@ -133,38 +171,7 @@ export default function SetupsWorkspace({
               </button>
             ))}
         </div>
-        {/* The engineering systems: each one dashboard of the two setups Compare has */}
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <span className="mr-1 font-mono text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">{s.tabs.systems}</span>
-          {tabs
-            .filter((name) => SYSTEM_TABS.includes(name))
-            .map((name) => {
-              const Icon = SYSTEM_ICONS[name as keyof typeof SYSTEM_ICONS];
-              return (
-                <button
-                  key={name}
-                  role="tab"
-                  aria-selected={tab === name}
-                  onClick={() => go(name)}
-                  className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
-                    tab === name
-                      ? 'border-align-baseline bg-align-baseline/15 text-foreground shadow-[0_0_0_1px_var(--align-baseline)]'
-                      : 'border-border text-muted-foreground hover:border-align-baseline hover:text-foreground'
-                  }`}
-                >
-                  <Icon className="size-3.5" aria-hidden />
-                  {s.tabs[name]}
-                </button>
-              );
-            })}
-          {canDebugDrawings && (
-            <label className="ml-auto inline-flex items-center gap-1.5 font-mono text-[10px] font-semibold uppercase tracking-widest text-muted-foreground" title={s.carViews.debug.toggleTitle}>
-              <input type="checkbox" checked={debugDrawings} onChange={(e) => toggleDebug(e.target.checked)} data-track="setups-svg-debug" />
-              <Bug className="size-3.5" aria-hidden />
-              {s.carViews.debug.toggle}
-            </label>
-          )}
-        </div>
+        {(!list || !SYSTEM_TABS.includes(tab)) && !NO_SYSTEMS_BAR.includes(tab) && systemsBar}
       </div>
 
       {error && !list && (
@@ -221,6 +228,7 @@ export default function SetupsWorkspace({
               value={compare}
               onChange={setCompare}
               engineer={tabs.includes('engineer') ? { canUse: canUseEngineer, showPricing, onRevisionMade: load } : undefined}
+              systems={systemsBar}
             />
           )}
           {tab === 'suspension' && (
@@ -229,6 +237,7 @@ export default function SetupsWorkspace({
               value={compare}
               onChange={setCompare}
               engineer={tabs.includes('engineer') ? { canUse: canUseEngineer, showPricing, onRevisionMade: load } : undefined}
+              systems={systemsBar}
             />
           )}
           {tab === 'brakes' && (
@@ -237,6 +246,7 @@ export default function SetupsWorkspace({
               value={compare}
               onChange={setCompare}
               engineer={tabs.includes('engineer') ? { canUse: canUseEngineer, showPricing, onRevisionMade: load } : undefined}
+              systems={systemsBar}
             />
           )}
           {tab === 'tires' && (
@@ -245,6 +255,7 @@ export default function SetupsWorkspace({
               value={compare}
               onChange={setCompare}
               engineer={tabs.includes('engineer') ? { canUse: canUseEngineer, showPricing, onRevisionMade: load } : undefined}
+              systems={systemsBar}
             />
           )}
           {isSetupDashboard(tab) && (
@@ -254,6 +265,7 @@ export default function SetupsWorkspace({
               value={compare}
               onChange={setCompare}
               engineer={tabs.includes('engineer') ? { canUse: canUseEngineer, showPricing, onRevisionMade: load } : undefined}
+              systems={systemsBar}
             />
           )}
           {tab === 'engineer' && (

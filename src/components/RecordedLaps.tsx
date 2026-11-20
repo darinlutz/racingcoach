@@ -432,15 +432,16 @@ export default function RecordedLaps({
           </a>
         </p>
       )}
-      {moreStints && (
-        <p className="px-4 py-3 rounded-lg border text-sm bg-yellow-500/10 border-yellow-500/40 text-yellow-200">
-          {stintLimit === STINT_LIMITS.bronze
-            ? t.bronzeStintLimit
-            : stintLimit === STINT_LIMITS.silver
-              ? t.silverStintLimit
-              : fmt(t.maxStintLimit, { n: stintLimit ?? STINT_LIMITS.max })}
-        </p>
-      )}
+      {moreStints &&
+        (stintLimit === STINT_LIMITS.bronze || stintLimit === STINT_LIMITS.silver ? (
+          <p className="px-4 py-3 rounded-lg border text-sm bg-yellow-500/10 border-yellow-500/40 text-yellow-200">
+            {stintLimit === STINT_LIMITS.bronze ? t.bronzeStintLimit : t.silverStintLimit}
+          </p>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            {fmt(t.maxStintLimit, { n: stintLimit ?? STINT_LIMITS.max })}
+          </p>
+        ))}
       {/* Scrolls on its own so a long list doesn't run down the page */}
       <div className="max-h-[36rem] overflow-y-auto space-y-2 pr-1">
       {sessions.map((session, index) => {

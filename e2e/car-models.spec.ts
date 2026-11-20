@@ -84,7 +84,8 @@ test('an Admin uploads, reviews and activates a model; drivers get only the acti
   }
   await admin.page.goto('/admin#car-models');
   const section = admin.page.locator('#car-models');
-  await expect(section.getByRole('heading', { name: '3D Car Models' })).toBeVisible();
+  // The address opens its Admin section (AdminSection.tsx), named on its bar
+  await expect(admin.page.getByRole('button', { name: '3D Car Models', expanded: true })).toBeVisible();
   const row = section.locator('li').filter({ hasText: 'test-car.glb', has: admin.page.getByRole('button', { name: 'Preview' }) }).first();
   await row.getByRole('button', { name: 'Preview' }).click();
   // The first viewer waits for next dev to compile three.js and Drei

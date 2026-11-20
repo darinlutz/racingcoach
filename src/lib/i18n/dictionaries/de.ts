@@ -1209,7 +1209,7 @@ export const de: Dictionary = {
     bothNotFrom: 'Beide hochgeladenen Runden stammen nicht von {track}.',
     analyze: 'Runden analysieren',
     provideSummary: 'Zusammenfassung erstellen',
-    provideSummaryBronze: 'Die Rundenzusammenfassung ist für Bronze-Mitglieder nicht verfügbar. Upgraden Sie auf Silber oder Gold, um die Rundenzusammenfassung zu nutzen.',
+    provideSummaryBronze: 'Die Zusammenfassung ist für Bronze-Mitglieder nicht verfügbar',
     analyzing: 'Wird analysiert…',
     summary: 'Zusammenfassung',
     summaryPlaceholderNoLaps: 'Lade eine Zielrunde und eine Vergleichsrunde hoch und klicke dann auf Runden analysieren.',
@@ -2197,6 +2197,38 @@ export const de: Dictionary = {
 
   // The Admin page's activity log (src/app/admin/page.tsx)
   admin: {
+    // The Admin page's section links and collapsible sections (src/components/AdminNav.tsx, AdminSection.tsx)
+    nav: {
+      jumpTo: 'Springen zu',
+      expandAll: 'Alle aufklappen',
+      collapseAll: 'Alle zuklappen',
+      expand: 'Aufklappen',
+      collapse: 'Zuklappen',
+      sections: {
+        subscribers: 'Abonnenten',
+        privacy: 'Datenschutzanfragen',
+        siteSettings: 'Website-Einstellungen',
+        monitoring: 'Überwachung',
+        aiModels: 'KI-Modellsteuerung',
+        localAiMode: 'Modus des lokalen KI-Servers',
+        aiInference: 'KI-Inferenzüberwachung',
+        localAiTest: 'Testkonsole der lokalen KI',
+        aiCosts: 'Kosten der KI-Modelle',
+        rateLimits: 'Nutzungslimits',
+        videoLibrary: 'Videobibliothek der Übertragung',
+        engineSounds: 'Motorgeräusche',
+        broadcastDirector: 'Übertragungsregie',
+        liveVideo: 'Live-Video',
+        userRoles: 'Benutzerrollen',
+        lapRetention: 'Aufbewahrung der Rundentelemetrie',
+        telemetryStorage: 'Telemetriespeicher',
+        engineeringKnowledge: 'Renningenieurwissen',
+        carDrawings: 'Technische Fahrzeugzeichnungen',
+        carModels: '3D-Fahrzeugmodelle',
+        collectorLogs: 'Collector-Protokolle',
+        activity: 'Aktivitätsprotokoll',
+      },
+    },
     // The Broadcast Video Library and Broadcast Director sections
     // The Engine Sounds section (src/components/EngineAudioLibrary.tsx)
     engineAudio: {

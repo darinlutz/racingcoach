@@ -1218,7 +1218,7 @@ export const en = {
     analyze: 'Analyze Laps',
     provideSummary: 'Provide summary',
     // The checkbox's tooltip for Bronze members, who can't use it
-    provideSummaryBronze: 'The Lap Summary is not available for Bronze members. Upgrade to Silver or Gold to use the Lap Summary.',
+    provideSummaryBronze: 'Summary is unavailable for Bronze members',
     analyzing: 'Analyzing…',
     summary: 'Summary',
     summaryPlaceholderNoLaps: 'Upload a Target lap and a Compare lap, then press Analyze Laps.',
@@ -2208,6 +2208,38 @@ export const en = {
 
   // The Admin page's activity log (src/app/admin/page.tsx)
   admin: {
+    // The Admin page's section links and collapsible sections (src/components/AdminNav.tsx, AdminSection.tsx)
+    nav: {
+      jumpTo: 'Jump to',
+      expandAll: 'Expand all',
+      collapseAll: 'Collapse all',
+      expand: 'Expand',
+      collapse: 'Collapse',
+      sections: {
+        subscribers: 'Subscribers',
+        privacy: 'Privacy Requests',
+        siteSettings: 'Site Settings',
+        monitoring: 'Monitoring',
+        aiModels: 'AI Model Control',
+        localAiMode: 'Local AI Server Mode',
+        aiInference: 'AI Inference Monitoring',
+        localAiTest: 'Local AI Test Console',
+        aiCosts: 'AI Model Costs',
+        rateLimits: 'Rate Limiting',
+        videoLibrary: 'Broadcast Video Library',
+        engineSounds: 'Engine Sounds',
+        broadcastDirector: 'Broadcast Director',
+        liveVideo: 'Live Video',
+        userRoles: 'User Roles',
+        lapRetention: 'Lap Telemetry Retention',
+        telemetryStorage: 'Telemetry Storage',
+        engineeringKnowledge: 'Race Engineering Knowledge',
+        carDrawings: 'Engineering Car Drawings',
+        carModels: '3D Car Models',
+        collectorLogs: 'Collector Logs',
+        activity: 'Activity Log',
+      },
+    },
     // The Broadcast Video Library and Broadcast Director sections
     // The Engine Sounds section (src/components/EngineAudioLibrary.tsx)
     engineAudio: {

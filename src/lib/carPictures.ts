@@ -236,7 +236,8 @@ export const IRACING_CARS: [string, string, ...string[]][] = [
   // iRacing's list says bmwrn2csr, which looks like a typo
   ['bmwm2csr', 'bmw-m2-cs-racing', 'BMW M2 CSR'],
   ['bmwrn2csr', 'bmw-m2-cs-racing'],
-  ['bmwm4gt3', 'bmw-m4-gt3-evo', 'BMW M4 GT3'],
+  // iRacing renamed it the M4 GT3 EVO, keeping its car path; Car Data has the new name
+  ['bmwm4gt3', 'bmw-m4-gt3-evo', 'BMW M4 GT3', 'BMW M4 GT3 EVO'],
   ['bmwm4evogt4', 'bmw-m4-g82-gt4', 'BMW M4 G82 GT4'],
   ['bmwm4gt4', 'bmw-m4-f82-gt4-2018', 'BMW M4 F82 GT4 - 2018'],
   ['bmwm8gte', 'bmw-m8-gte', 'BMW M8 GTE'],
@@ -314,8 +315,16 @@ export const IRACING_CARS: [string, string, ...string[]][] = [
   ['stockcars camarozl12018', 'nascar-cup-series-chevrolet-camaro-zl1', 'NASCAR Cup Series Chevrolet Camaro ZL1'],
   ['stockcars fordmustang2019', 'nascar-cup-series-ford-mustang', 'NASCAR Cup Series Ford Mustang'],
   ['stockcars toyotacamry', 'nascar-cup-series-toyota-camry', 'NASCAR Cup Series Toyota Camry'],
-  // "NASCAR Chevrolet Camaro ZL1" was seen at Talladega, so the Next Gen car
-  ['stockcars camarozl12022', 'next-gen-nascar-cup-series-chevrolet-camaro-zl1', 'NASCAR Cup Series Next Gen Chevrolet Camaro ZL1', 'NASCAR Chevrolet Camaro ZL1'],
+  // "NASCAR Chevrolet Camaro ZL1" was seen at Talladega, so the Next Gen car. Its car path (and setups folder) is
+  // "stockcars chevycamarozl12022", as the sim PC's iRacing setups folder shows; Car Data names it the Next Gen
+  // NASCAR Cup Series Chevrolet Camaro ZL1
+  [
+    'stockcars chevycamarozl12022',
+    'next-gen-nascar-cup-series-chevrolet-camaro-zl1',
+    'NASCAR Cup Series Next Gen Chevrolet Camaro ZL1',
+    'NASCAR Chevrolet Camaro ZL1',
+    'Next Gen NASCAR Cup Series Chevrolet Camaro ZL1',
+  ],
   ['stockcars fordmustang2022', 'next-gen-nascar-cup-series-ford-mustang', 'NASCAR Cup Series Next Gen Ford Mustang'],
   ['stockcars toyotacamry2022', 'next-gen-nascar-cup-series-toyota-camry', 'NASCAR Cup Series Next Gen Toyota Camry'],
   ['stockcars chevymontecarlo03', 'gen-4-chevrolet-monte-carlo-2003', 'NASCAR Gen 4 Chevrolet Monte Carlo - 2003'],

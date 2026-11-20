@@ -1191,7 +1191,7 @@ export const es: Dictionary = {
     bothNotFrom: 'Ninguna de las dos vueltas subidas es de {track}.',
     analyze: 'Analizar vueltas',
     provideSummary: 'Incluir resumen',
-    provideSummaryBronze: 'El resumen de vueltas no está disponible para miembros Bronce. Mejora a Plata u Oro para usar el resumen de vueltas.',
+    provideSummaryBronze: 'El resumen no está disponible para miembros Bronce',
     analyzing: 'Analizando…',
     summary: 'Resumen',
     summaryPlaceholderNoLaps: 'Sube una vuelta objetivo y una vuelta comparada, y presiona Analizar vueltas.',
@@ -2169,6 +2169,38 @@ export const es: Dictionary = {
   },
 
   admin: {
+    // The Admin page's section links and collapsible sections (src/components/AdminNav.tsx, AdminSection.tsx)
+    nav: {
+      jumpTo: 'Ir a',
+      expandAll: 'Expandir todo',
+      collapseAll: 'Contraer todo',
+      expand: 'Expandir',
+      collapse: 'Contraer',
+      sections: {
+        subscribers: 'Suscriptores',
+        privacy: 'Solicitudes de privacidad',
+        siteSettings: 'Configuración del sitio',
+        monitoring: 'Monitoreo',
+        aiModels: 'Control de modelos de IA',
+        localAiMode: 'Modo del servidor de IA local',
+        aiInference: 'Monitoreo de inferencia de IA',
+        localAiTest: 'Consola de prueba de IA local',
+        aiCosts: 'Costos de los modelos de IA',
+        rateLimits: 'Límites de uso',
+        videoLibrary: 'Biblioteca de videos de la transmisión',
+        engineSounds: 'Sonidos de motor',
+        broadcastDirector: 'Director de la transmisión',
+        liveVideo: 'Video en vivo',
+        userRoles: 'Roles de usuario',
+        lapRetention: 'Retención de la telemetría de vueltas',
+        telemetryStorage: 'Almacenamiento de telemetría',
+        engineeringKnowledge: 'Conocimiento de ingeniería de carreras',
+        carDrawings: 'Dibujos de ingeniería de los autos',
+        carModels: 'Modelos 3D de los autos',
+        collectorLogs: 'Registros del recolector',
+        activity: 'Registro de actividad',
+      },
+    },
     // The Broadcast Video Library and Broadcast Director sections
     // The Engine Sounds section (src/components/EngineAudioLibrary.tsx)
     engineAudio: {

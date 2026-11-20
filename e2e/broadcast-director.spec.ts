@@ -158,7 +158,7 @@ test('Phase 1: uploads reach storage, are checked, and appear by category', asyn
   expect(Math.round(first.durationSeconds)).toBe(12);
 
   const page = await admin.newPage();
-  await page.goto('/admin');
+  await page.goto('/admin#broadcast-video-library');
   for (const category of VIDEO_CATEGORIES) await expect(page.getByTestId(`category-${category}`).getByRole('heading')).toContainText('(1)');
   await page.getByTestId('category-BLIMP').getByRole('button', { name: 'Preview' }).click();
   const preview = page.getByTestId('category-BLIMP').locator('video');

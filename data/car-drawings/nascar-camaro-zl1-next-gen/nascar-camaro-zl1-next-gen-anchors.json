@@ -1,0 +1,177 @@
+{
+  "car_id": "nascar-camaro-zl1-next-gen",
+  "car_name": "NASCAR Cup Series Chevrolet Camaro ZL1",
+  "status": "draft",
+  "projection": "orthographic",
+  "units": "px of a 2400x1400 render (not to scale; each view fitted to its canvas)",
+  "source": {
+    "title": "2022 NASCAR Chevrolet Camaro ZL1 Next Gen",
+    "author": "Ddiaz Design (https://sketchfab.com/ddiaz-design)",
+    "license": "CC-BY-4.0",
+    "url": "https://sketchfab.com/3d-models/2022-nascar-chevrolet-camaro-zl1-next-gen-ee5c5a92b1c44fac8ed070f684108225"
+  },
+  "scaling": "Traced (potrace) from 2400x1400 renders of the model; each view scaled to fit its canvas",
+  "views": {
+    "left-side": {
+      "orientation": {
+        "frontDirection": "screen-left",
+        "up": "vehicle up"
+      },
+      "viewBox": [
+        0,
+        0,
+        2400,
+        1400
+      ],
+      "anchors": {
+        "front_wheel_center": [
+          550,
+          848
+        ],
+        "front_contact_patch": [
+          550,
+          1010
+        ],
+        "front_tyre_radius": 162,
+        "rear_wheel_center": [
+          1810,
+          845
+        ],
+        "rear_contact_patch": [
+          1810,
+          1010
+        ],
+        "rear_tyre_radius": 165,
+        "groundY": 1010
+      }
+    },
+    "right-side": {
+      "orientation": {
+        "frontDirection": "screen-right",
+        "up": "vehicle up"
+      },
+      "viewBox": [
+        0,
+        0,
+        2400,
+        1400
+      ],
+      "anchors": {
+        "front_wheel_center": [
+          1849,
+          844
+        ],
+        "front_contact_patch": [
+          1849,
+          1006
+        ],
+        "front_tyre_radius": 162,
+        "rear_wheel_center": [
+          589,
+          845
+        ],
+        "rear_contact_patch": [
+          589,
+          1010
+        ],
+        "rear_tyre_radius": 165,
+        "groundY": 1008
+      }
+    },
+    "top": {
+      "orientation": {
+        "frontDirection": "screen-up",
+        "vehicleLeft": "screen-left",
+        "vehicleRight": "screen-right"
+      },
+      "viewBox": [
+        0,
+        0,
+        2400,
+        1400
+      ],
+      "anchors": {
+        "front_left_wheel_center": [
+          988,
+          320.3
+        ],
+        "front_right_wheel_center": [
+          1412,
+          320.3
+        ],
+        "rear_left_wheel_center": [
+          988,
+          1056.3
+        ],
+        "rear_right_wheel_center": [
+          1412,
+          1056.3
+        ]
+      }
+    },
+    "front": {
+      "orientation": {
+        "viewedFrom": "ahead of the car",
+        "vehicleLeft": "screen-right",
+        "vehicleRight": "screen-left"
+      },
+      "viewBox": [
+        0,
+        0,
+        2400,
+        1400
+      ],
+      "anchors": {
+        "front_right_wheel_center": [
+          443.2,
+          1009.2
+        ],
+        "front_right_contact_patch": [
+          443.2,
+          1347
+        ],
+        "front_left_wheel_center": [
+          1956.8,
+          1009.2
+        ],
+        "front_left_contact_patch": [
+          1956.8,
+          1347
+        ],
+        "groundY": 1347
+      }
+    },
+    "rear": {
+      "orientation": {
+        "viewedFrom": "behind the car",
+        "vehicleLeft": "screen-left",
+        "vehicleRight": "screen-right"
+      },
+      "viewBox": [
+        0,
+        0,
+        2400,
+        1400
+      ],
+      "anchors": {
+        "rear_left_wheel_center": [
+          443.2,
+          1002.9
+        ],
+        "rear_left_contact_patch": [
+          443.2,
+          1347
+        ],
+        "rear_right_wheel_center": [
+          1956.8,
+          1002.9
+        ],
+        "rear_right_contact_patch": [
+          1956.8,
+          1347
+        ],
+        "groundY": 1347
+      }
+    }
+  }
+}

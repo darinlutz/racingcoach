@@ -44,7 +44,9 @@ export function checkAction(
 }
 
 // iRacing's car path, as session info's CarPath and the setups' car_key give it
-export const CAR_KEY = /^[a-z0-9][a-z0-9_.-]{1,63}$/;
+// iRacing's car path: some have a folder and a space in them ("mx5 mx52016", "stockcars chevycamarozl12022"), which
+// setups carry as they are, so a single space between words is allowed
+export const CAR_KEY = /^(?=.{2,64}$)[a-z0-9][a-z0-9_.-]*(?: [a-z0-9_.-]+)*$/;
 export const normalizeCarKey = (key: string) => key.trim().toLowerCase();
 
 export type ViewInput = { svg: string; anchors: unknown; hasWheels?: unknown };

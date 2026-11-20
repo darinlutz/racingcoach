@@ -19,6 +19,9 @@ export type BundledDrawing = {
   prefix: string;
   // The Lovable repository's commit the set was copied from
   commit: string;
+  // That repository, when not darinlutz/racingcoach-car-drawings (traced drawings converted by
+  // scripts/importTracedCarDrawings.mjs)
+  project?: string;
   // Permission beyond the model's own licence, recorded with the licence when the set is imported
   permission?: string;
 };
@@ -35,6 +38,12 @@ export const BUNDLED_DRAWINGS: BundledDrawing[] = [
   { id: 'mclaren-720s-gt3-evo', carName: 'McLaren 720S GT3 EVO', carKeys: ['mclaren720sgt3'], folder: 'mclaren-720s-gt3-evo', prefix: 'mclaren-720s-gt3-evo', commit: '6be3c65' },
   { id: 'mercedes-amg-gt3-evo-2020', carName: 'Mercedes-AMG GT3 2020', carKeys: ['mercedesamgevogt3'], folder: 'mercedes-amg-gt3-evo-2020', prefix: 'mercedes-amg-gt3-evo-2020', commit: '6be3c65' },
   { id: 'porsche-911-gt3-r-992', carName: 'Porsche 911 GT3 R (992)', carKeys: ['porsche992rgt3'], folder: 'porsche-911-gt3-r-992', prefix: 'porsche-911-gt3-r-992', commit: '6be3c65' },
+  // Traced from darinlutz/five-more-fast-cars (scripts/importTracedCarDrawings.mjs); each set's VALIDATION-NOTES.md says
+  // what was measured and what estimated, and its model and licence. That project's Ferrari 296 GT3, Toyota GR86 and
+  // Mazda MX-5 are NonCommercial models, so they're left out until their authors' permission is recorded (the script's
+  // CARS)
+  { id: 'nascar-camaro-zl1-next-gen', carName: 'Next Gen NASCAR Cup Series Chevrolet Camaro ZL1', carKeys: ['stockcars chevycamarozl12022'], folder: 'nascar-camaro-zl1-next-gen', prefix: 'nascar-camaro-zl1-next-gen', commit: 'bf0668b', project: 'darinlutz/five-more-fast-cars' },
+  { id: 'mercedes-amg-f1', carName: 'Mercedes-AMG W13 E Performance', carKeys: ['mercedesw13'], folder: 'mercedes-amg-f1', prefix: 'mercedes-amg-f1', commit: 'bf0668b', project: 'darinlutz/five-more-fast-cars' },
 ];
 
 const root = () => path.join(process.cwd(), 'data', 'car-drawings');
@@ -89,7 +98,7 @@ export async function bundledDraftInput(id: string, carId: number, carKeys?: str
   }
   const sources = [
     `Drawn from the 3D model ${credit}, licensed ${license || 'under an unknown licence'}.`,
-    `Orthographic feature-edge drawings from the Lovable project darinlutz/racingcoach-car-drawings (commit ${set.commit}). ${anchors.scaling ?? ''}`.trim(),
+    `Orthographic ${set.project ? 'traced ' : 'feature-edge '}drawings from the Lovable project ${set.project ?? 'darinlutz/racingcoach-car-drawings'} (commit ${set.commit}). ${anchors.scaling ?? ''}`.trim(),
   ].join('\n');
   return {
     carId,

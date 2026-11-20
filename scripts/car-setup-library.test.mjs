@@ -19,6 +19,26 @@ import {
   setupStem,
 } from '../src/lib/carSetupLibraryRules.ts';
 
+import { IRACING_CARS } from '../src/lib/carPictures.ts';
+import { carPathForName } from '../src/lib/carModels/carPathByName.ts';
+
+describe('car folders and Car Data', () => {
+  // Folders a sim PC's iRacing setups folder has, and the Car Data car each is (resolveCarFolders matches the folder
+  // to a car path in IRACING_CARS, then one of its names to Car Data's)
+  const folders = {
+    bmwm4gt3: 'BMW M4 GT3 EVO',
+    'stockcars chevycamarozl12022': 'Next Gen NASCAR Cup Series Chevrolet Camaro ZL1',
+  };
+  for (const [folder, carDataName] of Object.entries(folders)) {
+    test(`${folder} is ${carDataName}, and that name finds only its car path`, () => {
+      const entry = IRACING_CARS.find(([carPath]) => carPath === folder);
+      assert.ok(entry, folder);
+      assert.ok(entry.slice(2).includes(carDataName));
+      assert.equal(carPathForName(carDataName), folder);
+    });
+  }
+});
+
 const fixture = (name) => fs.readFileSync(new URL(`./fixtures/setups/htm/${name}`, import.meta.url));
 const byPath = (parsed) => new Map(parsed.parameters.map((p) => [p.path, p]));
 

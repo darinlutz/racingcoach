@@ -30,6 +30,8 @@ describe('the repository’s car drawings', () => {
         ['mclaren-720s-gt3-evo', [...CAR_VIEWS]],
         ['mercedes-amg-gt3-evo-2020', [...CAR_VIEWS]],
         ['porsche-911-gt3-r-992', [...CAR_VIEWS]],
+        ['nascar-camaro-zl1-next-gen', [...CAR_VIEWS]],
+        ['mercedes-amg-f1', [...CAR_VIEWS]],
       ]
     );
     for (const s of sets) assert.match(s.license, /^CC-BY-(NC-SA-)?4\.0$/);
@@ -55,18 +57,32 @@ describe('the repository’s car drawings', () => {
         assert.match(art.inner, /<g id="wheels" data-layer="wheels"/, `${set.id} ${view}`);
         assert.equal(Object.keys(art.anchors.wheelCenters).sort().join(), [...visibleCorners(view)].sort().join(), `${set.id} ${view}`);
         if (view === 'top') continue;
-        // 1 unit = 1 mm: each wheel center is a tire radius (330-360 mm) above the ground
         for (const corner of visibleCorners(view)) {
           const radius = (art.anchors.groundY - art.anchors.wheelCenters[corner].y) * art.viewBox.height;
-          assert.ok(radius > 330 && radius < 380, `${set.id} ${view} ${corner}: ${radius.toFixed(1)} mm`);
-          assert.ok(Math.abs(art.anchors.contactPatches[corner].y - art.anchors.groundY) < 1e-9);
+          // The traced sets (scripts/importTracedCarDrawings.mjs) aren't to scale: their wheels only stand above the
+          // ground. In the others 1 unit = 1 mm, each wheel center a tire radius (330-380 mm) up
+          if (set.project) assert.ok(radius > 0, `${set.id} ${view} ${corner}`);
+          else {
+            assert.ok(radius > 330 && radius < 380, `${set.id} ${view} ${corner}: ${radius.toFixed(1)} mm`);
+            assert.ok(Math.abs(art.anchors.contactPatches[corner].y - art.anchors.groundY) < 1e-9);
+          }
         }
+      }
+      // A traced set: the same tires measured on both sides, and its side views' wheels in their own layer
+      if (set.project) {
+        const tire = (view, corner) =>
+          (draft.views[view].anchors.groundY - draft.views[view].anchors.wheelCenters[corner].y) * draft.views[view].viewBox.height;
+        assert.ok(Math.abs(tire('left-side', 'LF') - tire('right-side', 'RF')) < 4, `${set.id}: front tires`);
+        assert.ok(Math.abs(tire('left-side', 'LR') - tire('right-side', 'RR')) < 4, `${set.id}: rear tires`);
+        assert.match(draft.views['left-side'].inner, /<g id="wheels" data-layer="wheels"[^>]*>\s*<path/);
       }
       // Front and rear: the car's left on the screen's right from the front, on the left from behind
       assert.ok(draft.views.front.anchors.wheelCenters.LF.x > draft.views.front.anchors.wheelCenters.RF.x);
       assert.ok(draft.views.rear.anchors.wheelCenters.LR.x < draft.views.rear.anchors.wheelCenters.RR.x);
       // A centerline ride height reference isn't a corner's, so it isn't given to one
       assert.deepEqual(draft.views.front.anchors.rideHeightPoints, {});
+      // The traced sets have no ride height references or aero parts (their notes say so)
+      if (set.project) return;
       assert.ok(draft.views['left-side'].anchors.rideHeightPoints.LF);
       assert.ok(draft.views['left-side'].anchors.wing && draft.views.front.anchors.splitter);
     });

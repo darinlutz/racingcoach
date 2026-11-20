@@ -11,7 +11,8 @@ type Params = { params: Promise<{ id: string }> };
 // its status. PUT { action: submit | approve | reject | activate | deactivate } moves it on (modelRules.ts'
 // checkModelAction; activating makes it the car's only active version, which is how an older approved version is rolled
 // back to), or PUT { settings: { normalization, wheelAnchors, defaultView, carKeys, source, license, attribution, notes } }
-// changes an uploaded or rejected one. DELETE removes an uploaded or rejected version and its file. Admin role only;
+// changes an uploaded or rejected one. DELETE removes any version and its file (the active
+// one too: the car then shows the generic car). Admin role only;
 // anyone else 404.
 export async function GET(_request: Request, { params }: Params) {
   const session = await carModelsAdmin();

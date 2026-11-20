@@ -23,7 +23,8 @@ import {
 // it has a model, an upload form, and every version with its status, review history and a preview. The preview is the
 // same viewer drivers get (Car3DViewer), with the canonical axes, the model's box and its wheel-center rings, and
 // while the version is uploaded or rejected its normalization, wheel centers, opening camera and provenance can be
-// changed and seen at once, then saved. GET/POST /api/admin/car-models, GET/PUT/DELETE /api/admin/car-models/[id],
+// changed and seen at once, then saved. Every version has a Delete button (the active one too, after a warning that the
+// car then shows the generic car). GET/POST /api/admin/car-models, GET/PUT/DELETE /api/admin/car-models/[id],
 // Admins only.
 
 type Car = { id: number; name: string; lengthIn: number | null; widthIn: number | null; wheelbaseIn: number | null };
@@ -185,7 +186,7 @@ export default function CarModelAssetManager() {
   };
 
   const act = async (model: Summary, action: ModelAction | 'delete') => {
-    if (action === 'delete' && !window.confirm(fmt(s.confirmDelete, { version: model.version }))) return;
+    if (action === 'delete' && !window.confirm(fmt(model.active ? s.confirmDeleteActive : s.confirmDelete, { version: model.version, car: model.carName }))) return;
     clear();
     setBusy(true);
     try {
@@ -196,7 +197,10 @@ export default function CarModelAssetManager() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) fail(data);
-      if (action === 'delete' && previewId === model.id) setPreviewId(null);
+      else if (action === 'delete') {
+        if (previewId === model.id) setPreviewId(null);
+        setMessage(fmt(s.deleted, { car: model.carName, version: model.version }));
+      }
       await load();
     } catch {
       setError(m.errors.failed);
@@ -428,11 +432,14 @@ export default function CarModelAssetManager() {
                       {s.actions.deactivate}
                     </button>
                   )}
-                  {!model.active && editableStatus(model.status) && (
-                    <button type="button" disabled={busy} className={buttonClass} onClick={() => void act(model, 'delete')}>
-                      {s.actions.delete}
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    disabled={busy}
+                    className={`${buttonClass} text-red-500 hover:border-red-500`}
+                    onClick={() => void act(model, 'delete')}
+                  >
+                    {s.actions.delete}
+                  </button>
                 </div>
                 {model.history.length > 0 && (
                   <p className="text-xs text-muted-foreground">

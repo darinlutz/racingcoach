@@ -112,8 +112,9 @@ version reaches drivers.
 5. **Replace.** Upload a new version and activate it. A version's bytes never change (content-addressed, with the hash
    in the URL), so browsers keep the file for a year with no stale cache.
 
-Every action is logged in `"CarModelAssetEvents"`. Deleting is allowed only for an Uploaded or Rejected version that
-isn't active, and removes its file too.
+Every action is logged in `"CarModelAssetEvents"`. Any version can be deleted with its Delete button, which removes its
+file and lite copy too (and its events). Deleting the active version leaves the car with none, so drivers see the
+generic car until another approved version is activated; a deleted approved version can't be rolled back to.
 
 There is no "Processing" status. The check runs during the upload request, so no version is ever seen half-checked.
 

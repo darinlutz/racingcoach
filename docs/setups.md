@@ -157,6 +157,64 @@ Setup Engineer posts `focus` (the tab's name) and the route builds that system's
   control as a dial (ABS borrowed from Brakes); an illustrative TC trace. Other: an illustrative throttle curve for a
   throttle shape setting (no car's map), then whatever no other category takes
 
+## iRacing setup collection (proof of concept)
+
+The **iRacing Setups** tab (`carSetups`, after My Setups; `src/components/SetupCarLibrary.tsx`) is a shared library
+of iRacing's own setup files, copied from the sim PC by the collector's **Get Car Setups** button. It's separate from
+My Setups (each user's own `"Setups"`), and for **Admins only** until the licensing and redistribution of iRacing's
+setups is decided: the page leaves the tab out for anyone else, its routes answer 404, and the collector's routes 403.
+
+- **Collector** (from 1.100.0): the button beside Brake Practice shows only when `/api/collector/me` says Admin
+  (`CollectorEngine.IsAdmin`). `CarSetupsWindow` runs `CarSetupImporter`: `SetupFolderScanner` (Core, tested on any OS)
+  looks for `iRacing\setups` under `%USERPROFILE%\OneDrive\Documents`, `%OneDrive%\Documents`, the Documents known folder,
+  then `%USERPROFILE%\Documents`; scans only `CarSetupImporter.PocCarFolders` (`ferrari296gt3` for now) and up to 3
+  subfolders; pairs each `.sto` with the `.htm` of the same name (case aside); reads files sharing them with iRacing and
+  OneDrive (online-only files download as they're read), retrying while one is locked or still being written, and never
+  moves, renames, changes or deletes them. Folders that are links aren't followed. Progress is in the user's language,
+  and the activity log gets the same in English
+- **Import** (`src/lib/carSetupLibrary.ts`): `POST /api/collector/car-setups/plan` lists every setup with its files'
+  names, sizes and SHA-256 hashes and answers new, changed, unchanged or unresolvedCar; the collector sends only new and
+  changed ones, both files, to `POST /api/collector/car-setups` (multipart `meta`, `sto`, `htm`), then
+  `POST /api/collector/car-setups/finish` with what failed. The server checks the Admin role on each, the files against
+  the listed hashes and sizes, the names (`carSetupLibraryRules.ts`: no path separators, `..`, reserved or control
+  characters), the `.sto`'s container (`readStoFile`; a file that isn't one is refused) and that the `.htm` is text
+- **Car**: the car folder is iRacing's car path; it's a Car Data car only when that path's names in `IRACING_CARS`
+  match exactly one `"Cars"` row (accents, case and punctuation aside); otherwise the folder is reported unresolved and
+  its setups aren't imported (`resolveCarFolders`). No car is ever created
+- **Storage**: the private telemetry R2 bucket (`telemetryStore()`, server-only token), at
+  `iracing-setups/<car folder>/<sha256>.sto|.htm`: content-addressed, so identical bytes are one object, a retry or a
+  second import writes nothing, and a re-saved setup is a new object. Order per setup: a `pending`
+  `"TelemetryObjectCleanup"` entry, the object (skipped when one of that size is already there), a HEAD to check it, then
+  the row and the entry's removal in one transaction, so a failure never leaves a catalog entry without its files. A
+  replaced or deleted setup's old objects are queued by the `"CarSetups"` triggers, and the cleanup worker deletes one
+  only when no setup references its key. For local development without R2, `CAR_SETUP_DEV_STORAGE_DIR` (a folder on the
+  computer, never on the live server) stands in
+- **Catalog**: `"CarSetups"` (`carSetupLibrarySchema.ts`): one row per simulator, car folder and setup path (case aside),
+  with the car, both files' names, keys, hashes and sizes, `sto_info`, `htm_parse_status` (`parsed`, `empty`, `failed`,
+  `missing`) and `htm_parsed`, `version` (up by one each time its files change), `provenance` and who imported it.
+  `"CarSetupImports"`: each press, with its counts, unresolved folders and failures. Both in the privacy inventory with
+  the other content Admins upload
+- **Provenance**: nothing in a `.sto` or `.htm` says who made a setup, so every import is `unknown`; an Admin can mark it
+  `official` (once checked to be iRacing's own) or `user` in the tab (`PATCH /api/setups/car-library/[id]`)
+- **The .htm export** (`src/lib/setupHtm.ts`, pure): iRacing's HTML 4 export, tokenized (never rendered or put in a DOM):
+  the title heading's car path, setup name and track; each `<H2><U>BOX:</U></H2>`; each `Label: <U>value</U>` with
+  continuation lines (a list such as a tire's three temperatures, or `of <U>3.090 in</U>`); headings with no colon as
+  the box's description; the Notes section. UTF-8, else Latin-1. Values keep their labels, units and box as written,
+  numbers read with `readValue`, categories and readings from `setupYaml.ts`'s rules plus a few of the export's own
+  (`HTM_READING_KEYS`). Boxes repeat (LEFT FRONT for tires and chassis), so a value's path is its box and label in
+  order, with `#2` for a box seen again. Lines that don't fit become warnings, never values. Tested against five real
+  exports (`scripts/fixtures/setups/htm/`, MIT, from CarTunes)
+- **Page**: a car picker (cars with imported setups), the table (Setup, STO, HTM, Imported, Origin, View / Download STO /
+  Download HTM), View's values by category under iRacing's labels, and the latest imports with their failures.
+  Downloads stream through `GET /api/setups/car-library/[id]/file?kind=sto|htm` after the Admin check, checked against
+  the stored hash, always as an attachment (`application/octet-stream`, a sandbox CSP), so an `.htm` never renders on
+  the site. `GET /api/setups/car-library?car=`, `GET`/`PATCH /api/setups/car-library/[id]`
+- **Not yet**: every car (remove the `PocCarFolders` filter, check the unresolved folders), scheduled or automatic
+  scans, showing the library to drivers (needs the licensing decision), and linking a library setup to the per-user
+  Setups' revisions. A `.htm` older or newer than these exports may need more rules; its warnings show what didn't fit
+- **Tests**: `npm run test:car-setup-library` (the parser and rules, then the import against a local Postgres with
+  `CAR_SETUPS_TEST_DATABASE_URL`), the collector's `SetupFolderScannerTests` (`npm run test:collector-core`)
+
 ## Inspection
 
 iRacing's own result only (`DriverSetupPassedTech`; 1 is passed, as seen in captures, 0 read as failed, anything else

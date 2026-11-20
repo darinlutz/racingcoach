@@ -551,6 +551,71 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
         }
     }
 
+    // ---- The iRacing Setups library (Get Car Setups, CarSetupImporter.cs). Admins only, checked by the site ----
+
+    /// <summary>Lists every setup found, with its files' hashes; the answer says which to send. Throws
+    /// CarSetupRequestException when the site refuses (403 adminOnly for anyone but an Admin), HttpRequestException or
+    /// TaskCanceledException when it can't be reached.</summary>
+    public async Task<CarSetupPlan> PlanCarSetupImportAsync(string collectorVersion, IReadOnlyList<CarSetupCarListing> cars,
+        IReadOnlyList<CarSetupProblem> unreadable, CancellationToken ct)
+    {
+        using var response = await _http.PostAsJsonAsync("api/collector/car-setups/plan",
+            new { simulator = "iracing", collectorVersion, cars, unreadable }, JsonOptions, ct);
+        await ThrowIfRefusedAsync(response, ct);
+        return await response.Content.ReadFromJsonAsync<CarSetupPlan>(JsonOptions, ct)
+            ?? throw new CarSetupRequestException("the site sent no plan", null, (int)response.StatusCode);
+    }
+
+    /// <summary>Sends one new or changed setup's files byte for byte, with its listing so the site can check them.</summary>
+    public async Task<CarSetupStored> UploadCarSetupAsync(int importId, string folder, CarSetupListing listing, byte[] sto, byte[]? htm,
+        CancellationToken ct)
+    {
+        using var form = new MultipartFormDataContent();
+        var meta = JsonSerializer.Serialize(new
+        {
+            importId,
+            folder,
+            listing.Path,
+            listing.StoFileName,
+            listing.StoSha256,
+            listing.StoBytes,
+            listing.HtmFileName,
+            listing.HtmSha256,
+            listing.HtmBytes,
+        }, JsonOptions);
+        form.Add(new StringContent(meta, System.Text.Encoding.UTF8, "application/json"), "meta");
+        var stoContent = new ByteArrayContent(sto);
+        stoContent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+        form.Add(stoContent, "sto", listing.StoFileName);
+        if (htm is not null && listing.HtmFileName is not null)
+        {
+            var htmContent = new ByteArrayContent(htm);
+            htmContent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+            form.Add(htmContent, "htm", listing.HtmFileName);
+        }
+        using var response = await _http.PostAsync("api/collector/car-setups", form, ct);
+        await ThrowIfRefusedAsync(response, ct);
+        return await response.Content.ReadFromJsonAsync<CarSetupStored>(JsonOptions, ct)
+            ?? throw new CarSetupRequestException("the site sent no answer", null, (int)response.StatusCode);
+    }
+
+    /// <summary>Ends the import with the setups that failed.</summary>
+    public async Task<CarSetupFinished> FinishCarSetupImportAsync(int importId, IReadOnlyList<CarSetupProblem> failures, CancellationToken ct)
+    {
+        using var response = await _http.PostAsJsonAsync("api/collector/car-setups/finish", new { importId, failures }, JsonOptions, ct);
+        await ThrowIfRefusedAsync(response, ct);
+        return await response.Content.ReadFromJsonAsync<CarSetupFinished>(JsonOptions, ct)
+            ?? throw new CarSetupRequestException("the site sent no answer", null, (int)response.StatusCode);
+    }
+
+    private static async Task ThrowIfRefusedAsync(HttpResponseMessage response, CancellationToken ct)
+    {
+        if (response.IsSuccessStatusCode)
+            return;
+        var (message, code) = await ErrorAsync(response, ct);
+        throw new CarSetupRequestException(message, code, (int)response.StatusCode);
+    }
+
     private static async Task<byte[]> CompressAsync(string path, CancellationToken ct)
     {
         await using var input = File.OpenRead(path);
@@ -631,6 +696,39 @@ internal sealed record AccountPreferences(bool Metric, string Language, bool? Br
 {
     /// <summary>Coaches and Admins (canCoach in src/lib/roles.ts), who get the Rotation Overlay button.</summary>
     public bool CanCoach => Role is "Admin" or "Coach";
+
+    /// <summary>Admins (isAdmin in src/lib/roles.ts), who get Get Car Setups. Only what the window shows: the site
+    /// checks the role again on every car setup request.</summary>
+    public bool IsAdmin => Role is "Admin";
+}
+
+/// <summary>POST /api/collector/car-setups/plan: one setup as listed, with its files' names, sizes and hashes.</summary>
+internal sealed record CarSetupListing(string Path, string StoFileName, string StoSha256, int StoBytes, string? HtmFileName, string? HtmSha256,
+    int? HtmBytes);
+
+internal sealed record CarSetupCarListing(string Folder, IReadOnlyList<CarSetupListing> Setups);
+
+internal sealed record CarSetupProblem(string Path, string Error);
+
+/// <summary>The plan's answer: the import's ID, each car folder's Car Data car (or why it isn't one), and each setup's
+/// decision: new, changed, unchanged or unresolvedCar.</summary>
+internal sealed record CarSetupPlan(int ImportId, IReadOnlyList<CarSetupCarResolution> Cars, IReadOnlyList<CarSetupPlanned> Setups);
+
+internal sealed record CarSetupCarResolution(string Folder, bool Resolved, int? CarId, string? CarName, string? Reason);
+
+internal sealed record CarSetupPlanned(string Folder, string Path, string Decision, int? SetupId);
+
+/// <summary>POST /api/collector/car-setups: what became of one setup's files.</summary>
+internal sealed record CarSetupStored(int SetupId, string Decision, int Version, string HtmStatus);
+
+internal sealed record CarSetupFinished(int NewCount, int ChangedCount, int UnchangedCount, int FailedCount, string Status);
+
+/// <summary>The site refused a car setup request; Message is its reason (English diagnostics), Code its code, e.g.
+/// adminOnly, hashMismatch or unresolvedCar.</summary>
+internal sealed class CarSetupRequestException(string message, string? code, int status) : Exception(message)
+{
+    public string? Code { get; } = code;
+    public int Status { get; } = status;
 }
 
 /// <summary>GET /api/collector/simulator-track: the Track Data track another simulator's track is mapped to.</summary>

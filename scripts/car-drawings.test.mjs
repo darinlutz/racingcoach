@@ -23,6 +23,13 @@ describe('the repository’s car drawings', () => {
         ['ferrari-296-gt3', [...CAR_VIEWS]],
         ['corvette-z06-gt3r', [...CAR_VIEWS]],
         ['ford-mustang-gt3', [...CAR_VIEWS]],
+        ['acura-nsx-gt3-evo', [...CAR_VIEWS]],
+        ['aston-martin-vantage-gt3-evo', [...CAR_VIEWS]],
+        ['audi-r8-lms-evo-ii-gt3', [...CAR_VIEWS]],
+        ['bmw-m4-gt3-evo', [...CAR_VIEWS]],
+        ['mclaren-720s-gt3-evo', [...CAR_VIEWS]],
+        ['mercedes-amg-gt3-evo-2020', [...CAR_VIEWS]],
+        ['porsche-911-gt3-r-992', [...CAR_VIEWS]],
       ]
     );
     for (const s of sets) assert.match(s.license, /^CC-BY-(NC-SA-)?4\.0$/);

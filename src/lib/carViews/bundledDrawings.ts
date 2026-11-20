@@ -28,6 +28,13 @@ export const BUNDLED_DRAWINGS: BundledDrawing[] = [
   { id: 'ferrari-296-gt3', carName: 'Ferrari 296 GT3', carKeys: ['ferrari296gt3'], folder: 'ferrari-296-gt3', prefix: 'ferrari-296-gt3', commit: 'a31b2ec' },
   { id: 'corvette-z06-gt3r', carName: 'Chevrolet Corvette Z06 GT3.R', carKeys: ['chevyvettez06rgt3'], folder: 'corvette-z06-gt3r', prefix: 'corvette-z06-gt3r', commit: 'edea872', permission: 'The model’s author granted RacingCoach.app permission to use it on the site, a commercial use its CC BY-NC-SA licence alone wouldn’t allow (2026-11-19).' },
   { id: 'ford-mustang-gt3', carName: 'Ford Mustang GT3', carKeys: ['fordmustanggt3'], folder: 'ford-mustang-gt3', prefix: 'ford-mustang-gt3', commit: 'edea872' },
+  { id: 'acura-nsx-gt3-evo', carName: 'Acura NSX GT3 EVO 22', carKeys: ['acuransxevo22gt3'], folder: 'acura-nsx-gt3-evo', prefix: 'acura-nsx-gt3-evo', commit: '6be3c65' },
+  { id: 'aston-martin-vantage-gt3-evo', carName: 'Aston Martin Vantage GT3 EVO', carKeys: ['amvantageevogt3'], folder: 'aston-martin-vantage-gt3-evo', prefix: 'aston-martin-vantage-gt3-evo', commit: '6be3c65' },
+  { id: 'audi-r8-lms-evo-ii-gt3', carName: 'Audi R8 LMS EVO II GT3', carKeys: ['audir8lmsevo2gt3'], folder: 'audi-r8-lms-evo-ii-gt3', prefix: 'audi-r8-lms-evo-ii-gt3', commit: '6be3c65' },
+  { id: 'bmw-m4-gt3-evo', carName: 'BMW M4 GT3 EVO', carKeys: ['bmwm4gt3'], folder: 'bmw-m4-gt3-evo', prefix: 'bmw-m4-gt3-evo', commit: '6be3c65' },
+  { id: 'mclaren-720s-gt3-evo', carName: 'McLaren 720S GT3 EVO', carKeys: ['mclaren720sgt3'], folder: 'mclaren-720s-gt3-evo', prefix: 'mclaren-720s-gt3-evo', commit: '6be3c65' },
+  { id: 'mercedes-amg-gt3-evo-2020', carName: 'Mercedes-AMG GT3 2020', carKeys: ['mercedesamgevogt3'], folder: 'mercedes-amg-gt3-evo-2020', prefix: 'mercedes-amg-gt3-evo-2020', commit: '6be3c65' },
+  { id: 'porsche-911-gt3-r-992', carName: 'Porsche 911 GT3 R (992)', carKeys: ['porsche992rgt3'], folder: 'porsche-911-gt3-r-992', prefix: 'porsche-911-gt3-r-992', commit: '6be3c65' },
 ];
 
 const root = () => path.join(process.cwd(), 'data', 'car-drawings');

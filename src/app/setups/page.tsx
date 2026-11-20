@@ -9,13 +9,15 @@ import { getEnableAiFeatures, getShowPricing } from '@/lib/siteSettings';
 
 // Setups (the nav bar's Setups link; docs/setups.md): the signed-in driver's iRacing setups in tabs. ?tab= picks the
 // tab it opens on. The Setup Engineer tab is left out while the Admin page's Enable AI Features is off; Bronze members
-// see it with why it's for Silver and Gold
+// see it with why it's for Silver and Gold. The iRacing Setups tab is only offered to Admins
 export default async function SetupsPage({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
   const { tab } = await searchParams;
   const user = await getCurrentUser();
   if (!user) redirect(withReturnTo('/login', typeof tab === 'string' ? `/setups?tab=${encodeURIComponent(tab)}` : '/setups'));
   const t = getDictionary(await getLanguage(user)).setups;
-  const tabs: SetupsTab[] = (await getEnableAiFeatures()) ? [...SETUPS_TABS] : SETUPS_TABS.filter((name) => name !== 'engineer');
+  const aiOn = await getEnableAiFeatures();
+  // The iRacing Setups library is for Admins only (its routes answer anyone else 404 too)
+  const tabs: SetupsTab[] = SETUPS_TABS.filter((name) => (name !== 'engineer' || aiOn) && (name !== 'carSetups' || isAdmin(user.role)));
   const initialTab = tabs.find((name) => name === tab) ?? 'overview';
 
   return (

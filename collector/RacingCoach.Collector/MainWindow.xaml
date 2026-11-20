@@ -236,8 +236,12 @@
                         <Button Style="{StaticResource PrimaryButton}" local:Loc.Key="main.targetTelemetryOverlay" Click="TargetTelemetry_Click" Margin="0,0,8,0" />
                         <Button Style="{StaticResource PrimaryButton}" local:Loc.Key="main.steeringOverlay" Click="Steering_Click" />
                     </StackPanel>
-                    <Button Style="{StaticResource BlueButton}" local:Loc.Key="main.brakePractice" Click="BrakePractice_Click"
-                            HorizontalAlignment="Right" Margin="0,8,0,0" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
+                        <!-- Admins only (CollectorEngine.IsAdmin; the site checks the role again): the iRacing Setups library -->
+                        <Button x:Name="CarSetupsButton" Style="{StaticResource Button}" local:Loc.Key="setups.button" Click="CarSetups_Click"
+                                Margin="0,0,8,0" Visibility="Collapsed" />
+                        <Button Style="{StaticResource BlueButton}" local:Loc.Key="main.brakePractice" Click="BrakePractice_Click" />
+                    </StackPanel>
                 </StackPanel>
             </Grid>
 

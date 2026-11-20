@@ -4,6 +4,7 @@ import { cleanupRetryDelayMs, isExpertLapObjectKey, isTargetLapObjectKey, STORAG
 import { PENDING_GRACE_SQL } from './telemetryStorageSchema';
 import { errorMessage, finishStorageRun, pruneStorageBookkeeping, startStorageRun, type StorageRunCounts } from './telemetryStorageMetrics';
 import { ensureUserSchema } from './users';
+import { isCarSetupObjectKey } from './carSetupLibraryRules';
 
 // Deleting lap objects from the telemetry store (docs/telemetry-storage.md). Nothing here decides what's deleted: the
 // triggers on "CollectorLaps" (telemetryStorageSchema.ts) queue an object in "TelemetryObjectCleanup" in the same
@@ -36,8 +37,11 @@ async function withLock<T>(lock: string, fn: () => Promise<T>): Promise<T | null
 }
 
 // An Expert Lap's object is referenced by "ExpertLaps" and a Target Lap's by "Users" (their columns exist, as their
-// triggers queued the key), a lap's by "CollectorLaps"
+// triggers queued the key), a lap's by "CollectorLaps", and an iRacing Setups library file by its setup's .sto or .htm
+// (identical files share one object)
 function referenceQuery(key: string): string {
+  if (isCarSetupObjectKey(key))
+    return 'SELECT 1 FROM racingcoach."CarSetups" WHERE storage_bucket = $1 AND (sto_key = $2 OR htm_key = $2)';
   if (isTargetLapObjectKey(key))
     return 'SELECT 1 FROM racingcoach."Users" WHERE "TargetLapStorageBucket" = $1 AND "TargetLapStorageKey" = $2';
   return `SELECT 1 FROM racingcoach."${isExpertLapObjectKey(key) ? 'ExpertLaps' : 'CollectorLaps'}" WHERE storage_bucket = $1 AND storage_key = $2`;

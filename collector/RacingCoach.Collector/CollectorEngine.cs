@@ -235,6 +235,9 @@ internal sealed class CollectorEngine
     /// <summary>The upload key's account is a Coach or an Admin (the Rotation Overlay button is theirs only). Loaded
     /// with the units; false without a key.</summary>
     public bool CanCoach { get; private set; }
+    /// <summary>The upload key's account is an Admin (the Get Car Setups button is theirs only; the site checks the
+    /// role again on every request). Loaded with the units; false without a key.</summary>
+    public bool IsAdmin { get; private set; }
 
     /// <summary>The window's Simulator picker: saves it and reads that simulator from now on. A lap in progress isn't
     /// saved; laps already completed are.</summary>
@@ -385,6 +388,7 @@ internal sealed class CollectorEngine
             BrakeBeepsLoaded++;
             PoliciesAccepted = null;
             CanCoach = false;
+            IsAdmin = false;
             return;
         }
         _ = Task.Run(async () =>
@@ -408,6 +412,7 @@ internal sealed class CollectorEngine
                     }
                     PoliciesAccepted = preferences.PoliciesAccepted;
                     CanCoach = preferences.CanCoach;
+                    IsAdmin = preferences.IsAdmin;
                 }
             }
             catch (Exception e) when (e is HttpRequestException or TaskCanceledException or UnauthorizedAccessException or System.Text.Json.JsonException)

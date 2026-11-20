@@ -87,7 +87,7 @@ export function extractCarSetupSection(sessionYaml: string): string | null {
 }
 
 // Measured or worked out by iRacing rather than set (matched against the key, and AeroBalanceCalc's whole box)
-const READING_KEYS = [/^LastHotPressure$/i, /^LastTemps/i, /^TreadRemaining$/i, /^CornerWeight$/i, /^FWtdist$/i, /^CrossWeight$/i, /^NoseWeight$/i, /AtSpeed$/i, /Downforce$/i];
+export const READING_KEYS = [/^LastHotPressure$/i, /^LastTemps/i, /^TreadRemaining$/i, /^CornerWeight$/i, /^FWtdist$/i, /^CrossWeight$/i, /^NoseWeight$/i, /AtSpeed$/i, /Downforce$/i];
 const READING_GROUPS = [/^AeroBalanceCalc$/i];
 
 const CATEGORY_RULES: [RegExp, SetupCategory][] = [
@@ -101,7 +101,7 @@ const CATEGORY_RULES: [RegExp, SetupCategory][] = [
   [/Spring|RideHeight|FWtdist|Arb|AntiRoll|Damp|Bump|Rebound|Compression|Packer|Perch|Shock|Heave|Third|Weight|Torsion|Bar|Slider/i, 'suspension'],
 ];
 
-function categoryOf(section: string, group: string | null, key: string): SetupCategory {
+export function categoryOf(section: string, group: string | null, key: string): SetupCategory {
   for (const [pattern, category] of CATEGORY_RULES) if (pattern.test(key)) return category;
   if (group) for (const [pattern, category] of CATEGORY_RULES) if (pattern.test(group)) return category;
   if (/Tire/i.test(section)) return 'tires';

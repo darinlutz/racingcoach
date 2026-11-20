@@ -86,6 +86,7 @@ public partial class MainWindow : Window
     private bool _closed;
     private RotationWindow? _rotationWindow;
     private BrakePracticeWindow? _brakePracticeWindow;
+    private CarSetupsWindow? _carSetupsWindow;
     private TargetTelemetryWindow? _targetTelemetryWindow;
     private SteeringWindow? _steeringWindow;
     // Driver Radio over the sim, while it's recording and for a few seconds after; and Set Wheel Button waiting for a press
@@ -1115,6 +1116,27 @@ public partial class MainWindow : Window
         RotationButton.Visibility = allowed ? Visibility.Visible : Visibility.Collapsed;
         if (!allowed && _rotationWindow is not null)
             _rotationWindow.Close();
+        // Get Car Setups is for Admins, the same way
+        var admin = _uploadState == UploadSetupState.Active && _engine.IsAdmin;
+        CarSetupsButton.Visibility = admin ? Visibility.Visible : Visibility.Collapsed;
+        if (!admin && _carSetupsWindow is not null)
+            _carSetupsWindow.Close();
+    }
+
+    // Opens Get Car Setups (or brings it to the front), which copies this PC's iRacing setups to the iRacing Setups
+    // library on RacingCoach.app
+    private void CarSetups_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_engine.IsAdmin)
+            return;
+        if (_carSetupsWindow is not null)
+        {
+            _carSetupsWindow.Activate();
+            return;
+        }
+        _carSetupsWindow = new CarSetupsWindow(_engine) { Owner = this };
+        _carSetupsWindow.Closed += (_, _) => _carSetupsWindow = null;
+        _carSetupsWindow.Show();
     }
 
     // Opens the Rotation window (or brings it to the front): live steering, yaw, velocities, accelerations and pedals

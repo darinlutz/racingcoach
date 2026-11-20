@@ -200,5 +200,7 @@ export type ResolvedCarModel = {
 // The file's address, versioned by its contents so a browser may keep it for good: a replaced model is a new version
 // with a new id and hash, never new bytes under an old address
 export const modelFileUrl = (id: number, sha256: string) => `/api/car-models/${id}/file?v=${sha256.slice(0, 16)}`;
+// Lap Compare's lighter copy of the same file (carModelLite.ts)
+export const liteModelUrl = (url: string) => `${url}${url.includes('?') ? '&' : '?'}lite=1`;
 
 export { DEFAULT_NORMALIZATION };

@@ -74,6 +74,7 @@ internal sealed class CollectorEngine
     // The car's setup for the Setups page (SetupCapture.cs); null for a played-back file, like race results
     private readonly SetupCaptureTracker? _setups;
     private readonly LogUploader _logs;
+    private readonly CarSetupSync? _carSetups; // Admins: iRacing setups to the iRacing Setups library, automatically
     private readonly string _documents;
     private readonly object _sampleLock = new();
     private TelemetryData _latest;
@@ -175,6 +176,7 @@ internal sealed class CollectorEngine
         Radio = new DriverRadio(() => Api, _coach.SessionLaps, Log, settings.RadioButton);
         Voice.UseSite(() => Api, () => Language, message => Log(message)); // speech in the user's coach voice
         _logs = new LogUploader(() => Api); // the activity log, to the user's account
+        _carSetups = options.Playback && !options.Upload ? null : new CarSetupSync(() => Api, () => IsAdmin);
     }
 
     public string LapsFolder { get; }
@@ -524,6 +526,7 @@ internal sealed class CollectorEngine
             await _writer.DisposeAsync(); // record the last upload results in session.json
             await Task.WhenAny(live, Task.Delay(TimeSpan.FromSeconds(5))); // Live Racing: the driver has gone
             Radio.Dispose();
+            _carSetups?.Dispose();
             await _logs.DisposeAsync(); // the last activity log lines
         }
     }

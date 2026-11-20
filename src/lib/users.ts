@@ -1,6 +1,7 @@
 import { SIMULATOR_SCHEMA } from './simulatorSchema';
 import { SETUP_SCHEMA } from './setupSchema';
 import { CAR_VIEW_SCHEMA } from './carViews/carViewSchema';
+import { CAR_SETUP_LIBRARY_SCHEMA } from './carSetupLibrarySchema';
 import { TELEMETRY_STORAGE_SCHEMA } from './telemetryStorageSchema';
 import { randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
@@ -710,6 +711,8 @@ export function ensureUserSchema(): Promise<void> {
       for (const statement of SETUP_SCHEMA) await client.query(statement);
       // The engineering car drawings and their review history (carViews/carViewSchema.ts, docs/car-views.md)
       for (const statement of CAR_VIEW_SCHEMA) await client.query(statement);
+      // The iRacing Setups library: setups an Admin's collector imported, and each import (carSetupLibrarySchema.ts)
+      for (const statement of CAR_SETUP_LIBRARY_SCHEMA) await client.query(statement);
       // The telemetry collector's activity log, sent as it's written (src/lib/collectorLogs.ts). A run is one start
       // of the collector; seq numbers its lines, so a batch sent twice is stored once
       await client.query(`CREATE TABLE IF NOT EXISTS racingcoach."CollectorLogs" (

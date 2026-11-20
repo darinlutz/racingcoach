@@ -97,14 +97,17 @@ are approximations, and the Suspension tab says so ("Reference points approximat
 
 `data/car-drawings/` holds drawings made in the Lovable project `darinlutz/racingcoach-car-drawings` (each set's
 `commit` in `BUNDLED_DRAWINGS`): the Lamborghini Huracán GT3 EVO and the Ferrari 296 GT3 (commit `a31b2ec`), and the
-Chevrolet Corvette Z06 GT3.R and the Ford Mustang GT3 (commit `edea872`), five views each, orthographic line art from
+Chevrolet Corvette Z06 GT3.R and the Ford Mustang GT3 (commit `edea872`), and the Acura NSX GT3 EVO 22, Aston Martin
+Vantage GT3 EVO, Audi R8 LMS EVO II GT3, BMW M4 GT3 EVO, McLaren 720S GT3 EVO, Mercedes-AMG GT3 2020 and Porsche 911
+GT3 R (992) (commit `6be3c65`, all CC BY 4.0), five views each, orthographic line art from
 Sketchfab models at 1 SVG unit = 1 mm, with their anchors and validation notes (the PNG renders aren't kept). All are
 drafts, unverified against homologation drawings; the Corvette's and Mustang's wheelbases (2710 and 2720 mm) are
 estimates their scale follows from. Read each folder's `VALIDATION-NOTES.md`.
 
 - The Admin page's **Drawings in the repository** panel imports a set as a new draft version of the chosen Car Data
   car (suggested by name, accents and case aside; the car paths `lamborghinievogt3`, `ferrari296gt3`,
-  `chevyvettez06rgt3` and `fordmustanggt3` are set from `BUNDLED_DRAWINGS`), through `validateDraft` like an upload. `GET`/`POST /api/admin/car-views/bundled`, Admins only.
+  `chevyvettez06rgt3`, `fordmustanggt3`, `acuransxevo22gt3`, `amvantageevogt3`, `audir8lmsevo2gt3`, `bmwm4gt3`,
+  `mclaren720sgt3`, `mercedesamgevogt3` and `porsche992rgt3` are set from `BUNDLED_DRAWINGS`), through `validateDraft` like an upload. `GET`/`POST /api/admin/car-views/bundled`, Admins only.
   Drivers see nothing until the version is approved and activated
 - `src/lib/carViews/lovableImport.ts` (pure) converts them: their `<g id="body">` and `<g id="wheels">` become the
   `body` and `wheels` layers, and their anchors (absolute mm, named by axle and side, aero parts as boxes) become ours

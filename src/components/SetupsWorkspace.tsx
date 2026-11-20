@@ -8,6 +8,7 @@ import LocalTime from '@/components/LocalTime';
 import { InspectionBadge, Notice, Panel } from '@/components/SetupBadges';
 import SetupAlignment from '@/components/SetupAlignment';
 import SetupBrakes from '@/components/SetupBrakes';
+import SetupCarLibrary from '@/components/SetupCarLibrary';
 import SetupCompare from '@/components/SetupCompare';
 import SetupEngineerChat from '@/components/SetupEngineerChat';
 import SetupHistory from '@/components/SetupHistory';
@@ -209,6 +210,7 @@ export default function SetupsWorkspace({
               actions={actions}
             />
           )}
+          {tab === 'carSetups' && tabs.includes('carSetups') && <SetupCarLibrary />}
           {tab === 'live' && <SetupLive onOpen={actions.openSetup} onChanged={load} />}
           {tab === 'compare' && (
             <SetupCompare setups={setups} value={compare} onChange={setCompare} />

@@ -1,5 +1,6 @@
 import { carViewsEn } from './carViewsText.ts';
 import { carModelsEn } from './carModelsText.ts';
+import { carSetupsEn } from './carSetupsText.ts';
 import { suspensionEn } from './suspensionText.ts';
 import { dashboardsEn } from './dashboardsText.ts';
 import { tiresEn } from './tiresText.ts';
@@ -16,11 +17,13 @@ export const setupsEn = {
   tires: tiresEn,
   carViews: carViewsEn,
   carModels: carModelsEn,
+  carSetups: carSetupsEn,
   brakes: brakesEn,
   tabs: {
     systems: 'Engineering systems',
     overview: 'Overview',
     library: 'My Setups',
+    carSetups: 'iRacing Setups',
     live: 'Live Setup',
     compare: 'Compare',
     alignment: 'Alignment',

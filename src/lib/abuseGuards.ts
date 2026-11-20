@@ -36,6 +36,10 @@ export const ABUSE_LIMITS = {
   // the Setups page uploads .sto files one at a time
   setupCapturesPerHour: { max: 240, windowMs: HOUR },
   setupUploadsPerHour: { max: 60, windowMs: HOUR },
+  // The iRacing Setups library (Admins only): an Admin's Get Car Setups plans an import, then sends each new or changed
+  // setup; a whole setups folder is a few hundred
+  carSetupImportsPerHour: { max: 30, windowMs: HOUR },
+  carSetupFilesPerHour: { max: 2000, windowMs: HOUR },
   // Content-Security-Policy violation reports per IP address an hour (/api/csp-report): enough to see a problem
   cspReportsPerIp: { max: 30, windowMs: HOUR },
   // Live video (docs/live-video.md): the Live Racing page asks for its streams every 15 s, a TV reports its player's

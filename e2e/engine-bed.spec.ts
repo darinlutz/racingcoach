@@ -583,7 +583,7 @@ test.describe.serial('the pages', () => {
   test('uploads: Admins only, real MP3s and WAVs only, served to signed-in users only', async ({ browser }) => {
     test.skip(!process.env.BROADCAST_VIDEO_S3_ENDPOINT, 'needs BROADCAST_VIDEO_S3_*');
     const page = await admin.newPage();
-    await page.goto('/admin');
+    await page.goto('/admin#engine-audio-library');
     const library = page.locator('#engine-audio-library');
     await library.scrollIntoViewIfNeeded();
 
@@ -647,7 +647,7 @@ test.describe.serial('the pages', () => {
   test('without storage set up, the Admin page says so', async () => {
     test.skip(!!process.env.BROADCAST_VIDEO_S3_ENDPOINT, 'storage is set up in this run');
     const page = await admin.newPage();
-    await page.goto('/admin');
+    await page.goto('/admin#engine-audio-library');
     await expect(page.locator('#engine-audio-library')).toContainText('only the built-in sound is available');
     await page.close();
   });

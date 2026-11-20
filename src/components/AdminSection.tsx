@@ -14,8 +14,20 @@ import type { Dictionary } from '@/lib/i18n/dictionaries/en';
 
 export type AdminSectionKey = keyof Dictionary['admin']['nav']['sections'];
 
-// Older links to parts of the page, and the section each is in
-const HASH_ALIASES: Record<string, AdminSectionKey> = { monitoring: 'monitoring', 'collector-logs': 'collectorLogs' };
+// The containers' own ids, which emails, docs and tests link to (/admin#car-models), and the section each is in
+const HASH_ALIASES: Record<string, AdminSectionKey> = {
+  monitoring: 'monitoring',
+  'local-ai': 'localAiMode',
+  'ai-inference-monitoring': 'aiInference',
+  'local-ai-test': 'localAiTest',
+  'broadcast-video-library': 'videoLibrary',
+  'engine-audio-library': 'engineSounds',
+  'broadcast-director': 'broadcastDirector',
+  'live-video': 'liveVideo',
+  'engineering-car-drawings': 'carDrawings',
+  'car-models': 'carModels',
+  'collector-logs': 'collectorLogs',
+};
 
 export const adminSectionId = (key: AdminSectionKey) => `admin-${key}`;
 

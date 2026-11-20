@@ -73,9 +73,10 @@ test('an Admin uploads, reviews and activates a carâ€™s drawings, and a driverâ€
   expect((await driver.page.request.put(`/api/admin/car-views/${id}`, { data: { action: 'deactivate' } })).status()).toBe(404);
 
   // The Admin page lists it, and its preview shows every view with the debug marks
-  await admin.page.goto('/admin');
+  // The address opens its Admin section (AdminSection.tsx), named on its bar
+  await admin.page.goto('/admin#engineering-car-drawings');
   const section = admin.page.locator('#engineering-car-drawings');
-  await expect(section.getByRole('heading', { name: 'Engineering Car Drawings' })).toBeVisible();
+  await expect(admin.page.getByRole('button', { name: 'Engineering Car Drawings', expanded: true })).toBeVisible();
   // The list loads after the page, with every other Admin section's requests. The versions list's row (the repository panel's car pickers name every car too, but have no Preview)
   const previewButton = admin.page.getByRole('button', { name: /^(Preview|Hide preview)$/ });
   const row = section.locator('li').filter({ hasText: `E2E Car ${carKey}`, has: previewButton });

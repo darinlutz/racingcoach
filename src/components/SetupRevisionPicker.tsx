@@ -39,10 +39,10 @@ export default function SetupRevisionPicker({
 
   const list = revisions && revisions.setupId === setupId ? revisions.list : [];
   const choices = setups.filter((x) => !x.archived || x.id === setupId);
-  const select = 'w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm text-foreground';
+  const select = 'w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm font-medium text-foreground';
   return (
     <fieldset className="min-w-0 space-y-2">
-      <legend className="mb-1 text-sm font-semibold text-foreground">{label}</legend>
+      <legend className="mb-1 text-base font-bold text-foreground">{label}</legend>
       <select
         className={select}
         value={setupId ?? ''}

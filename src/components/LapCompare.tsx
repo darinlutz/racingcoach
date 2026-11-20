@@ -584,8 +584,8 @@ function viewTopUnder(header: HTMLElement | null): number {
 
 // initialLaps: laps to start with, e.g. two recorded laps sent from Debrief Coach's Compare button. lapSummary: the
 // user may ask for the AI summary (canUseLapSummary); otherwise (Bronze members) Provide summary is disabled, and
-// hovering it says why. autoAnalyze: press Analyze Laps for the initial laps as soon as the tracks have loaded, with
-// Provide summary checked when the user may have it; onAutoAnalyzed is called once it has started
+// hovering it says why. autoAnalyze: press Analyze Laps for the initial laps as soon as the tracks have loaded
+// (Provide summary stays unchecked); onAutoAnalyzed is called once it has started
 export default function LapCompare({
   initialLaps = null,
   lapSummary = false,
@@ -622,7 +622,8 @@ export default function LapCompare({
   >([]);
   const [analyzing, setAnalyzing] = useState(false);
   // Provide summary: off, Analyze Laps still measures every focus area but skips the AI summary
-  const [provideSummary, setProvideSummary] = useState(autoAnalyze && lapSummary && initialLaps !== null);
+  // Off until the user checks it, even when Debrief Coach's Compare button presses Analyze Laps for them
+  const [provideSummary, setProvideSummary] = useState(false);
   // The automatic Analyze Laps has run (a ref, so React's development double effects don't run it twice)
   const autoAnalyzed = useRef(false);
   // The focus area whose telemetry is shown, picked across the top

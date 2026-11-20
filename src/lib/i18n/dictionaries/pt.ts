@@ -1191,7 +1191,7 @@ export const pt: Dictionary = {
     bothNotFrom: 'Nenhuma das duas voltas enviadas é de {track}.',
     analyze: 'Analisar voltas',
     provideSummary: 'Incluir resumo',
-    provideSummaryBronze: 'O resumo de voltas não está disponível para membros Bronze. Faça upgrade para Prata ou Ouro para usar o resumo de voltas.',
+    provideSummaryBronze: 'O resumo não está disponível para membros Bronze',
     analyzing: 'Analisando…',
     summary: 'Resumo',
     summaryPlaceholderNoLaps: 'Envie uma volta alvo e uma volta comparada e clique em Analisar voltas.',
@@ -2169,6 +2169,38 @@ export const pt: Dictionary = {
   },
 
   admin: {
+    // The Admin page's section links and collapsible sections (src/components/AdminNav.tsx, AdminSection.tsx)
+    nav: {
+      jumpTo: 'Ir para',
+      expandAll: 'Expandir tudo',
+      collapseAll: 'Recolher tudo',
+      expand: 'Expandir',
+      collapse: 'Recolher',
+      sections: {
+        subscribers: 'Assinantes',
+        privacy: 'Solicitações de privacidade',
+        siteSettings: 'Configurações do site',
+        monitoring: 'Monitoramento',
+        aiModels: 'Controle de modelos de IA',
+        localAiMode: 'Modo do servidor de IA local',
+        aiInference: 'Monitoramento de inferência de IA',
+        localAiTest: 'Console de teste da IA local',
+        aiCosts: 'Custos dos modelos de IA',
+        rateLimits: 'Limites de uso',
+        videoLibrary: 'Biblioteca de vídeos da transmissão',
+        engineSounds: 'Sons de motor',
+        broadcastDirector: 'Diretor da transmissão',
+        liveVideo: 'Vídeo ao vivo',
+        userRoles: 'Funções de usuário',
+        lapRetention: 'Retenção da telemetria das voltas',
+        telemetryStorage: 'Armazenamento da telemetria',
+        engineeringKnowledge: 'Conhecimento de engenharia de corrida',
+        carDrawings: 'Desenhos de engenharia dos carros',
+        carModels: 'Modelos 3D dos carros',
+        collectorLogs: 'Logs do coletor',
+        activity: 'Registro de atividade',
+      },
+    },
     // The Broadcast Video Library and Broadcast Director sections
     // The Engine Sounds section (src/components/EngineAudioLibrary.tsx)
     engineAudio: {

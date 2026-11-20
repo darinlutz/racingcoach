@@ -520,6 +520,38 @@ body {
 .susp-lift {
   transition: transform 350ms ease;
 }
+/* The Admin page's collapsible sections (AdminSection.tsx): the section's bar names the container, so the container's
+   own title (its text-xl h2) isn't shown again; smaller headings inside it are */
+.admin-section-body h2.text-xl {
+  display: none;
+}
+
+/* The axonometric overview (SuspensionCarOverview.tsx): the ground plane, the chassis behind the suspension, the bump
+   rubbers filled in their setup's color, and the selected corner's ring marching */
+.align-svg .susp-ground {
+  fill: color-mix(in oklab, var(--align-baseline) 3%, transparent);
+  stroke-dasharray: 6 6;
+}
+.align-svg .susp-chassis {
+  opacity: 0.6;
+}
+.align-svg .susp-bump {
+  fill: color-mix(in oklab, currentColor 40%, transparent);
+}
+@keyframes susp-ring-dash {
+  to {
+    stroke-dashoffset: -14;
+  }
+}
+.align-wheel[aria-pressed="true"] .susp-overview-ring {
+  stroke-dasharray: 5 5;
+  animation: susp-ring-dash 1.2s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .align-wheel[aria-pressed="true"] .susp-overview-ring {
+    animation: none;
+  }
+}
 .align-svg .susp-ghost-body path {
   fill: color-mix(in oklab, var(--align-line) 6%, transparent);
   stroke: var(--align-line);

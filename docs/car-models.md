@@ -165,8 +165,17 @@ an approved model is drawn as a `ScenegraphLayer` with:
 The rest is as before:
 
 - The Target lap's car is the ghost (opacity 140/255, no depth writes, drawn last).
-- Each model keeps its livery, so it stands on an ellipse footprint in its lap's color, which keeps the blue and red
-  identity.
+- Only the model's shape is used: each car is drawn in its lap's color (Target blue, Compare red), whatever the
+  model's livery. The page downloads a lighter copy (`/api/car-models/[id]/file?lite=1`, `glbLite.ts`): no textures,
+  images, texture coordinates, vertex colors, tangents, skins, morph targets or animations; each mesh welded and
+  simplified with meshoptimizer to 60% of its triangles (300,000 for the whole car at most), within 0.4% of its size.
+  It's made the first time it's asked for and kept beside the original (`car-models/{carId}/{sha256}.lite1.glb`,
+  `carModelLite.ts`; an approved active version's only, and removed with a deleted version), so later viewers get it
+  at once; a file it can't rewrite (sparse accessors) is sent as it is. Every material is painted grey
+  (`modelPaint.ts`): white for the bodywork, so `getColor` gives it the lap's color in full, dark for tires, glass,
+  carbon and black trim (by name, or a near-black color), glass keeping its transparency. The browser paints what it
+  loads the same way and never decodes the model's images (`deckModel.ts`). Bump `LITE_VERSION` when the copy changes.
+- The Cockpit view puts the camera in the Compare car's driver's seat and leaves that car out.
 - Play, Reverse, Loop, the chase cameras and the crosshair are unchanged.
 - The legend names each lap's car, or the generic car.
 - The caption gives the authors' credits. When a lap's Yaw didn't match its positions, so its heading came from the

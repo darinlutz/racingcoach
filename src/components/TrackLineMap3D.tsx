@@ -9,8 +9,8 @@ import { ScenegraphLayer, SimpleMeshLayer } from '@deck.gl/mesh-layers';
 import { useLanguage } from '@/components/LanguageProvider';
 import { useCarModel, type CarModelState } from '@/lib/carModels/carModelClient';
 import { useDeckModel } from '@/lib/carModels/deckModel';
-import { canonicalBounds, deckPoseMatrix, multiply, normalizationMatrix, type Mat4 } from '@/lib/carModels/matrix';
-import type { ResolvedCarModel } from '@/lib/carModels/modelRules';
+import { deckPoseMatrix, multiply, normalizationMatrix, type Mat4 } from '@/lib/carModels/matrix';
+import { liteModelUrl, type ResolvedCarModel } from '@/lib/carModels/modelRules';
 import type { PedalTraceLap } from '@/components/PedalTraces';
 import { useUnits } from '@/components/UnitsProvider';
 import { BASE_LAP_COLOR as BASE_COLOR, COMPARE_LAP_COLOR as COMPARE_COLOR, nearestIndex } from '@/lib/lapCharts';
@@ -80,12 +80,25 @@ const CAR_PARTS: { id: string; mesh: Mesh; color: (car: Car, pose: CarPose) => R
 const FIT_PITCH = 55;
 const FIT_PADDING = 40; // px
 const MAX_FIT_ZOOM = 19.5;
-// Chase views: low behind the Target lap's car, Far (the first there was) or Near, zoomed in closer
-type ChaseKind = 'near' | 'far';
-const CHASE_VIEWS: Record<ChaseKind, { pitch: number; zoom: number }> = {
+// Chase views: low behind the Target lap's car, Far (the first there was) or Near, zoomed in closer; or the Cockpit view,
+// from the Compare lap's driver's seat
+type ChaseKind = 'near' | 'far' | 'cockpit';
+const CHASE_VIEWS: Record<Exclude<ChaseKind, 'cockpit'>, { pitch: number; zoom: number }> = {
   far: { pitch: 72, zoom: 19.6 },
   near: { pitch: 75, zoom: 20.9 },
 };
+// The Cockpit view: the driver's eyes in the car's frame (m: +x forward of the car's middle, +y left, as GT3 cars are
+// left-hand drive, +z up from the road), looking the way the nose points, a little down the road, with a wider field
+// of view than the map's. A MapView camera sits `focus` meters back from the point it looks at, so that point is put
+// `focus` meters ahead of the eyes and the zoom set to make the distance `focus`; `near` and `far` (m) are its clipping
+// planes, as the map's own would cut the road off a few car lengths ahead. The arrows look up and down (within
+// MAX_LOOK_PITCH) and left and right (within MAX_LOOK_BEARING)
+const COCKPIT = { eye: [-0.3, 0.37, 1.02] as Vec3, pitch: 86, fovy: 62, focus: 6, near: 0.2, far: 4000 };
+const MAX_LOOK_PITCH = 25; // degrees
+const MAX_LOOK_BEARING = 120; // degrees
+const COCKPIT_LOOK_STEP = { pitch: 5, bearing: 15 }; // degrees per press
+// Web Mercator's world units per meter at a latitude, as @math.gl/web-mercator's unitsPerMeter
+const unitsPerMeter = (latitude: number) => 512 / 40.03e6 / Math.cos((latitude * Math.PI) / 180);
 // How the camera arrows have moved a chase view from where it starts (degrees, zoom levels, degrees)
 type CameraOffset = { pitch: number; zoom: number; bearing: number };
 const NO_OFFSET: CameraOffset = { pitch: 0, zoom: 0, bearing: 0 };
@@ -102,43 +115,16 @@ type Car = { key: 'base' | 'compare'; line: ModelLine; color: Rgba; title: strin
 // stands at and the (smoothed) gap there (s)
 type WallPiece = { polygon: Vec3[]; elevation: number; pct: number; delta: number };
 
-// A car with its own 3D model (docs/car-models.md) keeps its livery, so it stands on a footprint in its lap's color,
-// a little above the road, to say which lap it is
-const FOOTPRINT_LIFT = 0.03; // m
-const FOOTPRINT_ALPHA = 150;
-
-// A flat ellipse the size of the model's plan view, in the car's frame (+x forward, z up), as a SimpleMeshLayer mesh
-function footprintMesh(length: number, width: number, centerX: number, centerY: number): Mesh {
-  const steps = 48;
-  const positions: number[] = [];
-  for (let i = 0; i < steps; i++) {
-    const [a, b] = [(i / steps) * Math.PI * 2, ((i + 1) / steps) * Math.PI * 2];
-    positions.push(centerX, centerY, FOOTPRINT_LIFT);
-    positions.push(centerX + (Math.cos(a) * length) / 2, centerY + (Math.sin(a) * width) / 2, FOOTPRINT_LIFT);
-    positions.push(centerX + (Math.cos(b) * length) / 2, centerY + (Math.sin(b) * width) / 2, FOOTPRINT_LIFT);
-  }
-  const n = positions.length / 3;
-  return {
-    attributes: {
-      positions: { size: 3, value: new Float32Array(positions) },
-      normals: { size: 3, value: new Float32Array(Array.from({ length: n }, () => [0, 0, 1]).flat()) },
-      colors: { size: 3, value: new Float32Array(n * 3).fill(1) },
-    },
-  };
-}
-
-// What the 3D view needs of a lap's model once it's loaded: the GLB, its normalization and its footprint
-type PlacedModel = { model: ResolvedCarModel; scenegraph: unknown; normalization: Mat4; footprint: Mesh };
+// What the 3D view needs of a lap's model once it's loaded: the GLB and its normalization. Only its shape is used: the
+// lighter copy (no textures, a little simplified) is downloaded, and it's painted in its lap's color (modelPaint.ts)
+type PlacedModel = { model: ResolvedCarModel; scenegraph: unknown; normalization: Mat4 };
 
 function usePlacedModel(state: CarModelState): PlacedModel | null {
   const model = state.status === 'ready' ? state.model : null;
-  const deck = useDeckModel(model?.url ?? null);
+  const deck = useDeckModel(model ? liteModelUrl(model.url) : null);
   return useMemo(() => {
     if (!model || deck.status !== 'ready') return null;
-    const normalization = normalizationMatrix(model.normalization, model.rawBounds);
-    const { min, max } = canonicalBounds(model.normalization, model.rawBounds);
-    const footprint = footprintMesh((max[0] - min[0]) * 1.08, (max[1] - min[1]) * 1.12, (max[0] + min[0]) / 2, (max[1] + min[1]) / 2);
-    return { model, scenegraph: deck.scenegraph, normalization, footprint };
+    return { model, scenegraph: deck.scenegraph, normalization: normalizationMatrix(model.normalization, model.rawBounds) };
   }, [model, deck]);
 }
 
@@ -164,7 +150,8 @@ function indexAtTime(line: ModelLine, seconds: number) {
 // red where it's behind, green where it's ahead. The cars sit at the pedal traces' crosshair (hoverPct), both
 // at the same point; Play (or Reverse, backward) drives them through the area at their real pace, moving the
 // crosshair with the Target car, once or with Loop over and over. Pointing at the wall moves the crosshair; the Near and
-// Far Chase views follow the Target car from behind, and the camera arrows move the camera around it there. Loaded with
+// Far Chase views follow the Target car from behind, and the camera arrows move the camera around it there; the Cockpit
+// view rides in the Compare car's seat, where the arrows turn the driver's head. Loaded with
 // next/dynamic (DrivingLineMap) so deck.gl only downloads when the 3D view is picked.
 export default function TrackLineMap3D({
   base,
@@ -319,7 +306,7 @@ export default function TrackLineMap3D({
     };
   };
   // Low behind the Target car, looking the way it's going, moved by the camera arrows
-  const chaseView = (kind: ChaseKind): MapViewState => {
+  const chaseView = (kind: keyof typeof CHASE_VIEWS): MapViewState => {
     const [longitude, latitude] = toLngLat(origin!, [lead.position[0], lead.position[1]]);
     return {
       longitude,
@@ -331,7 +318,50 @@ export default function TrackLineMap3D({
       ...VIEW_LIMITS,
     };
   };
-  const viewState = chase ? chaseView(chase) : saved && saved.trace === base.trace ? saved.view : fitView();
+  // From the Compare driver's eyes, looking where its nose points (and as far up, down and round as the arrows have
+  // turned the head). The view state carries the viewport's own fovy and clipping planes (in its units, where the
+  // camera is the view's altitude from the point it looks at)
+  const compareIndex = cars.findIndex((car) => car.key === 'compare');
+  const cockpitView = (): MapViewState => {
+    const pose = poses[compareIndex];
+    const yaw = (pose.yaw * Math.PI) / 180;
+    const noseUp = -pose.pitch;
+    const [ex, ey, ez] = COCKPIT.eye;
+    const eye: Vec3 = [
+      pose.position[0] + ex * Math.cos(yaw) - ey * Math.sin(yaw),
+      pose.position[1] + ex * Math.sin(yaw) + ey * Math.cos(yaw),
+      pose.position[2] + ez + ex * Math.sin((noseUp * Math.PI) / 180),
+    ];
+    const pitch = Math.min(89, Math.max(45, COCKPIT.pitch + noseUp + chaseOffset.pitch));
+    const bearing = 90 - pose.yaw + chaseOffset.bearing;
+    const [p, b] = [(pitch * Math.PI) / 180, (bearing * Math.PI) / 180];
+    const ahead = COCKPIT.focus * Math.sin(p);
+    const target: Vec3 = [eye[0] + ahead * Math.sin(b), eye[1] + ahead * Math.cos(b), eye[2] - COCKPIT.focus * Math.cos(p)];
+    const [longitude, latitude] = toLngLat(origin!, [target[0], target[1]]);
+    const altitude = 1 / (2 * Math.tan((COCKPIT.fovy * Math.PI) / 360));
+    const viewUnits = (meters: number) => (altitude * meters) / COCKPIT.focus;
+    const lens = { fovy: COCKPIT.fovy, nearZ: viewUnits(COCKPIT.near), farZ: viewUnits(COCKPIT.far) };
+    return {
+      longitude,
+      latitude,
+      zoom: Math.log2((altitude * height) / (COCKPIT.focus * unitsPerMeter(latitude))),
+      pitch,
+      bearing,
+      position: [0, 0, target[2]],
+      ...VIEW_LIMITS,
+      maxZoom: 30,
+      maxPitch: 89,
+      ...lens,
+    };
+  };
+  const viewState =
+    chase === 'cockpit' && compareIndex >= 0
+      ? cockpitView()
+      : chase && chase !== 'cockpit'
+        ? chaseView(chase)
+        : saved && saved.trace === base.trace
+          ? saved.view
+          : fitView();
 
   const offsets = { coordinateSystem: COORDINATE_SYSTEM.METER_OFFSETS, coordinateOrigin: [origin![1], origin![0], 0] as Vec3 };
   const linePath = ({ points, heights }: ModelLine) => points.map(([x, y], i): Vec3 => [x, y, heights[i] + LINE_LIFT]);
@@ -340,10 +370,12 @@ export default function TrackLineMap3D({
   // didn't agree with the positions), and the models' authors' credits, each once
   const headingApprox = cars.filter((car) => !car.line.trace.headings).map((car) => car.title);
   const credits = [...new Set(cars.map((car) => placed[car.key]?.model.attribution).filter((a): a is string => !!a))];
-  // The solid (Compare) car's layers, or the ghost (Target) car's: its own model, posed by the same position, pitch and
-  // heading as the generic car (the model's normalization put under deck.gl's orientation matrix), or the generic car
+  // The solid (Compare) car's layers, or the ghost (Target) car's: its own model in its lap's color, posed by the same
+  // position, pitch and heading as the generic car (the model's normalization put under deck.gl's orientation matrix),
+  // or the generic car. In the Cockpit view the Compare car isn't drawn: the camera is inside it, and the models have
+  // no interior
   const carLayers = (ghosts: boolean) => {
-    const mine = carData.filter((d) => (d.car.key === 'base') === ghosts);
+    const mine = carData.filter((d) => (d.car.key === 'base') === ghosts && !(chase === 'cockpit' && d.car.key === 'compare'));
     const data = mine.filter((d) => !placed[d.car.key]);
     const seeThrough = ghosts ? { parameters: SEE_THROUGH } : {};
     const modelled = mine.flatMap((d) => {
@@ -351,22 +383,13 @@ export default function TrackLineMap3D({
       if (!own) return [];
       const id = `${d.car.key}-model${ghosts ? '-ghost' : ''}`;
       return [
-        new SimpleMeshLayer<typeof d>({
-          id: `${id}-footprint`,
-          data: [d],
-          mesh: own.footprint,
-          getPosition: (x) => x.pose.position,
-          getOrientation: (x) => [x.pose.pitch, x.pose.yaw, 0],
-          getColor: [d.car.color[0], d.car.color[1], d.car.color[2], FOOTPRINT_ALPHA],
-          material: false,
-          parameters: SEE_THROUGH,
-          ...offsets,
-        }),
         new ScenegraphLayer<typeof d>({
           id,
           data: [d],
           scenegraph: own.scenegraph as never,
           getPosition: (x) => x.pose.position,
+          // The painted model's greys times the lap's color: the bodywork in it, the dark parts darker
+          getColor: [d.car.color[0], d.car.color[1], d.car.color[2], 255],
           getTransformMatrix: (x) => multiply(deckPoseMatrix([0, 0, 0], x.pose.pitch, x.pose.yaw), own.normalization),
           _lighting: 'pbr',
           opacity: ghosts ? GHOST_ALPHA / 255 : 1,
@@ -481,6 +504,16 @@ export default function TrackLineMap3D({
   // Moves the camera from where it is now, centered on the cars so it keeps looking at them
   // In a chase view they move the camera around the car it follows, and it keeps following
   const moveCamera = (pitch: number, zoom: number, bearing: number) => {
+    // In the Cockpit view they turn the driver's head: up looks up, left looks left
+    if (chase === 'cockpit') {
+      const [up, left] = [-Math.sign(pitch) * COCKPIT_LOOK_STEP.pitch, -Math.sign(bearing) * COCKPIT_LOOK_STEP.bearing];
+      setChaseOffset((o) => ({
+        pitch: Math.min(MAX_LOOK_PITCH, Math.max(-MAX_LOOK_PITCH, o.pitch + up)),
+        zoom: 0,
+        bearing: Math.min(MAX_LOOK_BEARING, Math.max(-MAX_LOOK_BEARING, o.bearing + left)),
+      }));
+      return;
+    }
     if (chase) {
       // Kept within the view's limits, so presses past one don't have to be undone
       const { pitch: pitch0, zoom: zoom0 } = CHASE_VIEWS[chase];
@@ -559,7 +592,12 @@ export default function TrackLineMap3D({
           onViewStateChange={({ viewState: next, interactionState }) => {
             // Moving the view by hand leaves the chase view
             if (interactionState.isDragging || interactionState.isZooming || interactionState.isRotating) setChase(null);
-            setSaved({ view: next as MapViewState, trace: base.trace });
+            // Leaving the Cockpit view also leaves its lens and clipping planes behind
+            const view = { ...(next as MapViewState & { fovy?: number; nearZ?: number; farZ?: number }) };
+            delete view.fovy;
+            delete view.nearZ;
+            delete view.farZ;
+            setSaved({ view: { ...view, ...VIEW_LIMITS, zoom: Math.min(VIEW_LIMITS.maxZoom, view.zoom) }, trace: base.trace });
           }}
           onHover={onPick}
           onClick={onPick}
@@ -617,6 +655,7 @@ export default function TrackLineMap3D({
               [
                 ['near', t.nearChaseView, t.nearChaseViewHelp],
                 ['far', t.chaseView, t.chaseViewHelp],
+                ['cockpit', t.cockpitView, t.cockpitViewHelp],
               ] as const
             ).map(([kind, label, help]) => (
               <button
@@ -624,6 +663,7 @@ export default function TrackLineMap3D({
                 type="button"
                 aria-pressed={chase === kind}
                 title={help}
+                disabled={kind === 'cockpit' && compareIndex < 0}
                 className={`${buttonClass} ${chase === kind ? pressedClass : ''}`}
                 onClick={() => setChase(chase === kind ? null : kind)}
               >
@@ -699,7 +739,7 @@ export default function TrackLineMap3D({
         {model.rise === null
           ? t.modelFlat
           : fmt(t.modelNote, { width: distance(model.halfWidth * 2), rise: distance(model.rise), fall: distance(model.fall ?? 0), n: heightScale })}
-        {chase ? t.chaseHelp : t.map3dHelp}
+        {chase === 'cockpit' ? t.cockpitHelp : chase ? t.chaseHelp : t.map3dHelp}
         {headingApprox.length > 0 && ` ${fmt(m.lapCompare.headingApprox, { laps: headingApprox.join(t.and) })}`}
         {credits.map((credit) => ` ${fmt(m.credit, { credit })}`)}
       </figcaption>

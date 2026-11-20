@@ -5,7 +5,7 @@ using System.Windows.Media;
 namespace RacingCoach.Collector;
 
 /// <summary>
-/// Get Car Setups' window (MainWindow's button, Admins only): runs CarSetupImporter for the proof of concept's cars as
+/// Get Car Setups' window (MainWindow's button, Admins only): runs CarSetupImporter for every car folder as
 /// soon as it opens and shows each step in the user's language, also writing it to the activity log in English. The
 /// import runs off the UI thread, so the collector keeps recording and uploading laps meanwhile. Closing the window
 /// cancels a run in progress; what was already stored stays stored, and the next run carries on from it.
@@ -68,7 +68,7 @@ public partial class CarSetupsWindow : Window
                 return;
             }
             var importer = new CarSetupImporter(api, Add);
-            await Task.Run(() => importer.RunAsync(CarSetupImporter.PocCarFolders, ct), ct);
+            await Task.Run(() => importer.RunAsync(null, ct), ct);
         }
         catch (OperationCanceledException)
         {

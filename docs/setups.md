@@ -157,21 +157,27 @@ Setup Engineer posts `focus` (the tab's name) and the route builds that system's
   control as a dial (ABS borrowed from Brakes); an illustrative TC trace. Other: an illustrative throttle curve for a
   throttle shape setting (no car's map), then whatever no other category takes
 
-## iRacing setup collection (proof of concept)
+## iRacing setup collection
 
 The **iRacing Setups** tab (`carSetups`, after My Setups; `src/components/SetupCarLibrary.tsx`) is a shared library
-of iRacing's own setup files, copied from the sim PC by the collector's **Get Car Setups** button. It's separate from
+of iRacing's own setup files, copied from the sim PC automatically and by the collector's **Get Car Setups** button. It's separate from
 My Setups (each user's own `"Setups"`), and for **Admins only** until the licensing and redistribution of iRacing's
 setups is decided: the page leaves the tab out for anyone else, its routes answer 404, and the collector's routes 403.
 
 - **Collector** (from 1.100.0): the button beside Brake Practice shows only when `/api/collector/me` says Admin
   (`CollectorEngine.IsAdmin`). `CarSetupsWindow` runs `CarSetupImporter`: `SetupFolderScanner` (Core, tested on any OS)
   looks for `iRacing\setups` under `%USERPROFILE%\OneDrive\Documents`, `%OneDrive%\Documents`, the Documents known folder,
-  then `%USERPROFILE%\Documents`; scans only `CarSetupImporter.PocCarFolders` (`ferrari296gt3` for now) and up to 3
-  subfolders; pairs each `.sto` with the `.htm` of the same name (case aside); reads files sharing them with iRacing and
+  then `%USERPROFILE%\Documents`; scans every car folder (from 1.101.0; 1.100.0 scanned only `ferrari296gt3`) and up to 3
+  subfolders, sending more than 1000 setups as several imports; pairs each `.sto` with the `.htm` of the same name (case aside); reads files sharing them with iRacing and
   OneDrive (online-only files download as they're read), retrying while one is locked or still being written, and never
   moves, renames, changes or deletes them. Folders that are links aren't followed. Progress is in the user's language,
-  and the activity log gets the same in English
+  and the activity log gets the same in English. Setups of a car folder that isn't a Car Data car are skipped, said once
+  per folder, not counted as failures
+- **Automatic** (`CarSetupSync.cs`, from 1.101.0): for Admins, the same import runs quietly in the background: once per
+  upload key per run, when a `.sto`/`.htm` in the setups folder is added or changed (a FileSystemWatcher, 30 s after the
+  last change), and hourly when the folder's fingerprint (paths, sizes, times written) differs from the last good run's.
+  The activity log gets problems (each once per run) and, when something was imported or failed, the summary. One run
+  at a time: the button waits for an automatic run to finish
 - **Import** (`src/lib/carSetupLibrary.ts`): `POST /api/collector/car-setups/plan` lists every setup with its files'
   names, sizes and SHA-256 hashes and answers new, changed, unchanged or unresolvedCar; the collector sends only new and
   changed ones, both files, to `POST /api/collector/car-setups` (multipart `meta`, `sto`, `htm`), then
@@ -209,8 +215,8 @@ setups is decided: the page leaves the tab out for anyone else, its routes answe
   Downloads stream through `GET /api/setups/car-library/[id]/file?kind=sto|htm` after the Admin check, checked against
   the stored hash, always as an attachment (`application/octet-stream`, a sandbox CSP), so an `.htm` never renders on
   the site. `GET /api/setups/car-library?car=`, `GET`/`PATCH /api/setups/car-library/[id]`
-- **Not yet**: every car (remove the `PocCarFolders` filter, check the unresolved folders), scheduled or automatic
-  scans, showing the library to drivers (needs the licensing decision), and linking a library setup to the per-user
+- **Not yet**: Car Data cars for the unresolved folders (the imports list them),
+  showing the library to drivers (needs the licensing decision), and linking a library setup to the per-user
   Setups' revisions. A `.htm` older or newer than these exports may need more rules; its warnings show what didn't fit
 - **Tests**: `npm run test:car-setup-library` (the parser and rules, then the import against a local Postgres with
   `CAR_SETUPS_TEST_DATABASE_URL`), the collector's `SetupFolderScannerTests` (`npm run test:collector-core`)

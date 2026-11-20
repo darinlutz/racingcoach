@@ -177,7 +177,7 @@ setups is decided: the page leaves the tab out for anyone else, its routes answe
   changed ones, both files, to `POST /api/collector/car-setups` (multipart `meta`, `sto`, `htm`), then
   `POST /api/collector/car-setups/finish` with what failed. The server checks the Admin role on each, the files against
   the listed hashes and sizes, the names (`carSetupLibraryRules.ts`: no path separators, `..`, reserved or control
-  characters), the `.sto`'s container (`readStoFile`; a file that isn't one is refused) and that the `.htm` is text
+  characters), the `.sto`'s container (`readStoFile`: only iRacing's known layout is taken; anything else, a layout not seen before included, is refused) and that the `.htm` is text
 - **Car**: the car folder is iRacing's car path; it's a Car Data car only when that path's names in `IRACING_CARS`
   match exactly one `"Cars"` row (accents, case and punctuation aside); otherwise the folder is reported unresolved and
   its setups aren't imported (`resolveCarFolders`). No car is ever created

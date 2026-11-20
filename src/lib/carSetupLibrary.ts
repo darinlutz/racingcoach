@@ -327,10 +327,10 @@ export async function storeSetup(
   // The bytes received are what was listed, so the catalog's hashes are the files' own
   if (sha256Hex(sto) !== setup.stoSha256 || sto.length !== setup.stoBytes) throw new CarSetupImportError('hashMismatch', 'The .sto file doesn’t match its hash');
   if (htm && (sha256Hex(htm) !== setup.htmSha256 || htm.length !== setup.htmBytes)) throw new CarSetupImportError('hashMismatch', 'The .htm file doesn’t match its hash');
-  // Its container is checked (stoFile.ts); a file that isn't a setup file at all is refused, one of a layout not seen
-  // before is kept as it is
+  // Its container is checked (stoFile.ts): only iRacing's known .sto layout is taken (its version, lengths and blocks
+  // all add up), so anything else sent as a .sto, a text file or a layout not seen before, is refused rather than kept
   const stoInfo = readStoFile(sto);
-  if (stoInfo.status === 'failed') throw new CarSetupImportError('notSto', `Not an iRacing setup file: ${stoInfo.problem ?? 'unreadable'}`);
+  if (stoInfo.status !== 'partial') throw new CarSetupImportError('notSto', `Not an iRacing setup file: ${stoInfo.problem ?? stoInfo.status}`);
   if (htm && !looksLikeText(htm)) throw new CarSetupImportError('notHtm', 'The .htm file isn’t text');
   const parsed = htm ? parseSetupHtm(htm) : null;
   const [car] = await resolveCarFolders([folder]);
@@ -347,7 +347,7 @@ export async function storeSetup(
   }
 
   const htmStatus = parsed ? parsed.status : 'missing';
-  const importStatus = !parsed || parsed.status === 'parsed' ? (stoInfo.status === 'partial' ? 'complete' : 'completeWithWarnings') : 'completeWithWarnings';
+  const importStatus = !parsed || parsed.status === 'parsed' ? 'complete' : 'completeWithWarnings';
   const setupName = setup.path.split('/').pop()!;
   const result = await transaction(async (client) => {
     const { rows } = await client.query<{ id: number; version: number; sto_sha256: string; htm_sha256: string | null }>(

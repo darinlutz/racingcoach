@@ -87,7 +87,6 @@ export class CarModelError extends Error {
       | 'notActive'
       | 'alreadyActive'
       | 'carKeyTaken'
-      | 'notDeletable'
       | 'notEditable'
       | 'duplicate'
       | 'storageMissing',
@@ -341,15 +340,13 @@ export async function applyCarModelAction(id: number, action: ModelAction, userI
   resolved.clear();
 }
 
-// Only an uploaded or rejected version that isn't active can be deleted, with its file: an approved one stays, to roll
-// back to
+// Any version can be deleted, with its file and its lite copy, and its events with it (ON DELETE CASCADE). Deleting the
+// active version leaves the car with none, so drivers see the generic car until another approved version is activated;
+// a deleted approved version can no longer be rolled back to
 export async function deleteCarModel(id: number): Promise<void> {
   await ensureUserSchema();
-  const rows = await query<{ storage_key: string }>(
-    `DELETE FROM racingcoach."CarModelAssets" WHERE id = $1 AND NOT active AND status IN ('uploaded', 'rejected') RETURNING storage_key`,
-    [id]
-  );
-  if (!rows.length) throw new CarModelError('notDeletable');
+  const rows = await query<{ storage_key: string }>(`DELETE FROM racingcoach."CarModelAssets" WHERE id = $1 RETURNING storage_key`, [id]);
+  if (!rows.length) throw new CarModelError('notFound');
   resolved.clear();
   const store = carModelStore();
   if (!store) return;

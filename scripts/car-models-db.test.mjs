@@ -159,17 +159,22 @@ describe('3D car models in the database', { skip }, () => {
     assert.deepEqual(events.map((e) => e.action), ['upload', 'edit', 'submit', 'reject', 'edit']);
   });
 
-  test('deleting an uploaded version removes its file; an approved one can’t be deleted', async () => {
+  test('deleting a version removes its file, the active approved one too', async () => {
     const admin = await makeAdmin();
     const car = await makeCar();
     const v = await store.createCarModel(upload(car, ['deletable']), admin);
     const [{ storage_key: key }] = await q('SELECT storage_key FROM racingcoach."CarModelAssets" WHERE id = $1', [v.id]);
     await store.deleteCarModel(v.id);
     assert.ok(!objects.has(key));
-    const kept = await store.createCarModel(upload(car, ['deletable']), admin);
-    await store.applyCarModelAction(kept.id, 'submit', admin);
-    await store.applyCarModelAction(kept.id, 'approve', admin);
-    assert.equal(await codeOf(store.deleteCarModel(kept.id)), 'notDeletable');
+    const active = await store.createCarModel(upload(car, ['deletable']), admin);
+    await store.applyCarModelAction(active.id, 'submit', admin);
+    await store.applyCarModelAction(active.id, 'approve', admin);
+    await store.applyCarModelAction(active.id, 'activate', admin);
+    assert.ok(await store.readActiveCarModel('deletable'));
+    await store.deleteCarModel(active.id);
+    assert.equal(await store.readActiveCarModel('deletable'), null);
+    assert.equal((await q('SELECT 1 FROM racingcoach."CarModelAssets" WHERE id = $1', [active.id])).length, 0);
+    assert.equal(await codeOf(store.deleteCarModel(active.id)), 'notFound');
   });
 
   test('deleting the car deletes its models; deleting an Admin keeps them', async () => {

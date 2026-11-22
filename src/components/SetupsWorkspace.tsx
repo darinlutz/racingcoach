@@ -171,7 +171,8 @@ export default function SetupsWorkspace({
               </button>
             ))}
         </div>
-        {(!list || !SYSTEM_TABS.includes(tab)) && !NO_SYSTEMS_BAR.includes(tab) && systemsBar}
+        {/* Under the main tabs on Overview and Live Setup; under the setup selection box on Compare and the systems */}
+        {(!list || (!SYSTEM_TABS.includes(tab) && tab !== 'compare')) && !NO_SYSTEMS_BAR.includes(tab) && systemsBar}
       </div>
 
       {error && !list && (
@@ -220,7 +221,7 @@ export default function SetupsWorkspace({
           {tab === 'carSetups' && tabs.includes('carSetups') && <SetupCarLibrary />}
           {tab === 'live' && <SetupLive onOpen={actions.openSetup} onChanged={load} />}
           {tab === 'compare' && (
-            <SetupCompare setups={setups} value={compare} onChange={setCompare} />
+            <SetupCompare setups={setups} value={compare} onChange={setCompare} systems={systemsBar} />
           )}
           {tab === 'alignment' && (
             <SetupAlignment

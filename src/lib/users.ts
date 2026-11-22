@@ -18,7 +18,7 @@ import {
   type MembershipLevel,
   type Plan,
 } from './accountStatus';
-import { addAccCars, mergeOwnerCars, seedDefaultCars } from './defaultCars';
+import { addAccCars, fixRetiredMazdaCars, mergeOwnerCars, seedDefaultCars } from './defaultCars';
 import { seedTrackAnalysis } from './defaultTrackAnalysis';
 import { seedDefaultTracks } from './defaultTracks';
 import { dropTrackLengthsTable } from './trackLengths';
@@ -575,6 +575,8 @@ export function ensureUserSchema(): Promise<void> {
       // and added cars carry over into Cars, once; everyone else's copies go
       if (carsUsersExists) await mergeOwnerCars(client, OWNER_EMAIL);
       await client.query('DROP TABLE IF EXISTS racingcoach."CarsUsers", racingcoach."CarData"');
+      // iRacing's retired 2010 MX-5s, which the site never shows (renamed or removed)
+      await fixRetiredMazdaCars(client);
       // Why each monthly subscriber canceled, one row per cancellation. The user's name and email are
       // copied in; Delete Account (deleteUser) clears them and keeps the feedback (user_id is then set NULL).
       // reason is one of CANCELLATION_REASONS' labels; stripe_subscription_id is the confirmation number.

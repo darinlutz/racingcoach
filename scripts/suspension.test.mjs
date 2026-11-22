@@ -263,3 +263,43 @@ describe('the Setup Engineer’s facts', () => {
     assert.match(SUSPENSION_ENGINEER_RULE, /never say a higher anti-roll bar setting is stiffer/);
   });
 });
+
+describe('the axonometric overview with the car’s own model', () => {
+  test('a model’s wheel centers land on the drawing’s wheels, through the same projection as the SVG', async () => {
+    const { modelToThree, canonicalToDrawing, project, WHEELBASE, TRACK } = await import('../src/lib/suspensionAxonometric.ts');
+    const { identity, transformPoint } = await import('../src/lib/carModels/matrix.ts');
+    // A car 2.7 m between axles, 1.6 m across, its wheel centers 0.34 m up (the canonical frame: +X forward, +Y left)
+    const wheels = {
+      LF: { x: 1.35, y: 0.8, z: 0.34, verified: true },
+      RF: { x: 1.35, y: -0.8, z: 0.34, verified: true },
+      LR: { x: -1.35, y: 0.8, z: 0.34, verified: true },
+      RR: { x: -1.35, y: -0.8, z: 0.34, verified: true },
+    };
+    const toDrawing = canonicalToDrawing(wheels);
+    const k = WHEELBASE / 2.7;
+    const close = (a, b) => a.forEach((v, i) => assert.ok(Math.abs(v - b[i]) < 1e-9, `${a} vs ${b}`));
+    close(transformPoint(toDrawing, [1.35, 0.8, 0.34]), [0, TRACK / 2 + 0.8 * k, 0.34 * k]);
+    close(transformPoint(toDrawing, [-1.35, -0.8, 0.34]), [WHEELBASE, TRACK / 2 - 0.8 * k, 0.34 * k]);
+    // In three.js's space: the SVG's point, y turned up
+    const m = modelToThree(identity(), wheels);
+    for (const point of [[1.35, 0.8, 0.34], [-1.35, -0.8, 0]]) {
+      const [sx, sy] = project(transformPoint(toDrawing, point));
+      const [x, y] = transformPoint(m, point);
+      assert.ok(Math.abs(x - sx) < 1e-6 && Math.abs(y + sy) < 1e-6, `${point}`);
+    }
+    // Nearer the viewer the further along (1, 1, 1): the left rear is in front of the right front
+    assert.ok(transformPoint(m, [-1.35, 0.8, 0.34])[2] > transformPoint(m, [1.35, -0.8, 0.34])[2]);
+    assert.equal(canonicalToDrawing({ ...wheels, LR: { ...wheels.LR, x: 1.35 }, RR: { ...wheels.RR, x: 1.35 } }), null);
+  });
+});
+
+describe('the setup comparison’s Car type and Car filter', () => {
+  test('a setup is for a Car Data car by its car path’s names or its own name, never a similar one', async () => {
+    const { setupIsForCar } = await import('../src/lib/setupCarMatch.ts');
+    assert.ok(setupIsForCar({ car: null, carKey: 'bmwm4gt3' }, 'BMW M4 GT3 EVO'));
+    assert.ok(setupIsForCar({ car: null, carKey: 'stockcars chevycamarozl12022' }, 'Next Gen NASCAR Cup Series Chevrolet Camaro ZL1'));
+    assert.ok(setupIsForCar({ car: 'Ferrari 296 GT3', carKey: null }, 'Ferrari 296 GT3'));
+    assert.ok(!setupIsForCar({ car: 'Lamborghini Huracán GT3', carKey: null }, 'Lamborghini Huracan GT3 EVO'));
+    assert.ok(!setupIsForCar({ car: null, carKey: null }, 'Ferrari 296 GT3'));
+  });
+});

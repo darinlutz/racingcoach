@@ -1,7 +1,11 @@
 'use client';
 
-import type { KeyboardEvent } from 'react';
+import dynamic from 'next/dynamic';
+import { useCallback, useState, type KeyboardEvent } from 'react';
+import { useSelectedCarKey } from '@/components/CarViewContext';
 import { useLanguage } from '@/components/LanguageProvider';
+import { useCarModel } from '@/lib/carModels/carModelClient';
+import { project, TIRE_R, TRACK, VIEWBOX, WHEELBASE, type P3 } from '@/lib/suspensionAxonometric';
 import {
   arbBladeAngle,
   AXLES,
@@ -25,17 +29,13 @@ import {
 // car, and those are exaggerated (heightOffset). Both setups at once or one at a time; a part fades when the component
 // filter picks another system. Click or press Enter on a corner to select it.
 
-type P3 = [number, number, number];
+// The compared car's own 3D model, see-through behind the drawing, when it has an active one (SuspensionModelGhost.tsx,
+// three.js loaded only then); the schematic tub and roll structure otherwise
+const SuspensionModelGhost = dynamic(() => import('@/components/SuspensionModelGhost'), { ssr: false });
 
-const WHEELBASE = 2.6;
-const TRACK = 1.6;
-const TIRE_R = 0.32;
-const SCALE = 125; // px per meter
-const ORIGIN = [450, 235] as const;
 // The exaggerated ride height offsets (heightOffset's px, at most MAX_HEIGHT_OFFSET) in this drawing's px
 const LIFT_PX = 1;
 
-const project = ([x, y, z]: P3): [number, number] => [ORIGIN[0] + (x - y) * 0.866 * SCALE, ORIGIN[1] + (x + y) * 0.5 * SCALE - z * SCALE];
 const pathOf = (points: P3[], close = false) =>
   points
     .map((p, i) => {
@@ -92,9 +92,17 @@ export default function SuspensionCarOverview({ comparison, mode, exaggeration, 
   };
   const lower = tub(0.3);
   const upper = tub(0.7, 0.05);
+  const modelState = useCarModel({ carKey: useSelectedCarKey() });
+  const model = modelState.status === 'ready' ? modelState.model : null;
+  // Whether the model drew (it may not: no WebGL, a failed load), for the model it was for
+  const [drawn, setDrawn] = useState<{ id: number; ok: boolean } | null>(null);
+  const onReady = useCallback((ok: boolean) => model && setDrawn({ id: model.id, ok }), [model]);
+  const ghost = !!model && drawn?.id === model.id && drawn.ok;
 
   return (
-    <svg className="align-svg susp-overview h-auto w-full" viewBox="40 70 960 610" role="img" aria-label={s.overview.aria}>
+    <div className="relative">
+      {model && <SuspensionModelGhost model={model} onReady={onReady} />}
+    <svg className="align-svg susp-overview relative h-auto w-full" viewBox={VIEWBOX.join(' ')} role="img" aria-label={s.overview.aria}>
       {/* The ground plane under the car */}
       <path
         d={pathOf([[-1.3, -0.6, 0], [3.9, -0.6, 0], [3.9, TRACK + 0.6, 0], [-1.3, TRACK + 0.6, 0]], true)}
@@ -105,7 +113,9 @@ export default function SuspensionCarOverview({ comparison, mode, exaggeration, 
         {s.overview.ground.toUpperCase()}
       </text>
 
-      {/* The chassis: the tub, its frame rails and the roll structure */}
+      {/* The chassis: the tub, its frame rails and the roll structure, where the car's own model isn't drawn */}
+      {!ghost && (
+      <>
       <g className="align-structure susp-chassis">
         <path d={pathOf(lower, true)} />
         <path d={pathOf(upper, true)} />
@@ -124,6 +134,8 @@ export default function SuspensionCarOverview({ comparison, mode, exaggeration, 
       <text x={project([-0.75, 0.1, 0.7])[0]} y={project([-0.75, 0.1, 0.7])[1] - 12} textAnchor="middle" style={{ fontSize: 11 }}>
         {s.overview.chassis.toUpperCase()}
       </text>
+      </>
+      )}
 
       {/* Anti-roll bars: across each axle, its arms out to the corners, and its blade turned by the setting */}
       <g className={dim('arb')}>
@@ -268,5 +280,8 @@ export default function SuspensionCarOverview({ comparison, mode, exaggeration, 
         {s.overview.footer.toUpperCase()}
       </text>
     </svg>
+      {/* The model's author, credited wherever drivers see it (docs/car-models.md) */}
+      {ghost && model?.attribution && <p className="mt-1 text-right text-[10px] text-muted-foreground">{fmt(t.setups.carModels.credit, { credit: model.attribution })}</p>}
+    </div>
   );
 }

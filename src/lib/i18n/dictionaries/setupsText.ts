@@ -217,6 +217,10 @@ export const setupsEn = {
     lapsLine: '{laps} laps, {clean} clean · best {best} · clean average {average}',
     lapsCaveat: 'Lap times depend on the driver, the track and the conditions too, not only the setup.',
     swap: 'Swap',
+    // The Car type radio buttons and Car combobox over the two setups (SetupCarFilter.tsx)
+    carType: 'Car type',
+    car: 'Car',
+    allCars: 'All cars',
   },
   // The Wheel Alignment Engineering Comparison on the Compare tab (AlignmentEngineeringView.tsx)
   alignment: {

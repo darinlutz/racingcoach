@@ -7,6 +7,7 @@ import EngineeringCarView from '@/components/EngineeringCarView';
 import { useLanguage } from '@/components/LanguageProvider';
 import { Notice, Panel } from '@/components/SetupBadges';
 import SetupRevisionPicker, { type RevisionChoice } from '@/components/SetupRevisionPicker';
+import { useSetupCarFilter } from '@/components/SetupCarFilter';
 import { formatDifference } from '@/lib/setupCompare';
 import { lapTime, setupsRequest, type CompareResponse, type CompareRow, type LapsSummary } from '@/lib/setupClient';
 import { keyLabel, SETUP_CATEGORIES } from '@/lib/setupYaml';
@@ -54,12 +55,15 @@ export default function SetupCompare({
     () => (current?.result.rows ?? []).filter((r) => (showReadings || r.kind === 'setting') && (!onlyDiff || r.status !== 'same')),
     [current, onlyDiff, showReadings]
   );
-  const differences = current ? current.result.rows.filter((r) => r.status !== 'same' && (showReadings || r.kind === 'setting')).length : 0;
+  // The Car type and Car filter over the two pickers
+  const carFilter = useSetupCarFilter(setups, [value.a?.setupId, value.b?.setupId]);
+  const differences = current ?current.result.rows.filter((r) => r.status !== 'same' && (showReadings || r.kind === 'setting')).length : 0;
   return (
     <div className="space-y-5">
       <Panel>
+        {carFilter.controls}
         <div className="grid items-end gap-4 md:grid-cols-[1fr_auto_1fr]">
-          <SetupRevisionPicker label={c.baseline} setups={setups} value={value.a} onChange={(a) => onChange({ ...value, a })} />
+          <SetupRevisionPicker label={c.baseline} setups={carFilter.filtered} value={value.a} onChange={(a) => onChange({ ...value, a })} />
           <button
             type="button"
             onClick={() => onChange({ a: value.b, b: value.a })}
@@ -68,7 +72,7 @@ export default function SetupCompare({
             <ArrowLeftRight className="size-4" aria-hidden />
             {c.swap}
           </button>
-          <SetupRevisionPicker label={c.comparison} setups={setups} value={value.b} onChange={(b) => onChange({ ...value, b })} />
+          <SetupRevisionPicker label={c.comparison} setups={carFilter.filtered} value={value.b} onChange={(b) => onChange({ ...value, b })} />
         </div>
       </Panel>
 

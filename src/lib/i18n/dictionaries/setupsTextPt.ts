@@ -217,6 +217,9 @@ export const setupsPt: SetupsText = {
     lapsLine: '{laps} voltas, {clean} limpas · melhor {best} · média limpa {average}',
     lapsCaveat: 'Os tempos de volta também dependem do piloto, da pista e das condições, não só do setup.',
     swap: 'Inverter',
+    carType: 'Tipo de carro',
+    car: 'Carro',
+    allCars: 'Todos os carros',
   },
   // The Wheel Alignment Engineering Comparison on the Compare tab (AlignmentEngineeringView.tsx)
   alignment: {

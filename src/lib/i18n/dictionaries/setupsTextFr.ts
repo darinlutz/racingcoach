@@ -217,6 +217,9 @@ export const setupsFr: SetupsText = {
     lapsLine: '{laps} tours, {clean} propres · meilleur {best} · moyenne propre {average}',
     lapsCaveat: 'Les temps au tour dépendent aussi du pilote, du circuit et des conditions, pas seulement du setup.',
     swap: 'Inverser',
+    carType: 'Type de voiture',
+    car: 'Voiture',
+    allCars: 'Toutes les voitures',
   },
   // The Wheel Alignment Engineering Comparison on the Compare tab (AlignmentEngineeringView.tsx)
   alignment: {

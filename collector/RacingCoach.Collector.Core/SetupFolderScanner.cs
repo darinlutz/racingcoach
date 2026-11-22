@@ -79,6 +79,26 @@ public static class SetupFolderScanner
         return new SetupScan(root, cars, setups, orphans, problems);
     }
 
+    /// <summary>The names of the car folders under root (iRacing names each after its car path), sorted, without
+    /// reading what's in them; links aren't counted. Empty when root can't be read.</summary>
+    public static IReadOnlyList<string> CarFolderNames(string root)
+    {
+        try
+        {
+            return Directory.EnumerateDirectories(root)
+                .Where(d => !IsLink(d))
+                .Select(Path.GetFileName)
+                .OfType<string>()
+                .Where(n => n.Length > 0)
+                .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return [];
+        }
+    }
+
     private static bool IsLink(string path)
     {
         try

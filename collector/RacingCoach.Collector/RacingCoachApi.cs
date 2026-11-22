@@ -161,6 +161,19 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
         return body?.Recorded == true;
     }
 
+    /// <summary>Sends the names of the folders in iRacing's setups folder (its car paths), for the website's 3D Car
+    /// Models to offer; answers how many the site recorded. Throws like GetPreferencesAsync.</summary>
+    public async Task<int> ReportSetupFoldersAsync(IReadOnlyList<string> folders, CancellationToken ct)
+    {
+        using var response = await _http.PostAsJsonAsync("api/collector/setup-folders", new { folders }, JsonOptions, ct);
+        if (response.StatusCode == HttpStatusCode.Unauthorized)
+            throw new UnauthorizedAccessException("RacingCoach.app doesn't accept the upload key");
+        if (!response.IsSuccessStatusCode)
+            throw new HttpRequestException(await ErrorMessageAsync(response, ct));
+        var body = await response.Content.ReadFromJsonAsync<SetupFoldersResponse>(JsonOptions, ct);
+        return body?.Recorded ?? 0;
+    }
+
     /// <summary>Saves "Beeps before braking" (enabled) and/or its volume (10-100) to the account, from the window's
     /// checkbox and slider; null leaves one as it is. Throws like GetBrakeTargetsAsync.</summary>
     public async Task SaveBrakeBeepsAsync(bool? enabled, int? volume, CancellationToken ct)
@@ -652,6 +665,7 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
     private sealed record SimulatorTrackResponse(SimulatorTrackInfo? Track);
 
     private sealed record RecordedResponse(bool? Recorded);
+    private sealed record SetupFoldersResponse(int? Recorded);
 
     private sealed record ErrorResponse(string? Error, string? Code = null);
 

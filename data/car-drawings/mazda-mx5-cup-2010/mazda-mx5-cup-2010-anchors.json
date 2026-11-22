@@ -1,6 +1,6 @@
 {
   "car_id": "mazda-mx5-cup-2010",
-  "car_name": "Mazda MX-5 Cup - 2010",
+  "car_name": "Mazda MX-5 Cup",
   "status": "draft",
   "projection": "orthographic",
   "units": "px of a 2400x1400 render (not to scale; each view fitted to its canvas)",

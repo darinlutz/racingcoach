@@ -5,6 +5,7 @@ import { createCarModel, listCarModels, listModelCars } from '@/lib/carModels/ca
 import { checkGlb, GLB_LIMITS } from '@/lib/carModels/glb';
 import { MODEL_LIMITS, parseCarKeys, parseModelSettings } from '@/lib/carModels/modelRules';
 import { readFormDataLimited } from '@/lib/requestBody';
+import { listSetupFolders } from '@/lib/setupFolders';
 
 // The Admin page's 3D Car Models (docs/car-models.md). GET answers { cars, models, storageConfigured }: every Car Data
 // car (with its size, to check a model's scale against) and every model version with its settings and history. POST
@@ -15,8 +16,16 @@ export async function GET() {
   const session = await carModelsAdmin();
   if (session.response) return session.response;
   try {
-    const [cars, models] = await Promise.all([listModelCars(), listCarModels()]);
-    return NextResponse.json({ cars, models, storageConfigured: carModelStorageConfigured(), limits: { bytes: GLB_LIMITS.bytes } });
+    // setupFolders: the iRacing setup folders collectors have reported (setupFolders.ts), offered as car paths
+    const [cars, models, setupFolders] = await Promise.all([
+      listModelCars(),
+      listCarModels(),
+      listSetupFolders().catch((error) => {
+        console.error('Setup folders list error:', error);
+        return [] as string[];
+      }),
+    ]);
+    return NextResponse.json({ cars, models, setupFolders, storageConfigured: carModelStorageConfigured(), limits: { bytes: GLB_LIMITS.bytes } });
   } catch (error) {
     return carModelErrorResponse(error, session.t, 'Car models list');
   }

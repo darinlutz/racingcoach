@@ -1,3 +1,4 @@
+using RacingCoach.Collector.Setups;
 using RacingCoach.Collector.Simulators;
 using SVappsLAB.iRacingTelemetrySDK;
 
@@ -338,6 +339,7 @@ internal sealed class CollectorEngine
     public bool? PoliciesAccepted { get; private set; }
     // The upload key whose account the installer's acceptance was reported to (once per key and run)
     private RacingCoachApi? _legalReportedTo;
+    private RacingCoachApi? _setupFoldersReportedTo;
     /// <summary>TelemetryEngine.js while the Target Telemetry window is open; it gets every telemetry sample.</summary>
     public OverlayEngine? Overlay { get; set; }
 
@@ -398,6 +400,7 @@ internal sealed class CollectorEngine
             try
             {
                 await ReportLegalAcceptanceAsync(api);
+                await ReportSetupFoldersAsync(api);
                 var preferences = await api.GetPreferencesAsync(CancellationToken.None);
                 if (Api == api)
                 {
@@ -439,6 +442,34 @@ internal sealed class CollectorEngine
         catch (Exception e) when (e is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
         {
             // the preferences still load; reported at the next track
+        }
+    }
+
+    // Sends the names of the folders in iRacing's setups folder (Documents\iRacing\setups, its car paths) to the site
+    // once per run and key, as the collector starts, for the website's 3D Car Models to offer as car paths. Tried again
+    // with the next refresh if the site can't be reached; nothing to send when the folder isn't there
+    private async Task ReportSetupFoldersAsync(RacingCoachApi api)
+    {
+        if (_setupFoldersReportedTo == api)
+            return;
+        if (CarSetupImporter.FindSetupsRoot() is not { } root)
+        {
+            _setupFoldersReportedTo = api;
+            return;
+        }
+        var folders = SetupFolderScanner.CarFolderNames(root);
+        try
+        {
+            if (folders.Count > 0)
+            {
+                var recorded = await api.ReportSetupFoldersAsync(folders, CancellationToken.None);
+                Log($"Setup folders: sent the {folders.Count} car folders in iRacing's setups folder to RacingCoach.app ({recorded} recorded).");
+            }
+            _setupFoldersReportedTo = api;
+        }
+        catch (Exception e) when (e is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
+        {
+            // tried again at the next refresh
         }
     }
 

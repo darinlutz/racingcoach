@@ -22,7 +22,7 @@ import { addAccCars, mergeOwnerCars, seedDefaultCars } from './defaultCars';
 import { seedTrackAnalysis } from './defaultTrackAnalysis';
 import { seedDefaultTracks } from './defaultTracks';
 import { dropTrackLengthsTable } from './trackLengths';
-import { appendTrackCorners, categorizeTracks, removeLegacyTracks, renameTrackIds, seedTrackCorners } from './trackCorners';
+import { appendTrackCorners, categorizeTracks, fixTrackCategories, removeLegacyTracks, renameTrackIds, seedTrackCorners } from './trackCorners';
 import { cleanCountry } from './countryCodes';
 import { DEFAULT_LANGUAGE, isLanguage, type Language } from './i18n/languages';
 import { DEFAULT_THEME, isTheme, type Theme } from './theme';
@@ -477,6 +477,8 @@ export function ensureUserSchema(): Promise<void> {
       await renameTrackIds(client);
       // Once, when Tracks gets its track_category column (after the layouts above are appended)
       if (tracksLackCategory) await categorizeTracks(client);
+      // Tracks the corner count put in the wrong category (e.g. Concord Speedway's half mile, an oval)
+      await fixTrackCategories(client);
       // Once, when Tracks gets its Racecar Analysis columns: the values Track_Information.xlsx had
       if (tracksLackAnalysis) await seedTrackAnalysis(client);
       // Each user's own iRacePlan API key (Settings > API Keys on iraceplan.com) and their iRacing

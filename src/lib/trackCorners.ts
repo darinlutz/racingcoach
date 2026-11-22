@@ -508,6 +508,21 @@ export async function renameTrackIds(client: PoolClient): Promise<void> {
   }
 }
 
+// Tracks whose category the corner count gets wrong, by track key: categorizeTracks runs once, and no page sets a
+// category, so fixTrackCategories puts these right at every start, on the caller's transaction. Concord Speedway's
+// half mile (concordhalf) is an oval its 5 corners made a Road Course
+const TRACK_CATEGORY_FIXES: [trackKey: string, category: string][] = [['concordhalf', 'Oval']];
+
+export async function fixTrackCategories(client: PoolClient): Promise<void> {
+  for (const [trackKey, category] of TRACK_CATEGORY_FIXES) {
+    await client.query(
+      `UPDATE racingcoach."Tracks" SET track_category = $2, updated_at = now()
+       WHERE lower(track_key) = lower($1) AND track_category IS DISTINCT FROM $2`,
+      [trackKey, category]
+    );
+  }
+}
+
 // Deletes iRacing's retired "[Legacy]" tracks (e.g. "[Legacy] Phoenix Raceway - 2008 (Oval)") from
 // racingcoach."Tracks", on the caller's transaction, with their TrackFocusAreas. Tracks that were
 // appended before appendTrackCorners skipped them. They stay in TracksNumberOfCorners.

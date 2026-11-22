@@ -54,6 +54,19 @@ public sealed class SetupFolderScannerTests : IDisposable
     }
 
     [Fact]
+    public void Car_folder_names_are_the_folders_under_the_root_sorted_without_their_files()
+    {
+        Write("ferrari296gt3/baseline.sto", "a");
+        Write("mx5 mx52016/Season 4/race.sto", "b");
+        Write("bmwm4gt3/other.sto", "c");
+        Write("loose.sto", "d");
+        Directory.CreateDirectory(Path.Combine(_root, "stockcars chevycamarozl12022"));
+
+        Assert.Equal(["bmwm4gt3", "ferrari296gt3", "mx5 mx52016", "stockcars chevycamarozl12022"], SetupFolderScanner.CarFolderNames(_root));
+        Assert.Empty(SetupFolderScanner.CarFolderNames(Path.Combine(_root, "missing")));
+    }
+
+    [Fact]
     public void Without_a_filter_every_car_folder_is_scanned()
     {
         Write("ferrari296gt3/a.sto", "a");

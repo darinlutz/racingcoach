@@ -53,7 +53,7 @@ export const carModelsEs: CarModelsText = {
     car: 'Auto',
     pickCar: 'Elige un auto',
     carKeys: 'Rutas de auto de iRacing',
-    carKeysHelp: 'El CarPath de la información de la sesión, por ejemplo lamborghinievogt3, separados por comas. Las vueltas y los setups se asocian exactamente por ellas, nunca por el nombre.',
+    carKeysHelp: 'El CarPath de la información de la sesión, por ejemplo lamborghinievogt3, separados por comas. Las vueltas y los setups se asocian exactamente por ellas, nunca por el nombre. La lista ofrece las carpetas de setups de iRacing que encontró el recolector.',
     file: 'Modelo (.glb)',
     fileHelp: 'glTF 2.0 binario con todo incluido, de hasta 40 MB, sin compresión Draco, meshopt ni Basis.',
     source: 'Fuente',

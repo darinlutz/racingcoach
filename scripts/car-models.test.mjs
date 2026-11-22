@@ -33,6 +33,7 @@ import {
 } from '../src/lib/carModels/modelRules.ts';
 import { carPathForName } from '../src/lib/carModels/carPathByName.ts';
 import { testCarGlb } from './testCarGlb.mjs';
+import { cleanSetupFolders, SETUP_FOLDER_LIMITS } from '../src/lib/setupFolderRules.ts';
 
 const close = (a, b, eps = 1e-9) => a.forEach((v, i) => assert.ok(Math.abs(v - b[i]) < eps, `${a} vs ${b}`));
 
@@ -224,6 +225,25 @@ describe('the review rules', () => {
 
   test('the file’s address carries its hash, so it can be kept for good', () => {
     assert.equal(modelFileUrl(7, 'a'.repeat(64)), `/api/car-models/7/file?v=${'a'.repeat(16)}`);
+  });
+});
+
+describe('the iRacing setup folders offered as car paths', () => {
+  test('folder names that can be car paths, lower case, each once, sorted; anything else left out', () => {
+    assert.deepEqual(
+      cleanSetupFolders(['FerrariGT3', 'mx5 mx52016', 'ferrarigt3', '../etc', 'a', 'two  spaces', 42, 'stockcars chevycamarozl12022']),
+      ['ferrarigt3', 'mx5 mx52016', 'stockcars chevycamarozl12022']
+    );
+    assert.deepEqual(cleanSetupFolders('ferrari296gt3'), []);
+    assert.equal(cleanSetupFolders(Array.from({ length: 5000 }, (_, i) => `car${i}`)).length, SETUP_FOLDER_LIMITS.perReport);
+  });
+
+  test('the collector route needs the upload key and reads a capped body; the Admin list comes with the models', () => {
+    const route = readFileSync('src/app/api/collector/setup-folders/route.ts', 'utf8');
+    assert.match(route, /authenticateCollector\(request\)/);
+    assert.match(route, /readJsonLimited\(request, JSON_BODY_LIMIT\)/);
+    assert.match(readFileSync('src/app/api/admin/car-models/route.ts', 'utf8'), /listSetupFolders\(\)/);
+    assert.match(readFileSync('src/components/CarModelAssetManager.tsx', 'utf8'), /<CarPathCombobox id="cm-keys"/);
   });
 });
 

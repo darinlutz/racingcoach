@@ -34,7 +34,8 @@ const H = 1400;
 // Mazda MX-5 Cup's car path (mx5 mx52016), the setups folder the owner has
 const CARS = [
   { source: 'ferrari-296-gt3', folder: 'ferrari-296-gt3', prefix: 'ferrari-296-gt3', halfTrack: 0.358 },
-  { source: 'mazda-mx5-cup', folder: 'mazda-mx5-cup-2010', prefix: 'mazda-mx5-cup-2010', halfTrack: 0.385 },
+  // Named as the owner calls it (the source says "Mazda MX-5 Cup - 2010")
+  { source: 'mazda-mx5-cup', folder: 'mazda-mx5-cup-2010', prefix: 'mazda-mx5-cup-2010', halfTrack: 0.385, name: 'Mazda MX-5 Cup' },
   { source: 'mercedes-amg-f1', folder: 'mercedes-amg-f1', prefix: 'mercedes-amg-f1', halfTrack: 0.4 },
   { source: 'nascar-camaro-zl1', folder: 'nascar-camaro-zl1-next-gen', prefix: 'nascar-camaro-zl1-next-gen', halfTrack: 0.4 },
   { source: 'toyota-gr86', folder: 'toyota-gr86', prefix: 'toyota-gr86', halfTrack: 0.37 },
@@ -390,7 +391,7 @@ for (const car of CARS) {
     // Only the side views' wheels were measured, so only theirs are split out
     const wheels =
       view === 'left-side' ? [left.front, left.rear] : view === 'right-side' ? [right.front, right.rear] : [];
-    counts[view] = writeSvg(car, view, traced, wheels, `${anchorsIn.name} — ${view} (orthographic, traced)`, `Traced from a render of ${credit}.`);
+    counts[view] = writeSvg(car, view, traced, wheels, `${car.name ?? anchorsIn.name} — ${view} (orthographic, traced)`, `Traced from a render of ${credit}.`);
     void a;
   }
 
@@ -399,7 +400,7 @@ for (const car of CARS) {
     JSON.stringify(
       {
         car_id: car.prefix,
-        car_name: anchorsIn.name,
+        car_name: car.name ?? anchorsIn.name,
         status: 'draft',
         projection: 'orthographic',
         units: `px of a ${W}x${H} render (not to scale; each view fitted to its canvas)`,

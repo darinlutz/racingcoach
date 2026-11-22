@@ -1,4 +1,4 @@
-# Validation notes: mazda-mx5-cup-2010
+# Validation notes: mazda-mx5-cup
 
 Traced drawings from the Lovable project darinlutz/five-more-fast-cars, converted by scripts/importTracedCarDrawings.mjs.
 Model: “2019 Mazda MX-5” by Ddiaz Design (https://sketchfab.com/ddiaz-design) (https://sketchfab.com/3d-models/2019-mazda-mx-5-a6b5e948430241008f3bee23c2f63624), CC-BY-NC-SA-4.0.
@@ -15,6 +15,6 @@ Model: “2019 Mazda MX-5” by Ddiaz Design (https://sketchfab.com/ddiaz-design
 | Toyota GR86 | 2022 Pandem GR86 V1.5 Aero Kit — Ddiaz Design | CC-BY-NC-SA-4.0 | Wide-body Pandem kit, not stock GR86 |
 | NASCAR Camaro ZL1 | 2022 NASCAR Chevrolet Camaro ZL1 Next Gen — Ddiaz Design | CC-BY-4.0 | Matches |
 | Mercedes-AMG F1 W13 | "Mercedec F1 2020" — Kevin Love | CC-BY-4.0 | 2020 car (W11), not W13 (2022) |
-| Mazda MX-5 Cup 2010 | 2019 Mazda MX-5 — Ddiaz Design | CC-BY-NC-SA-4.0 | 2019 road car, not 2010 Cup car |
-| Ferrari 296 GT3 | Ferrari 296 GT3 — vecarz | CC-BY-NC-4.0 | Matches |
+| Mazda MX-5 Cup | 2019 Mazda MX-5 — Ddiaz Design | CC-BY-NC-SA-4.0 | 2019 road car, not the Cup car |
+| Ferrari 296 GT3 | ferrari_296_gt3 — MattDoesBlender | CC-BY-NC-SA-4.0 | Replacement model supplied on 2026-11-22; matches |
 Three licences are NonCommercial (NC): fine for personal use, not for a paid product without the author's permission. CC-BY requires crediting the author.

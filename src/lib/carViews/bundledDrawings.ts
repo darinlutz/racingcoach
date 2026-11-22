@@ -46,9 +46,9 @@ export const BUNDLED_DRAWINGS: BundledDrawing[] = [
   // models (so is this project's Ferrari, above), imported now with their licences recorded as they are: the owner is
   // getting their authors' permission afterwards
   { id: 'toyota-gr86', carName: 'Toyota GR86', carKeys: ['toyotagr86'], folder: 'toyota-gr86', prefix: 'toyota-gr86', commit: 'bf0668b', project: 'darinlutz/five-more-fast-cars' },
-  // Drawn as the Mazda MX-5 Cup - 2010 (from a 2019 road car's model, see its notes), for the setups folder the owner
-  // has, the Global Mazda MX-5 Cup's (mx5 mx52016): the 2010 car isn't in Car Data
-  { id: 'mazda-mx5-cup-2010', carName: 'Global Mazda MX-5 Cup', carKeys: ['mx5 mx52016'], folder: 'mazda-mx5-cup-2010', prefix: 'mazda-mx5-cup-2010', commit: 'bf0668b', project: 'darinlutz/five-more-fast-cars' },
+  // The Mazda MX-5 Cup (from a 2019 road car's model, see its notes), for the setups folder the owner has, the Global
+  // Mazda MX-5 Cup's (mx5 mx52016)
+  { id: 'mazda-mx5-cup', carName: 'Global Mazda MX-5 Cup', carKeys: ['mx5 mx52016'], folder: 'mazda-mx5-cup', prefix: 'mazda-mx5-cup', commit: 'bf0668b', project: 'darinlutz/five-more-fast-cars' },
   { id: 'nascar-camaro-zl1-next-gen', carName: 'Next Gen NASCAR Cup Series Chevrolet Camaro ZL1', carKeys: ['stockcars chevycamarozl12022'], folder: 'nascar-camaro-zl1-next-gen', prefix: 'nascar-camaro-zl1-next-gen', commit: 'bf0668b', project: 'darinlutz/five-more-fast-cars' },
   { id: 'mercedes-amg-f1', carName: 'Mercedes-AMG W13 E Performance', carKeys: ['mercedesw13'], folder: 'mercedes-amg-f1', prefix: 'mercedes-amg-f1', commit: 'bf0668b', project: 'darinlutz/five-more-fast-cars' },
 ];

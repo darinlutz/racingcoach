@@ -34,8 +34,8 @@ const H = 1400;
 // Mazda MX-5 Cup's car path (mx5 mx52016), the setups folder the owner has
 const CARS = [
   { source: 'ferrari-296-gt3', folder: 'ferrari-296-gt3', prefix: 'ferrari-296-gt3', halfTrack: 0.358 },
-  // Named as the owner calls it (the source says "Mazda MX-5 Cup - 2010")
-  { source: 'mazda-mx5-cup', folder: 'mazda-mx5-cup-2010', prefix: 'mazda-mx5-cup-2010', halfTrack: 0.385, name: 'Mazda MX-5 Cup' },
+  // Named as the owner calls it, never with the retired car's year (the source names that car)
+  { source: 'mazda-mx5-cup', folder: 'mazda-mx5-cup', prefix: 'mazda-mx5-cup', halfTrack: 0.385, name: 'Mazda MX-5 Cup' },
   { source: 'mercedes-amg-f1', folder: 'mercedes-amg-f1', prefix: 'mercedes-amg-f1', halfTrack: 0.4 },
   { source: 'nascar-camaro-zl1', folder: 'nascar-camaro-zl1-next-gen', prefix: 'nascar-camaro-zl1-next-gen', halfTrack: 0.4 },
   { source: 'toyota-gr86', folder: 'toyota-gr86', prefix: 'toyota-gr86', halfTrack: 0.37 },
@@ -444,7 +444,13 @@ for (const r of report) {
     '- Not to scale: each view was fitted to its own 2400x1400 canvas.',
     '',
     '## From the source project (please review)',
-    sourceNotes.split('\n').filter((l) => l.startsWith('|') || /NonCommercial|NC\)|CC-BY requires/.test(l)).join('\n'),
+    sourceNotes
+      .split('\n')
+      .filter((l) => l.startsWith('|') || /NonCommercial|NC\)|CC-BY requires/.test(l))
+      .join('\n')
+      // The Mazda is the Mazda MX-5 Cup here, never the retired 2010 car
+      .replace(/Mazda MX-5 Cup( -)? 2010/g, 'Mazda MX-5 Cup')
+      .replace(/not 2010 Cup car/g, 'not the Cup car'),
     '',
   ].join('\n');
   fs.writeFileSync(path.join(OUT, r.car, 'VALIDATION-NOTES.md'), notes);

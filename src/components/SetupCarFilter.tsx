@@ -8,7 +8,7 @@ import { setupIsForCar } from '@/lib/setupCarMatch';
 
 // The Car type and Car filter over the setup comparison's two setup pickers (SetupCompare.tsx and the engineering
 // system tabs' SetupFocusComparison.tsx): six radio buttons, Car Data's racing disciplines (Sports Car first, picked to
-// begin with), and a Car combobox of Car Data's cars of that type, each with how many of the user's setups are for it
+// begin with), and a Car combobox of Car Data's cars of that type the user has setups for, each with how many
 // (setupCarMatch.ts). All cars leaves the pickers' setups as they are; a car limits them to its setups. The setups
 // already picked stay in their pickers' lists whatever the filter, so a comparison never loses its setups.
 
@@ -50,6 +50,8 @@ export function useSetupCarFilter<S extends Pick<SetupSummary, 'id' | 'car' | 'c
       cars
         .filter((car) => car.racingDiscipline === type)
         .map((car) => ({ ...car, setups: setups.filter((s) => setupIsForCar(s, car.name)).length }))
+        // Only the cars the user has setups for
+        .filter((car) => car.setups > 0)
         .sort((a, b) => a.name.localeCompare(b.name)),
     [cars, type, setups]
   );
@@ -90,8 +92,7 @@ export function useSetupCarFilter<S extends Pick<SetupSummary, 'id' | 'car' | 'c
           <option value="">{c.allCars}</option>
           {ofType.map((x) => (
             <option key={x.id} value={x.id}>
-              {x.name}
-              {x.setups ? ` (${x.setups})` : ''}
+              {x.name} ({x.setups})
             </option>
           ))}
         </select>

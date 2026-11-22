@@ -31,7 +31,7 @@ describe('the repository’s car drawings', () => {
         ['mercedes-amg-gt3-evo-2020', [...CAR_VIEWS]],
         ['porsche-911-gt3-r-992', [...CAR_VIEWS]],
         ['toyota-gr86', [...CAR_VIEWS]],
-        ['mazda-mx5-cup-2010', [...CAR_VIEWS]],
+        ['mazda-mx5-cup', [...CAR_VIEWS]],
         ['nascar-camaro-zl1-next-gen', [...CAR_VIEWS]],
         ['mercedes-amg-f1', [...CAR_VIEWS]],
       ]

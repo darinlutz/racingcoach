@@ -443,6 +443,20 @@ export async function seedDefaultCars(client: PoolClient, cars: DefaultCar[] = D
 
 // Runs once, on the caller's transaction, when "CarsUsers" is about to be dropped: the owner's copy of each car replaces
 // the one in Cars, and cars the owner added join it. A car the owner deleted stays in Cars.
+// Car Data rows of iRacing's retired 2010 MX-5s, which the site never shows (the owner's wish): at every start, on the
+// caller's transaction, the MX-5 Cup - 2010 becomes the Mazda MX-5 Cup (or goes, when a Mazda MX-5 Cup is already
+// there) and the MX-5 Roadster - 2010 goes. Names are compared without case, punctuation or a "[Legacy]" prefix.
+// Tables pointing at a car clear the link or go with it (ON DELETE SET NULL / CASCADE)
+const CAR_NAME_KEY_SQL = `regexp_replace(regexp_replace(lower(car_name), '^\\[legacy\\]\\s*', ''), '[^a-z0-9]', '', 'g')`;
+export async function fixRetiredMazdaCars(client: PoolClient): Promise<void> {
+  await client.query(
+    `UPDATE racingcoach."Cars" SET car_name = 'Mazda MX-5 Cup'
+     WHERE ${CAR_NAME_KEY_SQL} = 'mazdamx5cup2010'
+       AND NOT EXISTS (SELECT 1 FROM racingcoach."Cars" WHERE lower(car_name) = 'mazda mx-5 cup')`
+  );
+  await client.query(`DELETE FROM racingcoach."Cars" WHERE ${CAR_NAME_KEY_SQL} IN ('mazdamx5cup2010', 'mazdamx5roadster2010')`);
+}
+
 export async function mergeOwnerCars(client: PoolClient, ownerEmail: string): Promise<void> {
   await client.query('ALTER TABLE racingcoach."CarsUsers" ADD COLUMN IF NOT EXISTS racing_discipline TEXT');
   await client.query(

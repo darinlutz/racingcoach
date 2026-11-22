@@ -1,7 +1,7 @@
 'use client';
 
 import { ArrowLeftRight } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { CarViewProvider } from '@/components/CarViewContext';
 import EngineeringCarView from '@/components/EngineeringCarView';
 import { useLanguage } from '@/components/LanguageProvider';
@@ -20,10 +20,13 @@ export default function SetupCompare({
   setups,
   value,
   onChange,
+  systems,
 }: {
   setups: Parameters<typeof SetupRevisionPicker>[0]['setups'];
   value: { a: RevisionChoice; b: RevisionChoice };
   onChange: (value: { a: RevisionChoice; b: RevisionChoice }) => void;
+  // The engineering systems' row of tabs, shown under the setup selection box
+  systems?: ReactNode;
 }) {
   const { t, plural } = useLanguage();
   const s = t.setups;
@@ -75,6 +78,7 @@ export default function SetupCompare({
           <SetupRevisionPicker label={c.comparison} setups={carFilter.filtered} value={value.b} onChange={(b) => onChange({ ...value, b })} />
         </div>
       </Panel>
+      {systems}
 
       {!value.a || !value.b ? (
         <Notice>{c.pickBoth}</Notice>

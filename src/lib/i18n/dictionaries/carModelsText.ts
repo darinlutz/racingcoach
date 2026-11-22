@@ -55,7 +55,7 @@ export const carModelsEn = {
     car: 'Car',
     pickCar: 'Choose a car',
     carKeys: 'iRacing car paths',
-    carKeysHelp: 'Session info’s CarPath, e.g. lamborghinievogt3, separated by commas. Laps and setups are matched by these exactly, never by name.',
+    carKeysHelp: 'Session info’s CarPath, e.g. lamborghinievogt3, separated by commas. Laps and setups are matched by these exactly, never by name. The list offers the iRacing setup folders the collector has found.',
     file: 'Model (.glb)',
     fileHelp: 'Binary glTF 2.0 with everything inside it, up to 40 MB, without Draco, meshopt or Basis compression.',
     source: 'Source',

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Car3DViewerLazy from '@/components/car3d/Car3DViewerLazy';
+import CarPathCombobox from '@/components/CarPathCombobox';
 import { useLanguage } from '@/components/LanguageProvider';
 import { AXES, canonicalBounds, dimensions, validAxes, type Axis, type Bounds, type Normalization, type Vec3 } from '@/lib/carModels/matrix';
 import {
@@ -96,6 +97,8 @@ export default function CarModelAssetManager() {
   const s = m.admin;
   const [cars, setCars] = useState<Car[]>([]);
   const [models, setModels] = useState<Summary[] | null>(null);
+  // The iRacing setup folders collectors have reported, offered as car paths
+  const [setupFolders, setSetupFolders] = useState<string[]>([]);
   const [storage, setStorage] = useState(true);
   const [error, setError] = useState('');
   const [problems, setProblems] = useState<string[]>([]);
@@ -121,6 +124,7 @@ export default function CarModelAssetManager() {
       if (!res.ok) throw new Error(data.error);
       setCars(data.cars);
       setModels(data.models);
+      setSetupFolders(data.setupFolders ?? []);
       setStorage(data.storageConfigured);
     } catch (e) {
       setError(e instanceof Error && e.message ? e.message : m.errors.failed);
@@ -342,7 +346,7 @@ export default function CarModelAssetManager() {
             <label htmlFor="cm-keys" className={labelClass}>
               {s.carKeys}
             </label>
-            <input id="cm-keys" value={carKeys} onChange={(e) => setCarKeys(e.target.value)} placeholder="lamborghinievogt3" className={inputClass} />
+            <CarPathCombobox id="cm-keys" value={carKeys} onChange={setCarKeys} folders={setupFolders} placeholder="lamborghinievogt3" className={inputClass} />
             <p className="mt-1 text-xs text-muted-foreground">{s.carKeysHelp}</p>
           </div>
           <div>
@@ -591,7 +595,7 @@ export default function CarModelAssetManager() {
                       </div>
                       <label className="block">
                         <span className={labelClass}>{s.carKeys}</span>
-                        <input value={current.carKeys} onChange={(e) => change({ carKeys: e.target.value })} className={smallInput} />
+                        <CarPathCombobox value={current.carKeys} onChange={(carKeys) => change({ carKeys })} folders={setupFolders} className={smallInput} />
                       </label>
                       {(['source', 'license', 'attribution', 'notes'] as const).map((key) => (
                         <label key={key} className="block">

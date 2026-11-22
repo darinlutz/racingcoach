@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useConfirm } from '@/components/ConfirmProvider';
 import { useLanguage } from '@/components/LanguageProvider';
 import { USAGE_RANGES, type RateLimitOverride, type UsageRange } from '@/lib/rateLimitConfig';
 import type { UsageReport, UsageRow } from '@/lib/rateLimits';
@@ -27,6 +28,7 @@ export default function AiUsageReport({
   overridesVersion: RateLimitOverride[];
 }) {
   const { t, fmt, locale, number } = useLanguage();
+  const ask = useConfirm();
   const a = t.admin;
   const r = a.rateLimits;
   const [range, setRange] = useState<UsageRange>('day');
@@ -78,7 +80,7 @@ export default function AiUsageReport({
 
   const reset = async (row: UsageRow) => {
     const target = targetOf(row);
-    if (!target || !window.confirm(fmt(r.confirmReset, { target: nameOf(row) }))) return;
+    if (!target || !(await ask.confirm({ message: fmt(r.confirmReset, { target: nameOf(row) }) }))) return;
     setNotice('');
     try {
       const res = await fetch('/api/admin/rate-limits/reset', {

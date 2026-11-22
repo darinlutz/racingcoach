@@ -1,6 +1,7 @@
 'use client';
 
 import { Fragment, useMemo, useState } from 'react';
+import { useConfirm } from '@/components/ConfirmProvider';
 import { useLanguage } from '@/components/LanguageProvider';
 import { useUnits } from '@/components/UnitsProvider';
 import { DEFAULT_TRACK_CATEGORY, TRACK_CATEGORIES, trackCategoriesOf } from '@/lib/trackCategories';
@@ -41,6 +42,7 @@ type AnalysisForm = {
 
 export default function TrackMaintenance({ tracks: initialTracks }: { tracks: MaintenanceTrack[] }) {
   const { t, fmt } = useLanguage();
+  const ask = useConfirm();
   const units = useUnits();
   const a = t.admin;
   const [tracks, setTracks] = useState(initialTracks);
@@ -110,7 +112,7 @@ export default function TrackMaintenance({ tracks: initialTracks }: { tracks: Ma
 
   // Clears the length, location and map uploaded laps taught the track, for one taught wrong
   const resetLearned = async (track: MaintenanceTrack) => {
-    if (!window.confirm(fmt(a.resetLearnedConfirm, { track: track.name }))) return;
+    if (!(await ask.confirm({ message: fmt(a.resetLearnedConfirm, { track: track.name }) }))) return;
     setMessage(null);
     try {
       await send(`/api/coach/tracks/${track.id}/learned`, 'DELETE');
@@ -224,7 +226,7 @@ export default function TrackMaintenance({ tracks: initialTracks }: { tracks: Ma
   };
 
   const deleteArea = async (trackId: number, area: MaintenanceFocusArea) => {
-    if (!window.confirm(fmt(a.confirmDeleteArea, { area: area.name }))) return;
+    if (!(await ask.confirm({ message: fmt(a.confirmDeleteArea, { area: area.name }), action: 'delete' }))) return;
     setBusy(true);
     setMessage(null);
     try {

@@ -11,6 +11,7 @@ import { getProfilePictureVersion } from "@/lib/profilePictures";
 import PolicyUpdateNotice from "@/components/PolicyUpdateNotice";
 import EmailVerificationNotice from "@/components/EmailVerificationNotice";
 import RateLimitDialog from "@/components/RateLimitDialog";
+import ConfirmProvider from "@/components/ConfirmProvider";
 import UnitsProvider from "@/components/UnitsProvider";
 import { getConsentState } from "@/lib/cookieConsentServer";
 import { getDictionary, getLanguage } from "@/lib/i18n/server";
@@ -94,6 +95,8 @@ export default async function RootLayout({
               <ConsentGate category="analytics">
                 <ActivityTracker />
               </ConsentGate>
+              {/* The site's confirmation boxes, in place of the browser's (useConfirm) */}
+              <ConfirmProvider>
               {/* Pops up when an AI feature was refused because the user's AI limit is used up */}
               <RateLimitDialog />
               <Navigation
@@ -129,6 +132,7 @@ export default async function RootLayout({
                   </div>
                 </footer>
               </div>
+              </ConfirmProvider>
             </CookieConsentProvider>
           </UnitsProvider>
         </LanguageProvider>

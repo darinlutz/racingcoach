@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 
 import IncidentsChart from '@/components/IncidentsChart';
+import { useConfirm } from '@/components/ConfirmProvider';
 import { useLanguage } from '@/components/LanguageProvider';
 import IRatingChart from '@/components/IRatingChart';
 import PositionsChart from '@/components/PositionsChart';
@@ -25,6 +26,7 @@ const formatDateTime = (iso: string, locale: string) =>
 // only new ones are fetched after that, every time the tab opens
 export default function RaceTrends() {
   const { t: dictionary, fmt, plural, locale, number } = useLanguage();
+  const ask = useConfirm();
   const t = dictionary.raceTrends;
   const [loaded, setLoaded] = useState(false);
   const [signedOut, setSignedOut] = useState(false);
@@ -133,7 +135,7 @@ export default function RaceTrends() {
   };
 
   const disconnectIRacePlan = async () => {
-    if (!window.confirm(t.disconnectConfirm)) return;
+    if (!(await ask.confirm({ message: t.disconnectConfirm }))) return;
     const res = await fetch('/api/race-trends/connection', { method: 'DELETE' });
     if (res.ok) setConnection(null);
   };

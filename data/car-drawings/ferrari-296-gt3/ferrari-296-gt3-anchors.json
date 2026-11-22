@@ -5,10 +5,10 @@
   "projection": "orthographic",
   "units": "px of a 2400x1400 render (not to scale; each view fitted to its canvas)",
   "source": {
-    "title": "Ferrari 296 GT3 | www.vecarz.com",
-    "author": "vecarz (https://sketchfab.com/heynic)",
-    "license": "CC-BY-NC-4.0",
-    "url": "https://sketchfab.com/3d-models/ferrari-296-gt3-wwwvecarzcom-a463226115184535928ec75660c6571f"
+    "title": "ferrari_296_gt3",
+    "author": "MattDoesBlender (https://sketchfab.com/MattDoesBlender)",
+    "license": "CC-BY-NC-SA-4.0",
+    "url": "https://sketchfab.com/3d-models/ferrari-296-gt3-ce7df6d5f2c04aaf9d2cb7e5e86d714a"
   },
   "scaling": "Traced (potrace) from 2400x1400 renders of the model; each view scaled to fit its canvas",
   "views": {
@@ -25,24 +25,24 @@
       ],
       "anchors": {
         "front_wheel_center": [
-          643,
-          857
+          625,
+          903
         ],
         "front_contact_patch": [
-          643,
-          991
+          625,
+          1063
         ],
-        "front_tyre_radius": 134,
+        "front_tyre_radius": 160,
         "rear_wheel_center": [
-          1880,
-          849
+          1877,
+          898
         ],
         "rear_contact_patch": [
-          1880,
-          991
+          1877,
+          1063
         ],
-        "rear_tyre_radius": 142,
-        "groundY": 991
+        "rear_tyre_radius": 165,
+        "groundY": 1063
       }
     },
     "right-side": {
@@ -58,24 +58,24 @@
       ],
       "anchors": {
         "front_wheel_center": [
-          1760,
-          855
+          1774.5,
+          903
         ],
         "front_contact_patch": [
-          1760,
-          989
+          1774.5,
+          1063
         ],
-        "front_tyre_radius": 134,
+        "front_tyre_radius": 160,
         "rear_wheel_center": [
           523,
-          847
+          897
         ],
         "rear_contact_patch": [
           523,
-          989
+          1062
         ],
-        "rear_tyre_radius": 142,
-        "groundY": 989
+        "rear_tyre_radius": 165,
+        "groundY": 1062.5
       }
     },
     "top": {
@@ -92,20 +92,20 @@
       ],
       "anchors": {
         "front_left_wheel_center": [
-          969.4,
-          374.7
+          967.3,
+          364.9
         ],
         "front_right_wheel_center": [
-          1430.6,
-          374.7
+          1432.7,
+          364.9
         ],
         "rear_left_wheel_center": [
-          969.4,
-          1096.9
+          967.3,
+          1095.7
         ],
         "rear_right_wheel_center": [
-          1430.6,
-          1096.9
+          1432.7,
+          1095.7
         ]
       }
     },
@@ -123,22 +123,22 @@
       ],
       "anchors": {
         "front_right_wheel_center": [
-          672.9,
-          939.3
+          489.7,
+          1060.9
         ],
         "front_right_contact_patch": [
-          672.9,
-          1118
+          489.7,
+          1346
         ],
         "front_left_wheel_center": [
-          1726.1,
-          939.3
+          1910.3,
+          1060.9
         ],
         "front_left_contact_patch": [
-          1726.1,
-          1118
+          1910.3,
+          1346
         ],
-        "groundY": 1118
+        "groundY": 1346
       }
     },
     "rear": {
@@ -155,22 +155,22 @@
       ],
       "anchors": {
         "rear_left_wheel_center": [
-          673.9,
-          928.6
+          489.7,
+          1052
         ],
         "rear_left_contact_patch": [
-          673.9,
-          1118
+          489.7,
+          1346
         ],
         "rear_right_wheel_center": [
-          1727.1,
-          928.6
+          1910.3,
+          1052
         ],
         "rear_right_contact_patch": [
-          1727.1,
-          1118
+          1910.3,
+          1346
         ],
-        "groundY": 1118
+        "groundY": 1346
       }
     }
   }

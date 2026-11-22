@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useConfirm } from '@/components/ConfirmProvider';
 import { useLanguage } from '@/components/LanguageProvider';
 import LiveOBSPlayer, { type PlayerMetrics } from '@/components/LiveOBSPlayer';
 import type { LiveVideoSettings } from '@/lib/liveVideo/broadcastSource';
@@ -36,6 +37,7 @@ const ms = (n: number | null | undefined) => (n == null ? '—' : `${(n / 1000).
 
 export default function LiveVideoControl() {
   const { t, fmt } = useLanguage();
+  const ask = useConfirm();
   const v = t.liveVideo;
   const a = v.admin;
   const [data, setData] = useState<Overview | null>(null);
@@ -107,8 +109,8 @@ export default function LiveVideoControl() {
   };
 
   const removeStream = async (stream: LiveStream) => {
-    if (!window.confirm(a.removeConfirm)) return;
-    const deleteInput = stream.createdVia === 'api' && window.confirm(a.removeInputConfirm);
+    if (!(await ask.confirm({ message: a.removeConfirm, action: 'remove' }))) return;
+    const deleteInput = stream.createdVia === 'api' && (await ask.confirm({ message: a.removeInputConfirm, action: 'yesNo' }));
     await send(`/api/admin/live-video/streams/${stream.id}${deleteInput ? '?deleteInput=1' : ''}`, 'DELETE');
   };
 

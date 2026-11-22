@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useConfirm } from '@/components/ConfirmProvider';
 import { useLanguage } from '@/components/LanguageProvider';
 import type { EngineAudioAsset } from '@/lib/engineAudioAssets';
 import { MAX_ENGINE_AUDIO_BYTES } from '@/lib/engineBedConfig';
@@ -14,6 +15,7 @@ const labelClass = 'block text-xs font-medium text-muted-foreground mb-1';
 
 export default function EngineAudioLibrary() {
   const { t, fmt } = useLanguage();
+  const ask = useConfirm();
   const e = t.admin.engineAudio;
   const [assets, setAssets] = useState<EngineAudioAsset[]>([]);
   const [storageConfigured, setStorageConfigured] = useState(true);
@@ -67,7 +69,7 @@ export default function EngineAudioLibrary() {
   };
 
   const remove = async (asset: EngineAudioAsset) => {
-    if (!window.confirm(fmt(e.confirmRemove, { name: asset.name }))) return;
+    if (!(await ask.confirm({ message: fmt(e.confirmRemove, { name: asset.name }), action: 'remove' }))) return;
     setError('');
     try {
       const res = await fetch(`/api/admin/broadcast/engine-audio/${asset.id}`, { method: 'DELETE' });

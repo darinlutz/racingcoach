@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useState, type MouseEvent } from 'react';
 import {
   ArrowRight, BookOpen, BrainCircuit, Car, ChartLine, ClipboardList, Download, Flag, GraduationCap, LayoutDashboard, LifeBuoy, LogIn,
-  LogOut, Menu, Radio, Settings, ShieldCheck, SlidersHorizontal, Tag, Timer, TrendingUp, UserPlus, X, type LucideIcon,
+  LogOut, Menu, Radio, Settings, ShieldCheck, Tag, Timer, TrendingUp, UserPlus, Wrench, X, type LucideIcon,
 } from 'lucide-react';
 import Brand from '@/components/Brand';
 import { buttonVariants } from '@/components/Button';
@@ -33,7 +33,7 @@ const links = [
   { href: '/racing', key: 'mySessions', icon: ChartLine },
   { href: '/live-racing', key: 'liveRacing', icon: Radio },
   { href: '/cars-tracks', key: 'carsTracks', icon: Car },
-  { href: '/setups', key: 'setups', icon: SlidersHorizontal },
+  { href: '/setups', key: 'setups', icon: Wrench },
   { href: '/expert-laps', key: 'expertLaps', icon: Timer },
   { href: '/prodrivinglesson', key: 'proDriverLesson', icon: GraduationCap },
   { href: '/learning', key: 'learning', icon: BookOpen },

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useConfirm } from '@/components/ConfirmProvider';
 import { useLanguage } from '@/components/LanguageProvider';
 import { AI_FEATURE_VALUES, type AiFeature } from '@/lib/aiModelList';
 import { LOCAL_AI_MODES, LOCAL_MODEL_IDS, LOCAL_MODELS, type LocalAiMode, type LocalModelId } from '@/lib/localAi/config';
@@ -27,6 +28,7 @@ const emptyForm: ServerForm = { id: 'macbook-pro', label: 'MacBook Pro', gateway
 
 export default function LocalAiServerMode() {
   const { t, fmt, locale, number } = useLanguage();
+  const ask = useConfirm();
   const l = t.admin.localAi;
   const [status, setStatus] = useState<LocalAiStatus | null>(null);
   const [busy, setBusy] = useState(false);
@@ -76,9 +78,9 @@ export default function LocalAiServerMode() {
     }
   };
 
-  const setMode = (mode: LocalAiMode) => {
+  const setMode = async (mode: LocalAiMode) => {
     if (mode === status?.settings.mode) return;
-    if (mode === 'automatic' && !window.confirm(l.confirmAutomatic)) return;
+    if (mode === 'automatic' && !(await ask.confirm({ message: l.confirmAutomatic, tone: 'primary' }))) return;
     void save({ action: 'mode', mode });
   };
 
@@ -224,7 +226,7 @@ export default function LocalAiServerMode() {
                         type="button"
                         className={buttonClass}
                         disabled={busy}
-                        onClick={() => window.confirm(fmt(l.confirmRemove, { id: server.id })) && void save({ action: 'deleteServer', id: server.id })}
+                        onClick={async () => (await ask.confirm({ message: fmt(l.confirmRemove, { id: server.id }), action: 'remove' })) && void save({ action: 'deleteServer', id: server.id })}
                       >
                         {l.removeServer}
                       </button>

@@ -633,8 +633,9 @@ test.describe.serial('the pages', () => {
     await account.close();
 
     // Deleted: it's gone, and whoever picked it falls back to the built-in sound
-    page.on('dialog', (dialog) => dialog.accept());
     await library.getByRole('listitem').filter({ hasText: 'Test Engine' }).getByRole('button', { name: 'Remove' }).click();
+    // The site's confirmation dialog (ConfirmProvider.tsx), not the browser's
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Remove' }).click();
     await expect(library).not.toContainText('Test Engine');
     expect((await viewer.request.get(`/api/engine-audio/${asset.id}`)).status()).toBe(404);
     const after = await admin.newPage();

@@ -116,9 +116,16 @@ export default function SetupsWorkspace({
   };
 
   // The engineering systems: each one dashboard of the two setups Compare has. Under the main tabs, except on a
-  // system's own tab, where it goes under the Baseline and Comparison setup box (SetupFocusComparison's systems)
-  const systemsBar = (
-    <div role="tablist" aria-label={s.tabs.systems} className="mt-3 flex flex-wrap items-center gap-2">
+  // system's own tab, where it goes under the Baseline and Comparison setup box (SetupFocusComparison's systems).
+  // On large screens it sticks to the top of the window while the page scrolls under it, like Lap Compare's focus area
+  // tabs (below lg the nav bar is the sticky top bar); opaque in the section's bg-card so nothing shows through it
+  // underTabs: right under the main tabs (Overview, Live Setup), pulled up into their box's bottom margin
+  const systemsBar = (underTabs = false) => (
+    <div
+      role="tablist"
+      aria-label={s.tabs.systems}
+      className={`flex flex-wrap items-center gap-2 bg-card py-2 lg:sticky lg:top-0 lg:z-30 lg:border-b lg:border-border ${underTabs ? '-mt-4 mb-6' : ''}`}
+    >
       <span className="mr-1 font-mono text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">{s.tabs.systems}</span>
       {tabs
         .filter((name) => SYSTEM_TABS.includes(name))
@@ -171,9 +178,10 @@ export default function SetupsWorkspace({
               </button>
             ))}
         </div>
-        {/* Under the main tabs on Overview and Live Setup; under the setup selection box on Compare and the systems */}
-        {(!list || (!SYSTEM_TABS.includes(tab) && tab !== 'compare')) && !NO_SYSTEMS_BAR.includes(tab) && systemsBar}
       </div>
+      {/* Under the main tabs on Overview and Live Setup; under the setup selection box on Compare and the systems.
+          Outside the tabs' box, whose bottom would end its stickiness at once */}
+      {(!list || (!SYSTEM_TABS.includes(tab) && tab !== 'compare')) && !NO_SYSTEMS_BAR.includes(tab) && systemsBar(true)}
 
       {error && !list && (
         <Notice tone="error">
@@ -221,7 +229,7 @@ export default function SetupsWorkspace({
           {tab === 'carSetups' && tabs.includes('carSetups') && <SetupCarLibrary />}
           {tab === 'live' && <SetupLive onOpen={actions.openSetup} onChanged={load} />}
           {tab === 'compare' && (
-            <SetupCompare setups={setups} value={compare} onChange={setCompare} systems={systemsBar} />
+            <SetupCompare setups={setups} value={compare} onChange={setCompare} systems={systemsBar()} />
           )}
           {tab === 'alignment' && (
             <SetupAlignment
@@ -229,7 +237,7 @@ export default function SetupsWorkspace({
               value={compare}
               onChange={setCompare}
               engineer={tabs.includes('engineer') ? { canUse: canUseEngineer, showPricing, onRevisionMade: load } : undefined}
-              systems={systemsBar}
+              systems={systemsBar()}
             />
           )}
           {tab === 'suspension' && (
@@ -238,7 +246,7 @@ export default function SetupsWorkspace({
               value={compare}
               onChange={setCompare}
               engineer={tabs.includes('engineer') ? { canUse: canUseEngineer, showPricing, onRevisionMade: load } : undefined}
-              systems={systemsBar}
+              systems={systemsBar()}
             />
           )}
           {tab === 'brakes' && (
@@ -247,7 +255,7 @@ export default function SetupsWorkspace({
               value={compare}
               onChange={setCompare}
               engineer={tabs.includes('engineer') ? { canUse: canUseEngineer, showPricing, onRevisionMade: load } : undefined}
-              systems={systemsBar}
+              systems={systemsBar()}
             />
           )}
           {tab === 'tires' && (
@@ -256,7 +264,7 @@ export default function SetupsWorkspace({
               value={compare}
               onChange={setCompare}
               engineer={tabs.includes('engineer') ? { canUse: canUseEngineer, showPricing, onRevisionMade: load } : undefined}
-              systems={systemsBar}
+              systems={systemsBar()}
             />
           )}
           {isSetupDashboard(tab) && (
@@ -266,7 +274,7 @@ export default function SetupsWorkspace({
               value={compare}
               onChange={setCompare}
               engineer={tabs.includes('engineer') ? { canUse: canUseEngineer, showPricing, onRevisionMade: load } : undefined}
-              systems={systemsBar}
+              systems={systemsBar()}
             />
           )}
           {tab === 'engineer' && (
@@ -398,7 +406,7 @@ function SetupOverviewPanel({ list, onAction, onOpen }: { list: SetupsList; onAc
           <p className={collector.live ? 'font-semibold text-good-text' : 'text-muted-foreground'}>{collector.live ? o.collectorLive : o.collectorIdle}</p>
           {collector.live && (
             <p className="mt-1 text-sm text-muted-foreground">
-              {collector.car} · {collector.track}
+              {collector.car} Â· {collector.track}
             </p>
           )}
         </Panel>
@@ -410,11 +418,11 @@ function SetupOverviewPanel({ list, onAction, onOpen }: { list: SetupsList; onAc
               {overview.recentChanges.map((r) => (
                 <li key={r.id} className="flex flex-wrap items-baseline justify-between gap-2 py-2">
                   <button className="text-left text-primary hover:underline" onClick={() => onOpen(r.setupId)}>
-                    {r.setupName} · {fmt(s.common.revisionShort, { number: r.number })}
+                    {r.setupName} Â· {fmt(s.common.revisionShort, { number: r.number })}
                   </button>
                   <span className="text-muted-foreground">
                     {s.revisionKinds[r.kind]}
-                    {r.changed.length > 0 && ` · ${plural(r.changed.length, o.changesCount, { count: r.changed.length })}`} · <LocalTime iso={r.createdAt} format="relative" />
+                    {r.changed.length > 0 && ` Â· ${plural(r.changed.length, o.changesCount, { count: r.changed.length })}`} Â· <LocalTime iso={r.createdAt} format="relative" />
                   </span>
                 </li>
               ))}

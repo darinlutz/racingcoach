@@ -120,6 +120,18 @@ export const SETUP_SCHEMA = [
      decided_at TIMESTAMPTZ
    )`,
   `CREATE INDEX IF NOT EXISTS setup_proposals_user ON racingcoach."SetupProposals" (user_id, created_at DESC)`,
+  // Junk captures of iRacing's INVALID_LOADTYPES placeholder (no real setup loaded; isInvalidLoadType in
+  // setupInspection.ts, now refused by /api/collector/setup): a collector setup named that, or whose every revision has
+  // that load type. Their revisions, values, inspections and proposals go with them (ON DELETE CASCADE)
+  `DELETE FROM racingcoach."Setups" s
+   WHERE s.source = 'sdk'
+     AND (regexp_replace(trim(COALESCE(s.name, '')), '\\.sto$', '', 'i') ~* '^invalid_loadtypes?$'
+       OR regexp_replace(trim(COALESCE(s.file_name, '')), '\\.sto$', '', 'i') ~* '^invalid_loadtypes?$'
+       OR (EXISTS (SELECT 1 FROM racingcoach."SetupRevisions" r WHERE r.setup_id = s.id)
+           AND NOT EXISTS (SELECT 1 FROM racingcoach."SetupRevisions" r
+                           WHERE r.setup_id = s.id
+                             AND COALESCE(trim(r.sim_load_type), '') !~* '^invalid_loadtypes?$'
+                             AND COALESCE(regexp_replace(trim(r.sim_setup_name), '\\.sto$', '', 'i'), '') !~* '^invalid_loadtypes?$')))`,
 ];
 
 export const SETUP_TABLES = ['Setups', 'SetupRevisions', 'SetupValues', 'SetupInspections', 'SetupProposals'];

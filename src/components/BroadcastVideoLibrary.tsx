@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useConfirm } from '@/components/ConfirmProvider';
 import { useLanguage } from '@/components/LanguageProvider';
 import { MAX_VIDEO_BYTES, VIDEO_CATEGORIES, VIDEO_EXTENSIONS, type VideoCategory } from '@/lib/broadcastVideoCategories';
 import type { LibraryVideo } from '@/lib/broadcastVideos';
@@ -193,6 +194,7 @@ function VideoFields({ value, onChange, tracks, cars, showTitle }: { value: Deta
 
 export default function BroadcastVideoLibrary() {
   const { t, fmt } = useLanguage();
+  const ask = useConfirm();
   const b = t.admin.broadcast;
   const [videos, setVideos] = useState<LibraryVideo[] | null>(null);
   const [tracks, setTracks] = useState<Option[]>([]);
@@ -285,7 +287,7 @@ export default function BroadcastVideoLibrary() {
   };
 
   const remove = async (v: LibraryVideo) => {
-    if (!window.confirm(fmt(b.confirmDelete, { title: v.title }))) return;
+    if (!(await ask.confirm({ message: fmt(b.confirmDelete, { title: v.title }), action: 'delete' }))) return;
     const response = await fetch(`/api/admin/broadcast/videos/${v.id}`, { method: 'DELETE' }).catch(() => null);
     if (!response?.ok) setError(b.failedSave);
     await load();

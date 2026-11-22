@@ -31,6 +31,9 @@ export const de: Dictionary = {
     passwordHint: '(mindestens 8 Zeichen)',
     optional: '(optional)',
     promoCode: 'Promo-Code',
+    areYouSure: 'Sind Sie sicher?',
+    confirm: 'Bestätigen',
+    ok: 'OK',
   },
 
   meta: {

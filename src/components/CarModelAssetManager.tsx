@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Car3DViewerLazy from '@/components/car3d/Car3DViewerLazy';
 import CarPathCombobox from '@/components/CarPathCombobox';
+import { useConfirm } from '@/components/ConfirmProvider';
 import { useLanguage } from '@/components/LanguageProvider';
 import { AXES, canonicalBounds, dimensions, validAxes, type Axis, type Bounds, type Normalization, type Vec3 } from '@/lib/carModels/matrix';
 import {
@@ -93,6 +94,7 @@ const draftOf = (s: Summary): Draft => ({
 
 export default function CarModelAssetManager() {
   const { t, fmt } = useLanguage();
+  const ask = useConfirm();
   const m = t.setups.carModels;
   const s = m.admin;
   const [cars, setCars] = useState<Car[]>([]);
@@ -190,7 +192,7 @@ export default function CarModelAssetManager() {
   };
 
   const act = async (model: Summary, action: ModelAction | 'delete') => {
-    if (action === 'delete' && !window.confirm(fmt(model.active ? s.confirmDeleteActive : s.confirmDelete, { version: model.version, car: model.carName }))) return;
+    if (action === 'delete' && !(await ask.confirm({ message: fmt(model.active ? s.confirmDeleteActive : s.confirmDelete, { version: model.version, car: model.carName }), action: 'delete' }))) return;
     clear();
     setBusy(true);
     try {

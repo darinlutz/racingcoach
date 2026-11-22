@@ -1,7 +1,7 @@
 # Validation notes: ferrari-296-gt3
 
 Traced drawings from the Lovable project darinlutz/five-more-fast-cars, converted by scripts/importTracedCarDrawings.mjs.
-Model: “Ferrari 296 GT3 | www.vecarz.com” by vecarz (https://sketchfab.com/heynic) (https://sketchfab.com/3d-models/ferrari-296-gt3-wwwvecarzcom-a463226115184535928ec75660c6571f), CC-BY-NC-4.0.
+Model: “ferrari_296_gt3” by MattDoesBlender (https://sketchfab.com/MattDoesBlender) (https://sketchfab.com/3d-models/ferrari-296-gt3-ce7df6d5f2c04aaf9d2cb7e5e86d714a), CC-BY-NC-SA-4.0.
 
 ## Anchors
 - Side views: wheel centres, radii and contact patches measured from the drawings (the circle on the ground line most drawn pixels lie on; left side 100% and 100% of its points on lines, right side 100% and 100%). Their tire and rim outlines are in the wheels layer.
@@ -16,5 +16,5 @@ Model: “Ferrari 296 GT3 | www.vecarz.com” by vecarz (https://sketchfab.com/h
 | NASCAR Camaro ZL1 | 2022 NASCAR Chevrolet Camaro ZL1 Next Gen — Ddiaz Design | CC-BY-4.0 | Matches |
 | Mercedes-AMG F1 W13 | "Mercedec F1 2020" — Kevin Love | CC-BY-4.0 | 2020 car (W11), not W13 (2022) |
 | Mazda MX-5 Cup 2010 | 2019 Mazda MX-5 — Ddiaz Design | CC-BY-NC-SA-4.0 | 2019 road car, not 2010 Cup car |
-| Ferrari 296 GT3 | Ferrari 296 GT3 — vecarz | CC-BY-NC-4.0 | Matches |
+| Ferrari 296 GT3 | ferrari_296_gt3 — MattDoesBlender | CC-BY-NC-SA-4.0 | Replacement model supplied on 2026-11-22; matches |
 Three licences are NonCommercial (NC): fine for personal use, not for a paid product without the author's permission. CC-BY requires crediting the author.

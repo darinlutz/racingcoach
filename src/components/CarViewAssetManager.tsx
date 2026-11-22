@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { CarViewDebugProvider, CarViewProvider } from '@/components/CarViewContext';
 import EngineeringCarView from '@/components/EngineeringCarView';
+import { useConfirm } from '@/components/ConfirmProvider';
 import { useLanguage } from '@/components/LanguageProvider';
 import type { AssetAction, AssetStatus, ResolvedCarAsset } from '@/lib/carViews/assetRules';
 import { genericSources } from '@/lib/carViews/genericVehicle';
@@ -48,6 +49,7 @@ const ACTIONS_BY_STATUS: Record<AssetStatus, AssetAction[]> = {
 
 export default function CarViewAssetManager() {
   const { t, fmt } = useLanguage();
+  const ask = useConfirm();
   const c = t.setups.carViews;
   const s = c.admin;
   const [cars, setCars] = useState<{ id: number; name: string }[]>([]);
@@ -166,7 +168,7 @@ export default function CarViewAssetManager() {
   };
 
   const act = async (asset: Summary, action: AssetAction | 'delete') => {
-    if (action === 'delete' && !window.confirm(fmt(s.confirmDelete, { version: asset.version }))) return;
+    if (action === 'delete' && !(await ask.confirm({ message: fmt(s.confirmDelete, { version: asset.version }), action: 'delete' }))) return;
     setError('');
     setBusy(true);
     try {

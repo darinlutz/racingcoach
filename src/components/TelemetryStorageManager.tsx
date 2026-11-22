@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useConfirm } from '@/components/ConfirmProvider';
 import { useLanguage } from '@/components/LanguageProvider';
 import type { StorageTaskStatus } from '@/lib/telemetryMigration';
 import type { TelemetryStorageReport } from '@/lib/telemetryStorageReport';
@@ -35,6 +36,7 @@ type Action =
 
 export default function TelemetryStorageManager({ timeZone }: { timeZone: string }) {
   const { t, fmt, locale, number } = useLanguage();
+  const ask = useConfirm();
   const s = t.admin.telemetryStorage;
   const [report, setReport] = useState<TelemetryStorageReport | null>(null);
   const [task, setTask] = useState<StorageTaskStatus | null>(null);
@@ -71,10 +73,10 @@ export default function TelemetryStorageManager({ timeZone }: { timeZone: string
   }, [task?.running, load]);
 
   const run = async (action: Action, extra: Record<string, unknown> = {}) => {
-    if (action === 'switchReads' && !window.confirm(s.switchConfirm)) return;
-    if (action === 'rollbackReads' && !window.confirm(s.rollbackConfirm)) return;
-    if (action === 'expertLapsToPostgres' && !window.confirm(s.expertLapsToPostgresConfirm)) return;
-    if (action === 'targetLapsToPostgres' && !window.confirm(s.targetLapsToPostgresConfirm)) return;
+    if (action === 'switchReads' && !(await ask.confirm({ message: s.switchConfirm }))) return;
+    if (action === 'rollbackReads' && !(await ask.confirm({ message: s.rollbackConfirm }))) return;
+    if (action === 'expertLapsToPostgres' && !(await ask.confirm({ message: s.expertLapsToPostgresConfirm }))) return;
+    if (action === 'targetLapsToPostgres' && !(await ask.confirm({ message: s.targetLapsToPostgresConfirm }))) return;
     setBusy(true);
     setMessage('');
     try {

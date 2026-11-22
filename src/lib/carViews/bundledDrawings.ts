@@ -28,9 +28,10 @@ export type BundledDrawing = {
 
 export const BUNDLED_DRAWINGS: BundledDrawing[] = [
   { id: 'huracan-gt3-evo', carName: 'Lamborghini Huracan GT3 EVO', carKeys: ['lamborghinievogt3'], folder: 'huracan-gt3-evo', prefix: 'lamborghini-huracan-gt3-evo', commit: 'a31b2ec' },
-  // Replaced on 2026-11-22 by the traced set from darinlutz/five-more-fast-cars (CC-BY-NC-4.0); the earlier CC BY set,
-  // from commit a31b2ec of racingcoach-car-drawings, is in git history
-  { id: 'ferrari-296-gt3', carName: 'Ferrari 296 GT3', carKeys: ['ferrari296gt3'], folder: 'ferrari-296-gt3', prefix: 'ferrari-296-gt3', commit: 'bf0668b', project: 'darinlutz/five-more-fast-cars' },
+  // The traced set from darinlutz/five-more-fast-cars, redrawn there from MattDoesBlender's replacement model (commit
+  // 73beefe, CC-BY-NC-SA-4.0); the earlier sets (bf0668b of that project, a31b2ec of racingcoach-car-drawings) are in
+  // git history
+  { id: 'ferrari-296-gt3', carName: 'Ferrari 296 GT3', carKeys: ['ferrari296gt3'], folder: 'ferrari-296-gt3', prefix: 'ferrari-296-gt3', commit: '73beefe', project: 'darinlutz/five-more-fast-cars' },
   { id: 'corvette-z06-gt3r', carName: 'Chevrolet Corvette Z06 GT3.R', carKeys: ['chevyvettez06rgt3'], folder: 'corvette-z06-gt3r', prefix: 'corvette-z06-gt3r', commit: 'edea872', permission: 'The model’s author granted RacingCoach.app permission to use it on the site, a commercial use its CC BY-NC-SA licence alone wouldn’t allow (2026-11-19).' },
   { id: 'ford-mustang-gt3', carName: 'Ford Mustang GT3', carKeys: ['fordmustanggt3'], folder: 'ford-mustang-gt3', prefix: 'ford-mustang-gt3', commit: 'edea872' },
   { id: 'acura-nsx-gt3-evo', carName: 'Acura NSX GT3 EVO 22', carKeys: ['acuransxevo22gt3'], folder: 'acura-nsx-gt3-evo', prefix: 'acura-nsx-gt3-evo', commit: '6be3c65' },

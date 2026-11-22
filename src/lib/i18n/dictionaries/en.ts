@@ -32,6 +32,10 @@ export const en = {
     passwordHint: '(at least 8 characters)',
     optional: '(optional)',
     promoCode: 'Promo Code',
+    // The site's confirmation dialogs, in place of the browser's (ConfirmProvider.tsx)
+    areYouSure: 'Are you sure?',
+    confirm: 'Confirm',
+    ok: 'OK',
   },
 
   meta: {

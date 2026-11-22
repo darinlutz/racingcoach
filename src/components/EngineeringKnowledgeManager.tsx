@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useConfirm } from '@/components/ConfirmProvider';
 import { useLanguage } from '@/components/LanguageProvider';
 
 // The Admin page's Race Engineering Knowledge section (docs/race-engineering-rag.md): the knowledge base the Setup
@@ -87,6 +88,7 @@ type TestResult = {
 
 export default function EngineeringKnowledgeManager() {
   const { t, fmt } = useLanguage();
+  const ask = useConfirm();
   const s = t.admin.engineeringKnowledge;
   const [report, setReport] = useState<Report | null>(null);
   const [message, setMessage] = useState('');
@@ -145,7 +147,7 @@ export default function EngineeringKnowledgeManager() {
   };
 
   const embed = async (payload: Record<string, unknown>) => {
-    if (!window.confirm(s.embedConfirm)) return;
+    if (!(await ask.confirm({ message: s.embedConfirm, tone: 'primary' }))) return;
     const data = await post(payload);
     if (data) setMessage(fmt(s.embedded, { count: data.embedded, cost: Number(data.costUsd ?? 0).toFixed(4), remaining: data.remaining }));
     await load();
@@ -269,9 +271,10 @@ export default function EngineeringKnowledgeManager() {
                             type="button"
                             className={buttonClass}
                             disabled={busy}
-                            onClick={() => {
+                            onClick={async () => {
                               if (d.status === 'active') {
-                                const reason = window.prompt(s.deactivateReason) ?? '';
+                                const reason = await ask.prompt({ message: s.deactivateReason, tone: 'primary' });
+                                if (reason === null) return;
                                 void simple({ action: 'setStatus', id: d.id, status: 'inactive', reason });
                               } else void simple({ action: 'setStatus', id: d.id, status: 'active' });
                             }}

@@ -3,6 +3,7 @@
 import { type FocusEvent, Fragment, type MouseEvent, useEffect, useState } from 'react';
 import Link from 'next/link';
 import CalibrationHelpButton from '@/components/CalibrationHelpButton';
+import { useConfirm } from '@/components/ConfirmProvider';
 import { useLanguage } from '@/components/LanguageProvider';
 import { useUnits } from '@/components/UnitsProvider';
 import type { CarInput, Car } from '@/lib/carData';
@@ -90,6 +91,7 @@ const secondaryButton =
 // canEdit: whether to offer Add Car, Edit and Delete (Coaches and Admins); /api/car-data refuses them from anyone else
 export default function CarDataManagement({ canEdit }: { canEdit: boolean }) {
   const { t: dictionary, locale } = useLanguage();
+  const ask = useConfirm();
   const units = useUnits();
   const t = dictionary.cars;
   const [cars, setCars] = useState<Car[]>([]);
@@ -195,7 +197,7 @@ export default function CarDataManagement({ canEdit }: { canEdit: boolean }) {
   };
 
   const removeCar = async (car: Car) => {
-    if (!window.confirm(fmt(t.deleteConfirm, { car: car.name }))) return;
+    if (!(await ask.confirm({ message: fmt(t.deleteConfirm, { car: car.name }), action: 'delete' }))) return;
     setMessage('');
     try {
       const response = await fetch('/api/car-data', {

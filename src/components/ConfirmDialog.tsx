@@ -10,12 +10,14 @@ type ConfirmDialogProps = {
   cancelLabel: string;
   onConfirm: () => void;
   onCancel: () => void;
+  // danger (the default): the confirm button red, for deleting or anything that can't be undone; primary otherwise
+  tone?: 'danger' | 'primary';
 };
 
 // A modal Yes/No box in the site's style, in place of the browser's window.confirm. It fades and scales in and out
 // (always rendered, hidden while closed, so closing animates too). Escape or a click outside cancels; Cancel has
 // focus when it opens, and focus goes back to whatever had it on close.
-export default function ConfirmDialog({ open, title, children, confirmLabel, cancelLabel, onConfirm, onCancel }: ConfirmDialogProps) {
+export default function ConfirmDialog({ open, title, children, confirmLabel, cancelLabel, onConfirm, onCancel, tone = 'danger' }: ConfirmDialogProps) {
   const cancelRef = useRef<HTMLButtonElement>(null);
   // Unique, as a page can have more than one
   const titleId = useId();
@@ -67,7 +69,9 @@ export default function ConfirmDialog({ open, title, children, confirmLabel, can
           <button
             type="button"
             onClick={onConfirm}
-            className="flex-1 px-4 py-2 rounded-lg font-semibold text-white bg-red-600 hover:bg-red-700 transition-colors"
+            className={`flex-1 px-4 py-2 rounded-lg font-semibold text-white transition-colors ${
+              tone === 'danger' ? 'bg-red-600 hover:bg-red-700' : 'bg-primary hover:bg-primary-strong'
+            }`}
           >
             {confirmLabel}
           </button>

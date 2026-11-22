@@ -28,7 +28,9 @@ export type BundledDrawing = {
 
 export const BUNDLED_DRAWINGS: BundledDrawing[] = [
   { id: 'huracan-gt3-evo', carName: 'Lamborghini Huracan GT3 EVO', carKeys: ['lamborghinievogt3'], folder: 'huracan-gt3-evo', prefix: 'lamborghini-huracan-gt3-evo', commit: 'a31b2ec' },
-  { id: 'ferrari-296-gt3', carName: 'Ferrari 296 GT3', carKeys: ['ferrari296gt3'], folder: 'ferrari-296-gt3', prefix: 'ferrari-296-gt3', commit: 'a31b2ec' },
+  // Replaced on 2026-11-22 by the traced set from darinlutz/five-more-fast-cars (CC-BY-NC-4.0); the earlier CC BY set,
+  // from commit a31b2ec of racingcoach-car-drawings, is in git history
+  { id: 'ferrari-296-gt3', carName: 'Ferrari 296 GT3', carKeys: ['ferrari296gt3'], folder: 'ferrari-296-gt3', prefix: 'ferrari-296-gt3', commit: 'bf0668b', project: 'darinlutz/five-more-fast-cars' },
   { id: 'corvette-z06-gt3r', carName: 'Chevrolet Corvette Z06 GT3.R', carKeys: ['chevyvettez06rgt3'], folder: 'corvette-z06-gt3r', prefix: 'corvette-z06-gt3r', commit: 'edea872', permission: 'The model’s author granted RacingCoach.app permission to use it on the site, a commercial use its CC BY-NC-SA licence alone wouldn’t allow (2026-11-19).' },
   { id: 'ford-mustang-gt3', carName: 'Ford Mustang GT3', carKeys: ['fordmustanggt3'], folder: 'ford-mustang-gt3', prefix: 'ford-mustang-gt3', commit: 'edea872' },
   { id: 'acura-nsx-gt3-evo', carName: 'Acura NSX GT3 EVO 22', carKeys: ['acuransxevo22gt3'], folder: 'acura-nsx-gt3-evo', prefix: 'acura-nsx-gt3-evo', commit: '6be3c65' },
@@ -39,9 +41,13 @@ export const BUNDLED_DRAWINGS: BundledDrawing[] = [
   { id: 'mercedes-amg-gt3-evo-2020', carName: 'Mercedes-AMG GT3 2020', carKeys: ['mercedesamgevogt3'], folder: 'mercedes-amg-gt3-evo-2020', prefix: 'mercedes-amg-gt3-evo-2020', commit: '6be3c65' },
   { id: 'porsche-911-gt3-r-992', carName: 'Porsche 911 GT3 R (992)', carKeys: ['porsche992rgt3'], folder: 'porsche-911-gt3-r-992', prefix: 'porsche-911-gt3-r-992', commit: '6be3c65' },
   // Traced from darinlutz/five-more-fast-cars (scripts/importTracedCarDrawings.mjs); each set's VALIDATION-NOTES.md says
-  // what was measured and what estimated, and its model and licence. That project's Ferrari 296 GT3, Toyota GR86 and
-  // Mazda MX-5 are NonCommercial models, so they're left out until their authors' permission is recorded (the script's
-  // CARS)
+  // what was measured and what estimated, and its model and licence. The Toyota GR86 and Mazda MX-5 are NonCommercial
+  // models (so is this project's Ferrari, above), imported now with their licences recorded as they are: the owner is
+  // getting their authors' permission afterwards
+  { id: 'toyota-gr86', carName: 'Toyota GR86', carKeys: ['toyotagr86'], folder: 'toyota-gr86', prefix: 'toyota-gr86', commit: 'bf0668b', project: 'darinlutz/five-more-fast-cars' },
+  // Drawn as the Mazda MX-5 Cup - 2010 (from a 2019 road car's model, see its notes), for the setups folder the owner
+  // has, the Global Mazda MX-5 Cup's (mx5 mx52016): the 2010 car isn't in Car Data
+  { id: 'mazda-mx5-cup-2010', carName: 'Global Mazda MX-5 Cup', carKeys: ['mx5 mx52016'], folder: 'mazda-mx5-cup-2010', prefix: 'mazda-mx5-cup-2010', commit: 'bf0668b', project: 'darinlutz/five-more-fast-cars' },
   { id: 'nascar-camaro-zl1-next-gen', carName: 'Next Gen NASCAR Cup Series Chevrolet Camaro ZL1', carKeys: ['stockcars chevycamarozl12022'], folder: 'nascar-camaro-zl1-next-gen', prefix: 'nascar-camaro-zl1-next-gen', commit: 'bf0668b', project: 'darinlutz/five-more-fast-cars' },
   { id: 'mercedes-amg-f1', carName: 'Mercedes-AMG W13 E Performance', carKeys: ['mercedesw13'], folder: 'mercedes-amg-f1', prefix: 'mercedes-amg-f1', commit: 'bf0668b', project: 'darinlutz/five-more-fast-cars' },
 ];

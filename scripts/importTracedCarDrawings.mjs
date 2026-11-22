@@ -28,13 +28,12 @@ const W = 2400;
 const H = 1400;
 
 // Each car: its source prefix, the folder and prefix here, and the half track as a share of its width in the top view
-// (with its mirrors; the Ferrari's earlier measured drawings give 0.358). A NonCommercial model (CC-BY-NC...) is only
-// converted with `permission`: its author's permission for RacingCoach.app, as recorded in BUNDLED_DRAWINGS, since
-// the site is a paid product (scripts/car-drawings.test.mjs checks it). The source project's Ferrari 296 GT3 (vecarz,
-// CC-BY-NC-4.0), Toyota GR86 and Mazda MX-5 (Ddiaz Design, CC-BY-NC-SA-4.0) have none yet, so they're skipped; the
-// Mazda, once permitted, is for the Global Mazda MX-5 Cup's car path (mx5 mx52016), the setups folder the owner has
+// (with its mirrors; the Ferrari's earlier measured drawings give 0.358). Each model's licence is recorded as it is,
+// NonCommercial ones included (the Ferrari, Toyota and Mazda; the owner is getting their authors' permission after
+// importing them). The Ferrari replaces the earlier Ferrari 296 GT3 set (in git history); the Mazda is for the Global
+// Mazda MX-5 Cup's car path (mx5 mx52016), the setups folder the owner has
 const CARS = [
-  { source: 'ferrari-296-gt3', folder: 'ferrari-296-gt3-traced', prefix: 'ferrari-296-gt3-traced', halfTrack: 0.358 },
+  { source: 'ferrari-296-gt3', folder: 'ferrari-296-gt3', prefix: 'ferrari-296-gt3', halfTrack: 0.358 },
   { source: 'mazda-mx5-cup', folder: 'mazda-mx5-cup-2010', prefix: 'mazda-mx5-cup-2010', halfTrack: 0.385 },
   { source: 'mercedes-amg-f1', folder: 'mercedes-amg-f1', prefix: 'mercedes-amg-f1', halfTrack: 0.4 },
   { source: 'nascar-camaro-zl1', folder: 'nascar-camaro-zl1-next-gen', prefix: 'nascar-camaro-zl1-next-gen', halfTrack: 0.4 },
@@ -289,10 +288,6 @@ function writeSvg(car, view, traced, wheels, title, desc) {
 const report = [];
 for (const car of CARS) {
   const anchorsIn = JSON.parse(fs.readFileSync(path.join(SOURCE, `${car.source}-anchors.json`), 'utf8'));
-  if (/-NC/.test(String(anchorsIn.source?.licence ?? '')) && !car.permission) {
-    console.log(`${car.source}: skipped, a NonCommercial model (${String(anchorsIn.source.licence).split(' ')[0]}) without its author's permission`);
-    continue;
-  }
   const views = anchorsIn.views;
   fs.mkdirSync(path.join(OUT, car.folder), { recursive: true });
   for (const old of fs.readdirSync(path.join(OUT, car.folder))) fs.rmSync(path.join(OUT, car.folder, old));

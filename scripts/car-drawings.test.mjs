@@ -30,11 +30,13 @@ describe('the repository’s car drawings', () => {
         ['mclaren-720s-gt3-evo', [...CAR_VIEWS]],
         ['mercedes-amg-gt3-evo-2020', [...CAR_VIEWS]],
         ['porsche-911-gt3-r-992', [...CAR_VIEWS]],
+        ['toyota-gr86', [...CAR_VIEWS]],
+        ['mazda-mx5-cup-2010', [...CAR_VIEWS]],
         ['nascar-camaro-zl1-next-gen', [...CAR_VIEWS]],
         ['mercedes-amg-f1', [...CAR_VIEWS]],
       ]
     );
-    for (const s of sets) assert.match(s.license, /^CC-BY-(NC-SA-)?4\.0$/);
+    for (const s of sets) assert.match(s.license, /^CC-BY-(NC-|NC-SA-)?4\.0$/);
   });
 
   for (const set of BUNDLED_DRAWINGS) {
@@ -45,9 +47,9 @@ describe('the repository’s car drawings', () => {
       const { draft } = result;
       assert.deepEqual(draft.carKeys, set.carKeys);
       assert.match(draft.sources, /sketchfab\.com/);
-      assert.match(draft.license, /CC-BY-(NC-SA-)?4\.0: credit/);
-      // A non-commercial model only with its author's permission, recorded with the licence
-      if (/NC/.test(draft.license)) assert.match(draft.license, /author granted RacingCoach\.app permission/);
+      // Every set records its model's licence and credit as they are (NonCommercial ones included: the owner gets
+      // their authors' permission after importing them)
+      assert.match(draft.license, /CC-BY-(NC-|NC-SA-)?4\.0: credit/);
       for (const view of CAR_VIEWS) {
         const art = draft.views[view];
         assert.ok(art, view);

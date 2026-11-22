@@ -1,0 +1,177 @@
+{
+  "car_id": "toyota-gr86",
+  "car_name": "Toyota GR86",
+  "status": "draft",
+  "projection": "orthographic",
+  "units": "px of a 2400x1400 render (not to scale; each view fitted to its canvas)",
+  "source": {
+    "title": "2022 Pandem GR86 V1.5 Aero Kit",
+    "author": "Ddiaz Design (https://sketchfab.com/ddiaz-design)",
+    "license": "CC-BY-NC-SA-4.0",
+    "url": "https://sketchfab.com/3d-models/2022-pandem-gr86-v15-aero-kit-04fa19ccee604fc3aab2cc4d62d9dd7f"
+  },
+  "scaling": "Traced (potrace) from 2400x1400 renders of the model; each view scaled to fit its canvas",
+  "views": {
+    "left-side": {
+      "orientation": {
+        "frontDirection": "screen-left",
+        "up": "vehicle up"
+      },
+      "viewBox": [
+        0,
+        0,
+        2400,
+        1400
+      ],
+      "anchors": {
+        "front_wheel_center": [
+          553,
+          835
+        ],
+        "front_contact_patch": [
+          553,
+          986
+        ],
+        "front_tyre_radius": 151,
+        "rear_wheel_center": [
+          1804,
+          832
+        ],
+        "rear_contact_patch": [
+          1804,
+          986
+        ],
+        "rear_tyre_radius": 154,
+        "groundY": 986
+      }
+    },
+    "right-side": {
+      "orientation": {
+        "frontDirection": "screen-right",
+        "up": "vehicle up"
+      },
+      "viewBox": [
+        0,
+        0,
+        2400,
+        1400
+      ],
+      "anchors": {
+        "front_wheel_center": [
+          1845,
+          835
+        ],
+        "front_contact_patch": [
+          1845,
+          986
+        ],
+        "front_tyre_radius": 151,
+        "rear_wheel_center": [
+          594,
+          832
+        ],
+        "rear_contact_patch": [
+          594,
+          986
+        ],
+        "rear_tyre_radius": 154,
+        "groundY": 986
+      }
+    },
+    "top": {
+      "orientation": {
+        "frontDirection": "screen-up",
+        "vehicleLeft": "screen-left",
+        "vehicleRight": "screen-right"
+      },
+      "viewBox": [
+        0,
+        0,
+        2400,
+        1400
+      ],
+      "anchors": {
+        "front_left_wheel_center": [
+          988.4,
+          322.4
+        ],
+        "front_right_wheel_center": [
+          1411.6,
+          322.4
+        ],
+        "rear_left_wheel_center": [
+          988.4,
+          1052.5
+        ],
+        "rear_right_wheel_center": [
+          1411.6,
+          1052.5
+        ]
+      }
+    },
+    "front": {
+      "orientation": {
+        "viewedFrom": "ahead of the car",
+        "vehicleLeft": "screen-right",
+        "vehicleRight": "screen-left"
+      },
+      "viewBox": [
+        0,
+        0,
+        2400,
+        1400
+      ],
+      "anchors": {
+        "front_right_wheel_center": [
+          425.2,
+          1004.4
+        ],
+        "front_right_contact_patch": [
+          425.2,
+          1327
+        ],
+        "front_left_wheel_center": [
+          1974.8,
+          1004.4
+        ],
+        "front_left_contact_patch": [
+          1974.8,
+          1327
+        ],
+        "groundY": 1327
+      }
+    },
+    "rear": {
+      "orientation": {
+        "viewedFrom": "behind the car",
+        "vehicleLeft": "screen-left",
+        "vehicleRight": "screen-right"
+      },
+      "viewBox": [
+        0,
+        0,
+        2400,
+        1400
+      ],
+      "anchors": {
+        "rear_left_wheel_center": [
+          425.2,
+          998
+        ],
+        "rear_left_contact_patch": [
+          425.2,
+          1327
+        ],
+        "rear_right_wheel_center": [
+          1974.8,
+          998
+        ],
+        "rear_right_contact_patch": [
+          1974.8,
+          1327
+        ],
+        "groundY": 1327
+      }
+    }
+  }
+}

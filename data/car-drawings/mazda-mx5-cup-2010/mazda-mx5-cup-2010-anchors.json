@@ -1,0 +1,177 @@
+{
+  "car_id": "mazda-mx5-cup-2010",
+  "car_name": "Mazda MX-5 Cup - 2010",
+  "status": "draft",
+  "projection": "orthographic",
+  "units": "px of a 2400x1400 render (not to scale; each view fitted to its canvas)",
+  "source": {
+    "title": "2019 Mazda MX-5",
+    "author": "Ddiaz Design (https://sketchfab.com/ddiaz-design)",
+    "license": "CC-BY-NC-SA-4.0",
+    "url": "https://sketchfab.com/3d-models/2019-mazda-mx-5-a6b5e948430241008f3bee23c2f63624"
+  },
+  "scaling": "Traced (potrace) from 2400x1400 renders of the model; each view scaled to fit its canvas",
+  "views": {
+    "left-side": {
+      "orientation": {
+        "frontDirection": "screen-left",
+        "up": "vehicle up"
+      },
+      "viewBox": [
+        0,
+        0,
+        2400,
+        1400
+      ],
+      "anchors": {
+        "front_wheel_center": [
+          517,
+          876
+        ],
+        "front_contact_patch": [
+          517,
+          1011
+        ],
+        "front_tyre_radius": 135,
+        "rear_wheel_center": [
+          1830,
+          876
+        ],
+        "rear_contact_patch": [
+          1830,
+          1011
+        ],
+        "rear_tyre_radius": 135,
+        "groundY": 1011
+      }
+    },
+    "right-side": {
+      "orientation": {
+        "frontDirection": "screen-right",
+        "up": "vehicle up"
+      },
+      "viewBox": [
+        0,
+        0,
+        2400,
+        1400
+      ],
+      "anchors": {
+        "front_wheel_center": [
+          1880,
+          876
+        ],
+        "front_contact_patch": [
+          1880,
+          1011
+        ],
+        "front_tyre_radius": 135,
+        "rear_wheel_center": [
+          569,
+          876
+        ],
+        "rear_contact_patch": [
+          569,
+          1011
+        ],
+        "rear_tyre_radius": 135,
+        "groundY": 1011
+      }
+    },
+    "top": {
+      "orientation": {
+        "frontDirection": "screen-up",
+        "vehicleLeft": "screen-left",
+        "vehicleRight": "screen-right"
+      },
+      "viewBox": [
+        0,
+        0,
+        2400,
+        1400
+      ],
+      "anchors": {
+        "front_left_wheel_center": [
+          952.8,
+          301.4
+        ],
+        "front_right_wheel_center": [
+          1447.2,
+          301.4
+        ],
+        "rear_left_wheel_center": [
+          952.8,
+          1067.7
+        ],
+        "rear_right_wheel_center": [
+          1447.2,
+          1067.7
+        ]
+      }
+    },
+    "front": {
+      "orientation": {
+        "viewedFrom": "ahead of the car",
+        "vehicleLeft": "screen-right",
+        "vehicleRight": "screen-left"
+      },
+      "viewBox": [
+        0,
+        0,
+        2400,
+        1400
+      ],
+      "anchors": {
+        "front_right_wheel_center": [
+          429.2,
+          1081.3
+        ],
+        "front_right_contact_patch": [
+          429.2,
+          1327
+        ],
+        "front_left_wheel_center": [
+          1970.8,
+          1081.3
+        ],
+        "front_left_contact_patch": [
+          1970.8,
+          1327
+        ],
+        "groundY": 1327
+      }
+    },
+    "rear": {
+      "orientation": {
+        "viewedFrom": "behind the car",
+        "vehicleLeft": "screen-left",
+        "vehicleRight": "screen-right"
+      },
+      "viewBox": [
+        0,
+        0,
+        2400,
+        1400
+      ],
+      "anchors": {
+        "rear_left_wheel_center": [
+          429.2,
+          1081.3
+        ],
+        "rear_left_contact_patch": [
+          429.2,
+          1327
+        ],
+        "rear_right_wheel_center": [
+          1970.8,
+          1081.3
+        ],
+        "rear_right_contact_patch": [
+          1970.8,
+          1327
+        ],
+        "groundY": 1327
+      }
+    }
+  }
+}

@@ -4,6 +4,7 @@ import { ABUSE_LIMITS, limitReached, recordAttempt } from '@/lib/abuseGuards';
 import { authenticateCollector } from '@/lib/collectorKeys';
 import { readJsonLimited } from '@/lib/requestBody';
 import { recordCapture, SETUP_LIMITS, SetupError } from '@/lib/setups';
+import { isInvalidLoadType } from '@/lib/setupInspection';
 import { extractCarSetupSection } from '@/lib/setupYaml';
 
 // The telemetry collector's capture of the car's setup as iRacing has it loaded (SetupCapture.cs, collectors from
@@ -43,6 +44,10 @@ export async function POST(request: Request) {
     const parsed = captureSchema.safeParse(await readJsonLimited(request, SETUP_LIMITS.yamlChars * 2 + 8192).catch(() => null));
     if (!parsed.success) return NextResponse.json({ error: 'Invalid setup capture' }, { status: 400 });
     const capture = parsed.data;
+    // iRacing's placeholder when no real setup is loaded: junk, not a setup (422, which the collector doesn't retry)
+    if (isInvalidLoadType(capture.loadType, capture.setupName)) {
+      return NextResponse.json({ error: 'No setup loaded', code: 'invalidLoadType' }, { status: 422 });
+    }
     // The CarSetup section, whether the collector sent just it or the whole session info
     const yaml = capture.yaml.trimStart().startsWith('CarSetup:') ? capture.yaml : extractCarSetupSection(capture.yaml);
     if (!yaml) return NextResponse.json({ error: 'No CarSetup section' }, { status: 400 });

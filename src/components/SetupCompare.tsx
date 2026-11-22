@@ -59,7 +59,11 @@ export default function SetupCompare({
     [current, onlyDiff, showReadings]
   );
   // The Car type and Car filter over the two pickers
-  const carFilter = useSetupCarFilter(setups, [value.a?.setupId, value.b?.setupId]);
+  const carFilter = useSetupCarFilter(setups, (isForCar) => {
+    const a = isForCar(value.a?.setupId) ? value.a : null;
+    const b = isForCar(value.b?.setupId) ? value.b : null;
+    if (a !== value.a || b !== value.b) onChange({ a, b });
+  });
   const differences = current ?current.result.rows.filter((r) => r.status !== 'same' && (showReadings || r.kind === 'setting')).length : 0;
   return (
     <div className="space-y-5">

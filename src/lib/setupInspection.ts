@@ -56,6 +56,13 @@ export function preliminaryValidation(carKey: string | null, parameters: SetupPa
   };
 }
 
+// iRacing's placeholder when no real setup is loaded (seen as the load type or the setup's name): such a capture is
+// junk, not a setup, so the collector route refuses it and SETUP_SCHEMA deletes any stored before that
+export const INVALID_LOAD_TYPE_PATTERN = '^invalid_loadtypes?$';
+export function isInvalidLoadType(...values: (string | null | undefined)[]): boolean {
+  return values.some((v) => new RegExp(INVALID_LOAD_TYPE_PATTERN, 'i').test((v ?? '').trim().replace(/\.sto$/i, '')));
+}
+
 // iRacing's setup load types (DriverSetupLoadTypeName) as captured; "iracing" is one of iRacing's own setups, "user"
 // the driver's. Whether the SESSION is a fixed setup session is WeekendInfo.WeekendOptions.IsFixedSetup, not the setup's
 // name: iRacing's own GT3 setups include one named "fixed.sto" that loads in open sessions too

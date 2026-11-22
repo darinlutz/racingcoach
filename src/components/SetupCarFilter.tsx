@@ -9,8 +9,8 @@ import { setupIsForCar } from '@/lib/setupCarMatch';
 // The Car type and Car filter over the setup comparison's two setup pickers (SetupCompare.tsx and the engineering
 // system tabs' SetupFocusComparison.tsx): six radio buttons, Car Data's racing disciplines (Sports Car first, picked to
 // begin with), and a Car combobox of Car Data's cars of that type the user has setups for, each with how many
-// (setupCarMatch.ts). All cars leaves the pickers' setups as they are; a car limits them to its setups. The setups
-// already picked stay in their pickers' lists whatever the filter, so a comparison never loses its setups.
+// (setupCarMatch.ts). All cars leaves the pickers' setups as they are; a car limits both pickers to its setups only,
+// and a setup already picked that isn't that car's is cleared from its picker.
 
 type CarRow = { id: number; name: string; racingDiscipline: RacingDiscipline | null };
 
@@ -29,7 +29,9 @@ function loadCars(): Promise<CarRow[]> {
 
 export function useSetupCarFilter<S extends Pick<SetupSummary, 'id' | 'car' | 'carKey'>>(
   setups: S[],
-  picked: (number | null | undefined)[]
+  // Called when a car is picked, with a test of whether a setup is that car's, so the pickers can let go of setups
+  // that aren't
+  onCarPicked: (isForCar: (setupId: number | null | undefined) => boolean) => void
 ): { filtered: S[]; controls: ReactNode } {
   const { t } = useLanguage();
   const c = t.setups.compare;
@@ -56,8 +58,14 @@ export function useSetupCarFilter<S extends Pick<SetupSummary, 'id' | 'car' | 'c
     [cars, type, setups]
   );
   const car = ofType.find((x) => x.id === carId) ?? null;
-  const pickedIds = new Set(picked.filter((id): id is number => typeof id === 'number'));
-  const filtered = car ? setups.filter((s) => setupIsForCar(s, car.name) || pickedIds.has(s.id)) : setups;
+  const filtered = car ? setups.filter((s) => setupIsForCar(s, car.name)) : setups;
+  const pickCar = (id: number | null) => {
+    setCarId(id);
+    const picked = id === null ? null : ofType.find((x) => x.id === id);
+    if (!picked) return;
+    const ids = new Set(setups.filter((s) => setupIsForCar(s, picked.name)).map((s) => s.id));
+    onCarPicked((setupId) => typeof setupId === 'number' && ids.has(setupId));
+  };
 
   const controls = (
     <div className="mb-4 flex flex-wrap items-end gap-x-6 gap-y-3">
@@ -86,7 +94,7 @@ export function useSetupCarFilter<S extends Pick<SetupSummary, 'id' | 'car' | 'c
         <span className="mb-1 block text-base font-bold text-foreground">{c.car}</span>
         <select
           value={car?.id ?? ''}
-          onChange={(e) => setCarId(e.target.value ? Number(e.target.value) : null)}
+          onChange={(e) => pickCar(e.target.value ? Number(e.target.value) : null)}
           className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm font-medium text-foreground"
         >
           <option value="">{c.allCars}</option>

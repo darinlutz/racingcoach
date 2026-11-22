@@ -63,7 +63,11 @@ export default function SetupFocusComparison({
   }, [value.a?.revisionId, value.b?.revisionId, s.errors.failed]);
 
   // The Car type and Car filter over the two pickers
-  const carFilter = useSetupCarFilter(setups, [value.a?.setupId, value.b?.setupId]);
+  const carFilter = useSetupCarFilter(setups, (isForCar) => {
+    const a = isForCar(value.a?.setupId) ? value.a : null;
+    const b = isForCar(value.b?.setupId) ? value.b : null;
+    if (a !== value.a || b !== value.b) onChange({ a, b });
+  });
   const current = data &&data.baseline.id === value.a?.revisionId && data.comparison.id === value.b?.revisionId ? data : null;
 
   const [asking, setAsking] = useState(false);

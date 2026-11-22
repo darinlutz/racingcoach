@@ -73,7 +73,8 @@ export const SETUP_YAML_PARSER_VERSION = 1;
 // The CarSetup section out of the whole session info YAML: from the line "CarSetup:" up to the next top-level key or
 // the document end ("..."). null when there's none (a car without a garage, or the session info isn't complete yet)
 export function extractCarSetupSection(sessionYaml: string): string | null {
-  const lines = sessionYaml.replace(/\r\n?/g, '\n').split('\n');
+  // Any line ending, CRLF doubled up (\r\r\n) included, is one line break
+  const lines = sessionYaml.replace(/\r*\n|\r/g, '\n').split('\n');
   const start = lines.findIndex((line) => /^CarSetup:\s*$/.test(line));
   if (start < 0) return null;
   const out = [lines[start]];

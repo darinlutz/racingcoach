@@ -3,10 +3,14 @@
 import BrakeCaliper from '@/components/BrakeCaliper';
 import BrakeCylinder from '@/components/BrakeCylinder';
 import BrakePart from '@/components/BrakePart';
+import { EngineeringCarLayer } from '@/components/EngineeringCarView';
+import type { CarFit } from '@/lib/carViews/anchors';
 import { useLanguage } from '@/components/LanguageProvider';
 import { balanceTilt, boreRadius, CORNERS, distribution, findItem, meanBore, toneOf, visibleKinds, type BrakeDrawingProps, type Corner } from '@/lib/brakesGeometry';
 
 const AT: Record<Corner, [number, number]> = { LF: [218, 165], RF: [622, 165], LR: [218, 440], RR: [622, 440] };
+// The car's axles on the calipers' rows, centered
+const BRAKES_FIT: CarFit = { kind: 'axles', centerX: 420, frontY: 165, rearY: 440 };
 
 // The Brakes tab's plan view of the whole hydraulic system (from the Lovable design): the pedal, the balance bar, the
 // two master cylinders, the front (red) and rear (violet) circuits to the four calipers, and the ABS controller. The
@@ -26,15 +30,10 @@ export default function BrakeHydraulicOverview(props: BrakeDrawingProps) {
   const intervening = absStage >= 5 && absStage <= 6;
   return (
     <svg viewBox="0 0 840 595" className="align-svg h-auto w-full" role="img" aria-label={b.overview.aria}>
-      <path
-        d="M300 73 Q420 42 540 73 L567 141 L552 227 L540 394 L562 443 L552 512 Q420 541 288 512 L278 443 L300 394 L288 227 L273 141 Z"
-        className="align-chassis"
-      />
-      <path
-        d="M307 230 Q420 201 533 230 L508 289 H332 Z M332 295 H508 V388 H332 Z M337 302 L502 379 M502 302 L337 379 M306 407 H534 M298 493 H542 M305 112 H535"
-        className="align-structure"
-      />
       <path d="M420 38 V554 M170 165 H670 M170 440 H670" className="align-reference" />
+      {/* The compared setups' car from above, like the Alignment and Tires tabs (EngineeringCarView.tsx): its axles on
+          the calipers' rows, the hydraulic system drawn over it and the calipers outboard of its wheels */}
+      <EngineeringCarLayer view="top" fit={BRAKES_FIT} />
 
       {/* The circuits */}
       <g className={`brake-circuit-front ${active} ${dim('masters', 'bias', 'calipers')}`}>

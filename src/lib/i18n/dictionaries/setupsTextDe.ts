@@ -217,6 +217,9 @@ export const setupsDe: SetupsText = {
     lapsLine: '{laps} Runden, {clean} sauber · beste {best} · sauberer Schnitt {average}',
     lapsCaveat: 'Rundenzeiten hängen auch vom Fahrer, der Strecke und den Bedingungen ab, nicht nur vom Setup.',
     swap: 'Tauschen',
+    carType: 'Fahrzeugtyp',
+    car: 'Fahrzeug',
+    allCars: 'Alle Fahrzeuge',
   },
   // The Wheel Alignment Engineering Comparison on the Compare tab (AlignmentEngineeringView.tsx)
   alignment: {

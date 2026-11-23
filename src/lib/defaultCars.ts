@@ -188,7 +188,7 @@ export const DEFAULT_CARS: DefaultCar[] = [
   },
   {
     name: 'Next Gen NASCAR Cup Series Chevrolet Camaro ZL1',
-    racingDiscipline: 'Oval',
+    racingDiscipline: 'NASCAR',
     lengthIn: 193,
     widthIn: 78,
     wheelbaseIn: 110,
@@ -203,7 +203,7 @@ export const DEFAULT_CARS: DefaultCar[] = [
   },
   {
     name: "Legends Ford '34 Coupe",
-    racingDiscipline: 'Oval',
+    racingDiscipline: 'NASCAR',
     lengthIn: 124,
     widthIn: 60,
     wheelbaseIn: 73,
@@ -308,7 +308,7 @@ export const DEFAULT_CARS: DefaultCar[] = [
   },
   {
     name: "NASCAR O'Reilly Chevrolet Camaro",
-    racingDiscipline: 'Oval',
+    racingDiscipline: 'NASCAR',
     lengthIn: 195,
     widthIn: 71,
     wheelbaseIn: 110,
@@ -323,7 +323,7 @@ export const DEFAULT_CARS: DefaultCar[] = [
   },
   {
     name: 'ARCA Chevrolet SS',
-    racingDiscipline: 'Oval',
+    racingDiscipline: 'NASCAR',
     lengthIn: 194,
     widthIn: 77,
     wheelbaseIn: 110,
@@ -338,7 +338,7 @@ export const DEFAULT_CARS: DefaultCar[] = [
   },
   {
     name: 'NASCAR Truck Chevrolet Silverado',
-    racingDiscipline: 'Oval',
+    racingDiscipline: 'NASCAR',
     lengthIn: 192,
     widthIn: 75,
     wheelbaseIn: 110,
@@ -441,21 +441,61 @@ export async function seedDefaultCars(client: PoolClient, cars: DefaultCar[] = D
   );
 }
 
+// The Mazdas in Car Data (the owner's wish), at every start, on the caller's transaction once the car drawings', 3D
+// models' and SiteSettings' tables exist:
+// - the Mazda MX-5 Cup (iRacing's current car, mx5 mx52016, which an earlier start made from the retired 2010 Cup's row)
+//   is named Global Mazda MX-5 Cup. Its row keeps its id, so its drawings, 3D models and other links stay as they are.
+//   When a separate Global Mazda MX-5 Cup row is there too (the seeded one) with no drawings or 3D models of its own,
+//   its figures fill in the ones the current row lacks, its other links (setups, simulator mappings, broadcast videos)
+//   move over, and it goes; one with drawings or models of its own leaves both rows alone, logged
+// - iRacing's retired 2010 MX-5s, the Mazda MX-5 Cup - 2010 and the Mazda MX-5 Roadster - 2010, are added back once
+//   (marked in SiteSettings, so a Coach or Admin deleting one later sticks), as Sports Cars with no figures
+const MAZDA_CUP = 'Global Mazda MX-5 Cup';
+const LINKED_TABLES = ['CarSetups', 'SimulatorCars', 'BroadcastVideos'];
+const FIGURES = ['racing_discipline', 'length_in', 'width_in', 'wheelbase_in', 'dry_weight_lbs', 'wet_weight_lbs', 'displacement_liters', 'rpm_limit', 'torque_lb_ft', 'power_bhp', 'notes'];
+export async function fixMazdaCars(client: PoolClient): Promise<void> {
+  const { rows } = await client.query<{ id: number; car_name: string; assets: number }>(
+    `SELECT c.id, c.car_name,
+       (SELECT count(*)::int FROM racingcoach."CarEngineeringAssets" a WHERE a.car_id = c.id)
+         + (SELECT count(*)::int FROM racingcoach."CarModelAssets" m WHERE m.car_id = c.id) AS assets
+     FROM racingcoach."Cars" c WHERE lower(c.car_name) IN ('mazda mx-5 cup', lower($1))`,
+    [MAZDA_CUP]
+  );
+  const current = rows.find((r) => r.car_name.toLowerCase() === 'mazda mx-5 cup');
+  const global = rows.find((r) => r.car_name.toLowerCase() === MAZDA_CUP.toLowerCase());
+  if (current && global) {
+    if (global.assets > 0) {
+      console.error(`Car Data has both "${current.car_name}" (${current.id}) and "${global.car_name}" (${global.id}) with drawings or 3D models: neither renamed`);
+    } else {
+      await client.query(
+        `UPDATE racingcoach."Cars" c SET ${FIGURES.map((f) => `${f} = COALESCE(c.${f}, g.${f})`).join(', ')}
+         FROM racingcoach."Cars" g WHERE c.id = $1 AND g.id = $2`,
+        [current.id, global.id]
+      );
+      for (const table of LINKED_TABLES) {
+        const { rows: exists } = await client.query<{ t: string | null }>(`SELECT to_regclass($1) AS t`, [`racingcoach."${table}"`]);
+        if (exists[0].t) await client.query(`UPDATE racingcoach."${table}" SET car_id = $1 WHERE car_id = $2`, [current.id, global.id]);
+      }
+      await client.query('DELETE FROM racingcoach."Cars" WHERE id = $1', [global.id]);
+    }
+  }
+  if (current && (!global || global.assets === 0)) {
+    await client.query('UPDATE racingcoach."Cars" SET car_name = $2, updated_at = now() WHERE id = $1', [current.id, MAZDA_CUP]);
+  }
+  const { rowCount } = await client.query(
+    `INSERT INTO racingcoach."SiteSettings" (key, value) VALUES ('cars_mazda_2010_restored', 'true') ON CONFLICT (key) DO NOTHING`
+  );
+  if (rowCount) {
+    await client.query(
+      `INSERT INTO racingcoach."Cars" (car_name, racing_discipline)
+       VALUES ('Mazda MX-5 Cup - 2010', 'Sports Car'), ('Mazda MX-5 Roadster - 2010', 'Sports Car')
+       ON CONFLICT (lower(car_name)) DO NOTHING`
+    );
+  }
+}
+
 // Runs once, on the caller's transaction, when "CarsUsers" is about to be dropped: the owner's copy of each car replaces
 // the one in Cars, and cars the owner added join it. A car the owner deleted stays in Cars.
-// Car Data rows of iRacing's retired 2010 MX-5s, which the site never shows (the owner's wish): at every start, on the
-// caller's transaction, the MX-5 Cup - 2010 becomes the Mazda MX-5 Cup (or goes, when a Mazda MX-5 Cup is already
-// there) and the MX-5 Roadster - 2010 goes. Names are compared without case, punctuation or a "[Legacy]" prefix.
-// Tables pointing at a car clear the link or go with it (ON DELETE SET NULL / CASCADE)
-const CAR_NAME_KEY_SQL = `regexp_replace(regexp_replace(lower(car_name), '^\\[legacy\\]\\s*', ''), '[^a-z0-9]', '', 'g')`;
-export async function fixRetiredMazdaCars(client: PoolClient): Promise<void> {
-  await client.query(
-    `UPDATE racingcoach."Cars" SET car_name = 'Mazda MX-5 Cup'
-     WHERE ${CAR_NAME_KEY_SQL} = 'mazdamx5cup2010'
-       AND NOT EXISTS (SELECT 1 FROM racingcoach."Cars" WHERE lower(car_name) = 'mazda mx-5 cup')`
-  );
-  await client.query(`DELETE FROM racingcoach."Cars" WHERE ${CAR_NAME_KEY_SQL} IN ('mazdamx5cup2010', 'mazdamx5roadster2010')`);
-}
 
 export async function mergeOwnerCars(client: PoolClient, ownerEmail: string): Promise<void> {
   await client.query('ALTER TABLE racingcoach."CarsUsers" ADD COLUMN IF NOT EXISTS racing_discipline TEXT');
@@ -474,6 +514,27 @@ export async function mergeOwnerCars(client: PoolClient, ownerEmail: string): Pr
        rpm_limit = EXCLUDED.rpm_limit, torque_lb_ft = EXCLUDED.torque_lb_ft, power_bhp = EXCLUDED.power_bhp,
        notes = EXCLUDED.notes, updated_at = now()`,
     [ownerEmail]
+  );
+}
+
+// The Car Types changed (racingDisciplines.ts): Oval became NASCAR and Dirt Road was split into Rallycross and Off-Road.
+// Once, on the caller's transaction after SiteSettings exists (marked there, so a car a Coach or Admin puts in another
+// type later stays there), every car is moved: Oval to NASCAR, Dirt Road to Off-Road for the off-road trucks and
+// buggies, else Rallycross, and the NASCAR cars that were filed as Sports Cars (Euro NASCAR) to NASCAR
+const OFF_ROAD_SQL = `car_name ~* '(off[- ]?road|truck|buggy|baja|trophy truck)'`;
+export async function recategorizeCars(client: PoolClient): Promise<void> {
+  const { rowCount } = await client.query(
+    `INSERT INTO racingcoach."SiteSettings" (key, value) VALUES ('cars_types_nascar_rallycross_offroad', 'true') ON CONFLICT (key) DO NOTHING`
+  );
+  if (!rowCount) return;
+  await client.query(`UPDATE racingcoach."Cars" SET racing_discipline = 'NASCAR', updated_at = now() WHERE racing_discipline = 'Oval'`);
+  await client.query(
+    `UPDATE racingcoach."Cars" SET racing_discipline = CASE WHEN ${OFF_ROAD_SQL} THEN 'Off-Road' ELSE 'Rallycross' END, updated_at = now()
+     WHERE racing_discipline = 'Dirt Road'`
+  );
+  await client.query(
+    `UPDATE racingcoach."Cars" SET racing_discipline = 'NASCAR', updated_at = now()
+     WHERE racing_discipline = 'Sports Car' AND car_name ~* '\\mnascar\\M'`
   );
 }
 

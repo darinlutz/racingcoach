@@ -22,6 +22,7 @@ const HASH_ALIASES: Record<string, AdminSectionKey> = {
   'local-ai-test': 'localAiTest',
   'broadcast-video-library': 'videoLibrary',
   'engine-audio-library': 'engineSounds',
+  'elevenlabs-voices': 'elevenLabsVoices',
   'broadcast-director': 'broadcastDirector',
   'live-video': 'liveVideo',
   'engineering-car-drawings': 'carDrawings',

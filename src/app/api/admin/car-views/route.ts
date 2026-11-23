@@ -9,7 +9,7 @@ import { readJsonLimited } from '@/lib/requestBody';
 const MAX_BODY = 2_500_000;
 
 // The Admin page's Engineering Car Drawings (docs/car-views.md). GET answers { cars, assets }: Car Data's cars and
-// every version of every car's drawings (no markup). POST { carId, carKeys, views: { <view>: { svg, anchors,
+// every version of every car's drawings (no markup). POST { carId, sharedCarIds?, carKeys, views: { <view>: { svg, anchors,
 // hasWheels } }, sources, license, notes } saves a new draft version, every view sanitized and its anchors checked
 // first (assetRules.ts), and answers { id, version }, or 400 with every problem in words. Admin role only; anyone else 404.
 export async function GET() {

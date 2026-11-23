@@ -17,7 +17,23 @@ export type AssetStatus = (typeof ASSET_STATUSES)[number];
 export const ASSET_ACTIONS = ['submit', 'approve', 'reject', 'activate', 'deactivate'] as const;
 export type AssetAction = (typeof ASSET_ACTIONS)[number];
 
-export const ASSET_LIMITS = { carKeys: 10, sources: 4000, license: 1000, notes: 4000 } as const;
+export const ASSET_LIMITS = { carKeys: 10, sharedCars: 20, sources: 4000, license: 1000, notes: 4000 } as const;
+
+// The other Car Data cars a version is shared with (its drawings or 3D model used for them too): distinct positive
+// ids, never the version's own car, at most ASSET_LIMITS.sharedCars. Drivers' pages still find a version only by its
+// car paths, so each shared car's car paths go in carKeys too. Null when the value isn't a list of car ids
+export function parseSharedCarIds(value: unknown, ownCarId: number | null): number[] | null {
+  if (value === undefined || value === null) return [];
+  const raw = Array.isArray(value) ? value : typeof value === 'string' ? value.split(',').filter((v) => v.trim()) : null;
+  if (!raw) return null;
+  const ids: number[] = [];
+  for (const v of raw) {
+    const id = typeof v === 'number' ? v : Number(String(v).trim());
+    if (!Number.isInteger(id) || id <= 0) return null;
+    if (id !== ownCarId && !ids.includes(id)) ids.push(id);
+  }
+  return ids.length > ASSET_LIMITS.sharedCars ? null : ids;
+}
 
 // The status each action moves a version to (activate and deactivate change only which version is active)
 const NEXT: Record<'submit' | 'approve' | 'reject', [AssetStatus, AssetStatus]> = {
@@ -54,6 +70,7 @@ export type DraftProblem =
   | { code: 'car' }
   | { code: 'carKeys' }
   | { code: 'carKey'; key: string }
+  | { code: 'sharedCars' }
   | { code: 'noViews' }
   | { code: 'unknownView'; view: string }
   | { code: 'tooLong'; field: 'sources' | 'license' | 'notes' }
@@ -61,7 +78,7 @@ export type DraftProblem =
   | { code: 'anchors'; view: CarView; problem: AnchorProblem };
 
 export type DraftViews = Partial<Record<CarView, CarViewArt>>;
-export type Draft = { carId: number; carKeys: string[]; views: DraftViews; sources: string; license: string; notes: string };
+export type Draft = { carId: number; sharedCarIds: number[]; carKeys: string[]; views: DraftViews; sources: string; license: string; notes: string };
 
 const text = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
 
@@ -75,6 +92,8 @@ export function validateDraft(raw: unknown): { ok: true; draft: Draft } | { ok: 
   const keys = Array.isArray(r.carKeys) ? [...new Set(r.carKeys.filter((k): k is string => typeof k === 'string').map(normalizeCarKey).filter(Boolean))] : [];
   if (!keys.length || keys.length > ASSET_LIMITS.carKeys) problems.push({ code: 'carKeys' });
   for (const key of keys) if (!CAR_KEY.test(key)) problems.push({ code: 'carKey', key });
+  const sharedCarIds = parseSharedCarIds(r.sharedCarIds, carId);
+  if (!sharedCarIds) problems.push({ code: 'sharedCars' });
   const views: DraftViews = {};
   const input = (r.views && typeof r.views === 'object' ? r.views : {}) as Record<string, unknown>;
   for (const [name, value] of Object.entries(input)) {
@@ -101,8 +120,27 @@ export function validateDraft(raw: unknown): { ok: true; draft: Draft } | { ok: 
   if (sources.length > ASSET_LIMITS.sources) problems.push({ code: 'tooLong', field: 'sources' });
   if (license.length > ASSET_LIMITS.license) problems.push({ code: 'tooLong', field: 'license' });
   if (notes.length > ASSET_LIMITS.notes) problems.push({ code: 'tooLong', field: 'notes' });
-  if (problems.length || !carId) return { ok: false, problems };
-  return { ok: true, draft: { carId, carKeys: keys, views, sources, license, notes } };
+  if (problems.length || !carId || !sharedCarIds) return { ok: false, problems };
+  return { ok: true, draft: { carId, sharedCarIds, carKeys: keys, views, sources, license, notes } };
+}
+
+// Which cars use a version, changed at any status (it doesn't change what was reviewed): the other cars it's shared
+// with and the car paths drivers' pages find it by
+export type Sharing = { sharedCarIds: number[]; carKeys: string[] };
+
+export type SharingProblem = { code: 'carKeys' } | { code: 'carKey'; key: string } | { code: 'sharedCars' };
+
+export function validateSharing(raw: unknown, ownCarId: number): { ok: true; sharing: Sharing } | { ok: false; problems: SharingProblem[] } {
+  const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  const problems: SharingProblem[] = [];
+  const list = Array.isArray(r.carKeys) ? r.carKeys : typeof r.carKeys === 'string' ? r.carKeys.split(/[,\n]+/) : [];
+  const keys = [...new Set(list.filter((k): k is string => typeof k === 'string').map(normalizeCarKey).filter(Boolean))];
+  if (!keys.length || keys.length > ASSET_LIMITS.carKeys) problems.push({ code: 'carKeys' });
+  for (const key of keys) if (!CAR_KEY.test(key)) problems.push({ code: 'carKey', key });
+  const sharedCarIds = parseSharedCarIds(r.sharedCarIds, ownCarId);
+  if (!sharedCarIds) problems.push({ code: 'sharedCars' });
+  if (problems.length || !sharedCarIds) return { ok: false, problems };
+  return { ok: true, sharing: { sharedCarIds, carKeys: keys } };
 }
 
 // What a page is given for a car: its active version's drawings, or null when it has none

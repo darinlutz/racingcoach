@@ -7,6 +7,7 @@ import { DEFAULT_LANGUAGE } from '@/lib/i18n/languages';
 import { getDictionary } from '@/lib/i18n/server';
 import { readEngineerSnapshot, recordDriverRadio } from '@/lib/liveRacing';
 import { raceEngineerReply } from '@/lib/raceEngineer';
+import { raceStrategistReply } from '@/lib/raceStrategist';
 import { aiRateLimit, type AiRateLimit } from '@/lib/rateLimits';
 import { canUseInCarCoach, canUseVoiceAi } from '@/lib/roles';
 import { measureSessionRotation, setupEngineerReply } from '@/lib/setupEngineer';
@@ -34,7 +35,9 @@ const lapIdsSchema = z.array(z.uuid()).max(30);
 // 'answered', 'silent', 'membershipRequired' (Silver and Gold members and Admins only, like the In-Car AI Coach),
 // 'rateLimited' or 'failed'; the transcription is answered whatever happens to the reply. A question about the car's
 // setup or handling the Race Engineer hands to the Setup Engineer (src/lib/setupEngineer.ts), rate limited on its own
-// as setupEngineer; its answer comes back as reply the same way, with setupEngineer: true.
+// as setupEngineer; its answer comes back as reply the same way, with setupEngineer: true. A question about pit
+// strategy or fuel it hands to the Race Strategist (src/lib/raceStrategist.ts), rate limited as raceStrategist, whose
+// answer comes back with raceStrategist: true.
 export async function POST(request: Request) {
   let limit: AiRateLimit | null = null;
   let failed = getDictionary(DEFAULT_LANGUAGE).api.driverRadioFailed;
@@ -86,6 +89,8 @@ type EngineerAnswer = {
   reply: string | null;
   // The Setup Engineer answered
   setupEngineer?: boolean;
+  // The Race Strategist answered
+  raceStrategist?: boolean;
   engineer: 'answered' | 'silent' | 'membershipRequired' | 'rateLimited' | 'failed';
 };
 
@@ -107,7 +112,7 @@ async function engineerAnswer(request: Request, user: User, said: string, lapIds
         return null;
       }),
     ]);
-    const { reply, steps, setupQuestion } = await limit.track(() =>
+    const { reply, steps, setupQuestion, strategyQuestion } = await limit.track(() =>
       raceEngineerReply({
         said,
         snapshot,
@@ -121,6 +126,7 @@ async function engineerAnswer(request: Request, user: User, said: string, lapIds
       })
     );
     if (setupQuestion) return await setupAnswer(request, user, said, lapIds, snapshot, instructions);
+    if (strategyQuestion) return await strategyAnswer(request, user, said, snapshot, instructions);
     console.log(`Race Engineer: user ${user.id}, ${reply ? 'answered' : 'silent'} (${steps.join(', ') || 'no tools'})`);
     if (!reply) return { reply: null, engineer: 'silent' };
     recordDriverRadio(user.id, reply, 'engineer');
@@ -164,6 +170,40 @@ async function setupAnswer(
     return { reply, engineer: 'answered', setupEngineer: true };
   } catch (error) {
     console.error('Setup Engineer error:', error);
+    await limit?.refund();
+    return { reply: null, engineer: 'failed' };
+  }
+}
+
+// The Race Strategist's answer to a question about pit strategy or fuel the Race Engineer handed over; never throws
+async function strategyAnswer(
+  request: Request,
+  user: User,
+  said: string,
+  snapshot: ReturnType<typeof readEngineerSnapshot>,
+  instructions: string
+): Promise<EngineerAnswer> {
+  let limit: AiRateLimit | null = null;
+  try {
+    limit = await aiRateLimit(request, 'raceStrategist', user);
+    if (limit.response) return { reply: null, engineer: 'rateLimited' };
+    const { reply, steps } = await limit.track(() =>
+      raceStrategistReply({
+        said,
+        snapshot,
+        instructions,
+        language: user.preferredLanguage ?? DEFAULT_LANGUAGE,
+        units: user.units ?? DEFAULT_UNITS,
+        weather: snapshot ? weatherContextFromLive(snapshot, Date.now()) : null,
+        recentReplies: (snapshot?.radio ?? []).filter((r) => r.from === 'engineer').map((r) => r.text).slice(-4),
+      })
+    );
+    console.log(`Race Strategist: user ${user.id}, ${reply ? 'answered' : 'silent'} (${steps.join(', ') || 'no tools'})`);
+    if (!reply) return { reply: null, engineer: 'silent' };
+    recordDriverRadio(user.id, reply, 'engineer');
+    return { reply, engineer: 'answered', raceStrategist: true };
+  } catch (error) {
+    console.error('Race Strategist error:', error);
     await limit?.refund();
     return { reply: null, engineer: 'failed' };
   }

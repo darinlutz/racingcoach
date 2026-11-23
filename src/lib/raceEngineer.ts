@@ -26,7 +26,8 @@ import { DEFAULT_UNITS, formatTemperature, type Units } from './units';
 // last few minutes, and, with the session's uploaded laps, the Debrief Coach's tools for where time is being lost.
 // Like the In-Car AI Coach it follows the head coach's and the driver's In-Car AI Coach Instructions, and never says
 // where on the track something happens. Questions about the car's setup or handling it hands to the Setup Engineer
-// (src/lib/setupEngineer.ts), answering setupQuestion.
+// (src/lib/setupEngineer.ts), answering setupQuestion, and questions about pit strategy and fuel to the Race Strategist
+// (src/lib/raceStrategist.ts), answering strategyQuestion.
 
 const LITERS_PER_GALLON = 3.78541;
 
@@ -38,6 +39,11 @@ const replySchema = z.object({
   setupQuestion: z
     .boolean()
     .describe('True when the driver asks about the car setup or how the car handles; the Setup Engineer answers it, so leave reply empty'),
+  strategyQuestion: z
+    .boolean()
+    .describe(
+      'True when the driver asks about pit strategy or fuel (when to pit, fuel left or needed, where they come out after a stop); the Race Strategist answers it, so leave reply empty'
+    ),
 });
 
 const MAX_REPLY_CHARS = 300;
@@ -45,12 +51,16 @@ const MAX_REPLY_CHARS = 300;
 const enginePrompt = (units: Units, hasTools: boolean) =>
   'You are the race engineer of a sim racing driver who is in an iRacing session right now, talking on the team ' +
   'radio. The driver just pressed the radio button and said something. Decide whether it needs an answer: a ' +
-  'question, a request ("tell me the gap", "how much fuel"), a call a real engineer acknowledges ("box this lap", ' +
+  'question, a request ("tell me the gap"), a call a real engineer acknowledges ("box this lap", ' +
   '"I have a puncture"), or a complaint about the car you can help with all do. ' +
   "Questions about the car's setup " +
   'or handling balance (understeer, oversteer, a loose or tight car, brake bias, ' +
   '"what should I change on the car", setup changes) belong to the setup engineer: set needsReply and setupQuestion ' +
   'true, leave reply empty and call no tools. ' +
+  'Questions about pit strategy and fuel (when to pit or box, the pit window, how much fuel they have, how much ' +
+  'they need or should add, whether the fuel lasts to the end, an undercut, or where they would come out after a ' +
+  'stop) belong to the race strategist: set needsReply and strategyQuestion true, leave reply empty and call no ' +
+  'tools. A call like "box this lap" is still yours to acknowledge, unless they ask what they should do. ' +
   'Small talk to nobody, swearing at ' +
   'another driver, or words that make no sense as a message to you do not: set needsReply false. ' +
   'When you answer, it is spoken in the driver\'s ear at speed: one or two short sentences, the most useful number ' +
@@ -60,8 +70,7 @@ const enginePrompt = (units: Units, hasTools: boolean) =>
   'areas"): never answer a different question instead, never change the subject, never guess. Never invent a ' +
   'number. For the gap behind, the car behind is following the driver: say they are that much behind the driver ' +
   '(e.g. "P7 is 1.2 seconds behind you"), never that the driver is behind them. Gaps in a race are time behind on the road ' +
-  'from the live timing; outside a race, compare best laps. For fuel, give laps of fuel left, and whether it is ' +
-  'enough to the end when the session has a limit. ' +
+  'from the live timing; outside a race, compare best laps. ' +
   'At the start of a new stint (leaving the garage or the pits) the tires and brakes are cold: grip and braking ' +
   'are down for the first lap or so until they come up to temperature, so a slow out lap is normal, and you warn ' +
   'the driver to take it easy on them when it is relevant. ' +
@@ -299,7 +308,7 @@ export async function raceEngineerReply(input: {
   notKnownInGarage?: string;
   // The track conditions and fitted tires (weatherContext.ts's weatherContextFromLive); undefined when not known
   weather?: WeatherContext | null;
-}): Promise<{ reply: string | null; steps: string[]; setupQuestion: boolean }> {
+}): Promise<{ reply: string | null; steps: string[]; setupQuestion: boolean; strategyQuestion: boolean }> {
   if (!process.env.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY is not configured');
   const units = input.units ?? DEFAULT_UNITS;
   const measured = input.measured;
@@ -384,8 +393,10 @@ export async function raceEngineerReply(input: {
       : []
   );
   // The Setup Engineer (src/lib/setupEngineer.ts) answers questions about the car's setup and handling
-  if (first.response.setupQuestion) return { reply: null, steps, setupQuestion: true };
-  if (!first.response.needsReply || !first.response.reply.trim()) return { reply: null, steps, setupQuestion: false };
+  if (first.response.setupQuestion) return { reply: null, steps, setupQuestion: true, strategyQuestion: false };
+  // The Race Strategist (src/lib/raceStrategist.ts) answers questions about pit strategy and fuel
+  if (first.response.strategyQuestion) return { reply: null, steps, setupQuestion: false, strategyQuestion: true };
+  if (!first.response.needsReply || !first.response.reply.trim()) return { reply: null, steps, setupQuestion: false, strategyQuestion: false };
   try {
     const check = await languageCheck(input.language ?? DEFAULT_LANGUAGE, [
       ...namesIn(input.snapshot),
@@ -413,9 +424,9 @@ export async function raceEngineerReply(input: {
       },
       check
     );
-    return { reply: reply.slice(0, MAX_REPLY_CHARS), steps, setupQuestion: false };
+    return { reply: reply.slice(0, MAX_REPLY_CHARS), steps, setupQuestion: false, strategyQuestion: false };
   } catch {
     // only said where on the track things happen: better silent
-    return { reply: null, steps, setupQuestion: false };
+    return { reply: null, steps, setupQuestion: false, strategyQuestion: false };
   }
 }

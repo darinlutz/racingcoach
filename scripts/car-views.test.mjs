@@ -10,7 +10,7 @@ import { CAR_VIEWS, SCREEN_ORDER, TIRE_PROFILE, visibleCorners } from '../src/li
 import { checkViewAnchors, hostX, hostY, parseViewAnchors, placeView, toHost, verifiedShare } from '../src/lib/carViews/anchors.ts';
 import { sanitizeSvg, scopeIds, SVG_LIMITS } from '../src/lib/carViews/svgSanitize.ts';
 import { GENERIC_DIMENSIONS, genericArt, genericSources } from '../src/lib/carViews/genericVehicle.ts';
-import { checkAction, resolveView, validateDraft, viewCoverage } from '../src/lib/carViews/assetRules.ts';
+import { checkAction, parseSharedCarIds, resolveView, validateDraft, validateSharing, viewCoverage } from '../src/lib/carViews/assetRules.ts';
 
 const wrap = (inner, viewBox = '0 0 100 50') => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}">${inner}</svg>`;
 const codes = (result) => (result.ok ? [] : result.problems.map((p) => p.code));
@@ -250,6 +250,22 @@ describe('asset rules', () => {
     for (const code of ['car', 'carKey', 'unknownView', 'svg']) assert.ok(got.includes(code), code);
     assert.ok(!validateDraft({ ...good, views: {} }).ok);
     assert.ok(validateDraft({ ...good, views: { front: { svg, anchors: { ...frontAnchors(), groundY: null } } } }).problems.some((p) => p.code === 'anchors'));
+  });
+  test('a version can be shared with other cars: distinct ids, never its own car, at most 20', () => {
+    assert.deepEqual(validateDraft(good).draft.sharedCarIds, []);
+    assert.deepEqual(validateDraft({ ...good, sharedCarIds: [8, 9, 8, 7] }).draft.sharedCarIds, [8, 9]);
+    assert.ok(validateDraft({ ...good, sharedCarIds: [8, 'x'] }).problems.some((p) => p.code === 'sharedCars'));
+    assert.ok(validateDraft({ ...good, sharedCarIds: [0] }).problems.some((p) => p.code === 'sharedCars'));
+    assert.equal(parseSharedCarIds(Array.from({ length: 21 }, (_, i) => i + 1), null), null);
+    assert.deepEqual(parseSharedCarIds('3, 4,', 3), [4]);
+    assert.deepEqual(parseSharedCarIds(undefined, 3), []);
+  });
+  test('sharing: the other cars and the car paths, a path with a space kept whole', () => {
+    const ok = validateSharing({ sharedCarIds: [5], carKeys: 'mx5 mx52016, Toyotagr86' }, 0);
+    assert.ok(ok.ok);
+    assert.deepEqual(ok.sharing, { sharedCarIds: [5], carKeys: ['mx5 mx52016', 'toyotagr86'] });
+    const bad = validateSharing({ sharedCarIds: 'x', carKeys: [] }, 0);
+    assert.deepEqual(bad.problems.map((p) => p.code).sort(), ['carKeys', 'sharedCars']);
   });
   test('the review workflow, and activation needs sources and a licence', () => {
     const v = (status, extra = {}) => ({ status, active: false, sources: 's', license: 'l', ...extra });

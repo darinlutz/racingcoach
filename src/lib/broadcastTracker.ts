@@ -147,6 +147,25 @@ export type CarStats = {
   lastPitSeconds: number | null;
 };
 
+// A car's pit stops as the Race Strategist (src/lib/raceStrategy.ts) reads them: whether it's on pit road now and for
+// how long, the stops seen, and the time each stop cost against the car's own green laps (pitLosses, seconds, oldest
+// first: the laps that touched pit road, together, less as many of its clean laps)
+export type TrackerPitCar = {
+  idx: number;
+  driver: string;
+  carClass: string | null;
+  onPitRoad: boolean;
+  secondsOnPitRoad: number | null;
+  pitStops: number;
+  lastPitSeconds: number | null;
+  lastPitLap: number | null;
+  pitLosses: number[];
+};
+
+// A stop's measured loss is believed only between these (seconds): less is a drive past the pit entry's timing, more
+// a tow, a repair or a caution
+export const PIT_LOSS_RANGE = { min: 3, max: 200 };
+
 // The race's own moments, for the Broadcast Director (src/lib/videoDirector.ts): where the race is (on the grid before
 // the cars roll, the parade lap, racing, or the checkered flag is out), how far (seconds) the overall leader is from the
 // checkered flag while on the last lap, and the finishing order of the driver's class as it's known
@@ -212,7 +231,7 @@ export const TRACKER_CONFIG = {
   weatherWetEveryMs: 240_000,
 };
 
-type LapRecord = { time: number; pit: boolean };
+export type LapRecord = { time: number; pit: boolean };
 
 type CarState = {
   idx: number;
@@ -232,6 +251,8 @@ type CarState = {
   pitPositionBefore: number | null;
   pitStops: number;
   lastPitSeconds: number | null;
+  // The car's completed laps when it last left pit road
+  lastPitLap: number | null;
   position: number | null;
   classPosition: number | null;
   gridPosition: number | null;
@@ -270,6 +291,33 @@ function sessionKind(type: string | null): 'race' | 'practice' | 'qualifying' | 
 
 function mean(values: number[]): number | null {
   return values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : null;
+}
+
+// Each run of laps that touched pit road, less as many of the car's clean laps (their median): what each stop cost.
+// A run from the first lap seen (a start from the pits, or a stop already under way) isn't a whole stop, nor one whose
+// last lap isn't done yet (lapGoingOn: the lap being driven touched pit road too)
+export function pitLosses(laps: LapRecord[], lapGoingOn = false): number[] {
+  const green = laps.filter((l) => !l.pit).map((l) => l.time);
+  if (green.length === 0) return [];
+  const best = Math.min(...green);
+  const clean = green.filter((t) => t <= best * TRACKER_CONFIG.cleanLapShare).sort((a, b) => a - b);
+  const reference = clean[Math.floor(clean.length / 2)];
+  const losses: number[] = [];
+  let run: number[] = [];
+  let runStart = -1;
+  laps.forEach((l, i) => {
+    if (l.pit) {
+      if (!run.length) runStart = i;
+      run.push(l.time);
+      if (i < laps.length - 1 || lapGoingOn) return;
+    }
+    if (run.length && runStart > 0) {
+      const loss = run.reduce((a, b) => a + b, 0) - run.length * reference;
+      if (loss >= PIT_LOSS_RANGE.min && loss <= PIT_LOSS_RANGE.max) losses.push(Math.round(loss * 10) / 10);
+    }
+    run = [];
+  });
+  return losses;
 }
 
 function stdev(values: number[]): number | null {
@@ -432,6 +480,7 @@ export class BroadcastTracker {
         pitPositionBefore: null,
         pitStops: 0,
         lastPitSeconds: null,
+        lastPitLap: null,
         position: null,
         classPosition: null,
         gridPosition: null,
@@ -675,6 +724,7 @@ export class BroadcastTracker {
         const seconds = Math.round((this.now - c.pitEnteredAt) / 100) / 10;
         c.pitStops++;
         c.lastPitSeconds = seconds;
+        c.lastPitLap = c.lapsDone;
         if (c.idx !== this.userIdx && c.name) {
           events.push({
             type: 'pitStop',
@@ -1070,6 +1120,23 @@ export class BroadcastTracker {
     return [...this.cars.values()]
       .filter((c) => c.name)
       .map((c) => ({ idx: c.idx, driver: c.name!, number: c.number, car: c.car, carClass: c.carClass || null }));
+  }
+
+  // Every car's pit stops (TrackerPitCar), for the Race Strategist
+  pitReport(): TrackerPitCar[] {
+    return [...this.cars.values()]
+      .filter((c) => c.name)
+      .map((c) => ({
+        idx: c.idx,
+        driver: c.name!,
+        carClass: c.carClass || null,
+        onPitRoad: c.onPitRoad,
+        secondsOnPitRoad: c.onPitRoad && c.pitEnteredAt !== null ? Math.round((this.now - c.pitEnteredAt) / 100) / 10 : null,
+        pitStops: c.pitStops,
+        lastPitSeconds: c.lastPitSeconds,
+        lastPitLap: c.lastPitLap,
+        pitLosses: pitLosses(c.laps, c.pitThisLap),
+      }));
   }
 
   // Every driver's name, for checking the announcers only name drivers they were told about

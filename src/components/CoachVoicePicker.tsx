@@ -3,12 +3,21 @@
 import { useRef, useState } from 'react';
 import { useLanguage } from '@/components/LanguageProvider';
 import { useUnits } from '@/components/UnitsProvider';
+import { elevenLabsVoiceLabel } from '@/lib/elevenLabsVoiceRules';
+import type { Dictionary } from '@/lib/i18n/dictionaries/en';
 
 const selectClass =
   'min-w-0 flex-1 px-3 py-2 bg-secondary border border-border rounded-lg text-foreground text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors';
 
-// Each voice the coach can speak with and its style (coachVoicesFor in src/lib/coachVoice.ts)
-export type CoachVoiceDetails = Record<string, { style: string }>;
+// Each voice the coach can speak with and its style (coachVoicesFor in src/lib/coachVoice.ts); the ElevenLabs voice
+// also has its language, and is named by it and its role (style) in the user's language
+export type CoachVoiceDetails = Record<string, { style: string; voiceLanguage?: string }>;
+
+// A voice's name in the pickers: "Charon: Informative", or the ElevenLabs voice's, e.g. "Eleven Labs German Race Coach"
+export function voiceOptionLabel(name: string, detail: { style: string; voiceLanguage?: string }, c: Dictionary['inCarCoach']): string {
+  if (detail.voiceLanguage) return elevenLabsVoiceLabel(c, detail.voiceLanguage, detail.style);
+  return `${name}: ${c.voiceStyles[detail.style as keyof typeof c.voiceStyles] ?? detail.style}`;
+}
 
 // The Account page's Coach voice: the Chirp 3 HD voice the In-Car AI Coach speaks with, saved as soon as it's picked
 // (PUT /api/account/coach-voice). Listen plays a sample callout in the picked voice, the user's Preferred Language and,
@@ -88,9 +97,9 @@ export default function CoachVoicePicker({
       <p className="text-sm text-muted-foreground mb-3">{c.voiceHint}</p>
       <div className="flex items-center gap-2">
         <select id="coach-voice" value={voice} onChange={(e) => chooseVoice(e.target.value)} className={selectClass}>
-          {listed.map(([name, { style }]) => (
+          {listed.map(([name, detail]) => (
             <option key={name} value={name}>
-              {name}: {c.voiceStyles[style as keyof typeof c.voiceStyles] ?? style}
+              {voiceOptionLabel(name, detail, c)}
             </option>
           ))}
         </select>

@@ -37,7 +37,8 @@ const lapIdsSchema = z.array(z.uuid()).max(30);
 // setup or handling the Race Engineer hands to the Setup Engineer (src/lib/setupEngineer.ts), rate limited on its own
 // as setupEngineer; its answer comes back as reply the same way, with setupEngineer: true. A question about pit
 // strategy or fuel it hands to the Race Strategist (src/lib/raceStrategist.ts), rate limited as raceStrategist, whose
-// answer comes back with raceStrategist: true.
+// answer comes back with raceStrategist: true. The collector says each of those two in its own voice, picked on the
+// Account page (POST /api/collector/speech with { speaker }).
 export async function POST(request: Request) {
   let limit: AiRateLimit | null = null;
   let failed = getDictionary(DEFAULT_LANGUAGE).api.driverRadioFailed;
@@ -166,7 +167,7 @@ async function setupAnswer(
     );
     console.log(`Setup Engineer: user ${user.id}, ${reply ? 'answered' : 'silent'}`);
     if (!reply) return { reply: null, engineer: 'silent' };
-    recordDriverRadio(user.id, reply, 'engineer');
+    recordDriverRadio(user.id, reply, 'engineer', 'setupEngineer');
     return { reply, engineer: 'answered', setupEngineer: true };
   } catch (error) {
     console.error('Setup Engineer error:', error);
@@ -200,7 +201,7 @@ async function strategyAnswer(
     );
     console.log(`Race Strategist: user ${user.id}, ${reply ? 'answered' : 'silent'} (${steps.join(', ') || 'no tools'})`);
     if (!reply) return { reply: null, engineer: 'silent' };
-    recordDriverRadio(user.id, reply, 'engineer');
+    recordDriverRadio(user.id, reply, 'engineer', 'raceStrategist');
     return { reply, engineer: 'answered', raceStrategist: true };
   } catch (error) {
     console.error('Race Strategist error:', error);

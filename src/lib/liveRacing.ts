@@ -271,7 +271,9 @@ const MIN_SLOWED_RATE = 0.004;
 // A driver's radio message, as text, or the Race Engineer's answer to one (src/lib/raceEngineer.ts); at is ms since
 // the epoch
 export type RadioSpeaker = 'driver' | 'engineer';
-export type RadioMessage = { seq: number; at: number; text: string; from: RadioSpeaker };
+// voice: which engineer's voice an engineer's answer is said in, the Setup Engineer's or Race Strategist's
+// (getEngineerVoices in src/lib/coachVoice.ts); none for the Race Engineer's own, in the coach voice
+export type RadioMessage = { seq: number; at: number; text: string; from: RadioSpeaker; voice?: 'setupEngineer' | 'raceStrategist' };
 // Radio messages are kept this long, at most MAX_RADIO of them
 const RADIO_KEPT_MS = 5 * 60_000;
 const MAX_RADIO = 10;
@@ -666,11 +668,16 @@ export function detectRaceEvents(
 
 // What the driver just said over the radio (or the Race Engineer answered), for their watchers; null when they aren't
 // live (nobody can watch them)
-export function recordDriverRadio(driverId: number, text: string, from: RadioSpeaker = 'driver'): RadioMessage | null {
+export function recordDriverRadio(
+  driverId: number,
+  text: string,
+  from: RadioSpeaker = 'driver',
+  voice?: RadioMessage['voice']
+): RadioMessage | null {
   const now = Date.now();
   const entry = live.entries.get(driverId);
   if (!entry || now - entry.receivedAt > STALE_MS) return null;
-  const message = { seq: ++entry.radioSeq, at: now, text, from };
+  const message: RadioMessage = { seq: ++entry.radioSeq, at: now, text, from, ...(voice ? { voice } : {}) };
   entry.radio = [...entry.radio.filter((r) => now - r.at <= RADIO_KEPT_MS), message].slice(-MAX_RADIO);
   return message;
 }

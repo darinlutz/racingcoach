@@ -52,6 +52,15 @@ describe('ElevenLabs voice rules', () => {
     );
   });
 
+  test('the Setup Engineer and Race Strategist have voices of their own, one per language', () => {
+    for (const role of ['setupEngineer', 'raceStrategist']) {
+      assert.equal(validateVoice({ name: 'x', voiceId: ID, role, language: 'pt' }).ok, true);
+      assert.deepEqual(validateVoice({ name: 'x', voiceId: ID, role, language: 'all' }).problems, ['language']);
+    }
+    assert.equal(elevenLabsVoiceLabel(en.inCarCoach, 'en', 'setupEngineer'), 'Eleven Labs English Setup Engineer');
+    assert.equal(elevenLabsVoiceLabel(en.inCarCoach, 'it', 'raceStrategist'), 'Eleven Labs Italian Race Strategist');
+  });
+
   test('drivers see a name in their own language', () => {
     assert.equal(elevenLabsVoiceLabel(en.inCarCoach, 'de', 'raceCoach'), 'Eleven Labs German Race Coach');
     assert.equal(elevenLabsVoiceLabel(en.inCarCoach, 'es-es', 'leadAnnouncer'), 'Eleven Labs Spain Spanish Lead Announcer');
@@ -127,6 +136,21 @@ describe('ElevenLabs voices in the database', { skip }, () => {
     await store.deleteElevenLabsVoice(spare.id);
     assert.equal(elevenLabs.elevenLabsVoiceId('raceCoach', 'de'), null);
     assert.equal(await codeOf(store.deleteElevenLabsVoice(spare.id)), 'notFound');
+  });
+
+  test('a table from before the engineers\' roles takes them after the schema check', async () => {
+    // The column's own CHECK as Postgres named it, without the Setup Engineer and Race Strategist
+    await q(`ALTER TABLE racingcoach."ElevenLabsVoices" DROP CONSTRAINT elevenlabs_voices_role_check`);
+    await q(`ALTER TABLE racingcoach."ElevenLabsVoices" ADD CONSTRAINT "ElevenLabsVoices_role_check"
+               CHECK (role IN ('raceCoach', 'leadAnnouncer', 'colorAnnouncer', 'ownerRadio'))`);
+    const fresh = await import(new URL(`../src/lib/elevenLabsVoices.ts?roles=${Date.now()}`, import.meta.url).href);
+    await fresh.ensureElevenLabsVoiceSchema();
+    await fresh.ensureElevenLabsVoiceSchema();
+    const added = await fresh.createElevenLabsVoice(voice({ role: 'raceStrategist', language: 'fr' }), null, admin);
+    await store.loadElevenLabsVoices(true);
+    assert.equal(elevenLabs.elevenLabsVoiceId('raceStrategist', 'fr'), ID);
+    await assert.rejects(q(`INSERT INTO racingcoach."ElevenLabsVoices" (name, voice_id, role, language) VALUES ('x', $1, 'pitCrew', 'de')`, [ID]));
+    await fresh.deleteElevenLabsVoice(added.id);
   });
 
   test('the owner\'s Driver Radio voice is one for every language', async () => {

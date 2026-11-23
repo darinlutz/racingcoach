@@ -555,7 +555,7 @@ export const en = {
     voiceStyles: {
       informative: 'Informative', firm: 'Firm', clear: 'Clear', smooth: 'Smooth', knowledgeable: 'Knowledgeable',
       upbeat: 'Upbeat', excitable: 'Excitable',
-      raceCoach: 'RaceCoach', leadAnnouncer: 'Lead Announcer', colorAnnouncer: 'Color Announcer',
+      raceCoach: 'RaceCoach', leadAnnouncer: 'Lead Announcer', colorAnnouncer: 'Color Announcer', setupEngineer: 'Setup Engineer', raceStrategist: 'Race Strategist',
     },
     // An ElevenLabs voice's name in the voice pickers (elevenLabsVoiceLabel in src/lib/elevenLabsVoiceRules.ts)
     elevenLabsVoiceName: 'Eleven Labs {language} {role}',
@@ -573,6 +573,8 @@ export const en = {
       raceCoach: 'Race Coach',
       leadAnnouncer: 'Lead Announcer',
       colorAnnouncer: 'Color Announcer',
+      setupEngineer: 'Setup Engineer',
+      raceStrategist: 'Race Strategist',
       ownerRadio: 'Owner Driver Radio',
     },
     // The accent the coach speaks Spanish with (only shown when the Preferred Language is Spanish)
@@ -584,6 +586,19 @@ export const en = {
     goldVoices: 'The ElevenLabs voices for your coach and Race Announcers in your language are for Gold members.',
     // What the Listen button says, in the chosen voice
     sample: 'Turn 1: brake about {later} {units} later, near {near} {units}. Nice lap, two tenths quicker.',
+  },
+
+  // The Account page's Setup Engineer and Race Strategist voices, between the Coach voice and the Race Announcers
+  // (src/components/EngineerVoicesSection.tsx); the samples are what their Listen buttons say
+  engineerVoices: {
+    title: 'Setup Engineer and Race Strategist',
+    intro: 'The voices that answer you over Driver Radio when the Race Engineer hands your question over: the Setup Engineer for your car’s setup and handling, and the Race Strategist for pit strategy and fuel.',
+    setupEngineer: 'Setup Engineer',
+    raceStrategist: 'Race Strategist',
+    membersOnly: 'The Setup Engineer and Race Strategist are for Silver and Gold members. Upgrade to Silver or Gold to hear them.',
+    voiceSaved: 'Engineer voice saved.',
+    sampleSetupEngineer: 'Copy that, understeer on entry. Move the brake bias back half a click and let the car rotate.',
+    sampleRaceStrategist: 'Box this lap and you rejoin in fifth, clear of traffic. Fuel to the end is plus two laps.',
   },
 
   // The Account page's Race Announcers, under the Coach voice (src/components/RaceAnnouncersSection.tsx), and their
@@ -2320,6 +2335,8 @@ export const en = {
         raceCoach: 'Race Coach',
         leadAnnouncer: 'Lead Announcer',
         colorAnnouncer: 'Color Announcer',
+        setupEngineer: 'Setup Engineer',
+        raceStrategist: 'Race Strategist',
         ownerRadio: 'Owner Driver Radio',
       },
       languages: {
@@ -4175,6 +4192,10 @@ export const en = {
     raceAnnouncersDisabled: 'The Race Announcers are turned off right now',
     raceAnnouncersMembersOnly: 'The Race Announcers are for Silver and Gold members',
     failedSaveRaceAnnouncers: 'Failed to save the Race Announcers',
+    logInEngineerVoices: 'Log in to save your engineer voices',
+    engineerVoicesDisabled: 'The engineer voices are turned off right now',
+    engineerVoicesMembersOnly: 'The Setup Engineer and Race Strategist are for Silver and Gold members',
+    failedSaveEngineerVoice: 'Failed to save the engineer voice',
     raceAnnouncerInstructionsTooLong: 'The Race Announcer Instructions are too long',
     failedRaceAnnouncer: 'The Race Announcers couldn’t commentate',
     // General

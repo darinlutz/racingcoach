@@ -23,8 +23,9 @@ const TIMEOUT_MS = 15_000;
 const CACHE_SIZE = 64;
 const cache = new Map<string, Buffer>();
 
-// Who's speaking: the In-Car AI Coach's RaceCoach voice, or one of the Race Announcers
-export const ELEVENLABS_ROLES = ['raceCoach', 'leadAnnouncer', 'colorAnnouncer'] as const;
+// Who's speaking: the In-Car AI Coach's RaceCoach voice, one of the Race Announcers, or the Setup Engineer or Race
+// Strategist answering over Driver Radio (engineer voices in coachVoice.ts)
+export const ELEVENLABS_ROLES = ['raceCoach', 'leadAnnouncer', 'colorAnnouncer', 'setupEngineer', 'raceStrategist'] as const;
 export type ElevenLabsRole = (typeof ELEVENLABS_ROLES)[number];
 
 // The accent Spanish is spoken with (SPANISH_ACCENTS in coachVoice.ts), written out to keep this file's imports light

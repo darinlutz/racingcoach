@@ -265,8 +265,15 @@ internal sealed class DriverRadio : IDisposable
                     : $"Driver Radio: message sent ({answer.Text.Length} characters, not on Live Racing: you're not sharing live right now)", false);
                 if (reply is not null)
                 {
-                    _log($"Race Engineer: answered ({reply.Length} characters)", false);
-                    Voice.Say(reply);
+                    var who = answer.Speaker switch
+                    {
+                        "setupEngineer" => "Setup Engineer",
+                        "raceStrategist" => "Race Strategist",
+                        _ => "Race Engineer",
+                    };
+                    _log($"{who}: answered ({reply.Length} characters)", false);
+                    // The Setup Engineer and Race Strategist speak in the voices picked for them on the Account page
+                    Voice.Say(reply, speaker: answer.Speaker);
                 }
                 else if (answer.Engineer == "membershipRequired" && !_toldMembersOnly)
                 {

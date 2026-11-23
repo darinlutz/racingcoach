@@ -215,6 +215,10 @@ export function ensureUserSchema(): Promise<void> {
       await client.query(
         `ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS race_announcer_instructions TEXT NOT NULL DEFAULT ''`
       );
+      // The voices the Setup Engineer and Race Strategist answer Driver Radio in (engineer voices, src/lib/coachVoice.ts);
+      // empty for the default, their ElevenLabs voices
+      await client.query(`ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS setup_engineer_voice TEXT NOT NULL DEFAULT ''`);
+      await client.query(`ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS race_strategist_voice TEXT NOT NULL DEFAULT ''`);
       // How the Race Announcers say the user's name, from the Account page's Name Pronunciation (src/lib/raceAnnouncer.ts);
       // empty for their name as written
       await client.query(`ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS name_pronunciation TEXT NOT NULL DEFAULT ''`);

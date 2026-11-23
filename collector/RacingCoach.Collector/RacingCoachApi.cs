@@ -375,10 +375,11 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
 
     /// <summary>Speech in the user's coach voice and Preferred Language, as a WAV file: text (already in their
     /// language), or a fixed phrase (coachSpeech in the website's dictionaries, e.g. "newLap"). Throws
-    /// HttpRequestException (also for a refused key or a server error) or TaskCanceledException.</summary>
-    public async Task<byte[]> GetSpeechAsync(string? text, string? phrase, CancellationToken ct)
+    /// HttpRequestException (also for a refused key or a server error) or TaskCanceledException. speaker
+    /// ("setupEngineer" or "raceStrategist") says text in that engineer's voice, picked on the Account page.</summary>
+    public async Task<byte[]> GetSpeechAsync(string? text, string? phrase, CancellationToken ct, string? speaker = null)
     {
-        object body = phrase is not null ? new { phrase } : new { text };
+        object body = phrase is not null ? new { phrase } : speaker is not null ? new { text, speaker } : new { text };
         using var response = await _http.PostAsJsonAsync("api/collector/speech", body, JsonOptions, ct);
         if (!response.IsSuccessStatusCode)
             throw new HttpRequestException(await ErrorMessageAsync(response, ct));
@@ -686,8 +687,14 @@ internal sealed record LiveAnswer(int Watchers, bool NeedsOutline, bool SavedOut
 
 /// <summary>POST /api/collector/radio: the words the driver said, whether they went to the Live Racing page, and the
 /// Race Engineer's answer (null when it has none; Engineer says why: answered, silent, membershipRequired,
-/// rateLimited or failed).</summary>
-internal sealed record RadioAnswer(string Text, bool Shared, string? Reply = null, string? Engineer = null);
+/// rateLimited or failed). SetupEngineer or RaceStrategist is true when the Race Engineer handed the question to one
+/// of them, whose answer is said in their own voice (Voice.Say's speaker).</summary>
+internal sealed record RadioAnswer(string Text, bool Shared, string? Reply = null, string? Engineer = null,
+    bool SetupEngineer = false, bool RaceStrategist = false)
+{
+    /// <summary>Who answered, for the speech: "setupEngineer", "raceStrategist", or null for the Race Engineer.</summary>
+    public string? Speaker => SetupEngineer ? "setupEngineer" : RaceStrategist ? "raceStrategist" : null;
+}
 
 /// <summary>A watcher's message to the driver from the website's Live Racing page, said in the coach voice; or, with
 /// AudioId, spoken by the watcher (GetVoiceMessageAsync gives the recording).</summary>

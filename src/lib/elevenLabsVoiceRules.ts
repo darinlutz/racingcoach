@@ -1,11 +1,12 @@
 // The ElevenLabs voices' rules (the Admin page's Eleven Labs Voice Management; src/lib/elevenLabsVoices.ts keeps them
 // in racingcoach."ElevenLabsVoices"). Pure, no I/O, so the Admin page and the voice pickers can use it too.
 //
-// Each voice fills one slot: a role (the In-Car AI Coach's Race Coach, the Race Announcers' Lead and Color, or the site
-// owner's own Driver Radio voice) in one language (Spanish twice, by its accent; the owner's radio voice is the same in
-// every language). One enabled voice per slot; a disabled one is kept for later and never spoken.
+// Each voice fills one slot: a role (the In-Car AI Coach's Race Coach, the Race Announcers' Lead and Color, Driver
+// Radio's Setup Engineer and Race Strategist, or the site owner's own Driver Radio voice) in one language (Spanish twice,
+// by its accent; the owner's radio voice is the same in every language). One enabled voice per slot; a disabled one is
+// kept for later and never spoken.
 
-export const ELEVENLABS_VOICE_ROLES = ['raceCoach', 'leadAnnouncer', 'colorAnnouncer', 'ownerRadio'] as const;
+export const ELEVENLABS_VOICE_ROLES = ['raceCoach', 'leadAnnouncer', 'colorAnnouncer', 'setupEngineer', 'raceStrategist', 'ownerRadio'] as const;
 export type ElevenLabsVoiceRole = (typeof ELEVENLABS_VOICE_ROLES)[number];
 
 // A slot's language: the site's languages, Spanish by its accent, or every language (the owner's radio voice only)
@@ -66,7 +67,9 @@ const ENV_LANGUAGES: Record<Exclude<ElevenLabsVoiceLanguage, 'all'>, string> = {
   'es-latam': 'LATINO',
   'es-es': 'ESPANA',
 };
-const ENV_ROLES: Record<Exclude<ElevenLabsVoiceRole, 'ownerRadio'>, string> = {
+// Only these roles had variables: the Setup Engineer's and Race Strategist's voices came after the import
+type EnvRole = 'raceCoach' | 'leadAnnouncer' | 'colorAnnouncer';
+const ENV_ROLES: Record<EnvRole, string> = {
   raceCoach: 'RACECOACH',
   leadAnnouncer: 'ANNOUNCER_LEAD',
   colorAnnouncer: 'ANNOUNCER_COLOR',
@@ -86,13 +89,15 @@ const ADMIN_ROLE_NAMES: Record<ElevenLabsVoiceRole, string> = {
   raceCoach: 'Race Coach',
   leadAnnouncer: 'Lead Announcer',
   colorAnnouncer: 'Color Announcer',
+  setupEngineer: 'Setup Engineer',
+  raceStrategist: 'Race Strategist',
   ownerRadio: 'Owner Driver Radio',
 };
 
 export function voicesFromEnv(env: Record<string, string | undefined>): VoiceInput[] {
   const voices: VoiceInput[] = [];
   for (const [language, envLanguage] of Object.entries(ENV_LANGUAGES) as [Exclude<ElevenLabsVoiceLanguage, 'all'>, string][]) {
-    for (const [role, envRole] of Object.entries(ENV_ROLES) as [Exclude<ElevenLabsVoiceRole, 'ownerRadio'>, string][]) {
+    for (const [role, envRole] of Object.entries(ENV_ROLES) as [EnvRole, string][]) {
       const voiceId = env[`ELEVENLABS_${envLanguage}_${envRole}_VOICE_ID`]?.trim();
       if (voiceId && VOICE_ID.test(voiceId)) {
         voices.push({ name: `${ADMIN_LANGUAGE_NAMES[language]} ${ADMIN_ROLE_NAMES[role]}`, voiceId, role, language, enabled: true, notes: '' });

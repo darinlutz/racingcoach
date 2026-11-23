@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { authenticateCollector } from '@/lib/collectorKeys';
-import { getCoachVoice, MAX_SPEECH_CHARS, synthesizeSpeech, withPronunciations } from '@/lib/coachVoice';
+import { ENGINEER_SPEAKERS, getCoachVoice, getEngineerVoices, MAX_SPEECH_CHARS, synthesizeSpeech, withPronunciations } from '@/lib/coachVoice';
 import { DEFAULT_LANGUAGE } from '@/lib/i18n/languages';
 import { getDictionary } from '@/lib/i18n/server';
 import { aiRateLimit, type AiRateLimit } from '@/lib/rateLimits';
@@ -9,14 +9,17 @@ import { JSON_BODY_LIMIT, readJsonLimited } from '@/lib/requestBody';
 import { getUserById } from '@/lib/users';
 
 const bodySchema = z.union([
-  z.object({ text: z.string().trim().min(1).max(MAX_SPEECH_CHARS) }),
+  // speaker: the Setup Engineer or Race Strategist answering over Driver Radio, said in their own voice (collectors
+  // from 1.103.0); without it, the coach voice
+  z.object({ text: z.string().trim().min(1).max(MAX_SPEECH_CHARS), speaker: z.enum(ENGINEER_SPEAKERS).optional() }),
   // A fixed phrase from the dictionary's coachSpeech, said in the user's language
   z.object({ phrase: z.enum(['newLap']) }),
 ]);
 
 // The telemetry collector's voice: what the In-Car AI Coach says, as a WAV file in the user's coach voice with a
 // native accent in their Preferred Language (src/lib/coachVoice.ts). Authenticated with the upload key as a
-// bearer token, like /api/collector/laps. Body: { text } (already in the user's language) or { phrase }. Names are
+// bearer token, like /api/collector/laps. Body: { text, speaker? } (already in the user's language; speaker
+// 'setupEngineer' or 'raceStrategist' says it in that engineer's voice, getEngineerVoices) or { phrase }. Names are
 // said the way the user's In-Car AI Coach Instructions say they sound (withPronunciations).
 export async function POST(request: Request) {
   let limit: AiRateLimit | null = null;
@@ -30,12 +33,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: `Expected { text } (at most ${MAX_SPEECH_CHARS} characters) or { phrase }` }, { status: 400 });
     }
 
-    const [user, { voice, spanishAccent, pronunciations }] = await Promise.all([getUserById(userId), getCoachVoice(userId)]);
+    const speaker = 'speaker' in parsed.data ? parsed.data.speaker : undefined;
+    const [user, coach, engineers] = await Promise.all([
+      getUserById(userId),
+      getCoachVoice(userId),
+      speaker ? getEngineerVoices(userId) : null,
+    ]);
+    const { spanishAccent, pronunciations } = coach;
+    const voice = speaker && engineers ? engineers[speaker] : coach.voice;
     limit = await aiRateLimit(request, 'speech', user);
     if (limit.response) return limit.response;
     const language = user?.preferredLanguage ?? DEFAULT_LANGUAGE;
     const text = 'phrase' in parsed.data ? getDictionary(language).coachSpeech[parsed.data.phrase] : parsed.data.text;
-    const audio = await synthesizeSpeech(withPronunciations(text, pronunciations), voice, language, spanishAccent);
+    const audio = await synthesizeSpeech(withPronunciations(text, pronunciations), voice, language, spanishAccent, speaker ?? 'raceCoach');
     return new NextResponse(new Uint8Array(audio), { headers: { 'Content-Type': 'audio/wav', 'X-Coach-Voice': voice } });
   } catch (error) {
     console.error('Collector speech error:', error);

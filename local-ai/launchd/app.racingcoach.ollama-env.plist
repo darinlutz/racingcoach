@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  At login, gives Ollama the settings RacingCoach's local AI needs (docs/local-ai.md, Stage 1), as
+  `launchctl setenv` lasts only until the Mac restarts, then restarts Homebrew's Ollama service so it
+  uses them (its label is sh.brew.ollama or homebrew.mxcl.ollama, depending on the Homebrew version).
+  Nothing to replace:
+    cp local-ai/launchd/app.racingcoach.ollama-env.plist ~/Library/LaunchAgents/
+    launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/app.racingcoach.ollama-env.plist
+  Check: ps eww -p $(pgrep -f "ollama serve") | tr ' ' '\n' | grep ^OLLAMA_
+  With the Ollama app instead of Homebrew, quit and reopen the app after logging in.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>app.racingcoach.ollama-env</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/sh</string>
+    <string>-c</string>
+    <string>launchctl setenv OLLAMA_CONTEXT_LENGTH 32768; launchctl setenv OLLAMA_NUM_PARALLEL 2; launchctl setenv OLLAMA_MAX_LOADED_MODELS 2; launchctl setenv OLLAMA_KEEP_ALIVE 30m; launchctl kickstart -k gui/$(id -u)/sh.brew.ollama 2>/dev/null || launchctl kickstart -k gui/$(id -u)/homebrew.mxcl.ollama</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>/tmp/racingcoach-ollama-env.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/racingcoach-ollama-env.log</string>
+</dict>
+</plist>

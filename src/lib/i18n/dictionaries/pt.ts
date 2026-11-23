@@ -2258,6 +2258,9 @@ export const pt: Dictionary = {
       deleted: '“{name}” excluída.',
       voices: 'Vozes',
       none: 'Ainda não há vozes ElevenLabs. Cada função fala com uma voz Google Chirp.',
+      // The list's language radio buttons (the owner's Driver Radio voice, in every language, stays at the top)
+      showLanguage: 'Mostrar vozes de',
+      noneForLanguage: 'Ainda não há vozes para {language}. Suas funções falam com uma voz Google Chirp.',
       loading: 'Carregando…',
       errors: {
         failed: 'Algo deu errado com as vozes ElevenLabs. Tente novamente.',

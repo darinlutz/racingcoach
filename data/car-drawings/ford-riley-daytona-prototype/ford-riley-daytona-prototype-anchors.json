@@ -1,0 +1,177 @@
+{
+  "car_id": "ford-riley-daytona-prototype",
+  "car_name": "Ford-Riley Daytona Prototype",
+  "status": "draft",
+  "projection": "orthographic",
+  "units": "px of a 2400x1400 render (not to scale; each view fitted to its canvas)",
+  "source": {
+    "title": "2015 Ford-Riley Daytona Prototype",
+    "author": "Dave Love SketchFab (https://sketchfab.com/Tyler_Dave)",
+    "license": "CC-BY-4.0",
+    "url": "https://sketchfab.com/3d-models/2015-ford-riley-daytona-prototype-f5e89d11b2594a6ab454afb82364ebb5"
+  },
+  "scaling": "Traced (potrace) from 2400x1400 renders of the model; each view scaled to fit its canvas",
+  "views": {
+    "left-side": {
+      "orientation": {
+        "frontDirection": "screen-left",
+        "up": "vehicle up"
+      },
+      "viewBox": [
+        0,
+        0,
+        2400,
+        1400
+      ],
+      "anchors": {
+        "front_wheel_center": [
+          538,
+          833
+        ],
+        "front_contact_patch": [
+          538,
+          1000
+        ],
+        "front_tyre_radius": 167,
+        "rear_wheel_center": [
+          1868,
+          834
+        ],
+        "rear_contact_patch": [
+          1868,
+          1000
+        ],
+        "rear_tyre_radius": 166,
+        "groundY": 1000
+      }
+    },
+    "right-side": {
+      "orientation": {
+        "frontDirection": "screen-right",
+        "up": "vehicle up"
+      },
+      "viewBox": [
+        0,
+        0,
+        2400,
+        1400
+      ],
+      "anchors": {
+        "front_wheel_center": [
+          1860,
+          833
+        ],
+        "front_contact_patch": [
+          1860,
+          1000
+        ],
+        "front_tyre_radius": 167,
+        "rear_wheel_center": [
+          531,
+          834
+        ],
+        "rear_contact_patch": [
+          531,
+          1000
+        ],
+        "rear_tyre_radius": 166,
+        "groundY": 1000
+      }
+    },
+    "top": {
+      "orientation": {
+        "frontDirection": "screen-up",
+        "vehicleLeft": "screen-left",
+        "vehicleRight": "screen-right"
+      },
+      "viewBox": [
+        0,
+        0,
+        2400,
+        1400
+      ],
+      "anchors": {
+        "front_left_wheel_center": [
+          976,
+          313.6
+        ],
+        "front_right_wheel_center": [
+          1424,
+          313.6
+        ],
+        "rear_left_wheel_center": [
+          976,
+          1089.9
+        ],
+        "rear_right_wheel_center": [
+          1424,
+          1089.9
+        ]
+      }
+    },
+    "front": {
+      "orientation": {
+        "viewedFrom": "ahead of the car",
+        "vehicleLeft": "screen-right",
+        "vehicleRight": "screen-left"
+      },
+      "viewBox": [
+        0,
+        0,
+        2400,
+        1400
+      ],
+      "anchors": {
+        "front_right_wheel_center": [
+          372.8,
+          988.1
+        ],
+        "front_right_contact_patch": [
+          372.8,
+          1348
+        ],
+        "front_left_wheel_center": [
+          2027.2,
+          988.1
+        ],
+        "front_left_contact_patch": [
+          2027.2,
+          1348
+        ],
+        "groundY": 1348
+      }
+    },
+    "rear": {
+      "orientation": {
+        "viewedFrom": "behind the car",
+        "vehicleLeft": "screen-left",
+        "vehicleRight": "screen-right"
+      },
+      "viewBox": [
+        0,
+        0,
+        2400,
+        1400
+      ],
+      "anchors": {
+        "rear_left_wheel_center": [
+          372.8,
+          990.2
+        ],
+        "rear_left_contact_patch": [
+          372.8,
+          1348
+        ],
+        "rear_right_wheel_center": [
+          2027.2,
+          990.2
+        ],
+        "rear_right_contact_patch": [
+          2027.2,
+          1348
+        ],
+        "groundY": 1348
+      }
+    }
+  }
+}

@@ -51,6 +51,15 @@ export const BUNDLED_DRAWINGS: BundledDrawing[] = [
   { id: 'mazda-mx5-cup', carName: 'Global Mazda MX-5 Cup', carKeys: ['mx5 mx52016'], folder: 'mazda-mx5-cup', prefix: 'mazda-mx5-cup', commit: 'bf0668b', project: 'darinlutz/five-more-fast-cars' },
   { id: 'nascar-camaro-zl1-next-gen', carName: 'Next Gen NASCAR Cup Series Chevrolet Camaro ZL1', carKeys: ['stockcars chevycamarozl12022'], folder: 'nascar-camaro-zl1-next-gen', prefix: 'nascar-camaro-zl1-next-gen', commit: 'bf0668b', project: 'darinlutz/five-more-fast-cars' },
   { id: 'mercedes-amg-f1', carName: 'Mercedes-AMG W13 E Performance', carKeys: ['mercedesw13'], folder: 'mercedes-amg-f1', prefix: 'mercedes-amg-f1', commit: 'bf0668b', project: 'darinlutz/five-more-fast-cars' },
+  // Four prototypes added there on 2026-11-23 (commit 9c60a5a; uploaded as daytona-prototype, lmp1, lmp2 and
+  // spec-racer), each named after the model it was drawn from and suggesting iRacing's car of that model, or the nearest:
+  // the 2015 Ford-Riley DP is a Riley chassis, so iRacing's Riley MkXX Daytona Prototype; the Porsche 919 Hybrid (CC
+  // BY-NC-SA, like the Toyota and Mazda above) the Porsche 919 LMP1; the Porsche 963 LMDh the Porsche 963 GTP; and the HPD
+  // ARX-03B, which iRacing doesn't have, its predecessor the HPD ARX-01c. Share them with other prototypes (Also used by)
+  { id: 'ford-riley-daytona-prototype', carName: 'Riley MkXX Daytona Prototype', carKeys: ['rileydp'], folder: 'ford-riley-daytona-prototype', prefix: 'ford-riley-daytona-prototype', commit: '9c60a5a', project: 'darinlutz/five-more-fast-cars' },
+  { id: 'porsche-919-hybrid', carName: 'Porsche 919 LMP1',carKeys: ['porsche919'], folder: 'porsche-919-hybrid', prefix: 'porsche-919-hybrid', commit: '9c60a5a', project: 'darinlutz/five-more-fast-cars' },
+  { id: 'porsche-963-gtp', carName: 'Porsche 963 GTP', carKeys: ['porsche963gtp'], folder: 'porsche-963-gtp', prefix: 'porsche-963-gtp', commit: '9c60a5a', project: 'darinlutz/five-more-fast-cars' },
+  { id: 'hpd-arx-03b', carName: 'HPD ARX-01c', carKeys: ['hpdarx01c'], folder: 'hpd-arx-03b', prefix: 'hpd-arx-03b', commit: '9c60a5a', project: 'darinlutz/five-more-fast-cars' },
 ];
 
 const root = () => path.join(process.cwd(), 'data', 'car-drawings');

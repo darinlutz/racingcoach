@@ -2298,6 +2298,9 @@ export const en = {
       deleted: '“{name}” deleted.',
       voices: 'Voices',
       none: 'No ElevenLabs voices yet. Every role speaks with a Google Chirp voice.',
+      // The list's language radio buttons (the owner's Driver Radio voice, in every language, stays at the top)
+      showLanguage: 'Show voices for',
+      noneForLanguage: 'No voices for {language} yet. Its roles speak with a Google Chirp voice.',
       loading: 'Loading…',
       errors: {
         failed: 'Something went wrong with the ElevenLabs voices. Please try again.',

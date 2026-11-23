@@ -1,0 +1,177 @@
+{
+  "car_id": "porsche-919-hybrid",
+  "car_name": "Porsche 919 Hybrid",
+  "status": "draft",
+  "projection": "orthographic",
+  "units": "px of a 2400x1400 render (not to scale; each view fitted to its canvas)",
+  "source": {
+    "title": "2015 Porsche 919 Hybrid LMP1-H",
+    "author": "Ddiaz Design (https://sketchfab.com/ddiaz-design)",
+    "license": "CC-BY-NC-SA-4.0",
+    "url": "https://sketchfab.com/3d-models/2015-porsche-919-hybrid-lmp1-h-daf65582e2374ee9acb968eac5182722"
+  },
+  "scaling": "Traced (potrace) from 2400x1400 renders of the model; each view scaled to fit its canvas",
+  "views": {
+    "left-side": {
+      "orientation": {
+        "frontDirection": "screen-left",
+        "up": "vehicle up"
+      },
+      "viewBox": [
+        0,
+        0,
+        2400,
+        1400
+      ],
+      "anchors": {
+        "front_wheel_center": [
+          541,
+          838
+        ],
+        "front_contact_patch": [
+          541,
+          996
+        ],
+        "front_tyre_radius": 158,
+        "rear_wheel_center": [
+          1954,
+          837
+        ],
+        "rear_contact_patch": [
+          1954,
+          995
+        ],
+        "rear_tyre_radius": 158,
+        "groundY": 995.5
+      }
+    },
+    "right-side": {
+      "orientation": {
+        "frontDirection": "screen-right",
+        "up": "vehicle up"
+      },
+      "viewBox": [
+        0,
+        0,
+        2400,
+        1400
+      ],
+      "anchors": {
+        "front_wheel_center": [
+          1857,
+          838
+        ],
+        "front_contact_patch": [
+          1857,
+          996
+        ],
+        "front_tyre_radius": 158,
+        "rear_wheel_center": [
+          445,
+          838
+        ],
+        "rear_contact_patch": [
+          445,
+          996
+        ],
+        "rear_tyre_radius": 158,
+        "groundY": 996
+      }
+    },
+    "top": {
+      "orientation": {
+        "frontDirection": "screen-up",
+        "vehicleLeft": "screen-left",
+        "vehicleRight": "screen-right"
+      },
+      "viewBox": [
+        0,
+        0,
+        2400,
+        1400
+      ],
+      "anchors": {
+        "front_left_wheel_center": [
+          985.6,
+          315.4
+        ],
+        "front_right_wheel_center": [
+          1414.4,
+          315.4
+        ],
+        "rear_left_wheel_center": [
+          985.6,
+          1140.1
+        ],
+        "rear_right_wheel_center": [
+          1414.4,
+          1140.1
+        ]
+      }
+    },
+    "front": {
+      "orientation": {
+        "viewedFrom": "ahead of the car",
+        "vehicleLeft": "screen-right",
+        "vehicleRight": "screen-left"
+      },
+      "viewBox": [
+        0,
+        0,
+        2400,
+        1400
+      ],
+      "anchors": {
+        "front_right_wheel_center": [
+          399.2,
+          1003.6
+        ],
+        "front_right_contact_patch": [
+          399.2,
+          1348
+        ],
+        "front_left_wheel_center": [
+          2000.8,
+          1003.6
+        ],
+        "front_left_contact_patch": [
+          2000.8,
+          1348
+        ],
+        "groundY": 1348
+      }
+    },
+    "rear": {
+      "orientation": {
+        "viewedFrom": "behind the car",
+        "vehicleLeft": "screen-left",
+        "vehicleRight": "screen-right"
+      },
+      "viewBox": [
+        0,
+        0,
+        2400,
+        1400
+      ],
+      "anchors": {
+        "rear_left_wheel_center": [
+          399.2,
+          1003.6
+        ],
+        "rear_left_contact_patch": [
+          399.2,
+          1348
+        ],
+        "rear_right_wheel_center": [
+          2000.8,
+          1003.6
+        ],
+        "rear_right_contact_patch": [
+          2000.8,
+          1348
+        ],
+        "groundY": 1348
+      }
+    }
+  }
+}

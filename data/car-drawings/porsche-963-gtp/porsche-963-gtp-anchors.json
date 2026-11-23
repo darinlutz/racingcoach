@@ -1,0 +1,177 @@
+{
+  "car_id": "porsche-963-gtp",
+  "car_name": "Porsche 963 GTP",
+  "status": "draft",
+  "projection": "orthographic",
+  "units": "px of a 2400x1400 render (not to scale; each view fitted to its canvas)",
+  "source": {
+    "title": "Porsche 963 LMDh Hypercar",
+    "author": "kilianhoffmann13 (https://sketchfab.com/kilianhoffmann13)",
+    "license": "CC-BY-4.0",
+    "url": "https://sketchfab.com/3d-models/porsche-963-lmdh-hypercar-d786aa263a804254aa92543dda11dba0"
+  },
+  "scaling": "Traced (potrace) from 2400x1400 renders of the model; each view scaled to fit its canvas",
+  "views": {
+    "left-side": {
+      "orientation": {
+        "frontDirection": "screen-left",
+        "up": "vehicle up"
+      },
+      "viewBox": [
+        0,
+        0,
+        2400,
+        1400
+      ],
+      "anchors": {
+        "front_wheel_center": [
+          575,
+          840
+        ],
+        "front_contact_patch": [
+          575,
+          994
+        ],
+        "front_tyre_radius": 154,
+        "rear_wheel_center": [
+          1947,
+          840
+        ],
+        "rear_contact_patch": [
+          1947,
+          994
+        ],
+        "rear_tyre_radius": 154,
+        "groundY": 994
+      }
+    },
+    "right-side": {
+      "orientation": {
+        "frontDirection": "screen-right",
+        "up": "vehicle up"
+      },
+      "viewBox": [
+        0,
+        0,
+        2400,
+        1400
+      ],
+      "anchors": {
+        "front_wheel_center": [
+          1824,
+          840
+        ],
+        "front_contact_patch": [
+          1824,
+          994
+        ],
+        "front_tyre_radius": 154,
+        "rear_wheel_center": [
+          452,
+          840
+        ],
+        "rear_contact_patch": [
+          452,
+          994
+        ],
+        "rear_tyre_radius": 154,
+        "groundY": 994
+      }
+    },
+    "top": {
+      "orientation": {
+        "frontDirection": "screen-up",
+        "vehicleLeft": "screen-left",
+        "vehicleRight": "screen-right"
+      },
+      "viewBox": [
+        0,
+        0,
+        2400,
+        1400
+      ],
+      "anchors": {
+        "front_left_wheel_center": [
+          993.6,
+          335.2
+        ],
+        "front_right_wheel_center": [
+          1406.4,
+          335.2
+        ],
+        "rear_left_wheel_center": [
+          993.6,
+          1136
+        ],
+        "rear_right_wheel_center": [
+          1406.4,
+          1136
+        ]
+      }
+    },
+    "front": {
+      "orientation": {
+        "viewedFrom": "ahead of the car",
+        "vehicleLeft": "screen-right",
+        "vehicleRight": "screen-left"
+      },
+      "viewBox": [
+        0,
+        0,
+        2400,
+        1400
+      ],
+      "anchors": {
+        "front_right_wheel_center": [
+          428,
+          1004.8
+        ],
+        "front_right_contact_patch": [
+          428,
+          1341
+        ],
+        "front_left_wheel_center": [
+          1972,
+          1004.8
+        ],
+        "front_left_contact_patch": [
+          1972,
+          1341
+        ],
+        "groundY": 1341
+      }
+    },
+    "rear": {
+      "orientation": {
+        "viewedFrom": "behind the car",
+        "vehicleLeft": "screen-left",
+        "vehicleRight": "screen-right"
+      },
+      "viewBox": [
+        0,
+        0,
+        2400,
+        1400
+      ],
+      "anchors": {
+        "rear_left_wheel_center": [
+          428,
+          1004.8
+        ],
+        "rear_left_contact_patch": [
+          428,
+          1341
+        ],
+        "rear_right_wheel_center": [
+          1972,
+          1004.8
+        ],
+        "rear_right_contact_patch": [
+          1972,
+          1341
+        ],
+        "groundY": 1341
+      }
+    }
+  }
+}

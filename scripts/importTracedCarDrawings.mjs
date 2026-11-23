@@ -1,6 +1,7 @@
 // Converts the traced car drawings from the Lovable project darinlutz/five-more-fast-cars (its car-svgs folder) into
 // data/car-drawings/'s format (docs/car-views.md), so the Admin page's Drawings in the repository panel imports them
-// like the others: node scripts/importTracedCarDrawings.mjs <path to car-svgs>
+// like the others: node scripts/importTracedCarDrawings.mjs <path to car-svgs> [folder,folder,...] (only those cars, so
+// sets already converted stay as they are)
 //
 // Those drawings are potrace tracings of 2400x1400 renders: filled outlines in one group, no wheels layer, and anchors
 // files giving only each view's bounding box and ground line. So this script
@@ -20,9 +21,10 @@ import sharp from 'sharp';
 
 const SOURCE = process.argv[2];
 if (!SOURCE) {
-  console.error('Usage: node scripts/importTracedCarDrawings.mjs <car-svgs folder>');
+  console.error('Usage: node scripts/importTracedCarDrawings.mjs <car-svgs folder> [folder,folder,...]');
   process.exit(1);
 }
+const ONLY = process.argv[3] ? new Set(process.argv[3].split(',')) : null;
 const OUT = path.join(process.cwd(), 'data', 'car-drawings');
 const W = 2400;
 const H = 1400;
@@ -39,6 +41,15 @@ const CARS = [
   { source: 'mercedes-amg-f1', folder: 'mercedes-amg-f1', prefix: 'mercedes-amg-f1', halfTrack: 0.4 },
   { source: 'nascar-camaro-zl1', folder: 'nascar-camaro-zl1-next-gen', prefix: 'nascar-camaro-zl1-next-gen', halfTrack: 0.4 },
   { source: 'toyota-gr86', folder: 'toyota-gr86', prefix: 'toyota-gr86', halfTrack: 0.37 },
+  // Added there on 2026-11-23 (commit 9c60a5a) as daytona-prototype, lmp1, lmp2 and spec-racer, and named here after
+  // the model each was drawn from (its embedded identity), as the lmp2 is a Porsche 963 and the spec-racer an HPD
+  // ARX-03B. Prototypes: the F1's and Camaro's half track.
+  // turned: that batch was rendered the other way round from the earlier one, its left-side file showing the nose at
+  // screen-right and its top view the nose at the bottom; so its side files are swapped and its top view turned 180°
+  { source: 'daytona-prototype', folder: 'ford-riley-daytona-prototype', prefix: 'ford-riley-daytona-prototype', halfTrack: 0.4, turned: true, name: 'Ford-Riley Daytona Prototype' },
+  { source: 'lmp1', folder: 'porsche-919-hybrid', prefix: 'porsche-919-hybrid', halfTrack: 0.4, turned: true, name: 'Porsche 919 Hybrid' },
+  { source: 'lmp2', folder: 'porsche-963-gtp', prefix: 'porsche-963-gtp', halfTrack: 0.4, turned: true, name: 'Porsche 963 GTP' },
+  { source: 'spec-racer', folder: 'hpd-arx-03b', prefix: 'hpd-arx-03b', halfTrack: 0.4, turned: true, name: 'HPD ARX-03B' },
 ];
 
 // ---- Reading the traced paths ----
@@ -125,11 +136,13 @@ function subpaths(d) {
   return out;
 }
 
-function readTraced(file) {
+// half: turned 180° about the canvas centre (a point x, y goes to W - x, H - y)
+function readTraced(file, half = false) {
   const text = fs.readFileSync(file, 'utf8');
   const group = /<g transform="translate\(([-\d.]+),([-\d.]+)\) scale\(([-\d.]+),([-\d.]+)\)"\s*fill="([^"]+)"/.exec(text);
   if (!group) throw new Error(`${file}: no potrace group`);
-  const [tx, ty, sx, sy] = group.slice(1, 5).map(Number);
+  let [tx, ty, sx, sy] = group.slice(1, 5).map(Number);
+  if (half) [tx, ty, sx, sy] = [W - tx, H - ty, -sx, -sy];
   const fill = group[5];
   const paths = [...text.matchAll(/<path d="([^"]+)"/g)].map((m) => subpaths(m[1].replace(/\s+/g, ' ')));
   // A subpath's box in the drawing's coordinates
@@ -287,12 +300,19 @@ function writeSvg(car, view, traced, wheels, title, desc) {
 }
 
 const report = [];
-for (const car of CARS) {
+for (const car of CARS.filter((c) => !ONLY || ONLY.has(c.folder))) {
   const anchorsIn = JSON.parse(fs.readFileSync(path.join(SOURCE, `${car.source}-anchors.json`), 'utf8'));
-  const views = anchorsIn.views;
+  const views = { ...anchorsIn.views };
+  // The source view each view is read from (car.turned: the sides swapped), and the top's box turned with it
+  const sourceView = (view) => (car.turned && view === 'left-side' ? 'right-side' : car.turned && view === 'right-side' ? 'left-side' : view);
+  if (car.turned) {
+    [views['left-side'], views['right-side']] = [anchorsIn.views['right-side'], anchorsIn.views['left-side']];
+    const b = anchorsIn.views.top.bbox;
+    views.top = { ...anchorsIn.views.top, bbox: { x: W - b.x - b.width, y: H - b.y - b.height, width: b.width, height: b.height } };
+  }
   fs.mkdirSync(path.join(OUT, car.folder), { recursive: true });
   for (const old of fs.readdirSync(path.join(OUT, car.folder))) fs.rmSync(path.join(OUT, car.folder, old));
-  const file = (view) => path.join(SOURCE, `${car.source}_${view}.svg`);
+  const file = (view) => path.join(SOURCE, `${car.source}_${sourceView(view)}.svg`);
 
   // Side views: measured. The left side faces screen-left (front wheel first), the right side screen-right
   const [lA, lB] = await measureSide(file('left-side'), views['left-side'].bbox, views['left-side'].ground_y);
@@ -386,7 +406,7 @@ for (const car of CARS) {
   const credit = `“${s.model_title}” by ${s.author}${s.url ? ` (${s.url})` : ''}, ${license}`;
   const counts = {};
   for (const view of ['left-side', 'right-side', 'top', 'front', 'rear']) {
-    const traced = readTraced(file(view));
+    const traced = readTraced(file(view), car.turned && view === 'top');
     const a = out[view].anchors;
     // Only the side views' wheels were measured, so only theirs are split out
     const wheels =
@@ -412,7 +432,7 @@ for (const car of CARS) {
       2
     ) + '\n'
   );
-  report.push({ car: car.folder, left, right, counts, credit, license });
+  report.push({ car: car.folder, turned: !!car.turned, left, right, counts, credit, license });
   // With DEBUG_DIR set, the side views with the measured wheels drawn over them, to check by eye
   if (process.env.DEBUG_DIR) {
     for (const [view, pair] of [['left-side', [left.front, left.rear]], ['right-side', [right.front, right.rear]]]) {
@@ -437,6 +457,12 @@ for (const r of report) {
     `Traced drawings from the Lovable project darinlutz/five-more-fast-cars, converted by scripts/importTracedCarDrawings.mjs.`,
     `Model: ${r.credit}.`,
     '',
+    ...(r.turned
+      ? [
+          "The source renders face the other way from this site's conventions: its left-side file (nose at screen-right) is used as the right side and its right-side file as the left side, and its top view (nose at the bottom) is turned 180 degrees. Prototypes are close to symmetric, but check the sides' details before activating.",
+          '',
+        ]
+      : []),
     '## Anchors',
     `- Side views: wheel centres, radii and contact patches measured from the drawings (the circle on the ground line most drawn pixels lie on; left side ${pct(r.left.front)} and ${pct(r.left.rear)} of its points on lines, right side ${pct(r.right.front)} and ${pct(r.right.rear)}). Their tire and rim outlines are in the wheels layer.`,
     '- Top, front and rear views: wheel centres ESTIMATED from the side view through each view\'s scale and a half track that is a share of the car\'s width, as these views hide or crop the tires. Their wheels stay in the body layer. Check them with the SVG debug switch before activating.',
@@ -446,8 +472,10 @@ for (const r of report) {
     '## From the source project (please review)',
     sourceNotes
       .split('\n')
-      .filter((l) => l.startsWith('|') || /NonCommercial|NC\)|CC-BY requires/.test(l))
+      .map((l) => (l.startsWith('|') || /NonCommercial|NC\)|CC-BY requires/.test(l) ? l : ''))
       .join('\n')
+      .replace(/\n{2,}/g, '\n\n')
+      .trim()
       // The Mazda is the Mazda MX-5 Cup here, never the retired 2010 car
       .replace(/Mazda MX-5 Cup( -)? 2010/g, 'Mazda MX-5 Cup')
       .replace(/not 2010 Cup car/g, 'not the Cup car'),

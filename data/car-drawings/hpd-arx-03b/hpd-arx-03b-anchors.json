@@ -1,0 +1,177 @@
+{
+  "car_id": "hpd-arx-03b",
+  "car_name": "HPD ARX-03B",
+  "status": "draft",
+  "projection": "orthographic",
+  "units": "px of a 2400x1400 render (not to scale; each view fitted to its canvas)",
+  "source": {
+    "title": "2012 HPD ARX-03B",
+    "author": "Dave Love SketchFab (https://sketchfab.com/Tyler_Dave)",
+    "license": "CC-BY-4.0",
+    "url": "https://sketchfab.com/3d-models/2012-hpd-arx-03b-6b4bc93d729e4093bf7037c818483480"
+  },
+  "scaling": "Traced (potrace) from 2400x1400 renders of the model; each view scaled to fit its canvas",
+  "views": {
+    "left-side": {
+      "orientation": {
+        "frontDirection": "screen-left",
+        "up": "vehicle up"
+      },
+      "viewBox": [
+        0,
+        0,
+        2400,
+        1400
+      ],
+      "anchors": {
+        "front_wheel_center": [
+          569,
+          813
+        ],
+        "front_contact_patch": [
+          569,
+          964
+        ],
+        "front_tyre_radius": 151,
+        "rear_wheel_center": [
+          1939.5,
+          799
+        ],
+        "rear_contact_patch": [
+          1939.5,
+          964
+        ],
+        "rear_tyre_radius": 165,
+        "groundY": 964
+      }
+    },
+    "right-side": {
+      "orientation": {
+        "frontDirection": "screen-right",
+        "up": "vehicle up"
+      },
+      "viewBox": [
+        0,
+        0,
+        2400,
+        1400
+      ],
+      "anchors": {
+        "front_wheel_center": [
+          1828,
+          813
+        ],
+        "front_contact_patch": [
+          1828,
+          964
+        ],
+        "front_tyre_radius": 151,
+        "rear_wheel_center": [
+          458,
+          799
+        ],
+        "rear_contact_patch": [
+          458,
+          964
+        ],
+        "rear_tyre_radius": 165,
+        "groundY": 964
+      }
+    },
+    "top": {
+      "orientation": {
+        "frontDirection": "screen-up",
+        "vehicleLeft": "screen-left",
+        "vehicleRight": "screen-right"
+      },
+      "viewBox": [
+        0,
+        0,
+        2400,
+        1400
+      ],
+      "anchors": {
+        "front_left_wheel_center": [
+          973.6,
+          331.9
+        ],
+        "front_right_wheel_center": [
+          1426.4,
+          331.9
+        ],
+        "rear_left_wheel_center": [
+          973.6,
+          1132.1
+        ],
+        "rear_right_wheel_center": [
+          1426.4,
+          1132.1
+        ]
+      }
+    },
+    "front": {
+      "orientation": {
+        "viewedFrom": "ahead of the car",
+        "vehicleLeft": "screen-right",
+        "vehicleRight": "screen-left"
+      },
+      "viewBox": [
+        0,
+        0,
+        2400,
+        1400
+      ],
+      "anchors": {
+        "front_right_wheel_center": [
+          310.4,
+          971.6
+        ],
+        "front_right_contact_patch": [
+          310.4,
+          1318
+        ],
+        "front_left_wheel_center": [
+          2089.6,
+          971.6
+        ],
+        "front_left_contact_patch": [
+          2089.6,
+          1318
+        ],
+        "groundY": 1318
+      }
+    },
+    "rear": {
+      "orientation": {
+        "viewedFrom": "behind the car",
+        "vehicleLeft": "screen-left",
+        "vehicleRight": "screen-right"
+      },
+      "viewBox": [
+        0,
+        0,
+        2400,
+        1400
+      ],
+      "anchors": {
+        "rear_left_wheel_center": [
+          310.4,
+          939.4
+        ],
+        "rear_left_contact_patch": [
+          310.4,
+          1318
+        ],
+        "rear_right_wheel_center": [
+          2089.6,
+          939.4
+        ],
+        "rear_right_contact_patch": [
+          2089.6,
+          1318
+        ],
+        "groundY": 1318
+      }
+    }
+  }
+}

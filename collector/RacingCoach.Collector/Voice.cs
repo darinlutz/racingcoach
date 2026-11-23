@@ -18,8 +18,9 @@ namespace RacingCoach.Collector;
 internal static class Voice
 {
     // Recording: a watcher's own voice message to fetch and play (Live Racing's Hold to Talk), with Text said instead
-    // when it can't be had
-    private sealed record Item(string? Text, string? Phrase, string Fallback, long Generation, Func<Task<byte[]?>>? Recording = null);
+    // when it can't be had. Speaker: the Setup Engineer or Race Strategist, said in their own voice (null: the coach voice)
+    private sealed record Item(string? Text, string? Phrase, string Fallback, long Generation, Func<Task<byte[]?>>? Recording = null,
+        string? Speaker = null);
 
     private const int CacheSize = 64;
     private static readonly TimeSpan CacheFor = TimeSpan.FromMinutes(30);
@@ -95,11 +96,12 @@ internal static class Voice
         }
     }
 
-    /// <summary>Says text (in the driver's language) after anything already being said, or instead of it with interrupt.</summary>
-    public static void Say(string text, bool interrupt = false)
+    /// <summary>Says text (in the driver's language) after anything already being said, or instead of it with interrupt.
+    /// speaker ("setupEngineer" or "raceStrategist") says it in that engineer's voice rather than the coach's.</summary>
+    public static void Say(string text, bool interrupt = false, string? speaker = null)
     {
         if (!string.IsNullOrWhiteSpace(text))
-            Enqueue(new Item(text.Trim(), null, text.Trim(), 0), interrupt);
+            Enqueue(new Item(text.Trim(), null, text.Trim(), 0, Speaker: speaker), interrupt);
     }
 
     /// <summary>Plays a recording (a watcher's voice message from the Live Racing page) in turn with everything else,
@@ -225,7 +227,7 @@ internal static class Voice
         }
         if (_site() is not { } site)
             return null;
-        var key = item.Phrase is not null ? $"phrase:{item.Phrase}" : $"text:{item.Text}";
+        var key = item.Phrase is not null ? $"phrase:{item.Phrase}" : $"text:{item.Speaker}:{item.Text}";
         lock (Lock)
         {
             if (site != _cachedFor)
@@ -239,7 +241,7 @@ internal static class Voice
 
         try
         {
-            var wav = await site.GetSpeechAsync(item.Text, item.Phrase, CancellationToken.None);
+            var wav = await site.GetSpeechAsync(item.Text, item.Phrase, CancellationToken.None, item.Speaker);
             lock (Lock)
             {
                 if (Cache.Count >= CacheSize)

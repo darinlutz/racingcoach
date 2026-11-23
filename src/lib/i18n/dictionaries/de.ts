@@ -553,7 +553,7 @@ export const de: Dictionary = {
     voiceStyles: {
       informative: 'Informativ', firm: 'Bestimmt', clear: 'Klar', smooth: 'Sanft', knowledgeable: 'Kompetent',
       upbeat: 'Beschwingt', excitable: 'Temperamentvoll',
-      raceCoach: 'RaceCoach', leadAnnouncer: 'Hauptkommentator', colorAnnouncer: 'Co-Kommentator',
+      raceCoach: 'RaceCoach', leadAnnouncer: 'Hauptkommentator', colorAnnouncer: 'Co-Kommentator', setupEngineer: 'Setup-Ingenieur', raceStrategist: 'Rennstratege',
     },
     // An ElevenLabs voice's name in the voice pickers (elevenLabsVoiceLabel in src/lib/elevenLabsVoiceRules.ts)
     elevenLabsVoiceName: 'Eleven Labs {role} ({language})',
@@ -571,6 +571,8 @@ export const de: Dictionary = {
       raceCoach: 'Renncoach',
       leadAnnouncer: 'Hauptkommentator',
       colorAnnouncer: 'Co-Kommentator',
+      setupEngineer: 'Setup-Ingenieur',
+      raceStrategist: 'Rennstratege',
       ownerRadio: 'Funk des Inhabers',
     },
     // The accent the coach speaks Spanish with (only shown when the Preferred Language is Spanish)
@@ -580,6 +582,19 @@ export const de: Dictionary = {
     goldVoices: 'Die ElevenLabs-Stimmen für deinen Coach und die Rennkommentatoren in deiner Sprache sind Gold-Mitgliedern vorbehalten.',
     // What the Listen button says, in the chosen voice
     sample: 'Kurve 1: Brems etwa {later} {units} später, bei rund {near} {units}. Schöne Runde, zwei Zehntel schneller.',
+  },
+
+  // The Account page's Setup Engineer and Race Strategist voices, between the Coach voice and the Race Announcers
+  // (src/components/EngineerVoicesSection.tsx); the samples are what their Listen buttons say
+  engineerVoices: {
+    title: 'Setup-Ingenieur und Rennstratege',
+    intro: 'Die Stimmen, die dir über Driver Radio antworten, wenn der Renningenieur deine Frage weitergibt: der Setup-Ingenieur für das Setup und Fahrverhalten deines Autos, der Rennstratege für Boxenstrategie und Sprit.',
+    setupEngineer: 'Setup-Ingenieur',
+    raceStrategist: 'Rennstratege',
+    membersOnly: 'Der Setup-Ingenieur und der Rennstratege sind für Silber- und Gold-Mitglieder. Wechsle zu Silber oder Gold, um sie zu hören.',
+    voiceSaved: 'Ingenieursstimme gespeichert.',
+    sampleSetupEngineer: 'Verstanden, Untersteuern beim Einlenken. Nimm die Bremsbalance einen halben Klick nach hinten und lass das Auto eindrehen.',
+    sampleRaceStrategist: 'Komm diese Runde an die Box, dann kommst du als Fünfter raus, frei vom Verkehr. Der Sprit reicht zwei Runden über das Ende hinaus.',
   },
 
   // The Account page's Race Announcers, under the Coach voice (src/components/RaceAnnouncersSection.tsx), and their
@@ -2308,6 +2323,8 @@ export const de: Dictionary = {
         raceCoach: 'Renncoach',
         leadAnnouncer: 'Hauptkommentator',
         colorAnnouncer: 'Co-Kommentator',
+        setupEngineer: 'Setup-Ingenieur',
+        raceStrategist: 'Rennstratege',
         ownerRadio: 'Funk des Inhabers',
       },
       languages: {
@@ -4160,6 +4177,10 @@ export const de: Dictionary = {
     raceAnnouncersDisabled: 'Die Rennkommentatoren sind gerade deaktiviert',
     raceAnnouncersMembersOnly: 'Die Rennkommentatoren sind für Silber- und Gold-Mitglieder',
     failedSaveRaceAnnouncers: 'Die Rennkommentatoren konnten nicht gespeichert werden',
+    logInEngineerVoices: 'Melde dich an, um deine Ingenieursstimmen zu speichern',
+    engineerVoicesDisabled: 'Die Ingenieursstimmen sind gerade ausgeschaltet',
+    engineerVoicesMembersOnly: 'Der Setup-Ingenieur und der Rennstratege sind für Silber- und Gold-Mitglieder',
+    failedSaveEngineerVoice: 'Die Ingenieursstimme konnte nicht gespeichert werden',
     raceAnnouncerInstructionsTooLong: 'Die Anweisungen für die Rennkommentatoren sind zu lang',
     failedRaceAnnouncer: 'Die Rennkommentatoren konnten nicht kommentieren',
     // General

@@ -182,6 +182,51 @@ export async function setCoachVoice(userId: number, voice: CoachVoice): Promise<
   await query('UPDATE racingcoach."Users" SET coach_voice = $1 WHERE id = $2', [voice, userId]);
 }
 
+// The engineer voices: the Setup Engineer (src/lib/setupEngineer.ts) and Race Strategist (src/lib/raceStrategist.ts),
+// whom the Race Engineer hands Driver Radio questions to, each answer in a voice of its own, picked on the Account page
+// between the Coach voice and the Race Announcers ("Users".setup_engineer_voice, race_strategist_voice). The same
+// voices as the coach's, with the role's own ElevenLabs voice of the user's language first and the default (falling
+// back to DEFAULT_COACH_VOICE where it isn't set up). The collector asks for their speech with { speaker }
+// (POST /api/collector/speech), and the Live Racing page's Driver Radio by the message's speaker
+// (GET /api/live/radio-speech).
+export const ENGINEER_SPEAKERS = ['setupEngineer', 'raceStrategist'] as const;
+export type EngineerSpeaker = (typeof ENGINEER_SPEAKERS)[number];
+const ENGINEER_VOICE_COLUMNS: Record<EngineerSpeaker, string> = {
+  setupEngineer: 'setup_engineer_voice',
+  raceStrategist: 'race_strategist_voice',
+};
+
+export const isEngineerSpeaker = (value: unknown): value is EngineerSpeaker =>
+  ENGINEER_SPEAKERS.includes(value as EngineerSpeaker);
+
+export function engineerVoicesFor(
+  speaker: EngineerSpeaker,
+  language: Language,
+  spanishAccent: SpanishAccent,
+  member: VoiceMember
+): Record<string, VoiceDetail> {
+  return voicesFor(speaker, language, spanishAccent, member);
+}
+
+export type EngineerVoices = Record<EngineerSpeaker, CoachVoice>;
+
+export async function getEngineerVoices(userId: number): Promise<EngineerVoices> {
+  await ensureUserSchema();
+  await loadElevenLabsVoices();
+  const rows = await query<{ setup_engineer_voice: string; race_strategist_voice: string } & VoiceMemberRow>(
+    `SELECT setup_engineer_voice, race_strategist_voice, ${VOICE_MEMBER_COLUMNS} FROM racingcoach."Users" WHERE id = $1`,
+    [userId]
+  );
+  const { language, member } = voiceMemberOf(rows[0] ?? {});
+  const pick = (voice: string | undefined) => allowedVoice(isCoachVoice(voice) ? voice : ELEVENLABS_COACH_VOICE, language, member);
+  return { setupEngineer: pick(rows[0]?.setup_engineer_voice), raceStrategist: pick(rows[0]?.race_strategist_voice) };
+}
+
+export async function setEngineerVoice(userId: number, speaker: EngineerSpeaker, voice: CoachVoice): Promise<void> {
+  await ensureUserSchema();
+  await query(`UPDATE racingcoach."Users" SET ${ENGINEER_VOICE_COLUMNS[speaker]} = $1 WHERE id = $2`, [voice, userId]);
+}
+
 export class SpeechError extends Error {}
 
 // How turn numbers are said in each language: "T1" is "Turn 1", "T7-8" (two corners in a row) "Turn 7 and 8" and
@@ -397,6 +442,12 @@ const DELIVERY: Record<ElevenLabsRole, string> = {
   colorAnnouncer:
     'You are the color commentator of a televised motor race, a former racing driver adding insight: warm, ' +
     'conversational and knowing.',
+  setupEngineer:
+    'You are a race car setup engineer on the team radio talking to a driver: calm, precise and technical, ' +
+    'explaining a change clearly.',
+  raceStrategist:
+    'You are the race strategist on the team radio talking to a driver: measured, decisive and clear with numbers ' +
+    'and the plan.',
 };
 
 async function chirpSpeech(text: string, voice: ChirpVoice, locale: string, format: SpeechFormat): Promise<Buffer> {

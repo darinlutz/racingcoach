@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { elevenLabsOffered, getCoachVoice, speaksElevenLabs, synthesizeSpeech, withPronunciations } from '@/lib/coachVoice';
+import { elevenLabsOffered, getCoachVoice, getEngineerVoices, speaksElevenLabs, synthesizeSpeech, withPronunciations } from '@/lib/coachVoice';
 import { radioVoiceId } from '@/lib/driverRadio';
 import { ELEVENLABS_PROVIDER, SPEECH_PROVIDER_HEADER } from '@/lib/engineBedConfig';
 import { DEFAULT_LANGUAGE } from '@/lib/i18n/languages';
@@ -16,7 +16,7 @@ import { getUserById } from '@/lib/users';
 // watch the driver. The text is the driver's own words, never taken from the request; every watcher's page asks, and
 // the same words are made once (elevenLabsSpeech caches them). 404 once the message is gone, 503 without the voice.
 // The Race Engineer's answers (src/lib/raceEngineer.ts) are said in the driver's coach voice instead, as their
-// collector says them, and so are the messages of a driver who may not have their language's ElevenLabs voice (French
+// collector says them (the Setup Engineer's and Race Strategist's in the voices the driver picked for them), and so are the messages of a driver who may not have their language's ElevenLabs voice (French
 // and Italian's are for Gold members and Admins, elevenLabsOffered).
 export async function GET(request: Request) {
   const user = await getCurrentUser();
@@ -40,14 +40,17 @@ export async function GET(request: Request) {
     if (message.from === 'engineer' || !elevenLabsOffered(driver.preferredLanguage ?? DEFAULT_LANGUAGE, driver)) {
       limit = await aiRateLimit(request, 'speech', user);
       if (limit.response) return limit.response;
-      const { voice, spanishAccent, pronunciations } = await getCoachVoice(driverId);
+      const { voice: coachVoice, spanishAccent, pronunciations } = await getCoachVoice(driverId);
+      // The Setup Engineer's and Race Strategist's answers in the voices the driver picked for them
+      const role = message.from === 'engineer' && message.voice ? message.voice : 'raceCoach';
+      const voice = role === 'raceCoach' ? coachVoice : (await getEngineerVoices(driverId))[role];
       const language = driver.preferredLanguage ?? DEFAULT_LANGUAGE;
-      const audio = await synthesizeSpeech(withPronunciations(message.text, pronunciations), voice, language, spanishAccent, 'raceCoach', 'mp3');
+      const audio = await synthesizeSpeech(withPronunciations(message.text, pronunciations), voice, language, spanishAccent, role, 'mp3');
       return new NextResponse(new Uint8Array(audio), {
         headers: {
           'Content-Type': 'audio/mpeg',
           'Cache-Control': 'no-store',
-          ...(speaksElevenLabs(voice, 'raceCoach', language, spanishAccent) ? { [SPEECH_PROVIDER_HEADER]: ELEVENLABS_PROVIDER } : {}),
+          ...(speaksElevenLabs(voice, role, language, spanishAccent) ? { [SPEECH_PROVIDER_HEADER]: ELEVENLABS_PROVIDER } : {}),
         },
       });
     }

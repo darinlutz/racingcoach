@@ -539,7 +539,7 @@ export const it: Dictionary = {
     voiceStyles: {
       informative: 'Informativo', firm: 'Deciso', clear: 'Chiaro', smooth: 'Pacato', knowledgeable: 'Esperto',
       upbeat: 'Allegro', excitable: 'Entusiasta',
-      raceCoach: 'RaceCoach', leadAnnouncer: 'Telecronista principale', colorAnnouncer: 'Commentatore tecnico',
+      raceCoach: 'RaceCoach', leadAnnouncer: 'Telecronista principale', colorAnnouncer: 'Commentatore tecnico', setupEngineer: 'Ingegnere di assetto', raceStrategist: 'Stratega di gara',
     },
     // An ElevenLabs voice's name in the voice pickers (elevenLabsVoiceLabel in src/lib/elevenLabsVoiceRules.ts)
     elevenLabsVoiceName: 'Eleven Labs {role} in {language}',
@@ -557,6 +557,8 @@ export const it: Dictionary = {
       raceCoach: 'Coach di gara',
       leadAnnouncer: 'Telecronista',
       colorAnnouncer: 'Commentatore tecnico',
+      setupEngineer: 'Ingegnere di assetto',
+      raceStrategist: 'Stratega di gara',
       ownerRadio: 'Radio del proprietario',
     },
     accentTitle: 'Accento spagnolo',
@@ -566,6 +568,18 @@ export const it: Dictionary = {
     sample: 'Curva 1: frena circa {later} {units} più tardi, vicino a {near} {units}. Bel giro, due decimi più veloce.',
   },
 
+  // The Account page's Setup Engineer and Race Strategist voices, between the Coach voice and the Race Announcers
+  // (src/components/EngineerVoicesSection.tsx); the samples are what their Listen buttons say
+  engineerVoices: {
+    title: 'Ingegnere di assetto e stratega di gara',
+    intro: 'Le voci che ti rispondono via Driver Radio quando l’ingegnere di pista passa loro la tua domanda: l’ingegnere di assetto per l’assetto e il comportamento della tua auto, e lo stratega di gara per la strategia ai box e il carburante.',
+    setupEngineer: 'Ingegnere di assetto',
+    raceStrategist: 'Stratega di gara',
+    membersOnly: 'L’ingegnere di assetto e lo stratega di gara sono riservati ai membri Silver e Gold. Passa a Silver o Gold per sentirli.',
+    voiceSaved: 'Voce dell’ingegnere salvata.',
+    sampleSetupEngineer: 'Ricevuto, sottosterzo in ingresso. Sposta il bilanciamento dei freni mezzo scatto indietro e lascia ruotare la macchina.',
+    sampleRaceStrategist: 'Rientra ai box in questo giro e torni in pista quinto, libero dal traffico. Il carburante arriva alla fine con due giri di margine.',
+  },
   raceAnnouncers: {
     title: 'Telecronisti',
     intro: 'Le voci che commentano le gare che guardi nella pagina Live Racing, nella tua lingua preferita: il telecronista principale racconta l’azione e il commentatore tecnico aggiunge l’analisi. Attivali con le caselle Telecronista principale e Commentatore tecnico nella pagina Live Racing.',
@@ -2252,6 +2266,8 @@ export const it: Dictionary = {
         raceCoach: 'Coach di gara',
         leadAnnouncer: 'Telecronista',
         colorAnnouncer: 'Commentatore tecnico',
+        setupEngineer: 'Ingegnere di assetto',
+        raceStrategist: 'Stratega di gara',
         ownerRadio: 'Radio del proprietario',
       },
       languages: {
@@ -4081,6 +4097,10 @@ export const it: Dictionary = {
     raceAnnouncersDisabled: 'I telecronisti sono disattivati al momento',
     raceAnnouncersMembersOnly: 'I telecronisti sono riservati ai membri Silver e Gold',
     failedSaveRaceAnnouncers: 'Salvataggio dei telecronisti non riuscito',
+    logInEngineerVoices: 'Accedi per salvare le voci dei tuoi ingegneri',
+    engineerVoicesDisabled: 'Le voci degli ingegneri sono disattivate al momento',
+    engineerVoicesMembersOnly: 'L’ingegnere di assetto e lo stratega di gara sono riservati ai membri Silver e Gold',
+    failedSaveEngineerVoice: 'Salvataggio della voce dell’ingegnere non riuscito',
     raceAnnouncerInstructionsTooLong: 'Le istruzioni per i telecronisti sono troppo lunghe',
     failedRaceAnnouncer: 'I telecronisti non sono riusciti a commentare',
     notConfigured: 'Questa funzione non è disponibile al momento. Riprova più tardi.',

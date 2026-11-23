@@ -9,11 +9,12 @@ import InCarCoachInstructionsCard from '@/components/InCarCoachInstructionsCard'
 import LanguageSelect from '@/components/LanguageSelect';
 import MyAiUsageCard from '@/components/MyAiUsageCard';
 import NamePronunciationPreference from '@/components/NamePronunciationPreference';
+import EngineerVoicesSection from '@/components/EngineerVoicesSection';
 import RaceAnnouncersSection from '@/components/RaceAnnouncersSection';
 import SpanishAccentSelect from '@/components/SpanishAccentSelect';
 import ThemeToggle from '@/components/ThemeToggle';
 import UnitsToggle from '@/components/UnitsToggle';
-import { coachVoicesFor, elevenLabsGoldOnly, getCoachVoice, SPANISH_ACCENTS } from '@/lib/coachVoice';
+import { coachVoicesFor, elevenLabsGoldOnly, engineerVoicesFor, getCoachVoice, getEngineerVoices, SPANISH_ACCENTS } from '@/lib/coachVoice';
 import { getCollectorKey } from '@/lib/collectorKeys';
 import { DISCORD_INVITE_URL, getDiscordConnection } from '@/lib/discord';
 import { listEngineAudioAssets } from '@/lib/engineAudioAssets';
@@ -70,11 +71,12 @@ export default async function AccountPage({
   const justVerified = emailVerifiedResult === '1' && user.emailVerified;
   const discordText = typeof discordResult === 'string' ? t.account.discordMessages[discordResult] : undefined;
   const discordOk = typeof discordResult === 'string' && DISCORD_OK.has(discordResult);
-  const [discord, collectorKey, inCarCoachInstructions, coachVoice, raceAnnouncers, namePronunciation, engineAssets, showPricing, enableAiFeatures, aiUsage, aiLimits] = await Promise.all([
+  const [discord, collectorKey, inCarCoachInstructions, coachVoice, engineerVoices, raceAnnouncers, namePronunciation, engineAssets, showPricing, enableAiFeatures, aiUsage, aiLimits] = await Promise.all([
     getDiscordConnection(user.id),
     getCollectorKey(user.id),
     getInCarCoachInstructions(user.id),
     getCoachVoice(user.id),
+    getEngineerVoices(user.id),
     getRaceAnnouncerSettings(user.id),
     getNamePronunciation(user.id),
     listEngineAudioAssets(),
@@ -277,6 +279,21 @@ export default async function AccountPage({
             {/* French and Italian's ElevenLabs voices are for Gold members (elevenLabsGoldOnly) */}
             {elevenLabsGoldOnly(user.preferredLanguage, coachVoice.spanishAccent, user) && (
               <p className="text-xs text-muted-foreground mb-5">{t.inCarCoach.goldVoices}</p>
+            )}
+            {/* The Setup Engineer's and Race Strategist's Driver Radio voices, for Silver and Gold members
+                (canUseInCarCoach, as only they hear the engineers answer); anyone else is told why */}
+            {canUseInCarCoach(user) ? (
+              <EngineerVoicesSection
+                setupEngineerVoice={engineerVoices.setupEngineer}
+                raceStrategistVoice={engineerVoices.raceStrategist}
+                setupEngineerVoices={engineerVoicesFor('setupEngineer', user.preferredLanguage, coachVoice.spanishAccent, user)}
+                raceStrategistVoices={engineerVoicesFor('raceStrategist', user.preferredLanguage, coachVoice.spanishAccent, user)}
+              />
+            ) : (
+              <div className="mb-5 pb-4 border-b border-border">
+                <h3 className="text-sm font-medium text-muted-foreground mb-1">{t.engineerVoices.title}</h3>
+                <p className="text-sm text-muted-foreground">{t.engineerVoices.membersOnly}</p>
+              </div>
             )}
             {/* The Race Announcers are for Silver and Gold members (canUseVoiceAi); anyone else is told why */}
             {canUseVoiceAi(user) ? (

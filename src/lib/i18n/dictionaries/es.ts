@@ -541,7 +541,7 @@ export const es: Dictionary = {
     voiceStyles: {
       informative: 'Informativa', firm: 'Firme', clear: 'Clara', smooth: 'Suave', knowledgeable: 'Experta',
       upbeat: 'Alegre', excitable: 'Enérgica',
-      raceCoach: 'RaceCoach', leadAnnouncer: 'Narrador principal', colorAnnouncer: 'Comentarista',
+      raceCoach: 'RaceCoach', leadAnnouncer: 'Narrador principal', colorAnnouncer: 'Comentarista', setupEngineer: 'Ingeniero de reglajes', raceStrategist: 'Estratega de carrera',
     },
     // An ElevenLabs voice's name in the voice pickers (elevenLabsVoiceLabel in src/lib/elevenLabsVoiceRules.ts)
     elevenLabsVoiceName: 'Eleven Labs {role} en {language}',
@@ -559,6 +559,8 @@ export const es: Dictionary = {
       raceCoach: 'Entrenador de carrera',
       leadAnnouncer: 'Narrador principal',
       colorAnnouncer: 'Comentarista',
+      setupEngineer: 'Ingeniero de reglajes',
+      raceStrategist: 'Estratega de carrera',
       ownerRadio: 'Radio del propietario',
     },
     accentTitle: 'Acento del español',
@@ -568,6 +570,18 @@ export const es: Dictionary = {
     sample: 'Curva 1: frena unos {later} {units} más tarde, cerca de {near} {units}. Buena vuelta, dos décimas más rápida.',
   },
 
+  // The Account page's Setup Engineer and Race Strategist voices, between the Coach voice and the Race Announcers
+  // (src/components/EngineerVoicesSection.tsx); the samples are what their Listen buttons say
+  engineerVoices: {
+    title: 'Ingeniero de reglajes y estratega de carrera',
+    intro: 'Las voces que te responden por Driver Radio cuando el ingeniero de carrera les pasa tu pregunta: el ingeniero de reglajes para los reglajes y el comportamiento de tu coche, y el estratega de carrera para la estrategia de boxes y el combustible.',
+    setupEngineer: 'Ingeniero de reglajes',
+    raceStrategist: 'Estratega de carrera',
+    membersOnly: 'El ingeniero de reglajes y el estratega de carrera son para miembros Plata y Oro. Pásate a Plata u Oro para escucharlos.',
+    voiceSaved: 'Voz del ingeniero guardada.',
+    sampleSetupEngineer: 'Copiado, subviraje en la entrada. Lleva el reparto de frenada medio clic hacia atrás y deja que el coche gire.',
+    sampleRaceStrategist: 'Entra en boxes esta vuelta y sales quinto, sin tráfico. El combustible llega al final con dos vueltas de margen.',
+  },
   raceAnnouncers: {
     title: 'Narradores de carrera',
     intro: 'Las voces que narran las carreras que ves en la página Carreras en Vivo, en tu idioma preferido: el Narrador principal relata la acción y el Comentarista aporta el análisis. Actívalos con las casillas Narrador principal y Comentarista de la página Carreras en Vivo.',
@@ -2280,6 +2294,8 @@ export const es: Dictionary = {
         raceCoach: 'Entrenador de carrera',
         leadAnnouncer: 'Narrador principal',
         colorAnnouncer: 'Comentarista',
+        setupEngineer: 'Ingeniero de reglajes',
+        raceStrategist: 'Estratega de carrera',
         ownerRadio: 'Radio del propietario',
       },
       languages: {
@@ -4118,6 +4134,10 @@ export const es: Dictionary = {
     raceAnnouncersDisabled: 'Los narradores de carrera están desactivados en este momento',
     raceAnnouncersMembersOnly: 'Los narradores de carrera son para miembros Plata y Oro',
     failedSaveRaceAnnouncers: 'No se pudieron guardar los narradores de carrera',
+    logInEngineerVoices: 'Inicia sesión para guardar las voces de tus ingenieros',
+    engineerVoicesDisabled: 'Las voces de los ingenieros están desactivadas ahora mismo',
+    engineerVoicesMembersOnly: 'El ingeniero de reglajes y el estratega de carrera son para miembros Plata y Oro',
+    failedSaveEngineerVoice: 'No se pudo guardar la voz del ingeniero',
     raceAnnouncerInstructionsTooLong: 'Las instrucciones para los narradores son demasiado largas',
     failedRaceAnnouncer: 'Los narradores de carrera no pudieron narrar',
     notConfigured: 'Esta función no está disponible en este momento. Inténtalo más tarde.',

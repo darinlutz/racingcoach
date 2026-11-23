@@ -90,7 +90,15 @@ curl -s http://127.0.0.1:11434/api/tags | head -c 300 # Ollama answers locally
 ollama run qwen3:8b "Say ready" --verbose              # a real generation, with tokens/s
 ```
 
-`launchctl setenv` lasts until reboot. To keep it, put the same lines in a LaunchAgent, or re-run them after a restart.
+`launchctl setenv` lasts until reboot. To set them at every login, install the LaunchAgent that sets them and restarts Homebrew's Ollama service:
+
+```bash
+cp local-ai/launchd/app.racingcoach.ollama-env.plist ~/Library/LaunchAgents/
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/app.racingcoach.ollama-env.plist
+ps eww -p $(pgrep -f "ollama serve") | tr ' ' '\n' | grep ^OLLAMA_   # the four settings
+```
+
+Its log is `/tmp/racingcoach-ollama-env.log`. With the Ollama app instead of Homebrew, quit and reopen the app after logging in.
 
 ### Stage 2: a local end-to-end test, no Cloudflare (on the Mac, with `npm run dev`)
 
@@ -110,6 +118,16 @@ ollama run qwen3:8b "Say ready" --verbose              # a real generation, with
    sudo cloudflared service install <TOKEN shown in the dashboard>
    ```
    This runs cloudflared at boot as a launchd service. The tunnel then shows **Healthy** in the dashboard.
+   - **A tunnel made with `cloudflared tunnel create`** (credentials and `config.yml` in `~/.cloudflared`, no dashboard token, e.g. one brought over from another Mac) is started with `cloudflared service install` without `sudo` or a token. That writes `~/Library/LaunchAgents/com.cloudflare.cloudflared.plist` running `cloudflared` with no arguments, which exits at once (its log, `~/Library/Logs/com.cloudflare.cloudflared.err.log`, says ``use `cloudflared tunnel run` to start tunnel``). Point it at the tunnel and keep it running:
+     ```bash
+     P=~/Library/LaunchAgents/com.cloudflare.cloudflared.plist
+     launchctl bootout gui/$(id -u)/com.cloudflare.cloudflared
+     plutil -replace ProgramArguments -json '["/opt/homebrew/bin/cloudflared","tunnel","run","<tunnel name>"]' $P
+     plutil -replace KeepAlive -bool true $P
+     launchctl bootstrap gui/$(id -u) $P
+     cloudflared tunnel info <tunnel name>   # one connector listed
+     ```
+     Upgrading or reinstalling cloudflared's service rewrites the file, so check it again afterwards.
 3. **Public hostnames** tab (may be labeled *Published application routes*) → **Add**: Subdomain `ai`, Domain `racingcoach.app`, Path empty, Service type **HTTP**, URL `127.0.0.1:8787` → Save.
    - **DNS:** this creates the proxied CNAME `ai.racingcoach.app → <tunnel-id>.cfargotunnel.com` for you. No other DNS change is needed, and no ports open on the Mac or router.
 4. Check: `curl -i https://ai.racingcoach.app/health` returns **401** `unauthorized` from the gateway (Access isn't on yet). If it returns 502 or 1033, see Troubleshooting.

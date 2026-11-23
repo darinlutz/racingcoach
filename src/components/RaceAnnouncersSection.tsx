@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react';
 import BroadcastSettingsPanel from '@/components/BroadcastSettings';
-import type { CoachVoiceDetails } from '@/components/CoachVoicePicker';
+import { voiceOptionLabel, type CoachVoiceDetails } from '@/components/CoachVoicePicker';
 import { useLanguage } from '@/components/LanguageProvider';
 import type { BroadcastSettings } from '@/lib/broadcastSettings';
 
@@ -95,9 +95,9 @@ function AnnouncerVoice({
       </label>
       <div className="flex items-center gap-2">
         <select id={id} value={voice} onChange={(e) => choose(e.target.value)} className={selectClass}>
-          {listed.map(([name, { style }]) => (
+          {listed.map(([name, detail]) => (
             <option key={name} value={name}>
-              {name}: {c.voiceStyles[style as keyof typeof c.voiceStyles] ?? style}
+              {voiceOptionLabel(name, detail, c)}
             </option>
           ))}
         </select>

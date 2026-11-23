@@ -106,6 +106,7 @@ const CAR_PICTURES = new Set([
   'lucas-oil-off-road-pro-4-truck',
   'maserati-granturismo-mc-gt4',
   'mazda-mx-5-cup-2010',
+  'mazda-mx-5-roadster-2010',
   'mclaren-570s-gt4',
   'mclaren-650s-gt3',
   'mclaren-720s-gt3-evo',
@@ -388,9 +389,9 @@ export const IRACING_CARS: [string, string, ...string[]][] = [
   ['dallaradw12', 'dallara-dw12', '[Legacy] Dallara DW12'],
   ['dallara', 'dallara-ir05-circa-2009', '[Legacy] Dallara IR-05'],
   ['ferrari488gt3', 'ferrari-488-gt3', '[Legacy] Ferrari 488 GT3'],
-  // iRacing's retired MX-5 Cup: its picture by car path only, no name, so the site never shows the retired car's name
-  // (the owner's MX-5 Cup is mx5 mx52016's). The retired MX-5 Roadster is left out altogether
-  ['mx5 cup', 'mazda-mx-5-cup-2010'],
+  // iRacing's retired 2010 MX-5s, back in Car Data (fixMazdaCars in defaultCars.ts); the current one is mx5 mx52016's
+  ['mx5 cup', 'mazda-mx-5-cup-2010', '[Legacy] Mazda MX-5 Cup - 2010'],
+  ['mx5 roadster', 'mazda-mx-5-roadster-2010', '[Legacy] Mazda MX-5 Roadster - 2010'],
   ['mercedesamggt3', 'mercedes-amg-gt3', '[Legacy] Mercedes-AMG GT3'],
   ['stockcars impala', 'nascar-chevrolet-impala-ss-cot-circa-2013', '[Legacy] NASCAR Cup Chevrolet Impala COT - 2009'],
   ['stockcars chevyss', 'nascar-chevrolet-ss-cup-car', '[Legacy] NASCAR Cup Chevrolet SS - 2013'],

@@ -80,10 +80,17 @@ are approximations, and the Suspension tab says so ("Reference points approximat
   e.g. `lamborghinievogt3`) of the setups it's for, matched exactly, never by name. The sanitized markup, viewBox,
   anchors and `hasWheels` of each view are in `views` JSONB (small text, not object storage). `sources`, `license`,
   `notes` (approximations). One active version per car (a partial unique index); an active version must be approved.
+  `shared_car_ids`: the other Car Data cars the same drawings are used for (ids, not a foreign key: a deleted car is
+  left out wherever they're read). Drivers' pages find a version only by car path, so a shared car's paths go in
+  `car_keys` too.
 - `"CarEngineeringAssetEvents"`: each version's review history.
 - Workflow (`src/lib/carViews/assetRules.ts`): draft → under review → approved or rejected; an approved version with
   sources and a licence can be activated, which deactivates the car's other version (activating an older approved
-  version is the rollback). A car path can belong to only one car's active drawings. Drafts and rejected versions can
+  version is the rollback). A car path leads to only one active version: activating a version replaces the active
+  drawings of its car and of every car it's shared with, and is refused (`carKeyTaken`) while another car's active
+  drawings, ones it doesn't replace, claim one of its car paths (`src/lib/carViews/sharingDb.ts`). A version's
+  shared cars and car paths can be changed at any status (`PUT /api/admin/car-views/[id]` `{ sharing }`, the
+  Admin page's Change cars), as they don't change the drawings that were reviewed. Drafts and rejected versions can
   be deleted; approved ones stay.
 - Admins only: the Admin page's Engineering Car Drawings (`src/components/CarViewAssetManager.tsx`),
   `GET`/`POST /api/admin/car-views`, `GET`/`PUT`/`DELETE /api/admin/car-views/[id]` (404 for anyone else). Each view is

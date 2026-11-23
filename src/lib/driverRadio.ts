@@ -7,11 +7,13 @@
 
 import { elevenLabsOffered, getCoachVoice } from './coachVoice';
 import { elevenLabsRadioVoiceId, elevenLabsVoiceId } from './elevenLabs';
+import { loadElevenLabsVoices } from './elevenLabsVoices';
 import type { Language } from './i18n/languages';
 import type { User } from './users';
 import { assertMeteredServicesOn } from './meteredServices';
 
-// The accounts whose radio is said in ELEVENLABS_MY_VOICE_ID, the site owner's own voice; lower case
+// The accounts whose radio is said in the owner's Driver Radio voice (Eleven Labs Voice Management's ownerRadio
+// voice, formerly ELEVENLABS_MY_VOICE_ID), the site owner's own voice; lower case
 const MY_VOICE_ACCOUNTS = new Set(['darinlutz@yahoo.com', 'darinlutz648@gmail.com']);
 
 // The ElevenLabs voice a driver's radio is said in: the site owner's own voice for their accounts, and for everyone
@@ -21,6 +23,7 @@ const MY_VOICE_ACCOUNTS = new Set(['darinlutz@yahoo.com', 'darinlutz648@gmail.co
 export async function radioVoiceId(
   driver: Pick<User, 'id' | 'emailAddress' | 'preferredLanguage' | 'emailVerified' | 'membershipLevel' | 'role'>
 ): Promise<string | null> {
+  await loadElevenLabsVoices();
   if (driver.emailVerified && MY_VOICE_ACCOUNTS.has(driver.emailAddress.trim().toLowerCase())) return elevenLabsRadioVoiceId();
   if (!elevenLabsOffered(driver.preferredLanguage, driver)) return null;
   const { spanishAccent } = await getCoachVoice(driver.id);

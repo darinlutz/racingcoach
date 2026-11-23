@@ -19,6 +19,8 @@ export const AI_FEATURES = {
   raceAnnouncerRoutine: 'gpt-4o-mini',
   raceEngineer: 'gpt-4o-mini',
   setupEngineer: 'gpt-4o-mini',
+  // Driver Radio's Race Strategist (src/lib/raceStrategist.ts): pit strategy and fuel, the Setup Engineer's default
+  raceStrategist: 'gpt-4o-mini',
 } as const satisfies Record<string, AiModel>;
 
 export type AiFeature = keyof typeof AI_FEATURES;

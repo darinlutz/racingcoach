@@ -18,7 +18,7 @@ import {
   type MembershipLevel,
   type Plan,
 } from './accountStatus';
-import { addAccCars, fixRetiredMazdaCars, mergeOwnerCars, seedDefaultCars } from './defaultCars';
+import { addAccCars, fixMazdaCars, mergeOwnerCars, recategorizeCars, seedDefaultCars } from './defaultCars';
 import { seedTrackAnalysis } from './defaultTrackAnalysis';
 import { seedDefaultTracks } from './defaultTracks';
 import { dropTrackLengthsTable } from './trackLengths';
@@ -575,8 +575,6 @@ export function ensureUserSchema(): Promise<void> {
       // and added cars carry over into Cars, once; everyone else's copies go
       if (carsUsersExists) await mergeOwnerCars(client, OWNER_EMAIL);
       await client.query('DROP TABLE IF EXISTS racingcoach."CarsUsers", racingcoach."CarData"');
-      // iRacing's retired 2010 MX-5s, which the site never shows (renamed or removed)
-      await fixRetiredMazdaCars(client);
       // Why each monthly subscriber canceled, one row per cancellation. The user's name and email are
       // copied in; Delete Account (deleteUser) clears them and keeps the feedback (user_id is then set NULL).
       // reason is one of CANCELLATION_REASONS' labels; stripe_subscription_id is the confirmation number.
@@ -802,6 +800,10 @@ export function ensureUserSchema(): Promise<void> {
       )`);
       // ACC's cars with pictures join Cars once (marked in SiteSettings, so deleting one later sticks)
       await addAccCars(client);
+      // The Car Types NASCAR, Rallycross and Off-Road replaced Oval and Dirt Road: existing cars moved once
+      await recategorizeCars(client);
+      // The Global Mazda MX-5 Cup's name, and iRacing's 2010 MX-5s back once (defaultCars.ts)
+      await fixMazdaCars(client);
       // Every AI call a user or visitor made, for the Admin page's Rate Limiting section (src/lib/rateLimits.ts):
       // allowed or blocked (reason), and its weight against the limit. counted is false once the call failed (a
       // refund) or an admin reset the usage, so it no longer counts against the limit but stays in the report.

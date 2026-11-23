@@ -1,7 +1,8 @@
 import { query, transaction } from '../db';
 import { ensureUserSchema } from '../users';
 import { parseViewAnchors, type CarViewArt } from './anchors.ts';
-import { checkAction, type AssetAction, type AssetStatus, type Draft, type DraftViews, type ResolvedCarAsset } from './assetRules.ts';
+import { checkAction, type AssetAction, type AssetStatus, type Draft, type DraftViews, type ResolvedCarAsset, type Sharing } from './assetRules.ts';
+import { activateSharedVersion, SHARED_CARS_SQL, sharedCarsExist, type SharedCar } from './sharingDb.ts';
 import { sanitizeSvg } from './svgSanitize.ts';
 import { CAR_VIEWS, type CarView } from './views.ts';
 
@@ -17,6 +18,8 @@ export type AssetSummary = {
   version: number;
   status: AssetStatus;
   active: boolean;
+  // The other cars that use this version's drawings
+  sharedCars: SharedCar[];
   carKeys: string[];
   views: CarView[];
   sources: string;
@@ -35,6 +38,7 @@ type Row = {
   version: number;
   status: AssetStatus;
   active: boolean;
+  shared_car_ids: number[];
   car_keys: string[];
   views: Record<string, unknown>;
   sources: string;
@@ -46,7 +50,7 @@ type Row = {
 };
 
 export class CarViewActionError extends Error {
-  constructor(readonly code: 'notFound' | 'wrongStatus' | 'needsProvenance' | 'notActive' | 'alreadyActive' | 'carKeyTaken' | 'notDeletable', readonly detail?: string) {
+  constructor(readonly code: 'notFound' | 'wrongStatus' | 'needsProvenance' | 'notActive' | 'alreadyActive' | 'carKeyTaken' | 'notDeletable' | 'unknownCar', readonly detail?: string) {
     super(code);
   }
 }
@@ -74,7 +78,7 @@ function readViews(row: Pick<Row, 'id' | 'views'>): DraftViews {
   return views;
 }
 
-const COLUMNS = `a.id, a.car_id, c.car_name, a.version, a.status, a.active, a.car_keys, a.views, a.sources, a.license, a.notes,
+const COLUMNS = `a.id, a.car_id, c.car_name, a.version, a.status, a.active, a.shared_car_ids, a.car_keys, a.views, a.sources, a.license, a.notes,
   a.created_at, a.reviewed_at, a.activated_at`;
 
 const toResolved = (row: Row): ResolvedCarAsset => ({
@@ -117,8 +121,8 @@ export async function readCarAsset(id: number): Promise<ResolvedCarAsset | null>
 
 export async function listCarAssets(): Promise<AssetSummary[]> {
   await ensureUserSchema();
-  const rows = await query<Row & { history: AssetSummary['history'] | null }>(
-    `SELECT ${COLUMNS},
+  const rows = await query<Row & { history: AssetSummary['history'] | null; shared_cars: SharedCar[] }>(
+    `SELECT ${COLUMNS}, ${SHARED_CARS_SQL},
        (SELECT json_agg(json_build_object('action', e.action, 'from', e.from_status, 'to', e.to_status, 'at', e.created_at) ORDER BY e.created_at)
           FROM racingcoach."CarEngineeringAssetEvents" e WHERE e.asset_id = a.id) AS history
      FROM racingcoach."CarEngineeringAssets" a JOIN racingcoach."Cars" c ON c.id = a.car_id
@@ -131,6 +135,7 @@ export async function listCarAssets(): Promise<AssetSummary[]> {
     version: row.version,
     status: row.status,
     active: row.active,
+    sharedCars: row.shared_cars ?? [],
     carKeys: row.car_keys,
     views: CAR_VIEWS.filter((v) => row.views && typeof row.views === 'object' && v in row.views),
     sources: row.sources,
@@ -149,11 +154,12 @@ export async function createCarAssetDraft(draft: Draft, userId: number): Promise
   const created = await transaction(async (client) => {
     const car = await client.query('SELECT id FROM racingcoach."Cars" WHERE id = $1 FOR UPDATE', [draft.carId]);
     if (!car.rowCount) throw new CarViewActionError('notFound');
+    if (!(await sharedCarsExist(client, draft.sharedCarIds))) throw new CarViewActionError('unknownCar');
     const { rows } = await client.query<{ id: number; version: number }>(
-      `INSERT INTO racingcoach."CarEngineeringAssets" (car_id, version, car_keys, views, sources, license, notes, created_by)
-       VALUES ($1, (SELECT COALESCE(max(version), 0) + 1 FROM racingcoach."CarEngineeringAssets" WHERE car_id = $1), $2, $3, $4, $5, $6, $7)
+      `INSERT INTO racingcoach."CarEngineeringAssets" (car_id, version, shared_car_ids, car_keys, views, sources, license, notes, created_by)
+       VALUES ($1, (SELECT COALESCE(max(version), 0) + 1 FROM racingcoach."CarEngineeringAssets" WHERE car_id = $1), $2, $3, $4, $5, $6, $7, $8)
        RETURNING id, version`,
-      [draft.carId, draft.carKeys, JSON.stringify(draft.views), draft.sources, draft.license, draft.notes, userId]
+      [draft.carId, draft.sharedCarIds, draft.carKeys, JSON.stringify(draft.views), draft.sources, draft.license, draft.notes, userId]
     );
     await client.query(`INSERT INTO racingcoach."CarEngineeringAssetEvents" (asset_id, action, to_status, user_id) VALUES ($1, 'create', 'draft', $2)`, [rows[0].id, userId]);
     return rows[0];
@@ -165,8 +171,8 @@ export async function createCarAssetDraft(draft: Draft, userId: number): Promise
 export async function applyCarAssetAction(id: number, action: AssetAction, userId: number): Promise<void> {
   await ensureUserSchema();
   await transaction(async (client) => {
-    const { rows } = await client.query<{ car_id: number; status: AssetStatus; active: boolean; sources: string; license: string; car_keys: string[] }>(
-      'SELECT car_id, status, active, sources, license, car_keys FROM racingcoach."CarEngineeringAssets" WHERE id = $1 FOR UPDATE',
+    const { rows } = await client.query<{ car_id: number; status: AssetStatus; active: boolean; sources: string; license: string; car_keys: string[]; shared_car_ids: number[] }>(
+      'SELECT car_id, status, active, sources, license, car_keys, shared_car_ids FROM racingcoach."CarEngineeringAssets" WHERE id = $1 FOR UPDATE',
       [id]
     );
     const version = rows[0];
@@ -174,15 +180,15 @@ export async function applyCarAssetAction(id: number, action: AssetAction, userI
     const check = checkAction(version, action);
     if (!check.ok) throw new CarViewActionError(check.code);
     if (action === 'activate') {
-      // A car path is one car's: another car's active drawings mustn't already claim it
-      const taken = await client.query<{ car_name: string }>(
-        `SELECT c.car_name FROM racingcoach."CarEngineeringAssets" a JOIN racingcoach."Cars" c ON c.id = a.car_id
-         WHERE a.active AND a.car_id <> $1 AND a.car_keys && $2::text[] LIMIT 1`,
-        [version.car_id, version.car_keys]
+      // Replaces the active drawings of its car and of the cars it's shared with; refused while one of its car paths
+      // is another car's active drawings' (sharingDb.ts)
+      const taken = await activateSharedVersion(
+        client,
+        'CarEngineeringAssets',
+        { id, carId: version.car_id, sharedCarIds: version.shared_car_ids ?? [], carKeys: version.car_keys },
+        userId
       );
-      if (taken.rowCount) throw new CarViewActionError('carKeyTaken', taken.rows[0].car_name);
-      await client.query('UPDATE racingcoach."CarEngineeringAssets" SET active = false WHERE car_id = $1 AND active', [version.car_id]);
-      await client.query('UPDATE racingcoach."CarEngineeringAssets" SET active = true, activated_at = now(), activated_by = $2 WHERE id = $1', [id, userId]);
+      if (taken) throw new CarViewActionError('carKeyTaken', taken);
     } else if (action === 'deactivate') {
       await client.query('UPDATE racingcoach."CarEngineeringAssets" SET active = false WHERE id = $1', [id]);
     } else {
@@ -198,6 +204,34 @@ export async function applyCarAssetAction(id: number, action: AssetAction, userI
       action,
       version.status,
       check.status,
+      userId,
+    ]);
+  });
+  resolved.clear();
+}
+
+// Which cars use a version: the other cars it's shared with and its car paths, at any status, as that doesn't change
+// the drawings that were reviewed. An active version's change replaces the active drawings of a car it's now shared
+// with, and is refused while one of its car paths is another car's active drawings'
+export async function updateCarAssetSharing(id: number, sharing: Sharing, userId: number): Promise<void> {
+  await ensureUserSchema();
+  await transaction(async (client) => {
+    const { rows } = await client.query<{ car_id: number; status: AssetStatus; active: boolean }>(
+      'SELECT car_id, status, active FROM racingcoach."CarEngineeringAssets" WHERE id = $1 FOR UPDATE',
+      [id]
+    );
+    const version = rows[0];
+    if (!version) throw new CarViewActionError('notFound');
+    const sharedCarIds = sharing.sharedCarIds.filter((c) => c !== version.car_id);
+    if (!(await sharedCarsExist(client, sharedCarIds))) throw new CarViewActionError('unknownCar');
+    await client.query('UPDATE racingcoach."CarEngineeringAssets" SET shared_car_ids = $2, car_keys = $3 WHERE id = $1', [id, sharedCarIds, sharing.carKeys]);
+    if (version.active) {
+      const taken = await activateSharedVersion(client, 'CarEngineeringAssets', { id, carId: version.car_id, sharedCarIds, carKeys: sharing.carKeys }, userId, true);
+      if (taken) throw new CarViewActionError('carKeyTaken', taken);
+    }
+    await client.query(`INSERT INTO racingcoach."CarEngineeringAssetEvents" (asset_id, action, from_status, to_status, user_id) VALUES ($1, 'share', $2, $2, $3)`, [
+      id,
+      version.status,
       userId,
     ]);
   });

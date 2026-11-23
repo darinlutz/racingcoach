@@ -5,6 +5,7 @@ import Car3DViewerLazy from '@/components/car3d/Car3DViewerLazy';
 import CarPathCombobox from '@/components/CarPathCombobox';
 import { useConfirm } from '@/components/ConfirmProvider';
 import { useLanguage } from '@/components/LanguageProvider';
+import SharedCarsPicker, { addCarPath } from '@/components/SharedCarsPicker';
 import { AXES, canonicalBounds, dimensions, validAxes, type Axis, type Bounds, type Normalization, type Vec3 } from '@/lib/carModels/matrix';
 import {
   anchorGeometry,
@@ -25,7 +26,8 @@ import {
 // it has a model, an upload form, and every version with its status, review history and a preview. The preview is the
 // same viewer drivers get (Car3DViewer), with the canonical axes, the model's box and its wheel-center rings, and
 // while the version is uploaded or rejected its normalization, wheel centers, opening camera and provenance can be
-// changed and seen at once, then saved. Every version has a Delete button (the active one too, after a warning that the
+// changed and seen at once, then saved. Which cars use a version (the other cars it's shared with and its car paths)
+// can be changed at any status. Every version has a Delete button (the active one too, after a warning that the
 // car then shows the generic car). GET/POST /api/admin/car-models, GET/PUT/DELETE /api/admin/car-models/[id],
 // Admins only.
 
@@ -37,6 +39,7 @@ type Summary = {
   version: number;
   status: ModelStatus;
   active: boolean;
+  sharedCars: { id: number; name: string }[];
   carKeys: string[];
   fileName: string;
   bytes: number;
@@ -57,7 +60,6 @@ type Draft = {
   normalization: Normalization;
   wheelAnchors: WheelAnchors;
   defaultView: CameraView;
-  carKeys: string;
   source: string;
   license: string;
   attribution: string;
@@ -85,7 +87,6 @@ const draftOf = (s: Summary): Draft => ({
   normalization: s.normalization,
   wheelAnchors: s.wheelAnchors,
   defaultView: s.defaultView,
-  carKeys: s.carKeys.join(', '),
   source: s.source,
   license: s.license,
   attribution: s.attribution,
@@ -109,6 +110,9 @@ export default function CarModelAssetManager() {
   const [filter, setFilter] = useState<'all' | 'withModel' | 'missing'>('all');
   const [carId, setCarId] = useState('');
   const [carKeys, setCarKeys] = useState('');
+  const [sharedCarIds, setSharedCarIds] = useState<number[]>([]);
+  // A version's cars being changed: its shared cars and car paths
+  const [sharing, setSharing] = useState<{ id: number; ids: number[]; keys: string } | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [fileInput, setFileInput] = useState(0);
   const [source, setSource] = useState('');
@@ -147,10 +151,12 @@ export default function CarModelAssetManager() {
     setMessage('');
   };
 
-  // Each car's best status: Active, else its newest version's, else Missing
+  // Each car's best status: Active, else its newest version's, else Missing; a version shared with a car counts as its
   const byCar = useMemo(() => {
     const map = new Map<number, Summary[]>();
-    for (const model of models ?? []) map.set(model.carId, [...(map.get(model.carId) ?? []), model]);
+    for (const model of models ?? []) {
+      for (const id of [model.carId, ...model.sharedCars.map((car) => car.id)]) map.set(id, [...(map.get(id) ?? []), model]);
+    }
     return map;
   }, [models]);
   const carStatus = (id: number): string => {
@@ -167,6 +173,7 @@ export default function CarModelAssetManager() {
     if (!file) return setError(m.problems.file);
     const form = new FormData();
     form.set('carId', carId);
+    form.set('sharedCarIds', sharedCarIds.filter((id) => id !== Number(carId)).join(','));
     form.set('carKeys', carKeys);
     form.set('source', source);
     form.set('license', license);
@@ -182,6 +189,7 @@ export default function CarModelAssetManager() {
       setMessage(fmt(s.uploaded, { version: data.version }));
       setFile(null);
       setFileInput((k) => k + 1);
+      setSharedCarIds([]);
       setPreviewId(data.id);
       setDraft(null);
     } catch {
@@ -235,7 +243,6 @@ export default function CarModelAssetManager() {
             normalization: current.normalization,
             wheelAnchors: current.wheelAnchors,
             defaultView: current.defaultView,
-            carKeys: current.carKeys,
             source: current.source,
             license: current.license,
             attribution: current.attribution,
@@ -254,6 +261,29 @@ export default function CarModelAssetManager() {
       setBusy(false);
     }
   };
+
+  const saveSharing = async () => {
+    if (!sharing) return;
+    clear();
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/admin/car-models/${sharing.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sharing: { sharedCarIds: sharing.ids, carKeys: sharing.keys } }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return fail(data);
+      setSharing(null);
+      await load();
+      setMessage(t.setups.carViews.admin.sharing.saved);
+    } catch {
+      setError(m.errors.failed);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const sh = t.setups.carViews.admin.sharing;
 
   // What the viewer shows: the version as it would be with the draft's settings (the saved orientation while the draft's
   // up and forward are the same axis, which can't be drawn)
@@ -358,6 +388,21 @@ export default function CarModelAssetManager() {
             <input key={fileInput} id="cm-file" type="file" accept=".glb,model/gltf-binary" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="text-sm text-foreground" />
             <p className="mt-1 text-xs text-muted-foreground">{s.fileHelp}</p>
           </div>
+          <div className="sm:col-span-3">
+            <label htmlFor="cm-shared" className={labelClass}>
+              {sh.label}
+            </label>
+            <SharedCarsPicker
+              id="cm-shared"
+              cars={cars}
+              ownCarId={carId ? Number(carId) : null}
+              value={sharedCarIds}
+              onChange={(ids, path) => {
+                setSharedCarIds(ids);
+                setCarKeys((keys) => addCarPath(keys, path));
+              }}
+            />
+          </div>
         </div>
         <div className="grid gap-4 lg:grid-cols-4">
           {(
@@ -409,6 +454,9 @@ export default function CarModelAssetManager() {
                     })}
                   </span>
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  {sh.label}: {model.sharedCars.length ? model.sharedCars.map((car) => car.name).join(', ') : sh.none}
+                </p>
                 {nonCommercial(model.license) && <p className="text-xs text-amber-600 dark:text-amber-400">{s.nonCommercial}</p>}
                 {model.warnings.map((w, i) => (
                   <p key={i} className="text-xs text-muted-foreground">
@@ -425,6 +473,14 @@ export default function CarModelAssetManager() {
                     }}
                   >
                     {previewId === model.id ? s.actions.hidePreview : s.actions.preview}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    className={buttonClass}
+                    onClick={() => setSharing(sharing?.id === model.id ? null : { id: model.id, ids: model.sharedCars.map((car) => car.id), keys: model.carKeys.join(', ') })}
+                  >
+                    {sh.edit}
                   </button>
                   {ACTIONS_BY_STATUS[model.status]
                     .filter((a) => !(a === 'activate' && model.active))
@@ -447,6 +503,44 @@ export default function CarModelAssetManager() {
                     {s.actions.delete}
                   </button>
                 </div>
+                {sharing?.id === model.id && (
+                  <div className="grid gap-3 rounded-lg border border-border p-3 sm:grid-cols-2">
+                    <div>
+                      <label htmlFor={`cm-share-${model.id}`} className={labelClass}>
+                        {sh.label}
+                      </label>
+                      <SharedCarsPicker
+                        id={`cm-share-${model.id}`}
+                        cars={cars}
+                        ownCarId={model.carId}
+                        value={sharing.ids}
+                        onChange={(ids, path) => setSharing({ ...sharing, ids, keys: addCarPath(sharing.keys, path) })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label htmlFor={`cm-share-keys-${model.id}`} className={labelClass}>
+                        {s.carKeys}
+                      </label>
+                      <CarPathCombobox
+                        id={`cm-share-keys-${model.id}`}
+                        value={sharing.keys}
+                        onChange={(keys) => setSharing({ ...sharing, keys })}
+                        folders={setupFolders}
+                        className={smallInput}
+                      />
+                      <p className="text-xs text-muted-foreground">{s.carKeysHelp}</p>
+                      <p className="text-xs text-muted-foreground">{sh.replaces}</p>
+                      <div className="flex gap-2">
+                        <button type="button" disabled={busy} className={buttonClass} onClick={() => void saveSharing()}>
+                          {sh.save}
+                        </button>
+                        <button type="button" disabled={busy} className={buttonClass} onClick={() => setSharing(null)}>
+                          {sh.cancel}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 {model.history.length > 0 && (
                   <p className="text-xs text-muted-foreground">
                     {s.history}:{' '}
@@ -595,10 +689,6 @@ export default function CarModelAssetManager() {
                           </div>
                         ))}
                       </div>
-                      <label className="block">
-                        <span className={labelClass}>{s.carKeys}</span>
-                        <CarPathCombobox value={current.carKeys} onChange={(carKeys) => change({ carKeys })} folders={setupFolders} className={smallInput} />
-                      </label>
                       {(['source', 'license', 'attribution', 'notes'] as const).map((key) => (
                         <label key={key} className="block">
                           <span className={labelClass}>{s[key]}</span>

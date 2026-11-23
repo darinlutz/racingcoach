@@ -75,6 +75,12 @@ Models are tied to Car Data's car (`car_id`) and to the **exact iRacing car path
 they're for. The Huracán GT3, GT3 EVO and EVO2 have different car paths and never share a model by accident. Only one
 car's active model may claim a car path (`carKeyTaken`).
 
+One version can be shared by several cars with the same body (`shared_car_ids`, the Admin page's Also used by and
+Change cars, `PUT /api/admin/car-models/[id]` `{ sharing: { sharedCarIds, carKeys } }`, at any status without
+another review). Each shared car's car paths go in `car_keys`, as pages find a model only by car path. Activating a
+shared version, or changing an active one's cars, replaces the active models of its car and of every car it's shared
+with (`src/lib/carViews/sharingDb.ts`, shared with the drawings).
+
 How each place finds its car:
 
 - **Collector laps** carry the car path (`"CollectorLaps".car_key`, from collector 1.68.0 on). It's sent as

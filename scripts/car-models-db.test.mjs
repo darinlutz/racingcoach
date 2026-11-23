@@ -131,6 +131,28 @@ describe('3D car models in the database', { skip }, () => {
     assert.equal(await codeOf(store.applyCarModelAction(second.id, 'activate', admin)), 'carKeyTaken');
   });
 
+  test('one model shared by several cars: each car path finds it, and activating it replaces the shared cars\' own', async () => {
+    const admin = await makeAdmin();
+    const [a, b] = [await makeCar(), await makeCar()];
+    const own = await store.createCarModel(upload(b, ['modelcarb']), admin);
+    for (const action of ['submit', 'approve', 'activate']) await store.applyCarModelAction(own.id, action, admin);
+    const shared = await store.createCarModel(upload(a, ['modelcara', 'modelcarb'], { sharedCarIds: [b] }), admin);
+    for (const action of ['submit', 'approve', 'activate']) await store.applyCarModelAction(shared.id, action, admin);
+    assert.equal((await store.readActiveCarModel('modelcara')).id, shared.id);
+    assert.equal((await store.readActiveCarModel('modelcarb')).id, shared.id);
+    const [{ active }] = await q('SELECT active FROM racingcoach."CarModelAssets" WHERE id = $1', [own.id]);
+    assert.equal(active, false);
+    assert.deepEqual((await store.listCarModels()).find((x) => x.id === shared.id).sharedCars.map((x) => x.id), [b]);
+
+    // An approved, active model's cars change without another review
+    const c = await makeCar();
+    await store.updateCarModelSharing(shared.id, { sharedCarIds: [b, c], carKeys: ['modelcara', 'modelcarb', 'modelcarc'] }, admin);
+    assert.equal((await store.readActiveCarModel('modelcarc')).id, shared.id);
+    const [row] = await q('SELECT status, active FROM racingcoach."CarModelAssets" WHERE id = $1', [shared.id]);
+    assert.deepEqual([row.status, row.active], ['approved', true]);
+    assert.equal(await codeOf(store.updateCarModelSharing(shared.id, { sharedCarIds: [999999], carKeys: ['modelcara'] }, admin)), 'unknownCar');
+  });
+
   test('activation needs the author’s credit for a CC BY licence', async () => {
     const admin = await makeAdmin();
     const car = await makeCar();

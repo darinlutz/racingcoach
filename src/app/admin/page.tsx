@@ -12,6 +12,7 @@ import BroadcastDirectorManager from '@/components/BroadcastDirectorManager';
 import BroadcastVideoLibrary from '@/components/BroadcastVideoLibrary';
 import LiveVideoControl from '@/components/LiveVideoControl';
 import EngineAudioLibrary from '@/components/EngineAudioLibrary';
+import ElevenLabsVoiceManager from '@/components/ElevenLabsVoiceManager';
 import CollectorLogsViewer from '@/components/CollectorLogsViewer';
 import LapRetentionRuns from '@/components/LapRetentionRuns';
 import RateLimitManager from '@/components/RateLimitManager';
@@ -62,7 +63,7 @@ import { readRequestCounts } from '@/lib/privacyRequests';
 // The page's sections, in order (AdminNav's links and AdminSection's keys): each closed until opened
 const ADMIN_SECTIONS: AdminSectionKey[] = [
   'subscribers', 'privacy', 'siteSettings', 'monitoring', 'aiModels', 'localAiMode', 'aiInference', 'localAiTest',
-  'aiCosts', 'rateLimits', 'videoLibrary', 'engineSounds', 'broadcastDirector', 'liveVideo', 'userRoles',
+  'aiCosts', 'rateLimits', 'videoLibrary', 'engineSounds', 'elevenLabsVoices', 'broadcastDirector', 'liveVideo', 'userRoles',
   'lapRetention', 'telemetryStorage', 'engineeringKnowledge', 'carDrawings', 'carModels', 'collectorLogs', 'activity',
 ];
 // Address parameters that aren't the Activity Log's filters
@@ -194,6 +195,11 @@ export default async function AdminPage({
 
         <AdminSection section="engineSounds">
           <EngineAudioLibrary />
+        </AdminSection>
+
+        {/* The ElevenLabs voices of each role and language (src/lib/elevenLabsVoices.ts) */}
+        <AdminSection section="elevenLabsVoices">
+          <ElevenLabsVoiceManager />
         </AdminSection>
 
         <AdminSection section="broadcastDirector">

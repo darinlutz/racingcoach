@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { DirectorContext } from './broadcastDirector';
-import { BroadcastTracker, type BroadcastEvent, type RaceMoments, type TrackerSnapshot } from './broadcastTracker';
+import { BroadcastTracker, type BroadcastEvent, type RaceMoments, type TrackerPitCar, type TrackerSnapshot } from './broadcastTracker';
 import { flagCodeForFlair } from './countryFlags';
 import { fittedTire, isWetSession, type FittedTire } from './liveCarStatus';
 import { query } from './db';
@@ -694,7 +694,25 @@ export type EngineerSnapshot = {
   weatherTrend: WeatherTrend | null;
   // When the update arrived (ms since epoch), for how fresh its weather is
   receivedAt: number;
+  // Every car's pit stops as the Race Broadcast's tracker saw them, and the driver's average clean lap there, for the
+  // Race Strategist (src/lib/raceStrategist.ts); left out when the tracker can't say
+  pits?: TrackerPitCar[];
+  averageLapTime?: number | null;
 };
+
+// The tracker's pit report and the driver's average lap; a failure there never stops the engineers answering
+function strategyOf(entry: LiveEntry): Pick<EngineerSnapshot, 'pits' | 'averageLapTime'> {
+  try {
+    const myCarIdx = entry.field?.myCarIdx ?? null;
+    return {
+      pits: entry.broadcast.pitReport(),
+      averageLapTime: myCarIdx != null ? entry.broadcast.carStats(myCarIdx)?.average ?? null : null,
+    };
+  } catch (error) {
+    console.error('Race Strategist: failed to read the pit report:', error);
+    return {};
+  }
+}
 
 export function readEngineerSnapshot(driverId: number): EngineerSnapshot | null {
   const now = Date.now();
@@ -707,6 +725,7 @@ export function readEngineerSnapshot(driverId: number): EngineerSnapshot | null 
     radio: entry.radio.filter((r) => now - r.at <= RADIO_KEPT_MS),
     weatherTrend: entry.update.weather ? weatherTrend(entry.weatherHistory, weatherSample(entry.update.weather, entry.receivedAt)) : null,
     receivedAt: entry.receivedAt,
+    ...strategyOf(entry),
   };
 }
 

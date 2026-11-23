@@ -137,6 +137,38 @@ describe('engineering car drawings in the database', { skip }, () => {
     assert.equal(await codeOf(store.applyCarAssetAction(theirs.id, 'activate', admin)), 'carKeyTaken');
   });
 
+  test('one version shared by several cars: each car path finds it, and activating it replaces the shared cars\' own', async () => {
+    const admin = await makeAdmin();
+    const [a, b, c] = [await makeCar(), await makeCar(), await makeCar()];
+    // b has drawings of its own, active
+    const own = await store.createCarAssetDraft(draft(b, ['sharecarb']), admin);
+    for (const action of ['submit', 'approve', 'activate']) await store.applyCarAssetAction(own.id, action, admin);
+    // a's drawings, shared with b, for both cars' paths
+    const shared = await store.createCarAssetDraft(draft(a, ['sharecara', 'sharecarb'], { sharedCarIds: [b] }), admin);
+    for (const action of ['submit', 'approve', 'activate']) await store.applyCarAssetAction(shared.id, action, admin);
+    assert.equal((await store.readActiveCarAsset('sharecara')).id, shared.id);
+    assert.equal((await store.readActiveCarAsset('sharecarb')).id, shared.id, 'b now uses the shared drawings');
+    const [{ active }] = await q('SELECT active FROM racingcoach."CarEngineeringAssets" WHERE id = $1', [own.id]);
+    assert.equal(active, false, 'b\'s own version was replaced');
+    const listed = (await store.listCarAssets()).find((x) => x.id === shared.id);
+    assert.deepEqual(listed.sharedCars.map((x) => x.id), [b]);
+
+    // Sharing an active version with c, at any status, adds c's path; another car's active claim on it refuses
+    const theirs = await store.createCarAssetDraft(draft(await makeCar(), ['sharecarc']), admin);
+    for (const action of ['submit', 'approve', 'activate']) await store.applyCarAssetAction(theirs.id, action, admin);
+    assert.equal(await codeOf(store.updateCarAssetSharing(shared.id, { sharedCarIds: [b, c], carKeys: ['sharecara', 'sharecarb', 'sharecarc'] }, admin)), 'carKeyTaken');
+    assert.equal((await store.readActiveCarAsset('sharecarc')).id, theirs.id, 'a refused change changes nothing');
+    await store.applyCarAssetAction(theirs.id, 'deactivate', admin);
+    await store.updateCarAssetSharing(shared.id, { sharedCarIds: [b, c], carKeys: ['sharecara', 'sharecarb', 'sharecarc'] }, admin);
+    assert.equal((await store.readActiveCarAsset('sharecarc')).id, shared.id);
+    assert.equal(await codeOf(store.updateCarAssetSharing(shared.id, { sharedCarIds: [999999], carKeys: ['sharecara'] }, admin)), 'unknownCar');
+    assert.equal(await codeOf(store.createCarAssetDraft(draft(a, ['sharecara'], { sharedCarIds: [999999] }), admin)), 'unknownCar');
+
+    // A shared car that's deleted is simply left out
+    await q('DELETE FROM racingcoach."Cars" WHERE id = $1', [c]);
+    assert.deepEqual((await store.listCarAssets()).find((x) => x.id === shared.id).sharedCars.map((x) => x.id), [b]);
+  });
+
   test('a stored drawing changed by hand is sanitized again on reading, and left out when it fails', async () => {
     const admin = await makeAdmin();
     const car = await makeCar();

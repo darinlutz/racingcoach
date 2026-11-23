@@ -161,7 +161,7 @@ describe('model call limits and the emergency stop (F-07, F-08, F-12, F-25, F-26
       assert.ok(limit.timeoutMs > 0 && limit.timeoutMs <= 90_000, feature);
       assert.ok(limit.maxRetries <= 1, feature);
     }
-    for (const live of ['raceAnnouncer', 'raceEngineer', 'setupEngineer', 'inCarCoachCallouts']) {
+    for (const live of ['raceAnnouncer', 'raceEngineer', 'setupEngineer', 'raceStrategist', 'inCarCoachCallouts']) {
       assert.equal(limits.AI_CALL_LIMITS[live].maxRetries, 0, `${live} is live: no retry`);
     }
   });

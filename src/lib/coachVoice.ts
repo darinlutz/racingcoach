@@ -1,5 +1,7 @@
 import { query } from './db';
 import { elevenLabsConfigured, elevenLabsSpeech, elevenLabsVoiceId, GOLD_VOICE_LANGUAGES, type ElevenLabsRole } from './elevenLabs';
+import { voiceLanguageOf } from './elevenLabsVoiceRules';
+import { loadElevenLabsVoices } from './elevenLabsVoices';
 import { AI_LANGUAGE_NAMES, DEFAULT_LANGUAGE, isLanguage, type Language } from './i18n/languages';
 import { canUseGoldVoices } from './roles';
 import { ensureUserSchema } from './users';
@@ -52,20 +54,22 @@ export function elevenLabsGoldOnly(language: Language, spanishAccent: SpanishAcc
 }
 
 // The voices the Account page offers a role in a language: its ElevenLabs voice first, while it's set up for the
-// language and accent and the member may have it (styled by the role, e.g. "ElevenLabs: Lead Announcer"), then the
-// Chirp voices
+// language and accent and the member may have it (its style the role and voiceLanguage the voice's language, which the
+// pickers name in the user's language, e.g. "Eleven Labs German Race Coach": elevenLabsVoiceLabel), then the Chirp voices
+export type VoiceDetail = { style: string; voiceLanguage?: string };
+
 export function voicesFor(
   role: ElevenLabsRole,
   language: Language,
   spanishAccent: SpanishAccent,
   member: VoiceMember
-): Record<string, { style: string }> {
+): Record<string, VoiceDetail> {
   return elevenLabsConfigured(role, language, spanishAccent) && elevenLabsOffered(language, member)
-    ? { [ELEVENLABS_COACH_VOICE]: { style: role }, ...COACH_VOICE_DETAILS }
+    ? { [ELEVENLABS_COACH_VOICE]: { style: role, voiceLanguage: voiceLanguageOf(language, spanishAccent) }, ...COACH_VOICE_DETAILS }
     : COACH_VOICE_DETAILS;
 }
 
-export function coachVoicesFor(language: Language, spanishAccent: SpanishAccent, member: VoiceMember): Record<string, { style: string }> {
+export function coachVoicesFor(language: Language, spanishAccent: SpanishAccent, member: VoiceMember): Record<string, VoiceDetail> {
   return voicesFor('raceCoach', language, spanishAccent, member);
 }
 
@@ -125,6 +129,7 @@ export function voiceMemberOf(row: Partial<VoiceMemberRow>): { language: Languag
 
 export async function getCoachVoice(userId: number): Promise<CoachVoiceSettings> {
   await ensureUserSchema();
+  await loadElevenLabsVoices();
   const rows = await query<{ coach_voice: string; coach_spanish_accent: string; coach_pronunciations: Pronunciation[] } & VoiceMemberRow>(
     `SELECT coach_voice, coach_spanish_accent, coach_pronunciations, ${VOICE_MEMBER_COLUMNS} FROM racingcoach."Users" WHERE id = $1`,
     [userId]
@@ -357,6 +362,7 @@ export async function synthesizeSpeech(
   // Units after time gaps, which leave "+1.5 ft" alone by its "ft"
   const input = spokenUnits(spokenTimeGaps(spokenTurnNames(text, language), language), language);
   if (voice === ELEVENLABS_COACH_VOICE) {
+    await loadElevenLabsVoices();
     const voiceId = elevenLabsVoiceId(role, language, spanishAccent);
     if (voiceId) {
       return format === 'mp3'

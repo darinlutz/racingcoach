@@ -5,13 +5,14 @@ import { CarViewDebugProvider, CarViewProvider } from '@/components/CarViewConte
 import EngineeringCarView from '@/components/EngineeringCarView';
 import { useConfirm } from '@/components/ConfirmProvider';
 import { useLanguage } from '@/components/LanguageProvider';
+import SharedCarsPicker, { addCarPath } from '@/components/SharedCarsPicker';
 import type { AssetAction, AssetStatus, ResolvedCarAsset } from '@/lib/carViews/assetRules';
 import { genericSources } from '@/lib/carViews/genericVehicle';
 import { SVG_LIMITS } from '@/lib/carViews/svgSanitize';
 import { CAR_VIEWS, type CarView } from '@/lib/carViews/views';
 
 // The Admin page's Engineering Car Drawings (docs/car-views.md): every car's drawing versions with their status and
-// review history, a new version's five views (an SVG file and its anchors each), sources, licence and approximations,
+// review history and the other cars it's shared with (changeable at any status), a new version's five views (an SVG file and its anchors each), sources, licence and approximations,
 // and a preview of any version with the SVG debug mode's anchors on. GET/POST /api/admin/car-views and
 // GET/PUT/DELETE /api/admin/car-views/[id], Admins only.
 
@@ -22,6 +23,7 @@ type Summary = {
   version: number;
   status: AssetStatus;
   active: boolean;
+  sharedCars: { id: number; name: string }[];
   carKeys: string[];
   views: CarView[];
   sources: string;
@@ -60,6 +62,9 @@ export default function CarViewAssetManager() {
   const [busy, setBusy] = useState(false);
   const [carId, setCarId] = useState('');
   const [carKeys, setCarKeys] = useState('');
+  const [sharedCarIds, setSharedCarIds] = useState<number[]>([]);
+  // A version's cars being changed: its shared cars and car paths
+  const [sharing, setSharing] = useState<{ id: number; ids: number[]; keys: string } | null>(null);
   const [views, setViews] = useState(emptyViews);
   const [sources, setSources] = useState('');
   const [license, setLicense] = useState('');
@@ -136,7 +141,16 @@ export default function CarViewAssetManager() {
     setError('');
     setProblems([]);
     setMessage('');
-    const body: Record<string, unknown> = { carId: Number(carId), carKeys: carKeys.split(/[,\s]+/).filter(Boolean), sources, license, notes, views: {} };
+    // Car paths are separated by commas: some have a space in them ("mx5 mx52016")
+    const body: Record<string, unknown> = {
+      carId: Number(carId),
+      sharedCarIds: sharedCarIds.filter((id) => id !== Number(carId)),
+      carKeys: carKeys.split(/[,\n]+/).map((k) => k.trim()).filter(Boolean),
+      sources,
+      license,
+      notes,
+      views: {},
+    };
     for (const view of CAR_VIEWS) {
       const v = views[view];
       if (!v.svg) continue;
@@ -160,6 +174,7 @@ export default function CarViewAssetManager() {
       await load();
       setMessage(fmt(s.saved, { version: data.version }));
       setViews(emptyViews());
+      setSharedCarIds([]);
     } catch {
       setError(c.errors.failed);
     } finally {
@@ -181,6 +196,34 @@ export default function CarViewAssetManager() {
       if (!res.ok) setError(data.error || c.errors.failed);
       if (preview?.id === asset.id) setPreview(null);
       await load();
+    } catch {
+      setError(c.errors.failed);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const saveSharing = async () => {
+    if (!sharing) return;
+    setError('');
+    setProblems([]);
+    setMessage('');
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/admin/car-views/${sharing.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sharing: { sharedCarIds: sharing.ids, carKeys: sharing.keys } }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error || c.errors.failed);
+        setProblems(Array.isArray(data.problems) ? data.problems : []);
+        return;
+      }
+      setSharing(null);
+      await load();
+      setMessage(s.sharing.saved);
     } catch {
       setError(c.errors.failed);
     } finally {
@@ -289,6 +332,21 @@ export default function CarViewAssetManager() {
             <input id="ecv-keys" value={carKeys} onChange={(e) => setCarKeys(e.target.value)} placeholder="lamborghinievogt3" className={inputClass} />
             <p className="mt-1 text-xs text-muted-foreground">{s.carKeysHelp}</p>
           </div>
+          <div className="sm:col-span-2">
+            <label htmlFor="ecv-shared" className={labelClass}>
+              {s.sharing.label}
+            </label>
+            <SharedCarsPicker
+              id="ecv-shared"
+              cars={cars}
+              ownCarId={carId ? Number(carId) : null}
+              value={sharedCarIds}
+              onChange={(ids, path) => {
+                setSharedCarIds(ids);
+                setCarKeys((keys) => addCarPath(keys, path));
+              }}
+            />
+          </div>
         </div>
         <div className="grid gap-3 lg:grid-cols-2">
           {CAR_VIEWS.map((view) => (
@@ -372,9 +430,20 @@ export default function CarViewAssetManager() {
                   </span>
                   <span className="font-mono text-xs text-muted-foreground">{asset.carKeys.join(', ')}</span>
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  {s.sharing.label}: {asset.sharedCars.length ? asset.sharedCars.map((car) => car.name).join(', ') : s.sharing.none}
+                </p>
                 <div className="flex flex-wrap gap-2">
                   <button type="button" className={buttonClass} onClick={() => void showPreview(asset)}>
                     {preview?.id === asset.id ? s.actions.hidePreview : s.actions.preview}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    className={buttonClass}
+                    onClick={() => setSharing(sharing?.id === asset.id ? null : { id: asset.id, ids: asset.sharedCars.map((car) => car.id), keys: asset.carKeys.join(', ') })}
+                  >
+                    {s.sharing.edit}
                   </button>
                   {ACTIONS_BY_STATUS[asset.status]
                     .filter((a) => !(a === 'activate' && asset.active))
@@ -394,11 +463,49 @@ export default function CarViewAssetManager() {
                     </button>
                   )}
                 </div>
+                {sharing?.id === asset.id && (
+                  <div className="grid gap-3 rounded-lg border border-border p-3 sm:grid-cols-2">
+                    <div>
+                      <label htmlFor={`ecv-share-${asset.id}`} className={labelClass}>
+                        {s.sharing.label}
+                      </label>
+                      <SharedCarsPicker
+                        id={`ecv-share-${asset.id}`}
+                        cars={cars}
+                        ownCarId={asset.carId}
+                        value={sharing.ids}
+                        onChange={(ids, path) => setSharing({ ...sharing, ids, keys: addCarPath(sharing.keys, path) })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label htmlFor={`ecv-share-keys-${asset.id}`} className={labelClass}>
+                        {s.carKeys}
+                      </label>
+                      <input
+                        id={`ecv-share-keys-${asset.id}`}
+                        value={sharing.keys}
+                        onChange={(e) => setSharing({ ...sharing, keys: e.target.value })}
+                        spellCheck={false}
+                        className={`${inputClass} font-mono text-xs`}
+                      />
+                      <p className="text-xs text-muted-foreground">{s.carKeysHelp}</p>
+                      <p className="text-xs text-muted-foreground">{s.sharing.replaces}</p>
+                      <div className="flex gap-2">
+                        <button type="button" disabled={busy} className={buttonClass} onClick={() => void saveSharing()}>
+                          {s.sharing.save}
+                        </button>
+                        <button type="button" disabled={busy} className={buttonClass} onClick={() => setSharing(null)}>
+                          {s.sharing.cancel}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 {asset.history.length > 0 && (
                   <p className="text-xs text-muted-foreground">
                     {s.history}:{' '}
                     {asset.history
-                      .map((h) => `${h.action === 'create' ? s.status.draft : (s.actions[h.action as AssetAction] ?? h.action)} (${new Date(h.at).toLocaleString()})`)
+                      .map((h) => `${h.action === 'create' ? s.status.draft : h.action === 'share' ? s.sharing.history : (s.actions[h.action as AssetAction] ?? h.action)} (${new Date(h.at).toLocaleString()})`)
                       .join(' · ')}
                   </p>
                 )}

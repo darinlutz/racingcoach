@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { carModelErrorResponse, carModelsAdmin, modelProblemText } from '@/lib/carModels/carModelRoutes';
-import { applyCarModelAction, deleteCarModel, readCarModel, updateCarModel } from '@/lib/carModels/carModelStore';
+import { applyCarModelAction, deleteCarModel, readCarModel, updateCarModel, updateCarModelSharing } from '@/lib/carModels/carModelStore';
 import { MODEL_ACTIONS, parseModelSettings, type ModelAction } from '@/lib/carModels/modelRules';
+import { validateSharing } from '@/lib/carViews/assetRules';
 import { readJsonLimited } from '@/lib/requestBody';
 import { idOf } from '@/lib/setupRoutes';
 
@@ -11,7 +12,8 @@ type Params = { params: Promise<{ id: string }> };
 // its status. PUT { action: submit | approve | reject | activate | deactivate } moves it on (modelRules.ts'
 // checkModelAction; activating makes it the car's only active version, which is how an older approved version is rolled
 // back to), or PUT { settings: { normalization, wheelAnchors, defaultView, carKeys, source, license, attribution, notes } }
-// changes an uploaded or rejected one. DELETE removes any version and its file (the active
+// changes an uploaded or rejected one, or PUT { sharing: { sharedCarIds, carKeys } } changes which cars use it, at any
+// status: the other Car Data cars it's shared with and the car paths drivers' pages find it by. DELETE removes any version and its file (the active
 // one too: the car then shows the generic car). Admin role only;
 // anyone else 404.
 export async function GET(_request: Request, { params }: Params) {
@@ -35,6 +37,13 @@ export async function PUT(request: Request, { params }: Params) {
   const body = await readJsonLimited(request, 32 * 1024).catch(() => null);
   if (!id || !body) return NextResponse.json({ error: t.errors.notFound }, { status: 400 });
   try {
+    if (body.sharing !== undefined) {
+      const parsed = validateSharing(body.sharing, 0);
+      if (!parsed.ok) return NextResponse.json({ error: t.errors.invalid, problems: parsed.problems.map((p) => modelProblemText(p, t)) }, { status: 400 });
+      await updateCarModelSharing(id, parsed.sharing, session.user.id);
+      console.log(`Car model ${id}: shared with ${parsed.sharing.sharedCarIds.length} other cars by user ${session.user.id}`);
+      return NextResponse.json({ ok: true });
+    }
     if (body.settings !== undefined) {
       const parsed = parseModelSettings(body.settings);
       if (!parsed.ok) return NextResponse.json({ error: t.errors.invalid, problems: parsed.problems.map((p) => modelProblemText(p, t)) }, { status: 400 });

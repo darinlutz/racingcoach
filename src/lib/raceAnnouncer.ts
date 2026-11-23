@@ -21,6 +21,7 @@ import {
 } from './coachVoice';
 import { query } from './db';
 import type { ElevenLabsRole } from './elevenLabs';
+import { loadElevenLabsVoices } from './elevenLabsVoices';
 import { languageCheck, namesIn } from './answerChecks';
 import { englishWords } from './i18n/englishWords';
 import { aiLanguageRule, type Language } from './i18n/languages';
@@ -62,6 +63,7 @@ export type RaceAnnouncerSettings = { leadVoice: CoachVoice; colorVoice: CoachVo
 // or where the member may not have it (French and Italian's are for Gold members and Admins, allowedVoice)
 export async function getRaceAnnouncerSettings(userId: number): Promise<RaceAnnouncerSettings> {
   await ensureUserSchema();
+  await loadElevenLabsVoices();
   const rows = await query<
     { announcer_lead_voice: string; announcer_color_voice: string; race_announcer_instructions: string; broadcast_settings: unknown } & VoiceMemberRow
   >(

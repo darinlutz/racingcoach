@@ -69,6 +69,7 @@ export type ModelProblem =
   | { code: 'car' }
   | { code: 'carKeys' }
   | { code: 'carKey'; key: string }
+  | { code: 'sharedCars' }
   | { code: 'tooLong'; field: 'source' | 'license' | 'attribution' | 'notes' }
   | { code: 'normalization' }
   | { code: 'wheelAnchors' }

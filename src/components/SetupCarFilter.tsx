@@ -7,7 +7,7 @@ import type { SetupSummary } from '@/lib/setupClient';
 import { setupIsForCar } from '@/lib/setupCarMatch';
 
 // The Car type and Car filter over the setup comparison's two setup pickers (SetupCompare.tsx and the engineering
-// system tabs' SetupFocusComparison.tsx): six radio buttons, Car Data's racing disciplines (Sports Car first, picked to
+// system tabs' SetupFocusComparison.tsx): seven radio buttons, Car Data's racing disciplines (Sports Car picked to
 // begin with), and a Car combobox of Car Data's cars of that type the user has setups for, each with how many
 // (setupCarMatch.ts). All cars leaves the pickers' setups as they are; a car limits both pickers to its setups only,
 // and a setup already picked that isn't that car's is cleared from its picker.

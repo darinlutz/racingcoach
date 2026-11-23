@@ -1,14 +1,17 @@
 // ElevenLabs text to speech: the RaceCoach voice (the In-Car AI Coach's ElevenLabs option and Live Racing's lap time
 // announcements, POST /api/live/lap-speech) and the Race Announcers' Lead and Color voices (POST /api/live/announcer).
 // Each is a voice set up in the ElevenLabs account (Voice Library, Voice Design or a cloned voice), one per language
-// and accent, named by its Voice ID in ELEVENLABS_<LANGUAGE>_<ROLE>_VOICE_ID, e.g.
-// ELEVENLABS_ENGLISH_RACECOACH_VOICE_ID or ELEVENLABS_ESPANA_ANNOUNCER_COLOR_VOICE_ID (ENGLISH, PORTUGUESE, GERMAN, FRENCH,
-// ITALIAN, LATINO for Latin American Spanish, ESPANA for Spain's). French and Italian's are for Gold members and Admins
-// only (GOLD_VOICE_LANGUAGES; coachVoice.ts offers and speaks them only to those). ELEVENLABS_MY_VOICE_ID is the site owner's own Driver Radio voice, the
-// same in every language (GET /api/live/radio-speech); other drivers' radio is in their RaceCoach voice. ELEVENLABS_MODEL_ID picks the model (ElevenLabs' default,
-// eleven_multilingual_v2, without it). The API key is ELEVENLABS_API_KEY, or ELEVEN_LABS_API_KEY.
+// and accent (Spanish by its accent: Latin America's or Spain's), whose Voice ID the Admin page's Eleven Labs Voice
+// Management keeps in racingcoach."ElevenLabsVoices" (src/lib/elevenLabsVoices.ts; they used to be the
+// ELEVENLABS_<LANGUAGE>_<ROLE>_VOICE_ID variables, imported once). French and Italian's are for Gold members and Admins
+// only (GOLD_VOICE_LANGUAGES; coachVoice.ts offers and speaks them only to those). The owner's Driver Radio voice (role
+// ownerRadio, formerly ELEVENLABS_MY_VOICE_ID) is the site owner's own, the same in every language
+// (GET /api/live/radio-speech); other drivers' radio is in their RaceCoach voice. ELEVENLABS_MODEL_ID picks the model
+// (ElevenLabs' default, eleven_multilingual_v2, without it). The API key is ELEVENLABS_API_KEY, or ELEVEN_LABS_API_KEY.
 
 import type { Language } from './i18n/languages';
+import { cachedVoiceId } from './elevenLabsVoices';
+import { voiceLanguageOf } from './elevenLabsVoiceRules';
 import { assertMeteredServicesOn } from './meteredServices';
 
 const API_URL = 'https://api.elevenlabs.io/v1/text-to-speech';
@@ -24,44 +27,25 @@ const cache = new Map<string, Buffer>();
 export const ELEVENLABS_ROLES = ['raceCoach', 'leadAnnouncer', 'colorAnnouncer'] as const;
 export type ElevenLabsRole = (typeof ELEVENLABS_ROLES)[number];
 
-const ROLE_NAMES: Record<ElevenLabsRole, string> = {
-  raceCoach: 'RACECOACH',
-  leadAnnouncer: 'ANNOUNCER_LEAD',
-  colorAnnouncer: 'ANNOUNCER_COLOR',
-};
-
 // The accent Spanish is spoken with (SPANISH_ACCENTS in coachVoice.ts), written out to keep this file's imports light
 type Accent = 'latinAmerica' | 'spain';
-
-const LANGUAGE_NAMES: Record<Exclude<Language, 'es'>, string> = {
-  en: 'ENGLISH',
-  pt: 'PORTUGUESE',
-  de: 'GERMAN',
-  fr: 'FRENCH',
-  it: 'ITALIAN',
-};
-
-function languageName(language: Language, spanishAccent: Accent): string {
-  if (language === 'es') return spanishAccent === 'spain' ? 'ESPANA' : 'LATINO';
-  return LANGUAGE_NAMES[language];
-}
 
 // The languages whose ElevenLabs voices are for Gold members and Admins only (canUseGoldVoices in roles.ts)
 export const GOLD_VOICE_LANGUAGES: readonly Language[] = ['fr', 'it'];
 
 const apiKey = () => process.env.ELEVENLABS_API_KEY || process.env.ELEVEN_LABS_API_KEY;
 
-// The Voice ID of the role's voice in this language and accent, or null when it isn't set up
+// The Voice ID of the role's enabled voice in this language and accent, or null when there's none (elevenLabsVoices.ts)
 export function elevenLabsVoiceId(role: ElevenLabsRole, language: Language, spanishAccent: Accent = 'latinAmerica'): string | null {
   if (!apiKey()) return null;
-  return process.env[`ELEVENLABS_${languageName(language, spanishAccent)}_${ROLE_NAMES[role]}_VOICE_ID`]?.trim() || null;
+  return cachedVoiceId(role, voiceLanguageOf(language, spanishAccent));
 }
 
 // The site owner's own Driver Radio voice (src/lib/driverRadio.ts, only for their accounts): one voice for every
-// language, ELEVENLABS_MY_VOICE_ID, or null
+// language, or null
 export function elevenLabsRadioVoiceId(): string | null {
   if (!apiKey()) return null;
-  return process.env.ELEVENLABS_MY_VOICE_ID?.trim() || null;
+  return cachedVoiceId('ownerRadio', 'all');
 }
 
 export function elevenLabsConfigured(role: ElevenLabsRole, language: Language, spanishAccent: Accent = 'latinAmerica'): boolean {

@@ -3,6 +3,8 @@ import { query, transaction } from '../db';
 import { ensureUserSchema } from '../users';
 import { carModelKey, carModelStore } from './carModelStorage.ts';
 import { liteKeysOf } from './carModelLite.ts';
+import type { Sharing } from '../carViews/assetRules.ts';
+import { activateSharedVersion, SHARED_CARS_SQL, sharedCarsExist, type SharedCar } from '../carViews/sharingDb.ts';
 import type { GlbInfo } from './glb.ts';
 import { canonicalBounds, DEFAULT_NORMALIZATION, type Bounds, type Normalization } from './matrix.ts';
 import {
@@ -32,6 +34,8 @@ export type ModelSummary = {
   version: number;
   status: ModelStatus;
   active: boolean;
+  // The other cars that use this version's model
+  sharedCars: SharedCar[];
   carKeys: string[];
   fileName: string;
   bytes: number;
@@ -59,6 +63,7 @@ type Row = {
   version: number;
   status: ModelStatus;
   active: boolean;
+  shared_car_ids: number[];
   car_keys: string[];
   storage_key: string;
   file_name: string;
@@ -87,6 +92,7 @@ export class CarModelError extends Error {
       | 'notActive'
       | 'alreadyActive'
       | 'carKeyTaken'
+      | 'unknownCar'
       | 'notEditable'
       | 'duplicate'
       | 'storageMissing',
@@ -96,7 +102,7 @@ export class CarModelError extends Error {
   }
 }
 
-const COLUMNS = `a.id, a.car_id, c.car_name, a.version, a.status, a.active, a.car_keys, a.storage_key, a.file_name, a.bytes, a.sha256,
+const COLUMNS = `a.id, a.car_id, c.car_name, a.version, a.status, a.active, a.shared_car_ids, a.car_keys, a.storage_key, a.file_name, a.bytes, a.sha256,
   a.raw_bounds, a.stats, a.warnings, a.normalization, a.wheel_anchors, a.default_view, a.source, a.license, a.attribution, a.notes, a.created_at`;
 
 // A stored row read back defensively: settings changed by hand that no longer parse fall back to the defaults
@@ -168,8 +174,8 @@ export async function listModelCars(): Promise<ModelCar[]> {
 
 export async function listCarModels(): Promise<ModelSummary[]> {
   await ensureUserSchema();
-  const rows = await query<Row & { history: ModelSummary['history'] | null }>(
-    `SELECT ${COLUMNS},
+  const rows = await query<Row & { history: ModelSummary['history'] | null; shared_cars: SharedCar[] }>(
+    `SELECT ${COLUMNS}, ${SHARED_CARS_SQL},
        (SELECT json_agg(json_build_object('action', e.action, 'from', e.from_status, 'to', e.to_status, 'at', e.created_at) ORDER BY e.created_at)
           FROM racingcoach."CarModelAssetEvents" e WHERE e.asset_id = a.id) AS history
      FROM racingcoach."CarModelAssets" a JOIN racingcoach."Cars" c ON c.id = a.car_id
@@ -182,6 +188,7 @@ export async function listCarModels(): Promise<ModelSummary[]> {
     version: row.version,
     status: row.status,
     active: row.active,
+    sharedCars: row.shared_cars ?? [],
     carKeys: row.car_keys,
     fileName: row.file_name,
     bytes: row.bytes,
@@ -201,6 +208,7 @@ export async function listCarModels(): Promise<ModelSummary[]> {
 
 export type NewCarModel = {
   carId: number;
+  sharedCarIds: number[];
   carKeys: string[];
   fileName: string;
   bytes: Buffer;
@@ -232,15 +240,17 @@ export async function createCarModel(input: NewCarModel, userId: number): Promis
     const created = await transaction(async (client) => {
       const locked = await client.query('SELECT id FROM racingcoach."Cars" WHERE id = $1 FOR UPDATE', [input.carId]);
       if (!locked.rowCount) throw new CarModelError('notFound');
+      if (!(await sharedCarsExist(client, input.sharedCarIds ?? []))) throw new CarModelError('unknownCar');
       const { rows } = await client.query<{ id: number; version: number }>(
         `INSERT INTO racingcoach."CarModelAssets"
-           (car_id, version, car_keys, storage_key, file_name, bytes, sha256, raw_bounds, stats, warnings, normalization, wheel_anchors,
+           (car_id, version, shared_car_ids, car_keys, storage_key, file_name, bytes, sha256, raw_bounds, stats, warnings, normalization, wheel_anchors,
             source, license, attribution, notes, created_by)
          VALUES ($1, (SELECT COALESCE(max(version), 0) + 1 FROM racingcoach."CarModelAssets" WHERE car_id = $1), $2, $3, $4, $5, $6, $7, $8, $9, $10, $11,
-            $12, $13, $14, $15, $16)
+            $12, $13, $14, $15, $16, $17)
          RETURNING id, version`,
         [
           input.carId,
+          input.sharedCarIds ?? [],
           input.carKeys,
           key,
           input.fileName,
@@ -303,8 +313,17 @@ export async function updateCarModel(id: number, settings: ModelSettings, userId
 export async function applyCarModelAction(id: number, action: ModelAction, userId: number): Promise<void> {
   await ensureUserSchema();
   await transaction(async (client) => {
-    const { rows } = await client.query<{ car_id: number; status: ModelStatus; active: boolean; source: string; license: string; attribution: string; car_keys: string[] }>(
-      'SELECT car_id, status, active, source, license, attribution, car_keys FROM racingcoach."CarModelAssets" WHERE id = $1 FOR UPDATE',
+    const { rows } = await client.query<{
+      car_id: number;
+      status: ModelStatus;
+      active: boolean;
+      source: string;
+      license: string;
+      attribution: string;
+      car_keys: string[];
+      shared_car_ids: number[];
+    }>(
+      'SELECT car_id, status, active, source, license, attribution, car_keys, shared_car_ids FROM racingcoach."CarModelAssets" WHERE id = $1 FOR UPDATE',
       [id]
     );
     const version = rows[0];
@@ -312,15 +331,15 @@ export async function applyCarModelAction(id: number, action: ModelAction, userI
     const check = checkModelAction(version, action);
     if (!check.ok) throw new CarModelError(check.code);
     if (action === 'activate') {
-      // A car path is one car's: another car's active model mustn't already claim it
-      const taken = await client.query<{ car_name: string }>(
-        `SELECT c.car_name FROM racingcoach."CarModelAssets" a JOIN racingcoach."Cars" c ON c.id = a.car_id
-         WHERE a.active AND a.car_id <> $1 AND a.car_keys && $2::text[] LIMIT 1`,
-        [version.car_id, version.car_keys]
+      // Replaces the active models of its car and of the cars it's shared with; refused while one of its car paths is
+      // another car's active model's (carViews/sharingDb.ts)
+      const taken = await activateSharedVersion(
+        client,
+        'CarModelAssets',
+        { id, carId: version.car_id, sharedCarIds: version.shared_car_ids ?? [], carKeys: version.car_keys },
+        userId
       );
-      if (taken.rowCount) throw new CarModelError('carKeyTaken', taken.rows[0].car_name);
-      await client.query('UPDATE racingcoach."CarModelAssets" SET active = false WHERE car_id = $1 AND active', [version.car_id]);
-      await client.query('UPDATE racingcoach."CarModelAssets" SET active = true, activated_at = now(), activated_by = $2 WHERE id = $1', [id, userId]);
+      if (taken) throw new CarModelError('carKeyTaken', taken);
     } else if (action === 'deactivate') {
       await client.query('UPDATE racingcoach."CarModelAssets" SET active = false WHERE id = $1', [id]);
     } else {
@@ -334,6 +353,34 @@ export async function applyCarModelAction(id: number, action: ModelAction, userI
       action,
       version.status,
       check.status,
+      userId,
+    ]);
+  });
+  resolved.clear();
+}
+
+// Which cars use a version: the other cars it's shared with and its car paths, at any status, as that doesn't change
+// the model that was reviewed. An active version's change replaces the active model of a car it's now shared with, and
+// is refused while one of its car paths is another car's active model's
+export async function updateCarModelSharing(id: number, sharing: Sharing, userId: number): Promise<void> {
+  await ensureUserSchema();
+  await transaction(async (client) => {
+    const { rows } = await client.query<{ car_id: number; status: ModelStatus; active: boolean }>(
+      'SELECT car_id, status, active FROM racingcoach."CarModelAssets" WHERE id = $1 FOR UPDATE',
+      [id]
+    );
+    const version = rows[0];
+    if (!version) throw new CarModelError('notFound');
+    const sharedCarIds = sharing.sharedCarIds.filter((c) => c !== version.car_id);
+    if (!(await sharedCarsExist(client, sharedCarIds))) throw new CarModelError('unknownCar');
+    await client.query('UPDATE racingcoach."CarModelAssets" SET shared_car_ids = $2, car_keys = $3, updated_at = now() WHERE id = $1', [id, sharedCarIds, sharing.carKeys]);
+    if (version.active) {
+      const taken = await activateSharedVersion(client, 'CarModelAssets', { id, carId: version.car_id, sharedCarIds, carKeys: sharing.carKeys }, userId, true);
+      if (taken) throw new CarModelError('carKeyTaken', taken);
+    }
+    await client.query(`INSERT INTO racingcoach."CarModelAssetEvents" (asset_id, action, from_status, to_status, user_id) VALUES ($1, 'share', $2, $2, $3)`, [
+      id,
+      version.status,
       userId,
     ]);
   });

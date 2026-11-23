@@ -2286,6 +2286,9 @@ export const de: Dictionary = {
       deleted: '„{name}“ gelöscht.',
       voices: 'Stimmen',
       none: 'Noch keine ElevenLabs-Stimmen. Jede Rolle spricht mit einer Google-Chirp-Stimme.',
+      // The list's language radio buttons (the owner's Driver Radio voice, in every language, stays at the top)
+      showLanguage: 'Stimmen anzeigen für',
+      noneForLanguage: 'Noch keine Stimmen für {language}. Ihre Rollen sprechen mit einer Google-Chirp-Stimme.',
       loading: 'Wird geladen…',
       errors: {
         failed: 'Bei den ElevenLabs-Stimmen ist etwas schiefgelaufen. Bitte versuche es erneut.',

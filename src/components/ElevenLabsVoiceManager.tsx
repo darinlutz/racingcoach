@@ -20,6 +20,17 @@ import type { ElevenLabsVoice } from '@/lib/elevenLabsVoices';
 type Form = { id: number | null; name: string; voiceId: string; role: ElevenLabsVoiceRole; language: ElevenLabsVoiceLanguage; enabled: boolean; notes: string };
 const EMPTY: Form = { id: null, name: '', voiceId: '', role: 'raceCoach', language: 'en', enabled: true, notes: '' };
 
+// The list's language radio buttons: every language but the owner's Driver Radio voice's 'all', which is listed first
+// whichever is picked
+const LIST_LANGUAGES = ELEVENLABS_VOICE_LANGUAGES.filter((l) => l !== 'all');
+type ListLanguage = (typeof LIST_LANGUAGES)[number];
+
+// The owner's Driver Radio voice first, then the roles in their order, then by name
+function listOrder(a: ElevenLabsVoice, b: ElevenLabsVoice): number {
+  const rank = (v: ElevenLabsVoice) => (v.role === 'ownerRadio' ? -1 : ELEVENLABS_VOICE_ROLES.indexOf(v.role));
+  return rank(a) - rank(b) || a.name.localeCompare(b.name);
+}
+
 const inputClass =
   'w-full px-3 py-2 bg-card border border-border rounded-lg text-foreground text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors';
 const labelClass = 'block text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1';
@@ -37,6 +48,14 @@ export default function ElevenLabsVoiceManager() {
   const [problems, setProblems] = useState<string[]>([]);
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
+  const [listLanguage, setListLanguage] = useState<ListLanguage>('en');
+  const shown = (voices ?? []).filter((v) => v.role === 'ownerRadio' || v.language === listLanguage).sort(listOrder);
+  // A new voice starts in the language being looked at
+  const blank = (): Form => ({ ...EMPTY, language: listLanguage });
+  const pickLanguage = (language: ListLanguage) => {
+    setListLanguage(language);
+    if (!form.id && form.role !== 'ownerRadio') setForm({ ...form, language });
+  };
 
   const load = useCallback(async () => {
     try {
@@ -76,7 +95,7 @@ export default function ElevenLabsVoiceManager() {
         setProblems(Array.isArray(data.problems) ? data.problems : []);
         return;
       }
-      setForm(EMPTY);
+      setForm(blank());
       await load();
       setMessage(s.saved);
     } catch {
@@ -95,7 +114,7 @@ export default function ElevenLabsVoiceManager() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) setError(data.error || s.errors.failed);
       else setMessage(fmt(s.deleted, { name: voice.name }));
-      if (form.id === voice.id) setForm(EMPTY);
+      if (form.id === voice.id) setForm(blank());
       await load();
     } catch {
       setError(s.errors.failed);
@@ -221,7 +240,7 @@ export default function ElevenLabsVoiceManager() {
             {busy ? s.saving : form.id ? s.save : s.add}
           </button>
           {form.id && (
-            <button type="button" disabled={busy} onClick={() => setForm(EMPTY)} className={buttonClass}>
+            <button type="button" disabled={busy} onClick={() => setForm(blank())} className={buttonClass}>
               {s.cancel}
             </button>
           )}
@@ -230,11 +249,25 @@ export default function ElevenLabsVoiceManager() {
 
       <section className="space-y-2">
         <h3 className="font-semibold text-foreground">{s.voices}</h3>
+        <fieldset className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <legend className={`${labelClass} mb-2`}>{s.showLanguage}</legend>
+          {LIST_LANGUAGES.map((l) => (
+            <label key={l} className="inline-flex cursor-pointer items-center gap-1.5 text-sm text-foreground">
+              <input type="radio" name="elv-list-language" value={l} checked={listLanguage === l} onChange={() => pickLanguage(l)} className="accent-primary" />
+              {s.languages[l]}
+            </label>
+          ))}
+        </fieldset>
         {!voices ? (
           <p className="text-sm text-muted-foreground">{s.loading}</p>
         ) : voices.length === 0 ? (
           <p className="text-sm text-muted-foreground">{s.none}</p>
         ) : (
+          <>
+            {!shown.some((v) => v.language === listLanguage) && (
+              <p className="text-sm text-muted-foreground">{fmt(s.noneForLanguage, { language: s.languages[listLanguage] })}</p>
+            )}
+            {shown.length > 0 && (
           <div className="overflow-x-auto rounded-lg border border-border bg-card">
             <table className="w-full text-sm text-foreground">
               <thead>
@@ -249,7 +282,7 @@ export default function ElevenLabsVoiceManager() {
                 </tr>
               </thead>
               <tbody>
-                {voices.map((voice) => (
+                {shown.map((voice) => (
                   <tr key={voice.id} className="border-b border-border last:border-0 align-top">
                     <td className="px-3 py-2">
                       <div className="font-semibold">{voice.name}</div>
@@ -276,6 +309,8 @@ export default function ElevenLabsVoiceManager() {
               </tbody>
             </table>
           </div>
+            )}
+          </>
         )}
       </section>
     </div>

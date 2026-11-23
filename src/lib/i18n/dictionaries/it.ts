@@ -2230,6 +2230,9 @@ export const it: Dictionary = {
       deleted: '«{name}» eliminata.',
       voices: 'Voci',
       none: 'Ancora nessuna voce ElevenLabs. Ogni ruolo parla con una voce Google Chirp.',
+      // The list's language radio buttons (the owner's Driver Radio voice, in every language, stays at the top)
+      showLanguage: 'Mostra le voci per',
+      noneForLanguage: 'Ancora nessuna voce per {language}. I suoi ruoli parlano con una voce Google Chirp.',
       loading: 'Caricamento…',
       errors: {
         failed: 'Qualcosa è andato storto con le voci ElevenLabs. Riprova.',

@@ -107,6 +107,25 @@ export function createLab(config: LabConfig, production: { active: () => number;
 
   const models = (value: unknown) => ((value as { models?: Json[] })?.models ?? []);
 
+  // Ollama's /api/tags leaves the family and size empty for some models (MLX safetensors ones, like qwen3.8:27b),
+  // which /api/show has. Asked once per model version (digest), kept while the gateway runs.
+  const showDetails = new Map<string, { family: string | null; parameterSize: string | null }>();
+  async function fillDetails(m: Json, details: Json) {
+    const text = (v: unknown) => (typeof v === 'string' && v ? v : null);
+    const family = text(details.family);
+    const parameterSize = text(details.parameter_size);
+    if (family && parameterSize) return { family, parameterSize };
+    const key = `${m.model ?? m.name}@${m.digest ?? ''}`;
+    if (!showDetails.has(key)) {
+      const shown = await ollama('/api/show', { body: { model: m.model ?? m.name }, timeoutMs: 5_000 }).catch(() => null);
+      if (!shown?.ok) return { family, parameterSize };
+      const d = (shown.body.details ?? {}) as Json;
+      showDetails.set(key, { family: text(d.family), parameterSize: text(d.parameter_size) });
+    }
+    const known = showDetails.get(key)!;
+    return { family: family ?? known.family, parameterSize: parameterSize ?? known.parameterSize };
+  }
+
   async function status() {
     const [version, tags, ps] = await Promise.all([
       ollama('/api/version').catch((e) => ({ ok: false, status: 0, body: { error: errorText(e) } as Json })),
@@ -142,20 +161,21 @@ export function createLab(config: LabConfig, production: { active: () => number;
         version: (version.body as Json)?.version ?? null,
         error: version.ok && tags.ok ? null : String((version.body as Json)?.error ?? (tags.body as Json)?.error ?? `HTTP ${tags.status}`),
       },
-      models: models(tags.body).map((m) => {
+      models: await Promise.all(models(tags.body).map(async (m) => {
         const details = (m.details ?? {}) as Json;
+        const { family, parameterSize } = await fillDetails(m, details);
         return {
           name: m.model ?? m.name,
-          family: details.family ?? null,
+          family,
           families: details.families ?? null,
-          parameterSize: details.parameter_size ?? null,
+          parameterSize,
           quantization: details.quantization_level ?? null,
           format: details.format ?? null,
           sizeBytes: typeof m.size === 'number' ? m.size : null,
           modifiedAt: m.modified_at ?? null,
           digest: typeof m.digest === 'string' ? m.digest.slice(0, 12) : null,
         };
-      }),
+      })),
       loaded: models(ps.body).map((m) => ({
         name: m.model ?? m.name,
         sizeBytes: typeof m.size === 'number' ? m.size : null,
@@ -183,9 +203,9 @@ export function createLab(config: LabConfig, production: { active: () => number;
       ok: true,
       body: {
         name,
-        family: details.family ?? null,
-        parameterSize: details.parameter_size ?? null,
-        quantization: details.quantization_level ?? null,
+        family: details.family || null,
+        parameterSize: details.parameter_size || null,
+        quantization: details.quantization_level || null,
         architecture: info['general.architecture'] ?? null,
         parameterCount: typeof info['general.parameter_count'] === 'number' ? info['general.parameter_count'] : null,
         contextLength: contextKey ? info[contextKey] : null,

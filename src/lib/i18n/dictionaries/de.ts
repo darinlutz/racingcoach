@@ -145,7 +145,7 @@ export const de: Dictionary = {
     installing: 'Installation',
     admin: 'Admin',
     coach: 'Coach',
-    modelLearning: 'Modell-Lernen',
+    modelLearning: 'KI-Labor',
     driver: 'Fahrer:',
     logout: 'Abmelden',
     logIn: 'Anmelden',
@@ -4415,7 +4415,7 @@ export const de: Dictionary = {
     rotationCopy: 'Die Kalibrierung hat die natürliche Rotation des Autos gemessen. In T 7 liegt die Gierrate 11 % unter dem Sollwert — geh mit mehr Trail-Braking tiefer rein, damit die Nase besser einlenkt.',
   },
   modelLearning: {
-    title: 'Modell-Lernen',
+    title: 'KI-Labor',
     intro: 'Starte die Tensor-Lektion von Tag 1 (learning/day1_tensors.py) und sieh dir an, was sie ausgibt.',
     runModel: 'Modell ausführen',
     running: 'Läuft...',

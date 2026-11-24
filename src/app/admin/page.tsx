@@ -5,9 +5,6 @@ import AdminSection, { AdminSectionsProvider, type AdminSectionKey } from '@/com
 import AdminTimeZone from '@/components/AdminTimeZone';
 import AiModelCostTable from '@/components/AiModelCostTable';
 import AiModelManager from '@/components/AiModelManager';
-import AiInferenceMonitoring from '@/components/AiInferenceMonitoring';
-import LocalAiServerMode from '@/components/LocalAiServerMode';
-import LocalAiTestConsole from '@/components/LocalAiTestConsole';
 import BroadcastDirectorManager from '@/components/BroadcastDirectorManager';
 import BroadcastVideoLibrary from '@/components/BroadcastVideoLibrary';
 import LiveVideoControl from '@/components/LiveVideoControl';
@@ -51,8 +48,8 @@ import { meteredServicesOn } from '@/lib/meteredServices';
 import { readRequestCounts } from '@/lib/privacyRequests';
 
 // The site owner's Admin page: a link to Subscribers (src/app/admin/subscribers/), Site Settings (src/components/SiteSettingsManager.tsx), AI Model Control
-// (src/components/AiModelManager.tsx), Local AI Server Mode, AI Inference Monitoring and the Local AI Test Console
-// (src/components/LocalAiServerMode.tsx, AiInferenceMonitoring.tsx, LocalAiTestConsole.tsx; docs/local-ai.md), AI Model Costs (src/components/AiModelCostTable.tsx), Rate Limiting (src/components/RateLimitManager.tsx), the Broadcast Video Library, Engine Sounds and Broadcast Director (src/components/BroadcastVideoLibrary.tsx, EngineAudioLibrary.tsx, BroadcastDirectorManager.tsx), User Roles (src/components/UserRoleManager.tsx), Collector Logs
+// (src/components/AiModelManager.tsx; Local AI Server Mode, AI Inference Monitoring and the Local AI Test Console are on
+// the AI Lab page, src/app/model-learning/), AI Model Costs (src/components/AiModelCostTable.tsx), Rate Limiting (src/components/RateLimitManager.tsx), the Broadcast Video Library, Engine Sounds and Broadcast Director (src/components/BroadcastVideoLibrary.tsx, EngineAudioLibrary.tsx, BroadcastDirectorManager.tsx), User Roles (src/components/UserRoleManager.tsx), Collector Logs
 // (src/components/CollectorLogsViewer.tsx), then racingcoach."ActivityLog",
 // every page view and click, filtered through the URL (so a filtered view can be bookmarked), with totals,
 // the top pages and controls, and a CSV export.
@@ -62,7 +59,7 @@ import { readRequestCounts } from '@/lib/privacyRequests';
 
 // The page's sections, in order (AdminNav's links and AdminSection's keys): each closed until opened
 const ADMIN_SECTIONS: AdminSectionKey[] = [
-  'subscribers', 'privacy', 'siteSettings', 'monitoring', 'aiModels', 'localAiMode', 'aiInference', 'localAiTest',
+  'subscribers', 'privacy', 'siteSettings', 'monitoring', 'aiModels',
   'aiCosts', 'rateLimits', 'videoLibrary', 'engineSounds', 'elevenLabsVoices', 'broadcastDirector', 'liveVideo', 'userRoles',
   'lapRetention', 'telemetryStorage', 'engineeringKnowledge', 'carDrawings', 'carModels', 'collectorLogs', 'activity',
 ];
@@ -166,19 +163,6 @@ export default async function AdminPage({
 
         <AdminSection section="aiModels">
           <AiModelManager models={aiModels} />
-        </AdminSection>
-
-        {/* Local AI (docs/local-ai.md): the mode and servers, every model call counted, and the test console */}
-        <AdminSection section="localAiMode">
-          <LocalAiServerMode />
-        </AdminSection>
-
-        <AdminSection section="aiInference">
-          <AiInferenceMonitoring timeZone={filters.timeZone} />
-        </AdminSection>
-
-        <AdminSection section="localAiTest">
-          <LocalAiTestConsole />
         </AdminSection>
 
         <AdminSection section="aiCosts">

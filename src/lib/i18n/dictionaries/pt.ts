@@ -145,7 +145,7 @@ export const pt: Dictionary = {
     installing: 'Instalar',
     admin: 'Admin',
     coach: 'Treinador',
-    modelLearning: 'Aprendizado de Modelos',
+    modelLearning: 'Laboratório de IA',
     driver: 'Piloto:',
     logout: 'Sair',
     logIn: 'Entrar',
@@ -4363,7 +4363,7 @@ export const pt: Dictionary = {
     rotationCopy: 'A calibração mediu a rotação natural do carro. Na C 7 a taxa de guinada está 11% abaixo do alvo — use mais trail braking para ajudar a frente a entrar.',
   },
   modelLearning: {
-    title: 'Aprendizado de Modelos',
+    title: 'Laboratório de IA',
     intro: 'Execute a lição de tensores do dia 1 (learning/day1_tensors.py) e veja o que ela imprime.',
     runModel: 'Executar Modelo',
     running: 'Executando...',

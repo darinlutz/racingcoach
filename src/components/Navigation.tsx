@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useState, type MouseEvent } from 'react';
 import {
-  ArrowRight, BookOpen, BrainCircuit, Car, ChartLine, ClipboardList, Download, Flag, GraduationCap, LayoutDashboard, LifeBuoy, LogIn,
+  ArrowRight, BookOpen, Car, ChartLine, ClipboardList, Download, Flag, FlaskConical, GraduationCap, LayoutDashboard, LifeBuoy, LogIn,
   LogOut, Menu, Radio, Settings, ShieldCheck, Tag, Timer, TrendingUp, UserPlus, Wrench, X, type LucideIcon,
 } from 'lucide-react';
 import Brand from '@/components/Brand';
@@ -16,7 +16,7 @@ import LoginRequiredDialog from '@/components/LoginRequiredDialog';
 type NavigationProps = {
   // isAdmin shows the Admin and My Race Trends links; canUpgrade is false for Gold subscribers.
   // canCoach (Coaches and Admins) shows the Coach link; canModelLearning (canUseModelLearning in modelLearning.ts)
-  // shows the Model Learning link; pictureVersion is null for the red helmet
+  // shows the AI Lab link; pictureVersion is null for the red helmet
   user: { userName: string; canUpgrade: boolean; isAdmin: boolean; canCoach: boolean; canModelLearning: boolean; pictureVersion: string | null } | null;
   // The Admin page's Show Pricing setting (src/lib/siteSettings.ts)
   showPricing: boolean;
@@ -152,7 +152,7 @@ export default function Navigation({ user, showPricing, showProDriverLesson, ena
             <>
               {user.canCoach && sideLink('coach', '/coach', ClipboardList, t.nav.coach)}
               {user.isAdmin && sideLink('admin', '/admin', ShieldCheck, t.nav.admin)}
-              {user.canModelLearning && sideLink('modelLearning', '/model-learning', BrainCircuit, t.nav.modelLearning)}
+              {user.canModelLearning && sideLink('modelLearning', '/model-learning', FlaskConical, t.nav.modelLearning)}
               {visibleBottomLinks.map((link) => sideLink(link.key, link.href, link.icon, t.nav[link.key]))}
               {sideLink('myAccount', '/account', Settings, t.nav.myAccount)}
               {/* The driver's picture in place of their name. Only hidden while open, as the picture isn't cached
@@ -236,7 +236,7 @@ export default function Navigation({ user, showPricing, showProDriverLesson, ena
                     <Link href="/admin" className={mobileLink('/admin')} onClick={closeMenu}><ShieldCheck className="size-5" />{t.nav.admin}</Link>
                   )}
                   {user.canModelLearning && (
-                    <Link href="/model-learning" className={mobileLink('/model-learning')} onClick={closeMenu}><BrainCircuit className="size-5" />{t.nav.modelLearning}</Link>
+                    <Link href="/model-learning" className={mobileLink('/model-learning')} onClick={closeMenu}><FlaskConical className="size-5" />{t.nav.modelLearning}</Link>
                   )}
                   {visibleBottomLinks.map((link) => (
                     <Link key={link.key} href={link.href} className={mobileLink(link.href)} onClick={closeMenu}><link.icon className="size-5" />{t.nav[link.key]}</Link>

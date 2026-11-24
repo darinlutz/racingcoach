@@ -145,7 +145,7 @@ export const it: Dictionary = {
     installing: 'Installazione',
     admin: 'Admin',
     coach: 'Coach',
-    modelLearning: 'Apprendimento del modello',
+    modelLearning: 'Laboratorio IA',
     driver: 'Pilota:',
     logout: 'Esci',
     logIn: 'Accedi',
@@ -4325,7 +4325,7 @@ export const it: Dictionary = {
     rotationCopy: 'La calibrazione ha misurato la rotazione naturale dell’auto. Nella C 7 la velocità d’imbardata è l’11% sotto l’obiettivo — prolunga la frenata in inserimento per aiutare il muso a entrare in curva.',
   },
   modelLearning: {
-    title: 'Apprendimento del modello',
+    title: 'Laboratorio IA',
     intro: 'Avvia la lezione del giorno 1 sui tensori (learning/day1_tensors.py) e guarda cosa stampa.',
     runModel: 'Avvia modello',
     running: 'In esecuzione...',

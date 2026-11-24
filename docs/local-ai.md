@@ -24,7 +24,7 @@ Mac ── POST https://racingcoach.app/api/local-ai/heartbeat every 10 s (HMAC-
 - **Per model call.** The router decides each model call on its own (an agent's tool loop makes several), from the registered servers, their last heartbeat (judged by Render's clock), free slots and circuit breaker (`src/lib/localAi/routing.ts`).
 - **Fallback before output.** A local attempt must finish, and its answer must be usable (tool calls name bound tools, JSON when a response format was asked for, a required tool call made, not empty). Otherwise the same messages go to the cloud model, and only that answer is returned. Nothing streams, so answers are never spliced. Tools run only after the model call returns its one answer, so a fallback never repeats a tool (tested with a real `createAgent`). When the caller's own time limit aborts, nothing falls back.
 - **Limits unchanged.** `aiRateLimit` counts the route's call once, before any model call, whether it ends up local, cloud or both. The emergency stop (`meteredServices`) stops local calls too. Cloud fallback tokens go to `AiUsage` and the spend monitor as before. Local tokens aren't added to `AiUsage`, so cost reports and the spend ceiling stay cloud-only; they're in `AiInferenceEvents`.
-- **Concurrency.** At most `min(server slots on the Admin page, LOCAL_AI_MAX_CONCURRENCY on the Mac)` generations at once (default 2). Render takes a slot synchronously before calling. A call that finds none goes straight to the cloud (`localBusy`), and the gateway refuses a third with 503 `local_busy` too. There's no queue: 10 simultaneous requests are 2 local + 8 cloud.
+- **Concurrency.** At most `min(server slots on the AI Lab page, LOCAL_AI_MAX_CONCURRENCY on the Mac)` generations at once (default 2). Render takes a slot synchronously before calling. A call that finds none goes straight to the cloud (`localBusy`), and the gateway refuses a third with 503 `local_busy` too. There's no queue: 10 simultaneous requests are 2 local + 8 cloud.
 - **Circuit breaker.** 3 consecutive local failures (timeouts, errors, unusable answers; not busy or canceled) open a server's circuit for 60 s. After that one trial request goes through, and success closes it.
 - **Heartbeat in memory.** Heartbeats are kept in the web server's memory (like Live Racing). They're written to Postgres at most once a minute per server, only for "last seen" after a restart. After a deploy a server counts as offline until its next heartbeat (≤ 10 s). With several Render instances, each would need its own heartbeats (see Limitations).
 
@@ -38,7 +38,7 @@ Mac ── POST https://racingcoach.app/api/local-ai/heartbeat every 10 s (HMAC-
 
 ### Feature mapping defaults (`DEFAULT_FEATURE_MODELS`, `src/lib/localAi/config.ts`)
 
-GPT-OSS 20B: Lap Summary, Multi-Lap Summary, Stint Summary, Racecar Analysis. Cloud only: Debrief Coach, Race Trends and Race Coaching (many tool calls over big contexts), plus the live features (In-Car AI Coach, Race Announcers, Race Engineer, Setup Engineer), whose moment passes in seconds. Change any of these on the Admin page once you've benchmarked.
+GPT-OSS 20B: Lap Summary, Multi-Lap Summary, Stint Summary, Racecar Analysis. Cloud only: Debrief Coach, Race Trends and Race Coaching (many tool calls over big contexts), plus the live features (In-Car AI Coach, Race Announcers, Race Engineer, Setup Engineer), whose moment passes in seconds. Change any of these on the AI Lab page once you've benchmarked.
 
 ### Models
 
@@ -60,7 +60,7 @@ Both support tool calling in Ollama's OpenAI-compatible API. Requests whose esti
 - Ollama listens on 127.0.0.1 only. The gateway also binds 127.0.0.1 and exposes exactly `GET /health` and `POST /v1/chat/completions` (allowed models only, no streaming, 4 MB bodies). Model management (`/api/pull`, `/api/delete`, ...) is unreachable from outside (tested).
 - Two independent locks on the tunnel: **Cloudflare Access** (only the Render service token gets past Cloudflare's edge) and an **HMAC-SHA256 signature** with `LOCAL_AI_SHARED_SECRET` over purpose, method, path, timestamp, nonce and body hash. The gateway checks it, refusing timestamps more than 60 s off and nonces already seen (no replays). A heartbeat signature can't be used as an inference one.
 - Heartbeats are signed the same way and must name a server an Admin registered and enabled, so nobody can register a server or speak for one. Availability uses Render's receive time, never the Mac's clock.
-- No secret reaches a browser; the Admin page shows only whether they're set. Admin routes answer 404 to anyone without the Admin role. Gateway URLs must be `https://` with no path in production.
+- No secret reaches a browser; the AI Lab page shows only whether they're set. Admin routes answer 404 to anyone without the Admin role. Gateway URLs must be `https://` with no path in production.
 
 ## Setup
 
@@ -152,7 +152,7 @@ Render → the `racingcoach` web service → **Environment** → add (as secrets
 | `LOCAL_AI_CF_ACCESS_CLIENT_ID` | the service token's Client ID |
 | `LOCAL_AI_CF_ACCESS_CLIENT_SECRET` | the service token's Client Secret |
 
-Save and let it redeploy (or deploy this branch). On the live Admin page, add the server: ID `macbook-pro`, Gateway URL `https://ai.racingcoach.app`, slots `2`. Leave the mode on **Cloud Only**.
+Save and let it redeploy (or deploy this branch). On the live AI Lab page, add the server: ID `macbook-pro`, Gateway URL `https://ai.racingcoach.app`, slots `2`. Leave the mode on **Cloud Only**.
 
 If racingcoach.app is proxied through Cloudflare with Bot Fight Mode or a WAF challenge, add a rule that skips them for `/api/local-ai/heartbeat`, or the Mac's heartbeats may be challenged. The heartbeat's own signature protects the route.
 
@@ -171,7 +171,7 @@ If racingcoach.app is proxied through Cloudflare with Bot Fight Mode or a WAF ch
    Stop it: `launchctl bootout gui/$(id -u)/app.racingcoach.local-ai`.
 5. **During development** use one of these:
    - `node local-ai/gateway.ts dev on`: the gateway refuses new requests and the heartbeat says so. Render routes to the cloud within 10 s. Undo with `dev off`.
-   - The Admin page's **Development** mode: for everyone, from anywhere.
+   - The AI Lab page's **Development** mode: for everyone, from anywhere.
    - Stop the agent entirely (Ctrl+C or `launchctl bootout`).
 6. Verify offline and recovery: stop the agent. AI Inference Monitoring shows the server **Offline** within 30 s (immediately on Ctrl+C). Start it again, and it's **Online** within 10 s. In Automatic mode, the next mapped call goes local.
 

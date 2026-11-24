@@ -12,6 +12,7 @@ export const aiLabEn = {
     configs: 'Model Configurations',
     fineTuning: 'Fine-Tuning Lab',
     production: 'Production Routing',
+    runPython: 'Run Python',
   },
   common: {
     refresh: 'Refresh',

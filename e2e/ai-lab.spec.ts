@@ -36,6 +36,8 @@ async function signUp(browser: Browser, role: 'User' | 'Admin') {
 
 test('a User gets a 404 for the AI Lab and every one of its routes', async ({ browser }) => {
   const { context, page } = await signUp(browser, 'User');
+  await page.goto('/');
+  await expect(page.getByRole('link', { name: 'AI Lab' })).toHaveCount(0);
   expect((await page.goto('/model-learning'))?.status()).toBe(404);
   for (const path of ['status', 'models', 'saved']) {
     expect((await page.request.get(`/api/admin/ai-lab/${path}`)).status(), path).toBe(404);
@@ -50,6 +52,7 @@ test('a User gets a 404 for the AI Lab and every one of its routes', async ({ br
 test('an Admin sees every tab, told plainly that no Mac is set up', async ({ browser }) => {
   const { context, page } = await signUp(browser, 'Admin');
   await page.goto('/model-learning');
+  await expect(page.getByRole('link', { name: 'AI Lab' }).first()).toBeAttached();
   const tabs = page.getByRole('tablist');
   await expect(tabs).toBeVisible();
 
@@ -89,9 +92,10 @@ test('an Admin sees every tab, told plainly that no Mac is set up', async ({ bro
   await page.screenshot({ path: 'test-results/ai-lab-playground.png', fullPage: true });
 
   // A saved prompt comes back
-  page.once('dialog', (dialog) => dialog.accept('Turn 1 braking'));
+  const promptName = `Turn 1 braking ${randomUUID().slice(0, 8)}`;
+  page.once('dialog', (dialog) => dialog.accept(promptName));
   await page.getByRole('button', { name: 'Save prompt' }).click();
-  await expect(page.getByText('Turn 1 braking')).toBeVisible();
+  await expect(page.getByText(promptName)).toBeVisible();
 
   await tabs.getByRole('tab', { name: 'Memory' }).click();
   await expect(page.getByText('Memory is not training', { exact: false })).toBeVisible();
@@ -107,5 +111,13 @@ test('an Admin sees every tab, told plainly that no Mac is set up', async ({ bro
   await expect(page.getByText('Local AI Server Mode').first()).toBeVisible();
   await page.reload();
   await expect(page.getByRole('tab', { name: 'Production Routing' })).toHaveAttribute('aria-selected', 'true');
+
+  // Run Python, right of Production Routing, holds the Model Learning runner, which is no longer under the tabs
+  const runModel = page.getByRole('button', { name: 'Run Model' });
+  await expect(runModel).toBeHidden();
+  await tabs.getByRole('tab', { name: 'Run Python' }).click();
+  await expect(runModel).toBeVisible();
+  await expect(page.getByPlaceholder('Press Run Model to see the results here.')).toBeVisible();
+  await expect(page.getByRole('tab').last()).toHaveText('Run Python');
   await context.close();
 });

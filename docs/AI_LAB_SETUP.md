@@ -65,6 +65,7 @@ Open WebUI sends `X-Frame-Options: DENY` by default, and Cloudflare Access's sig
 | Model Configurations | Open WebUI workspace models, labelled "configuration (base weights unchanged)"; six starting points (Race Engineer, Driving Coach, Software Architect, Python Developer, AI Research Assistant, General Personal Assistant) created on a chosen base model | gateway `/lab/webui/models` |
 | Fine-Tuning Lab | The plan, clearly marked not built | — |
 | Production Routing | Local AI Server Mode, AI Inference Monitoring, Local AI Test Console (unchanged) | docs/local-ai.md |
+| Run Python | The Model Learning runner: Run Model and what `learning/day1_tensors.py` printed (moved from under the tabs; the Model Learning accounts that aren't Admins still get it alone) | `POST /api/model-learning` |
 
 Memory, knowledge bases and configurations are **Open WebUI's own** features; the lab only lists and creates them through Open WebUI's API. Uploading documents, attaching knowledge to a configuration and turning memory on in chats are done in Open WebUI.
 

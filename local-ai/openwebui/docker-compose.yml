@@ -1,0 +1,76 @@
+# Open WebUI for the AI Lab (docs/AI_LAB_SETUP.md), on the Mac, in Docker Desktop. Ollama stays native on macOS
+# (Apple Silicon GPU) and Open WebUI reaches it through host.docker.internal; nothing here runs Ollama.
+#
+#   cd local-ai/openwebui
+#   cp .env.example .env        then fill in WEBUI_SECRET_KEY (openssl rand -hex 32)
+#   docker compose up -d
+#   open http://localhost:8080
+#
+# Published on 127.0.0.1 only: the LAN can't reach it, and the internet reaches it only through Cloudflare Tunnel
+# (https://ai-lab.racingcoach.app) behind Cloudflare Access. Port 8080, not Open WebUI's usual 3000, so it doesn't
+# clash with the website's `npm run dev`.
+#
+# Pinned to a tested release. To update: change OPEN_WEBUI_VERSION in .env, run ./backup.sh, then
+# docker compose pull && docker compose up -d (docs/AI_LAB_SETUP.md, Updating).
+#
+# Most variables below are Open WebUI "ConfigVars": read on the FIRST start only, then kept in its database and
+# changed in its Admin Panel. Changing them here later does nothing unless the database is reset.
+
+name: racingcoach-ai-lab
+
+services:
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:${OPEN_WEBUI_VERSION:-v0.13.4}
+    container_name: open-webui
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - open-webui-data:/app/backend/data
+    env_file: .env
+    environment:
+      # Ollama on the Mac itself (native), for chats and for embeddings
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      RAG_OLLAMA_BASE_URL: http://host.docker.internal:11434
+      RAG_EMBEDDING_ENGINE: ollama
+      RAG_EMBEDDING_MODEL: ${RAG_EMBEDDING_MODEL:-qwen3-embedding:0.6b}
+      # Its public address, through Cloudflare
+      WEBUI_URL: ${WEBUI_URL:-https://ai-lab.racingcoach.app}
+      CORS_ALLOW_ORIGIN: ${WEBUI_URL:-https://ai-lab.racingcoach.app};http://localhost:8080
+      # New accounts wait for the admin's approval; turn sign-ups off in Admin Panel > Settings > General once the
+      # first admin exists (docs/AI_LAB_SETUP.md, step 9)
+      DEFAULT_USER_ROLE: pending
+      # Persistent memory
+      ENABLE_MEMORIES: "true"
+      # API keys, for the AI Lab page (through the Mac's gateway only), limited to the endpoints it uses
+      ENABLE_API_KEYS: "true"
+      ENABLE_API_KEYS_ENDPOINT_RESTRICTIONS: "true"
+      API_KEYS_ALLOWED_ENDPOINTS: /api/v1/memories,/api/v1/knowledge,/api/v1/models
+      # No framing (clickjacking), HTTPS only once behind Cloudflare
+      XFRAME_OPTIONS: DENY
+      HSTS: max-age=31536000;includeSubDomains
+      WEBUI_SESSION_COOKIE_SECURE: "true"
+      WEBUI_AUTH_COOKIE_SECURE: "true"
+      # Nothing shared or reported outward
+      ENABLE_COMMUNITY_SHARING: "false"
+      ANONYMIZED_TELEMETRY: "false"
+      DO_NOT_TRACK: "true"
+      SCARF_NO_ANALYTICS: "true"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 120s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "5"
+
+volumes:
+  open-webui-data:
+    # A fixed name, so backup.sh and restore.sh find it whatever the project is called
+    name: racingcoach-open-webui

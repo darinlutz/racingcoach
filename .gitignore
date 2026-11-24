@@ -77,3 +77,7 @@ next-env.d.ts
 # local AI gateway settings (docs/local-ai.md)
 local-ai/.env
 !local-ai/.env.example
+# Open WebUI's settings and backups on the Mac (docs/AI_LAB_SETUP.md)
+local-ai/openwebui/.env
+!local-ai/openwebui/.env.example
+local-ai/openwebui/backups/

@@ -44,6 +44,7 @@
     "engineering:knowledge": "node --experimental-transform-types --no-warnings scripts/engineeringKnowledge.mjs",
     "test:local-ai": "node --experimental-transform-types --no-warnings --test scripts/local-ai.test.mjs scripts/local-ai-gateway.test.mjs && node --experimental-transform-types --no-warnings --test --test-force-exit scripts/local-ai-db.test.mjs",
     "local-ai": "node local-ai/gateway.ts",
+    "test:ai-lab": "node --experimental-transform-types --no-warnings --test scripts/ai-lab.test.mjs scripts/ai-lab-gateway.test.mjs && node --experimental-transform-types --no-warnings --test --test-force-exit scripts/ai-lab-db.test.mjs",
     "test:e2e": "playwright test",
     "test:launch-hardening": "node --experimental-transform-types --no-warnings --test scripts/launch-hardening.test.mjs && node --experimental-transform-types --no-warnings --test scripts/launch-hardening-db.test.mjs",
     "db:dev": "node --experimental-transform-types --no-warnings scripts/devDatabase.mjs"

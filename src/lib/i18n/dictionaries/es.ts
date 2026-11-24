@@ -1,5 +1,6 @@
 import type { Dictionary } from './en';
 import { setupsEs } from './setupsTextEs.ts';
+import { aiLabEs } from './aiLabTextEs.ts';
 
 // Every piece of text on the site, in Latin American Spanish. Same keys, {placeholders} and { one, other }
 // forms as en.ts.
@@ -145,7 +146,7 @@ export const es: Dictionary = {
     installing: 'Instalar',
     admin: 'Admin',
     coach: 'Entrenador',
-    modelLearning: 'Aprendizaje de Modelos',
+    modelLearning: 'Laboratorio de IA',
     driver: 'Piloto:',
     logout: 'Cerrar sesión',
     logIn: 'Iniciar sesión',
@@ -4363,7 +4364,7 @@ export const es: Dictionary = {
     rotationCopy: 'La calibración midió la rotación natural del auto. En la C 7 la velocidad de giro está 11% por debajo del objetivo — haz más trail braking para ayudar a que la trompa entre.',
   },
   modelLearning: {
-    title: 'Aprendizaje de Modelos',
+    title: 'Laboratorio de IA',
     intro: 'Ejecuta la lección de tensores del día 1 (learning/day1_tensors.py) y mira lo que imprime.',
     runModel: 'Ejecutar Modelo',
     running: 'Ejecutando...',
@@ -4374,4 +4375,5 @@ export const es: Dictionary = {
   },
 
   setups: setupsEs,
+  aiLab: aiLabEs,
 };

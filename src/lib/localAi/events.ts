@@ -5,7 +5,7 @@ import { aiModelProvider } from '@/lib/aiModelList';
 import { AI_MODEL_PRICES } from '@/lib/aiModelPrices';
 import type { InferenceAttempt } from './routedModel';
 import type { RouteReason } from './routing';
-import { insertInferenceEvent, type InferenceEventRow } from './store';
+import { insertInferenceEvent, type InferenceEventRow, type InferenceSource } from './store';
 
 // Every model call is recorded here, one row per attempt (racingcoach."AiInferenceEvents", src/lib/localAi/store.ts),
 // for the Admin page's AI Inference Monitoring. It's done where chatModel (src/lib/aiModels.ts) builds the model, so
@@ -13,7 +13,7 @@ import { insertInferenceEvent, type InferenceEventRow } from './store';
 // routed between local and cloud records its own attempts (routedModel.ts); a plain cloud model records through
 // LangChain's callbacks below. Recording never fails the call.
 
-export type EventContext = { feature: string; category: string | null; source: 'app' | 'testConsole' };
+export type EventContext = { feature: string; category: string | null; source: InferenceSource };
 
 // The cloud list price of a call's tokens; 0 for a local model, null for a model without a price
 export function attemptCost(provider: string, model: string, input: number | null, cached: number | null, output: number | null): number | null {

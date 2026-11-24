@@ -51,6 +51,7 @@ jobs:
       LAUNCH_HARDENING_TEST_DATABASE_URL: postgres://postgres:test@127.0.0.1:5432/rctest
       ENGINEERING_TEST_DATABASE_URL: postgres://postgres:test@127.0.0.1:5432/rctest
       LOCAL_AI_TEST_DATABASE_URL: postgres://postgres:test@127.0.0.1:5432/rctest
+      AI_LAB_TEST_DATABASE_URL: postgres://postgres:test@127.0.0.1:5432/rctest
       SETUPS_TEST_DATABASE_URL: postgres://postgres:test@127.0.0.1:5432/rctest
       CAR_SETUPS_TEST_DATABASE_URL: postgres://postgres:test@127.0.0.1:5432/rctest
     steps:
@@ -70,7 +71,7 @@ jobs:
         run: |
           set -e
           for suite in track-positions language tire-warmup tv broadcast engine-bed video-director live-video tire-temps lap-events rotation \
-                       my-dashboard telemetry-storage privacy-rights cookie-consent simulators lap-retention launch-hardening engineering wet-weather coaching race-strategy local-ai setups alignment suspension brakes tires setup-dashboards car-views car-models car-setup-library elevenlabs-voices; do
+                       my-dashboard telemetry-storage privacy-rights cookie-consent simulators lap-retention launch-hardening engineering wet-weather coaching race-strategy local-ai ai-lab setups alignment suspension brakes tires setup-dashboards car-views car-models car-setup-library elevenlabs-voices; do
             echo "::group::test:$suite"
             npm run "test:$suite"
             echo "::endgroup::"

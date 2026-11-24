@@ -3,6 +3,8 @@ import { ensureUserSchema } from '@/lib/users';
 import { defaultLocalAiSettings, parseLocalAiSettings, type LocalAiSettings } from './config';
 import type { Heartbeat } from './routing';
 
+export type InferenceSource = 'app' | 'testConsole' | 'aiLab';
+
 // Local AI's tables and settings (docs/local-ai.md). The settings (mode, feature mappings, timeouts) are one JSON
 // row in "SiteSettings", key local_ai, read at most every 5 s per server; no row is Cloud Only. The schema only adds
 // (CREATE ... IF NOT EXISTS) and is run lazily the first time local AI is used, not by ensureUserSchema, so a problem
@@ -51,6 +53,19 @@ export const LOCAL_AI_SCHEMA = [
   `CREATE INDEX IF NOT EXISTS ai_inference_events_model ON racingcoach."AiInferenceEvents" (provider, requested_model, started_at)`,
   `CREATE INDEX IF NOT EXISTS ai_inference_events_feature ON racingcoach."AiInferenceEvents" (feature, started_at)`,
   `CREATE INDEX IF NOT EXISTS ai_inference_events_logical ON racingcoach."AiInferenceEvents" (logical_request_id)`,
+  // The AI Lab playground's calls are source aiLab (docs/AI_LAB_SETUP.md). Tables made before it have the older
+  // check, so it's replaced once, only when it doesn't allow aiLab yet
+  `DO $$ BEGIN
+     IF NOT EXISTS (
+       SELECT 1 FROM pg_constraint
+       WHERE conrelid = 'racingcoach."AiInferenceEvents"'::regclass AND contype = 'c'
+         AND pg_get_constraintdef(oid) LIKE '%aiLab%'
+     ) THEN
+       ALTER TABLE racingcoach."AiInferenceEvents" DROP CONSTRAINT IF EXISTS "AiInferenceEvents_source_check";
+       ALTER TABLE racingcoach."AiInferenceEvents"
+         ADD CONSTRAINT "AiInferenceEvents_source_check" CHECK (source IN ('app', 'testConsole', 'aiLab'));
+     END IF;
+   END $$`,
 ];
 
 // Events are kept this long, then deleted by the hourly job (startLocalAiJobs)
@@ -188,7 +203,7 @@ export type InferenceEventRow = {
   attempt: number;
   feature: string;
   category: string | null;
-  source: 'app' | 'testConsole';
+  source: InferenceSource;
   provider: string;
   serverId: string | null;
   requestedModel: string;

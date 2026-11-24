@@ -1,5 +1,6 @@
 import type { Dictionary } from './en';
 import { setupsFr } from './setupsTextFr.ts';
+import { aiLabFr } from './aiLabTextFr.ts';
 
 // Every piece of text on the site, in French (France's French, informal "tu", as sim racers talk). Same keys,
 // {placeholders} and { one, other } forms as en.ts.
@@ -145,7 +146,7 @@ export const fr: Dictionary = {
     installing: 'Installation',
     admin: 'Admin',
     coach: 'Coach',
-    modelLearning: 'Apprentissage du modèle',
+    modelLearning: 'Labo IA',
     driver: 'Pilote :',
     logout: 'Se déconnecter',
     logIn: 'Se connecter',
@@ -4325,7 +4326,7 @@ export const fr: Dictionary = {
     rotationCopy: 'La calibration a mesuré la rotation naturelle de la voiture. Au V 7, la vitesse de lacet est 11 % sous la cible — prolonge le freinage dégressif pour aider le nez à s’inscrire.',
   },
   modelLearning: {
-    title: 'Apprentissage du modèle',
+    title: 'Labo IA',
     intro: 'Lance la leçon du jour 1 sur les tenseurs (learning/day1_tensors.py) et regarde ce qu’elle affiche.',
     runModel: 'Lancer le modèle',
     running: 'En cours...',
@@ -4336,4 +4337,5 @@ export const fr: Dictionary = {
   },
 
   setups: setupsFr,
+  aiLab: aiLabFr,
 };

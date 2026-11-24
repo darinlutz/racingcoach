@@ -3,6 +3,7 @@
 // in it uses {placeholders} (fmt in languages.ts); text that depends on a count is { one, other }
 // (plural in languages.ts). Keep it plain JSON: the root layout sends the user's dictionary to the browser.
 import { setupsEn } from './setupsText.ts';
+import { aiLabEn } from './aiLabText.ts';
 
 export const en = {
   common: {
@@ -147,7 +148,7 @@ export const en = {
     installing: 'Installing',
     admin: 'Admin',
     coach: 'Coach',
-    modelLearning: 'Model Learning',
+    modelLearning: 'AI Lab',
     driver: 'Driver:',
     logout: 'Logout',
     logIn: 'Log In',
@@ -4431,7 +4432,7 @@ export const en = {
     rotationCopy: 'Calibration measured the car’s natural rotation. At T 7 yaw rate is 11% below target — trail-brake deeper to help the nose turn in.',
   },
   modelLearning: {
-    title: 'Model Learning',
+    title: 'AI Lab',
     intro: 'Run the day 1 tensors lesson (learning/day1_tensors.py) and see what it prints.',
     runModel: 'Run Model',
     running: 'Running...',
@@ -4443,6 +4444,9 @@ export const en = {
 
   // The Setups page (src/app/setups/), in its own file (setupsText.ts)
   setups: setupsEn,
+
+  // The AI Lab page's tabs (src/components/aiLab/), in its own file (aiLabText.ts)
+  aiLab: aiLabEn,
 };
 
 export type Dictionary = typeof en;

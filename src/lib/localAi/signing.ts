@@ -14,7 +14,9 @@ export const SIGNATURE_HEADERS = {
   signature: 'x-rc-signature',
 } as const;
 
-export type SignaturePurpose = 'heartbeat' | 'inference';
+// lab: the AI Lab page's calls to the gateway's /lab/* routes (docs/AI_LAB_SETUP.md), kept apart so a production
+// inference signature can never be replayed as a model download or deletion, nor the other way round
+export type SignaturePurpose = 'heartbeat' | 'inference' | 'lab';
 
 export const MAX_SKEW_MS = 60_000;
 export const MIN_SECRET_LENGTH = 32;

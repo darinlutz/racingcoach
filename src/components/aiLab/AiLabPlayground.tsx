@@ -14,7 +14,11 @@ import { runModel, type RunResult } from './playgroundClient';
 // the model that actually answered are shown, and a fallback is always "none": the lab never substitutes a model.
 // Prompts and results can be saved.
 
-type Column = { id: number; provider: 'Local' | 'Cloud'; model: string; running: boolean; result: RunResult | null; live: string };
+// An Open WebUI configuration (Model Configurations tab) runs as its base model with its system prompt and parameters,
+// through the gateway like any local model, so it's measured the same way. Its knowledge bases aren't searched here
+// (only Open WebUI's own chats do that), and its column says so.
+type LabConfig = { id: string; name: string; baseModelId: string | null; knowledge: number; system: string; params: Record<string, number> };
+type Column = { id: number; provider: 'Local' | 'Cloud'; model: string; config?: LabConfig; running: boolean; result: RunResult | null; live: string };
 type Saved = {
   prompts: { id: number; name: string; system: string; prompt: string; params: Record<string, number>; models: string[]; updatedAt: string }[];
   benchmarks: { id: number; name: string; system: string; prompt: string; results: { model: string; provider: string; text: string; error: string | null; metrics: Record<string, unknown> | null }[]; createdAt: string }[];
@@ -24,7 +28,7 @@ const MAX_COLUMNS = 4;
 let nextId = 1;
 
 const providerOf = (column: { provider: 'Local' | 'Cloud'; model: string }): LabProvider => (column.provider === 'Local' ? 'Local' : aiModelProvider(column.model));
-const encodeTarget = (c: { provider: 'Local' | 'Cloud'; model: string }) => `${c.provider}|${c.model}`;
+const encodeTarget = (c: { provider: 'Local' | 'Cloud'; model: string; config?: LabConfig }) => (c.config ? `Config|${c.config.id}` : `${c.provider}|${c.model}`);
 
 export default function AiLabPlayground({ data, initialModel }: { data: LabOverview | null; initialModel: string | null }) {
   const { t, fmt, number } = useLanguage();
@@ -47,6 +51,10 @@ export default function AiLabPlayground({ data, initialModel }: { data: LabOverv
   const [viewing, setViewing] = useState<Saved['benchmarks'][number] | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const aborts = useRef(new Map<number, AbortController>());
+  const [configs, setConfigs] = useState<LabConfig[]>([]);
+  const webuiReady = Boolean(gw?.openWebui.apiKey);
+  // Configurations whose base model is installed and can chat
+  const runnableConfigs = configs.filter((c) => c.baseModelId && localModels.includes(c.baseModelId));
 
   const loadSaved = useCallback(async () => {
     try {
@@ -59,6 +67,13 @@ export default function AiLabPlayground({ data, initialModel }: { data: LabOverv
     // eslint-disable-next-line react-hooks/set-state-in-effect -- loads the saved prompts and results once
     void loadSaved();
   }, [loadSaved]);
+
+  useEffect(() => {
+    if (!webuiReady) return;
+    labApi<{ models: LabConfig[] }>('/api/admin/ai-lab/webui', { body: { action: 'models.list' } })
+      .then((r) => setConfigs(r.models.map((m) => ({ ...m, system: m.system ?? '', params: m.params ?? {} }))))
+      .catch(() => setConfigs([])); // the list simply has no configurations
+  }, [webuiReady]);
 
   // The first column: the model Test was pressed for, else the playground default, else the first installed model
   useEffect(() => {
@@ -78,18 +93,31 @@ export default function AiLabPlayground({ data, initialModel }: { data: LabOverv
   const update = (id: number, change: Partial<Column> | ((c: Column) => Partial<Column>)) =>
     setColumns((cols) => cols.map((c) => (c.id === id ? { ...c, ...(typeof change === 'function' ? change(c) : change) } : c)));
 
+  // A target as Add a model and saved prompts write it: Local|<model>, Cloud|<model> or Config|<configuration id>
+  const columnFor = (target: string): Column | null => {
+    const [kind, ...rest] = target.split('|');
+    const value = rest.join('|');
+    if (kind === 'Config') {
+      const config = runnableConfigs.find((c) => c.id === value);
+      return config ? { id: nextId++, provider: 'Local', model: config.baseModelId!, config, running: false, result: null, live: '' } : null;
+    }
+    return (kind === 'Local' || kind === 'Cloud') && value ? { id: nextId++, provider: kind, model: value, running: false, result: null, live: '' } : null;
+  };
+
   const add = () => {
     if (!adding || columns.length >= MAX_COLUMNS) return;
-    const [provider, model] = adding.split('|') as ['Local' | 'Cloud', string];
-    setColumns((cols) => [...cols, { id: nextId++, provider, model, running: false, result: null, live: '' }]);
+    const column = columnFor(adding);
+    if (column) setColumns((cols) => [...cols, column]);
     setAdding('');
   };
 
-  // A local model's saved defaults fill the parameters left empty here
+  // A configuration's own parameters, else a local model's saved defaults, fill the parameters left empty here
   const paramsFor = (c: Column) => {
-    const defaults = c.provider === 'Local' ? (data?.settings.modelParams[c.model] ?? {}) : {};
+    const defaults = c.config ? c.config.params : c.provider === 'Local' ? (data?.settings.modelParams[c.model] ?? {}) : {};
     return { ...defaults, ...Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined)) };
   };
+  // A configuration's system prompt comes first, then what's typed here (and any memories)
+  const systemFor = (c: Column, typed: string) => (c.config?.system.trim() ? (typed.trim() ? `${c.config.system}\n\n${typed}` : c.config.system) : typed);
 
   // With Use my Open WebUI memories on, the memories Open WebUI's search finds for the prompt are put in every model's
   // system prompt, the way the Memory tab's Test retrieval does (Open WebUI adds them itself only in its own chats).
@@ -123,7 +151,7 @@ export default function AiLabPlayground({ data, initialModel }: { data: LabOverv
         aborts.current.set(c.id, abort);
         update(c.id, { running: true, result: null, live: '' });
         const result = await runModel(
-          { target: { provider: c.provider, model: c.model }, system, prompt, params: paramsFor(c) },
+          { target: { provider: c.provider, model: c.model }, system: systemFor(c, system), prompt, params: paramsFor(c) },
           { signal: abort.signal, onToken: (text) => stream && update(c.id, (col) => ({ live: col.live + text })) }
         );
         aborts.current.delete(c.id);
@@ -157,7 +185,7 @@ export default function AiLabPlayground({ data, initialModel }: { data: LabOverv
           name,
           system: ranSystem ?? system,
           prompt,
-          results: columns.filter((c) => c.result).map((c) => ({ model: c.model, provider: providerOf(c), text: c.result!.text, error: c.result!.error, metrics: c.result!.metrics })),
+          results: columns.filter((c) => c.result).map((c) => ({ model: c.config ? `${c.config.name} (${c.model})` : c.model, provider: providerOf(c), text: c.result!.text, error: c.result!.error, metrics: c.result!.metrics })),
         },
       });
       await loadSaved();
@@ -170,10 +198,8 @@ export default function AiLabPlayground({ data, initialModel }: { data: LabOverv
     setSystem(s.system);
     setPrompt(s.prompt);
     setParams(s.params);
-    const cols = s.models
-      .map((m) => m.split('|') as ['Local' | 'Cloud', string])
-      .filter(([provider, model]) => (provider === 'Local' || provider === 'Cloud') && model)
-      .map(([provider, model]) => ({ id: nextId++, provider, model, running: false, result: null, live: '' }));
+    // A configuration deleted since (or whose base model is gone) is left out
+    const cols = s.models.map(columnFor).filter((c): c is Column => c !== null);
     if (cols.length) setColumns(cols.slice(0, MAX_COLUMNS));
   };
 
@@ -201,6 +227,15 @@ export default function AiLabPlayground({ data, initialModel }: { data: LabOverv
                   </option>
                 ))}
               </optgroup>
+              {runnableConfigs.length > 0 && (
+                <optgroup label={p.configurations}>
+                  {runnableConfigs.map((c) => (
+                    <option key={c.id} value={`Config|${c.id}`}>
+                      {fmt(p.configOption, { name: c.name, model: c.baseModelId! })}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
               <optgroup label={p.cloud}>
                 {AI_MODELS.map((m) => (
                   <option key={m} value={`Cloud|${m}`}>
@@ -298,13 +333,23 @@ export default function AiLabPlayground({ data, initialModel }: { data: LabOverv
               <div key={c.id} className="rounded-lg border border-border bg-card p-3 space-y-2 min-w-0">
                 <div className="flex justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="font-mono text-xs text-foreground break-all">{c.model}</p>
-                    <p className="text-xs text-muted-foreground">{provider === 'Local' ? p.local : `${p.cloud}, ${provider}`}</p>
+                    {c.config ? (
+                      <>
+                        <p className="text-sm text-foreground break-words">{c.config.name}</p>
+                        <p className="text-xs text-muted-foreground">{fmt(p.configOn, { model: c.model })}</p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="font-mono text-xs text-foreground break-all">{c.model}</p>
+                        <p className="text-xs text-muted-foreground">{provider === 'Local' ? p.local : `${p.cloud}, ${provider}`}</p>
+                      </>
+                    )}
                   </div>
                   <button type="button" className={buttonClass} disabled={c.running} onClick={() => setColumns((cols) => cols.filter((x) => x.id !== c.id))}>
                     {p.remove}
                   </button>
                 </div>
+                {c.config && c.config.knowledge > 0 && <p className="text-xs text-yellow-500">{fmt(p.configNoKnowledge, { n: c.config.knowledge })}</p>}
                 {unsupported.length > 0 && (
                   <p className="text-xs text-yellow-500">{fmt(p.notSupported, { provider, model: c.model, params: unsupported.map((k) => p.paramNames[k]).join(', ') })}</p>
                 )}

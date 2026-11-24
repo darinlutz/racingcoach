@@ -1,5 +1,6 @@
 import { localAiSecret, cloudflareAccessHeaders } from '@/lib/localAi/localModel';
 import { signRequest } from '@/lib/localAi/signing';
+import { errorPageSummary } from '@/lib/aiLab/rules';
 import { listLocalAiServers, type LocalAiServer } from '@/lib/localAi/store';
 
 // The website's side of the gateway's AI Lab routes (local-ai/lab.ts; docs/AI_LAB_SETUP.md). Requests go only to a
@@ -93,7 +94,7 @@ export async function labJson(server: LocalAiServer, route: LabPath, body?: Reco
     return { status: response.status, body: JSON.parse(text) as Record<string, unknown> };
   } catch {
     const layer = response.status === 403 ? 'cloudflareAccess' : response.status === 502 || response.status === 530 ? 'tunnel' : 'notJson';
-    return { status: response.status, body: { error: layer, detail: text.slice(0, 200) } };
+    return { status: response.status, body: { error: layer, detail: errorPageSummary(response.status, text) } };
   }
 }
 

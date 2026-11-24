@@ -9,6 +9,7 @@ import { describe, test } from 'node:test';
 import {
   cleanParams,
   CONFIG_PRESETS,
+  errorPageSummary,
   KNOWLEDGE_PRESETS,
   ollamaOptions,
   parseAiLabSettings,
@@ -159,5 +160,16 @@ describe('guards', () => {
       for (const key of KNOWLEDGE_PRESETS) assert.ok(text.knowledge.presets[key].name, `${lang} ${key}`);
       for (const preset of CONFIG_PRESETS) assert.ok(text.configs.presets[preset.key], `${lang} ${preset.key}`);
     }
+  });
+});
+
+describe('error pages', () => {
+  test("a non-JSON answer is its status and title, never the page's markup or scripts", () => {
+    const page = '<!DOCTYPE html>\n<!--[if lt IE 7]> <html class="no-js ie6 oldie" lang="en-US"> <![endif]-->\n<head><title>ai.racingcoach.app | 530: Cloudflare Tunnel error</title><script>alert(1)</script></head><body>x</body>';
+    assert.equal(errorPageSummary(530, page), 'HTTP 530: ai.racingcoach.app | 530: Cloudflare Tunnel error');
+    assert.equal(errorPageSummary(502, '<html><body><script>x()</script></body></html>'), 'HTTP 502');
+    assert.equal(errorPageSummary(500, 'upstream &amp; down'), 'HTTP 500: upstream & down');
+    assert.equal(errorPageSummary(504, ''), 'HTTP 504');
+    assert.ok(errorPageSummary(500, 'a'.repeat(500)).length <= 130);
   });
 });

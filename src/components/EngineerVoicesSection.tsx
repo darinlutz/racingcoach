@@ -102,11 +102,14 @@ export default function EngineerVoicesSection({
   raceStrategistVoice,
   setupEngineerVoices,
   raceStrategistVoices,
+  raceStrategistAvailable,
 }: {
   setupEngineerVoice: string;
   raceStrategistVoice: string;
   setupEngineerVoices: CoachVoiceDetails;
   raceStrategistVoices: CoachVoiceDetails;
+  // The Race Strategist is for Gold members and Admins (canUseRaceStrategist); anyone else is told so in its place
+  raceStrategistAvailable: boolean;
 }) {
   const { t } = useLanguage();
   const e = t.engineerVoices;
@@ -124,13 +127,20 @@ export default function EngineerVoicesSection({
           voices={setupEngineerVoices}
           onMessage={setMessage}
         />
-        <EngineerVoice
-          speaker="raceStrategist"
-          label={e.raceStrategist}
-          voice={raceStrategistVoice}
-          voices={raceStrategistVoices}
-          onMessage={setMessage}
-        />
+        {raceStrategistAvailable ? (
+          <EngineerVoice
+            speaker="raceStrategist"
+            label={e.raceStrategist}
+            voice={raceStrategistVoice}
+            voices={raceStrategistVoices}
+            onMessage={setMessage}
+          />
+        ) : (
+          <div>
+            <p className="text-sm font-medium text-foreground mb-1">{e.raceStrategist}</p>
+            <p className="text-sm text-muted-foreground">{e.raceStrategistGold}</p>
+          </div>
+        )}
       </div>
       {message && (
         <p

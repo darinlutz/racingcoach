@@ -591,7 +591,8 @@ export const de: Dictionary = {
     intro: 'Die Stimmen, die dir über Driver Radio antworten, wenn der Renningenieur deine Frage weitergibt: der Setup-Ingenieur für das Setup und Fahrverhalten deines Autos, der Rennstratege für Boxenstrategie und Sprit.',
     setupEngineer: 'Setup-Ingenieur',
     raceStrategist: 'Rennstratege',
-    membersOnly: 'Der Setup-Ingenieur und der Rennstratege sind für Silber- und Gold-Mitglieder. Wechsle zu Silber oder Gold, um sie zu hören.',
+    membersOnly: 'Der Setup-Ingenieur ist für Silber- und Gold-Mitglieder, der Rennstratege für Gold-Mitglieder. Wechsle zu einer höheren Stufe, um sie zu hören.',
+    raceStrategistGold: 'Der Rennstratege ist Gold-Mitgliedern vorbehalten. Wechsle zu Gold für Boxenstrategie und Benzinberechnung.',
     voiceSaved: 'Ingenieursstimme gespeichert.',
     sampleSetupEngineer: 'Verstanden, Untersteuern beim Einlenken. Nimm die Bremsbalance einen halben Klick nach hinten und lass das Auto eindrehen.',
     sampleRaceStrategist: 'Komm diese Runde an die Box, dann kommst du als Fünfter raus, frei vom Verkehr. Der Sprit reicht zwei Runden über das Ende hinaus.',
@@ -683,6 +684,8 @@ export const de: Dictionary = {
     newBest: 'Neue Bestzeit!',
     areaAverage: 'Die Durchschnittszeit in Bereich {n} war {seconds} Sekunden',
     inGarage: 'Diese Information habe ich noch nicht. Fahr raus auf die Strecke.',
+    // The Race Engineer's answer to a pit strategy question from a member the Race Strategist isn't for (Gold only)
+    strategistGoldOnly: 'Der Rennstratege ist für Gold-Mitglieder. Wechsle zu Gold für die Boxenstrategie.',
     weather: {
       slicksOnWet: 'Die Strecke ist nass und du fährst auf Slicks. Regenreifen beim nächsten Stopp.',
       rainStarted: 'Es fängt an zu regnen. Rechne mit weniger Grip.',

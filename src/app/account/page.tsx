@@ -29,7 +29,7 @@ import {
 } from '@/lib/raceAnnouncer';
 import { retentionDays } from '@/lib/lapRetentionRules';
 import { readOwnAiLimits, readOwnAiUsage } from '@/lib/rateLimits';
-import { canUseInCarCoach, canUseVoiceAi, isAdmin } from '@/lib/roles';
+import { canUseInCarCoach, canUseRaceStrategist, canUseVoiceAi, isAdmin } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
 import { getEnableAiFeatures, getShowPricing } from '@/lib/siteSettings';
 import { canBuyAnything, getInCarCoachInstructions, MAX_IN_CAR_COACH_INSTRUCTIONS } from '@/lib/users';
@@ -276,18 +276,20 @@ export default async function AccountPage({
             available={canUseInCarCoach(user)}
             viewPlans={showViewPlans}
           >
-            {/* French and Italian's ElevenLabs voices are for Gold members (elevenLabsGoldOnly) */}
+            {/* The ElevenLabs voices are for Gold members (elevenLabsGoldOnly) */}
             {elevenLabsGoldOnly(user.preferredLanguage, coachVoice.spanishAccent, user) && (
               <p className="text-xs text-muted-foreground mb-5">{t.inCarCoach.goldVoices}</p>
             )}
             {/* The Setup Engineer's and Race Strategist's Driver Radio voices, for Silver and Gold members
-                (canUseInCarCoach, as only they hear the engineers answer); anyone else is told why */}
+                (canUseInCarCoach, as only they hear the engineers answer), the Race Strategist's for Gold members only
+                (canUseRaceStrategist); anyone else is told why */}
             {canUseInCarCoach(user) ? (
               <EngineerVoicesSection
                 setupEngineerVoice={engineerVoices.setupEngineer}
                 raceStrategistVoice={engineerVoices.raceStrategist}
                 setupEngineerVoices={engineerVoicesFor('setupEngineer', user.preferredLanguage, coachVoice.spanishAccent, user)}
                 raceStrategistVoices={engineerVoicesFor('raceStrategist', user.preferredLanguage, coachVoice.spanishAccent, user)}
+                raceStrategistAvailable={canUseRaceStrategist(user)}
               />
             ) : (
               <div className="mb-5 pb-4 border-b border-border">

@@ -14,8 +14,8 @@ import { assertMeteredServicesOn } from './meteredServices';
 // POST /api/collector/speech; the Account page's Listen button from GET /api/account/coach-voice/sample. The
 // ElevenLabs RaceCoach voice of the user's language (ELEVENLABS_COACH_VOICE, src/lib/elevenLabs.ts) is listed first
 // and is the default. The Race Announcers (src/lib/raceAnnouncer.ts) pick from the same voices, with their own
-// ElevenLabs voices (Lead and Color) first. French and Italian's ElevenLabs voices are for Gold members and Admins only
-// (elevenLabsOffered): anyone else of those languages is offered, and speaks with, the Chirp voices.
+// ElevenLabs voices (Lead and Color) first. The ElevenLabs voices are for Gold members and Admins only
+// (elevenLabsOffered): anyone else is offered, and speaks with, the Chirp voices.
 
 // Chirp 3 HD's voices the driver can pick from (Google has 30; these male ones suit a race engineer on the radio),
 // each with Google's description of its style. Every voice speaks every language as a native speaker would. Accounts
@@ -42,8 +42,8 @@ export const DEFAULT_COACH_VOICE: ChirpVoice = 'Charon';
 // Who's asking, for the Gold-only voices (canUseGoldVoices in roles.ts)
 export type VoiceMember = { membershipLevel: string; role: string };
 
-// Whether the member may have their language's ElevenLabs voices: always, except French and Italian's
-// (GOLD_VOICE_LANGUAGES), which are for Gold members and Admins
+// Whether the member may have their language's ElevenLabs voices: Gold members and Admins, in the languages of
+// GOLD_VOICE_LANGUAGES (every one); anyone, in any other
 export function elevenLabsOffered(language: Language, member: VoiceMember): boolean {
   return !GOLD_VOICE_LANGUAGES.includes(language) || canUseGoldVoices(member);
 }

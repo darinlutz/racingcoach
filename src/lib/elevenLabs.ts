@@ -3,8 +3,8 @@
 // Each is a voice set up in the ElevenLabs account (Voice Library, Voice Design or a cloned voice), one per language
 // and accent (Spanish by its accent: Latin America's or Spain's), whose Voice ID the Admin page's Eleven Labs Voice
 // Management keeps in racingcoach."ElevenLabsVoices" (src/lib/elevenLabsVoices.ts; they used to be the
-// ELEVENLABS_<LANGUAGE>_<ROLE>_VOICE_ID variables, imported once). French and Italian's are for Gold members and Admins
-// only (GOLD_VOICE_LANGUAGES; coachVoice.ts offers and speaks them only to those). The owner's Driver Radio voice (role
+// ELEVENLABS_<LANGUAGE>_<ROLE>_VOICE_ID variables, imported once). They're for Gold members and Admins only, in
+// every language (GOLD_VOICE_LANGUAGES; coachVoice.ts offers and speaks them only to those). The owner's Driver Radio voice (role
 // ownerRadio, formerly ELEVENLABS_MY_VOICE_ID) is the site owner's own, the same in every language
 // (GET /api/live/radio-speech); other drivers' radio is in their RaceCoach voice. ELEVENLABS_MODEL_ID picks the model
 // (ElevenLabs' default, eleven_multilingual_v2, without it). The API key is ELEVENLABS_API_KEY, or ELEVEN_LABS_API_KEY.
@@ -31,8 +31,9 @@ export type ElevenLabsRole = (typeof ELEVENLABS_ROLES)[number];
 // The accent Spanish is spoken with (SPANISH_ACCENTS in coachVoice.ts), written out to keep this file's imports light
 type Accent = 'latinAmerica' | 'spain';
 
-// The languages whose ElevenLabs voices are for Gold members and Admins only (canUseGoldVoices in roles.ts)
-export const GOLD_VOICE_LANGUAGES: readonly Language[] = ['fr', 'it'];
+// The languages whose ElevenLabs voices are for Gold members and Admins only (canUseGoldVoices in roles.ts): every
+// one (French and Italian's were first, then every language's from 2026-11-24, as the Pricing page sells them with Gold)
+export const GOLD_VOICE_LANGUAGES: readonly Language[] = ['en', 'pt', 'es', 'de', 'fr', 'it'];
 
 const apiKey = () => process.env.ELEVENLABS_API_KEY || process.env.ELEVEN_LABS_API_KEY;
 

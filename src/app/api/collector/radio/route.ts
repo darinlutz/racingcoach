@@ -9,7 +9,7 @@ import { readEngineerSnapshot, recordDriverRadio } from '@/lib/liveRacing';
 import { raceEngineerReply } from '@/lib/raceEngineer';
 import { raceStrategistReply } from '@/lib/raceStrategist';
 import { aiRateLimit, type AiRateLimit } from '@/lib/rateLimits';
-import { canUseInCarCoach, canUseVoiceAi } from '@/lib/roles';
+import { canUseInCarCoach, canUseRaceStrategist, canUseVoiceAi } from '@/lib/roles';
 import { measureSessionRotation, setupEngineerReply } from '@/lib/setupEngineer';
 import { weatherContextFromLive } from '@/lib/engineering/weatherContext';
 import { getEnableAiFeatures } from '@/lib/siteSettings';
@@ -36,7 +36,8 @@ const lapIdsSchema = z.array(z.uuid()).max(30);
 // 'rateLimited' or 'failed'; the transcription is answered whatever happens to the reply. A question about the car's
 // setup or handling the Race Engineer hands to the Setup Engineer (src/lib/setupEngineer.ts), rate limited on its own
 // as setupEngineer; its answer comes back as reply the same way, with setupEngineer: true. A question about pit
-// strategy or fuel it hands to the Race Strategist (src/lib/raceStrategist.ts), rate limited as raceStrategist, whose
+// strategy or fuel it hands to the Race Strategist (src/lib/raceStrategist.ts; Gold members and Admins only, anyone else
+// hears coachSpeech.strategistGoldOnly from the Race Engineer), rate limited as raceStrategist, whose
 // answer comes back with raceStrategist: true. The collector says each of those two in its own voice, picked on the
 // Account page (POST /api/collector/speech with { speaker }).
 export async function POST(request: Request) {
@@ -127,7 +128,14 @@ async function engineerAnswer(request: Request, user: User, said: string, lapIds
       })
     );
     if (setupQuestion) return await setupAnswer(request, user, said, lapIds, snapshot, instructions);
-    if (strategyQuestion) return await strategyAnswer(request, user, said, snapshot, instructions);
+    if (strategyQuestion) {
+      if (canUseRaceStrategist(user)) return await strategyAnswer(request, user, said, snapshot, instructions);
+      // The Race Strategist is for Gold members: the Race Engineer says so, with no other AI call
+      const goldOnly = getDictionary(language).coachSpeech.strategistGoldOnly;
+      console.log(`Race Engineer: user ${user.id}, strategy question, Race Strategist is for Gold members`);
+      recordDriverRadio(user.id, goldOnly, 'engineer');
+      return { reply: goldOnly, engineer: 'answered' };
+    }
     console.log(`Race Engineer: user ${user.id}, ${reply ? 'answered' : 'silent'} (${steps.join(', ') || 'no tools'})`);
     if (!reply) return { reply: null, engineer: 'silent' };
     recordDriverRadio(user.id, reply, 'engineer');

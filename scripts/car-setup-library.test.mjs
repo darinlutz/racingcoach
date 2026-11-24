@@ -28,6 +28,9 @@ describe('car folders and Car Data', () => {
   const folders = {
     bmwm4gt3: 'BMW M4 GT3 EVO',
     'stockcars chevycamarozl12022': 'Next Gen NASCAR Cup Series Chevrolet Camaro ZL1',
+    // Car Data's names differ from iRacing's official ones ("Mercedes-AMG W13 E Performance", "Porsche 919")
+    mercedesw13: 'Mercedes-AMG F1 W13 E Performance',
+    porsche919: 'Porsche 919 LMP1',
   };
   for (const [folder, carDataName] of Object.entries(folders)) {
     test(`${folder} is ${carDataName}, and that name finds only its car path`, () => {

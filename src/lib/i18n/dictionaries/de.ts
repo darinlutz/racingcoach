@@ -731,7 +731,8 @@ export const de: Dictionary = {
         features: [
           'Die höchsten täglichen Limits für KI und Live-Kommentar',
           '90 Tage Rundenverlauf, die neuesten 50 Sessions',
-          'Runden bleiben 7 Tage nach Ende einer Gold-Mitgliedschaft erhalten',
+          'Hochwertige Eleven-Labs-Stimmen - für jede Sprache',
+          'Rennstratege',
         ],
       },
     },

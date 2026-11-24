@@ -736,7 +736,8 @@ export const en = {
         features: [
           'The highest daily AI and live commentary limits',
           '90-day lap history, newest 50 sessions listed',
-          'Laps kept 7 days after a Gold membership ends',
+          'High quality Eleven Labs voices - for each language',
+          'Race Strategist',
         ],
       },
     },

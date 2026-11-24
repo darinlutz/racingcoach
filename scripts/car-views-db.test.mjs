@@ -187,16 +187,24 @@ describe('engineering car drawings in the database', { skip }, () => {
     assert.equal(preview.views.front, undefined);
   });
 
-  test('deleting: drafts and rejected versions only; the car takes its drawings, an account leaves them', async () => {
+  test('deleting: any version but the active one; the car takes its drawings, an account leaves them', async () => {
     const admin = await makeAdmin();
     const car = await makeCar();
     const kept = await store.createCarAssetDraft(draft(car, ['testcar5']), admin);
     await store.applyCarAssetAction(kept.id, 'submit', admin);
     await store.applyCarAssetAction(kept.id, 'approve', admin);
+    await store.applyCarAssetAction(kept.id, 'activate', admin);
     assert.equal(await codeOf(store.deleteCarAsset(kept.id)), 'notDeletable');
     const gone = await store.createCarAssetDraft(draft(car, ['testcar5']), admin);
     await store.deleteCarAsset(gone.id);
     assert.equal(await store.readCarAsset(gone.id), null);
+    const oldApproved = await store.createCarAssetDraft(draft(car, ['testcar5']), admin);
+    await store.applyCarAssetAction(oldApproved.id, 'submit', admin);
+    await store.applyCarAssetAction(oldApproved.id, 'approve', admin);
+    await store.deleteCarAsset(oldApproved.id);
+    assert.equal(await store.readCarAsset(oldApproved.id), null);
+    const [{ n }] = await q('SELECT count(*)::int AS n FROM racingcoach."CarEngineeringAssetEvents" WHERE asset_id = $1', [oldApproved.id]);
+    assert.equal(n, 0);
 
     await q('DELETE FROM racingcoach."Users" WHERE id = $1', [admin]);
     const [row] = await q('SELECT created_by, reviewed_by FROM racingcoach."CarEngineeringAssets" WHERE id = $1', [kept.id]);

@@ -2,7 +2,7 @@
 
 import { useId } from 'react';
 
-// The 3D Car Models' car paths box (CarModelAssetManager.tsx): a comma separated list of iRacing car paths, typed or
+// The car paths box of the 3D Car Models (CarModelAssetManager.tsx) and Engineering Car Drawings (CarViewAssetManager.tsx): a comma separated list of iRacing car paths, typed or
 // picked from the setup folders collectors have reported (setupFolders.ts). The suggestions are each folder after
 // what's typed up to the last comma, so picking one adds it to the list, and folders already in it aren't offered
 // again. A path not in the list can still be typed.

@@ -90,8 +90,8 @@ are approximations, and the Suspension tab says so ("Reference points approximat
   drawings of its car and of every car it's shared with, and is refused (`carKeyTaken`) while another car's active
   drawings, ones it doesn't replace, claim one of its car paths (`src/lib/carViews/sharingDb.ts`). A version's
   shared cars and car paths can be changed at any status (`PUT /api/admin/car-views/[id]` `{ sharing }`, the
-  Admin page's Change cars), as they don't change the drawings that were reviewed. Drafts and rejected versions can
-  be deleted; approved ones stay.
+  Admin page's Change cars), as they don't change the drawings that were reviewed. Any version that isn't active can
+  be deleted, with its history (the active one is deactivated first).
 - Admins only: the Admin page's Engineering Car Drawings (`src/components/CarViewAssetManager.tsx`),
   `GET`/`POST /api/admin/car-views`, `GET`/`PUT`/`DELETE /api/admin/car-views/[id]` (404 for anyone else). Each view is
   an SVG file and its anchors as JSON ("Start from the generic car's anchors" fills in a template); the preview shows

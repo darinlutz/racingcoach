@@ -43,7 +43,7 @@ export const carViewsPt: CarViewsText = {
     notActive: 'Essa versão não está ativa.',
     alreadyActive: 'Essa versão já está ativa.',
     carKeyTaken: 'Os desenhos ativos de outro carro já usam um destes caminhos de carro ({car}).',
-    notDeletable: 'Só uma versão em rascunho ou rejeitada que não esteja ativa pode ser excluída.',
+    notDeletable: 'Só uma versão que não esteja ativa pode ser excluída. Desative-a primeiro.',
     unknownCar: 'Um dos outros carros não está mais nos dados de carros.',
     invalid: 'O desenho não foi salvo:',
   },

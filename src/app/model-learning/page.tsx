@@ -3,6 +3,7 @@ import AdminNav from '@/components/AdminNav';
 import AdminSection, { AdminSectionsProvider, type AdminSectionKey } from '@/components/AdminSection';
 import AdminTimeZone from '@/components/AdminTimeZone';
 import AiInferenceMonitoring from '@/components/AiInferenceMonitoring';
+import AiLabWorkspace from '@/components/aiLab/AiLabWorkspace';
 import LocalAiServerMode from '@/components/LocalAiServerMode';
 import LocalAiTestConsole from '@/components/LocalAiTestConsole';
 import ModelLearningRunner from '@/components/ModelLearningRunner';
@@ -13,9 +14,11 @@ import { isAdmin } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
 
 // The AI Lab page (the nav bar's AI Lab link): for Admins and the accounts in modelLearning.ts only; anyone else gets a
-// 404. Admins also get the Local AI sections that used to be on the Admin page (docs/local-ai.md): Local AI Server Mode,
-// AI Inference Monitoring and the Local AI Test Console, collapsible with links at the top like the Admin page's. Their
-// routes (/api/admin/local-ai/*) stay Admin only. Then the Model Learning runner
+// 404. Admins also get the AI Lab's tabs (src/components/aiLab/, docs/AI_LAB_SETUP.md): Overview, Open WebUI, Models,
+// Playground, Memory, Knowledge, Model Configurations, the Fine-Tuning Lab plan, and Production Routing, which holds
+// the Local AI sections that used to be on the Admin page (docs/local-ai.md): Local AI Server Mode, AI Inference
+// Monitoring and the Local AI Test Console. All their routes (/api/admin/ai-lab/*, /api/admin/local-ai/*) check the
+// Admin role themselves. Then the Model Learning runner
 const LOCAL_AI_SECTIONS: AdminSectionKey[] = ['localAiMode', 'aiInference', 'localAiTest'];
 
 export default async function ModelLearningPage({
@@ -45,23 +48,27 @@ export default async function ModelLearningPage({
       {admin && (
         <section className="pt-10 px-4">
           <AdminTimeZone current={typeof params.tz === 'string' ? params.tz : null} />
-          <AdminSectionsProvider keys={LOCAL_AI_SECTIONS} initiallyOpen={[]}>
-            <div className="site-container space-y-4">
-              <AdminNav sections={LOCAL_AI_SECTIONS} />
+          <AiLabWorkspace
+            production={
+              <AdminSectionsProvider keys={LOCAL_AI_SECTIONS} initiallyOpen={[]}>
+                <div className="space-y-4">
+                  <AdminNav sections={LOCAL_AI_SECTIONS} />
 
-              <AdminSection section="localAiMode">
-                <LocalAiServerMode />
-              </AdminSection>
+                  <AdminSection section="localAiMode">
+                    <LocalAiServerMode />
+                  </AdminSection>
 
-              <AdminSection section="aiInference">
-                <AiInferenceMonitoring timeZone={timeZone} />
-              </AdminSection>
+                  <AdminSection section="aiInference">
+                    <AiInferenceMonitoring timeZone={timeZone} />
+                  </AdminSection>
 
-              <AdminSection section="localAiTest">
-                <LocalAiTestConsole />
-              </AdminSection>
-            </div>
-          </AdminSectionsProvider>
+                  <AdminSection section="localAiTest">
+                    <LocalAiTestConsole />
+                  </AdminSection>
+                </div>
+              </AdminSectionsProvider>
+            }
+          />
         </section>
       )}
 

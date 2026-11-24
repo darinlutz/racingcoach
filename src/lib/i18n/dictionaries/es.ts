@@ -1,5 +1,6 @@
 import type { Dictionary } from './en';
 import { setupsEs } from './setupsTextEs.ts';
+import { aiLabEs } from './aiLabTextEs.ts';
 
 // Every piece of text on the site, in Latin American Spanish. Same keys, {placeholders} and { one, other }
 // forms as en.ts.
@@ -4374,4 +4375,5 @@ export const es: Dictionary = {
   },
 
   setups: setupsEs,
+  aiLab: aiLabEs,
 };

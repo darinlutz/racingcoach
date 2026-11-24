@@ -2,6 +2,8 @@
 
 RacingCoach can answer AI features with open-weight models (GPT-OSS 20B, Qwen3 8B) running in Ollama on the owner's Mac, while the existing cloud models (OpenAI, Anthropic, DeepSeek) stay in place and take over whenever the Mac is offline, asleep, busy, failing or unsuitable. The Mac is never a single point of failure: every local attempt has a cloud fallback, and the default mode is **Cloud Only**.
 
+The AI Lab (Open WebUI, model management, the playground, memory and knowledge bases) uses this same gateway and tunnel on separately signed `/lab/*` routes: docs/AI_LAB_SETUP.md.
+
 ## Architecture
 
 ```

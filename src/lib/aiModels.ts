@@ -253,3 +253,50 @@ export function cloudChatModel(
       })
     : new ChatOpenAI({ model, temperature, maxTokens: maxOutputTokens, maxRetries, timeout, callbacks });
 }
+
+// The AI Lab playground's cloud model (docs/AI_LAB_SETUP.md): exactly the model asked for, with only the parameters
+// that provider takes (supportedParams in src/lib/aiLab/rules.ts, cleaned before they get here), no retries and
+// never a fallback, so a benchmark measures that model. The emergency stop applies; the call is the site's own
+// (siteAiCall('aiLabPlayground')), so its tokens are in AiUsage and the spend monitor.
+export async function labCloudModel(
+  model: AiModel,
+  params: { temperature?: number; topP?: number; maxTokens?: number; seed?: number }
+): Promise<BaseChatModel> {
+  await assertMeteredServicesOn();
+  const { maxOutputTokens, timeoutMs: timeout } = aiCallLimit('aiLabPlayground');
+  const maxTokens = Math.min(params.maxTokens ?? maxOutputTokens, maxOutputTokens);
+  const callbacks = [...tokenUsageCallbacks(model)];
+  if (isClaudeModel(model)) {
+    if (!process.env.ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY is not configured');
+    return new ClaudeChatModel({ model, maxTokens, outputConfig: { effort: 'low' }, maxRetries: 0, clientOptions: { timeout }, callbacks });
+  }
+  if (isDeepSeekModel(model)) {
+    if (!process.env.DEEPSEEK_API_KEY) throw new Error('DEEPSEEK_API_KEY is not configured');
+    return new DeepSeekChatModel({
+      model,
+      temperature: params.temperature,
+      topP: params.topP,
+      maxTokens,
+      maxRetries: 0,
+      timeout,
+      apiKey: process.env.DEEPSEEK_API_KEY,
+      configuration: { baseURL: DEEPSEEK_BASE_URL },
+      modelKwargs: { thinking: { type: 'disabled' } },
+      callbacks,
+    });
+  }
+  if (isReasoningModel(model)) {
+    return new OpenAIReasoningChatModel({ model, reasoning: { effort: 'low' }, useResponsesApi: true, maxTokens, maxRetries: 0, timeout, callbacks });
+  }
+  return new ChatOpenAI({
+    model,
+    temperature: params.temperature,
+    topP: params.topP,
+    maxTokens,
+    maxRetries: 0,
+    timeout,
+    callbacks,
+    streamUsage: true,
+    ...(params.seed !== undefined ? { modelKwargs: { seed: params.seed } } : {}),
+  });
+}

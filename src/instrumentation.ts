@@ -26,6 +26,11 @@ export async function register() {
     // Deletes AI inference events older than 90 days (src/lib/localAi/store.ts)
     const { startLocalAiJobs } = await import('./lib/localAi/store');
     startLocalAiJobs();
+    // Deletes AI Lab audit entries older than a year (src/lib/aiLab/store.ts), daily
+    const { purgeOldAudit } = await import('./lib/aiLab/store');
+    const purgeAudit = () => purgeOldAudit().catch((error) => console.error('Failed to purge the AI Lab audit log:', error));
+    setTimeout(purgeAudit, 10 * 60_000).unref?.();
+    setInterval(purgeAudit, 24 * 60 * 60_000).unref?.();
   }
   // Error and spend monitoring (src/lib/errorMonitor.ts, src/lib/spendMonitor.ts): on the live site only, so a
   // local server never emails the owner about its own errors or switches the live site's paid services off

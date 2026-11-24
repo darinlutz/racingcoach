@@ -7,9 +7,10 @@
 //   node local-ai/gateway.ts secret          print a new random shared secret
 //
 // The gateway listens on 127.0.0.1 only; Cloudflare Tunnel (cloudflared) brings https://ai.<domain> to it, and
-// Cloudflare Access lets only the website's service token through. It accepts exactly two requests, both signed
-// with LOCAL_AI_SHARED_SECRET (src/lib/localAi/signing.ts): GET /health and POST /v1/chat/completions for an allowed
-// model, without streaming. Ollama's own API (pulling, deleting and copying models, its files) is never reachable
+// Cloudflare Access lets only the website's service token through. For production it accepts exactly two requests,
+// both signed with LOCAL_AI_SHARED_SECRET (src/lib/localAi/signing.ts): GET /health and POST /v1/chat/completions for
+// an allowed model, without streaming. The AI Lab page's /lab/* routes (local-ai/lab.ts, docs/AI_LAB_SETUP.md) are
+// signed with their own purpose and answer 404 unless LOCAL_AI_LAB=on. Ollama's own API (pulling, deleting and copying models, its files) is never reachable
 // from outside: Ollama stays on 127.0.0.1:11434 and only this script talks to it. At most LOCAL_AI_MAX_CONCURRENCY
 // generations run at once; another is refused straight away (503 local_busy), and the website sends it to the
 // cloud, rather than queueing without end.
@@ -25,8 +26,10 @@ import { freemem, homedir, totalmem } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { NonceCache, secretUsable, signRequest, verifyRequest } from '../src/lib/localAi/signing.ts';
+import { createLab } from './lab.ts';
 
-const AGENT_VERSION = '1.0.0';
+const AGENT_VERSION = '1.1.0';
+const STARTED_AT = Date.now();
 
 // ---- Settings ----
 
@@ -58,6 +61,16 @@ const config = {
   requestTimeoutMs: Number(env('LOCAL_AI_REQUEST_TIMEOUT_MS', '180000')),
   heartbeatIntervalMs: Number(env('LOCAL_AI_HEARTBEAT_INTERVAL_MS', '10000')),
   devFlag: env('LOCAL_AI_DEV_FLAG', join(homedir(), '.racingcoach-local-ai', 'development')),
+  // AI Lab (docs/AI_LAB_SETUP.md): off unless turned on here, on the Mac
+  lab: env('LOCAL_AI_LAB', 'off') === 'on',
+  labManage: env('LOCAL_AI_LAB_MANAGE', 'off') === 'on',
+  labMaxConcurrency: Math.max(1, Number(env('LOCAL_AI_LAB_MAX_CONCURRENCY', '1'))),
+  labMaxContext: Math.max(512, Number(env('LOCAL_AI_LAB_MAX_CONTEXT', '32768'))),
+  labMaxOutput: Math.max(1, Number(env('LOCAL_AI_LAB_MAX_OUTPUT', '4096'))),
+  labTimeoutMs: Number(env('LOCAL_AI_LAB_TIMEOUT_MS', '180000')),
+  openWebuiUrl: env('OPEN_WEBUI_URL', '').replace(/\/+$/, ''),
+  openWebuiApiKey: process.env.OPEN_WEBUI_API_KEY?.trim() ?? '',
+  registryUrl: env('OLLAMA_REGISTRY_URL', 'https://registry.ollama.ai').replace(/\/+$/, ''),
 };
 
 const developmentMode = () => existsSync(config.devFlag);
@@ -119,6 +132,26 @@ const nonces = new NonceCache();
 let active = 0;
 let shuttingDown = false;
 
+const lab = createLab(
+  {
+    enabled: config.lab,
+    manage: config.labManage,
+    ollamaUrl: config.ollamaUrl,
+    productionModels: config.models,
+    maxConcurrency: config.labMaxConcurrency,
+    maxContext: config.labMaxContext,
+    maxOutput: config.labMaxOutput,
+    timeoutMs: config.labTimeoutMs,
+    openWebuiUrl: config.openWebuiUrl,
+    openWebuiApiKey: config.openWebuiApiKey,
+    registryUrl: config.registryUrl,
+    startedAt: STARTED_AT,
+    agentVersion: AGENT_VERSION,
+  },
+  { active: () => active, max: () => config.maxConcurrency },
+  (message) => log(message)
+);
+
 function send(res: ServerResponse, status: number, body: unknown) {
   const text = JSON.stringify(body);
   res.writeHead(status, { 'content-type': 'application/json', 'content-length': Buffer.byteLength(text), 'cache-control': 'no-store' });
@@ -167,6 +200,17 @@ function logAuthFailure(reason: string) {
 async function handle(req: IncomingMessage, res: ServerResponse) {
   const url = new URL(req.url ?? '/', 'http://gateway');
   const route = `${req.method} ${url.pathname}`;
+  if (lab.handles(url.pathname)) {
+    if (req.method !== 'GET' && req.method !== 'POST') return refuse(res, 404, 'not_found', 'Not found');
+    const labBody = await readBody(req, config.maxBodyBytes);
+    if (labBody === null) return refuse(res, 413, 'too_large', 'Request too large');
+    const labVerdict = verifyRequest(config.secret, 'lab', { method: req.method, path: url.pathname, body: labBody }, req.headers, nonces);
+    if (!labVerdict.ok) {
+      logAuthFailure(`lab ${labVerdict.reason}`);
+      return refuse(res, 401, 'unauthorized', 'Unauthorized');
+    }
+    return lab.handle(req, res, url.pathname, labBody, send);
+  }
   if (route !== 'GET /health' && route !== 'POST /v1/chat/completions') return refuse(res, 404, 'not_found', 'Not found');
 
   const body = await readBody(req, config.maxBodyBytes);
@@ -313,6 +357,7 @@ server.requestTimeout = config.requestTimeoutMs + 10_000;
 server.listen(config.port, config.host, () => {
   log(`RacingCoach local AI gateway ${AGENT_VERSION} on http://${config.host}:${config.port} as ${config.serverId}`);
   log(`Models: ${config.models.join(', ')}; ${config.maxConcurrency} at a time; development switch ${developmentMode() ? 'ON' : 'off'}`);
+  log(`AI Lab routes: ${config.lab ? `on (model management ${config.labManage ? 'on' : 'off'}; Open WebUI ${config.openWebuiUrl ? `${config.openWebuiUrl}, API key ${config.openWebuiApiKey ? 'set' : 'not set'}` : 'not configured'})` : 'off'}`);
   if (!config.heartbeatUrl) log('LOCAL_AI_HEARTBEAT_URL is not set: no heartbeats, so the website treats this server as offline');
 });
 

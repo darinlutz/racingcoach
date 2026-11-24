@@ -364,8 +364,8 @@ export const PERSONAL_DATA_INVENTORY: InventoryCategory[] = [
     key: 'uploadsAsCoach',
     title: 'Content you uploaded as a Coach or Admin',
     description:
-      'Expert Laps, broadcast videos, engine sounds, engineering car drawings, 3D car models and the iRacing setups an Admin’s collector imported record which account uploaded them (and, for a car drawing or model, who reviewed and activated each version), ElevenLabs voices which Admin added and last changed each one, and a live video stream which driver’s account it shows (never its stream key).',
-    tables: ['ExpertLaps', 'BroadcastVideos', 'EngineAudioAssets', 'SiteSettings', 'RateLimitOverrides', 'LiveVideoStreams', 'CarEngineeringAssets', 'CarEngineeringAssetEvents', 'CarModelAssets', 'CarModelAssetEvents', 'CarSetups', 'CarSetupImports', 'ElevenLabsVoices'],
+      'Expert Laps, broadcast videos, engine sounds, engineering car drawings, 3D car models and the iRacing setups an Admin’s collector imported record which account uploaded them (and, for a car drawing or model, who reviewed and activated each version), ElevenLabs voices which Admin added and last changed each one, a live video stream which driver’s account it shows (never its stream key), and the AI Lab’s audit log which Admin made each change there (kept a year).',
+    tables: ['ExpertLaps', 'BroadcastVideos', 'EngineAudioAssets', 'SiteSettings', 'RateLimitOverrides', 'LiveVideoStreams', 'CarEngineeringAssets', 'CarEngineeringAssetEvents', 'CarModelAssets', 'CarModelAssetEvents', 'CarSetups', 'CarSetupImports', 'ElevenLabsVoices', 'AiLabAuditLog'],
     purpose: 'Coaching content shared with every user, and the site’s settings.',
     legalBasis: ['legitimateInterests'],
     source: 'You, as a Coach or Admin.',
@@ -430,6 +430,10 @@ export const NON_PERSONAL_TABLES = [
   // feature, caller category, models, tokens and times, never a user, IP address, prompt or answer
   'LocalAiServers',
   'AiInferenceEvents',
+  // The AI Lab playground's saved prompts and benchmark results (src/lib/aiLab/store.ts): written by Admins for
+  // experiments, with no user column
+  'AiLabPrompts',
+  'AiLabBenchmarks',
   // Live video (src/lib/liveVideoDb.ts): each race session's camera (track map or OBS) by session key, no user, kept a day
 ];
 

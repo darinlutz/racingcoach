@@ -26,6 +26,9 @@ export const AI_CALL_LIMITS = {
   // The Admin page's Local AI Test Console (not an AI feature: no AI Model Control row). Long, as a local model may
   // have to load first; no retry, so a test shows what happened
   localAiTest: { maxOutputTokens: 1500, timeoutMs: 120_000, maxRetries: 0 },
+  // The AI Lab playground's cloud models (docs/AI_LAB_SETUP.md): the Admin's own max tokens, never above this;
+  // no retry, so a benchmark measures one call
+  aiLabPlayground: { maxOutputTokens: 8192, timeoutMs: 180_000, maxRetries: 0 },
 } as const satisfies Record<string, AiCallLimit>;
 
 // For a feature without its own row

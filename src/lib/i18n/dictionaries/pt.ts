@@ -1,5 +1,6 @@
 import type { Dictionary } from './en';
 import { setupsPt } from './setupsTextPt.ts';
+import { aiLabPt } from './aiLabTextPt.ts';
 
 // Every piece of text on the site, in Brazilian Portuguese. Same keys, {placeholders} and { one, other }
 // forms as en.ts.
@@ -4374,4 +4375,5 @@ export const pt: Dictionary = {
   },
 
   setups: setupsPt,
+  aiLab: aiLabPt,
 };

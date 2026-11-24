@@ -1,5 +1,6 @@
 import type { Dictionary } from './en';
 import { setupsIt } from './setupsTextIt.ts';
+import { aiLabIt } from './aiLabTextIt.ts';
 
 // Every piece of text on the site, in Italian (informal "tu", as sim racers talk). Same keys, {placeholders} and
 // { one, other } forms as en.ts.
@@ -4336,4 +4337,5 @@ export const it: Dictionary = {
   },
 
   setups: setupsIt,
+  aiLab: aiLabIt,
 };

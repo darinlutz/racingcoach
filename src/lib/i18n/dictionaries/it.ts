@@ -711,7 +711,8 @@ export const it: Dictionary = {
         features: [
           'I limiti giornalieri di IA e di telecronaca in diretta più alti',
           'Storico dei giri di 90 giorni, ultime 50 sessioni elencate',
-          'Giri conservati 7 giorni dopo la fine di un abbonamento Gold',
+          'Voci Eleven Labs di alta qualità - per ogni lingua',
+          'Stratega di gara',
         ],
       },
     },

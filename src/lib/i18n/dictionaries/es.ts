@@ -714,7 +714,8 @@ export const es: Dictionary = {
         features: [
           'Los límites diarios más altos de IA y de comentarios en vivo',
           'Historial de vueltas de 90 días, las 50 sesiones más recientes',
-          'Vueltas guardadas 7 días después de que termina una membresía Oro',
+          'Voces de Eleven Labs de alta calidad - para cada idioma',
+          'Estratega de carrera',
         ],
       },
     },

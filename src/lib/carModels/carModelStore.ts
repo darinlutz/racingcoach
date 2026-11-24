@@ -54,7 +54,8 @@ export type ModelSummary = {
   history: { action: string; from: string | null; to: string | null; at: string }[];
 };
 
-export type ModelCar = { id: number; name: string; lengthIn: number | null; widthIn: number | null; wheelbaseIn: number | null };
+// racingDiscipline: the Car Type (RACING_DISCIPLINES), which the Admin page's list of cars groups them by
+export type ModelCar = { id: number; name: string; racingDiscipline: string | null; lengthIn: number | null; widthIn: number | null; wheelbaseIn: number | null };
 
 type Row = {
   id: number;
@@ -166,10 +167,17 @@ export async function readCarModelFile(id: number): Promise<{ storageKey: string
 
 export async function listModelCars(): Promise<ModelCar[]> {
   await ensureUserSchema();
-  const rows = await query<{ id: number; car_name: string; length_in: number | null; width_in: number | null; wheelbase_in: number | null }>(
-    'SELECT id, car_name, length_in, width_in, wheelbase_in FROM racingcoach."Cars" ORDER BY lower(car_name)'
+  const rows = await query<{ id: number; car_name: string; racing_discipline: string | null; length_in: number | null; width_in: number | null; wheelbase_in: number | null }>(
+    'SELECT id, car_name, racing_discipline, length_in, width_in, wheelbase_in FROM racingcoach."Cars" ORDER BY lower(car_name)'
   );
-  return rows.map((r) => ({ id: r.id, name: r.car_name, lengthIn: r.length_in, widthIn: r.width_in, wheelbaseIn: r.wheelbase_in }));
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.car_name,
+    racingDiscipline: r.racing_discipline,
+    lengthIn: r.length_in,
+    widthIn: r.width_in,
+    wheelbaseIn: r.wheelbase_in,
+  }));
 }
 
 export async function listCarModels(): Promise<ModelSummary[]> {

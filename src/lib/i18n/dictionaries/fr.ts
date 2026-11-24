@@ -711,7 +711,8 @@ export const fr: Dictionary = {
         features: [
           'Les limites quotidiennes d’IA et de commentaires en direct les plus élevées',
           'Historique des tours de 90 jours, 50 sessions les plus récentes affichées',
-          'Tours conservés 7 jours après la fin d’un abonnement Gold',
+          'Voix Eleven Labs de haute qualité - pour chaque langue',
+          'Stratège de course',
         ],
       },
     },

@@ -43,7 +43,7 @@ export const carViewsIt: CarViewsText = {
     notActive: 'Quella versione non è attiva.',
     alreadyActive: 'Quella versione è già attiva.',
     carKeyTaken: 'I disegni attivi di un’altra vettura usano già uno di questi percorsi vettura ({car}).',
-    notDeletable: 'Si può eliminare solo una versione in bozza o rifiutata che non sia attiva.',
+    notDeletable: 'Si può eliminare solo una versione che non sia attiva. Disattivala prima.',
     unknownCar: 'Una delle altre vetture non è più nei dati delle vetture.',
     invalid: 'Il disegno non è stato salvato:',
   },

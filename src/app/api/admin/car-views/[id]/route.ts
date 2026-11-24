@@ -11,8 +11,8 @@ type Params = { params: Promise<{ id: string }> };
 // Admin page's preview whatever its status. PUT { action: submit | approve | reject | activate | deactivate } moves it
 // on (assetRules.ts' checkAction; activating makes it the car's only active version, which is how an older approved
 // version is rolled back to), or PUT { sharing: { sharedCarIds, carKeys } } changes which cars use it, at any status:
-// the other Car Data cars it's shared with and the car paths drivers' pages find it by. DELETE removes a draft or
-// rejected version. Admin role only; anyone else 404.
+// the other Car Data cars it's shared with and the car paths drivers' pages find it by. DELETE removes a version
+// that isn't active (deactivate it first), with its history. Admin role only; anyone else 404.
 export async function GET(_request: Request, { params }: Params) {
   const session = await carViewsAdmin();
   if (session.response) return session.response;

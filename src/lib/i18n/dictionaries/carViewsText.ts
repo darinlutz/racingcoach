@@ -45,7 +45,7 @@ export const carViewsEn = {
     notActive: 'That version isn’t active.',
     alreadyActive: 'That version is already active.',
     carKeyTaken: 'Another car’s active drawings already use one of these car paths ({car}).',
-    notDeletable: 'Only a draft or rejected version that isn’t active can be deleted.',
+    notDeletable: 'Only a version that isn’t active can be deleted. Deactivate it first.',
     unknownCar: 'One of the other cars isn’t in Car Data any more.',
     invalid: 'The drawing wasn’t saved:',
   },

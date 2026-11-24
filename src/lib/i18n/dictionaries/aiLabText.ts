@@ -131,6 +131,8 @@ export const aiLabEn = {
     productionHelp: 'Production routing may use this model (LOCAL_AI_MODELS on the Mac); the lab can\'t delete it.',
     default: 'Playground default',
     makeDefault: 'Make default',
+    embedding: 'Embedding',
+    embeddingHelp: 'Makes embeddings for Open WebUI\'s knowledge search; it can\'t chat, so it isn\'t offered in the playground, memory test or configurations.',
     details: 'Details',
     load: 'Load',
     unload: 'Unload',

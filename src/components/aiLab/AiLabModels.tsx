@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useLanguage } from '@/components/LanguageProvider';
 import { LAB_PARAMS, PARAM_RANGES, validModelName, type LabParams } from '@/lib/aiLab/rules';
-import { buttonClass, dangerClass, errorText, formatBytes, inputClass, labApi, labelClass, localTime, Notice, Panel, primaryClass, type LabGatewayStatus, type LabOverview } from './aiLabUi';
+import { buttonClass, dangerClass, errorText, formatBytes, inputClass, labApi, labelClass, localTime, Notice, Panel, primaryClass, type LabGatewayStatus, type LabOverview, chatModelNames } from './aiLabUi';
 
 // AI Lab's Model Management: every model Ollama has on the Mac (read live through the gateway), loaded or not, with
 // memory Ollama reports for loaded models and an estimate (the file size) for the rest, labelled as such; details
@@ -21,6 +21,7 @@ export default function AiLabModels({ data, reload, onTest }: { data: LabOvervie
   const l = t.aiLab;
   const m = l.models;
   const gw = data?.lab.reachable ? data.lab.data : null;
+  const chatModels = chatModelNames(gw);
   const [details, setDetails] = useState<Record<string, Details>>({});
   const [open, setOpen] = useState<string | null>(null);
   const [params, setParams] = useState<LabParams>({});
@@ -143,6 +144,7 @@ export default function AiLabModels({ data, reload, onTest }: { data: LabOvervie
                   const live = loaded.get(model.name);
                   const d = details[model.name];
                   const isDefault = data?.settings.defaultModel === model.name;
+                  const canChat = chatModels.includes(model.name);
                   return [
                     <tr key={model.name} className="border-b border-border/60 align-top">
                       <td className="py-2 pr-3 font-mono text-xs text-foreground">
@@ -153,6 +155,11 @@ export default function AiLabModels({ data, reload, onTest }: { data: LabOvervie
                           </span>
                         )}
                         {isDefault && <span className="ml-2 rounded bg-green-500/15 px-1.5 py-0.5 text-[10px] text-green-500">{m.default}</span>}
+                        {!canChat && (
+                          <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground" title={m.embeddingHelp}>
+                            {m.embedding}
+                          </span>
+                        )}
                       </td>
                       <td className="py-2 pr-3">{model.family ?? l.common.unavailable}</td>
                       <td className="py-2 pr-3">{model.parameterSize ?? l.common.unavailable}</td>
@@ -178,10 +185,12 @@ export default function AiLabModels({ data, reload, onTest }: { data: LabOvervie
                               {busy === `load:${model.name}` ? l.common.loading : m.load}
                             </button>
                           )}
-                          <button type="button" className={buttonClass} onClick={() => onTest(model.name)}>
-                            {m.test}
-                          </button>
-                          {!isDefault && (
+                          {canChat && (
+                            <button type="button" className={buttonClass} onClick={() => onTest(model.name)}>
+                              {m.test}
+                            </button>
+                          )}
+                          {canChat && !isDefault && (
                             <button type="button" className={buttonClass} disabled={busy !== null} onClick={async () => (await act('setDefault', model.name)) && reload()}>
                               {m.makeDefault}
                             </button>

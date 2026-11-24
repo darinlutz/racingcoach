@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useLanguage } from '@/components/LanguageProvider';
 import { CONFIG_PRESETS } from '@/lib/aiLab/rules';
-import { buttonClass, errorText, inputClass, labApi, Notice, Panel, primaryClass, type LabOverview } from './aiLabUi';
+import { buttonClass, errorText, inputClass, labApi, Notice, Panel, primaryClass, type LabOverview, chatModelNames } from './aiLabUi';
 
 // AI Lab's Model Configurations tab: Open WebUI workspace models (a base model with a system prompt, parameters and
 // knowledge bases; the weights unchanged) listed through the gateway, and the starting points created on a chosen
@@ -34,7 +34,8 @@ export default function AiLabConfigs({ data }: { data: LabOverview | null }) {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- loads the list once Open WebUI is reachable
     if (ready) void load();
   }, [ready, load]);
-  const base = picked || data?.settings.defaultModel || gw?.models[0]?.name || '';
+  const chatModels = chatModelNames(gw);
+  const base = picked || (chatModels.includes(data?.settings.defaultModel ?? '') ? data!.settings.defaultModel! : chatModels[0]) || '';
 
   const create = async (preset: (typeof CONFIG_PRESETS)[number]) => {
     setProblem(null);
@@ -102,9 +103,9 @@ export default function AiLabConfigs({ data }: { data: LabOverview | null }) {
               <div className="flex flex-wrap items-center gap-2 mb-2">
                 <label className="text-sm text-muted-foreground" htmlFor="ai-lab-config-base">{c.createOn}</label>
                 <select id="ai-lab-config-base" className={`${inputClass} max-w-xs`} value={base} onChange={(e) => setPicked(e.target.value)}>
-                  {gw.models.map((m) => (
-                    <option key={m.name} value={m.name}>
-                      {m.name}
+                  {chatModels.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
                     </option>
                   ))}
                 </select>

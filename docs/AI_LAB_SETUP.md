@@ -347,6 +347,7 @@ Training runs on the Mac with **Apple MLX / MLX-LM** (`mlx_lm.lora`), separate f
 
 - Built and tested against stand-ins, not a live Open WebUI: the Open WebUI routes may need adjusting to the exact response shapes of 0.13.4 (the proof of concept, steps 9–14, is the check).
 - Memory "Test retrieval" shows what Open WebUI's memory search returns and asks a model with those memories in its system prompt; that's the same idea as Open WebUI's chats, not a call through Open WebUI's own chat pipeline.
-- Model family and size come from Ollama's `/api/tags`, and from `/api/show` for models it leaves them empty for (MLX safetensors models, e.g. `qwen3.8:27b`), asked once per model version.
+- Model family and size come from Ollama's `/api/tags`, and from `/api/show` for models it leaves them empty for (MLX safetensors models, e.g. `qwen3.8:27b`), asked once per model version, with its capabilities: a model without `completion` (an embedding model such as `qwen3-embedding:0.6b`, which knowledge search uses) is labelled Embedding on the Models tab and left out of every model picker (Playground, Memory, Model Configurations).
+- A configuration's knowledge bases count is the ones attached to the configuration itself (Open WebUI > Workspace > Models > edit > Knowledge). A document picked with `#` or attached in a chat isn't counted: it reaches that chat only.
 - Status is cached per web server instance (one instance today).
 - Context length shown "served" is what Ollama reports for a loaded model; unloaded models show their maximum and Modelfile `num_ctx` only.

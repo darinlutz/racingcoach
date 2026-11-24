@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLanguage } from '@/components/LanguageProvider';
 import { aiModelProvider, AI_MODELS } from '@/lib/aiModelList';
 import { LAB_PARAMS, PARAM_RANGES, supportedParams, type LabParam, type LabProvider } from '@/lib/aiLab/rules';
-import { buttonClass, dangerClass, errorText, inputClass, labApi, labelClass, localTime, Notice, Panel, primaryClass, type LabOverview } from './aiLabUi';
+import { buttonClass, dangerClass, errorText, inputClass, labApi, labelClass, localTime, Notice, Panel, primaryClass, type LabOverview, chatModelNames } from './aiLabUi';
 import { runModel, type RunResult } from './playgroundClient';
 
 // AI Lab's Model Playground: one prompt on up to four models side by side, local (any model installed on the Mac) or
@@ -31,7 +31,7 @@ export default function AiLabPlayground({ data, initialModel }: { data: LabOverv
   const l = t.aiLab;
   const p = l.playground;
   const gw = data?.lab.reachable ? data.lab.data : null;
-  const localModels = gw?.models.map((m) => m.name) ?? [];
+  const localModels = chatModelNames(gw);
   const [columns, setColumns] = useState<Column[]>([]);
   const [system, setSystem] = useState('');
   const [prompt, setPrompt] = useState('');
@@ -62,7 +62,8 @@ export default function AiLabPlayground({ data, initialModel }: { data: LabOverv
 
   // The first column: the model Test was pressed for, else the playground default, else the first installed model
   useEffect(() => {
-    const first = initialModel ?? data?.settings.defaultModel ?? localModels[0] ?? null;
+    const defaultModel = data?.settings.defaultModel ?? null;
+    const first = initialModel ?? (defaultModel && localModels.includes(defaultModel) ? defaultModel : localModels[0]) ?? null;
     if (!first) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- adds the model Test was pressed for, or the first column once models are known
     setColumns((current) => {

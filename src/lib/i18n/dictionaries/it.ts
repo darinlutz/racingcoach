@@ -576,7 +576,8 @@ export const it: Dictionary = {
     intro: 'Le voci che ti rispondono via Driver Radio quando l’ingegnere di pista passa loro la tua domanda: l’ingegnere di assetto per l’assetto e il comportamento della tua auto, e lo stratega di gara per la strategia ai box e il carburante.',
     setupEngineer: 'Ingegnere di assetto',
     raceStrategist: 'Stratega di gara',
-    membersOnly: 'L’ingegnere di assetto e lo stratega di gara sono riservati ai membri Silver e Gold. Passa a Silver o Gold per sentirli.',
+    membersOnly: 'L’ingegnere di assetto è riservato ai membri Silver e Gold, e lo stratega di gara ai membri Gold. Passa a un piano superiore per sentirli.',
+    raceStrategistGold: 'Lo stratega di gara è riservato ai membri Gold. Passa a Gold per la strategia dei pit stop e il carburante.',
     voiceSaved: 'Voce dell’ingegnere salvata.',
     sampleSetupEngineer: 'Ricevuto, sottosterzo in ingresso. Sposta il bilanciamento dei freni mezzo scatto indietro e lascia ruotare la macchina.',
     sampleRaceStrategist: 'Rientra ai box in questo giro e torni in pista quinto, libero dal traffico. Il carburante arriva alla fine con due giri di margine.',
@@ -661,6 +662,8 @@ export const it: Dictionary = {
     newBest: 'Nuovo giro migliore!',
     areaAverage: 'Il tempo medio dell’area {n} è stato di {seconds} secondi',
     inGarage: 'Non ho ancora questa informazione. Esci in pista.',
+    // The Race Engineer's answer to a pit strategy question from a member the Race Strategist isn't for (Gold only)
+    strategistGoldOnly: 'Lo stratega di gara è riservato ai membri Gold. Passa a Gold per la strategia dei pit stop.',
     weather: {
       slicksOnWet: 'La pista è bagnata e sei su gomme slick. Gomme da bagnato alla prossima sosta.',
       rainStarted: 'Sta iniziando a piovere. Aspettati meno grip.',

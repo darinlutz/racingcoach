@@ -578,7 +578,8 @@ export const es: Dictionary = {
     intro: 'Las voces que te responden por Driver Radio cuando el ingeniero de carrera les pasa tu pregunta: el ingeniero de reglajes para los reglajes y el comportamiento de tu coche, y el estratega de carrera para la estrategia de boxes y el combustible.',
     setupEngineer: 'Ingeniero de reglajes',
     raceStrategist: 'Estratega de carrera',
-    membersOnly: 'El ingeniero de reglajes y el estratega de carrera son para miembros Plata y Oro. Pásate a Plata u Oro para escucharlos.',
+    membersOnly: 'El ingeniero de reglajes es para miembros Plata y Oro, y el estratega de carrera para miembros Oro. Mejora tu plan para escucharlos.',
+    raceStrategistGold: 'El estratega de carrera es para miembros Oro. Pásate a Oro para la estrategia de boxes y el combustible.',
     voiceSaved: 'Voz del ingeniero guardada.',
     sampleSetupEngineer: 'Copiado, subviraje en la entrada. Lleva el reparto de frenada medio clic hacia atrás y deja que el coche gire.',
     sampleRaceStrategist: 'Entra en boxes esta vuelta y sales quinto, sin tráfico. El combustible llega al final con dos vueltas de margen.',
@@ -664,6 +665,8 @@ export const es: Dictionary = {
     newBest: '¡Nueva mejor vuelta!',
     areaAverage: 'El tiempo promedio en el área {n} fue de {seconds} segundos',
     inGarage: 'Todavía no tengo esa información. Sal a la pista.',
+    // The Race Engineer's answer to a pit strategy question from a member the Race Strategist isn't for (Gold only)
+    strategistGoldOnly: 'El estratega de carrera es para miembros Oro. Pásate a Oro para la estrategia de boxes.',
     weather: {
       slicksOnWet: 'La pista está mojada y vas con slicks. Neumáticos de lluvia en la próxima parada.',
       rainStarted: 'Empieza a llover. Espera menos agarre.',

@@ -596,7 +596,8 @@ export const en = {
     intro: 'The voices that answer you over Driver Radio when the Race Engineer hands your question over: the Setup Engineer for your car’s setup and handling, and the Race Strategist for pit strategy and fuel.',
     setupEngineer: 'Setup Engineer',
     raceStrategist: 'Race Strategist',
-    membersOnly: 'The Setup Engineer and Race Strategist are for Silver and Gold members. Upgrade to Silver or Gold to hear them.',
+    membersOnly: 'The Setup Engineer is for Silver and Gold members, and the Race Strategist for Gold members. Upgrade to hear them.',
+    raceStrategistGold: 'The Race Strategist is for Gold members. Upgrade to Gold for pit strategy and fuel calls.',
     voiceSaved: 'Engineer voice saved.',
     sampleSetupEngineer: 'Copy that, understeer on entry. Move the brake bias back half a click and let the car rotate.',
     sampleRaceStrategist: 'Box this lap and you rejoin in fifth, clear of traffic. Fuel to the end is plus two laps.',
@@ -688,6 +689,8 @@ export const en = {
     newBest: 'New best lap!',
     areaAverage: 'Area {n} average time was {seconds} seconds',
     inGarage: "I don't have that information yet. Head out onto the track.",
+    // The Race Engineer's answer to a pit strategy question from a member the Race Strategist isn't for (Gold only)
+    strategistGoldOnly: 'The Race Strategist is for Gold members. Upgrade to Gold for pit strategy calls.',
     // The In-Car AI Coach's weather alerts (src/lib/engineering/weatherAlerts.ts), said when the conditions change
     weather: {
       slicksOnWet: 'Track is wet and you are on slicks. Wet tires at the next stop.',

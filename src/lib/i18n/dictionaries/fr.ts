@@ -576,7 +576,8 @@ export const fr: Dictionary = {
     intro: 'Les voix qui te répondent par Driver Radio quand l’ingénieur de course leur transmet ta question : l’ingénieur réglages pour les réglages et le comportement de ta voiture, et le stratège de course pour la stratégie des arrêts et le carburant.',
     setupEngineer: 'Ingénieur réglages',
     raceStrategist: 'Stratège de course',
-    membersOnly: 'L’ingénieur réglages et le stratège de course sont réservés aux membres Silver et Gold. Passe à Silver ou Gold pour les entendre.',
+    membersOnly: 'L’ingénieur réglages est réservé aux membres Silver et Gold, et le stratège de course aux membres Gold. Passe à une formule supérieure pour les entendre.',
+    raceStrategistGold: 'Le stratège de course est réservé aux membres Gold. Passe à Gold pour la stratégie des arrêts et le carburant.',
     voiceSaved: 'Voix de l’ingénieur enregistrée.',
     sampleSetupEngineer: 'Bien reçu, sous-virage à l’entrée. Recule la répartition de freinage d’un demi-cran et laisse la voiture pivoter.',
     sampleRaceStrategist: 'Rentre aux stands ce tour et tu ressors cinquième, sans trafic. Le carburant tient jusqu’à la fin avec deux tours de marge.',
@@ -661,6 +662,8 @@ export const fr: Dictionary = {
     newBest: 'Nouveau meilleur tour !',
     areaAverage: 'Le temps moyen de la zone {n} était de {seconds} secondes',
     inGarage: 'Je n’ai pas encore cette information. Va en piste.',
+    // The Race Engineer's answer to a pit strategy question from a member the Race Strategist isn't for (Gold only)
+    strategistGoldOnly: 'Le stratège de course est réservé aux membres Gold. Passe à Gold pour la stratégie des arrêts.',
     weather: {
       slicksOnWet: 'La piste est mouillée et tu es en slicks. Pneus pluie au prochain arrêt.',
       rainStarted: 'La pluie commence. Attends-toi à moins d’adhérence.',

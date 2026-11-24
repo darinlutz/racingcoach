@@ -578,7 +578,8 @@ export const pt: Dictionary = {
     intro: 'As vozes que respondem a você pelo Driver Radio quando o engenheiro de corrida passa a sua pergunta: o engenheiro de acerto para o acerto e o comportamento do seu carro, e o estrategista de corrida para a estratégia de pit e o combustível.',
     setupEngineer: 'Engenheiro de acerto',
     raceStrategist: 'Estrategista de corrida',
-    membersOnly: 'O engenheiro de acerto e o estrategista de corrida são para membros Prata e Ouro. Passe para Prata ou Ouro para ouvi-los.',
+    membersOnly: 'O engenheiro de acerto é para membros Prata e Ouro, e o estrategista de corrida para membros Ouro. Faça upgrade para ouvi-los.',
+    raceStrategistGold: 'O estrategista de corrida é para membros Ouro. Passe para Ouro para a estratégia de pit stop e o combustível.',
     voiceSaved: 'Voz do engenheiro salva.',
     sampleSetupEngineer: 'Entendido, saindo de frente na entrada. Passe o balanço de freio meio clique para trás e deixe o carro girar.',
     sampleRaceStrategist: 'Entre nos boxes nesta volta e você volta em quinto, livre do tráfego. O combustível chega ao fim com duas voltas de sobra.',
@@ -664,6 +665,8 @@ export const pt: Dictionary = {
     newBest: 'Nova melhor volta!',
     areaAverage: 'O tempo médio na área {n} foi de {seconds} segundos',
     inGarage: 'Ainda não tenho essa informação. Vá para a pista.',
+    // The Race Engineer's answer to a pit strategy question from a member the Race Strategist isn't for (Gold only)
+    strategistGoldOnly: 'O estrategista de corrida é para membros Ouro. Passe para Ouro para a estratégia de pit stop.',
     weather: {
       slicksOnWet: 'Pista molhada e você está de slicks. Pneus de chuva na próxima parada.',
       rainStarted: 'Começou a chover. Espere menos aderência.',

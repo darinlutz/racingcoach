@@ -18,7 +18,7 @@ const MY_VOICE_ACCOUNTS = new Set(['darinlutz@yahoo.com', 'darinlutz648@gmail.co
 
 // The ElevenLabs voice a driver's radio is said in: the site owner's own voice for their accounts, and for everyone
 // else the RaceCoach voice of their Preferred Language and Spanish accent; null when it isn't set up, or when the
-// driver may not have it (French and Italian's are for Gold members and Admins, elevenLabsOffered).
+// driver may not have it (the ElevenLabs voices are for Gold members and Admins, elevenLabsOffered).
 // The owner's voice needs a confirmed address, as anyone can sign up with an address they don't own.
 export async function radioVoiceId(
   driver: Pick<User, 'id' | 'emailAddress' | 'preferredLanguage' | 'emailVerified' | 'membershipLevel' | 'role'>

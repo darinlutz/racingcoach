@@ -17,10 +17,10 @@ import { useLabOverview } from './aiLabUi';
 // (Server Mode, Inference Monitoring, Test Console), passed in from the page unchanged. One status poll is shared
 // by every tab (useLabOverview).
 
-const TABS = ['overview', 'openWebui', 'models', 'playground', 'memory', 'knowledge', 'configs', 'fineTuning', 'production'] as const;
+const TABS = ['overview', 'openWebui', 'models', 'playground', 'memory', 'knowledge', 'configs', 'fineTuning', 'production', 'runPython'] as const;
 type Tab = (typeof TABS)[number];
 
-export default function AiLabWorkspace({ production }: { production: ReactNode }) {
+export default function AiLabWorkspace({ production, runPython }: { production: ReactNode; runPython: ReactNode }) {
   const { t } = useLanguage();
   const [tab, setTab] = useState<Tab>('overview');
   const [testModel, setTestModel] = useState<string | null>(null);
@@ -79,6 +79,7 @@ export default function AiLabWorkspace({ production }: { production: ReactNode }
       {tab === 'configs' && <AiLabConfigs data={overview.data} />}
       {tab === 'fineTuning' && <AiLabFineTuning />}
       <div hidden={tab !== 'production'}>{production}</div>
+      <div hidden={tab !== 'runPython'}>{runPython}</div>
     </div>
   );
 }

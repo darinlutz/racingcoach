@@ -14,10 +14,10 @@ import { useLanguage } from '@/components/LanguageProvider';
 import LoginRequiredDialog from '@/components/LoginRequiredDialog';
 
 type NavigationProps = {
-  // isAdmin shows the Admin and My Race Trends links; canUpgrade is false for Gold subscribers.
-  // canCoach (Coaches and Admins) shows the Coach link; canModelLearning (canUseModelLearning in modelLearning.ts)
-  // shows the AI Lab link; pictureVersion is null for the red helmet
-  user: { userName: string; canUpgrade: boolean; isAdmin: boolean; canCoach: boolean; canModelLearning: boolean; pictureVersion: string | null } | null;
+  // isAdmin shows the Admin, My Race Trends and AI Lab links (the Model Learning accounts that aren't Admins open
+  // /model-learning by its address); canUpgrade is false for Gold subscribers. canCoach (Coaches and Admins) shows
+  // the Coach link; pictureVersion is null for the red helmet
+  user: { userName: string; canUpgrade: boolean; isAdmin: boolean; canCoach: boolean; pictureVersion: string | null } | null;
   // The Admin page's Show Pricing setting (src/lib/siteSettings.ts)
   showPricing: boolean;
   // The Admin page's Show Pro Driver Lesson setting
@@ -152,7 +152,7 @@ export default function Navigation({ user, showPricing, showProDriverLesson, ena
             <>
               {user.canCoach && sideLink('coach', '/coach', ClipboardList, t.nav.coach)}
               {user.isAdmin && sideLink('admin', '/admin', ShieldCheck, t.nav.admin)}
-              {user.canModelLearning && sideLink('modelLearning', '/model-learning', FlaskConical, t.nav.modelLearning)}
+              {user.isAdmin && sideLink('modelLearning', '/model-learning', FlaskConical, t.nav.modelLearning)}
               {visibleBottomLinks.map((link) => sideLink(link.key, link.href, link.icon, t.nav[link.key]))}
               {sideLink('myAccount', '/account', Settings, t.nav.myAccount)}
               {/* The driver's picture in place of their name. Only hidden while open, as the picture isn't cached
@@ -235,7 +235,7 @@ export default function Navigation({ user, showPricing, showProDriverLesson, ena
                   {user.isAdmin && (
                     <Link href="/admin" className={mobileLink('/admin')} onClick={closeMenu}><ShieldCheck className="size-5" />{t.nav.admin}</Link>
                   )}
-                  {user.canModelLearning && (
+                  {user.isAdmin && (
                     <Link href="/model-learning" className={mobileLink('/model-learning')} onClick={closeMenu}><FlaskConical className="size-5" />{t.nav.modelLearning}</Link>
                   )}
                   {visibleBottomLinks.map((link) => (

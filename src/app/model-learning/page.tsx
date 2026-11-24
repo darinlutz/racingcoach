@@ -15,10 +15,11 @@ import { getCurrentUser } from '@/lib/session';
 
 // The AI Lab page (the nav bar's AI Lab link): for Admins and the accounts in modelLearning.ts only; anyone else gets a
 // 404. Admins also get the AI Lab's tabs (src/components/aiLab/, docs/AI_LAB_SETUP.md): Overview, Open WebUI, Models,
-// Playground, Memory, Knowledge, Model Configurations, the Fine-Tuning Lab plan, and Production Routing, which holds
+// Playground, Memory, Knowledge, Model Configurations, the Fine-Tuning Lab plan, Production Routing, which holds
 // the Local AI sections that used to be on the Admin page (docs/local-ai.md): Local AI Server Mode, AI Inference
 // Monitoring and the Local AI Test Console. All their routes (/api/admin/ai-lab/*, /api/admin/local-ai/*) check the
-// Admin role themselves. Then the Model Learning runner
+// Admin role themselves. Then Run Python, the Model Learning runner (Run Model and its output), which the
+// Model Learning accounts that aren't Admins get on its own under the heading, without the tabs
 const LOCAL_AI_SECTIONS: AdminSectionKey[] = ['localAiMode', 'aiInference', 'localAiTest'];
 
 export default async function ModelLearningPage({
@@ -68,17 +69,24 @@ export default async function ModelLearningPage({
                 </div>
               </AdminSectionsProvider>
             }
+            runPython={
+              <div className="max-w-4xl mx-auto bg-secondary rounded-xl border border-border p-8">
+                <ModelLearningRunner />
+              </div>
+            }
           />
         </section>
       )}
 
-      <section className="py-16 px-6 sm:px-10 lg:px-16 bg-card flex flex-col items-center">
-        <div className="w-full max-w-4xl">
-          <div className="bg-secondary rounded-xl border border-border p-8">
-            <ModelLearningRunner />
+      {!admin && (
+        <section className="py-16 px-6 sm:px-10 lg:px-16 bg-card flex flex-col items-center">
+          <div className="w-full max-w-4xl">
+            <div className="bg-secondary rounded-xl border border-border p-8">
+              <ModelLearningRunner />
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
     </div>
   );
 }

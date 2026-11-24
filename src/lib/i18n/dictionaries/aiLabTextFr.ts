@@ -13,6 +13,7 @@ export const aiLabFr: AiLabText = {
     configs: 'Configurations de modèles',
     fineTuning: 'Laboratoire de fine-tuning',
     production: 'Routage de production',
+    runPython: 'Exécuter Python',
   },
   common: {
     refresh: 'Actualiser',

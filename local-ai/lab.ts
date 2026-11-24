@@ -532,13 +532,66 @@ export function createLab(config: LabConfig, production: { active: () => number;
                 description: meta.description ?? '',
                 knowledge: Array.isArray(meta.knowledge) ? meta.knowledge.length : 0,
                 hasSystem: typeof params.system === 'string' && params.system.length > 0,
-                // For the playground, which runs a configuration as its base model with these (its knowledge bases
-                // are searched only in Open WebUI's own chats)
+                // For the playground, which runs a configuration as its base model with these, its knowledge bases
+                // searched through POST /lab/webui/models/knowledge-query
                 system: typeof params.system === 'string' ? params.system.slice(0, 8000) : '',
                 params: configParams(params),
                 isActive: m.is_active !== false,
                 kind: (meta as Json).racingcoachKind ?? null,
                 updatedAt: m.updated_at ?? null,
+              };
+            }),
+          },
+        };
+      }
+      case 'POST /lab/webui/models/knowledge-query': {
+        // Searches the knowledge bases attached to one configuration, for the playground, which runs it as its base
+        // model. The collections come from the configuration itself (Open WebUI's meta.knowledge), never from the
+        // request, so the website can't search anything a configuration wasn't given. Needs Open WebUI's API key
+        // allowlist to include /api/v1/retrieval/query/collection (docs/AI_LAB_SETUP.md).
+        const query = typeof request.query === 'string' ? request.query.trim() : '';
+        const k = Math.min(10, Math.max(1, Math.round(Number(request.k) || 4)));
+        if (!validConfigId(request.id)) return { status: 400, ok: false, body: { error: 'badId' } };
+        if (!query || query.length > LAB_TEXT_LIMITS.prompt) return { status: 400, ok: false, body: { error: 'badContent' } };
+        const model = await webui(`/api/v1/models/model?id=${encodeURIComponent(request.id)}`);
+        if (!model.ok) return model;
+        const attached = (((model.body as Json).meta as Json | undefined)?.knowledge ?? []) as Json[];
+        const names = new Map<string, string>();
+        for (const item of Array.isArray(attached) ? attached : []) {
+          if (!validWebuiId(item?.id)) continue;
+          // A whole knowledge base is its own collection; a single attached file is file-<id>
+          const collection = item.type === 'file' ? `file-${item.id}` : (item.id as string);
+          names.set(collection, typeof item.name === 'string' ? item.name : String((item.meta as Json | undefined)?.name ?? item.id));
+        }
+        if (names.size === 0) return { status: 200, ok: true, body: { results: [], knowledge: [] } };
+        const r = await webui('/api/v1/retrieval/query/collection', { body: { collection_names: [...names.keys()], query, k } });
+        if (!r.ok) return r.status === 403 ? { status: 403, ok: false, body: { error: 'retrievalNotAllowed' } } : r;
+        const first = (key: string) => (((r.body as Json)[key] as unknown[][] | undefined)?.[0] ?? []) as unknown[];
+        const documents = first('documents');
+        const distances = first('distances');
+        const metadatas = first('metadatas') as (Json | null)[];
+        // A passage keeps the name its file had when it was indexed (pasted text is "Untitled.txt" even once renamed),
+        // so name it from the knowledge base's file list, by file ID
+        const fileNames = new Map<string, string>();
+        for (const collection of names.keys()) {
+          if (collection.startsWith('file-')) continue;
+          const files = await webui(`/api/v1/knowledge/${collection}/files?page=1`);
+          const items = files.ok ? (((files.body as Json).items as Json[] | undefined) ?? []) : [];
+          for (const f of items) if (typeof f.id === 'string') fileNames.set(f.id, String((f.meta as Json | undefined)?.name ?? f.filename ?? ''));
+        }
+        return {
+          status: 200,
+          ok: true,
+          body: {
+            knowledge: [...names.values()],
+            results: documents.map((content, i) => {
+              const meta = metadatas[i] ?? {};
+              const collection = typeof meta.knowledge_id === 'string' ? meta.knowledge_id : typeof meta.file_id === 'string' ? `file-${meta.file_id}` : null;
+              return {
+                content: typeof content === 'string' ? content.slice(0, 4000) : '',
+                source: (typeof meta.file_id === 'string' && fileNames.get(meta.file_id)) || (typeof meta.name === 'string' ? meta.name : typeof meta.source === 'string' ? meta.source : null),
+                knowledge: collection ? names.get(collection) ?? null : null,
+                score: typeof distances[i] === 'number' ? distances[i] : null,
               };
             }),
           },

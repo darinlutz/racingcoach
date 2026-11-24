@@ -19,6 +19,7 @@ const ACTIONS: Record<string, { route: LabPath; audited: boolean }> = {
   'knowledge.create': { route: 'POST /lab/webui/knowledge', audited: true },
   'models.list': { route: 'GET /lab/webui/models', audited: false },
   'models.create': { route: 'POST /lab/webui/models', audited: true },
+  'models.knowledgeQuery': { route: 'POST /lab/webui/models/knowledge-query', audited: false },
 };
 
 export async function POST(request: Request) {

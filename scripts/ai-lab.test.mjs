@@ -143,7 +143,12 @@ describe('guards', () => {
     // Every Ollama call is to a literal /api/... path
     for (const call of lab.matchAll(/\bollama\((?!path)([^,)]+)/g)) assert.match(call[1], /^'\/api\/[a-z]+'$/, call[0]);
     // Open WebUI calls are to /api/v1/... with only checked IDs interpolated
-    for (const call of lab.matchAll(/\bwebui\((?!path)([^,)]+)/g)) assert.match(call[1], /^[`']\/api\/v1\/(memories|knowledge|models)\//, call[0]);
+    // (and the knowledge search alone of /api/v1/retrieval, whose other endpoints change settings or reset the store)
+    for (const call of lab.matchAll(/\bwebui\((?!path)([^,)]+)/g)) {
+      assert.match(call[1], /^[`']\/api\/v1\/((memories|knowledge|models)\/|retrieval\/query\/collection'$)/, call[0]);
+    }
+    // Open WebUI's allowlist for the key has that one retrieval path, not the whole of /api/v1/retrieval
+    assert.match(read('local-ai/openwebui/docker-compose.yml'), /API_KEYS_ALLOWED_ENDPOINTS: \/api\/v1\/memories,\/api\/v1\/knowledge,\/api\/v1\/models,\/api\/v1\/retrieval\/query\/collection\n/);
     assert.doesNotMatch(lab, /OPEN_WEBUI_API_KEY[^\n]*send\(/);
   });
 

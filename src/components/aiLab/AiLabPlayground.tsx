@@ -15,10 +15,30 @@ import { runModel, type RunResult } from './playgroundClient';
 // Prompts and results can be saved.
 
 // An Open WebUI configuration (Model Configurations tab) runs as its base model with its system prompt and parameters,
-// through the gateway like any local model, so it's measured the same way. Its knowledge bases aren't searched here
-// (only Open WebUI's own chats do that), and its column says so.
+// through the gateway like any local model, so it's measured the same way. Before each run its knowledge bases are
+// searched with the prompt (Open WebUI's own search, through the gateway, which takes the collections from the
+// configuration itself) and the passages found are put in its system prompt and listed in its column.
 type LabConfig = { id: string; name: string; baseModelId: string | null; knowledge: number; system: string; params: Record<string, number> };
-type Column = { id: number; provider: 'Local' | 'Cloud'; model: string; config?: LabConfig; running: boolean; result: RunResult | null; live: string };
+type Passage = { content: string; source: string | null; knowledge: string | null; score: number | null };
+type Column = {
+  id: number;
+  provider: 'Local' | 'Cloud';
+  model: string;
+  config?: LabConfig;
+  running: boolean;
+  result: RunResult | null;
+  live: string;
+  // The knowledge passages the last run used (configurations with knowledge only); null before a run
+  passages?: Passage[] | null;
+  knowledgeError?: string | null;
+};
+
+const PASSAGES_PER_RUN = 4;
+// How the passages are given to the model: numbered, with their source, after the configuration's own prompt
+const knowledgeBlock = (passages: Passage[]) =>
+  `Reference passages from your knowledge bases, found for this question. Use them where they apply, and say so when they don't cover it:\n\n${passages
+    .map((x, i) => `[${i + 1}]${x.source ? ` (${x.source})` : ''}\n${x.content}`)
+    .join('\n\n')}`;
 type Saved = {
   prompts: { id: number; name: string; system: string; prompt: string; params: Record<string, number>; models: string[]; updatedAt: string }[];
   benchmarks: { id: number; name: string; system: string; prompt: string; results: { model: string; provider: string; text: string; error: string | null; metrics: Record<string, unknown> | null }[]; createdAt: string }[];
@@ -117,7 +137,21 @@ export default function AiLabPlayground({ data, initialModel }: { data: LabOverv
     return { ...defaults, ...Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined)) };
   };
   // A configuration's system prompt comes first, then what's typed here (and any memories)
-  const systemFor = (c: Column, typed: string) => (c.config?.system.trim() ? (typed.trim() ? `${c.config.system}\n\n${typed}` : c.config.system) : typed);
+  const systemFor = (c: Column, typed: string, passages: Passage[] = []) =>
+    [c.config?.system.trim() ? c.config.system : '', typed.trim() ? typed : '', passages.length ? knowledgeBlock(passages) : ''].filter(Boolean).join('\n\n');
+
+  // A configuration's knowledge passages for this prompt. A failed search stops that column rather than running it
+  // without its knowledge, which would compare the wrong thing.
+  const searchKnowledge = async (config: LabConfig): Promise<{ passages: Passage[] } | { error: string }> => {
+    try {
+      const { results } = await labApi<{ results: Passage[] }>('/api/admin/ai-lab/webui', {
+        body: { action: 'models.knowledgeQuery', id: config.id, query: prompt, k: PASSAGES_PER_RUN },
+      });
+      return { passages: results.filter((x) => x.content) };
+    } catch (e) {
+      return { error: errorText(e, l.errors, l.common.failed) };
+    }
+  };
 
   // With Use my Open WebUI memories on, the memories Open WebUI's search finds for the prompt are put in every model's
   // system prompt, the way the Memory tab's Test retrieval does (Open WebUI adds them itself only in its own chats).
@@ -149,9 +183,20 @@ export default function AiLabPlayground({ data, initialModel }: { data: LabOverv
       columns.map(async (c) => {
         const abort = new AbortController();
         aborts.current.set(c.id, abort);
-        update(c.id, { running: true, result: null, live: '' });
+        update(c.id, { running: true, result: null, live: '', passages: null, knowledgeError: null });
+        let passages: Passage[] = [];
+        if (c.config && c.config.knowledge > 0) {
+          const found = await searchKnowledge(c.config);
+          if ('error' in found) {
+            aborts.current.delete(c.id);
+            update(c.id, { running: false, knowledgeError: found.error });
+            return;
+          }
+          passages = found.passages;
+          update(c.id, { passages });
+        }
         const result = await runModel(
-          { target: { provider: c.provider, model: c.model }, system: systemFor(c, system), prompt, params: paramsFor(c) },
+          { target: { provider: c.provider, model: c.model }, system: systemFor(c, system, passages), prompt, params: paramsFor(c) },
           { signal: abort.signal, onToken: (text) => stream && update(c.id, (col) => ({ live: col.live + text })) }
         );
         aborts.current.delete(c.id);
@@ -185,7 +230,16 @@ export default function AiLabPlayground({ data, initialModel }: { data: LabOverv
           name,
           system: ranSystem ?? system,
           prompt,
-          results: columns.filter((c) => c.result).map((c) => ({ model: c.config ? `${c.config.name} (${c.model})` : c.model, provider: providerOf(c), text: c.result!.text, error: c.result!.error, metrics: c.result!.metrics })),
+          results: columns
+            .filter((c) => c.result)
+            .map((c) => ({
+              model: c.config ? `${c.config.name} (${c.model})` : c.model,
+              provider: providerOf(c),
+              text: c.result!.text,
+              error: c.result!.error,
+              // Which knowledge passages a configuration's answer had, so a saved comparison says what each model saw
+              metrics: c.passages ? { ...c.result!.metrics, knowledgeSources: c.passages.map((x) => x.source ?? x.knowledge ?? '') } : c.result!.metrics,
+            })),
         },
       });
       await loadSaved();
@@ -349,7 +403,24 @@ export default function AiLabPlayground({ data, initialModel }: { data: LabOverv
                     {p.remove}
                   </button>
                 </div>
-                {c.config && c.config.knowledge > 0 && <p className="text-xs text-yellow-500">{fmt(p.configNoKnowledge, { n: c.config.knowledge })}</p>}
+                {c.config && c.config.knowledge > 0 && !c.passages && !c.knowledgeError && (
+                  <p className="text-xs text-muted-foreground">{fmt(p.configKnowledge, { n: c.config.knowledge })}</p>
+                )}
+                {c.knowledgeError && <Notice tone="error">{c.knowledgeError}</Notice>}
+                {c.passages && (
+                  <details className="text-xs text-muted-foreground">
+                    <summary>{c.passages.length ? fmt(p.knowledgeUsed, { n: c.passages.length }) : p.noKnowledgeFound}</summary>
+                    <ol className="list-decimal pl-4 space-y-1 mt-1">
+                      {c.passages.map((x, i) => (
+                        <li key={i}>
+                          <span className="text-foreground">{[x.knowledge, x.source].filter(Boolean).join(' / ')}</span>
+                          {x.score !== null ? ` (${number(x.score, { maximumFractionDigits: 2 })})` : ''}
+                          <p className="whitespace-pre-wrap break-words">{x.content.length > 400 ? `${x.content.slice(0, 400)}…` : x.content}</p>
+                        </li>
+                      ))}
+                    </ol>
+                  </details>
+                )}
                 {unsupported.length > 0 && (
                   <p className="text-xs text-yellow-500">{fmt(p.notSupported, { provider, model: c.model, params: unsupported.map((k) => p.paramNames[k]).join(', ') })}</p>
                 )}

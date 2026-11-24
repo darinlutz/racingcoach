@@ -28,7 +28,7 @@ import { fileURLToPath } from 'node:url';
 import { NonceCache, secretUsable, signRequest, verifyRequest } from '../src/lib/localAi/signing.ts';
 import { createLab } from './lab.ts';
 
-const AGENT_VERSION = '1.1.2';
+const AGENT_VERSION = '1.2.0';
 const STARTED_AT = Date.now();
 
 // ---- Settings ----

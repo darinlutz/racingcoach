@@ -43,6 +43,7 @@ export const aiLabEn = {
     gray: 'Not configured',
   },
   errors: {
+    retrievalNotAllowed: 'Open WebUI refused the knowledge search: add /api/v1/retrieval/query/collection to its API key Allowed Endpoints (Admin Panel > Settings > General).',
     tooMany: 'Too many requests: wait a minute.',
     tooManyAtOnce: 'Four runs are already going: wait for one to finish.',
     budget: 'Refused by the lab\'s daily cloud budget: {detail}',
@@ -181,7 +182,9 @@ export const aiLabEn = {
     configurations: 'Configurations (Open WebUI)',
     configOption: '{name} (configuration on {model})',
     configOn: 'Configuration on {model}: its system prompt and parameters',
-    configNoKnowledge: 'Its knowledge bases ({n}) aren\'t searched here, only its system prompt and parameters are used. Chat with it in Open WebUI for answers from its knowledge.',
+    configKnowledge: 'Searches its knowledge bases ({n}) with the prompt before each run, and adds what it finds to its system prompt.',
+    knowledgeUsed: 'Knowledge used: {n} passages',
+    noKnowledgeFound: 'No passages in its knowledge bases matched the prompt; it ran on its system prompt alone.',
     useMemories: 'Use my Open WebUI memories',
     useMemoriesHelp: 'Off, each model sees only the prompts above, as a benchmark should. On, the memories Open WebUI finds for the prompt (up to 3) are added to every model\'s system prompt, cloud models included. In Open WebUI\'s own chats it adds them itself.',
     memoriesUsed: 'Memories added to the system prompt:',

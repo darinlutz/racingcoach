@@ -60,6 +60,25 @@ export type Lab = {
 
 const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error)).slice(0, 300);
 
+// A configuration's Open WebUI parameters under the playground's names (LAB_PARAMS); anything else is left out
+const CONFIG_PARAM_NAMES: Record<string, string> = {
+  temperature: 'temperature',
+  top_p: 'topP',
+  top_k: 'topK',
+  num_ctx: 'numCtx',
+  max_tokens: 'maxTokens',
+  repeat_penalty: 'repeatPenalty',
+  seed: 'seed',
+};
+function configParams(params: Json): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const [from, to] of Object.entries(CONFIG_PARAM_NAMES)) {
+    const v = Number(params[from]);
+    if (params[from] !== null && params[from] !== undefined && params[from] !== '' && Number.isFinite(v)) out[to] = v;
+  }
+  return out;
+}
+
 export function createLab(config: LabConfig, production: { active: () => number; max: () => number }, log: (m: string) => void): Lab {
   let active = 0;
   type Pull = { name: string; status: string; completed: number | null; total: number | null; startedAt: number; finishedAt: number | null; error: string | null; abort: AbortController };
@@ -513,6 +532,10 @@ export function createLab(config: LabConfig, production: { active: () => number;
                 description: meta.description ?? '',
                 knowledge: Array.isArray(meta.knowledge) ? meta.knowledge.length : 0,
                 hasSystem: typeof params.system === 'string' && params.system.length > 0,
+                // For the playground, which runs a configuration as its base model with these (its knowledge bases
+                // are searched only in Open WebUI's own chats)
+                system: typeof params.system === 'string' ? params.system.slice(0, 8000) : '',
+                params: configParams(params),
                 isActive: m.is_active !== false,
                 kind: (meta as Json).racingcoachKind ?? null,
                 updatedAt: m.updated_at ?? null,

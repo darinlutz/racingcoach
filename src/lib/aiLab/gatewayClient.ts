@@ -29,6 +29,7 @@ export const LAB_PATHS = [
   'POST /lab/webui/knowledge',
   'GET /lab/webui/models',
   'POST /lab/webui/models',
+  'POST /lab/webui/models/knowledge-query',
 ] as const;
 export type LabPath = (typeof LAB_PATHS)[number];
 

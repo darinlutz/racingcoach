@@ -145,6 +145,18 @@ before(async () => {
     if (req.url === '/api/v1/knowledge/create') return json(res, 200, { id: 'kb-2' });
     if (req.url === '/api/v1/models/list?page=1') return json(res, 200, { items: [{ id: 'racingcoach-race-engineer', name: 'RacingCoach Race Engineer', base_model_id: 'qwen3:8b', meta: { description: 'x', racingcoachKind: 'configuration', knowledge: [{ id: 'kb-1' }] }, params: { system: 'You are' }, is_active: true }] });
     if (req.url === '/api/v1/models/create') return json(res, 200, { id: JSON.parse(body).id });
+    if (req.url === '/api/v1/models/model?id=racingcoach-race-engineer') {
+      return json(res, 200, { id: 'racingcoach-race-engineer', meta: { knowledge: [{ id: 'kb-1', name: 'Race engineering', type: 'collection' }, { id: 'f-9', name: 'Notes.txt', type: 'file' }, { id: '../bad' }] } });
+    }
+    if (req.url === '/api/v1/models/model?id=racingcoach-plain') return json(res, 200, { id: 'racingcoach-plain', meta: {} });
+    if (req.url === '/api/v1/knowledge/kb-1/files?page=1') return json(res, 200, { items: [{ id: 'file-1', meta: { name: 'BrakeBias.txt' } }] });
+    if (req.url === '/api/v1/retrieval/query/collection') {
+      return json(res, 200, {
+        documents: [['Brake bias sets the front share', 'A note']],
+        distances: [[0.77, 0.4]],
+        metadatas: [[{ knowledge_id: 'kb-1', file_id: 'file-1', name: 'Untitled.txt' }, { file_id: 'f-9', name: 'Notes.txt' }]],
+      });
+    }
     json(res, 404, { detail: 'Not Found' });
   });
 
@@ -375,6 +387,28 @@ describe('Open WebUI', () => {
     assert.equal(sent.base_model_id, 'qwen3:8b');
     assert.equal(sent.meta.racingcoachKind, 'configuration');
     assert.deepEqual(sent.params, { system: 'You are a coach', temperature: 0.4 });
+  });
+
+  test("a configuration's knowledge search takes its collections from the configuration, never the request", async () => {
+    const found = await call(labUrl, 'POST', '/lab/webui/models/knowledge-query', {
+      id: 'racingcoach-race-engineer',
+      query: 'Mid-corner understeer',
+      k: 50,
+      collection_names: ['someone-elses-kb'],
+    });
+    assert.equal(found.status, 200);
+    const search = webuiCalls.find((c) => c.url === '/api/v1/retrieval/query/collection');
+    assert.deepEqual(search.body, { collection_names: ['kb-1', 'file-f-9'], query: 'Mid-corner understeer', k: 10 });
+    assert.deepEqual(found.body.knowledge, ['Race engineering', 'Notes.txt']);
+    // Named from the knowledge base's file list, not the name it was indexed under
+    assert.deepEqual(found.body.results[0], { content: 'Brake bias sets the front share', source: 'BrakeBias.txt', knowledge: 'Race engineering', score: 0.77 });
+    assert.equal(found.body.results[1].knowledge, 'Notes.txt');
+    // No knowledge: no search at all
+    const before = webuiCalls.length;
+    assert.deepEqual((await call(labUrl, 'POST', '/lab/webui/models/knowledge-query', { id: 'racingcoach-plain', query: 'x' })).body, { results: [], knowledge: [] });
+    assert.equal(webuiCalls.slice(before).some((c) => c.url.startsWith('/api/v1/retrieval')), false);
+    assert.equal((await call(labUrl, 'POST', '/lab/webui/models/knowledge-query', { id: '../x', query: 'x' })).status, 400);
+    assert.equal((await call(labUrl, 'POST', '/lab/webui/models/knowledge-query', { id: 'racingcoach-plain', query: '' })).status, 400);
   });
 
   test('unknown Open WebUI routes are not passed through', async () => {

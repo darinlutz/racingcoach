@@ -44,6 +44,7 @@ export const aiLabIt: AiLabText = {
     gray: 'Non configurato',
   },
   errors: {
+    retrievalNotAllowed: 'Open WebUI ha rifiutato la ricerca nella conoscenza: aggiungi /api/v1/retrieval/query/collection agli Allowed Endpoints della chiave API (Admin Panel > Settings > General).',
     tooMany: 'Troppe richieste: attendi un minuto.',
     tooManyAtOnce: 'Ci sono già quattro esecuzioni in corso: attendi che una finisca.',
     budget: 'Rifiutato dal budget cloud giornaliero del laboratorio: {detail}',
@@ -182,7 +183,9 @@ export const aiLabIt: AiLabText = {
     configurations: 'Configurazioni (Open WebUI)',
     configOption: '{name} (configurazione su {model})',
     configOn: 'Configurazione su {model}: il suo prompt di sistema e i suoi parametri',
-    configNoKnowledge: 'Le sue basi di conoscenza ({n}) non vengono consultate qui; si usano solo il prompt di sistema e i parametri. Chatta con lei in Open WebUI per risposte basate sulla conoscenza.',
+    configKnowledge: 'Consulta le sue basi di conoscenza ({n}) con il prompt prima di ogni esecuzione e aggiunge ciò che trova al prompt di sistema.',
+    knowledgeUsed: 'Conoscenza usata: {n} passaggi',
+    noKnowledgeFound: 'Nessun passaggio delle basi di conoscenza corrispondeva al prompt; ha funzionato solo con il prompt di sistema.',
     useMemories: 'Usa i miei ricordi di Open WebUI',
     useMemoriesHelp: 'Disattivato, ogni modello vede solo i prompt qui sopra, come deve essere in un confronto. Attivato, i ricordi che Open WebUI trova per il prompt (fino a 3) vengono aggiunti al prompt di sistema di tutti i modelli, anche quelli cloud. Nelle chat di Open WebUI li aggiunge da sé.',
     memoriesUsed: 'Ricordi aggiunti al prompt di sistema:',

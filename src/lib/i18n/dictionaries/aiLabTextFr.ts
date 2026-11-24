@@ -44,6 +44,7 @@ export const aiLabFr: AiLabText = {
     gray: 'Non configuré',
   },
   errors: {
+    retrievalNotAllowed: 'Open WebUI a refusé la recherche dans les connaissances : ajoutez /api/v1/retrieval/query/collection aux Allowed Endpoints de sa clé d\'API (Admin Panel > Settings > General).',
     tooMany: 'Trop de requêtes : attendez une minute.',
     tooManyAtOnce: 'Quatre exécutions sont déjà en cours : attendez qu’une se termine.',
     budget: 'Refusé par le budget cloud quotidien du laboratoire : {detail}',
@@ -182,7 +183,9 @@ export const aiLabFr: AiLabText = {
     configurations: 'Configurations (Open WebUI)',
     configOption: '{name} (configuration sur {model})',
     configOn: 'Configuration sur {model} : son prompt système et ses paramètres',
-    configNoKnowledge: 'Ses bases de connaissances ({n}) ne sont pas consultées ici ; seuls son prompt système et ses paramètres sont utilisés. Discutez avec elle dans Open WebUI pour des réponses tirées de ses connaissances.',
+    configKnowledge: 'Consulte ses bases de connaissances ({n}) avec le prompt avant chaque exécution et ajoute ce qu\'elle trouve à son prompt système.',
+    knowledgeUsed: 'Connaissances utilisées : {n} passages',
+    noKnowledgeFound: 'Aucun passage de ses bases de connaissances ne correspondait au prompt ; elle a tourné avec son seul prompt système.',
     useMemories: 'Utiliser mes souvenirs Open WebUI',
     useMemoriesHelp: 'Désactivé, chaque modèle ne voit que les prompts ci-dessus, comme il se doit pour un comparatif. Activé, les souvenirs qu’Open WebUI trouve pour le prompt (jusqu’à 3) sont ajoutés au prompt système de tous les modèles, y compris ceux du cloud. Dans les discussions d’Open WebUI, il les ajoute lui-même.',
     memoriesUsed: 'Souvenirs ajoutés au prompt système :',

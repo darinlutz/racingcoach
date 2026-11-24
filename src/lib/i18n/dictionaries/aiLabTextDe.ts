@@ -44,6 +44,7 @@ export const aiLabDe: AiLabText = {
     gray: 'Nicht eingerichtet',
   },
   errors: {
+    retrievalNotAllowed: 'Open WebUI hat die Wissenssuche abgelehnt: /api/v1/retrieval/query/collection zu den Allowed Endpoints des API-Schlüssels hinzufügen (Admin Panel > Settings > General).',
     tooMany: 'Zu viele Anfragen: Warte eine Minute.',
     tooManyAtOnce: 'Es laufen bereits vier Durchläufe: Warte, bis einer fertig ist.',
     budget: 'Vom täglichen Cloud-Budget des Labors abgelehnt: {detail}',
@@ -182,7 +183,9 @@ export const aiLabDe: AiLabText = {
     configurations: 'Konfigurationen (Open WebUI)',
     configOption: '{name} (Konfiguration auf {model})',
     configOn: 'Konfiguration auf {model}: ihr System-Prompt und ihre Parameter',
-    configNoKnowledge: 'Ihre Wissensdatenbanken ({n}) werden hier nicht durchsucht, nur System-Prompt und Parameter werden verwendet. Für Antworten aus dem Wissen in Open WebUI mit ihr chatten.',
+    configKnowledge: 'Durchsucht vor jedem Lauf ihre Wissensdatenbanken ({n}) mit dem Prompt und fügt das Gefundene ihrem System-Prompt hinzu.',
+    knowledgeUsed: 'Verwendetes Wissen: {n} Passagen',
+    noKnowledgeFound: 'Keine Passage ihrer Wissensdatenbanken passte zum Prompt; sie lief nur mit ihrem System-Prompt.',
     useMemories: 'Meine Open-WebUI-Erinnerungen verwenden',
     useMemoriesHelp: 'Aus: Jedes Modell sieht nur die Prompts oben, wie es sich für einen Vergleich gehört. An: Die Erinnerungen, die Open WebUI zum Prompt findet (bis zu 3), werden dem System-Prompt aller Modelle hinzugefügt, auch der Cloud-Modelle. In Open WebUIs eigenen Chats fügt es sie selbst hinzu.',
     memoriesUsed: 'Dem System-Prompt hinzugefügte Erinnerungen:',

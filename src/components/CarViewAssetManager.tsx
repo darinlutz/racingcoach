@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import CarPathCombobox from '@/components/CarPathCombobox';
 import { CarViewDebugProvider, CarViewProvider } from '@/components/CarViewContext';
 import EngineeringCarView from '@/components/EngineeringCarView';
 import { useConfirm } from '@/components/ConfirmProvider';
@@ -62,6 +63,8 @@ export default function CarViewAssetManager() {
   const [busy, setBusy] = useState(false);
   const [carId, setCarId] = useState('');
   const [carKeys, setCarKeys] = useState('');
+  // The iRacing setup folders collectors have reported, offered as car paths (like the 3D Car Models')
+  const [setupFolders, setSetupFolders] = useState<string[]>([]);
   const [sharedCarIds, setSharedCarIds] = useState<number[]>([]);
   // A version's cars being changed: its shared cars and car paths
   const [sharing, setSharing] = useState<{ id: number; ids: number[]; keys: string } | null>(null);
@@ -80,6 +83,7 @@ export default function CarViewAssetManager() {
       if (!res.ok) throw new Error(data.error);
       setCars(data.cars);
       setAssets(data.assets);
+      setSetupFolders(Array.isArray(data.setupFolders) ? data.setupFolders : []);
       const b = await bundledRes.json().catch(() => ({}));
       if (bundledRes.ok && Array.isArray(b.drawings)) {
         setBundled(b.drawings);
@@ -329,7 +333,7 @@ export default function CarViewAssetManager() {
             <label htmlFor="ecv-keys" className={labelClass}>
               {s.carKeys}
             </label>
-            <input id="ecv-keys" value={carKeys} onChange={(e) => setCarKeys(e.target.value)} placeholder="lamborghinievogt3" className={inputClass} />
+            <CarPathCombobox id="ecv-keys" value={carKeys} onChange={setCarKeys} folders={setupFolders} placeholder="lamborghinievogt3" className={inputClass} />
             <p className="mt-1 text-xs text-muted-foreground">{s.carKeysHelp}</p>
           </div>
           <div className="sm:col-span-2">
@@ -457,7 +461,7 @@ export default function CarViewAssetManager() {
                       {s.actions.deactivate}
                     </button>
                   )}
-                  {!asset.active && (asset.status === 'draft' || asset.status === 'rejected') && (
+                  {!asset.active && (
                     <button type="button" disabled={busy} className={buttonClass} onClick={() => void act(asset, 'delete')}>
                       {s.actions.delete}
                     </button>
@@ -481,11 +485,11 @@ export default function CarViewAssetManager() {
                       <label htmlFor={`ecv-share-keys-${asset.id}`} className={labelClass}>
                         {s.carKeys}
                       </label>
-                      <input
+                      <CarPathCombobox
                         id={`ecv-share-keys-${asset.id}`}
                         value={sharing.keys}
-                        onChange={(e) => setSharing({ ...sharing, keys: e.target.value })}
-                        spellCheck={false}
+                        onChange={(keys) => setSharing({ ...sharing, keys })}
+                        folders={setupFolders}
                         className={`${inputClass} font-mono text-xs`}
                       />
                       <p className="text-xs text-muted-foreground">{s.carKeysHelp}</p>

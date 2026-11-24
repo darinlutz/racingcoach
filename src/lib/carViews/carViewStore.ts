@@ -241,7 +241,7 @@ export async function updateCarAssetSharing(id: number, sharing: Sharing, userId
 // Only a draft or a rejected version that isn't active can be deleted: an approved one stays, to roll back to
 export async function deleteCarAsset(id: number): Promise<void> {
   await ensureUserSchema();
-  const rows = await query(`DELETE FROM racingcoach."CarEngineeringAssets" WHERE id = $1 AND NOT active AND status IN ('draft', 'rejected') RETURNING id`, [id]);
+  const rows = await query(`DELETE FROM racingcoach."CarEngineeringAssets" WHERE id = $1 AND NOT active RETURNING id`, [id]);
   if (!rows.length) throw new CarViewActionError('notDeletable');
   resolved.clear();
 }

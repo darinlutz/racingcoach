@@ -37,6 +37,11 @@ export default function AiLabPlayground({ data, initialModel }: { data: LabOverv
   const [prompt, setPrompt] = useState('');
   const [params, setParams] = useState<Partial<Record<LabParam, number>>>({});
   const [stream, setStream] = useState(true);
+  // Off by default so a benchmark measures the models on the prompt alone
+  const [useMemories, setUseMemories] = useState(false);
+  const [usedMemories, setUsedMemories] = useState<string[] | null>(null);
+  // The system prompt the last run actually sent (memories included), saved with its results
+  const [ranSystem, setRanSystem] = useState<string | null>(null);
   const [adding, setAdding] = useState('');
   const [saved, setSaved] = useState<Saved>({ prompts: [], benchmarks: [] });
   const [viewing, setViewing] = useState<Saved['benchmarks'][number] | null>(null);
@@ -85,8 +90,32 @@ export default function AiLabPlayground({ data, initialModel }: { data: LabOverv
     return { ...defaults, ...Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined)) };
   };
 
+  // With Use my Open WebUI memories on, the memories Open WebUI's search finds for the prompt are put in every model's
+  // system prompt, the way the Memory tab's Test retrieval does (Open WebUI adds them itself only in its own chats).
+  // The playground calls the models directly, so without this they see only what's typed here.
+  const effectiveSystem = async (): Promise<string | null> => {
+    setUsedMemories(null);
+    if (!useMemories) return system;
+    try {
+      const { results } = await labApi<{ results: { content: string | null }[] }>('/api/admin/ai-lab/webui', {
+        body: { action: 'memories.query', content: prompt, k: 3 },
+      });
+      const found = results.map((r) => r.content).filter((c): c is string => !!c);
+      setUsedMemories(found);
+      if (!found.length) return system;
+      const facts = `Facts the user asked you to remember:\n${found.map((f) => `- ${f}`).join('\n')}`;
+      return system.trim() ? `${system}\n\n${facts}` : facts;
+    } catch (e) {
+      setProblem(errorText(e, l.errors, l.common.failed));
+      return null;
+    }
+  };
+
   const runAll = async () => {
     setProblem(null);
+    const system = await effectiveSystem();
+    if (system === null) return;
+    setRanSystem(system);
     await Promise.all(
       columns.map(async (c) => {
         const abort = new AbortController();
@@ -125,7 +154,7 @@ export default function AiLabPlayground({ data, initialModel }: { data: LabOverv
         body: {
           kind: 'benchmark',
           name,
-          system,
+          system: ranSystem ?? system,
           prompt,
           results: columns.filter((c) => c.result).map((c) => ({ model: c.model, provider: providerOf(c), text: c.result!.text, error: c.result!.error, metrics: c.result!.metrics })),
         },
@@ -218,6 +247,27 @@ export default function AiLabPlayground({ data, initialModel }: { data: LabOverv
             <input type="checkbox" checked={stream} onChange={(e) => setStream(e.target.checked)} />
             {p.streaming}
           </label>
+          <label className="mt-1 flex items-center gap-2 text-sm text-foreground">
+            <input type="checkbox" checked={useMemories} disabled={!gw?.openWebui.apiKey} onChange={(e) => setUseMemories(e.target.checked)} />
+            {p.useMemories}
+          </label>
+          <p className="text-xs text-muted-foreground">{p.useMemoriesHelp}</p>
+          {usedMemories !== null && (
+            <div className="mt-1 text-xs text-muted-foreground">
+              {usedMemories.length === 0 ? (
+                p.noMemoriesFound
+              ) : (
+                <>
+                  <p>{p.memoriesUsed}</p>
+                  <ul className="list-disc pl-5">
+                    {usedMemories.map((f, i) => (
+                      <li key={i} data-no-track>{f}</li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="flex flex-wrap gap-2">

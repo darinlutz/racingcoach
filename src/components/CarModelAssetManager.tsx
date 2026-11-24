@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Car3DViewerLazy from '@/components/car3d/Car3DViewerLazy';
 import CarPathCombobox from '@/components/CarPathCombobox';
+import { RACING_DISCIPLINES, type RacingDiscipline } from '@/lib/racingDisciplines';
 import { useConfirm } from '@/components/ConfirmProvider';
 import { useLanguage } from '@/components/LanguageProvider';
 import SharedCarsPicker, { addCarPath } from '@/components/SharedCarsPicker';
@@ -31,7 +32,7 @@ import {
 // car then shows the generic car). GET/POST /api/admin/car-models, GET/PUT/DELETE /api/admin/car-models/[id],
 // Admins only.
 
-type Car = { id: number; name: string; lengthIn: number | null; widthIn: number | null; wheelbaseIn: number | null };
+type Car = { id: number; name: string; racingDiscipline: string | null; lengthIn: number | null; widthIn: number | null; wheelbaseIn: number | null };
 type Summary = {
   id: number;
   carId: number;
@@ -167,6 +168,12 @@ export default function CarModelAssetManager() {
   };
   const shownCars = cars.filter((c) => (filter === 'all' ? true : filter === 'missing' ? !byCar.has(c.id) : byCar.has(c.id)));
   const activeCount = (models ?? []).filter((v) => v.active).length;
+  // The cars shown, grouped by Car Type in Car Data's order, cars without one (or an unknown one) last
+  const typeOf = (car: Car): RacingDiscipline | '' =>
+    RACING_DISCIPLINES.includes(car.racingDiscipline as RacingDiscipline) ? (car.racingDiscipline as RacingDiscipline) : '';
+  const carGroups = ([...RACING_DISCIPLINES, ''] as const)
+    .map((type) => ({ type, cars: shownCars.filter((car) => typeOf(car) === type) }))
+    .filter((group) => group.cars.length > 0);
 
   const upload = async () => {
     clear();
@@ -347,14 +354,23 @@ export default function CarModelAssetManager() {
             </button>
           ))}
         </div>
-        <ul className="mt-3 grid max-h-72 gap-x-6 overflow-y-auto text-sm sm:grid-cols-2 lg:grid-cols-3">
-          {shownCars.map((car) => (
-            <li key={car.id} className="flex items-center justify-between gap-2 border-b border-border py-1">
-              <span className="truncate text-foreground">{car.name}</span>
-              <span className={`shrink-0 text-xs ${byCar.has(car.id) ? 'text-primary' : 'text-muted-foreground'}`}>{carStatus(car.id)}</span>
-            </li>
+        <div className="mt-3 max-h-96 space-y-4 overflow-y-auto text-sm">
+          {carGroups.map((group) => (
+            <section key={group.type || 'none'}>
+              <h4 className="sticky top-0 z-10 bg-card py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                {group.type ? t.cars.disciplines[group.type] : t.cars.noDiscipline} · {group.cars.filter((car) => byCar.has(car.id)).length}/{group.cars.length}
+              </h4>
+              <ul className="grid gap-x-6 sm:grid-cols-2 lg:grid-cols-3">
+                {group.cars.map((car) => (
+                  <li key={car.id} className="flex items-center justify-between gap-2 border-b border-border py-1">
+                    <span className="truncate text-foreground">{car.name}</span>
+                    <span className={`shrink-0 text-xs ${byCar.has(car.id) ? 'text-primary' : 'text-muted-foreground'}`}>{carStatus(car.id)}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
           ))}
-        </ul>
+        </div>
       </details>
 
       {/* A new version */}

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useLanguage } from '@/components/LanguageProvider';
-import { buttonClass, dangerClass, errorText, inputClass, labApi, labelClass, localTime, Notice, Panel, primaryClass, type LabOverview } from './aiLabUi';
+import { buttonClass, dangerClass, errorText, inputClass, labApi, labelClass, localTime, Notice, Panel, primaryClass, type LabOverview, chatModelNames } from './aiLabUi';
 import { runModel } from './playgroundClient';
 
 // AI Lab's Memory tab: Open WebUI's persistent memories (its own feature, through the Mac's gateway): view, search,
@@ -52,7 +52,8 @@ export default function AiLabMemory({ data }: { data: LabOverview | null }) {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- loads the memories once Open WebUI is reachable
     if (webuiReady) void load();
   }, [webuiReady, load]);
-  const model = picked || data?.settings.defaultModel || gw?.models[0]?.name || '';
+  const chatModels = chatModelNames(gw);
+  const model = picked || (chatModels.includes(data?.settings.defaultModel ?? '') ? data!.settings.defaultModel! : chatModels[0]) || '';
 
   const add = async () => {
     if (await call('memories.add', { content: draft })) {
@@ -177,9 +178,9 @@ export default function AiLabMemory({ data }: { data: LabOverview | null }) {
                 {m.findMemories}
               </button>
               <select className={`${inputClass} max-w-xs`} value={model} onChange={(e) => setPicked(e.target.value)} aria-label={l.models.name}>
-                {gw.models.map((x) => (
-                  <option key={x.name} value={x.name}>
-                    {x.name}
+                {chatModels.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
                   </option>
                 ))}
               </select>

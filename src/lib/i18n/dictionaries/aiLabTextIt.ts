@@ -132,6 +132,8 @@ export const aiLabIt: AiLabText = {
     productionHelp: 'L’instradamento di produzione può usare questo modello (LOCAL_AI_MODELS sul Mac); il laboratorio non può eliminarlo.',
     default: 'Predefinito del playground',
     makeDefault: 'Rendi predefinito',
+    embedding: 'Embedding',
+    embeddingHelp: 'Produce gli embedding per la ricerca nella conoscenza di Open WebUI; non conversa, quindi non è proposto nel playground, nel test della memoria né nelle configurazioni.',
     details: 'Dettagli',
     load: 'Carica',
     unload: 'Scarica dalla memoria',

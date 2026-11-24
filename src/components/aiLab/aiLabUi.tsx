@@ -126,7 +126,7 @@ export type LabGatewayStatus = {
   lab: { manage: boolean; active: number; maxConcurrency: number; maxContext: number; maxOutput: number };
   production: { models: string[]; active: number; maxConcurrency: number };
   ollama: { ok: boolean; version: string | null; error: string | null };
-  models: { name: string; family: string | null; parameterSize: string | null; quantization: string | null; sizeBytes: number | null; modifiedAt: string | null }[];
+  models: { name: string; family: string | null; parameterSize: string | null; capabilities?: string[] | null; quantization: string | null; sizeBytes: number | null; modifiedAt: string | null }[];
   loaded: { name: string; sizeBytes: number | null; vramBytes: number | null; contextLength: number | null; expiresAt: string | null }[];
   openWebui: { configured: boolean; ok: boolean | null; version: string | null; apiKey: boolean; error: string | null };
   pulls: { name: string; status: string; completed: number | null; total: number | null; startedAt: number; finishedAt: number | null; error: string | null }[];
@@ -167,4 +167,11 @@ export function useLabOverview() {
   }, [load]);
 
   return { data, error, busy, reload: load };
+}
+
+// The installed models that can chat: an embedding-only model (no 'completion' capability, e.g. qwen3-embedding:0.6b,
+// which Open WebUI's knowledge search uses) is left out of every model picker. Unknown capabilities (a gateway before
+// 1.1.1, or /api/show failing) count as able to chat, so nothing disappears for lack of information.
+export function chatModelNames(gw: { models: { name: string; capabilities?: string[] | null }[] } | null | undefined): string[] {
+  return (gw?.models ?? []).filter((m) => !m.capabilities || m.capabilities.includes('completion')).map((m) => m.name);
 }

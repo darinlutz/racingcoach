@@ -132,6 +132,8 @@ export const aiLabPt: AiLabText = {
     productionHelp: 'O roteamento de produção pode usar este modelo (LOCAL_AI_MODELS no Mac); o laboratório não pode excluí-lo.',
     default: 'Padrão do playground',
     makeDefault: 'Tornar padrão',
+    embedding: 'Embedding',
+    embeddingHelp: 'Gera embeddings para a busca de conhecimento do Open WebUI; não conversa, por isso não é oferecido no playground, no teste de memória nem nas configurações.',
     details: 'Detalhes',
     load: 'Carregar',
     unload: 'Descarregar',

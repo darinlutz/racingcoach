@@ -108,22 +108,25 @@ export function createLab(config: LabConfig, production: { active: () => number;
   const models = (value: unknown) => ((value as { models?: Json[] })?.models ?? []);
 
   // Ollama's /api/tags leaves the family and size empty for some models (MLX safetensors ones, like qwen3.8:27b),
-  // which /api/show has. Asked once per model version (digest), kept while the gateway runs.
-  const showDetails = new Map<string, { family: string | null; parameterSize: string | null }>();
-  async function fillDetails(m: Json, details: Json) {
-    const text = (v: unknown) => (typeof v === 'string' && v ? v : null);
+  // which /api/show has, and never says what a model can do: /api/show's capabilities ('completion' for a model that
+  // chats; an embedding model like qwen3-embedding:0.6b has 'embedding' and no 'completion'). Asked once per model
+  // version (digest), kept while the gateway runs; a failed ask is tried again at the next status.
+  type Shown = { family: string | null; parameterSize: string | null; capabilities: string[] | null };
+  const showDetails = new Map<string, Shown>();
+  const text = (v: unknown) => (typeof v === 'string' && v ? v : null);
+  async function fillDetails(m: Json, details: Json): Promise<Shown> {
     const family = text(details.family);
     const parameterSize = text(details.parameter_size);
-    if (family && parameterSize) return { family, parameterSize };
     const key = `${m.model ?? m.name}@${m.digest ?? ''}`;
     if (!showDetails.has(key)) {
       const shown = await ollama('/api/show', { body: { model: m.model ?? m.name }, timeoutMs: 5_000 }).catch(() => null);
-      if (!shown?.ok) return { family, parameterSize };
+      if (!shown?.ok) return { family, parameterSize, capabilities: null };
       const d = (shown.body.details ?? {}) as Json;
-      showDetails.set(key, { family: text(d.family), parameterSize: text(d.parameter_size) });
+      const capabilities = Array.isArray(shown.body.capabilities) ? (shown.body.capabilities as unknown[]).filter((c): c is string => typeof c === 'string') : null;
+      showDetails.set(key, { family: text(d.family), parameterSize: text(d.parameter_size), capabilities });
     }
     const known = showDetails.get(key)!;
-    return { family: family ?? known.family, parameterSize: parameterSize ?? known.parameterSize };
+    return { family: family ?? known.family, parameterSize: parameterSize ?? known.parameterSize, capabilities: known.capabilities };
   }
 
   async function status() {
@@ -163,12 +166,13 @@ export function createLab(config: LabConfig, production: { active: () => number;
       },
       models: await Promise.all(models(tags.body).map(async (m) => {
         const details = (m.details ?? {}) as Json;
-        const { family, parameterSize } = await fillDetails(m, details);
+        const { family, parameterSize, capabilities } = await fillDetails(m, details);
         return {
           name: m.model ?? m.name,
           family,
           families: details.families ?? null,
           parameterSize,
+          capabilities,
           quantization: details.quantization_level ?? null,
           format: details.format ?? null,
           sizeBytes: typeof m.size === 'number' ? m.size : null,

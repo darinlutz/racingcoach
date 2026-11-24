@@ -3,6 +3,23 @@
 // AI Lab settings, and the status colors. Nothing here reaches production routing: the lab's models and parameters
 // are never read by chatModel() or the Local AI router.
 
+// ---- Error pages ----
+
+// A short, plain description of an answer that wasn't JSON (Cloudflare's error pages when the tunnel or the Mac is
+// down, a proxy's HTML): the HTTP status and the page's title, never its markup or scripts.
+export function errorPageSummary(status: number, text: string): string {
+  const head = `HTTP ${status}`;
+  const title = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(text)?.[1];
+  const plain = title ?? (/<[a-z!/]/i.test(text) ? '' : text);
+  const clean = plain
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&(amp|lt|gt|quot|#39|nbsp);/g, (_, e: string) => ({ amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'", nbsp: ' ' })[e] ?? ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 120);
+  return clean ? `${head}: ${clean}` : head;
+}
+
 // ---- Names and IDs ----
 
 // An Ollama model name: [host/][namespace/]model[:tag], e.g. qwen3:8b, library/gemma3:27b, hf.co/user/repo:Q4_K_M.

@@ -531,8 +531,8 @@ describe('Memory Service with a database', { skip }, () => {
       const job = await userMemory.proposeForUser(u, [{ role: 'user', content: 'My goal is to break 2:18 at Spa.' }], 'test-consent');
       assert.ok(job?.jobId);
 
-      // A job still queued when it's turned off is cancelled (queued here without starting the worker)
-      const queued = await store.enqueueJob(null, 'extract', { messages: [{ role: 'user', content: 'I race GT3 on Tuesdays.' }], namespaceId: space.id, allowedNamespaceIds: [space.id], application: 'test-consent', trigger: 'turn', userId: u, actingUserId: u, ownerOverride: false }, { userId: u });
+      // A job still queued when it's turned off is cancelled (due in an hour, so a worker still draining can't claim it first)
+      const queued = await store.enqueueJob(null, 'extract', { messages: [{ role: 'user', content: 'I race GT3 on Tuesdays.' }], namespaceId: space.id, allowedNamespaceIds: [space.id], application: 'test-consent', trigger: 'turn', userId: u, actingUserId: u, ownerOverride: false }, { userId: u, runAfter: new Date(Date.now() + 3_600_000) });
       // Turned off: the memory is gone for good (tombstoned), the queued job cancelled, and it's recorded
       const withdrawn = await consent.setMemoryConsent(u, false, actor);
       assert.deepEqual({ optedIn: withdrawn.optedIn, deleted: withdrawn.deleted }, { optedIn: false, deleted: 1 });

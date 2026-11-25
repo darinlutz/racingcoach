@@ -18,7 +18,7 @@ The AI Lab page (the nav bar's AI Lab link, `/model-learning`, Admins only) is a
 - **AI Lab page** existed (`src/app/model-learning/page.tsx`) with the Local AI sections for Admins. They're now its **Production Routing** tab, unchanged.
 - **Local AI** (docs/local-ai.md) already had what the lab needs: a gateway on the Mac (`local-ai/gateway.ts`) behind **Cloudflare Tunnel** (`ai.racingcoach.app`) and a **Cloudflare Access service token**, every request **HMAC-signed** (`src/lib/localAi/signing.ts`), heartbeats, a circuit breaker, cloud fallback, and `"AiInferenceEvents"` for every model call. The lab **reuses all of it**: no new tunnel for the website, no new Render secrets, no second connection path.
 - **Authentication is RacingCoach's own** (sessions in `"Sessions"`, roles Admin/Coach/User in `src/lib/roles.ts`). **There is no Auth0** in this codebase, so there's no Auth0 RBAC to integrate. Every lab route checks the Admin role on the server and answers 404 to anyone else, like the Admin page. Open WebUI can't use RacingCoach's sign-in (RacingCoach isn't an OpenID provider), so it's protected by **Cloudflare Access** (your email) plus **its own admin account**.
-- **Postgres**: no pgvector; the Race Engineering knowledge base computes cosine similarity in memory. The lab's knowledge bases are Open WebUI's own (its database and vector store on the Mac), kept apart from production RAG.
+- **Postgres**: the Race Engineering knowledge base computes cosine similarity in memory; the Memory Service (docs/AI_MEMORY_ARCHITECTURE.md) uses pgvector when installed. The lab's knowledge bases are Open WebUI's own (its database and vector store on the Mac), kept apart from production RAG.
 - **R2** isn't used by the lab: Open WebUI's files stay in its Docker volume on the Mac.
 
 ## Architecture
@@ -327,9 +327,9 @@ Expected results assume the steps above. "Lab" = the AI Lab page on https://raci
 - **Playground "lab slot busy" / "production busy"** — one lab run at a time, and none while production's slots are full. Wait.
 - **Download fails "file does not exist"** — the name/tag isn't in the registry; check ollama.com.
 
-## Evaluated, not built: Mem0 or a pgvector memory layer
+## Centralized memory: built
 
-Open WebUI's memory covers experimentation now. **Mem0** (Apache-2.0, can run on Ollama with a local vector store) adds automatic extraction and updating of memories from conversations and an API other tools can share; worth trying once memories should be written automatically or used outside Open WebUI. A **custom Postgres/pgvector layer** only makes sense if memory moves into production (per-driver coaching memory), which would be personal data: privacy inventory, export, erasure and retention first, and Render Postgres's pgvector extension (the site currently does cosine in memory). Neither is needed for the lab today.
+The Memory tab manages Open WebUI's own memory. The **Memory Manager** tab is the Clarivex Memory Service (PostgreSQL + pgvector authoritative, Mem0 as a replaceable provider, per-user spaces): see docs/AI_MEMORY_ARCHITECTURE.md and the other AI_MEMORY docs. Its fine-tuning dataset export (Import and Export) prepares JSONL for the plan below.
 
 ## Phase 4: Fine-Tuning Lab (architecture plan)
 

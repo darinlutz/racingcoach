@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Starts the Memory Service's Mem0 sidecar (local-ai/mem0/server.py) when you log in, and restarts it if it stops
+  (docs/AI_MEMORY_SETUP.md, Mem0). Replace REPO with the repository's full path, then:
+    cp local-ai/launchd/app.racingcoach.mem0.plist ~/Library/LaunchAgents/
+    launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/app.racingcoach.mem0.plist
+  Stop it: launchctl bootout gui/$(id -u)/app.racingcoach.mem0
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>app.racingcoach.mem0</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>REPO/local-ai/mem0/.venv/bin/python</string>
+    <string>REPO/local-ai/mem0/server.py</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>REPO/local-ai/mem0</string>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
+  <key>StandardOutPath</key>
+  <string>/tmp/racingcoach-mem0.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/racingcoach-mem0.log</string>
+</dict>
+</plist>

@@ -47,7 +47,9 @@
     "test:ai-lab": "node --experimental-transform-types --no-warnings --test scripts/ai-lab.test.mjs scripts/ai-lab-gateway.test.mjs && node --experimental-transform-types --no-warnings --test --test-force-exit scripts/ai-lab-db.test.mjs",
     "test:e2e": "playwright test",
     "test:launch-hardening": "node --experimental-transform-types --no-warnings --test scripts/launch-hardening.test.mjs && node --experimental-transform-types --no-warnings --test scripts/launch-hardening-db.test.mjs",
-    "db:dev": "node --experimental-transform-types --no-warnings scripts/devDatabase.mjs"
+    "db:dev": "node --experimental-transform-types --no-warnings scripts/devDatabase.mjs",
+    "test:memory": "node --experimental-transform-types --no-warnings --test scripts/memory.test.mjs && node --experimental-transform-types --no-warnings --test --test-force-exit scripts/memory-db.test.mjs",
+    "memory:acceptance": "node --experimental-transform-types --no-warnings scripts/memory-acceptance.mjs"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.187",

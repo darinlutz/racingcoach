@@ -71,6 +71,9 @@ const config = {
   openWebuiUrl: env('OPEN_WEBUI_URL', '').replace(/\/+$/, ''),
   openWebuiApiKey: process.env.OPEN_WEBUI_API_KEY?.trim() ?? '',
   registryUrl: env('OLLAMA_REGISTRY_URL', 'https://registry.ollama.ai').replace(/\/+$/, ''),
+  // The Memory Service's Mem0 sidecar (local-ai/mem0/), on this Mac only
+  mem0Url: (process.env.MEM0_URL?.trim() ?? '').replace(/\/+$/, ''),
+  memoryMaxConcurrency: Math.max(1, Number(env('LOCAL_AI_MEMORY_MAX_CONCURRENCY', '1'))),
 };
 
 const developmentMode = () => existsSync(config.devFlag);
@@ -145,6 +148,8 @@ const lab = createLab(
     openWebuiUrl: config.openWebuiUrl,
     openWebuiApiKey: config.openWebuiApiKey,
     registryUrl: config.registryUrl,
+    mem0Url: config.mem0Url,
+    memoryMaxConcurrency: config.memoryMaxConcurrency,
     startedAt: STARTED_AT,
     agentVersion: AGENT_VERSION,
   },

@@ -194,6 +194,10 @@ export const ACCOUNT_DELETION_RETAINED = [
 // or queues that for retry. Answers the request.
 export async function deleteAccount(user: User): Promise<PrivacyRequest> {
   await ensureUserSchema();
+  // The AI memory rows go with the account's cascade; their Mem0 copies are queued for deletion first
+  // (src/lib/memory/userMemory.ts, never throws)
+  const { purgeUserMemory } = await import('./memory/userMemory');
+  await purgeUserMemory(user.id, { userId: user.id, system: 'accountDeletion' });
   const { request, objectKeys } = await transaction(async (client) => {
     const createdAt = await accountCreatedAt(client, user.id);
     if (!createdAt) throw new Error('Account not found');

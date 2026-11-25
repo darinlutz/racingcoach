@@ -1,3 +1,4 @@
+import { memoryManagerEn } from './memoryManagerText.ts';
 // The AI Lab page's tabs (src/components/aiLab/), in English. The other languages are in aiLabText<Lang>.ts with the
 // same keys and {placeholders}. docs/AI_LAB_SETUP.md describes the features.
 
@@ -8,6 +9,7 @@ export const aiLabEn = {
     models: 'Models',
     playground: 'Playground',
     memory: 'Memory',
+    memoryManager: 'Memory Manager',
     knowledge: 'Knowledge',
     configs: 'Model Configurations',
     fineTuning: 'Fine-Tuning Lab',
@@ -304,6 +306,7 @@ export const aiLabEn = {
     ],
     status: 'Status: planned. Nothing on this tab trains a model yet.',
   },
+  memoryManager: memoryManagerEn,
 };
 
 export type AiLabText = typeof aiLabEn;

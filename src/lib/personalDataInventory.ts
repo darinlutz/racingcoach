@@ -49,6 +49,23 @@ const lapPeriods = `Bronze ${RETENTION_DAYS.Bronze} days, Silver ${RETENTION_DAY
 
 export const PERSONAL_DATA_INVENTORY: InventoryCategory[] = [
   {
+    key: 'aiMemory',
+    title: 'AI memory',
+    description:
+      'What the Clarivex Memory Service remembers about you: your own memory space per application (users/u<id>/<application>) with each memory’s text, category, importance, version history and when it was used, and memories proposed from your conversations while they wait for approval. Off for customers until it is turned on (customer capture); never shared with another user.',
+    tables: ['ai_memory.Memories', 'ai_memory.MemoryHistory', 'ai_memory.MemoryEmbeddings', 'ai_memory.MemoryCandidates', 'ai_memory.MemoryNamespaces', 'ai_memory.MemoryAccessLog', 'ai_memory.MemoryFeedback'],
+    purpose: 'Remembering what you tell the AI so later answers can use it, only from your own space.',
+    legalBasis: ['consent'],
+    source: 'Your conversations with the site’s AI features, and memories you or an Admin add.',
+    storage: `${HOSTING}; a copy for similarity search in the Mem0 index on the owner’s Mac (local only, rebuilt from the database)`,
+    retention: 'Until you or an Admin delete it, its category’s retention ends, or you delete your account.',
+    recipients: [HOSTING, 'The owner’s Mac (local models and Mem0, through a private tunnel)'],
+    personalData: true,
+    access: true,
+    portable: true,
+    erasure: 'accountDeletion',
+  },
+  {
     key: 'account',
     title: 'Account and profile',
     description:

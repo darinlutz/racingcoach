@@ -6,6 +6,7 @@ import AiLabConfigs from './AiLabConfigs';
 import AiLabFineTuning from './AiLabFineTuning';
 import AiLabKnowledge from './AiLabKnowledge';
 import AiLabMemory from './AiLabMemory';
+import MemoryManager from './memory/MemoryManager';
 import AiLabModels from './AiLabModels';
 import AiLabOpenWebui from './AiLabOpenWebui';
 import AiLabOverview from './AiLabOverview';
@@ -17,7 +18,7 @@ import { useLabOverview } from './aiLabUi';
 // (Server Mode, Inference Monitoring, Test Console), passed in from the page unchanged. One status poll is shared
 // by every tab (useLabOverview).
 
-const TABS = ['overview', 'openWebui', 'models', 'playground', 'memory', 'knowledge', 'configs', 'fineTuning', 'production', 'runPython'] as const;
+const TABS = ['overview', 'openWebui', 'models', 'playground', 'memory', 'memoryManager', 'knowledge', 'configs', 'fineTuning', 'production', 'runPython'] as const;
 type Tab = (typeof TABS)[number];
 
 export default function AiLabWorkspace({ production, runPython }: { production: ReactNode; runPython: ReactNode }) {
@@ -28,7 +29,8 @@ export default function AiLabWorkspace({ production, runPython }: { production: 
 
   useEffect(() => {
     const fromHash = () => {
-      const value = window.location.hash.replace(/^#/, '') as Tab;
+      // The Memory Manager keeps its own section after a colon (#memoryManager:library)
+      const value = window.location.hash.replace(/^#/, '').split(':')[0] as Tab;
       if ((TABS as readonly string[]).includes(value)) setTab(value);
     };
     fromHash();
@@ -38,7 +40,7 @@ export default function AiLabWorkspace({ production, runPython }: { production: 
 
   const go = (next: Tab) => {
     setTab(next);
-    window.history.replaceState(null, '', `#${next}`);
+    if (window.location.hash.replace(/^#/, '').split(':')[0] !== next) window.history.replaceState(null, '', `#${next}`);
   };
 
   return (
@@ -75,6 +77,7 @@ export default function AiLabWorkspace({ production, runPython }: { production: 
       )}
       {tab === 'playground' && <AiLabPlayground data={overview.data} initialModel={testModel} />}
       {tab === 'memory' && <AiLabMemory data={overview.data} />}
+      {tab === 'memoryManager' && <MemoryManager />}
       {tab === 'knowledge' && <AiLabKnowledge data={overview.data} />}
       {tab === 'configs' && <AiLabConfigs data={overview.data} />}
       {tab === 'fineTuning' && <AiLabFineTuning />}

@@ -314,6 +314,18 @@ The AI Lab page's tabs (`src/components/aiLab/`, Admins only): Overview, Open We
 - **Routes**: `/api/admin/ai-lab/{status,models,playground,saved,webui,settings}`, each starting with `labAdmin()` (404 otherwise), size-capped bodies, per-Admin limits
 - **Tests**: `npm run test:ai-lab` (rules and guards, the gateway against stand-ins for Ollama, Open WebUI and the registry, then the database part with `AI_LAB_TEST_DATABASE_URL`) and `e2e/ai-lab.spec.ts`
 
+## Memory Service
+
+The Clarivex Memory Service: centralized AI memory with PostgreSQL authoritative and Mem0 a replaceable intelligence provider, managed from AI Lab's Memory Manager sub-tab (Admins only). Architecture, per-user memory and security, setup (Mac, Render, Cloudflare), API, Open WebUI, operations and tests in `docs/AI_MEMORY_*.md`.
+
+- **Code**: `src/lib/memory/` (pure: `rules.ts`, `ranking.ts`, `portable.ts`; server: `schema.ts`, `store.ts`, `retrieval.ts`, `intelligence.ts`, `extraction.ts`, `decisions.ts`, `jobs.ts`, `importExport.ts`, `analytics.ts`, `api.ts`, `userMemory.ts`), the API under `src/app/api/memory/v1/` (every route through `memoryRoute`: an Admin session or a hashed `cmk_` key with scopes), the UI in `src/components/aiLab/memory/` (text in `memoryManagerText*.ts`)
+- **Database**: its own schema, `ai_memory`, created on first use and additive only (`ensureMemorySchema`), not part of `ensureUserSchema`. Embeddings are `REAL[]` with a partial HNSW expression index per model when pgvector is installed; never compare embeddings of different models, sizes or versions. Every change is one transaction with its history row, embed job and Mem0 outbox entry; updates carry `expectedVersion`
+- **Per-user memory**: each user's own space is `users/u<id>/<application>` (`ensureUserNamespace`), owned by the account (`owner_user_id`, cascades with Delete Account). Ownership, not grants, decides access (`resolveNamespaces`'s `actingUserId`; Admins only by naming it, audited), and every retrieval query carries the SQL owner check (`ownerGuard`). A feature reads a user's memory only through `userMemory.ts` with the session's user ID, never an ID from a request. Customer capture is off until System Settings turns it on
+- **Models**: local first, through the signed gateway (`local-ai/memoryRoutes.ts`: `/lab/memory/embed`, `/lab/memory/generate`, `/lab/mem0/*`); `MEMORY_OLLAMA_URL`/`MEMORY_MEM0_URL` reach them directly in development only. Frontier fallback (site AI feature `memoryProcessing`) only when the settings allow private content to leave. The Mem0 sidecar is `local-ai/mem0/server.py` (mem0ai 2.2.1, pinned)
+- **Jobs**: `ai_memory."MemoryJobs"`, started by `src/instrumentation.ts` on the live server (`startMemoryJobs`); `kickJobs` runs a small batch after a change. Handlers must stay idempotent and never recreate a deleted memory (tombstones in `"MemoryDeletions"`)
+- **Content**: secrets are never stored (`detectSensitive`); conversations and memories are untrusted (`looksLikeInjection`, the labelled `<memory_context>` block). A new personal-data table in `ai_memory` goes in the `aiMemory` inventory category and the export
+- **Tests**: `npm run test:memory` (the database part with `MEMORY_TEST_DATABASE_URL`, pgvector optional), `npm run memory:acceptance` (real models on the Mac, `MEMORY_LIVE_DATABASE_URL`)
+
 ## TV Broadcast Mode
 
 Live Racing on a TV's browser (built for Amazon Silk on Fire TV), worked with the remote, with the Race Announcers' commentary. Design, endpoints, Render deployment and the Fire TV test checklist in `docs/tv-broadcast.md`.

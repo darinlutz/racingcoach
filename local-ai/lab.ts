@@ -32,6 +32,7 @@ import {
   validModelName,
   validWebuiId,
 } from '../src/lib/aiLab/rules.ts';
+import { createMemoryRoutes } from './memoryRoutes.ts';
 
 export type LabConfig = {
   enabled: boolean;
@@ -45,6 +46,8 @@ export type LabConfig = {
   openWebuiUrl: string;
   openWebuiApiKey: string;
   registryUrl: string;
+  mem0Url?: string;
+  memoryMaxConcurrency?: number;
   startedAt: number;
   agentVersion: string;
 };
@@ -81,6 +84,12 @@ function configParams(params: Json): Record<string, number> {
 
 export function createLab(config: LabConfig, production: { active: () => number; max: () => number }, log: (m: string) => void): Lab {
   let active = 0;
+  // The Memory Service's routes (local-ai/memoryRoutes.ts), behind the same switch and signature
+  const memoryRoutes = createMemoryRoutes(
+    { ollamaUrl: config.ollamaUrl, mem0Url: config.mem0Url ?? '', maxConcurrency: config.memoryMaxConcurrency ?? 1, maxContext: config.maxContext, maxOutput: config.maxOutput, timeoutMs: config.timeoutMs },
+    production,
+    log
+  );
   type Pull = { name: string; status: string; completed: number | null; total: number | null; startedAt: number; finishedAt: number | null; error: string | null; abort: AbortController };
   const pulls = new Map<string, Pull>();
   const publicPull = (p: Pull) => ({ name: p.name, status: p.status, completed: p.completed, total: p.total, startedAt: p.startedAt, finishedAt: p.finishedAt, error: p.error });
@@ -207,6 +216,7 @@ export function createLab(config: LabConfig, production: { active: () => number;
         expiresAt: m.expires_at ?? null,
       })),
       openWebui,
+      memory: { mem0Configured: Boolean(config.mem0Url), active: memoryRoutes.activeCount(), maxConcurrency: config.memoryMaxConcurrency ?? 1 },
       pulls: [...pulls.values()].map(publicPull),
     };
   }
@@ -643,6 +653,7 @@ export function createLab(config: LabConfig, production: { active: () => number;
     const route = `${method} ${path}`;
     try {
       if (path.startsWith('/lab/webui/')) return reply(await webuiRoute(method, path, request));
+      if (memoryRoutes.handles(path)) return reply(await memoryRoutes.route(method, path, request));
       switch (route) {
         case 'GET /lab/status':
           return send(res, 200, await status());

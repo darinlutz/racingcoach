@@ -1,4 +1,5 @@
 import type { AiLabText } from './aiLabText';
+import { memoryManagerEs } from './memoryManagerTextEs.ts';
 
 // Las pestañas del AI Lab en español. Mismas claves y {marcadores} que aiLabText.ts.
 
@@ -9,6 +10,7 @@ export const aiLabEs: AiLabText = {
     models: 'Modelos',
     playground: 'Playground',
     memory: 'Memoria',
+    memoryManager: 'Administrador de memoria',
     knowledge: 'Conocimiento',
     configs: 'Configuraciones de modelos',
     fineTuning: 'Laboratorio de fine-tuning',
@@ -305,4 +307,5 @@ export const aiLabEs: AiLabText = {
     ],
     status: 'Estado: previsto. Nada en esta pestaña entrena un modelo todavía.',
   },
+  memoryManager: memoryManagerEs,
 };

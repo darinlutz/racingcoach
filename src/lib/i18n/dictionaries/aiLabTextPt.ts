@@ -1,4 +1,5 @@
 import type { AiLabText } from './aiLabText';
+import { memoryManagerPt } from './memoryManagerTextPt.ts';
 
 // As abas do AI Lab em português. Mesmas chaves e {marcadores} que aiLabText.ts.
 
@@ -9,6 +10,7 @@ export const aiLabPt: AiLabText = {
     models: 'Modelos',
     playground: 'Playground',
     memory: 'Memória',
+    memoryManager: 'Gerenciador de Memória',
     knowledge: 'Conhecimento',
     configs: 'Configurações de modelos',
     fineTuning: 'Laboratório de fine-tuning',
@@ -305,4 +307,5 @@ export const aiLabPt: AiLabText = {
     ],
     status: 'Status: planejado. Nada nesta aba treina um modelo ainda.',
   },
+  memoryManager: memoryManagerPt,
 };

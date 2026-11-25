@@ -146,6 +146,31 @@ export async function writeExportZip(userId: number, kind: ExportKind, path: str
       }
     }
 
+    // Your own AI memory spaces (docs/AI_MEMORY_SECURITY.md), when the memory service's tables exist
+    if (want('aiMemory') && (await query<{ t: string | null }>(`SELECT to_regclass('ai_memory."Memories"')::text AS t`))[0]?.t) {
+      const memories = await query(
+        `SELECT m.id, n.path AS namespace, c.key AS category, m.title, m.content, m.summary, m.importance, m.confidence, m.status,
+                m.source_application, m.source_type, m.created_at, m.updated_at, m.expires_at, m.access_count, m.version
+         FROM ai_memory."Memories" m JOIN ai_memory."MemoryNamespaces" n ON n.id = m.namespace_id JOIN ai_memory."MemoryCategories" c ON c.id = m.category_id
+         WHERE m.user_id = $1 OR n.owner_user_id = $1 ORDER BY m.created_at`,
+        [userId]
+      );
+      await add('ai_memory/memories.json', 'aiMemory', json(memories), memories.length);
+      const history = await query(
+        `SELECT h.memory_id, h.version, h.change_type, h.snapshot, h.created_at FROM ai_memory."MemoryHistory" h
+         JOIN ai_memory."Memories" m ON m.id = h.memory_id JOIN ai_memory."MemoryNamespaces" n ON n.id = m.namespace_id
+         WHERE m.user_id = $1 OR n.owner_user_id = $1 ORDER BY h.memory_id, h.version`,
+        [userId]
+      );
+      await add('ai_memory/history.json', 'aiMemory', json(history), history.length);
+      const candidates = await query(
+        `SELECT c.id, n.path AS namespace, c.title, c.content, c.status, c.created_at FROM ai_memory."MemoryCandidates" c
+         JOIN ai_memory."MemoryNamespaces" n ON n.id = c.namespace_id WHERE c.user_id = $1 OR n.owner_user_id = $1 ORDER BY c.created_at`,
+        [userId]
+      );
+      await add('ai_memory/proposed.json', 'aiMemory', json(candidates), candidates.length);
+    }
+
     if (want('debriefs')) {
       const debriefs = await query(
         `SELECT id, track, car, lap_count, best_lap_seconds, session, debrief, created_at, expires_at

@@ -31,6 +31,15 @@ export const LAB_PATHS = [
   'GET /lab/webui/models',
   'POST /lab/webui/models',
   'POST /lab/webui/models/knowledge-query',
+  // The Memory Service (src/lib/memory/localServices.ts, local-ai/memoryRoutes.ts)
+  'POST /lab/memory/embed',
+  'POST /lab/memory/generate',
+  'POST /lab/mem0/health',
+  'POST /lab/mem0/extract',
+  'POST /lab/mem0/search',
+  'POST /lab/mem0/upsert',
+  'POST /lab/mem0/delete',
+  'POST /lab/mem0/list',
 ] as const;
 export type LabPath = (typeof LAB_PATHS)[number];
 

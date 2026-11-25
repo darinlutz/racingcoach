@@ -1,4 +1,5 @@
 import type { AiLabText } from './aiLabText';
+import { memoryManagerIt } from './memoryManagerTextIt.ts';
 
 // Le schede dell’AI Lab in italiano. Stesse chiavi e {segnaposto} di aiLabText.ts.
 
@@ -9,6 +10,7 @@ export const aiLabIt: AiLabText = {
     models: 'Modelli',
     playground: 'Playground',
     memory: 'Memoria',
+    memoryManager: 'Gestore della memoria',
     knowledge: 'Conoscenza',
     configs: 'Configurazioni dei modelli',
     fineTuning: 'Laboratorio di fine-tuning',
@@ -305,4 +307,5 @@ export const aiLabIt: AiLabText = {
     ],
     status: 'Stato: previsto. Niente in questa scheda addestra ancora un modello.',
   },
+  memoryManager: memoryManagerIt,
 };

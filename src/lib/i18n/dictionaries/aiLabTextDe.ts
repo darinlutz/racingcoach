@@ -1,4 +1,5 @@
 import type { AiLabText } from './aiLabText';
+import { memoryManagerDe } from './memoryManagerTextDe.ts';
 
 // Die Tabs des AI-Lab auf Deutsch. Gleiche Schlüssel und {Platzhalter} wie aiLabText.ts.
 
@@ -9,6 +10,7 @@ export const aiLabDe: AiLabText = {
     models: 'Modelle',
     playground: 'Playground',
     memory: 'Gedächtnis',
+    memoryManager: 'Memory Manager',
     knowledge: 'Wissen',
     configs: 'Modellkonfigurationen',
     fineTuning: 'Fine-Tuning-Labor',
@@ -305,4 +307,5 @@ export const aiLabDe: AiLabText = {
     ],
     status: 'Status: geplant. Nichts in diesem Tab trainiert bisher ein Modell.',
   },
+  memoryManager: memoryManagerDe,
 };

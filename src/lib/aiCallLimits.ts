@@ -29,6 +29,8 @@ export const AI_CALL_LIMITS = {
   // The AI Lab playground's cloud models (docs/AI_LAB_SETUP.md): the Admin's own max tokens, never above this;
   // no retry, so a benchmark measures one call
   aiLabPlayground: { maxOutputTokens: 8192, timeoutMs: 180_000, maxRetries: 0 },
+  // The Memory Service's extraction, classification and conflict checks when they fall back to a frontier model
+  memoryProcessing: { maxOutputTokens: 2000, timeoutMs: 60_000, maxRetries: 0 },
 } as const satisfies Record<string, AiCallLimit>;
 
 // For a feature without its own row

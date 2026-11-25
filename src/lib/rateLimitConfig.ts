@@ -39,7 +39,8 @@ export const isLiveFeature = (feature: string): feature is LiveFeature => (LIVE_
 // The site's own AI calls, made for no user, logged in AiUsage (tier SITE_TIER) but never counted against anyone
 // localAiTest is the Admin page's Local AI Test Console (src/lib/localAi/testConsole.ts), aiLabPlayground the AI Lab
 // playground's cloud models (src/lib/aiLab/playground.ts)
-export const SITE_AI_FEATURES = ['collectorLogReview', 'broadcastDirector', 'localAiTest', 'aiLabPlayground'] as const;
+// memoryProcessing is the Memory Service's frontier fallback (src/lib/memory/intelligence.ts), only when its policy allows it
+export const SITE_AI_FEATURES = ['collectorLogReview', 'broadcastDirector', 'localAiTest', 'aiLabPlayground', 'memoryProcessing'] as const;
 export type SiteAiFeature = (typeof SITE_AI_FEATURES)[number];
 export const SITE_TIER = 'Site';
 

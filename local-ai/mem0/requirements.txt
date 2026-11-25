@@ -1,0 +1,5 @@
+# The Mem0 sidecar's dependencies (local-ai/mem0/server.py), pinned to what was tested on 2026-11-24.
+# mem0ai is Apache-2.0. Install into local-ai/mem0/.venv (docs/AI_MEMORY_SETUP.md).
+mem0ai==2.2.1
+ollama==0.6.3
+qdrant-client==1.20.0

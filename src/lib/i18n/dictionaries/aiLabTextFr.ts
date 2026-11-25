@@ -1,4 +1,5 @@
 import type { AiLabText } from './aiLabText';
+import { memoryManagerFr } from './memoryManagerTextFr.ts';
 
 // Les onglets de l’AI Lab en français. Mêmes clés et {repères} que aiLabText.ts.
 
@@ -9,6 +10,7 @@ export const aiLabFr: AiLabText = {
     models: 'Modèles',
     playground: 'Playground',
     memory: 'Mémoire',
+    memoryManager: 'Gestionnaire de mémoire',
     knowledge: 'Connaissances',
     configs: 'Configurations de modèles',
     fineTuning: 'Laboratoire de fine-tuning',
@@ -305,4 +307,5 @@ export const aiLabFr: AiLabText = {
     ],
     status: 'État : prévu. Rien dans cet onglet n’entraîne encore de modèle.',
   },
+  memoryManager: memoryManagerFr,
 };

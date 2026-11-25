@@ -26,6 +26,9 @@ export async function register() {
     // Deletes AI inference events older than 90 days (src/lib/localAi/store.ts)
     const { startLocalAiJobs } = await import('./lib/localAi/store');
     startLocalAiJobs();
+    // The Memory Service's job worker and schedule: extraction, embeddings, Mem0 sync, cleanup (src/lib/memory/jobs.ts)
+    const { startMemoryJobs } = await import('./lib/memory/jobs');
+    startMemoryJobs();
     // Deletes AI Lab audit entries older than a year (src/lib/aiLab/store.ts), daily
     const { purgeOldAudit } = await import('./lib/aiLab/store');
     const purgeAudit = () => purgeOldAudit().catch((error) => console.error('Failed to purge the AI Lab audit log:', error));

@@ -1,6 +1,7 @@
 import { query } from '@/lib/db';
 import { ApiError, body, memoryRoute, namespacesFor, searchParams } from '@/lib/memory/api';
 import { NAMESPACE_KINDS, type NamespaceKind } from '@/lib/memory/rules';
+import { ensureMemorySchema } from '@/lib/memory/schema';
 import { audit, createNamespace, listNamespaces } from '@/lib/memory/store';
 import { str } from '@/lib/memory/validate';
 
@@ -8,6 +9,7 @@ import { str } from '@/lib/memory/validate';
 // space); ?user=<id> (Admins only) lists one user's own spaces, audited. A user-acting key sees its user's space.
 // POST: a new shared namespace (users/ is reserved for users' own spaces).
 export const GET = memoryRoute({ scope: 'memory:read' }, async (request, caller) => {
+  await ensureMemorySchema();
   const sp = searchParams(request);
   const userId = sp.num('user');
   if (userId !== undefined) {

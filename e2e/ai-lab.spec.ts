@@ -97,8 +97,16 @@ test('an Admin sees every tab, told plainly that no Mac is set up', async ({ bro
   await page.getByRole('button', { name: 'Save prompt' }).click();
   await expect(page.getByText(promptName)).toBeVisible();
 
-  await tabs.getByRole('tab', { name: 'Memory' }).click();
+  await tabs.getByRole('tab', { name: 'Memory', exact: true }).click();
   await expect(page.getByText('Memory is not training', { exact: false })).toBeVisible();
+
+  // Memory Manager (the Memory Service): its sections, real counts, and Ollama/Mem0 shown as unavailable
+  await tabs.getByRole('tab', { name: 'Memory Manager' }).click();
+  const memoryNav = page.getByRole('navigation', { name: 'Memory Manager' });
+  await expect(memoryNav.getByRole('button', { name: 'Approval Queue' })).toBeVisible();
+  await expect(page.getByText('Pending approval')).toBeVisible();
+  await memoryNav.getByRole('button', { name: 'Memory Library' }).click();
+  await expect(page.getByText('No memories match.')).toBeVisible();
   await tabs.getByRole('tab', { name: 'Knowledge' }).click();
   await expect(page.getByText('qwen3-embedding:0.6b', { exact: false })).toBeVisible();
   await tabs.getByRole('tab', { name: 'Model Configurations' }).click();

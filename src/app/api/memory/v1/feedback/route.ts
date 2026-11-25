@@ -1,6 +1,7 @@
 import { ApiError, body, memoryRoute } from '@/lib/memory/api';
 import { query } from '@/lib/db';
 import { memoryFor } from '@/lib/memory/routeShared';
+import { ensureMemorySchema } from '@/lib/memory/schema';
 import { audit } from '@/lib/memory/store';
 import { int, str, uuid } from '@/lib/memory/validate';
 
@@ -8,6 +9,7 @@ import { int, str, uuid } from '@/lib/memory/validate';
 const RATINGS = ['helpful', 'notHelpful', 'incorrect', 'outdated', 'irrelevant', 'missingContext'];
 
 export const POST = memoryRoute({ scope: 'memory:feedback', perMinute: 120 }, async (request, caller) => {
+  await ensureMemorySchema();
   const b = await body(request, 8 * 1024);
   const rating = String(b.rating ?? '');
   if (!RATINGS.includes(rating)) throw new ApiError(400, 'invalid', 'Unknown rating');

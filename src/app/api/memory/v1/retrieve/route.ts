@@ -18,7 +18,7 @@ export const POST = memoryRoute({ scope: 'memory:read', perMinute: 240 }, async 
   const all = await listNamespaces();
   const ok = allowed.filter((n) => {
     const ns = all.find((x) => x.id === n.id);
-    return canRetrieve(effectiveMode({ global: config.system.defaultMode, application: app?.mode ?? null, namespace: ns?.mode ?? null }, { memoryEnabled: config.system.enabled, customerData: false, customerCaptureEnabled: true, sensitive: false, categoryRequiresApproval: false, categoryExtractionEligible: true }).mode);
+    return canRetrieve(effectiveMode({ global: config.system.defaultMode, application: app?.mode ?? null, namespace: ns?.mode ?? null }, { memoryEnabled: config.system.enabled, customerData: false, customerCaptureEnabled: true, customerOptedIn: true, sensitive: false, categoryRequiresApproval: false, categoryExtractionEligible: true }).mode);
   });
   const mode = b.mode === 'semantic' || b.mode === 'keyword' || b.mode === 'hybrid' ? b.mode : undefined;
   const profileId = typeof b.profileId === 'string' && isUuid(b.profileId) ? b.profileId : null;

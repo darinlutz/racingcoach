@@ -222,6 +222,9 @@ export function ensureUserSchema(): Promise<void> {
       // How the Race Announcers say the user's name, from the Account page's Name Pronunciation (src/lib/raceAnnouncer.ts);
       // empty for their name as written
       await client.query(`ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS name_pronunciation TEXT NOT NULL DEFAULT ''`);
+      // When the user turned on AI Memory on the Account page (src/lib/memory/consent.ts); NULL until they opt in, and
+      // again once they turn it off. Without it, their own memory space is neither read nor written by the AI.
+      await client.query(`ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS ai_memory_opt_in_at TIMESTAMPTZ`);
       // The Race Broadcast preferences (src/lib/broadcastSettings.ts); missing keys are the defaults
       await client.query(
         `ALTER TABLE racingcoach."Users" ADD COLUMN IF NOT EXISTS broadcast_settings JSONB NOT NULL DEFAULT '{}'::jsonb`

@@ -37,7 +37,8 @@ users/                      shared root, customer data, holds no memories itself
 
 **What a customer's space is subject to:**
 
-- **Capture off by default.** Until System Settings turns on customer capture, the ceiling makes a customer space Read Only, so nothing is extracted from customers' conversations. Before turning it on: Privacy Policy and Terms changes, and a consent switch for users (the legal basis recorded in the inventory is consent).
+- **Opt-in per user.** A customer's memory is processed on the basis of their consent: the Account page's AI Memory card (`src/components/AiMemoryCard.tsx`, `PUT /api/account/ai-memory`, `src/lib/memory/consent.ts`) records it as `"Users".ai_memory_opt_in_at`, each change also in the audit log (`consent.optIn`, `consent.withdraw`). Without it the `customerNotOptedIn` ceiling makes the customer's data Disabled (the space's owner, else the conversation's user), checked when queuing and again when the extraction job runs, and retrieval's SQL owner guard returns no rows from an owned space whose owner hasn't opted in (an Admin's audited override still can). Turning it off deletes their memories permanently (tombstoned, Mem0 copies queued for deletion), discards pending candidates and cancels queued jobs. The card shows once customer capture is on, before that only to Admins, and always to anyone opted in.
+- **Capture off by default.** Until System Settings turns on customer capture, the ceiling makes a customer space Read Only even for someone opted in, so nothing is extracted from customers' conversations.
 - **The user's own mode wins.** A per-user setting (MemorySettings `user` scope, e.g. Disabled when they opt out) overrides application and namespace modes.
 - **Their data rights.** The `aiMemory` category of the personal data inventory: Download My Data includes `ai_memory/memories.json`, `history.json` and `proposed.json`. Delete Account queues every Mem0 copy for deletion (`purgeUserMemory`), then the account's cascade removes the spaces, memories, history, embeddings, candidates and logs. The daily reconciliation removes any Mem0 copy that was missed.
 - **Never training data** unless that's authorized: datasets exclude customer namespaces.
@@ -73,6 +74,6 @@ Approval Required · PostgreSQL authoritative · Mem0 with native fallback · 10
 
 ## Before commercial enablement
 
-1. Update the Privacy Policy (`src/lib/legal.ts`, bump its version): what is remembered, the Mac as a processor location, retention, the right to see and delete memories.
-2. Add a user-facing switch and a "what RacingCoach remembers about me" view (the API and per-user helpers exist; the Account page UI doesn't yet).
-3. Turn on customer capture only after both.
+1. ~~Update the Privacy Policy~~: done in version 2026-11-25 (Section 1's AI Memory (Optional), `/privacy#ai-memory`; the legal basis, the RacingCoach-operated computer in Section 5, administrators' review, retention and withdrawal).
+2. ~~A user-facing switch~~: the Account page's AI Memory card (see Opt-in per user above). Still to do: a "what RacingCoach remembers about me" view listing and deleting single memories (today a user sees them only in Privacy & Data Rights' export, and deletes them all by turning AI Memory off).
+3. Wire a feature to `retrieveForUser`/`proposeForUser` (none calls them yet), then turn on customer capture.

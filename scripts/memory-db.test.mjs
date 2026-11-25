@@ -447,6 +447,8 @@ describe('Memory Service with a database', { skip }, () => {
     const mk = async (email) => Number((await q(`INSERT INTO racingcoach."Users" (user_name, email_address, password, role) VALUES ('C', $1, 'x', 'User') RETURNING id`, [email]))[0].id);
     const c1 = await mk('cust1@example.test');
     const c2 = await mk('cust2@example.test');
+    // Both turned on AI Memory (consent.ts; the next test covers what happens without it)
+    await q(`UPDATE racingcoach."Users" SET ai_memory_opt_in_at = now() WHERE id = ANY($1::int[])`, [[c1, c2]]);
     const userMemory = await import(new URL('../src/lib/memory/userMemory.ts', import.meta.url).href);
     await assert.rejects(api.createApiClient({ name: 'bad', application: 'test-users', scopes: ['memory:read', 'memory:users'], namespaceIds: [ns.racingcoach], subjects: [], globalRead: false }, admin, adminActor()), store.InputError);
     const { key } = await api.createApiClient({ name: 'App', application: 'test-users', scopes: ['memory:read', 'memory:write', 'memory:users'], namespaceIds: [], subjects: [], globalRead: false }, admin, adminActor());
@@ -493,6 +495,57 @@ describe('Memory Service with a database', { skip }, () => {
     assert.equal((await q(`SELECT count(*)::int AS n FROM ai_memory."MemoryNamespaces" WHERE owner_user_id = $1 OR path LIKE $2`, [c1, `users/u${c1}%`]))[0].n, 0);
     assert.equal((await q(`SELECT count(*)::int AS n FROM ai_memory."Memories" WHERE id = $1`, [m1.body.memory.id]))[0].n, 0);
     assert.equal((await q(`SELECT count(*)::int AS n FROM ai_memory."Memories" WHERE id = $1`, [m2.body.memory.id]))[0].n, 1, 'the other customer is untouched');
+  });
+
+  test('AI Memory consent: off by default, nothing read or written without it, turning it off deletes', async () => {
+    const consent = await import(new URL('../src/lib/memory/consent.ts', import.meta.url).href);
+    const userMemory = await import(new URL('../src/lib/memory/userMemory.ts', import.meta.url).href);
+    const [row] = await q(`INSERT INTO racingcoach."Users" (user_name, email_address, password, role) VALUES ('C', 'consent@example.test', 'x', 'User') RETURNING id`);
+    const u = Number(row.id);
+    const actor = { userId: u, system: 'test' };
+    assert.deepEqual(await consent.getMemoryConsent(u), { optedIn: false, optedInAt: null });
+    const space = await store.ensureUserNamespace(u, 'test-consent');
+    const { memory } = await store.createMemory({ content: 'I am working on trail braking at Spa.', namespaceId: space.id, categoryId: cat.semantic, ownerUserId: u }, actor);
+    await drain();
+    // Not opted in: the user's own space is Disabled, so nothing is retrieved or queued even with capture on
+    const before = await store.getConfig();
+    await store.saveConfig({ ...before, system: { ...before.system, customerCaptureEnabled: true } }, adminActor());
+    try {
+      const off = await userMemory.retrieveForUser(u, 'trail braking at Spa', 'test-consent', { includeGlobal: false });
+      assert.equal(off.degraded, 'disabledForUser');
+      assert.deepEqual(off.memoryIds, []);
+      assert.equal(await userMemory.proposeForUser(u, [{ role: 'user', content: 'My goal is to break 2:18 at Spa.' }], 'test-consent'), null);
+      // Even a caller that skips the mode check gets nothing: the SQL owner guard checks consent too
+      const raw = await retrieval.retrieve({ query: 'trail braking at Spa', namespaceIds: [space.id], client: 'test', userId: u, owner: { actingUserId: u, override: false } });
+      assert.equal(raw.memories.length, 0);
+      // An Admin naming the space (audited) still sees it, e.g. for a privacy request
+      const admin = await retrieval.retrieve({ query: 'trail braking at Spa', namespaceIds: [space.id], client: 'test', userId: null, owner: { actingUserId: null, override: true } });
+      assert.deepEqual(admin.memories.map((m) => m.id), [memory.id]);
+
+      // Opted in: retrieved, and conversations are queued for extraction
+      const on = await consent.setMemoryConsent(u, true, actor);
+      assert.equal(on.optedIn, true);
+      const firstAt = on.optedInAt;
+      assert.equal((await consent.setMemoryConsent(u, true, actor)).optedInAt, firstAt, 'turning it on again keeps the first time');
+      assert.deepEqual((await userMemory.retrieveForUser(u, 'trail braking at Spa', 'test-consent', { includeGlobal: false })).memoryIds, [memory.id]);
+      const job = await userMemory.proposeForUser(u, [{ role: 'user', content: 'My goal is to break 2:18 at Spa.' }], 'test-consent');
+      assert.ok(job?.jobId);
+
+      // A job still queued when it's turned off is cancelled (due in an hour, so a worker still draining can't claim it first)
+      const queued = await store.enqueueJob(null, 'extract', { messages: [{ role: 'user', content: 'I race GT3 on Tuesdays.' }], namespaceId: space.id, allowedNamespaceIds: [space.id], application: 'test-consent', trigger: 'turn', userId: u, actingUserId: u, ownerOverride: false }, { userId: u, runAfter: new Date(Date.now() + 3_600_000) });
+      // Turned off: the memory is gone for good (tombstoned), the queued job cancelled, and it's recorded
+      const withdrawn = await consent.setMemoryConsent(u, false, actor);
+      assert.deepEqual({ optedIn: withdrawn.optedIn, deleted: withdrawn.deleted }, { optedIn: false, deleted: 1 });
+      assert.equal((await q(`SELECT count(*)::int AS n FROM ai_memory."Memories" WHERE id = $1`, [memory.id]))[0].n, 0);
+      assert.ok((await q(`SELECT 1 FROM ai_memory."MemoryDeletions" WHERE memory_id = $1`, [memory.id])).length);
+      assert.equal((await q(`SELECT status FROM ai_memory."MemoryJobs" WHERE id = $1`, [queued.id]))[0].status, 'Cancelled');
+      assert.ok(['Completed', 'Cancelled'].includes((await q(`SELECT status FROM ai_memory."MemoryJobs" WHERE id = $1`, [job.jobId]))[0].status));
+      assert.equal((await q(`SELECT count(*)::int AS n FROM ai_memory."MemoryCandidates" WHERE namespace_id = $1 AND status = 'Pending'`, [space.id]))[0].n, 0, 'nothing left waiting for approval');
+      assert.deepEqual((await q(`SELECT action FROM ai_memory."MemoryAuditLog" WHERE target = $1 ORDER BY id`, [`u${u}`])).map((r) => r.action), ['consent.optIn', 'consent.optIn', 'consent.withdraw']);
+      assert.equal((await userMemory.retrieveForUser(u, 'trail braking at Spa', 'test-consent', { includeGlobal: false })).degraded, 'disabledForUser');
+    } finally {
+      await store.saveConfig({ ...(await store.getConfig()), system: { ...before.system } }, adminActor());
+    }
   });
 
   test('account deletion removes the person’s memories, history and embeddings', async () => {

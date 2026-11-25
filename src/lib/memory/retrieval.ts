@@ -35,11 +35,14 @@ export type RetrieveRequest = {
   owner?: { actingUserId: number | null; override: boolean };
 };
 
-// The owner check, a second line behind namespace resolution: appended to every retrieval query
+// The owner check, a second line behind namespace resolution: appended to every retrieval query. A user's own space
+// is returned only to that user, and only while they have AI Memory turned on (consent.ts); an Admin naming the space
+// (override, audited) still sees it, e.g. to answer a privacy request.
 function ownerGuard(owner: RetrieveRequest['owner'], params: unknown[]): string {
   if (owner?.override) return '';
   params.push(owner?.actingUserId ?? null);
-  return ` AND (n.owner_user_id IS NULL OR n.owner_user_id = $${params.length}::int)`;
+  return ` AND (n.owner_user_id IS NULL OR (n.owner_user_id = $${params.length}::int
+    AND EXISTS (SELECT 1 FROM racingcoach."Users" consent WHERE consent.id = n.owner_user_id AND consent.ai_memory_opt_in_at IS NOT NULL)))`;
 }
 
 export type RetrieveResult = {

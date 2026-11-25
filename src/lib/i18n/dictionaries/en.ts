@@ -4,6 +4,7 @@
 // (plural in languages.ts). Keep it plain JSON: the root layout sends the user's dictionary to the browser.
 import { setupsEn } from './setupsText.ts';
 import { aiLabEn } from './aiLabText.ts';
+import { aiMemoryEn } from './aiMemoryText.ts';
 
 export const en = {
   common: {
@@ -4450,6 +4451,8 @@ export const en = {
 
   // The AI Lab page's tabs (src/components/aiLab/), in its own file (aiLabText.ts)
   aiLab: aiLabEn,
+  // The Account page's AI Memory card, in its own file (aiMemoryText.ts)
+  aiMemory: aiMemoryEn,
 };
 
 export type Dictionary = typeof en;

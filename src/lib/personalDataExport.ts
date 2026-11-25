@@ -146,6 +146,12 @@ export async function writeExportZip(userId: number, kind: ExportKind, path: str
       }
     }
 
+    // Your AI Memory consent (Account page, src/lib/memory/consent.ts): when you turned it on, or null while it's off
+    if (want('aiMemory')) {
+      const consent = await query(`SELECT ai_memory_opt_in_at AS opted_in_at FROM racingcoach."Users" WHERE id = $1`, [userId]);
+      await add('ai_memory/consent.json', 'aiMemory', json(consent), consent.length);
+    }
+
     // Your own AI memory spaces (docs/AI_MEMORY_SECURITY.md), when the memory service's tables exist
     if (want('aiMemory') && (await query<{ t: string | null }>(`SELECT to_regclass('ai_memory."Memories"')::text AS t`))[0]?.t) {
       const memories = await query(

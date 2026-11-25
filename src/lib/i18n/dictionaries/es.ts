@@ -1,6 +1,7 @@
 import type { Dictionary } from './en';
 import { setupsEs } from './setupsTextEs.ts';
 import { aiLabEs } from './aiLabTextEs.ts';
+import { aiMemoryEs } from './aiMemoryTextEs.ts';
 
 // Every piece of text on the site, in Latin American Spanish. Same keys, {placeholders} and { one, other }
 // forms as en.ts.
@@ -4379,4 +4380,6 @@ export const es: Dictionary = {
 
   setups: setupsEs,
   aiLab: aiLabEs,
+  // The Account page's AI Memory card, in its own file (aiMemoryTextEs.ts)
+  aiMemory: aiMemoryEs,
 };

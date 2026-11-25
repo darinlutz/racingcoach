@@ -13,12 +13,13 @@ export type LegalBlock =
   | string
   | { strong: string }
   | { list: string[] }
-  | { subheading: string }
+  | { subheading: string; id?: string }
   | { contact: { label?: string; text: string; href?: string }[] }
   | { table: { caption: string; headers: string[]; rows: string[][] } }
   | { cookieSettings: string };
 
-// id, when given, is the section's anchor (e.g. /privacy#lap-telemetry-retention)
+// id, when given, is the section's anchor (e.g. /privacy#lap-telemetry-retention); a subheading can have one too
+// (/privacy#ai-memory)
 export type LegalSection = { heading: string; id?: string; blocks: LegalBlock[] };
 
 export type LegalDocumentContent = {
@@ -33,7 +34,7 @@ const BUSINESS_OPERATOR = 'Clarivex, LLC';
 
 export const privacyPolicy: LegalDocumentContent = {
   title: 'RacingCoach.app Privacy Policy',
-  effectiveDate: 'November 2, 2026',
+  effectiveDate: 'November 25, 2026',
   intro: [
     'RacingCoach.app ("RacingCoach," "we," "our," or "us") respects your privacy and is committed to protecting your personal information.',
     'This Privacy Policy explains how we collect, use, store, share, and protect information when you use our website, applications, telemetry collection software, coaching features, Discord integrations, and related services (collectively, the "Services").',
@@ -81,6 +82,16 @@ export const privacyPolicy: LegalDocumentContent = {
           ],
         },
         'We may use third-party service providers to process this information and generate coaching responses.',
+        { subheading: 'AI Memory (Optional)', id: 'ai-memory' },
+        'AI Memory is off unless you turn it on in My Settings. While it is on, the AI features may remember things you tell them, such as your goals, the cars and tracks you are working on, and how you like to be coached, so that later answers can use them. Each memory is a short piece of text, with its category, how important and how certain it is, its version history, and when it was used.',
+        {
+          list: [
+            'Your memories are kept in your own memory space and are used only in answers to you. They are never shown to or used for other users.',
+            'Memories are proposed automatically from what you write to the AI features. A RacingCoach administrator may review a proposed memory before it is used, and text that looks like a password, key, or other secret is never saved.',
+            'Memories are stored in our database and processed by AI models that run on a computer operated by RacingCoach (see Section 5), which also keeps a copy of them for searching that is deleted with each memory. Only if we turn it on, one of the AI providers listed in Section 5 may process them instead.',
+            'You can turn AI Memory off at any time in My Settings. It stops immediately, and everything it remembered about you is permanently deleted. You can also download your memories from My Settings > Privacy & Data Rights, and deleting your account deletes them.',
+          ],
+        },
         { subheading: 'Technical and Usage Information' },
         'We may automatically collect information such as IP addresses, browser type, operating system, device information, application version, feature usage, diagnostic information, error logs, and security events.',
         'Only if you accept analytics cookies, our website also keeps its own activity log of the pages you view and the links and buttons you click, with your IP address, browser user agent, screen size, and language, and your account when you are signed in. It never records what you type into forms. See our Cookie Policy for details.',
@@ -121,7 +132,7 @@ export const privacyPolicy: LegalDocumentContent = {
           list: [
             'Performance of a contract: to create and run your account, record, store, and analyze your laps and telemetry, provide coaching and the other features you use, process subscriptions, and respond to your support requests.',
             'Legitimate interests: to keep the Services secure, prevent fraud and misuse, limit abuse of AI features, diagnose problems through security and collector logs, use the strictly necessary cookies the website needs, and improve the Services using aggregated information. You may object to processing based on legitimate interests.',
-            'Consent: for optional cookies and our website activity log (see Section 10 and our Cookie Policy). You can withdraw consent at any time in Cookie Settings, without affecting processing that took place before you withdrew it.',
+            'Consent: for optional cookies and our website activity log (see Section 10 and our Cookie Policy), and for AI Memory (see AI Memory in Section 1). You can withdraw consent at any time, in Cookie Settings or, for AI Memory, in My Settings, without affecting processing that took place before you withdrew it.',
             'Legal obligations: to keep billing and tax records, respond to lawful requests, and keep records showing the cookie choices you made.',
           ],
         },
@@ -156,10 +167,11 @@ export const privacyPolicy: LegalDocumentContent = {
             'Resend: account emails, such as password resets and privacy request notices.',
             'OpenAI, Anthropic, and DeepSeek: AI coaching, analysis, and speech to text. Each AI feature uses one provider at a time, and receives only the measurements and text that feature needs.',
             'Google Cloud Text-to-Speech, ElevenLabs, and OpenAI: the voices that read coaching and commentary aloud (text only).',
-            'Cloudflare: file storage for data exports and site media.',
+            'Cloudflare: file storage for data exports and site media, and the encrypted private connection to the computer described below.',
             'Google: Sign in with Google, only if you choose it.',
           ],
         },
+        'Some AI features, and AI Memory, may instead use AI models that run on a computer operated by RacingCoach in the United States. Information sent to it is used only to produce the requested answer, and is not shared with anyone else.',
         'When you connect Discord or iRacePlan, information is exchanged with them at your request, under their own terms. Your computer downloads the RacingCoach collector and its updates from GitHub. Satellite map images are fetched by our server, so the map provider does not receive your information.',
         { subheading: 'Within RacingCoach' },
         {
@@ -167,6 +179,7 @@ export const privacyPolicy: LegalDocumentContent = {
             'RacingCoach coaches and administrators can view every driver’s recorded laps, to provide coaching. Laps uploaded by coaches are visible to all users.',
             'Your live session on Live Racing can be watched by you, by coaches and administrators, and by the accounts you add under Who Can Watch Me.',
             'Administrators can see account details, subscriptions, and the website activity log, to run and secure the Services.',
+            'If you turn on AI Memory, administrators can review the memories proposed from your conversations before they are used, and can open your memory space to answer a privacy or support request.',
           ],
         },
         'We may also disclose information when required by law, to protect the security of the Services, or as part of a legitimate business transfer, subject to applicable legal requirements.',
@@ -190,6 +203,7 @@ export const privacyPolicy: LegalDocumentContent = {
             'Lap telemetry and the Debrief Coach analyses and AI lap summaries saved from it are kept only for the limited periods described in Section 8.',
             'Account records, settings, racing results, and coaching instructions are kept while your account is open.',
             'Activity logs sent by the RacingCoach collector are kept for 90 days.',
+            'AI Memory: each memory is kept until you or an administrator delete it, its category’s retention period ends, you turn AI Memory off, or you delete your account.',
             'Billing, subscription, and cancellation records are kept as long as reasonably necessary for accounting, tax, and legal obligations, including after an account is deleted.',
             'Website activity log: IP addresses and browser details (user agent, screen size, and browser language) are removed 13 months after each visit; the rest of each entry, the pages viewed and controls clicked, is kept as long as reasonably necessary to improve the Services.',
             'Records of AI feature use are kept for 400 days, and their IP addresses are removed after 13 months. Security logs are kept as long as reasonably necessary for security and fraud prevention.',
@@ -254,7 +268,7 @@ export const privacyPolicy: LegalDocumentContent = {
             'Correct inaccurate information.',
             'Have eligible personal information deleted.',
             'Receive the information you provided to us in a portable, machine-readable format.',
-            'Withdraw consent at any time where processing depends on consent, without affecting processing that took place before you withdrew it. For cookies, use the Cookie Settings link at the bottom of every page.',
+            'Withdraw consent at any time where processing depends on consent, without affecting processing that took place before you withdrew it. For cookies, use the Cookie Settings link at the bottom of every page; for AI Memory, the switch in My Settings.',
             'Object to or restrict certain processing, including processing based on legitimate interests.',
             'Lodge a complaint with the data protection supervisory authority where you live or work, or where an alleged infringement took place.',
           ],

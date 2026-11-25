@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import CancelSubscriptionButton from '@/components/CancelSubscriptionButton';
 import ChangePasswordButton from '@/components/ChangePasswordButton';
+import AiMemoryCard from '@/components/AiMemoryCard';
 import CollectorKeyCard from '@/components/CollectorKeyCard';
 import CountryPreference from '@/components/CountryPreference';
 import DeleteAccountButton from '@/components/DeleteAccountButton';
@@ -30,6 +31,8 @@ import {
 import { retentionDays } from '@/lib/lapRetentionRules';
 import { readOwnAiLimits, readOwnAiUsage } from '@/lib/rateLimits';
 import { canUseInCarCoach, canUseRaceStrategist, canUseVoiceAi, isAdmin } from '@/lib/roles';
+import { getMemoryConsent } from '@/lib/memory/consent';
+import { getConfig as getMemoryConfig } from '@/lib/memory/store';
 import { getCurrentUser } from '@/lib/session';
 import { getEnableAiFeatures, getShowPricing } from '@/lib/siteSettings';
 import { canBuyAnything, getInCarCoachInstructions, MAX_IN_CAR_COACH_INSTRUCTIONS } from '@/lib/users';
@@ -46,6 +49,18 @@ function levelBadgeClass(membershipLevel: string): string {
       return 'bg-slate-300/15 text-slate-300';
     default:
       return 'bg-[#cd7f32]/15 text-[#cd7f32]';
+  }
+}
+
+// The AI Memory card's state: the user's consent and whether customer capture is on (Memory Manager > System
+// Settings). Never fails the page: a Memory Service that can't answer just hides the card.
+async function readAiMemory(userId: number) {
+  try {
+    const [consent, config] = await Promise.all([getMemoryConsent(userId), getMemoryConfig()]);
+    return { ...consent, captureOn: config.system.enabled && config.system.customerCaptureEnabled };
+  } catch (error) {
+    console.error('Account page: could not read AI Memory:', error);
+    return null;
   }
 }
 
@@ -71,7 +86,7 @@ export default async function AccountPage({
   const justVerified = emailVerifiedResult === '1' && user.emailVerified;
   const discordText = typeof discordResult === 'string' ? t.account.discordMessages[discordResult] : undefined;
   const discordOk = typeof discordResult === 'string' && DISCORD_OK.has(discordResult);
-  const [discord, collectorKey, inCarCoachInstructions, coachVoice, engineerVoices, raceAnnouncers, namePronunciation, engineAssets, showPricing, enableAiFeatures, aiUsage, aiLimits] = await Promise.all([
+  const [discord, collectorKey, inCarCoachInstructions, coachVoice, engineerVoices, raceAnnouncers, namePronunciation, engineAssets, showPricing, enableAiFeatures, aiUsage, aiLimits, aiMemory] = await Promise.all([
     getDiscordConnection(user.id),
     getCollectorKey(user.id),
     getInCarCoachInstructions(user.id),
@@ -84,7 +99,11 @@ export default async function AccountPage({
     getEnableAiFeatures(),
     readOwnAiUsage(user.id),
     readOwnAiLimits(user),
+    readAiMemory(user.id),
   ]);
+  // Shown once customer capture is on; before that only to Admins (to check it), and always to anyone opted in, so
+  // they can turn it off
+  const showAiMemory = enableAiFeatures && aiMemory !== null && (aiMemory.captureOn || aiMemory.optedIn || isAdmin(user.role));
   const isSubscribed = user.accountStatus === ACCOUNT_STATUS.subscribed;
   // A canceled subscription keeps its end date: the end of the last paid period
   const showEndDate =
@@ -317,6 +336,8 @@ export default async function AccountPage({
             )}
           </InCarCoachInstructionsCard>
         )}
+
+        {showAiMemory && <AiMemoryCard optedInAt={aiMemory.optedInAt} adminPreview={!aiMemory.captureOn && isAdmin(user.role)} />}
 
         {enableAiFeatures && <MyAiUsageCard day={aiUsage.day} week={aiUsage.week} limits={aiLimits} />}
 

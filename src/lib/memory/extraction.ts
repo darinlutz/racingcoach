@@ -11,6 +11,7 @@ import {
   type ValidCandidate,
 } from './rules';
 import { contentHash, createMemory, getConfig, getScoped, listCategories, listNamespaces, TombstonedError, type Actor } from './store';
+import { customerOptedIn } from './consent';
 
 // The extraction pipeline (docs/AI_MEMORY_ARCHITECTURE.md, Extraction), run by the job worker, never inside a
 // conversation's request: eligibility, the provider's candidates, validation, sensitivity, duplicates, conflicts,
@@ -77,6 +78,7 @@ export async function runExtraction(jobId: string, payload: ExtractPayload): Pro
     memoryEnabled: config.system.enabled,
     customerData: ns.isCustomerData,
     customerCaptureEnabled: config.system.customerCaptureEnabled,
+    customerOptedIn: ns.isCustomerData ? await customerOptedIn(ns.ownerUserId, payload.userId) : true,
     sensitive: false,
     categoryRequiresApproval: false,
     categoryExtractionEligible: true,
@@ -192,6 +194,8 @@ export async function runExtraction(jobId: string, payload: ExtractPayload): Pro
       memoryEnabled: config.system.enabled,
       customerData: target.isCustomerData,
       customerCaptureEnabled: config.system.customerCaptureEnabled,
+      // Asked again per target: a candidate may go to another allowed namespace than the job's own
+      customerOptedIn: target.isCustomerData ? await customerOptedIn(target.ownerUserId, payload.userId) : true,
       sensitive: c.sensitivity === 'personal',
       categoryRequiresApproval: category.requiresApproval,
       categoryExtractionEligible: category.extractionEligible,

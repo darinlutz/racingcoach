@@ -159,7 +159,9 @@ Check a model's page on ollama.com for its tags and size first; the AI Lab's **C
 
 **11. Persistent memory**
 
-Open WebUI > Settings (your avatar) > **Personalization > Memory: on**. Add a memory there or on the AI Lab's Memory tab. Memories are per Open WebUI account and live in its database (the Docker volume), so they survive new chats, restarts and switching models.
+Memory comes from the Clarivex Memory Service through its Open WebUI filter (docs/AI_MEMORY_OPEN_WEBUI.md), not Open WebUI's own memory: keep **Personalization > Memory off** (Settings, your avatar) and the Admin Panel's Memories feature off (`ENABLE_MEMORIES: "false"` in the compose file, for a first start), or memories are duplicated. Add memories in the AI Lab's Memory Manager; they survive new chats, restarts and switching models.
+
+New chats start on **qwen3:8b** (`DEFAULT_MODELS`; Admin Panel > Settings > Models) and titles and tags use it too (`TASK_MODEL`), since Ollama lists the embedding model first and it can't chat. Hide `qwen3-embedding:0.6b` from the picker (Admin Panel > Settings > Models, the eye icon); document search still uses it.
 
 **12. Local embedding model**
 

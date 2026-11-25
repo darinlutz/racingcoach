@@ -28,7 +28,7 @@ function block(b) {
   if (typeof b === 'string') return `<p>${escape(b)}</p>`;
   if ('strong' in b) return `<p><strong>${escape(b.strong)}</strong></p>`;
   if ('list' in b) return `<ul>${b.list.map((item) => `<li>${escape(item)}</li>`).join('')}</ul>`;
-  if ('subheading' in b) return `<h3>${escape(b.subheading)}</h3>`;
+  if ('subheading' in b) return b.id ? `<h3 id="${escape(b.id)}">${escape(b.subheading)}</h3>` : `<h3>${escape(b.subheading)}</h3>`;
   // Cookie Settings is a button on the website; offline, say where it is
   if ('cookieSettings' in b) return `<p>Use the Cookie Settings link at the bottom of any page on <a href="${SITE}">${SITE}</a>.</p>`;
   if ('table' in b) {

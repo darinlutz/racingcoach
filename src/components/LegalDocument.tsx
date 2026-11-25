@@ -38,7 +38,7 @@ export default function LegalDocument({ doc, t }: { doc: LegalDocumentContent; t
 function Block({ block }: { block: LegalBlock }) {
   if (typeof block === 'string') return <p>{block}</p>;
   if ('strong' in block) return <p className="font-semibold">{block.strong}</p>;
-  if ('subheading' in block) return <h3 className="font-semibold pt-1">{block.subheading}</h3>;
+  if ('subheading' in block) return <h3 id={block.id} className="font-semibold pt-1 scroll-mt-24">{block.subheading}</h3>;
   if ('list' in block) {
     return (
       <ul className="list-disc pl-6 space-y-1">

@@ -5,15 +5,17 @@ import { canRetrieve, effectiveMode, USER_APPLICATION, type MemoryMode } from '.
 import { ensureMemorySchema } from './schema';
 import { enqueueJob, ensureUserNamespace, getConfig, getScoped, listNamespaces, type Actor } from './store';
 import { kickJobs } from './jobs';
+import { customerOptedIn } from './consent';
 
 // Per-user memory for the site's own features (docs/AI_MEMORY_SECURITY.md, Per-user memory). Each signed-in user
 // has their own space per application, users/u<id>/<application>; these helpers take the user's ID from the
 // session (never from a request body) and reach only that space, plus approved global namespaces. Nothing here can
 // name another user's space, and every query also carries the owner check in SQL (retrieval.ts, ownerGuard).
 //
-// Customer capture stays off until System Settings turns it on (customerCaptureEnabled): until then a user's
-// space is read-only to extraction, so these return nothing new, and the user's own mode (MemorySettings user
-// scope, e.g. Disabled when they opt out) always wins over the application's.
+// Nothing happens for a user who hasn't turned on AI Memory on their Account page (consent.ts): their space is
+// Disabled, neither read nor written. Customer capture also stays off until System Settings turns it on
+// (customerCaptureEnabled): until then a user's space is read-only to extraction, so these return nothing new, and
+// the user's own mode (MemorySettings user scope) wins over the application's below those ceilings.
 
 export type UserMemoryContext = Pick<RetrieveResult, 'context' | 'tokens' | 'degraded'> & { memoryIds: string[] };
 
@@ -22,7 +24,15 @@ async function userMode(userId: number, namespaceMode: MemoryMode | null): Promi
   const user = await getScoped<{ mode?: MemoryMode }>('user', String(userId));
   return effectiveMode(
     { global: config.system.defaultMode, namespace: namespaceMode, user: user?.mode ?? null },
-    { memoryEnabled: config.system.enabled, customerData: true, customerCaptureEnabled: config.system.customerCaptureEnabled, sensitive: false, categoryRequiresApproval: false, categoryExtractionEligible: true }
+    {
+      memoryEnabled: config.system.enabled,
+      customerData: true,
+      customerCaptureEnabled: config.system.customerCaptureEnabled,
+      customerOptedIn: await customerOptedIn(userId),
+      sensitive: false,
+      categoryRequiresApproval: false,
+      categoryExtractionEligible: true,
+    }
   ).mode;
 }
 

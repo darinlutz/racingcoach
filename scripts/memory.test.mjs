@@ -30,7 +30,7 @@ const {
 const { buildContext, memoryLine, rank, recencyFactor } = await import('../src/lib/memory/ranking.ts');
 const { answerOverlap, buildDataset, checkContamination, parseCsv, parseImport, precisionAtK, recallAtK, reciprocalRank, serialize, splitOf } = await import('../src/lib/memory/portable.ts');
 
-const ceilings = { memoryEnabled: true, customerData: false, customerCaptureEnabled: false, sensitive: false, categoryRequiresApproval: false, categoryExtractionEligible: true };
+const ceilings = { memoryEnabled: true, customerData: false, customerCaptureEnabled: false, customerOptedIn: false, sensitive: false, categoryRequiresApproval: false, categoryExtractionEligible: true };
 
 describe('statuses', () => {
   test('valid and invalid transitions', () => {
@@ -58,9 +58,18 @@ describe('operating modes', () => {
   });
   test('ceilings cannot be lifted by a less restrictive layer', () => {
     assert.equal(effectiveMode({ global: 'automatic', namespace: 'automatic' }, { ...ceilings, memoryEnabled: false }).mode, 'disabled');
-    const customer = effectiveMode({ global: 'automatic', namespace: 'automatic' }, { ...ceilings, customerData: true });
+    const customer = effectiveMode({ global: 'automatic', namespace: 'automatic' }, { ...ceilings, customerData: true, customerOptedIn: true });
     assert.equal(customer.mode, 'readOnly');
     assert.equal(customer.cappedBy, 'customerCaptureDisabled');
+    // A customer who hasn't opted in: neither read nor written, whatever capture or their own mode says
+    for (const customerCaptureEnabled of [false, true]) {
+      const notOptedIn = effectiveMode({ global: 'automatic', user: 'automatic' }, { ...ceilings, customerData: true, customerCaptureEnabled });
+      assert.equal(notOptedIn.mode, 'disabled');
+      assert.equal(notOptedIn.cappedBy, 'customerNotOptedIn');
+    }
+    assert.equal(effectiveMode({ global: 'automatic' }, { ...ceilings, customerData: true, customerCaptureEnabled: true, customerOptedIn: true }).mode, 'automatic');
+    // Consent only matters for customer data
+    assert.equal(effectiveMode({ global: 'automatic' }, { ...ceilings, customerOptedIn: false }).mode, 'automatic');
     assert.equal(effectiveMode({ global: 'automatic' }, { ...ceilings, sensitive: true }).mode, 'approvalRequired');
     assert.equal(effectiveMode({ global: 'automatic' }, { ...ceilings, categoryRequiresApproval: true }).mode, 'approvalRequired');
     assert.equal(effectiveMode({ global: 'automatic' }, { ...ceilings, categoryExtractionEligible: false }).mode, 'manual');

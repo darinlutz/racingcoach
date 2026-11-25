@@ -118,7 +118,7 @@ message/turn → /extract (202) → job → eligibility (mode, pause, daily cap)
 
 ### Operating modes and precedence
 
-Disabled < Read Only < Manual < Approval Required < Hybrid < Automatic. The most specific layer that sets one wins (user → category → namespace → application → global default, Approval Required). Then ceilings no layer can lift: memory off → Disabled; customer data without customer capture → Read Only; a category not eligible for extraction → Manual; sensitive content or a category requiring approval → Approval Required (`effectiveMode` in `rules.ts`). Explicit deletion is always allowed.
+Disabled < Read Only < Manual < Approval Required < Hybrid < Automatic. The most specific layer that sets one wins (user → category → namespace → application → global default, Approval Required). Then ceilings no layer can lift: memory off → Disabled; customer data of someone who hasn't opted in (Account page, `consent.ts`) → Disabled; customer data without customer capture → Read Only; a category not eligible for extraction → Manual; sensitive content or a category requiring approval → Approval Required (`effectiveMode` in `rules.ts`). Explicit deletion is always allowed.
 
 ## Retrieval
 

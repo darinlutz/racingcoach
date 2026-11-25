@@ -1,6 +1,7 @@
 import type { Dictionary } from './en';
 import { setupsFr } from './setupsTextFr.ts';
 import { aiLabFr } from './aiLabTextFr.ts';
+import { aiMemoryFr } from './aiMemoryTextFr.ts';
 
 // Every piece of text on the site, in French (France's French, informal "tu", as sim racers talk). Same keys,
 // {placeholders} and { one, other } forms as en.ts.
@@ -4341,4 +4342,6 @@ export const fr: Dictionary = {
 
   setups: setupsFr,
   aiLab: aiLabFr,
+  // The Account page's AI Memory card, in its own file (aiMemoryTextFr.ts)
+  aiMemory: aiMemoryFr,
 };

@@ -229,6 +229,9 @@ export type ModeCeilings = {
   memoryEnabled: boolean;
   customerData: boolean;
   customerCaptureEnabled: boolean;
+  // Whether the person the customer data is about turned on AI Memory on their Account page (src/lib/memory/consent.ts):
+  // the space's owner, else the user whose conversation it is. Ignored for data that isn't customer data.
+  customerOptedIn: boolean;
   sensitive: boolean;
   categoryRequiresApproval: boolean;
   categoryExtractionEligible: boolean;
@@ -236,7 +239,8 @@ export type ModeCeilings = {
 
 // Deterministic precedence (docs/AI_MEMORY_ARCHITECTURE.md, Operating modes): the most specific layer that sets a
 // mode wins (user, then category, then namespace, then application, then global), and then the ceilings, which no
-// layer can lift: memory switched off is Disabled; customer data without customer capture is Read Only; sensitive
+// layer can lift: memory switched off is Disabled; customer data of someone who hasn't opted in is Disabled (their
+// consent is its legal basis, so it's neither read nor written); customer data without customer capture is Read Only; sensitive
 // content and categories that require approval are at most Approval Required; a category not eligible for
 // extraction is at most Manual.
 export function effectiveMode(layers: ModeLayers, ceilings: ModeCeilings): { mode: MemoryMode; from: keyof ModeLayers; cappedBy: string | null } {
@@ -251,6 +255,7 @@ export function effectiveMode(layers: ModeLayers, ceilings: ModeCeilings): { mod
     }
   };
   if (!ceilings.memoryEnabled) cap('disabled', 'memoryDisabled');
+  if (ceilings.customerData && !ceilings.customerOptedIn) cap('disabled', 'customerNotOptedIn');
   if (ceilings.customerData && !ceilings.customerCaptureEnabled) cap('readOnly', 'customerCaptureDisabled');
   if (!ceilings.categoryExtractionEligible) cap('manual', 'categoryNotExtractable');
   if (ceilings.sensitive) cap('approvalRequired', 'sensitive');

@@ -36,14 +36,19 @@ services:
       RAG_OLLAMA_BASE_URL: http://host.docker.internal:11434
       RAG_EMBEDDING_ENGINE: ollama
       RAG_EMBEDDING_MODEL: ${RAG_EMBEDDING_MODEL:-qwen3-embedding:0.6b}
+      # New chats and background tasks (titles, tags) use a chat model, never the embedding model, which Ollama
+      # lists first and can't chat. ConfigVars (Admin Panel > Settings > Models, and > Interface for the task model)
+      DEFAULT_MODELS: ${DEFAULT_MODELS:-qwen3:8b}
+      TASK_MODEL: ${TASK_MODEL:-qwen3:8b}
       # Its public address, through Cloudflare
       WEBUI_URL: ${WEBUI_URL:-https://ai-lab.racingcoach.app}
       CORS_ALLOW_ORIGIN: ${WEBUI_URL:-https://ai-lab.racingcoach.app};http://localhost:8080
       # New accounts wait for the admin's approval; turn sign-ups off in Admin Panel > Settings > General once the
       # first admin exists (docs/AI_LAB_SETUP.md, step 9)
       DEFAULT_USER_ROLE: pending
-      # Persistent memory
-      ENABLE_MEMORIES: "true"
+      # Open WebUI's own memory off: memories live in the Clarivex Memory Service, reached through the memory filter
+      # (docs/AI_MEMORY_OPEN_WEBUI.md), and having both on duplicates them
+      ENABLE_MEMORIES: "false"
       # API keys, for the AI Lab page (through the Mac's gateway only), limited to the endpoints it uses: the last is
       # the knowledge search alone (the playground's configurations), not the rest of /api/v1/retrieval, which changes
       # settings and resets the vector store. A ConfigVar: an Open WebUI started before it was added needs it added in

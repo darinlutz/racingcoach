@@ -4369,7 +4369,6 @@ export const pt: Dictionary = {
   },
   modelLearning: {
     title: 'Laboratório de IA',
-    intro: 'Execute a lição de tensores do dia 1 (learning/day1_tensors.py) e veja o que ela imprime.',
     runModel: 'Executar Modelo',
     running: 'Executando...',
     results: 'Resultados',

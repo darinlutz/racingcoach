@@ -4421,7 +4421,6 @@ export const de: Dictionary = {
   },
   modelLearning: {
     title: 'KI-Labor',
-    intro: 'Starte die Tensor-Lektion von Tag 1 (learning/day1_tensors.py) und sieh dir an, was sie ausgibt.',
     runModel: 'Modell ausführen',
     running: 'Läuft...',
     results: 'Ergebnisse',

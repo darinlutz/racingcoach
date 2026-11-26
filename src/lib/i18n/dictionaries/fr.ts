@@ -4331,7 +4331,6 @@ export const fr: Dictionary = {
   },
   modelLearning: {
     title: 'Labo IA',
-    intro: 'Lance la leçon du jour 1 sur les tenseurs (learning/day1_tensors.py) et regarde ce qu’elle affiche.',
     runModel: 'Lancer le modèle',
     running: 'En cours...',
     results: 'Résultats',

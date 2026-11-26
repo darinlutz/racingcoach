@@ -4437,7 +4437,6 @@ export const en = {
   },
   modelLearning: {
     title: 'AI Lab',
-    intro: 'Run the day 1 tensors lesson (learning/day1_tensors.py) and see what it prints.',
     runModel: 'Run Model',
     running: 'Running...',
     results: 'Results',

@@ -1,0 +1,18 @@
+#!/bin/bash
+# The racingcoach-lighting command (docs/lighting/MAC_INSTALL.md): runs lighting-agent/agent.ts with Node. Stream Deck
+# and Shortcuts run commands with a bare PATH, so Node is looked for in its usual places too. No credentials here: the
+# agent's commands use the local token in ~/Library/Application Support/RacingCoachLighting/local-token.
+set -euo pipefail
+SELF="$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || python3 -c 'import os,sys;print(os.path.realpath(sys.argv[1]))' "${BASH_SOURCE[0]}")"
+DIR="$(cd "$(dirname "$SELF")/.." && pwd)"
+NODE="${RC_LIGHTING_NODE:-}"
+if [ -z "$NODE" ]; then
+  for candidate in "$(command -v node 2>/dev/null || true)" /opt/homebrew/bin/node /usr/local/bin/node "$HOME/.volta/bin/node"; do
+    if [ -n "$candidate" ] && [ -x "$candidate" ]; then NODE="$candidate"; break; fi
+  done
+fi
+if [ -z "$NODE" ]; then
+  echo "racingcoach-lighting: Node.js 22.18 or later is needed (brew install node)" >&2
+  exit 1
+fi
+exec "$NODE" "$DIR/agent.ts" "$@"

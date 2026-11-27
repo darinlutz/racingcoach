@@ -40,6 +40,8 @@
     "test:coaching": "node --experimental-transform-types --no-warnings --test scripts/coaching-guidance.test.mjs",
     "test:race-strategy": "node --experimental-transform-types --no-warnings --test scripts/race-strategy.test.mjs",
     "test:lighting": "node --experimental-transform-types --no-warnings --test scripts/lighting.test.mjs",
+    "test:lighting-agent": "node --experimental-transform-types --no-warnings --test scripts/lighting-agent.test.mjs",
+    "lighting-agent": "node lighting-agent/agent.ts",
     "test:wet-weather": "node --experimental-transform-types --no-warnings --test scripts/wet-weather.test.mjs",
     "test:setups": "node --experimental-transform-types --no-warnings --test scripts/setups.test.mjs && node --experimental-transform-types --no-warnings --test scripts/setups-db.test.mjs",
     "engineering:knowledge": "node --experimental-transform-types --no-warnings scripts/engineeringKnowledge.mjs",

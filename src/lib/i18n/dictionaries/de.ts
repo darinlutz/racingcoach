@@ -1,5 +1,6 @@
 import type { Dictionary } from './en';
 import { setupsDe } from './setupsTextDe.ts';
+import { lightingDe } from './lightingTextDe.ts';
 import { aiLabDe } from './aiLabTextDe.ts';
 import { aiMemoryDe } from './aiMemoryTextDe.ts';
 
@@ -2250,6 +2251,7 @@ export const de: Dictionary = {
       sections: {
         subscribers: 'Abonnenten',
         privacy: 'Datenschutzanfragen',
+        lighting: 'Lichtsteuerung',
         siteSettings: 'Website-Einstellungen',
         monitoring: 'Überwachung',
         aiModels: 'KI-Modellsteuerung',
@@ -4440,6 +4442,8 @@ export const de: Dictionary = {
   },
 
   setups: setupsDe,
+  // Lighting Control (lightingText.ts)
+  lightingControl: lightingDe,
   aiLab: aiLabDe,
   // The Account page's AI Memory card, in its own file (aiMemoryTextDe.ts)
   aiMemory: aiMemoryDe,

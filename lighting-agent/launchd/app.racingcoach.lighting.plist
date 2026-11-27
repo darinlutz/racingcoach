@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Starts the RacingCoach Lighting Agent when you log in, and restarts it if it stops (docs/lighting/MAC_INSTALL.md).
+  lighting-agent/install.sh fills in REPO and NODE and loads it. By hand: replace REPO with the repository's full
+  path and NODE with the output of `which node`, then
+    cp lighting-agent/launchd/app.racingcoach.lighting.plist ~/Library/LaunchAgents/
+    launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/app.racingcoach.lighting.plist
+  Stop it: launchctl bootout gui/$(id -u)/app.racingcoach.lighting
+  The agent's own log is ~/Library/Logs/RacingCoachLighting/agent.log; this file's stdout and stderr go beside it.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>app.racingcoach.lighting</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>NODE</string>
+    <string>REPO/lighting-agent/agent.ts</string>
+    <string>run</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>REPO</string>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
+  <key>ProcessType</key>
+  <string>Interactive</string>
+  <key>StandardOutPath</key>
+  <string>HOME/Library/Logs/RacingCoachLighting/launchd.log</string>
+  <key>StandardErrorPath</key>
+  <string>HOME/Library/Logs/RacingCoachLighting/launchd.log</string>
+</dict>
+</plist>

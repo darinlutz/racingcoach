@@ -19,6 +19,7 @@ import { readRecentErrors } from '@/lib/errorMonitor';
 import SiteSettingsManager from '@/components/SiteSettingsManager';
 import PrivacyRequestsLinkCard from '@/components/PrivacyRequestsLinkCard';
 import SubscribersLinkCard from '@/components/SubscribersLinkCard';
+import { lightingEnabled } from '@/lib/lighting/devices';
 import TelemetryStorageManager from '@/components/TelemetryStorageManager';
 import EngineeringKnowledgeManager from '@/components/EngineeringKnowledgeManager';
 import CarModelAssetManager from '@/components/CarModelAssetManager';
@@ -59,7 +60,7 @@ import { readRequestCounts } from '@/lib/privacyRequests';
 
 // The page's sections, in order (AdminNav's links and AdminSection's keys): each closed until opened
 const ADMIN_SECTIONS: AdminSectionKey[] = [
-  'subscribers', 'privacy', 'siteSettings', 'monitoring', 'aiModels',
+  'subscribers', 'privacy', 'lighting', 'siteSettings', 'monitoring', 'aiModels',
   'aiCosts', 'rateLimits', 'videoLibrary', 'engineSounds', 'elevenLabsVoices', 'broadcastDirector', 'liveVideo', 'userRoles',
   'lapRetention', 'telemetryStorage', 'engineeringKnowledge', 'carDrawings', 'carModels', 'collectorLogs', 'activity',
 ];
@@ -151,6 +152,21 @@ export default async function AdminPage({
 
         <AdminSection section="privacy">
           <PrivacyRequestsLinkCard t={t.privacyAdmin} counts={privacyCounts} />
+        </AdminSection>
+
+        {/* Lighting Control (src/app/admin/lighting/, docs/lighting/README.md); off with LIGHTING_CONTROL=off */}
+        <AdminSection section="lighting">
+          <div className="bg-secondary rounded-xl border border-border p-4 sm:p-6 flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-bold text-foreground">{t.lightingControl.title}</h2>
+              <p className="text-sm text-muted-foreground">{lightingEnabled() ? t.lightingControl.adminLinkHint : 'LIGHTING_CONTROL=off'}</p>
+            </div>
+            {lightingEnabled() && (
+              <Link href="/admin/lighting" className="px-5 py-2 rounded-lg text-sm font-semibold text-white bg-primary hover:bg-primary-strong transition-colors">
+                {t.lightingControl.open}
+              </Link>
+            )}
+          </div>
         </AdminSection>
 
         <AdminSection section="siteSettings">

@@ -3291,6 +3291,16 @@ export const fr: Dictionary = {
     you: 'Toi',
     onTrack: 'En piste',
     pitRoad: 'Voie des stands',
+    // The pit limiter indicator (PitLimiterIndicator.tsx), from the collector's pitLimiterActive
+    pitLimiter: {
+      active: 'LIMITEUR DE STANDS ACTIF',
+      off: 'LIMITEUR DE STANDS COUPÉ',
+      unavailable: 'LIMITEUR DE STANDS N/D',
+      stale: 'LIMITEUR DE STANDS : AUCUNE DONNÉE',
+      title: 'Le limiteur de vitesse des stands de la voiture, tel que le simulateur l’indique',
+      unavailableTip: 'Cette voiture ou ce simulateur n’indique pas son limiteur de stands',
+      staleTip: 'La télémétrie du collecteur s’est arrêtée, donc l’état du limiteur est inconnu',
+    },
     inGarage: 'Au garage',
     offline: 'Hors ligne',
     lap: 'Tour {n}',

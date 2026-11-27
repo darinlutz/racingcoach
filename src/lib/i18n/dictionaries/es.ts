@@ -3322,6 +3322,16 @@ export const es: Dictionary = {
     you: 'Tú',
     onTrack: 'En pista',
     pitRoad: 'Pit lane',
+    // The pit limiter indicator (PitLimiterIndicator.tsx), from the collector's pitLimiterActive
+    pitLimiter: {
+      active: 'LIMITADOR DE BOXES ACTIVO',
+      off: 'LIMITADOR DE BOXES APAGADO',
+      unavailable: 'LIMITADOR DE BOXES N/D',
+      stale: 'LIMITADOR DE BOXES: SIN DATOS',
+      title: 'El limitador de velocidad de boxes del auto, como lo informa el simulador',
+      unavailableTip: 'Este auto o simulador no informa su limitador de boxes',
+      staleTip: 'La telemetría del colector se detuvo, así que no se conoce el limitador de boxes',
+    },
     inGarage: 'En el garaje',
     offline: 'Desconectado',
     lap: 'Vuelta {n}',

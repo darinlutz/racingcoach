@@ -3374,6 +3374,16 @@ export const en = {
     you: 'You',
     onTrack: 'On track',
     pitRoad: 'Pit road',
+    // The pit limiter indicator (PitLimiterIndicator.tsx), from the collector's pitLimiterActive
+    pitLimiter: {
+      active: 'PIT LIMITER ACTIVE',
+      off: 'PIT LIMITER OFF',
+      unavailable: 'PIT LIMITER N/A',
+      stale: 'PIT LIMITER: NO DATA',
+      title: 'The car\'s pit speed limiter, as the simulator reports it',
+      unavailableTip: 'This car or simulator doesn’t report its pit limiter',
+      staleTip: 'The collector’s telemetry stopped, so the pit limiter isn’t known',
+    },
     inGarage: 'In the garage',
     offline: 'Offline',
     lap: 'Lap {n}',

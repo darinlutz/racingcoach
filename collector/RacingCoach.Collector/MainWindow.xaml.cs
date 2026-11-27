@@ -45,6 +45,11 @@ public partial class MainWindow : Window
     private static readonly Brush Red = Brush("#F0707A");
     private static readonly Brush Blue = Brush("#3B8BFF");
     private static readonly Brush Grey = Brush("#6B6D74");
+    // The pit limiter badge's lit and unlit looks
+    private static readonly Brush LimiterBlue = Brush("#1E6BFF");
+    private static readonly Brush LimiterBlueBorder = Brush("#7FB0FF");
+    private static readonly Brush LimiterOff = Brush("#2A2C33");
+    private static readonly Brush LimiterOffBorder = Brush("#3A3D45");
     private static readonly Brush Fg = Brush("#F3F4F6");
     private static readonly Brush Muted = Brush("#9A9CA3");
     private static readonly Brush BestRow = Brush("#1C2A40");
@@ -600,6 +605,16 @@ public partial class MainWindow : Window
         }
     }
 
+    // PIT LIMITER ACTIVE lit blue, PIT LIMITER OFF grey, or N/A grey when the simulator doesn't say
+    private void ShowPitLimiter(bool? active)
+    {
+        PitLimiterText.Text = T(active switch { true => "main.pitLimiterActive", false => "main.pitLimiterOff", null => "main.pitLimiterNa" });
+        PitLimiterBadge.Background = active == true ? LimiterBlue : LimiterOff;
+        PitLimiterBadge.BorderBrush = active == true ? LimiterBlueBorder : LimiterOffBorder;
+        PitLimiterLamp.Fill = active == true ? Fg : Grey;
+        PitLimiterText.Foreground = active == true ? Fg : Muted;
+    }
+
     private void OnLiveRacingFrame(object? sender, EventArgs e)
     {
         TrackMap.Map = _engine.Live.Map;
@@ -630,6 +645,8 @@ public partial class MainWindow : Window
             SetTile(ShareDot, ShareText, ShareDetail, Grey, T("main.notSharing"), problem ?? T("main.sharingStarts"));
         else
             SetTile(ShareDot, ShareText, ShareDetail, problem is null ? Amber : Red, T("main.notSharing"), problem ?? T("main.connecting"));
+
+        ShowPitLimiter(_engine.State is SimState.Waiting or SimState.PlaybackFinished ? null : live.PitLimiterActive);
 
         if (!_engine.TryGetLatest(out var d) || d.IsOnTrack != true)
         {

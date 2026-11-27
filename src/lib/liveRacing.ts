@@ -154,6 +154,12 @@ export const liveUpdateSchema = z.object({
   tires: tiresSchema.nullish(),
   onTrack: z.boolean(),
   onPitRoad: z.boolean().nullish(),
+  // The pit speed limiter as the simulator reports it (iRacing's EngineWarnings pit limiter bit, from collectors from
+  // 1.104.0): null when the simulator doesn't say. Not pit road: the limiter can be on anywhere. Live Racing's
+  // indicator and the lighting agent's events (src/lib/lighting/) read it
+  pitLimiterActive: z.boolean().nullish(),
+  // The simulator read, iracing, acc or ac (from collectors from 1.104.0); none is iRacing
+  simulator: z.enum(['iracing', 'acc', 'ac']).nullish(),
   lap: z.number().int().min(-1).max(100_000).nullish(),
   pct: z.number().min(0).max(1).nullish(),
   speed: z.number().min(0).max(200).nullish(),

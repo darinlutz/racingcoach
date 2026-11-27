@@ -14,7 +14,7 @@ import { join } from 'node:path';
 const home = mkdtempSync(join(tmpdir(), 'rc-lighting-'));
 process.env.RC_LIGHTING_HOME = home;
 
-const { defaultConfig, configProblems, isLocalHost, BLUE, RED, WHITE } = await import('../lighting-agent/lib/model.ts');
+const { defaultConfig, configProblems, isLocalHost, BLUE, RED, WHITE } = await import('../src/lib/lighting/model.ts');
 const { decide } = await import('../lighting-agent/lib/stateMachine.ts');
 const { SseParser } = await import('../lighting-agent/lib/sse.ts');
 const { WledProvider, wledStateBody, parseWledInfo } = await import('../lighting-agent/lib/wled.ts');

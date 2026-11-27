@@ -25,7 +25,8 @@ import { join } from 'node:path';
 import { LOCAL_PORT, hexColor, startLocalApi } from './lib/localApi.ts';
 import { deleteDeviceToken, homeDir, isMac, localToken, logDir, makeLogger, readDeviceToken } from './lib/platform.ts';
 import { MockProvider } from './lib/providers.ts';
-import { LightingRuntime, loadConfig } from './lib/runtime.ts';
+import { cacheConfig, LightingRuntime, loadConfig } from './lib/runtime.ts';
+import { parseLightingConfig, type LightingConfig } from '../src/lib/lighting/model.ts';
 import { pairDevice, SiteConnection } from './lib/site.ts';
 import { WledProvider } from './lib/wled.ts';
 
@@ -52,19 +53,62 @@ function run(mock: boolean) {
   const log = makeLogger();
   const config = loadConfig(log);
   const runtime = new LightingRuntime(config, log);
-  for (const controller of config.controllers) {
-    if (mock) runtime.providers.set(controller.id, new MockProvider(controller, 20));
-    else {
-      if (!controller.host) log('warn', `Controller ${controller.id} has no address yet: set it in config.json or on the Admin page`);
-      runtime.providers.set(controller.id, new WledProvider(controller, (entry) => log('debug', `WLED ${entry.kind}`, { controller: entry.controllerId, ...entry.detail })));
+  // One provider per controller of the configuration, made again when the configuration changes
+  const buildProviders = (controllers: LightingConfig['controllers']) => {
+    runtime.providers.clear();
+    for (const controller of controllers) {
+      if (mock) runtime.providers.set(controller.id, new MockProvider(controller, 20));
+      else {
+        if (!controller.host) log('warn', `Controller ${controller.id} has no address yet: set it on the Admin page (Lighting Control)`);
+        runtime.providers.set(controller.id, new WledProvider(controller, (entry) => log('debug', `WLED ${entry.kind}`, { controller: entry.controllerId, ...entry.detail })));
+      }
     }
-  }
+  };
+  buildProviders(config.controllers);
+
+  // The site's configuration is the authoritative one: fetched when its version differs from the cached one. When the
+  // site has none yet, this Mac's config.json is uploaded once, so what was set here isn't lost
+  let syncing = false;
+  let uploaded = false;
+  const syncConfig = async (siteVersion: number) => {
+    if (syncing) return;
+    // The site has none yet: this Mac's goes up once (its version stays 0, so the next heartbeat fetches the site's)
+    if (siteVersion === 0) {
+      if (uploaded) return;
+      uploaded = true;
+    } else if (siteVersion === runtime.config.version) return;
+    syncing = true;
+    try {
+      if (siteVersion === 0) {
+        const version = await site.uploadConfig({ ...runtime.config, version: 0 });
+        if (version !== null) log('info', `Uploaded this Mac's lighting configuration to the site (version ${version})`);
+        return;
+      }
+      const answer = await site.fetchConfig();
+      if (!answer?.config) return;
+      const parsed = parseLightingConfig(answer.config);
+      if (!parsed.ok) {
+        log('error', 'The site’s lighting configuration was refused', { problems: parsed.problems });
+        return;
+      }
+      cacheConfig(parsed.config);
+      buildProviders(parsed.config.controllers);
+      runtime.applyConfig(parsed.config);
+    } catch (error) {
+      if (siteVersion === 0) uploaded = false;
+      log('warn', 'Configuration sync failed; trying again with the next heartbeat', { error: error instanceof Error ? error.message : String(error) });
+    } finally {
+      syncing = false;
+    }
+  };
+
   const site = new SiteConnection(SITE, log, {
     onSnapshot: (snapshot) => runtime.onSnapshot(snapshot),
     onEvent: (event) => runtime.onEvent(event),
     onHeartbeat: (heartbeat, at) => runtime.onHeartbeat(heartbeat, at),
     onStatus: (status) => runtime.onSiteStatus(status),
     agentStatus: () => runtime.siteReport(AGENT_VERSION),
+    onConfigVersion: (version) => void syncConfig(version),
   });
   const server = startLocalApi(runtime, localToken(), AGENT_VERSION);
   server.on('error', (error) => {

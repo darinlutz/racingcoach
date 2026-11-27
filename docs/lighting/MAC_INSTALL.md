@@ -29,10 +29,15 @@ Keychain (service `app.racingcoach.lighting`); the running agent picks it up wit
 
 ## 3. Point it at the controller
 
-Edit `~/Library/Application Support/RacingCoachLighting/config.json` (written with defaults on the first start):
-set the controller's `host` to the DHCP reservation you made for the Dig-Quad (e.g. `"192.168.1.50"`), and check each
-zone's `segmentId` matches the segment in WLED. Only home network addresses (10.x, 172.16-31.x, 192.168.x, .local
-names) are accepted. Then restart the agent (below) and test:
+On RacingCoach.app, **Admin > Lighting Control > Configuration**: set the controller's address to the DHCP
+reservation you made for the Dig-Quad (e.g. `192.168.1.50`), check each zone's WLED segment, and **Save**. The agent
+picks it up within about 5 seconds and keeps a copy in
+`~/Library/Application Support/RacingCoachLighting/config.json` for when the site isn't reachable. Only home network
+addresses (10.x, 172.16-31.x, 192.168.x, .local names) are accepted.
+
+The site's configuration is the one that counts. The first time the agent connects, if the site has none yet, it
+uploads its own `config.json` once (so an address set there before isn't lost); after that, edits to the file on the
+Mac are replaced by the site's whenever it changes. Then test:
 
 ```bash
 racingcoach-lighting controller-test main   # WLED version, pixel count (should be 42 for 3 m), RGBW, segments

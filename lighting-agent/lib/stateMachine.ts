@@ -1,4 +1,4 @@
-import { DEFAULT_LOOK, type LightingConfig, type Rule, type RuleEvent, type Zone, type ZoneLook } from './model.ts';
+import { DEFAULT_LOOK, type LightingConfig, type Rule, type RuleEvent, type Zone, type ZoneLook } from '../../src/lib/lighting/model.ts';
 
 // The lighting state machine (docs/lighting/README.md, State machine): from the mode, the baseline scene, the manual
 // changes made on top of it and the racing events in force, what each zone should show. Pure: the agent's runtime

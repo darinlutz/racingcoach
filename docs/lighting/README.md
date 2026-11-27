@@ -131,10 +131,37 @@ The slower on/off cases (about 300 ms) are the 250 ms minimum between changes of
 collector's and the Mac's internet round trips and the real controller (WLED typically answers in 10–50 ms on a
 wired network); measure again with the hardware.
 
+## Configuration (Phase 10)
+
+The installation's configuration is in Postgres, the owner's (src/lib/lighting/lightingConfig.ts, tables in
+lightingSchema.ts, all `ON DELETE CASCADE` from `"Users"`):
+
+| Table | Holds |
+|---|---|
+| `LightingInstallations` | one per owner: `version` (raised on every save), settings, start scene |
+| `LightingControllers` | key, name, home network address, port |
+| `LightingZones` | key, name, controller, WLED segment, enabled, max brightness, racing events, protected, order |
+| `LightingScenes`, `LightingSceneZones` | each scene's look for every unprotected zone, and per zone |
+| `LightingEventRules` | event, priority, zones (`zone_keys` NULL: every zone taking part in racing events), look, duration |
+
+- **One format, one check.** Read and written whole in `LightingConfig`'s shape (src/lib/lighting/model.ts, shared
+  with the agent); `parseLightingConfig` rebuilds a config from JSON (known fields only, sizes capped) and
+  `configProblems` checks it (home network addresses only, segments not shared, scenes and zones that exist).
+- **Saves** (`PUT /api/admin/lighting/config` `{ expectedVersion, config }`, the Configuration tab,
+  LightingConfigEditor.tsx) replace the configuration in one transaction, locked on the installation row; a save made
+  from an older version is refused with 409 `{ currentVersion }`.
+- **The agent** gets the version in every heartbeat's answer and fetches `GET /api/lighting/config` when it differs,
+  keeping it as `config.json` (the cache it starts from with the site out of reach). A config made on the Mac has
+  version 0; when the site has none, the agent uploads it once (`POST /api/lighting/config/import`, refused once there
+  is one), so an address set there before isn't lost.
+- **Private details.** Controller addresses go only to the owner's Admin page and the owner's own paired agents. In
+  the privacy inventory as Sim room lighting (exported as lighting/configuration.json, gone with the account).
+- **Tests**: `npm run test:lighting` (the parser), `npm run test:lighting-db` (round trip, conflicts, isolation,
+  cascade, pairing; with `LIGHTING_TEST_DATABASE_URL`). Measured on the dev server: the agent's upload within about
+  6 s of connecting, a save on the site in the agent's cache in about 5 s (the heartbeat interval).
+
 ## Not done yet
 
-- Zones, scenes and rules are edited in the Mac's config.json; the Admin page doesn't edit them yet (Phase 10 moves
-  them to Postgres with the Mac caching a versioned copy).
 - Controller discovery and connection tests run from the Mac's CLI (`controller-test`), not the Admin page.
 - Flags, low fuel, personal bests and position changes: rules are ready, but their sources aren't verified or sent.
 - A native Stream Deck plugin (after the proof of concept).

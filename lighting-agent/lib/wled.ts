@@ -1,4 +1,4 @@
-import type { Controller, ZoneLook } from './model.ts';
+import type { Controller, ZoneLook } from '../../src/lib/lighting/model.ts';
 import type { ApplyResult, ControllerInfo, LightingProvider, ProviderLog, SegmentCommand } from './providers.ts';
 
 // The WLED provider (https://kno.wled.ge/interfaces/json-api/): GET /json/info and POST /json/state on a controller

@@ -2,18 +2,19 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useConfirm } from '@/components/ConfirmProvider';
+import LightingConfigEditor from '@/components/LightingConfigEditor';
 import { useLanguage } from '@/components/LanguageProvider';
 import type { AgentStatus } from '@/lib/lighting/agentStatus';
 import type { LightingDeviceRow } from '@/lib/lighting/devices';
 import type { LightingSnapshot } from '@/lib/lighting/hub';
 
 // Lighting Control's tabs (src/app/admin/lighting/page.tsx, docs/lighting/README.md): Dashboard, Agents &
-// Controllers, Test Lab and Stream Deck. Everything comes from GET /api/admin/lighting/devices, read every 2 s: the
+// Controllers, Configuration (LightingConfigEditor.tsx), Test Lab and Stream Deck. Everything comes from GET /api/admin/lighting/devices, read every 2 s: the
 // paired agents with their last heartbeat, and the driver's lighting state. Controller addresses never come here.
 
 type Device = LightingDeviceRow & { status: AgentStatus | null };
-type Tab = 'dashboard' | 'agents' | 'testLab' | 'streamDeck';
-const TABS: Tab[] = ['dashboard', 'agents', 'testLab', 'streamDeck'];
+type Tab = 'dashboard' | 'agents' | 'configuration' | 'testLab' | 'streamDeck';
+const TABS: Tab[] = ['dashboard', 'agents', 'configuration', 'testLab', 'streamDeck'];
 // An agent heartbeats every 5 s
 const ONLINE_MS = 15_000;
 
@@ -253,6 +254,8 @@ export default function LightingControl() {
           </div>
         </div>
       )}
+
+      {tab === 'configuration' && <LightingConfigEditor />}
 
       {tab === 'testLab' && (
         <div className={card}>

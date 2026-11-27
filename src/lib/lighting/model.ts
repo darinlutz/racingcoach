@@ -1,5 +1,6 @@
 // The lighting installation's configuration: controllers, zones, scenes and event rules (docs/lighting/README.md).
-// Pure types, defaults and validation; no I/O, so the state machine and the tests use it as it is.
+// Pure types, defaults and validation; no I/O. Shared by the website (lightingConfig.ts keeps it in Postgres, the
+// authoritative copy) and the Mac agent (lighting-agent/, which caches it), so both accept exactly the same configs.
 
 export type Rgbw = [number, number, number, number];
 
@@ -79,6 +80,8 @@ export type Settings = {
 };
 
 export type LightingConfig = {
+  // The site's version of it (lightingConfig.ts), or 0 for one that isn't the site's (the Mac's own, before its first
+  // sync)
   version: number;
   controllers: Controller[];
   zones: Zone[];
@@ -110,7 +113,8 @@ const zone = (id: string, name: string, segmentId: number, extra: Partial<Zone> 
 
 export function defaultConfig(): LightingConfig {
   return {
-    version: 1,
+    // 0: not from the site; the site's saves count from 1
+    version: 0,
     controllers: [{ id: 'main', name: 'Dig-Quad', host: '', port: 80 }],
     zones: [
       zone('cockpit', 'Cockpit underglow', 0, { enabled: true }),
@@ -226,4 +230,94 @@ export function configProblems(config: LightingConfig): string[] {
   if (!(s.masterBrightness >= 0 && s.masterBrightness <= 1)) problems.push('settings.masterBrightness 0-1');
   if (!(s.minChangeIntervalMs >= 0 && s.minChangeIntervalMs <= 5000)) problems.push('settings.minChangeIntervalMs 0-5000');
   return problems;
+}
+
+// ---- Parsing: a config from JSON (the Admin page, the agent's first upload, a cached file) rebuilt from known fields
+// only, with sizes capped, then checked by configProblems ----
+
+export const CONFIG_LIMITS = { controllers: 16, zones: 64, scenes: 64, rules: 64, name: 80 } as const;
+
+type Parsed = { ok: true; config: LightingConfig } | { ok: false; problems: string[] };
+
+const obj = (v: unknown): Record<string, unknown> | null => (v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : null);
+const str = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
+const int = (v: unknown, fallback: number) => (typeof v === 'number' && Number.isInteger(v) ? v : fallback);
+const num = (v: unknown, fallback: number) => (typeof v === 'number' && Number.isFinite(v) ? v : fallback);
+const bool = (v: unknown) => v === true;
+
+function parseLook(v: unknown): Partial<ZoneLook> {
+  const l = obj(v);
+  if (!l) return {};
+  const look: Partial<ZoneLook> = {};
+  if (typeof l.on === 'boolean') look.on = l.on;
+  if (l.color !== undefined) look.color = l.color as Rgbw;
+  if (l.brightness !== undefined) look.brightness = l.brightness as number;
+  if (l.effect !== undefined) look.effect = l.effect as number;
+  if (l.transitionMs !== undefined) look.transitionMs = l.transitionMs as number;
+  return look;
+}
+
+export function parseLightingConfig(value: unknown): Parsed {
+  const c = obj(value);
+  if (!c) return { ok: false, problems: ['not a configuration'] };
+  const list = (v: unknown, max: number, kind: string, problems: string[]) => {
+    if (!Array.isArray(v)) {
+      problems.push(`${kind} must be a list`);
+      return [];
+    }
+    if (v.length > max) problems.push(`at most ${max} ${kind}`);
+    return v.slice(0, max).map(obj).filter((x): x is Record<string, unknown> => !!x);
+  };
+  const problems: string[] = [];
+  const s = obj(c.settings) ?? {};
+  const defaults = defaultConfig().settings;
+  const config: LightingConfig = {
+    version: Math.max(0, int(c.version, 0)),
+    controllers: list(c.controllers, CONFIG_LIMITS.controllers, 'controllers', problems).map((x) => ({
+      id: str(x.id, 40),
+      name: str(x.name, CONFIG_LIMITS.name) || str(x.id, 40),
+      host: str(x.host, 253),
+      port: int(x.port, 80),
+    })),
+    zones: list(c.zones, CONFIG_LIMITS.zones, 'zones', problems).map((x) => ({
+      id: str(x.id, 40),
+      name: str(x.name, CONFIG_LIMITS.name) || str(x.id, 40),
+      controllerId: str(x.controllerId, 40),
+      segmentId: int(x.segmentId, -1),
+      enabled: bool(x.enabled),
+      maxBrightness: int(x.maxBrightness, -1),
+      automatic: bool(x.automatic),
+      protected: bool(x.protected),
+    })),
+    scenes: list(c.scenes, CONFIG_LIMITS.scenes, 'scenes', problems).map((x) => {
+      const zones = obj(x.zones) ?? {};
+      const all = obj(x.all);
+      return {
+        id: str(x.id, 40),
+        name: str(x.name, CONFIG_LIMITS.name) || str(x.id, 40),
+        zones: Object.fromEntries(Object.entries(zones).slice(0, CONFIG_LIMITS.zones).map(([k, v]) => [k, parseLook(v)])),
+        ...(all ? { all: parseLook(all) } : {}),
+      };
+    }),
+    rules: list(c.rules, CONFIG_LIMITS.rules, 'rules', problems).map((x) => ({
+      id: str(x.id, 40),
+      name: str(x.name, CONFIG_LIMITS.name) || str(x.id, 40),
+      event: str(x.event, 40) as RuleEvent,
+      enabled: bool(x.enabled),
+      priority: int(x.priority, 0),
+      zones: x.zones === 'automatic' ? 'automatic' : Array.isArray(x.zones) ? x.zones.slice(0, CONFIG_LIMITS.zones).map((z) => str(z, 40)) : 'automatic',
+      look: parseLook(x.look),
+      durationSeconds: Math.max(0, Math.min(3600, int(x.durationSeconds, 0))),
+    })),
+    settings: {
+      staleTelemetryMs: num(s.staleTelemetryMs, defaults.staleTelemetryMs),
+      testEventMaxMs: Math.max(10_000, Math.min(3_600_000, num(s.testEventMaxMs, defaults.testEventMaxMs))),
+      masterBrightness: num(s.masterBrightness, defaults.masterBrightness),
+      minChangeIntervalMs: num(s.minChangeIntervalMs, defaults.minChangeIntervalMs),
+      defaultTransitionMs: Math.max(0, Math.min(60_000, num(s.defaultTransitionMs, defaults.defaultTransitionMs))),
+    },
+    startScene: str(c.startScene, 40),
+  };
+  problems.push(...configProblems(config));
+  return problems.length ? { ok: false, problems } : { ok: true, config };
 }

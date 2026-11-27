@@ -1,4 +1,4 @@
-import type { Controller, ZoneLook } from './model.ts';
+import type { Controller, ZoneLook } from '../../src/lib/lighting/model.ts';
 
 // Lighting providers (docs/lighting/README.md, WLED): one per controller, behind one interface, so another kind of
 // controller can be added beside WLED. Each serializes its own commands (one request at a time, later commands for

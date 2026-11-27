@@ -18,6 +18,7 @@ import { deleteVideoObject, readObjectStream, uploadVideoObject, videoStorageCon
 import { ARTICLE_15_NOTES, LEGAL_BASIS_TEXT, PERSONAL_DATA_INVENTORY, type InventoryCategory } from './personalDataInventory';
 import { EXPORT_TTL_HOURS, type ExportKind } from './privacyRules';
 import { ensureTargetLapSchema, HAS_TARGET_LAP_SQL, readTargetLapForExport } from './targetLap';
+import { readLightingConfig } from './lighting/lightingConfig';
 import { ensureUserSchema } from './users';
 import { ZipWriter } from './zipWriter';
 
@@ -203,6 +204,12 @@ export async function writeExportZip(userId: number, kind: ExportKind, path: str
         await add('coaching/target_lap.json', 'targetLap', json({ fileName: target.fileName, setAt: target.setAt }));
         await add('coaching/target_lap.csv', 'targetLap', target.csv);
       }
+    }
+
+    if (want('lightingConfig')) {
+      // Lighting Control's configuration (lighting/lightingConfig.ts), as the Admin page edits it
+      const config = await readLightingConfig(userId);
+      if (config) await add('lighting/configuration.json', 'lightingConfig', json(config));
     }
 
     if (want('setups')) {

@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 import type { LightingEvent } from '../../src/lib/lighting/events.ts';
 import type { LightingSnapshot } from '../../src/lib/lighting/hub.ts';
-import { configProblems, defaultConfig, type LightingConfig, type Rgbw, type ZoneLook } from './model.ts';
+import { defaultConfig, parseLightingConfig, type LightingConfig, type Rgbw, type ZoneLook } from '../../src/lib/lighting/model.ts';
 import { homeDir, readJson, writePrivate, type Logger } from './platform.ts';
 import type { LightingProvider, SegmentCommand } from './providers.ts';
 import type { StreamHeartbeat, SiteStatus } from './site.ts';
@@ -173,6 +173,19 @@ export class LightingRuntime {
     this.persist();
     this.note('restoreDefaults', {});
     this.changed();
+  }
+
+  // A new configuration from the site (agent.ts has already validated, cached it and rebuilt the providers): the mode,
+  // scene and manual changes stay where they still fit, and every zone is sent again
+  applyConfig(config: LightingConfig) {
+    this.config = config;
+    if (!config.scenes.some((s) => s.id === this.sceneId)) this.sceneId = config.startScene;
+    for (const id of Object.keys(this.manual)) if (!config.zones.some((z) => z.id === id)) delete this.manual[id];
+    for (const id of [...this.acked.keys()]) if (!config.zones.some((z) => z.id === id)) this.acked.delete(id);
+    this.persist();
+    this.note('config', { version: config.version });
+    this.log('info', `Configuration version ${config.version} applied`);
+    void this.apply(true);
   }
 
   // ---- From the site ----
@@ -376,21 +389,27 @@ export class LightingRuntime {
   }
 }
 
-// The installation's configuration from config.json, written with the defaults the first time; a config with
-// problems isn't used (the agent says why and keeps the defaults)
+// The installation's configuration from config.json: the cache of the site's (version above 0), or, before the
+// site has one, this Mac's own, written with the defaults the first time. A config with problems isn't used (the
+// agent says why and keeps the defaults until the site's arrives)
 export function loadConfig(log: Logger): LightingConfig {
   const path = join(homeDir(), 'config.json');
-  const saved = readJson<LightingConfig>(path);
+  const saved = readJson<unknown>(path);
   if (!saved) {
     const config = defaultConfig();
     writePrivate(path, JSON.stringify(config, null, 2));
     log('info', `Wrote the default configuration to ${path}`);
     return config;
   }
-  const problems = configProblems(saved);
-  if (problems.length) {
-    log('error', `config.json has problems, so the defaults are used until it's fixed`, { problems });
+  const parsed = parseLightingConfig(saved);
+  if (!parsed.ok) {
+    log('error', `config.json has problems, so the defaults are used until it's fixed`, { problems: parsed.problems });
     return defaultConfig();
   }
-  return saved;
+  return parsed.config;
+}
+
+// Keeps the site's configuration as the local cache, so the lights work with the site out of reach
+export function cacheConfig(config: LightingConfig): void {
+  writePrivate(join(homeDir(), 'config.json'), JSON.stringify(config, null, 2));
 }

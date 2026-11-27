@@ -29,6 +29,8 @@ export type SiteHandlers = {
   onStatus(status: SiteStatus): void;
   // The agent's report for the Admin page (POST /api/lighting/devices/heartbeat)
   agentStatus(): Record<string, unknown>;
+  // The configuration's version on the site, from each heartbeat's answer (0: none saved yet)
+  onConfigVersion?(version: number): void;
 };
 
 export const backoffMs = (attempt: number, random = Math.random) =>
@@ -200,11 +202,37 @@ export class SiteConnection {
     return delivered;
   }
 
+  // The installation's configuration from the site (GET /api/lighting/config): null when there's none yet
+  async fetchConfig(): Promise<{ version: number; config: unknown } | null> {
+    const token = await this.token();
+    if (!token) return null;
+    const response = await fetch(new URL('/api/lighting/config', this.siteUrl), {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+    if (!response.ok) throw new Error(`Config fetch failed (${response.status})`);
+    return (await response.json()) as { version: number; config: unknown };
+  }
+
+  // This Mac's config.json, uploaded once when the site has none (the move of the configuration to the site)
+  async uploadConfig(config: unknown): Promise<number | null> {
+    const token = await this.token();
+    if (!token) return null;
+    const response = await post(this.siteUrl, '/api/lighting/config/import', { config }, token);
+    if (response.status === 409) return null;
+    if (!response.ok) throw new Error(`Config upload refused (${response.status}): ${await response.text()}`);
+    return ((await response.json()) as { version: number }).version;
+  }
+
   private async sendHeartbeat(): Promise<void> {
     if (this.stopped || !this.accessToken || this.status === 'revoked') return;
     try {
       const response = await post(this.siteUrl, '/api/lighting/devices/heartbeat', this.handlers.agentStatus(), this.accessToken);
       if (response.status === 401) this.accessToken = null;
+      else if (response.ok) {
+        const answer = (await response.json()) as { configVersion?: unknown };
+        if (typeof answer.configVersion === 'number') this.handlers.onConfigVersion?.(answer.configVersion);
+      }
     } catch {
       // the stream's own reconnects say when the site is unreachable
     }

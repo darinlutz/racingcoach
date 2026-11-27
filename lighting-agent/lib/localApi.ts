@@ -1,6 +1,6 @@
 import { timingSafeEqual } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
-import { isRgbw, type Rgbw } from './model.ts';
+import { isRgbw, type Rgbw } from '../../src/lib/lighting/model.ts';
 import type { LightingProvider } from './providers.ts';
 import type { LightingRuntime } from './runtime.ts';
 import { MODES, type Mode } from './stateMachine.ts';

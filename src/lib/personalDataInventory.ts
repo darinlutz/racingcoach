@@ -137,6 +137,23 @@ export const PERSONAL_DATA_INVENTORY: InventoryCategory[] = [
     erasure: { category: 'debriefs' },
   },
   {
+    key: 'lightingConfig',
+    title: 'Sim room lighting',
+    description:
+      'Lighting Control’s configuration for your sim room: the LED controllers’ names and their addresses on your home network, the zones, scenes and racing event rules, and the settings. Your paired lighting agent keeps a copy on your Mac.',
+    tables: ['LightingInstallations', 'LightingControllers', 'LightingZones', 'LightingScenes', 'LightingSceneZones', 'LightingEventRules'],
+    purpose: 'Driving your sim room’s lights from your live racing events and your own controls.',
+    legalBasis: ['contract'],
+    source: 'You, on the Admin page’s Lighting Control, and your lighting agent’s first upload of its configuration.',
+    storage: HOSTING,
+    retention: 'Until you change it, or delete your account.',
+    recipients: [HOSTING],
+    personalData: true,
+    access: true,
+    portable: true,
+    erasure: 'accountDeletion',
+  },
+  {
     key: 'setups',
     title: 'Car setups',
     description:

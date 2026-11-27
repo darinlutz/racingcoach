@@ -22,6 +22,7 @@ import {
 } from '../src/lib/lighting/hub.ts';
 import { pitLimiterView } from '../src/lib/lighting/pitLimiterView.ts';
 import { parseAgentStatus } from '../src/lib/lighting/agentStatus.ts';
+import { CONFIG_LIMITS, defaultConfig, parseLightingConfig } from '../src/lib/lighting/model.ts';
 
 const update = (over = {}) => ({
   track: 'Spa',
@@ -182,5 +183,46 @@ describe('the agent status', () => {
     assert.equal(status.receivedAt, 99);
     assert.equal(JSON.stringify(status).includes('192.168'), false);
     assert.deepEqual(parseAgentStatus(null, 1).controllers, []);
+  });
+});
+
+describe('the configuration parser (shared by the site and the agent)', () => {
+  test('the defaults parse back exactly', () => {
+    const parsed = parseLightingConfig(JSON.parse(JSON.stringify(defaultConfig())));
+    assert.equal(parsed.ok, true, JSON.stringify(parsed.problems));
+    assert.deepEqual(parsed.config, defaultConfig());
+  });
+
+  test('unknown fields are dropped, wrong types refused', () => {
+    const config = defaultConfig();
+    config.zones[0].maxBrightness = 'bright';
+    const parsed = parseLightingConfig(config);
+    assert.equal(parsed.ok, false);
+    assert.match(parsed.problems.join('\n'), /maxBrightness/);
+    const fine = defaultConfig();
+    fine.controllers[0].extra = 'x';
+    const ok = parseLightingConfig(fine);
+    assert.equal(ok.ok, true);
+    assert.equal('extra' in ok.config.controllers[0], false);
+  });
+
+  test('a public address or a bad color is refused; sizes are capped', () => {
+    const config = defaultConfig();
+    config.controllers[0].host = '203.0.113.9';
+    config.scenes[0].all.color = [300, 0, 0, 0];
+    const parsed = parseLightingConfig(config);
+    assert.equal(parsed.ok, false);
+    assert.match(parsed.problems.join('\n'), /home network/);
+    assert.match(parsed.problems.join('\n'), /color/);
+    const many = defaultConfig();
+    many.scenes = Array.from({ length: CONFIG_LIMITS.scenes + 5 }, (_, i) => ({ id: 's' + i, name: 'S' + i, zones: {} }));
+    many.startScene = 's0';
+    const capped = parseLightingConfig(many);
+    assert.equal(capped.ok, false);
+    assert.match(capped.problems.join('\n'), /at most 64 scenes/);
+  });
+
+  test('not a config at all', () => {
+    for (const bad of [null, 'x', [], { controllers: 'no' }]) assert.equal(parseLightingConfig(bad).ok, false);
   });
 });

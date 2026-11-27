@@ -62,6 +62,8 @@ const STATEMENTS: Record<ErasableCategory, string[]> = {
     `DELETE FROM racingcoach."TvSessions" WHERE user_id = $1 AND ($2::timestamptz IS NULL OR created_at <= $2)`,
     `DELETE FROM racingcoach."TvPairings" WHERE user_id = $1 AND ($2::timestamptz IS NULL OR created_at <= $2)`,
     `DELETE FROM racingcoach."CollectorKeys" WHERE user_id = $1 AND ($2::timestamptz IS NULL OR created_at <= $2)`,
+    `DELETE FROM racingcoach."LightingDevices" WHERE user_id = $1 AND ($2::timestamptz IS NULL OR created_at <= $2)`,
+    `DELETE FROM racingcoach."LightingDeviceRegistrations" WHERE approved_by = $1 AND ($2::timestamptz IS NULL OR approved_at <= $2)`,
   ],
   collectorLogs: [
     `DELETE FROM racingcoach."CollectorLogReviews" WHERE user_id = $1 AND ($2::timestamptz IS NULL OR reviewed_at <= $2)`,

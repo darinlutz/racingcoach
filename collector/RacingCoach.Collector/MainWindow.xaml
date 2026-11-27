@@ -675,6 +675,16 @@
 
                         <Border Height="1" Background="{StaticResource BorderBrush}" Margin="0,16" />
 
+                        <!-- The pit speed limiter (LiveRacing.PitLimiterActive): blue while it's on, grey off or unknown -->
+                        <Border x:Name="PitLimiterBadge" CornerRadius="6" Padding="12,8" Margin="0,0,0,14" Background="#2A2C33"
+                                BorderThickness="1" BorderBrush="#3A3D45">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                <Ellipse x:Name="PitLimiterLamp" Width="12" Height="12" Fill="#6B6D74" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                <TextBlock x:Name="PitLimiterText" FontSize="16" FontWeight="Bold" Foreground="#9A9CA3"
+                                           local:Loc.Key="main.pitLimiterNa" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Border>
+
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />

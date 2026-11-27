@@ -113,7 +113,7 @@ export async function writeExportZip(userId: number, kind: ExportKind, path: str
     }
 
     if (want('authentication')) {
-      const [sessions, google, key, tvs] = await Promise.all([
+      const [sessions, google, key, tvs, lighting] = await Promise.all([
         query('SELECT to_timestamp(expires_at / 1000.0) AS expires_at FROM racingcoach."Sessions" WHERE user_id = $1 ORDER BY expires_at', [userId]),
         query('SELECT google_sub, google_email, connected_at FROM racingcoach."GoogleConnections" WHERE user_id = $1', [userId]),
         query('SELECT key_prefix, created_at, last_used_at FROM racingcoach."CollectorKeys" WHERE user_id = $1', [userId]),
@@ -121,11 +121,15 @@ export async function writeExportZip(userId: number, kind: ExportKind, path: str
           'SELECT label, created_at, expires_at, last_seen_at, revoked_at FROM racingcoach."TvSessions" WHERE user_id = $1 ORDER BY created_at',
           [userId]
         ),
+        query(
+          'SELECT name, agent_version, created_at, last_seen_at, revoked_at FROM racingcoach."LightingDevices" WHERE user_id = $1 ORDER BY created_at',
+          [userId]
+        ),
       ]);
       await add(
         'account/sign_in_and_devices.json',
         'authentication',
-        json({ signInSessions: sessions, googleSignIn: google[0] ?? null, collectorUploadKey: key[0] ?? null, pairedTvs: tvs })
+        json({ signInSessions: sessions, googleSignIn: google[0] ?? null, collectorUploadKey: key[0] ?? null, pairedTvs: tvs, lightingAgents: lighting })
       );
     }
 
@@ -548,7 +552,8 @@ export async function countPersonalData(userId: number): Promise<Record<string, 
        ((SELECT count(*) FROM racingcoach."DiscordConnections" WHERE user_id = $1)
         + (SELECT count(*) FROM racingcoach."IRacePlanConnections" WHERE user_id = $1))::int AS connections,
        ((SELECT count(*) FROM racingcoach."TvSessions" WHERE user_id = $1)
-        + (SELECT count(*) FROM racingcoach."CollectorKeys" WHERE user_id = $1))::int AS devices,
+        + (SELECT count(*) FROM racingcoach."CollectorKeys" WHERE user_id = $1)
+        + (SELECT count(*) FROM racingcoach."LightingDevices" WHERE user_id = $1))::int AS devices,
        (SELECT count(*) FROM racingcoach."CollectorLogs" WHERE user_id = $1)::int AS "collectorLogs",
        (SELECT count(*) FROM racingcoach."ActivityLog" WHERE user_id = $1)::int AS "activityLog",
        (SELECT count(*) FROM racingcoach."AiUsage" WHERE user_id = $1)::int AS "aiUsage"`,

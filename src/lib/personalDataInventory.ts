@@ -86,8 +86,8 @@ export const PERSONAL_DATA_INVENTORY: InventoryCategory[] = [
     key: 'authentication',
     title: 'Sign-in and devices',
     description:
-      'Sign-in sessions (only a hash of each token and its expiry), password reset and email confirmation links (hashed), your Google account ID and email when you sign in with Google, paired TVs for TV Broadcast Mode, and your telemetry collector upload key (a hash, its first characters and when it was last used).',
-    tables: ['Sessions', 'PasswordResets', 'EmailVerifications', 'GoogleConnections', 'TvPairings', 'TvSessions', 'CollectorKeys', 'PrivacyReauthCodes'],
+      'Sign-in sessions (only a hash of each token and its expiry), password reset and email confirmation links (hashed), your Google account ID and email when you sign in with Google, paired TVs for TV Broadcast Mode, paired lighting agents (the name, version and last contact of each, and hashes of its tokens), and your telemetry collector upload key (a hash, its first characters and when it was last used).',
+    tables: ['Sessions', 'PasswordResets', 'EmailVerifications', 'GoogleConnections', 'TvPairings', 'TvSessions', 'CollectorKeys', 'PrivacyReauthCodes', 'LightingDevices', 'LightingDeviceRegistrations'],
     purpose: 'Keeping your account secure and letting your collector and TVs act for you.',
     legalBasis: ['contract', 'legitimateInterests'],
     source: 'Created when you sign in, pair a TV or create an upload key; Google, when you use Sign in with Google.',

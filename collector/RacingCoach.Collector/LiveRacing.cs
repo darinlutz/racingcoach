@@ -1,4 +1,5 @@
 using System.Text.Json;
+using RacingCoach.Collector.Simulators;
 using SVappsLAB.iRacingTelemetrySDK;
 
 namespace RacingCoach.Collector;
@@ -48,7 +49,7 @@ internal sealed record FieldDriver(int CarIdx, string Name, string? Number, stri
 /// coach is speaking (coachSpeaking), and its answer how long an announcer line about to play lasts
 /// (announcerSpeakingMs), for which the coach's speech is held.
 /// </summary>
-internal sealed class LiveRacing(Func<RacingCoachApi?> api, Action<string> log)
+internal sealed class LiveRacing(Func<RacingCoachApi?> api, Action<string> log, Func<string>? simulator = null)
 {
     private const int OutlinePoints = 500;
     // The share of the lap's steps a path must have samples in to become an outline
@@ -118,6 +119,13 @@ internal sealed class LiveRacing(Func<RacingCoachApi?> api, Action<string> log)
     public TrackMap? Map { get { lock (_lock) return _map; } }
     /// <summary>How many others are watching on the website right now.</summary>
     public int Watchers { get; private set; }
+
+    /// <summary>The pit speed limiter as the simulator reports it (PitLimiter): true on, false off, null unknown.
+    /// Every live update carries it, and a change sends one at once rather than at the next interval.</summary>
+    public bool? PitLimiterActive { get; private set; }
+
+    // Released when something worth sending at once happens (the pit limiter changing), to cut the wait short
+    private readonly SemaphoreSlim _sendNow = new(0, 1);
     /// <summary>The last live update reached the site.</summary>
     public bool Sharing { get; private set; }
     /// <summary>Why the last live update didn't reach the site, or null: a Loc key for the collector's own reasons
@@ -199,6 +207,7 @@ internal sealed class LiveRacing(Func<RacingCoachApi?> api, Action<string> log)
         lock (_lock)
         {
             _hasLatest = false;
+            PitLimiterActive = null;
             ResetPath();
             _fieldPrevious.Clear();
             _inputs.Clear();
@@ -212,9 +221,25 @@ internal sealed class LiveRacing(Func<RacingCoachApi?> api, Action<string> log)
         {
             _latest = d;
             _hasLatest = true;
+            TrackPitLimiter(d);
             TrackPath(d);
             RecordInputs(d);
             TrackFuel(d);
+        }
+    }
+
+    // ---------------------------------------------------------------- Pit limiter
+
+    private void TrackPitLimiter(in TelemetryData d)
+    {
+        var active = PitLimiter.FromIRacingEngineWarnings(d.EngineWarnings is { } bits ? (int)bits : null, d.IsReplayPlaying);
+        if (active == PitLimiterActive)
+            return;
+        PitLimiterActive = active;
+        if (_sendNow.CurrentCount == 0)
+        {
+            try { _sendNow.Release(); }
+            catch (SemaphoreFullException) { /* already due */ }
         }
     }
 
@@ -418,7 +443,8 @@ internal sealed class LiveRacing(Func<RacingCoachApi?> api, Action<string> log)
             while (!cancel.IsCancellationRequested)
             {
                 var onTrack = await SendAsync(cancel);
-                await Task.Delay(onTrack ? OnTrackInterval : IdleInterval, cancel);
+                // The interval, or sooner when the pit limiter changes (TrackPitLimiter)
+                await _sendNow.WaitAsync(onTrack ? OnTrackInterval : IdleInterval, cancel);
             }
         }
         catch (OperationCanceledException) when (cancel.IsCancellationRequested)
@@ -453,6 +479,8 @@ internal sealed class LiveRacing(Func<RacingCoachApi?> api, Action<string> log)
             {
                 track = _track,
                 trackKey,
+                // The simulator read (CollectorEngine.Simulator: iracing, acc or ac), for the lighting agent's events
+                simulator = simulator?.Invoke(),
                 car = _car,
                 sessionType = d.SessionNum is { } num ? _sessionTypes.GetValueOrDefault(num) : null,
                 sessionName = d.SessionNum is { } nameNum ? _sessionNames.GetValueOrDefault(nameNum) : null,
@@ -464,6 +492,8 @@ internal sealed class LiveRacing(Func<RacingCoachApi?> api, Action<string> log)
                 tires = Tires(d),
                 onTrack,
                 onPitRoad = d.OnPitRoad,
+                // The pit speed limiter (from 1.104.0): true, false, or null when the simulator doesn't say
+                pitLimiterActive = PitLimiterActive,
                 lap = d.Lap,
                 pct = d.LapDistPct is { } pct ? Math.Clamp(Math.Round(pct, 5), 0, 1) : (double?)null,
                 speed = d.Speed is { } speed ? Math.Clamp(Math.Round(speed, 2), 0, 200) : (double?)null,

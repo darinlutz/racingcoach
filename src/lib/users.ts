@@ -1,5 +1,6 @@
 import { SIMULATOR_SCHEMA } from './simulatorSchema';
 import { SETUP_SCHEMA } from './setupSchema';
+import { LIGHTING_SCHEMA } from './lighting/lightingSchema';
 import { CAR_VIEW_SCHEMA } from './carViews/carViewSchema';
 import { CAR_SETUP_LIBRARY_SCHEMA } from './carSetupLibrarySchema';
 import { TELEMETRY_STORAGE_SCHEMA } from './telemetryStorageSchema';
@@ -722,6 +723,8 @@ export function ensureUserSchema(): Promise<void> {
       for (const statement of CAR_VIEW_SCHEMA) await client.query(statement);
       // The iRacing Setups library: setups an Admin's collector imported, and each import (carSetupLibrarySchema.ts)
       for (const statement of CAR_SETUP_LIBRARY_SCHEMA) await client.query(statement);
+      // The lighting agents and their pairing codes (lighting/lightingSchema.ts, docs/lighting/README.md)
+      for (const statement of LIGHTING_SCHEMA) await client.query(statement);
       // The telemetry collector's activity log, sent as it's written (src/lib/collectorLogs.ts). A run is one start
       // of the collector; seq numbers its lines, so a batch sent twice is stored once
       await client.query(`CREATE TABLE IF NOT EXISTS racingcoach."CollectorLogs" (

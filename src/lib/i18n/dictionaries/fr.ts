@@ -1,5 +1,6 @@
 import type { Dictionary } from './en';
 import { setupsFr } from './setupsTextFr.ts';
+import { lightingFr } from './lightingTextFr.ts';
 import { aiLabFr } from './aiLabTextFr.ts';
 import { aiMemoryFr } from './aiMemoryTextFr.ts';
 
@@ -2195,6 +2196,7 @@ export const fr: Dictionary = {
       sections: {
         subscribers: 'Abonnés',
         privacy: 'Demandes de confidentialité',
+        lighting: 'Contrôle de l’éclairage',
         siteSettings: 'Paramètres du site',
         monitoring: 'Surveillance',
         aiModels: 'Contrôle des modèles d’IA',
@@ -3291,6 +3293,16 @@ export const fr: Dictionary = {
     you: 'Toi',
     onTrack: 'En piste',
     pitRoad: 'Voie des stands',
+    // The pit limiter indicator (PitLimiterIndicator.tsx), from the collector's pitLimiterActive
+    pitLimiter: {
+      active: 'LIMITEUR DE STANDS ACTIF',
+      off: 'LIMITEUR DE STANDS COUPÉ',
+      unavailable: 'LIMITEUR DE STANDS N/D',
+      stale: 'LIMITEUR DE STANDS : AUCUNE DONNÉE',
+      title: 'Le limiteur de vitesse des stands de la voiture, tel que le simulateur l’indique',
+      unavailableTip: 'Cette voiture ou ce simulateur n’indique pas son limiteur de stands',
+      staleTip: 'La télémétrie du collecteur s’est arrêtée, donc l’état du limiteur est inconnu',
+    },
     inGarage: 'Au garage',
     offline: 'Hors ligne',
     lap: 'Tour {n}',
@@ -4340,6 +4352,8 @@ export const fr: Dictionary = {
   },
 
   setups: setupsFr,
+  // Lighting Control (lightingText.ts)
+  lightingControl: lightingFr,
   aiLab: aiLabFr,
   // The Account page's AI Memory card, in its own file (aiMemoryTextFr.ts)
   aiMemory: aiMemoryFr,

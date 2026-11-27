@@ -1,5 +1,6 @@
 import type { Dictionary } from './en';
 import { setupsPt } from './setupsTextPt.ts';
+import { lightingPt } from './lightingTextPt.ts';
 import { aiLabPt } from './aiLabTextPt.ts';
 import { aiMemoryPt } from './aiMemoryTextPt.ts';
 
@@ -2221,6 +2222,7 @@ export const pt: Dictionary = {
       sections: {
         subscribers: 'Assinantes',
         privacy: 'Solicitações de privacidade',
+        lighting: 'Controle de iluminação',
         siteSettings: 'Configurações do site',
         monitoring: 'Monitoramento',
         aiModels: 'Controle de modelos de IA',
@@ -3322,6 +3324,16 @@ export const pt: Dictionary = {
     you: 'Você',
     onTrack: 'Na pista',
     pitRoad: 'Pit lane',
+    // The pit limiter indicator (PitLimiterIndicator.tsx), from the collector's pitLimiterActive
+    pitLimiter: {
+      active: 'LIMITADOR DE BOX ATIVO',
+      off: 'LIMITADOR DE BOX DESLIGADO',
+      unavailable: 'LIMITADOR DE BOX N/D',
+      stale: 'LIMITADOR DE BOX: SEM DADOS',
+      title: 'O limitador de velocidade do pit do carro, como o simulador informa',
+      unavailableTip: 'Este carro ou simulador não informa o limitador de box',
+      staleTip: 'A telemetria do coletor parou, então o limitador de box não é conhecido',
+    },
     inGarage: 'Na garagem',
     offline: 'Offline',
     lap: 'Volta {n}',
@@ -4378,6 +4390,8 @@ export const pt: Dictionary = {
   },
 
   setups: setupsPt,
+  // Lighting Control (lightingText.ts)
+  lightingControl: lightingPt,
   aiLab: aiLabPt,
   // The Account page's AI Memory card, in its own file (aiMemoryTextPt.ts)
   aiMemory: aiMemoryPt,

@@ -11,5 +11,7 @@ README.md
 bot
 discord-proxy
 collector
+# The Mac lighting agent (docs/lighting/): runs on the owner's Mac, not the website
+lighting-agent
 # The Mac's Open WebUI files (docs/AI_LAB_SETUP.md): not part of the website
 local-ai/openwebui

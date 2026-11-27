@@ -38,6 +38,9 @@ namespace RacingCoach.Collector;
     TelemetryVar.IsOnTrack,
     TelemetryVar.IsReplayPlaying,
     TelemetryVar.OnPitRoad,
+    // the dash's warning lights; its irsdk_pitSpeedLimiter bit is the pit limiter (PitLimiter in Core), sent to
+    // Live Racing and the lighting agent
+    TelemetryVar.EngineWarnings,
     TelemetryVar.PlayerTrackSurface,
     TelemetryVar.PlayerCarMyIncidentCount,
     // only shown in the window

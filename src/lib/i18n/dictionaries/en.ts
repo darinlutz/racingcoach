@@ -3,6 +3,7 @@
 // in it uses {placeholders} (fmt in languages.ts); text that depends on a count is { one, other }
 // (plural in languages.ts). Keep it plain JSON: the root layout sends the user's dictionary to the browser.
 import { setupsEn } from './setupsText.ts';
+import { lightingEn } from './lightingText.ts';
 import { aiLabEn } from './aiLabText.ts';
 import { aiMemoryEn } from './aiMemoryText.ts';
 
@@ -2262,6 +2263,7 @@ export const en = {
       sections: {
         subscribers: 'Subscribers',
         privacy: 'Privacy Requests',
+        lighting: 'Lighting Control',
         siteSettings: 'Site Settings',
         monitoring: 'Monitoring',
         aiModels: 'AI Model Control',
@@ -3374,6 +3376,16 @@ export const en = {
     you: 'You',
     onTrack: 'On track',
     pitRoad: 'Pit road',
+    // The pit limiter indicator (PitLimiterIndicator.tsx), from the collector's pitLimiterActive
+    pitLimiter: {
+      active: 'PIT LIMITER ACTIVE',
+      off: 'PIT LIMITER OFF',
+      unavailable: 'PIT LIMITER N/A',
+      stale: 'PIT LIMITER: NO DATA',
+      title: 'The car\'s pit speed limiter, as the simulator reports it',
+      unavailableTip: 'This car or simulator doesn’t report its pit limiter',
+      staleTip: 'The collector’s telemetry stopped, so the pit limiter isn’t known',
+    },
     inGarage: 'In the garage',
     offline: 'Offline',
     lap: 'Lap {n}',
@@ -4447,6 +4459,8 @@ export const en = {
 
   // The Setups page (src/app/setups/), in its own file (setupsText.ts)
   setups: setupsEn,
+  // Lighting Control (lightingText.ts)
+  lightingControl: lightingEn,
 
   // The AI Lab page's tabs (src/components/aiLab/), in its own file (aiLabText.ts)
   aiLab: aiLabEn,

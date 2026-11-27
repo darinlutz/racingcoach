@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import DriverCarStatus from '@/components/DriverCarStatus';
+import PitLimiterIndicator from '@/components/PitLimiterIndicator';
+import { pitLimiterView } from '@/lib/lighting/pitLimiterView';
 import { useLanguage } from '@/components/LanguageProvider';
 import LiveDriverMessage from '@/components/LiveDriverMessage';
 import LiveDriverRadio from '@/components/LiveDriverRadio';
@@ -909,6 +911,7 @@ export default function LiveRacing({
                         fuel={fuelStatus(focusedHere)}
                         lapsNeeded={focusedHere.sessionLapsRemain ?? null}
                       />
+                      <PitLimiterIndicator view={pitLimiterView(focusedHere)} />
                     </div>
                     <LiveInputs
                       driver={focusedHere.isMe ? t.liveRacing.you : focusedHere.driver}

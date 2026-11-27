@@ -7,6 +7,7 @@ import { getDictionary } from '@/lib/i18n/server';
 import { DEFAULT_LANGUAGE } from '@/lib/i18n/languages';
 import { canUseInCarCoach } from '@/lib/roles';
 import { getEnableAiFeatures } from '@/lib/siteSettings';
+import { endLightingSession, recordLightingUpdate } from '@/lib/lighting/hub';
 
 // Enable AI Features, read at most once a minute, as live updates come twice a second
 let aiFeatures: { on: boolean; until: number } | null = null;
@@ -40,7 +41,14 @@ export async function POST(request: Request) {
     // The In-Car AI Coach's weather alerts (src/lib/engineering/weatherAlerts.ts), for the drivers who have the coach
     const alertTexts =
       canUseInCarCoach(user) && (await aiFeaturesOn()) ? getDictionary(user.preferredLanguage ?? DEFAULT_LANGUAGE).coachSpeech.weather : null;
-    return NextResponse.json({ ...recordLiveUpdate(user, parsed.data, savedOutline, alertTexts), savedOutline });
+    const answer = recordLiveUpdate(user, parsed.data, savedOutline, alertTexts);
+    // The lighting agent's events (src/lib/lighting/): a failure never stops Live Racing
+    try {
+      recordLightingUpdate(user.id, parsed.data);
+    } catch (error) {
+      console.error('Lighting update error:', error);
+    }
+    return NextResponse.json({ ...answer, savedOutline });
   } catch (error) {
     console.error('Collector live update error:', error);
     return NextResponse.json({ error: 'Failed to record the live update' }, { status: 500 });
@@ -55,6 +63,7 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'Missing or unknown upload key' }, { status: 401 });
     }
     clearLiveUpdate(userId);
+    endLightingSession(userId);
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Collector live clear error:', error);

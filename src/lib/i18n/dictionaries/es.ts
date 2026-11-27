@@ -1,5 +1,6 @@
 import type { Dictionary } from './en';
 import { setupsEs } from './setupsTextEs.ts';
+import { lightingEs } from './lightingTextEs.ts';
 import { aiLabEs } from './aiLabTextEs.ts';
 import { aiMemoryEs } from './aiMemoryTextEs.ts';
 
@@ -2221,6 +2222,7 @@ export const es: Dictionary = {
       sections: {
         subscribers: 'Suscriptores',
         privacy: 'Solicitudes de privacidad',
+        lighting: 'Control de iluminación',
         siteSettings: 'Configuración del sitio',
         monitoring: 'Monitoreo',
         aiModels: 'Control de modelos de IA',
@@ -3322,6 +3324,16 @@ export const es: Dictionary = {
     you: 'Tú',
     onTrack: 'En pista',
     pitRoad: 'Pit lane',
+    // The pit limiter indicator (PitLimiterIndicator.tsx), from the collector's pitLimiterActive
+    pitLimiter: {
+      active: 'LIMITADOR DE BOXES ACTIVO',
+      off: 'LIMITADOR DE BOXES APAGADO',
+      unavailable: 'LIMITADOR DE BOXES N/D',
+      stale: 'LIMITADOR DE BOXES: SIN DATOS',
+      title: 'El limitador de velocidad de boxes del auto, como lo informa el simulador',
+      unavailableTip: 'Este auto o simulador no informa su limitador de boxes',
+      staleTip: 'La telemetría del colector se detuvo, así que no se conoce el limitador de boxes',
+    },
     inGarage: 'En el garaje',
     offline: 'Desconectado',
     lap: 'Vuelta {n}',
@@ -4378,6 +4390,8 @@ export const es: Dictionary = {
   },
 
   setups: setupsEs,
+  // Lighting Control (lightingText.ts)
+  lightingControl: lightingEs,
   aiLab: aiLabEs,
   // The Account page's AI Memory card, in its own file (aiMemoryTextEs.ts)
   aiMemory: aiMemoryEs,

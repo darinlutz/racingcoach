@@ -121,7 +121,7 @@ export const lightingEn = {
     install: 'Install on the Mac',
     commands: 'Commands',
     buttons: 'Making a button',
-    buttonSteps: 'In the Shortcuts app, make a shortcut with one Run Shell Script action holding the command (e.g. ~/.local/bin/racingcoach-lighting scene race). In Stream Deck, drag System > Shortcut onto a key and pick that shortcut.',
+    buttonSteps: 'On the Mac, racingcoach-lighting streamdeck install makes one small app per key in ~/Applications/RacingCoach Lighting Buttons, and a key icon for each in its Icons folder. In Stream Deck, drag System > Open onto a key, choose that key’s app, type its Title and pick its icon with Set from File. Layout.txt in that folder lists which app goes on which key.',
     layout: 'Suggested 32-button layout',
     troubleshooting: 'Troubleshooting',
     troubleSteps: 'racingcoach-lighting status shows the agent’s connection, mode and controllers. If it says the agent isn’t running: launchctl kickstart -k gui/$(id -u)/app.racingcoach.lighting. The log is ~/Library/Logs/RacingCoachLighting/agent.log.',

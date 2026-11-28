@@ -1,6 +1,6 @@
 import { timingSafeEqual } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
-import { isRgbw, type Rgbw } from '../../src/lib/lighting/model.ts';
+import { isRgbw, RULE_EVENTS, type Rgbw, type RuleEvent } from '../../src/lib/lighting/model.ts';
 import type { LightingProvider } from './providers.ts';
 import type { LightingRuntime } from './runtime.ts';
 import { MODES, type Mode } from './stateMachine.ts';
@@ -121,7 +121,20 @@ export function startLocalApi(runtime: LightingRuntime, token: string, version: 
         return send(res, 200, { ok: true, masterBrightness: runtime.masterBrightness });
       }
       if (req.method === 'POST' && path === '/test/pit-limiter') {
-        runtime.testEvent('pitLimiter', input.active === true);
+        const active = runtime.testEvent('pitLimiter', input.toggle === true ? 'toggle' : input.active === true);
+        return send(res, 200, { ok: true, active, ruleEnabled: runtime.ruleFollows('pitLimiter') });
+      }
+      // Any rule event, e.g. { event: 'yellowFlag', toggle: true }: a flag's look can be tried before the collector sends flags
+      if (req.method === 'POST' && path === '/test/event') {
+        const event = String(input.event ?? '') as RuleEvent;
+        if (!RULE_EVENTS.includes(event)) return send(res, 400, { error: `event is one of ${RULE_EVENTS.join(', ')}` });
+        const active = runtime.testEvent(event, input.toggle === true ? 'toggle' : input.active === true);
+        return send(res, 200, { ok: true, event, active, ruleEnabled: runtime.ruleFollows(event) });
+      }
+      if (req.method === 'POST' && path === '/color') {
+        const color = typeof input.color === 'string' ? hexColor(input.color) : isRgbw(input.color) ? input.color : null;
+        if (!color) return send(res, 400, { error: 'color is RRGGBB, RRGGBBWW or [r,g,b,w]' });
+        runtime.setColor(color);
         return send(res, 200, { ok: true });
       }
       if (req.method === 'POST' && (path === '/all-off' || path === '/all-on')) {

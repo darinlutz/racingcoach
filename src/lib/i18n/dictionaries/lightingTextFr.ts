@@ -119,7 +119,7 @@ export const lightingFr: LightingText = {
     install: 'Installer sur le Mac',
     commands: 'Commandes',
     buttons: 'Créer une touche',
-    buttonSteps: 'Dans l’app Raccourcis, crée un raccourci avec une seule action « Exécuter un script shell » contenant la commande (par ex. ~/.local/bin/racingcoach-lighting scene race). Dans Stream Deck, fais glisser System > Shortcut sur une touche et choisis ce raccourci.',
+    buttonSteps: 'Sur le Mac, racingcoach-lighting streamdeck install crée une petite app par touche dans ~/Applications/RacingCoach Lighting Buttons, et une icône pour chacune dans son dossier Icons. Dans Stream Deck, fais glisser System > Open sur une touche, choisis l’app de cette touche, saisis son titre et choisis son icône avec Set from File. Layout.txt, dans ce dossier, indique quelle app va sur quelle touche.',
     layout: 'Disposition suggérée sur 32 touches',
     troubleshooting: 'Dépannage',
     troubleSteps: 'racingcoach-lighting status affiche la connexion, le mode et les contrôleurs de l’agent. S’il indique que l’agent ne tourne pas : launchctl kickstart -k gui/$(id -u)/app.racingcoach.lighting. Le journal est ~/Library/Logs/RacingCoachLighting/agent.log.',

@@ -22,6 +22,9 @@ const { MockProvider } = await import('../lighting-agent/lib/providers.ts');
 const { LightingRuntime } = await import('../lighting-agent/lib/runtime.ts');
 const { startLocalApi, hexColor } = await import('../lighting-agent/lib/localApi.ts');
 const { backoffMs } = await import('../lighting-agent/lib/site.ts');
+const { keyIconPng, KEY_ICON_SIZE } = await import('../lighting-agent/lib/keyIcon.ts');
+const { streamDeckLayout, streamDeckAppName, streamDeckAppleScript, FLAG_TESTS, STREAM_DECK_ROWS, STREAM_DECK_COLS } = await import('../src/lib/lighting/streamDeckLayout.ts');
+const { inflateSync } = await import('node:zlib');
 
 after(() => rmSync(home, { recursive: true, force: true }));
 const quiet = () => {};
@@ -323,6 +326,97 @@ describe('the runtime, end to end', () => {
     await settle();
     assert.notDeepEqual(cockpit().color, BLUE);
   });
+
+  test('a test toggles, and a flag shows only through an enabled rule', async () => {
+    const { runtime, cockpit } = makeRuntime();
+    assert.equal(runtime.testEvent('pitLimiter', 'toggle'), true);
+    await settle();
+    assert.deepEqual(cockpit().color, BLUE);
+    assert.equal(runtime.testEvent('pitLimiter', 'toggle'), false);
+    await settle();
+    assert.notDeepEqual(cockpit().color, BLUE);
+    // The yellow flag rule is off by default: the test is in force but changes nothing
+    assert.equal(runtime.ruleFollows('yellowFlag'), false);
+    runtime.testEvent('yellowFlag', true);
+    await settle();
+    assert.notDeepEqual(cockpit().color, [255, 180, 0, 0]);
+    runtime.config.rules.find((r) => r.event === 'yellowFlag').enabled = true;
+    runtime.testEvent('yellowFlag', true);
+    await runtime.apply();
+    assert.deepEqual(cockpit().color, [255, 180, 0, 0]);
+  });
+
+  test('a color key colors every enabled, unprotected zone and leaves protected ones', async () => {
+    const config = allZones();
+    config.settings.minChangeIntervalMs = 0;
+    const runtime = new LightingRuntime(config, quiet, { save: false, state: {} });
+    const mock = new MockProvider(config.controllers[0]);
+    runtime.providers.set('main', mock);
+    runtime.setAllOff(true);
+    runtime.setColor([0, 255, 0, 0]);
+    await settle();
+    assert.equal(runtime.allOff, false);
+    for (const zone of config.zones) {
+      if (zone.protected) assert.equal(runtime.manual[zone.id], undefined, zone.id);
+      else assert.deepEqual(mock.segments.get(zone.segmentId).color, [0, 255, 0, 0], zone.id);
+    }
+  });
+});
+
+describe('the Stream Deck profile', () => {
+  const zones = defaultConfig().zones;
+  const keys = streamDeckLayout(zones);
+  const scenes = new Set(defaultConfig().scenes.map((s) => s.id));
+
+  test('32 keys, one per position, every command one the agent takes', () => {
+    assert.equal(keys.length, STREAM_DECK_ROWS * STREAM_DECK_COLS);
+    assert.equal(new Set(keys.map((k) => `${k.row},${k.col}`)).size, 32);
+    assert.equal(new Set(keys.map(streamDeckAppName)).size, 32, 'app names are unique');
+    for (const k of keys) {
+      const [command, a, b] = k.args.filter((x) => x !== '--notify');
+      assert.match(k.icon, /^[0-9A-F]{6}$/i, k.title);
+      if (command === 'scene') assert.ok(scenes.has(a), a);
+      else if (command === 'zone') assert.ok(zones.some((z) => z.id === a) && b === 'toggle', a);
+      else if (command === 'color') assert.ok(hexColor(a), a);
+      else if (command === 'mode') assert.ok(['automatic', 'manual', 'test', 'disabled'].includes(a));
+      else if (command === 'brightness') assert.ok(['increase', 'decrease'].includes(a));
+      else if (command === 'test') assert.ok(a === 'pit-limiter' || (a === 'flag' && b in FLAG_TESTS), k.title);
+      else if (command === 'restore') assert.ok(['baseline', 'defaults'].includes(a));
+      else assert.ok(['all-on', 'all-off', 'status', 'ui'].includes(command), command);
+    }
+  });
+
+  test('the plan’s keys are all there', () => {
+    const commands = keys.map((k) => k.args.filter((x) => x !== '--notify').join(' '));
+    for (const want of ['mode automatic', 'mode manual', 'all-on', 'all-off', 'brightness increase', 'brightness decrease', 'scene race', 'scene garage', 'scene broadcast', 'scene night', 'test pit-limiter toggle', 'test flag yellow toggle', 'restore defaults', 'status', 'zone cockpit toggle', 'color 00FF00']) {
+      assert.ok(commands.includes(want), want);
+    }
+  });
+
+  test('fewer zones leave the zone row filled; more are cut at six', () => {
+    assert.equal(streamDeckLayout([{ id: 'a', name: 'A' }]).length, 32);
+    const many = Array.from({ length: 9 }, (_, i) => ({ id: `z${i}`, name: `Z${i}` }));
+    assert.equal(streamDeckLayout(many).filter((k) => k.args[0] === 'zone').length, 6);
+  });
+
+  test('the button app’s script can’t be made to run anything else', () => {
+    const script = streamDeckAppleScript('/Users/me/rc/bin/racingcoach-lighting', ['zone', `x'; rm -rf ~; echo "`, 'toggle']);
+    // Shell quoting first ('\'' ends, escapes and reopens a quote), then AppleScript's (\ and " escaped)
+    const line = String.raw`  do shell script "RC_LIGHTING_BUTTON=1 '/Users/me/rc/bin/racingcoach-lighting' 'zone' 'x'\\''; rm -rf ~; echo \"' 'toggle'"`;
+    assert.equal(script, `try\n${line}\nend try\n`);
+  });
+
+  test('key icons are 144x144 PNGs in the key’s color', () => {
+    const png = keyIconPng('0050FF');
+    assert.deepEqual([...png.subarray(0, 8)], [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    assert.equal(png.readUInt32BE(16), KEY_ICON_SIZE);
+    assert.equal(png.readUInt32BE(20), KEY_ICON_SIZE);
+    const idatAt = png.indexOf('IDAT');
+    const raw = inflateSync(png.subarray(idatAt + 4, idatAt + 4 + png.readUInt32BE(idatAt - 4)));
+    const middle = (72 * (1 + 144 * 3)) + 1 + 72 * 3;
+    assert.deepEqual([...raw.subarray(middle, middle + 3)], [0x00, 0x50, 0xff]);
+    assert.throws(() => keyIconPng('blue'));
+  });
 });
 
 describe('the local API', () => {
@@ -361,6 +455,13 @@ describe('the local API', () => {
     assert.equal((await call('/zones/cockpit/state', { method: 'POST', headers: auth, body: JSON.stringify({ color: 'blue' }) })).status, 400);
     assert.equal((await call('/mode', { method: 'POST', headers: auth, body: JSON.stringify({ mode: 'manual' }) })).status, 200);
     assert.equal((await call('/mode', { method: 'POST', headers: auth, body: JSON.stringify({ mode: 'party' }) })).status, 400);
+    const flag = await call('/test/event', { method: 'POST', headers: auth, body: JSON.stringify({ event: 'yellowFlag', toggle: true }) });
+    assert.deepEqual(await flag.json(), { ok: true, event: 'yellowFlag', active: true, ruleEnabled: false });
+    assert.equal((await call('/test/event', { method: 'POST', headers: auth, body: JSON.stringify({ event: 'party' }) })).status, 400);
+    const pit = await call('/test/pit-limiter', { method: 'POST', headers: auth, body: JSON.stringify({ toggle: true }) });
+    assert.deepEqual(await pit.json(), { ok: true, active: true, ruleEnabled: true });
+    assert.equal((await call('/color', { method: 'POST', headers: auth, body: JSON.stringify({ color: 'FFB400' }) })).status, 200);
+    assert.equal((await call('/color', { method: 'POST', headers: auth, body: JSON.stringify({ color: 'amber' }) })).status, 400);
   });
 
   test('colors', () => {

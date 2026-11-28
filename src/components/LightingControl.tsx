@@ -7,6 +7,8 @@ import { useLanguage } from '@/components/LanguageProvider';
 import type { AgentStatus } from '@/lib/lighting/agentStatus';
 import type { LightingDeviceRow } from '@/lib/lighting/devices';
 import type { LightingSnapshot } from '@/lib/lighting/hub';
+import { defaultConfig } from '@/lib/lighting/model';
+import { streamDeckLayout } from '@/lib/lighting/streamDeckLayout';
 
 // Lighting Control's tabs (src/app/admin/lighting/page.tsx, docs/lighting/README.md): Dashboard, Agents &
 // Controllers, Configuration (LightingConfigEditor.tsx), Test Lab and Stream Deck. Everything comes from GET /api/admin/lighting/devices, read every 2 s: the
@@ -26,22 +28,28 @@ const COMMANDS = [
   'racingcoach-lighting zone cockpit brightness 128',
   'racingcoach-lighting brightness increase|decrease|<percent>',
   'racingcoach-lighting mode automatic|manual|test|disabled',
-  'racingcoach-lighting test pit-limiter on|off',
+  'racingcoach-lighting color 00FF00',
+  'racingcoach-lighting test pit-limiter on|off|toggle',
+  'racingcoach-lighting test flag yellow|red|green|checkered [on|off|toggle]',
   'racingcoach-lighting all-off | all-on',
   'racingcoach-lighting restore baseline|defaults',
   'racingcoach-lighting controllers',
   'racingcoach-lighting controller-test main',
   'racingcoach-lighting diagnostics',
   'racingcoach-lighting ui',
+  'racingcoach-lighting streamdeck list|install|uninstall',
+  'racingcoach-lighting status --notify',
 ];
 
-// The 32-key layout (4 rows of 8), each key a command
-const LAYOUT = [
-  ['mode automatic', 'mode manual', 'mode test', 'mode disabled', 'all-on', 'all-off', 'brightness decrease', 'brightness increase'],
-  ['scene race', 'scene garage', 'scene broadcast', 'scene night', 'scene white', 'scene blue', 'scene red', 'scene off'],
-  ['zone cockpit toggle', 'zone monitor toggle', 'zone perimeter toggle', 'zone wall toggle', 'zone engineer toggle', 'zone pedals toggle', 'zone cockpit color FF000000', 'zone cockpit color 0000FF00'],
-  ['test pit-limiter on', 'test pit-limiter off', 'zone cockpit color 00FF0000', 'zone cockpit color FFB40000', 'restore baseline', 'restore defaults', 'ui', 'status'],
-];
+// The 32-key layout (4 rows of 8) the agent's streamdeck install builds, shown with the default zones (the Mac's
+// streamdeck list shows the installation's own)
+const LAYOUT = streamDeckLayout(defaultConfig().zones);
+
+// Black or white text, whichever reads on the key's color
+const keyText = (hex: string) => {
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16));
+  return 0.299 * r + 0.587 * g + 0.114 * b > 150 ? '#000000' : '#FFFFFF';
+};
 
 const secondsAgo = (ms: number) => Math.max(0, Math.round(ms / 1000));
 
@@ -279,7 +287,7 @@ export default function LightingControl() {
           <div className={card}>
             <p className="text-sm text-muted-foreground">{l.streamDeck.intro}</p>
             <h2 className="mt-4 font-semibold text-foreground">{l.streamDeck.install}</h2>
-            <code className={`mt-2 ${code$}`}>{'cd ~/path/to/racingcoach\nlighting-agent/install.sh\nracingcoach-lighting pair'}</code>
+            <code className={`mt-2 ${code$}`}>{'cd ~/path/to/racingcoach\nlighting-agent/install.sh\nracingcoach-lighting pair\nracingcoach-lighting streamdeck install'}</code>
             <h2 className="mt-4 font-semibold text-foreground">{l.streamDeck.commands}</h2>
             <code className={`mt-2 ${code$}`}>{COMMANDS.join('\n')}</code>
             <h2 className="mt-4 font-semibold text-foreground">{l.streamDeck.buttons}</h2>
@@ -288,9 +296,14 @@ export default function LightingControl() {
           <div className={card}>
             <h2 className="font-semibold text-foreground">{l.streamDeck.layout}</h2>
             <div className="mt-3 grid grid-cols-4 gap-2 sm:grid-cols-8">
-              {LAYOUT.flat().map((key, i) => (
-                <div key={i} className="flex aspect-square items-center justify-center rounded-lg border border-border bg-secondary p-1 text-center font-mono text-[10px] leading-tight text-foreground">
-                  {key}
+              {LAYOUT.map((key) => (
+                <div
+                  key={`${key.row}-${key.col}`}
+                  title={`racingcoach-lighting ${key.args.join(' ')}`}
+                  className="flex aspect-square items-center justify-center rounded-lg border border-border p-1 text-center font-mono text-[10px] leading-tight"
+                  style={{ backgroundColor: `#${key.icon}`, color: keyText(key.icon) }}
+                >
+                  {key.args.filter((a) => a !== '--notify').join(' ')}
                 </div>
               ))}
             </div>

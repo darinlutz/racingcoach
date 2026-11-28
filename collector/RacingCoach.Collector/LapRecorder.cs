@@ -1,3 +1,4 @@
+using RacingCoach.Collector.Simulators;
 using SVappsLAB.iRacingTelemetrySDK;
 
 namespace RacingCoach.Collector;
@@ -40,7 +41,8 @@ internal sealed record CompletedLap(
 /// <summary>
 /// Splits the 60 Hz telemetry stream into laps. A lap is only completed when the car
 /// drives from the start/finish line all the way around to it again without a break:
-/// resets, tows, session changes, replays and gaps throw the lap in progress away.
+/// resets, tows, session changes, replays and gaps throw the lap in progress away, and so does
+/// sitting still in the car for over 10 minutes (StandstillWatch).
 /// Called only from the SDK's telemetry handler, so it needs no locking; it does no I/O.
 /// </summary>
 internal sealed class LapRecorder(Action<CompletedLap> onLapCompleted, Action<string> onLapDiscarded)
@@ -56,6 +58,7 @@ internal sealed class LapRecorder(Action<CompletedLap> onLapCompleted, Action<st
     private double _lapStartTime;         // interpolated SessionTime of that crossing
     private int _missingSamples;
     private TelemetryData? _prev;
+    private readonly StandstillWatch _still = new();
 
     /// <summary>Latest session info; replaced from the SDK's session info handler (another thread).</summary>
     public volatile SessionContext? Session;
@@ -75,6 +78,7 @@ internal sealed class LapRecorder(Action<CompletedLap> onLapCompleted, Action<st
         {
             Discard("left the car or watching a replay");
             _prev = null;
+            _still.Reset();
             return;
         }
         if (prev is not { LapDistPct: { } prevPct, SessionTime: { } prevTime, SessionTick: { } prevTick } p)
@@ -106,6 +110,13 @@ internal sealed class LapRecorder(Action<CompletedLap> onLapCompleted, Action<st
         if (!crossedForward && Math.Abs(pct - prevPct) > MaxPctStepPerSample)
         {
             Discard("car was moved (reset or tow)");
+            return;
+        }
+        // Sitting in the car without moving: the lap would only grow too big to upload. Nothing is recorded again
+        // until the car next crosses the start/finish line.
+        if (_still.Update(d.Speed, time))
+        {
+            Discard($"the car sat still for over {StandstillWatch.MaxStillSeconds / 60:0} minutes");
             return;
         }
 

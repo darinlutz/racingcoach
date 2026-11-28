@@ -53,6 +53,7 @@ public sealed class FrameLapTracker(Action<TrackedLap> onLap, Action<string> onD
     private double _lapStartTime;
     private int _missing;
     private TelemetryFrame? _prev;
+    private readonly StandstillWatch _still = new();
 
     public void OnFrame(TelemetryFrame f)
     {
@@ -63,6 +64,7 @@ public sealed class FrameLapTracker(Action<TrackedLap> onLap, Action<string> onD
         {
             Discard("left the car or watching a replay");
             _prev = null;
+            _still.Reset();
             return;
         }
         if (prev is not { LapDistancePct: { } prevPct, SessionTimeSeconds: { } prevTime })
@@ -112,6 +114,12 @@ public sealed class FrameLapTracker(Action<TrackedLap> onLap, Action<string> onD
         if (!crossedForward && Math.Abs(pct - prevPct) > _options.MaxPctStepPerFrame)
         {
             Discard("car was moved (reset or tow)");
+            return;
+        }
+        // Sitting in the car without moving (StandstillWatch), as LapRecorder
+        if (_still.Update(f.SpeedMps, time))
+        {
+            Discard($"the car sat still for over {StandstillWatch.MaxStillSeconds / 60:0} minutes");
             return;
         }
 

@@ -1,3 +1,4 @@
+import { MAX_LAP_GZIP_BYTES } from './lapSizeLimits';
 import { createHash } from 'node:crypto';
 import type { Readable } from 'node:stream';
 import { DeleteObjectCommand, GetObjectCommand, HeadObjectCommand, ListObjectsV2Command, PutObjectCommand, type S3Client } from '@aws-sdk/client-s3';
@@ -295,7 +296,7 @@ export function drainStorageMetrics(): { metric: StorageMetric; count: number; b
 }
 
 // A gzip-compressed lap CSV is at most this big (MAX_UPLOAD_BYTES in collectorLaps.ts); reads refuse anything larger
-export const MAX_LAP_OBJECT_BYTES = 10 * 1024 * 1024;
+export const MAX_LAP_OBJECT_BYTES = MAX_LAP_GZIP_BYTES;
 
 export type StoredLapObject = { provider: string; bucket: string; key: string; storedBytes: number; sha256: string };
 

@@ -1119,8 +1119,8 @@ export const de: Dictionary = {
     notInTrackData: 'Nicht in den Streckendaten',
     noSuchTrack: 'In den Streckendaten gibt es keine Strecke namens "{track}".',
     dragDrop: 'Dateien hierher ziehen und ablegen',
-    limitsSession: 'Limit 25 MB pro Datei • CSV • Mindestens 2 Runden',
-    limitsOne: 'Limit 25 MB pro Datei • CSV',
+    limitsSession: 'Limit 64 MB pro Datei • CSV • Mindestens 2 Runden',
+    limitsOne: 'Limit 64 MB pro Datei • CSV',
     browseFiles: 'Dateien durchsuchen',
     removeFile: '{name} entfernen',
     fileError: '{name}: {error}',
@@ -1132,7 +1132,7 @@ export const de: Dictionary = {
     // parseLapFile's checks (src/lib/lapData.ts)
     errors: {
       notCsv: 'es werden nur CSV-Dateien unterstützt',
-      tooLarge: 'Datei ist zu groß (max. 25 MB)',
+      tooLarge: 'Datei ist zu groß (max. 64 MB)',
       badName: 'der Dateiname muss so aussehen: "Garage 61 - Driver - Car - Track - 01.18.683 - ID.csv"',
       missingColumns: 'fehlende Spalten: {columns}',
     },
@@ -1246,7 +1246,7 @@ export const de: Dictionary = {
     compareLap: 'Vergleichsrunde',
     uploadBase: 'CSV-Datei einer Zielrunde hochladen',
     uploadCompare: 'CSV-Datei einer Vergleichsrunde hochladen',
-    dropOne: '1 Datei hierher ziehen und ablegen • Limit 25 MB • CSV',
+    dropOne: '1 Datei hierher ziehen und ablegen • Limit 64 MB • CSV',
     onlyOne: 'Hier kann nur 1 CSV-Datei hochgeladen werden ({n} wurden ausgewählt).',
     oneNotFrom: 'Eine hochgeladene Runde stammt nicht von {track}.',
     bothNotFrom: 'Beide hochgeladenen Runden stammen nicht von {track}.',
@@ -1755,7 +1755,7 @@ export const de: Dictionary = {
   stint: {
     upload: 'Stint-CSV hochladen',
     dragDrop: 'Stint-CSV hierher ziehen und ablegen',
-    limits: 'Limit 25 MB • Stint-Export-CSV aus Garage 61',
+    limits: 'Limit 64 MB • Stint-Export-CSV aus Garage 61',
     onlyOne: 'Hier kann nur 1 Stint-CSV hochgeladen werden ({n} wurden ausgewählt).',
     notStint: 'kein Stint-Export aus Garage 61 (erwartet werden Spalten wie Run, Lap, Lap time, Track temp)',
     noCleanLaps: 'keine vollständigen, sauberen Runden (jede Runde ist eine In-/Out-Lap, unvollständig oder nicht sauber)',

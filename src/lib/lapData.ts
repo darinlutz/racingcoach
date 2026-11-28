@@ -1,6 +1,7 @@
 // Shared helpers for reading Garage 61 lap CSVs and measuring focus areas
 // (used by the Multi-Lap Analysis and Lap Compare tabs).
 
+import { MAX_LAP_CSV_BYTES } from './lapSizeLimits';
 import type { LapConditions } from './collectorLaps';
 import type { TrackBounds } from './trackLocations';
 
@@ -43,7 +44,7 @@ export type LapFile = {
   completedAt?: string;
 };
 
-const MAX_CSV_BYTES = 25 * 1024 * 1024;
+const MAX_CSV_BYTES = MAX_LAP_CSV_BYTES;
 
 // Garage 61 - {driverName} - {carName} - {trackName} - {lapTime} - {uniqueFileID}.csv
 const FILE_NAME_PATTERN = /^Garage 61 - (.+?) - (.+?) - (.+) - (\d+\.\d{2}\.\d{3}) - ([A-Za-z0-9]+)\.csv$/i;

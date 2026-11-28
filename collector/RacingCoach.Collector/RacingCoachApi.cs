@@ -105,6 +105,15 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
         DefaultRequestHeaders = { Authorization = new AuthenticationHeaderValue("Bearer", uploadKey) },
     };
 
+    // Lap uploads get longer than other requests: a long lap (the Nordschleife, a lap with a pit stop) can be
+    // several MB compressed, and a sim PC's upload speed is often slow
+    private readonly HttpClient _uploadHttp = new()
+    {
+        BaseAddress = new Uri(siteUrl.TrimEnd('/') + "/"),
+        Timeout = TimeSpan.FromMinutes(10),
+        DefaultRequestHeaders = { Authorization = new AuthenticationHeaderValue("Bearer", uploadKey) },
+    };
+
     public string SiteUrl { get; } = siteUrl.TrimEnd('/');
 
     /// <summary>The account name the key belongs to, or null if RacingCoach.app doesn't accept it.
@@ -490,7 +499,7 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
 
         try
         {
-            using var response = await _http.PostAsync("api/collector/laps", form, ct);
+            using var response = await _uploadHttp.PostAsync("api/collector/laps", form, ct);
             if (response.IsSuccessStatusCode)
                 return (UploadOutcome.Uploaded, "");
             var (message, code) = await ErrorAsync(response, ct);
@@ -658,7 +667,11 @@ internal sealed class RacingCoachApi(string siteUrl, string uploadKey) : IDispos
         return ($"HTTP {(int)response.StatusCode}", null);
     }
 
-    public void Dispose() => _http.Dispose();
+    public void Dispose()
+    {
+        _http.Dispose();
+        _uploadHttp.Dispose();
+    }
 
     private sealed record MeResponse(string? UserName, string? Units, string? Language, bool? BrakeBeeps, int? BrakeBeepsVolume,
         bool? PoliciesAccepted, string? Role = null);

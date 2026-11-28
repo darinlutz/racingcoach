@@ -1,3 +1,4 @@
+import { MAX_LAP_CSV_BYTES, MAX_LAP_GZIP_BYTES } from './lapSizeLimits';
 import { gunzipSync } from 'node:zlib';
 import { z } from 'zod';
 import { isUniqueViolation, query, transaction } from './db';
@@ -21,10 +22,9 @@ import { withWorldPositions } from './worldPositions';
 // store (telemetryStorage.ts, docs/telemetry-storage.md), as each row's storage_provider says. Only this module reads
 // or writes the CSV bytes, so its callers never know which.
 
-// Same limit as the lap CSVs the Racing page's tabs accept (lapData.ts)
-const MAX_CSV_BYTES = 25 * 1024 * 1024;
-// A compressed lap is typically a quarter of the CSV, so this leaves plenty of room
-export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+// Same limit as the lap CSVs the Racing page's tabs accept (lapData.ts); see lapSizeLimits.ts
+const MAX_CSV_BYTES = MAX_LAP_CSV_BYTES;
+export const MAX_UPLOAD_BYTES = MAX_LAP_GZIP_BYTES;
 
 // Columns the lap analysis reads (readLapSamples in lapData.ts)
 const REQUIRED_COLUMNS = ['Speed', 'LapDistPct', 'Brake', 'Throttle'];
@@ -141,7 +141,7 @@ export function checkLapCsv(csvGzip: Buffer, samples: number): { csvBytes: numbe
   try {
     csv = gunzipSync(csvGzip, { maxOutputLength: MAX_CSV_BYTES });
   } catch {
-    throw new InvalidLapCsvError('csv must be a gzip-compressed CSV of at most 25 MB');
+    throw new InvalidLapCsvError(`csv must be a gzip-compressed CSV of at most ${MAX_CSV_BYTES / 1024 / 1024} MB`);
   }
 
   const lines = csv.toString('utf8').split(/\r?\n/);

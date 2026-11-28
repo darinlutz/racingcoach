@@ -6,9 +6,9 @@ import { LAP_COMPRESSION, LAP_CONTENT_TYPE, lapObjectKey, sha256Hex, STORAGE_PRO
 import { PENDING_GRACE_SQL } from './telemetryStorageSchema';
 import { canSeeAllLaps, ROLES } from './roles';
 import { lapCsvTrackLengthFeet, saveTrackLength } from './trackLengths';
-import { boundsPlausible, outlinePlausible } from './trackDataTrust';
+import { boundsPlausible, outlineLengthFeet, outlinePlausible } from './trackDataTrust';
 import { lapCsvBounds, saveTrackBounds, saveTrackLocation, trackNeedsBounds } from './trackLocations';
-import { lapCsvOutline, saveTrackOutline, trackNeedsOutline } from './trackOutlines';
+import { lapCsvOutline, medianOutline, MIN_MEDIAN_LAPS, saveTrackOutline, trackNeedsOutline, type TrackOutline } from './trackOutlines';
 import { ensureUserSchema } from './users';
 import { lapCompletedAt } from './lapRetentionRules';
 import { resolveSimulatorCar, resolveSimulatorTrack } from './simulatorMappings';
@@ -713,7 +713,8 @@ async function clearPendingEntry(client: { query: (sql: string, params: unknown[
 }
 
 // Gives the lap's track its bounds (trackLocations.ts) from the lap's Lat/Lon, when it has none yet, and its outline
-// for Live Racing (trackOutlines.ts) when it has none and the lap is clean (no pit road, no off-track). A failure
+// for Live Racing (trackOutlines.ts) when it has none: from the lap itself when it's clean (no pit road, no
+// off-track), else from the track's recent laps together (outlineFromRecentLaps). A failure
 // is only logged: the lap is saved either way.
 // Whether this account's laps may change Track Data that's already there: Coaches and Admins only
 async function teachesTrackData(userId: number): Promise<boolean> {
@@ -727,7 +728,7 @@ async function saveTrackShapeFromLap(trackKey: string | null, csvGzip: Buffer, c
   try {
     if (!trackKey) return;
     const needsBounds = await trackNeedsBounds(trackKey);
-    const needsOutline = clean && (await trackNeedsOutline(trackKey));
+    const needsOutline = await trackNeedsOutline(trackKey);
     if (!needsBounds && !needsOutline) return;
     const [track] = await query<{ length: number | null; lat: number | null; lon: number | null }>(
       `SELECT track_length_feet AS length, track_latitude AS lat, track_longitude AS lon
@@ -742,16 +743,52 @@ async function saveTrackShapeFromLap(trackKey: string | null, csvGzip: Buffer, c
       if (bounds && boundsPlausible(bounds, length, location)) await saveTrackBounds(trackKey, bounds);
     }
     if (needsOutline) {
-      const outline = lapCsvOutline(csv);
-      if (outline && outlinePlausible(outline.points, length, location)) await saveTrackOutline(trackKey, outline);
+      // A clean lap's own outline; otherwise the median of the track's recent laps (medianOutline), as at tracks
+      // like Suzuka nearly every lap puts a wheel off somewhere and none would ever be clean
+      const outline = clean ? lapCsvOutline(csv) : await outlineFromRecentLaps(trackKey);
+      if (outline && outlinePlausible(outline.points, length, location)) {
+        await saveTrackOutline(trackKey, outline);
+        console.log(`Saved the Live Racing outline of ${trackKey}${clean ? '' : ' from several laps'}`);
+      } else {
+        // Otherwise silent: the map just never appears (warn, so the error monitor doesn't email it)
+        const reason = !outline
+          ? clean
+            ? 'the lap has too few track positions'
+            : `fewer than ${MIN_MEDIAN_LAPS} laps with track positions`
+          : !length
+            ? 'the track has no length yet'
+            : `its length round, ${Math.round(outlineLengthFeet(outline.points))} ft, or its place doesn't fit the track's ${Math.round(length)} ft`;
+        console.warn(`Track outline not saved for ${trackKey}: ${reason}`);
+      }
     }
   } catch (error) {
     console.error('Save track shape error:', error);
   }
 }
 
+// The median outline (medianOutline) of the track's latest laps with track positions, off pit road, of anyone's;
+// null with too few. Their outlines are each lap's own (lapCsvOutline); laps without enough positions are left out.
+const MEDIAN_LAPS = 7;
+async function outlineFromRecentLaps(trackKey: string): Promise<TrackOutline | null> {
+  const rows = await query<StorageRow>(
+    `SELECT ${STORAGE_COLUMNS} FROM racingcoach."CollectorLaps" l
+     WHERE lower(l.track_key) = lower($1) AND l.has_position AND NOT l.pit_road AND l.expires_at > now()
+       AND l.simulator = '${DEFAULT_SIMULATOR}'
+     ORDER BY l.recorded_at DESC LIMIT ${MEDIAN_LAPS}`,
+    [trackKey]
+  );
+  const outlines: TrackOutline[] = [];
+  for (const row of rows) {
+    const gzip = await lapGzip(row);
+    const outline = gzip ? lapCsvOutline(gunzipCsv(gzip).toString('utf8')) : null;
+    if (outline) outlines.push(outline);
+  }
+  return medianOutline(outlines);
+}
+
 // Gives tracks without bounds or an outline theirs from laps already stored with track positions: the latest lap of
-// each, preferring ones without pit road or off-track (only those give an outline). Runs once per server start (Track
+// each, preferring ones without pit road or off-track (a clean lap gives the outline itself; an off-track one, the
+// median of the track's recent laps). Runs once per server start (Track
 // Data's /api/tracks and Live Racing wait for it), so tracks driven before bounds and outlines were kept get them;
 // after that each new lap with positions does.
 let backfill: Promise<void> | null = null;
@@ -765,7 +802,7 @@ export function backfillTrackBounds(): Promise<void> {
          FROM racingcoach."CollectorLaps" l
          JOIN racingcoach."Tracks" t ON lower(t.track_key) = lower(l.track_key)
          WHERE l.has_position AND l.expires_at > now() AND l.simulator = '${DEFAULT_SIMULATOR}'
-           AND (t.track_south IS NULL OR (t.track_outline IS NULL AND NOT (l.pit_road OR l.off_track)))
+           AND (t.track_south IS NULL OR (t.track_outline IS NULL AND NOT l.pit_road))
          ORDER BY lower(l.track_key), (l.pit_road OR l.off_track), l.recorded_at DESC`
       );
       for (const lap of laps) {

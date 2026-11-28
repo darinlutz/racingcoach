@@ -73,7 +73,7 @@ jobs:
       - name: Unit and database tests
         run: |
           set -e
-          for suite in track-positions language tire-warmup tv broadcast engine-bed video-director live-video tire-temps lap-events rotation \
+          for suite in track-positions language tire-warmup tv broadcast engine-bed video-director live-video tire-temps lap-events track-outlines rotation \
                        my-dashboard telemetry-storage privacy-rights cookie-consent simulators lap-retention launch-hardening engineering wet-weather coaching race-strategy local-ai ai-lab memory setups alignment suspension brakes tires setup-dashboards car-views car-models car-setup-library elevenlabs-voices lighting lighting-agent lighting-db; do
             echo "::group::test:$suite"
             npm run "test:$suite"

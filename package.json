@@ -32,6 +32,7 @@
     "test:brakes": "node --experimental-transform-types --no-warnings --test scripts/brakes.test.mjs",
     "test:tires": "node --experimental-transform-types --no-warnings --test scripts/tires.test.mjs",
     "test:setup-dashboards": "node --experimental-transform-types --no-warnings --test scripts/setup-dashboards.test.mjs",
+    "test:track-outlines": "node --experimental-transform-types --no-warnings --test scripts/track-outlines.test.mjs",
     "test:lap-events": "node --experimental-transform-types --no-warnings --test scripts/lap-events.test.mjs",
     "test:my-dashboard": "node --experimental-transform-types --no-warnings --test scripts/my-dashboard.test.mjs && node --experimental-transform-types --no-warnings --test scripts/my-dashboard-db.test.mjs",
     "test:telemetry-storage": "node --experimental-transform-types --no-warnings --test scripts/telemetry-storage.test.mjs && node --experimental-transform-types --no-warnings --test scripts/telemetry-ingest-db.test.mjs && node --experimental-transform-types --no-warnings --test scripts/telemetry-cleanup-db.test.mjs && node --experimental-transform-types --no-warnings --test scripts/expert-laps-storage-db.test.mjs && node --experimental-transform-types --no-warnings --test scripts/target-laps-storage-db.test.mjs",

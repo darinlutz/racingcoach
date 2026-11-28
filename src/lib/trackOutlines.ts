@@ -60,6 +60,9 @@ export function lapCsvOutline(csv: string): TrackOutline | null {
   return { kind: 'latlon', points: points.map(([lat, lon]) => [Math.round(lat * 1e7) / 1e7, Math.round(lon * 1e7) / 1e7]) };
 }
 
+// Several laps' outlines as one, for tracks without a clean lap (src/lib/trackOutlineMedian.ts)
+export { medianOutline, MIN_MEDIAN_LAPS } from './trackOutlineMedian';
+
 // Whether the track with this key has no outline yet (so a clean lap with track positions should give it)
 export async function trackNeedsOutline(trackKey: string | null): Promise<boolean> {
   if (!trackKey) return false;

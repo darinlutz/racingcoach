@@ -152,8 +152,16 @@ internal sealed class LiveRacing(Func<RacingCoachApi?> api, Action<string> log, 
             _mapLoadedAt = DateTime.MinValue;
             _pendingAreas = null;
             ResetPath();
+            // The approximate map drawn on an earlier visit, until the site's exact one loads (TrackMapCache)
+            if (TrackMapCache.Load(CacheSimulator, trackKey ?? track) is { } saved)
+            {
+                _map = new TrackMap(saved, Exact: false, []);
+                log("Live Racing: using the approximate map of the track drawn on an earlier lap.");
+            }
         }
     }
+
+    private string CacheSimulator => simulator?.Invoke() ?? "iracing";
 
     /// <summary>Session info: the car's setup (DriverSetupName, DriverSetupLoadTypeName, e.g. "fixed", and whether it's
     /// been changed since it was loaded), sent with each update for the website's Setup Engineer.</summary>
@@ -375,6 +383,8 @@ internal sealed class LiveRacing(Func<RacingCoachApi?> api, Action<string> log, 
                 if (OutlineFromPath(_path) is { } points)
                 {
                     _map = new TrackMap(points, Exact: false, _pendingAreas ?? []);
+                    if ((_trackKey ?? _track) is { } cacheTrack)
+                        TrackMapCache.Save(CacheSimulator, cacheTrack, points);
                     log("Live Racing: drew an approximate map of the track from your last lap.");
                 }
             }
@@ -721,6 +731,7 @@ internal sealed class LiveRacing(Func<RacingCoachApi?> api, Action<string> log, 
                     var (points, mercator) = FromLatLon(outline.Points);
                     _map = new TrackMap(points, Exact: true, areas, mercator);
                     _sendOutline = false;
+                    TrackMapCache.Delete(CacheSimulator, trackKey);
                     if (!wasExact)
                         log($"Live Racing: loaded the map of {track.Name}.");
                 }

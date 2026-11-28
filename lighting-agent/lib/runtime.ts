@@ -148,11 +148,31 @@ export class LightingRuntime {
     this.changed();
   }
 
-  // The CLI's and Test Lab's simulated pit limiter: never touches the live state
-  testEvent(event: ActiveEvent['event'], active: boolean, source: Exclude<EventSource, 'live'> = 'local') {
-    this.setEvent(event, source, active, Date.now());
-    this.note('testEvent', { event, active, source });
+  // Every enabled, unprotected zone in one color (a Stream Deck color key): a manual change on top of the scene
+  setColor(color: Rgbw) {
+    for (const zone of this.config.zones) {
+      if (!zone.enabled || zone.protected) continue;
+      this.manual[zone.id] = { ...this.manual[zone.id], color, on: true };
+    }
+    this.allOff = false;
+    this.persist();
+    this.note('color', { color });
     this.changed();
+  }
+
+  // The CLI's and Test Lab's simulated events (the pit limiter, flags): never touch the live state. 'toggle' turns
+  // this source's event on when it's off and off when it's on; answers whether it's on now
+  testEvent(event: ActiveEvent['event'], active: boolean | 'toggle', source: Exclude<EventSource, 'live'> = 'local'): boolean {
+    const on = active === 'toggle' ? !this.events.has(`${source}:${event}`) : active;
+    this.setEvent(event, source, on, Date.now());
+    this.note('testEvent', { event, active: on, source });
+    this.changed();
+    return on;
+  }
+
+  // Whether any enabled rule follows this event (a test of an event no rule follows changes nothing)
+  ruleFollows(event: ActiveEvent['event']): boolean {
+    return this.config.rules.some((r) => r.enabled && r.event === event);
   }
 
   restoreBaseline() {

@@ -160,8 +160,18 @@ lightingSchema.ts, all `ON DELETE CASCADE` from `"Users"`):
   cascade, pairing; with `LIGHTING_TEST_DATABASE_URL`). Measured on the dev server: the agent's upload within about
   6 s of connecting, a save on the site in the agent's cache in about 5 s (the heartbeat interval).
 
+## Stream Deck (Phase 11)
+
+The 32-key profile, its button apps (`racingcoach-lighting streamdeck install`), the steps in the Stream Deck app, and
+the native plugin's evaluation are in `STREAM_DECK.md`. The layout is `src/lib/lighting/streamDeckLayout.ts`, shared by
+the agent and the Admin page's Stream Deck tab. Phase 11 added these commands:
+
+- `color` (every unprotected zone).
+- Toggling tests, and flag tests (`POST /test/event`; a flag shows only through an enabled rule).
+- `--notify` (macOS notifications; failures from a key always notify).
+
 ## Not done yet
 
 - Controller discovery and connection tests run from the Mac's CLI (`controller-test`), not the Admin page.
 - Flags, low fuel, personal bests and position changes: rules are ready, but their sources aren't verified or sent.
-- A native Stream Deck plugin (after the proof of concept).
+- A native Stream Deck plugin: evaluated in STREAM_DECK.md, to build after the hardware proof of concept.

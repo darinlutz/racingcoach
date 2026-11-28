@@ -65,25 +65,33 @@ Run it in the foreground instead (stop the LaunchAgent first): `racingcoach-ligh
 
 ## Stream Deck
 
-Each button runs one `racingcoach-lighting` command; none holds a password (the commands use the token in
-`~/Library/Application Support/RacingCoachLighting/local-token`, readable only by your Mac account).
+```bash
+racingcoach-lighting streamdeck install
+```
 
-1. Open **Shortcuts**, make a new shortcut, add **Run Shell Script**, and type the full command, e.g.
-   `~/.local/bin/racingcoach-lighting scene race`. Name it (e.g. "Lights: Race").
-2. In **Stream Deck**, drag **System > Shortcut** onto a key and choose that shortcut. (If your Stream Deck version
-   has no Shortcut action, use **System > Open** with a small `.command` file containing the command.)
+This makes one small app per key, with a key icon for each, in `~/Applications/RacingCoach Lighting Buttons`. In
+Stream Deck, put **System > Open** on each key and choose its app; `Layout.txt` in that folder says which goes where.
+The full steps, the 32-key layout and what each key does are in `docs/lighting/STREAM_DECK.md`. None of the keys holds a
+password: the commands use the token in `~/Library/Application Support/RacingCoachLighting/local-token`, readable only
+by your Mac account.
 
-The Admin page's **Stream Deck** tab shows the suggested 32-key layout. Commands:
+The commands:
 
 ```
 racingcoach-lighting scene race|garage|broadcast|night|white|blue|red|off
 racingcoach-lighting zone <zone> toggle|on|off|color RRGGBB[WW]|brightness 0-255
+racingcoach-lighting color RRGGBB[WW]
 racingcoach-lighting brightness increase|decrease|<percent>
 racingcoach-lighting mode automatic|manual|test|disabled
-racingcoach-lighting test pit-limiter on|off
+racingcoach-lighting test pit-limiter on|off|toggle
+racingcoach-lighting test flag yellow|red|green|checkered [on|off|toggle]
 racingcoach-lighting all-off | all-on
 racingcoach-lighting restore baseline|defaults
+racingcoach-lighting status --notify
+racingcoach-lighting streamdeck list|install|uninstall
 ```
+
+`--notify` on any command also shows its answer as a macOS notification.
 
 Zones: `cockpit`, `monitor`, `perimeter`, `engineer`, `pedals`, `wall`.
 

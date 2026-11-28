@@ -1128,8 +1128,8 @@ export const en = {
     notInTrackData: 'Not in Track Data',
     noSuchTrack: 'No track in Track Data is named "{track}".',
     dragDrop: 'Drag and drop files here',
-    limitsSession: 'Limit 25MB per file • CSV • At least 2 laps',
-    limitsOne: 'Limit 25MB per file • CSV',
+    limitsSession: 'Limit 64MB per file • CSV • At least 2 laps',
+    limitsOne: 'Limit 64MB per file • CSV',
     browseFiles: 'Browse files',
     removeFile: 'Remove {name}',
     fileError: '{name}: {error}',
@@ -1141,7 +1141,7 @@ export const en = {
     // parseLapFile's checks (src/lib/lapData.ts)
     errors: {
       notCsv: 'only CSV files are supported',
-      tooLarge: 'file is too large (25 MB max)',
+      tooLarge: 'file is too large (64 MB max)',
       badName: 'file name must look like "Garage 61 - Driver - Car - Track - 01.18.683 - ID.csv"',
       missingColumns: 'missing columns: {columns}',
     },
@@ -1255,7 +1255,7 @@ export const en = {
     compareLap: 'Compare Lap',
     uploadBase: 'Upload a Target lap CSV file',
     uploadCompare: 'Upload a Compare lap CSV file',
-    dropOne: 'Drag and drop 1 file here • Limit 25MB • CSV',
+    dropOne: 'Drag and drop 1 file here • Limit 64MB • CSV',
     onlyOne: 'Only 1 CSV file can be uploaded here ({n} were selected).',
     oneNotFrom: 'One uploaded lap is not from {track}.',
     bothNotFrom: 'Both uploaded laps are not from {track}.',
@@ -1766,7 +1766,7 @@ export const en = {
   stint: {
     upload: 'Upload Stint CSV',
     dragDrop: 'Drag and drop a stint CSV here',
-    limits: 'Limit 25MB • Garage 61 stint export CSV',
+    limits: 'Limit 64MB • Garage 61 stint export CSV',
     onlyOne: 'Only 1 stint CSV can be uploaded here ({n} were selected).',
     notStint: 'not a Garage 61 stint export (expected columns like Run, Lap, Lap time, Track temp)',
     noCleanLaps: 'no full, clean laps (every lap is an in/out lap, incomplete or not clean)',

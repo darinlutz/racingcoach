@@ -26,7 +26,7 @@ database would have filled within weeks at that rate. Everything else (logs, deb
   the S3 implementation (AWS SDK v3, `src/lib/s3Client.ts`, shared with the Broadcast Video Library's store) and an
   in-memory one for tests. Every request has a timeout, the SDK retries throttling, 5xx and network errors with
   exponential backoff, at most `TELEMETRY_STORAGE_CONCURRENCY` requests run at once per server, reads are size-capped
-  (10 MB) and checked against the row's SHA-256. Uploads send `Content-MD5`, so R2 refuses a body damaged in
+  (24 MB, `src/lib/lapSizeLimits.ts`) and checked against the row's SHA-256. Uploads send `Content-MD5`, so R2 refuses a body damaged in
   transit, and are followed by a HEAD to check the stored size. No `Content-Encoding` is set on objects: with `gzip`
   there, Cloudflare may decompress on the way out.
 - **Private**: the bucket has no public access or custom domain. Only the web server has the token. Browsers and the

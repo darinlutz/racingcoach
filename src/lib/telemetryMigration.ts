@@ -1,3 +1,4 @@
+import { MAX_LAP_CSV_BYTES } from './lapSizeLimits';
 import { gunzipSync } from 'node:zlib';
 import { query, transaction, withClient } from './db';
 import { MAX_LAP_OBJECT_BYTES, mapLimited, putLapObject, telemetryStore } from './telemetryStorage';
@@ -20,7 +21,7 @@ import { ensureUserSchema } from './users';
 // that changed while it was copied (a re-upload with track positions) is left for the next run.
 
 const BACKFILL_LOCK = "hashtext('racingcoach_telemetry_backfill')";
-const MAX_CSV_BYTES = 25 * 1024 * 1024;
+const MAX_CSV_BYTES = MAX_LAP_CSV_BYTES;
 
 export const BACKFILL_DEFAULTS = { batchSize: 25, concurrency: 4 };
 const clamp = (value: number | undefined, min: number, max: number, fallback: number) =>

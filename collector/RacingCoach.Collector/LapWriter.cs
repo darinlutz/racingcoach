@@ -1,5 +1,6 @@
 using System.Text;
 using System.Threading.Channels;
+using RacingCoach.Collector.Simulators;
 
 namespace RacingCoach.Collector;
 
@@ -301,6 +302,7 @@ internal sealed class LapWriter : IAsyncDisposable
             return;
 
         var count = 0;
+        var standstill = 0;
         foreach (var folder in Directory.GetDirectories(_root).Order(StringComparer.Ordinal))
         {
             var manifest = SessionManifest.Load(folder);
@@ -312,6 +314,29 @@ internal sealed class LapWriter : IAsyncDisposable
                 .ToList();
             if (pending.Count == 0)
                 continue;
+
+            // Laps with the car sitting still for over 10 minutes, saved before the recorders threw those away
+            // (StandstillWatch): too big to upload and nothing worth analysing, so they're deleted, not uploaded
+            var still = pending.Where(l => l.LapTimeSeconds > StandstillWatch.MaxStillSeconds && HasLongStop(Path.Combine(folder, l.File))).ToList();
+            if (still.Count > 0)
+            {
+                foreach (var lap in still)
+                {
+                    File.Delete(Path.Combine(folder, lap.File));
+                    manifest.Laps.Remove(lap);
+                    pending.Remove(lap);
+                }
+                standstill += still.Count;
+                if (manifest.Laps.Count == 0 || RemoveIfFinished(folder, manifest))
+                {
+                    if (Directory.Exists(folder))
+                        Directory.Delete(folder, recursive: true);
+                    continue;
+                }
+                manifest.Save(folder);
+                if (pending.Count == 0)
+                    continue;
+            }
 
             // Saved by a version that didn't mark these; they can't be matched to a track on RacingCoach.app
             if (manifest.Track == UnknownTrack)
@@ -335,8 +360,43 @@ internal sealed class LapWriter : IAsyncDisposable
                 _uploader!.Enqueue(new UploadItem(folder, info, lap, Earlier: true));
             count += pending.Count;
         }
+        if (standstill > 0)
+            _log($"Deleted {standstill} earlier lap(s) without uploading them: the car sat still for over {StandstillWatch.MaxStillSeconds / 60:0} minutes during each.");
         if (count > 0)
             _log($"Uploading {count} earlier lap(s) that haven't been uploaded yet.");
+    }
+
+    // Whether a saved lap CSV has the car still for longer than StandstillWatch.MaxStillSeconds, from its Speed (m/s)
+    // and SessionTime columns. Read line by line, as these laps are the big ones. False when it can't tell.
+    private static bool HasLongStop(string csvPath)
+    {
+        try
+        {
+            using var reader = new StreamReader(csvPath);
+            var header = reader.ReadLine()?.Split(',');
+            var speedIndex = header is null ? -1 : Array.IndexOf(header, "Speed");
+            var timeIndex = header is null ? -1 : Array.IndexOf(header, "SessionTime");
+            if (speedIndex < 0 || timeIndex < 0)
+                return false;
+            return StandstillWatch.HasLongStop(Samples());
+
+            IEnumerable<(double Time, float? Speed)> Samples()
+            {
+                while (reader.ReadLine() is { } line)
+                {
+                    var cells = line.Split(',');
+                    if (cells.Length <= Math.Max(speedIndex, timeIndex)
+                        || !double.TryParse(cells[timeIndex], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var time))
+                        continue;
+                    float? speed = float.TryParse(cells[speedIndex], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var s) ? s : null;
+                    yield return (time, speed);
+                }
+            }
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
     }
 
     // Deletes the CSVs of the folder's laps that RacingCoach.app has and that won't change any more: they have

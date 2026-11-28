@@ -339,7 +339,7 @@ export default function MultiLapAnalysis() {
         >
           <div className="text-sm text-muted-foreground text-center sm:text-left">
             <p className="font-medium text-foreground">Drag and drop files here</p>
-            <p>Limit 25MB per file • CSV • Lap CSVs and a stint export</p>
+            <p>Limit 64MB per file • CSV • Lap CSVs and a stint export</p>
           </div>
           <button
             type="button"

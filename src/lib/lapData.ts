@@ -1,7 +1,7 @@
 // Shared helpers for reading Garage 61 lap CSVs and measuring focus areas
 // (used by the Multi-Lap Analysis and Lap Compare tabs).
 
-import { MAX_LAP_CSV_BYTES } from './lapSizeLimits';
+import { MAX_LAP_CSV_BYTES } from './lapSizeLimits.ts';
 import type { LapConditions } from './collectorLaps';
 import type { TrackBounds } from './trackLocations';
 
